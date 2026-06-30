@@ -165,14 +165,26 @@ var SUMMARY_SYSTEM = "You are a documentation assistant for Apex Business & Lead
     "Produce bilingual (Portuguese and English) structured session summaries. " +
     "Respond ONLY with a valid JSON object — no markdown fences, no commentary.";
 
-var SUMMARY_PROMPT = "Generate a session summary for the transcript below. " +
-    "The JSON must contain exactly these 6 keys, each with a 'pt' field and an 'en' field:\n" +
-    "  discussion_overview\n" +
-    "  recommendations\n" +
-    "  client_action_items\n" +
-    "  rafa_followups\n" +
-    "  next_session_focus\n" +
-    "  client_profile_updates\n\n" +
+var SUMMARY_PROMPT = "Generate a session summary for the transcript below.\n\n" +
+    "Respond with a JSON object containing exactly 7 top-level keys.\n\n" +
+    "Keys 1-6 are for internal review only. Each must be an object with 'pt' and 'en' string fields:\n" +
+    "  discussion_overview, recommendations, client_action_items, rafa_followups,\n" +
+    "  next_session_focus, client_profile_updates\n\n" +
+    "Key 7 is 'pdf_data' — a client-facing deliverable written entirely in Brazilian Portuguese.\n" +
+    "pdf_data must be an object with exactly these fields:\n" +
+    "  document_title: always the exact string \"Relatorio\\nEstrategico\" (use \\n between the two words)\n" +
+    "  executive_summary: string, 2-4 sentences summarizing the session\n" +
+    "  headline_insights: array of 2-4 objects: [{\"title\": \"...\", \"body\": \"1-2 sentences\"}]\n" +
+    "  recommendations: array of 2-4 objects: [{\"number\": \"01\", \"title\": \"...\", \"body\": \"1-2 sentences\"}]\n" +
+    "  client_actions: array of 2-4 objects: [{\"text\": \"...\", \"due\": \"DD Mon\"}] (abbreviated Portuguese month, e.g. '20 Jun')\n" +
+    "  consultant_followups: array of 2-4 objects: [{\"text\": \"...\", \"due\": \"DD Mon\"}]\n" +
+    "  next_session_focus_points: array of 2-4 objects: [{\"number\": \"01\", \"text\": \"...\"}]\n" +
+    "  swot: {\"strengths\": [2-4 strings], \"weaknesses\": [2-4 strings], \"opportunities\": [2-4 strings], \"threats\": [2-4 strings]}\n" +
+    "  thirty_day_plan: array of exactly 4 week objects:\n" +
+    "    [{\"week_label\": \"SEMANA 1\", \"week_title\": \"short theme\", \"items\": [{\"text\": \"...\", \"owner\": \"CLIENTE\"}]}]\n" +
+    "    owner must be exactly 'CLIENTE' or 'CONSULTOR' (uppercase, no other values)\n\n" +
+    "Rules: 2-4 items per array unless stated otherwise. Exactly 4 week entries in thirty_day_plan.\n" +
+    "If the transcript lacks enough detail for a field, infer a reasonable conservative entry — do not leave arrays empty.\n\n" +
     "Transcript:\n";
 
 async function handlePostSummarize(request, env) {
@@ -198,7 +210,7 @@ async function handlePostSummarize(request, env) {
             },
             body: JSON.stringify({
                 model:      CLAUDE_MODEL,
-                max_tokens: 4096,
+                max_tokens: 8192,
                 system:     SUMMARY_SYSTEM,
                 messages:   [{ role: "user", content: SUMMARY_PROMPT + session.raw_transcript }]
             })

@@ -460,30 +460,56 @@
     }).join('');
   }
 
-  // ── main loader ───────────────────────────────────────────────────────────
+  // ── render function ───────────────────────────────────────────────────────
 
-  fetch('./apex-report-data.json')
-    .then(function (res) {
-      if (!res.ok) throw new Error('Failed to load apex-report-data.json — HTTP ' + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      fillSlots(data);
-      fillCover(data);
-      fillHeadlineInsights(data.headline_insights);
-      fillRecommendations(data.recommendations);
-      fillClientActions(data.client_actions);
-      fillConsultantFollowups(data.consultant_followups);
-      fillNextSessionPoints(data.next_session_focus_points);
-      fillSwotQuadrant('swot-strengths',    data.swot && data.swot.strengths,    '#5a6678', '#3a4150');
-      fillSwotQuadrant('swot-weaknesses',   data.swot && data.swot.weaknesses,   '#8a8276', '#4f4a42');
-      fillSwotQuadrant('swot-opportunities',data.swot && data.swot.opportunities,'#C9A43A', '#5f5430');
-      fillSwotQuadrant('swot-threats',      data.swot && data.swot.threats,      '#6b747c', '#454c52');
-      fillThirtyDayPlan(data.thirty_day_plan);
-    })
-    .catch(function (err) {
-      console.error('[Apex Report]', err);
-    });
+  function renderReport(data) {
+    fillSlots(data);
+    fillCover(data);
+    fillHeadlineInsights(data.headline_insights);
+    fillRecommendations(data.recommendations);
+    fillClientActions(data.client_actions);
+    fillConsultantFollowups(data.consultant_followups);
+    fillNextSessionPoints(data.next_session_focus_points);
+    fillSwotQuadrant('swot-strengths',     data.swot && data.swot.strengths,     '#5a6678', '#3a4150');
+    fillSwotQuadrant('swot-weaknesses',    data.swot && data.swot.weaknesses,    '#8a8276', '#4f4a42');
+    fillSwotQuadrant('swot-opportunities', data.swot && data.swot.opportunities, '#C9A43A', '#5f5430');
+    fillSwotQuadrant('swot-threats',       data.swot && data.swot.threats,       '#6b747c', '#454c52');
+    fillThirtyDayPlan(data.thirty_day_plan);
+  }
+
+  window.renderApexReport = renderReport;
+
+  // ── postMessage listener (used by dashboard iframe flow) ─────────────────
+
+  var messageReceived = false;
+
+  window.addEventListener('message', function (event) {
+    if (!event.data || event.data.type !== 'apex-report-data') { return; }
+    messageReceived = true;
+    try {
+      renderReport(event.data.payload);
+      window.parent.postMessage({ type: 'apex-report-rendered' }, '*');
+    } catch (err) {
+      console.error('[Apex Report] postMessage render error:', err);
+    }
+  });
+
+  // ── JSON-file fallback (standalone preview via double-click) ─────────────
+
+  setTimeout(function () {
+    if (messageReceived) { return; }
+    fetch('./apex-report-data.json')
+      .then(function (res) {
+        if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        return res.json();
+      })
+      .then(function (data) {
+        renderReport(data);
+      })
+      .catch(function (err) {
+        console.error('[Apex Report]', err);
+      });
+  }, 150);
 })();
 </script>
 

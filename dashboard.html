@@ -690,6 +690,7 @@
   </main><!-- /appMain -->
 
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -1016,11 +1017,14 @@
       }
 
       if (session.status === "approved") {
-        var printBtn = document.createElement("button");
-        printBtn.className = "btn-secondary";
-        printBtn.innerHTML = '<span class="show-pt">Imprimir</span><span class="show-en">Print</span>';
-        printBtn.onclick = function() { window.print(); };
-        actionsEl.appendChild(printBtn);
+        var pdfBtn = document.createElement("button");
+        pdfBtn.className = "btn-secondary";
+        pdfBtn.id = "btnGeneratePdf";
+        pdfBtn.innerHTML = '<span class="show-pt">Gerar PDF</span><span class="show-en">Generate PDF</span>';
+        (function(s) {
+          pdfBtn.onclick = function() { handleGeneratePdf(s); };
+        })(session);
+        actionsEl.appendChild(pdfBtn);
       }
     }
 
@@ -1184,8 +1188,18 @@
     }
 
     function handleApprove(sessionId) {
-      var btn     = document.getElementById("btnApprove");
-      var edited  = collectEditedSummary();
+      var btn    = document.getElementById("btnApprove");
+      var edited = collectEditedSummary();
+
+      // Carry forward pdf_data so it survives the approve step
+      var existing = findSession(sessionId);
+      if (existing && existing.summary_json) {
+        try {
+          var orig = JSON.parse(existing.summary_json);
+          if (orig.pdf_data) { edited.pdf_data = orig.pdf_data; }
+        } catch (e) { /* ignore parse errors */ }
+      }
+
       if (btn) { btn.disabled = true; }
       setActionStatus("Approving...");
 
@@ -1210,6 +1224,125 @@
           if (btn) { btn.disabled = false; }
           setActionStatus("Error: " + e.message, "is-error");
         });
+    }
+
+    function handleGeneratePdf(session) {
+      var actionStatus = document.getElementById("actionStatus");
+      var btn          = document.getElementById("btnGeneratePdf");
+
+      var summary;
+      try {
+        summary = JSON.parse(session.summary_json);
+      } catch (e) {
+        if (actionStatus) {
+          actionStatus.textContent = "Erro: nao foi possivel ler o resumo.";
+          actionStatus.className = "action-status is-error";
+        }
+        return;
+      }
+
+      var pdfData = summary && summary.pdf_data;
+      if (!pdfData) {
+        if (actionStatus) {
+          actionStatus.textContent = "pdf_data ausente - execute Gerar Resumo novamente para gerar o PDF.";
+          actionStatus.className = "action-status is-error";
+        }
+        return;
+      }
+
+      if (btn) { btn.disabled = true; }
+      if (actionStatus) {
+        actionStatus.textContent = "Gerando PDF...";
+        actionStatus.className = "action-status";
+      }
+
+      var dateParts  = (session.date || "").split("-");
+      var reportNumber = dateParts.length === 3
+        ? dateParts[0] + "-" + dateParts[1] + dateParts[2]
+        : (session.date || "");
+      var nameWords  = (session.client_name || "").split(/\s+/);
+      var reportCode = "";
+      for (var wi = 0; wi < nameWords.length; wi++) {
+        if (nameWords[wi]) { reportCode += nameWords[wi].charAt(0).toUpperCase(); }
+      }
+      reportCode = reportCode.slice(0, 4) || "XX";
+
+      var data = {};
+      for (var k in pdfData) {
+        if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; }
+      }
+      data.client_name     = session.client_name;
+      data.session_date    = formatDate(session.date);
+      data.consultant_name = "Rafael Andrade";
+      data.report_number   = reportNumber;
+      data.report_code     = reportCode;
+      data.client_logo     = null;
+
+      var iframe = document.createElement("iframe");
+      iframe.style.position    = "fixed";
+      iframe.style.left        = "-9999px";
+      iframe.style.top         = "0";
+      iframe.style.width       = "816px";
+      iframe.style.height      = "1056px";
+      iframe.style.border      = "none";
+      iframe.style.opacity     = "0";
+      iframe.style.pointerEvents = "none";
+      document.body.appendChild(iframe);
+
+      function cleanup() {
+        if (iframe.parentNode) { iframe.parentNode.removeChild(iframe); }
+        if (btn) { btn.disabled = false; }
+      }
+
+      var onRendered;
+      var timeoutId;
+
+      onRendered = function(event) {
+        if (event.origin !== "https://farfromtimnah-hue.github.io") { return; }
+        if (!event.data || event.data.type !== "apex-report-rendered") { return; }
+        window.removeEventListener("message", onRendered);
+        clearTimeout(timeoutId);
+
+        var safeName = (session.client_name || "relatorio").replace(/\s+/g, "-");
+        var filename = safeName + "-" + (session.date || "") + ".pdf";
+
+        try {
+          html2pdf().set({
+            filename: filename,
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
+          }).from(iframe.contentDocument.body).save().then(function() {
+            cleanup();
+            if (actionStatus) {
+              actionStatus.textContent = "PDF gerado com sucesso.";
+              actionStatus.className = "action-status is-ok";
+            }
+          });
+        } catch (e) {
+          cleanup();
+          if (actionStatus) {
+            actionStatus.textContent = "Erro ao gerar PDF: " + e.message;
+            actionStatus.className = "action-status is-error";
+          }
+        }
+      };
+
+      timeoutId = setTimeout(function() {
+        window.removeEventListener("message", onRendered);
+        cleanup();
+        if (actionStatus) {
+          actionStatus.textContent = "Tempo esgotado ao gerar PDF. Tente novamente.";
+          actionStatus.className = "action-status is-error";
+        }
+      }, 15000);
+
+      window.addEventListener("message", onRendered);
+
+      iframe.onload = function() {
+        iframe.contentWindow.postMessage({ type: "apex-report-data", payload: data }, "*");
+      };
+
+      iframe.src = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
     }
 
     // ── Rafa: session list and detail ──────────────────────────────────────

@@ -690,7 +690,6 @@
   </main><!-- /appMain -->
 
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -1285,73 +1284,42 @@ data.reportcode = reportCode;
 data.clientlogo = null;
 
 
-      var iframe = document.createElement("iframe");
-      iframe.style.position    = "fixed";
-      iframe.style.left        = "-9999px";
-      iframe.style.top         = "0";
-      iframe.style.width       = "816px";
-      iframe.style.height      = "1056px";
-      iframe.style.border      = "none";
-      iframe.style.opacity     = "0";
-      iframe.style.pointerEvents = "none";
-      document.body.appendChild(iframe);
+      var TEMPLATE_URL = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
 
-      function cleanup() {
-        if (iframe.parentNode) { iframe.parentNode.removeChild(iframe); }
-        if (btn) { btn.disabled = false; }
-      }
-
-      var onRendered;
-      var timeoutId;
-
-      onRendered = function(event) {
-        if (event.origin !== "https://farfromtimnah-hue.github.io") { return; }
-        if (!event.data || event.data.type !== "apex-report-rendered") { return; }
-        window.removeEventListener("message", onRendered);
-        clearTimeout(timeoutId);
-
-        var safeName = (session.client_name || "relatorio").replace(/\s+/g, "-");
-        var filename = safeName + "-" + (session.date || "") + ".pdf";
-
-        try {
-          html2pdf().set({
-            filename: filename,
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
-          }).from(iframe.contentDocument.body).save().then(function() {
-            cleanup();
-            if (actionStatus) {
-              actionStatus.textContent = "PDF gerado com sucesso.";
-              actionStatus.className = "action-status is-ok";
-            }
-          });
-        } catch (e) {
-          cleanup();
-          if (actionStatus) {
-            actionStatus.textContent = "Erro ao gerar PDF: " + e.message;
-            actionStatus.className = "action-status is-error";
-          }
-        }
-      };
-
-      timeoutId = setTimeout(function() {
-        window.removeEventListener("message", onRendered);
-        cleanup();
+      var newTab = window.open(TEMPLATE_URL, "_blank");
+      if (!newTab) {
         if (actionStatus) {
-          actionStatus.textContent = "Tempo esgotado ao gerar PDF. Tente novamente.";
+          actionStatus.textContent = "Popup bloqueado — permita popups para este site e tente novamente.";
           actionStatus.className = "action-status is-error";
         }
-      }, 15000);
+        if (btn) { btn.disabled = false; }
+        return;
+      }
 
-      window.addEventListener("message", onRendered);
+      if (actionStatus) {
+        actionStatus.textContent = "Abrindo template...";
+        actionStatus.className = "action-status";
+      }
 
-      iframe.onload = function() {
-  console.log("Apex PDF payload", data);
-  iframe.contentWindow.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
-};
+      var sent = false;
 
+      function sendData() {
+        if (sent) { return; }
+        sent = true;
+        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
+        if (btn) { btn.disabled = false; }
+        if (actionStatus) {
+          actionStatus.textContent = "Dialogo de impressao aberto na nova aba.";
+          actionStatus.className = "action-status is-ok";
+        }
+      }
 
-      iframe.src = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
+      var fallbackId = setTimeout(sendData, 1500);
+
+      newTab.addEventListener("load", function() {
+        clearTimeout(fallbackId);
+        sendData();
+      });
     }
 
     // ── Rafa: session list and detail ──────────────────────────────────────

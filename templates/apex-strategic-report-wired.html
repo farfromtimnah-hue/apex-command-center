@@ -489,6 +489,7 @@
     try {
       renderReport(event.data.payload);
       event.source.postMessage({ type: 'apex-report-rendered' }, event.origin);
+      window.print();
     } catch (err) {
       console.error('[Apex Report] postMessage render error:', err);
     }

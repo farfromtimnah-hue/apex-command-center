@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 3)
+**Last updated:** 2026-06-30 (session 4)
 **Current phase:** Phase 1 — manual transcript intake
-**Last session summary:** Fixed "pdf_data ausente" bug on Gerar PDF button. Root cause was a two-part mismatch: (1) Worker SELECT omitted the pdf_data column so it never reached the frontend, and (2) frontend was looking for pdf_data nested inside summary_json instead of reading the top-level pdf_data column. Both fixed, committed, pushed, and deployed (wrangler deploy confirmed, version 1e869289).
+**Last session summary:** Replaced html2pdf.js export with native browser print-to-PDF. Template opens in a new tab, receives data via postMessage, calls window.print() from inside its own window so the browser's native print dialog appears over the template (not the dashboard). Slicing artifacts from html2pdf are gone.
 
 ---
 
@@ -32,6 +32,13 @@
   - Fix 1: worker/index.js handleGetSessions — added pdf_data to SELECT list
   - Fix 2: dashboard.html handleGeneratePdf — now reads JSON.parse(session.pdf_data) directly
   - Confirmed: wrangler deploy successful, version 1e869289, apex-api.farfromtimnah.workers.dev
+- [x] PDF export switched from html2pdf.js to native browser print — 2026-06-30 (session 4)
+  - Root cause of old approach: html2pdf slices the page into fixed-height chunks with no awareness of CSS page-break rules, producing dark bars and split content
+  - The template already carried "CMD/CTRL + P PARA EXPORTAR PDF" — it was designed for native print from the start
+  - Fix: dashboard.html handleGeneratePdf now opens template in a new tab via window.open(), posts data to it, and does nothing else
+  - Fix: template's postMessage handler now calls window.print() from inside its own window after rendering — this prints the template, not the dashboard
+  - KNOWN FAILURE MODE (avoided): if window.print() is called from dashboard.html's own window context, the browser prints the dashboard, not the template. It MUST be called from inside the template window.
+  - Removed: html2pdf CDN script tag, hidden iframe creation, html2pdf() call, onRendered message listener, 15s timeout
 - [x] Security: postMessage origin pinned on all three sides — 2026-06-30
   - dashboard.html incoming listener: event.origin guard (farfromtimnah-hue.github.io)
   - dashboard.html outgoing postMessage: target origin pinned (not *)

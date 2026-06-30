@@ -23,6 +23,14 @@
 ## ==========================================================================
 
 ## Completed (recent additions — 2026-06-30)
+- [x] Login screen split into tight glass panel + floating button — 2026-06-30
+  - index.html: replaced single .auth-card with .auth-stack (flex column, align-items:stretch, gap:28px, width:fit-content, max-width:min(420px,calc(100vw-40px)), min-width:260px)
+  - .auth-panel (glass) holds only eyebrow + logo-wrap + wordmark; padding 36px 40px; same blur/border/shadow treatment
+  - .btn-google now sits directly on the photo background — no glass panel behind it; width stretches to match panel via align-items:stretch
+  - .status-msg moved outside .auth-stack to main level (margin-top:4px) so it doesn't inflate the stack gap
+  - Combined footprint is ~274px wide vs old 420px fixed card — noticeably more mountain visible
+  - Logo fade-in, shimmer, PT/EN toggle, Firebase auth all untouched
+
 - [x] Login card redesign — glass effect, logo, wordmark, fade-in, shimmer — 2026-06-30
   - index.html: replaced solid white card with rgba(255,255,255,0.45) + backdrop-filter:blur(20px) + -webkit-backdrop-filter (Safari); border rgba(255,255,255,0.6)
   - Removed h1 "Apex Command Center" and subtitle paragraph entirely

@@ -66,22 +66,31 @@
     main {
       flex: 1;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 52px 20px;
     }
 
-    /* ---------- Glass card ---------- */
-    .auth-card {
-      background: rgba(255, 255, 255, 0.45);
+    /* ---------- Two-piece login layout ---------- */
+    .auth-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 28px;
+      width: fit-content;
+      max-width: min(420px, calc(100vw - 40px));
+      min-width: 260px;
+    }
+
+    .auth-panel {
+      background: rgba(255, 255, 255, 0.42);
       -webkit-backdrop-filter: blur(20px);
       backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.6);
       border-radius: var(--radius);
       box-shadow: 0 8px 32px rgba(26, 26, 29, 0.18);
-      padding: 52px 44px;
-      width: 100%;
-      max-width: 420px;
+      padding: 36px 40px;
       text-align: center;
     }
 
@@ -120,7 +129,6 @@
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--gold);
-      margin-bottom: 36px;
     }
 
     /* ---------- Shimmer overlay ---------- */
@@ -200,10 +208,11 @@
     }
 
     .status-msg {
-      margin-top: 18px;
+      margin-top: 4px;
       min-height: 20px;
       font-size: 13px;
       color: var(--muted);
+      text-align: center;
     }
     .status-msg.is-error { color: #b44040; }
 
@@ -284,27 +293,29 @@
   </header>
 
   <main>
-    <div class="auth-card">
-      <p class="eyebrow">
-        <span class="show-pt">Plataforma Operacional</span>
-        <span class="show-en">Operations Platform</span>
-      </p>
-      <div class="logo-wrap">
-        <img
-          src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
-          alt="Apex Business &amp; Leadership"
-          class="card-logo"
-        >
-        <div class="logo-shimmer" aria-hidden="true"></div>
+    <div class="auth-stack">
+      <div class="auth-panel">
+        <p class="eyebrow">
+          <span class="show-pt">Plataforma Operacional</span>
+          <span class="show-en">Operations Platform</span>
+        </p>
+        <div class="logo-wrap">
+          <img
+            src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
+            alt="Apex Business &amp; Leadership"
+            class="card-logo"
+          >
+          <div class="logo-shimmer" aria-hidden="true"></div>
+        </div>
+        <p class="card-wordmark">Command Center</p>
       </div>
-      <p class="card-wordmark">Command Center</p>
       <button class="btn-google" id="signInBtn" onclick="handleSignIn()">
         <span class="g-mark">G</span>
         <span class="show-pt">Entrar com Google</span>
         <span class="show-en">Sign in with Google</span>
       </button>
-      <div class="status-msg" id="statusMsg"></div>
     </div>
+    <div class="status-msg" id="statusMsg"></div>
   </main>
 
   <footer>

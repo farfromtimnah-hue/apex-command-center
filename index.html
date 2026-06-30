@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface : #f9f7f4;
+      --header  : #1a1a1d;
+      --gold    : #C9A43A;
+      --text    : #1a1a1d;
+      --muted   : #6b6660;
+      --border  : #e8e2d9;
+      --card    : #ffffff;
+      --radius  : 10px;
+      --shadow  : 0 2px 20px rgba(26,26,29,0.09);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ---------- Header ---------- */
+    header {
+      background: var(--header);
+      height: 64px;
+      padding: 0 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .logo-img { height: 34px; width: auto; display: block; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: rgba(201,164,58,0.14); }
+
+    /* ---------- Main ---------- */
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 52px 20px;
+    }
+
+    .auth-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 52px 44px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 14px;
+    }
+
+    .auth-card h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 36px;
+    }
+
+    /* Google sign-in button */
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 14px 24px;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-google:hover  { opacity: 0.88; }
+    .btn-google:active { transform: scale(0.98); }
+    .btn-google:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
+
+    .g-mark {
+      width: 22px;
+      height: 22px;
+      background: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 800;
+      color: #4285F4;
+      line-height: 1;
+    }
+
+    .status-msg {
+      margin-top: 18px;
+      min-height: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .status-msg.is-error { color: #b44040; }
+
+    /* ---------- Footer ---------- */
+    footer {
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header>
+    <img
+      src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
+      alt="Apex Business &amp; Leadership"
+      class="logo-img"
+    >
+    <button class="lang-btn" onclick="toggleLang()">
+      <span class="show-pt">EN</span>
+      <span class="show-en">PT</span>
+    </button>
+  </header>
+
+  <main>
+    <div class="auth-card">
+      <p class="eyebrow">
+        <span class="show-pt">Plataforma Operacional</span>
+        <span class="show-en">Operations Platform</span>
+      </p>
+      <h1>Apex Command Center</h1>
+      <p class="subtitle">
+        <span class="show-pt">Acesse sua plataforma de documentacao pos-sessao.</span>
+        <span class="show-en">Access your post-session documentation platform.</span>
+      </p>
+      <button class="btn-google" id="signInBtn" onclick="handleSignIn()">
+        <span class="g-mark">G</span>
+        <span class="show-pt">Entrar com Google</span>
+        <span class="show-en">Sign in with Google</span>
+      </button>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+  </main>
+
+  <footer>
+    <span class="show-pt">&copy; 2025 Apex Business &amp; Leadership. Todos os direitos reservados.</span>
+    <span class="show-en">&copy; 2025 Apex Business &amp; Leadership. All rights reserved.</span>
+  </footer>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script>
+    // ── CONFIGURATION ────────────────────────────────────────────────────────
+    // Replace every placeholder before deploying.
+
+    var WORKER_URL = "https://apex-api.YOUR_ACCOUNT.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "YOUR_FIREBASE_API_KEY",
+      authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId:         "YOUR_FIREBASE_PROJECT_ID",
+      storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId:             "YOUR_FIREBASE_APP_ID"
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
+    firebase.initializeApp(FIREBASE_CONFIG);
+
+    var auth      = firebase.auth();
+    var gProvider = new firebase.auth.GoogleAuthProvider();
+
+    function toggleLang() {
+      var b = document.body;
+      if (b.classList.contains("lang-pt")) {
+        b.classList.remove("lang-pt");
+        b.classList.add("lang-en");
+      } else {
+        b.classList.remove("lang-en");
+        b.classList.add("lang-pt");
+      }
+    }
+
+    function setStatus(msg, isError) {
+      var el = document.getElementById("statusMsg");
+      el.textContent = msg;
+      el.className = "status-msg" + (isError ? " is-error" : "");
+    }
+
+    function handleSignIn() {
+      var btn = document.getElementById("signInBtn");
+      btn.disabled = true;
+      setStatus("...");
+
+      auth.signInWithPopup(gProvider)
+        .then(function(result) {
+          return result.user.getIdToken();
+        })
+        .then(function(token) {
+          return fetch(WORKER_URL + "/api/role", {
+            headers: { "Authorization": "Bearer " + token }
+          });
+        })
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          sessionStorage.setItem("apex_role",  data.role);
+          sessionStorage.setItem("apex_email", data.email);
+          window.location.href = "dashboard.html";
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          setStatus("Error: " + e.message, true);
+        });
+    }
+
+    // Skip sign-in if already authenticated and role cached
+    auth.onAuthStateChanged(function(user) {
+      if (user && sessionStorage.getItem("apex_role")) {
+        window.location.href = "dashboard.html";
+      }
+    });
+  </script>
+
+</body>
+</html>

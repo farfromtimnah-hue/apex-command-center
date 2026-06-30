@@ -1,0 +1,28 @@
+# Environment and secrets
+.env
+.env.local
+.env.production
+.dev.vars
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Node / npm (if any tooling gets added)
+node_modules/
+npm-debug.log*
+
+# Wrangler local state
+.wrangler/
+wrangler.lock
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/

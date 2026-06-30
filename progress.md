@@ -35,7 +35,7 @@
 - [x] Archived sessions filtered from dashboard list — 2026-06-30 (session 8)
   - worker/index.js handleGetSessions: added WHERE status != 'archived' to sessions SELECT
   - 'archived' is the standing convention for hiding test/old sessions without deleting data — use UPDATE sessions SET status = 'archived' WHERE ... to hide any session
-  - Deployed via wrangler deploy (see version below)
+  - Deployed: wrangler deploy successful, version f7e7bcc5-2790-4d24-9eb6-16487756600f, apex-api.farfromtimnah.workers.dev
 - [x] Loading spinner bug fixed — 2026-06-30 (session 7)
   - Root cause: `#loadingScreen { display: flex }` (ID selector) beat `[hidden] { display: none }` (attribute selector) on specificity
   - Fix: added `#loadingScreen[hidden] { display: none; }` immediately after the existing block — same specificity tier, later in cascade wins

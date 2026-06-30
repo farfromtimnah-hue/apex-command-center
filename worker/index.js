@@ -116,7 +116,7 @@ async function handleGetSessions(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
 
         var res = await env.DB.prepare(
-            "SELECT id, client_name, date, status, summary_json, approved_at, created_at " +
+            "SELECT id, client_name, date, status, summary_json, pdf_data, approved_at, created_at " +
             "FROM sessions ORDER BY created_at DESC"
         ).all();
 

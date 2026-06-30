@@ -1230,18 +1230,17 @@
       var actionStatus = document.getElementById("actionStatus");
       var btn          = document.getElementById("btnGeneratePdf");
 
-      var summary;
+      var pdfData;
       try {
-        summary = JSON.parse(session.summary_json);
+        pdfData = session.pdf_data ? JSON.parse(session.pdf_data) : null;
       } catch (e) {
         if (actionStatus) {
-          actionStatus.textContent = "Erro: nao foi possivel ler o resumo.";
+          actionStatus.textContent = "Erro: nao foi possivel ler pdf_data.";
           actionStatus.className = "action-status is-error";
         }
         return;
       }
 
-      var pdfData = summary && summary.pdf_data;
       if (!pdfData) {
         if (actionStatus) {
           actionStatus.textContent = "pdf_data ausente - execute Gerar Resumo novamente para gerar o PDF.";

@@ -23,6 +23,13 @@
 ## ==========================================================================
 
 ## Completed (recent additions — 2026-06-30)
+- [x] Login glass panel switched to dark tint for readability — 2026-06-30
+  - index.html: .auth-panel background changed from rgba(255,255,255,0.42) → rgba(26,26,24,0.62) (--hero dark tint)
+  - Border changed from rgba(255,255,255,0.6) → rgba(255,255,255,0.15) (subtle light on dark)
+  - Box-shadow darkened to rgba(0,0,0,0.35)
+  - Gold eyebrow + COMMAND CENTER wordmark now clearly legible on all 5 background photos including bright sunset shots
+  - backdrop-filter:blur(20px) / -webkit-backdrop-filter retained; layout, animations, toggle untouched
+
 - [x] Login screen split into tight glass panel + floating button — 2026-06-30
   - index.html: replaced single .auth-card with .auth-stack (flex column, align-items:stretch, gap:28px, width:fit-content, max-width:min(420px,calc(100vw-40px)), min-width:260px)
   - .auth-panel (glass) holds only eyebrow + logo-wrap + wordmark; padding 36px 40px; same blur/border/shadow treatment

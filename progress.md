@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 9)
-**Current phase:** Phase 2 complete — new schema + summarize route writing to session_summaries and documents
-**Last session summary:** Added session_summaries and documents tables to schema. Updated handlePostSummarize to write structured keys to session_summaries, pdf_data to documents, and pdf_data to sessions.pdf_data (dashboard compat). Phase 4 blocked pending Elevante content in clients/elevante.md.
+**Last updated:** 2026-06-30 (session 10)
+**Current phase:** client.html built (spec section 7 complete)
+**Last session summary:** Built 5 new worker routes (GET /api/clients/:id, GET|POST /api/clients/:id/notes, GET /api/clients/:id/documents/latest, updated sessions to include client_id + filter). Created client.html two-column profile screen. Linked client names in dashboard.html to client.html. Activity timeline is a known placeholder gap — no generic event log data source exists yet.
 
 ---
 
@@ -21,6 +21,23 @@
 ## Test session: "Test 3", id 740c0efd-d19b-49aa-9866-cdafce1dd0f5 — has
 ## valid pdf_data inserted directly in D1. Use it to confirm PDF generation.
 ## ==========================================================================
+
+## Completed (session 10 — 2026-06-30)
+- [x] client.html — client profile screen (spec section 7), deployed to GitHub Pages
+  - Two-column layout (65% left, 35% right)
+  - Header: client name (large/bold), package lozenge, Ativo/Pausado/Encerrado status lozenge, Nova Sessão button (modal, pre-filled client_id), Gerar PDF button (only visible when approved session with pdf_data exists)
+  - Sessions section: table (Data/Tipo/Status/Ações), Ver opens summary modal reusing renderSummaryCards(), Gerar PDF reuses handleGeneratePdf(); empty state with icon + heading + helper + CTA per spec
+  - Notes section: chronological newest-first list, author + timestamp per note, Adicionar Nota modal, bilingual stored as-is
+  - Right column: client info card (skips empty fields, bilingual profile toggle), document summary (latest doc date + approved badge), activity timeline placeholder "Em breve"
+  - KNOWN GAP: activity timeline is a placeholder — no generic event log table/routes exist anywhere in this build. Nicole must decide on data source before this can be built.
+- [x] worker/index.js — 5 new/updated routes
+  - GET /api/clients/:id — single client row, all columns, 404 if not found
+  - GET /api/sessions — added client_id to SELECT; supports optional ?client_id= filter
+  - GET /api/clients/:id/notes — all notes newest first
+  - POST /api/clients/:id/notes — creates note; created_by derived from auth role (alice→"Alice", rafa→"Rafa", developer→"Dev"), never trusted from client
+  - GET /api/clients/:id/documents/latest — most recent document via sessions JOIN (chose dedicated route over extending sessions response to keep payloads lean)
+- [x] dashboard.html — Phase 3: client name in session rows is now a link to client.html?id=<client_id>; rows without client_id (old test data) remain non-clickable, no error
+- [x] Deployed: worker version 1b2ac739, pushed to origin/main (commit 9efe5e1)
 
 ## Completed (session 9 — 2026-06-30)
 - [x] Phase 1 schema: session_summaries and documents tables added to schema.sql

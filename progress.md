@@ -22,6 +22,16 @@
 ## valid pdf_data inserted directly in D1. Use it to confirm PDF generation.
 ## ==========================================================================
 
+## Completed (recent additions — 2026-06-30)
+- [x] Ken Burns background on login screen — 2026-06-30
+  - index.html: added #bg-image (position: fixed, z-index: -2) and #bg-scrim (z-index: -1) as first children of <body>
+  - On load, JS picks one of assets/login/picture1-5.jpg at random; image fetches via new Image(); scrim + animation only activate after onload (graceful fallback to --surface if image 404s)
+  - @keyframes kenburns: scale 1.0→1.06, translate 0→(1.5%, 0.8%), 28s ease-in-out infinite alternate — no visible loop jump
+  - prefers-reduced-motion: reduce → animation: none, static image shown
+  - Both fixed divs use top/left/right/bottom: 0 (no inset shorthand) for widest Safari iOS support
+  - Firebase auth, PT/EN toggle, and all existing layout untouched
+  - NOTE: assets/login/ directory was not present in repo at time of implementation — images must be added before this feature is visible
+
 ## Completed (recent additions — 2026-06-29/30)
 - [x] Gerar PDF button — end-to-end PDF generation via iframe + postMessage + html2pdf.js — 2026-06-29
   - worker/index.js: added pdf_data as 7th key in SUMMARY_PROMPT; bumped max_tokens to 8192

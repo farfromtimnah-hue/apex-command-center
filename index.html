@@ -157,9 +157,60 @@
       font-size: 12px;
       color: var(--muted);
     }
+
+    /* ---------- Ken Burns background ---------- */
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #bg-image {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: -2;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    #bg-image.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #bg-image.is-loaded { animation: none; }
+    }
+
+    #bg-scrim {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: -1;
+      background: rgba(26, 26, 24, 0.55);
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
   </style>
 </head>
 <body class="lang-pt">
+
+  <div id="bg-image" aria-hidden="true"></div>
+  <div id="bg-scrim" aria-hidden="true"></div>
+  <script>
+  (function () {
+    var n = Math.floor(Math.random() * 5) + 1;
+    var url = 'assets/login/picture' + n + '.jpg';
+    var bgEl = document.getElementById('bg-image');
+    var scrimEl = document.getElementById('bg-scrim');
+    var img = new Image();
+    img.onload = function () {
+      bgEl.style.backgroundImage = 'url(' + url + ')';
+      bgEl.classList.add('is-loaded');
+      scrimEl.style.opacity = '1';
+    };
+    img.src = url;
+  }());
+  </script>
 
   <header>
     <img

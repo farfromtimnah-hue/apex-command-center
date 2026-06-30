@@ -23,6 +23,16 @@
 ## ==========================================================================
 
 ## Completed (recent additions — 2026-06-30)
+- [x] Login card redesign — glass effect, logo, wordmark, fade-in, shimmer — 2026-06-30
+  - index.html: replaced solid white card with rgba(255,255,255,0.45) + backdrop-filter:blur(20px) + -webkit-backdrop-filter (Safari); border rgba(255,255,255,0.6)
+  - Removed h1 "Apex Command Center" and subtitle paragraph entirely
+  - Added .logo-wrap + .card-logo (72px, Apex logo URL) + .logo-shimmer overlay + .card-wordmark "COMMAND CENTER"
+  - Wordmark: Inter ExtraBold 800, letter-spacing 0.18em, uppercase, --gold color; Google Fonts URL updated to include weight 800
+  - Fade-in: @keyframes logoFadeIn (opacity 0→1, translateY 8px→0, 1.6s ease-out forwards)
+  - Shimmer: @keyframes shimmer (background-position sweep left-to-right, 7s cycle, 28% sweep + 72% pause); @supports (-webkit-mask-size:cover) or (mask-size:cover) gates the whole effect — .logo-shimmer defaults to opacity:0 so no rectangle artifact in unsupported browsers; animation-delay 1.8s so shimmer starts only after fade-in completes
+  - prefers-reduced-motion: disable fade-in (opacity:1, static) and shimmer (animation:none, opacity:0)
+  - PT/EN toggle untouched; Firebase auth untouched; Ken Burns background untouched
+
 - [x] Ken Burns background on login screen — 2026-06-30
   - index.html: added #bg-image (position: fixed, z-index: -2) and #bg-scrim (z-index: -1) as first children of <body>
   - On load, JS picks one of assets/login/picture1-5.jpg at random; image fetches via new Image(); scrim + animation only activate after onload (graceful fallback to --surface if image 404s)

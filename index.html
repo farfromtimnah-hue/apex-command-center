@@ -6,7 +6,7 @@
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -71,11 +71,14 @@
       padding: 52px 20px;
     }
 
+    /* ---------- Glass card ---------- */
     .auth-card {
-      background: var(--card);
-      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.45);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
       border-radius: var(--radius);
-      box-shadow: var(--shadow);
+      box-shadow: 0 8px 32px rgba(26, 26, 29, 0.18);
       padding: 52px 44px;
       width: 100%;
       max-width: 420px;
@@ -88,21 +91,75 @@
       letter-spacing: 1.4px;
       text-transform: uppercase;
       color: var(--gold);
-      margin-bottom: 14px;
+      margin-bottom: 20px;
     }
 
-    .auth-card h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
+    /* ---------- Logo & wordmark ---------- */
+    .logo-wrap {
+      position: relative;
+      display: inline-block;
       margin-bottom: 10px;
     }
 
-    .subtitle {
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.65;
+    .card-logo {
+      display: block;
+      height: 72px;
+      width: auto;
+      animation: logoFadeIn 1.6s ease-out forwards;
+    }
+
+    @keyframes logoFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-wordmark {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
       margin-bottom: 36px;
+    }
+
+    /* ---------- Shimmer overlay ---------- */
+    .logo-shimmer {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      opacity: 0; /* hidden by default — only activated when mask-image is supported */
+    }
+
+    @supports (-webkit-mask-size: cover) or (mask-size: cover) {
+      .logo-shimmer {
+        background: linear-gradient(
+          105deg,
+          transparent 20%,
+          rgba(255, 248, 185, 0.65) 50%,
+          transparent 80%
+        );
+        background-size: 300% 100%;
+        background-position: 110% center;
+        -webkit-mask-image: url('https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png');
+        -webkit-mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-image: url('https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png');
+        mask-size: contain;
+        mask-repeat: no-repeat;
+        mask-position: center;
+        opacity: 1;
+        /* delay 1.8s so shimmer only starts after the 1.6s fade-in completes */
+        animation: shimmer 7s ease-in-out 1.8s infinite;
+      }
+    }
+
+    @keyframes shimmer {
+      /* bright band sweeps left-to-right over ~2s, then pauses for ~5s */
+      0%   { background-position: 110% center; }
+      28%  { background-position: -10% center; }
+      100% { background-position: -10% center; }
     }
 
     /* Google sign-in button */
@@ -178,10 +235,6 @@
       animation: kenburns 28s ease-in-out infinite alternate;
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      #bg-image.is-loaded { animation: none; }
-    }
-
     #bg-scrim {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -189,6 +242,12 @@
       background: rgba(26, 26, 24, 0.55);
       opacity: 0;
       transition: opacity 0.6s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #bg-image.is-loaded { animation: none; }
+      .card-logo { animation: none; opacity: 1; transform: none; }
+      .logo-shimmer { animation: none !important; opacity: 0 !important; }
     }
   </style>
 </head>
@@ -230,11 +289,15 @@
         <span class="show-pt">Plataforma Operacional</span>
         <span class="show-en">Operations Platform</span>
       </p>
-      <h1>Apex Command Center</h1>
-      <p class="subtitle">
-        <span class="show-pt">Acesse sua plataforma de documentacao pos-sessao.</span>
-        <span class="show-en">Access your post-session documentation platform.</span>
-      </p>
+      <div class="logo-wrap">
+        <img
+          src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
+          alt="Apex Business &amp; Leadership"
+          class="card-logo"
+        >
+        <div class="logo-shimmer" aria-hidden="true"></div>
+      </div>
+      <p class="card-wordmark">Command Center</p>
       <button class="btn-google" id="signInBtn" onclick="handleSignIn()">
         <span class="g-mark">G</span>
         <span class="show-pt">Entrar com Google</span>

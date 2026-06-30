@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 6)
+**Last updated:** 2026-06-30 (session 7)
 **Current phase:** Phase 1 — manual transcript intake
-**Last session summary:** Phase 1 PDF generation complete and verified end-to-end. Fixed consultant name (Rafael Andrade → Rafael Prata). Data propagation, native print export, logo/filename polish, and correct consultant name all confirmed working.
+**Last session summary:** Fixed loading spinner never disappearing (CSS specificity conflict — added #loadingScreen[hidden] { display: none }). Archived 3 test sessions in live D1 (Test 3, TEST 2, TEST CLIENT now status='archived' — still visible in session list; filtering them out is optional follow-up).
 
 ---
 
@@ -32,6 +32,13 @@
   - Fix 1: worker/index.js handleGetSessions — added pdf_data to SELECT list
   - Fix 2: dashboard.html handleGeneratePdf — now reads JSON.parse(session.pdf_data) directly
   - Confirmed: wrangler deploy successful, version 1e869289, apex-api.farfromtimnah.workers.dev
+- [x] Loading spinner bug fixed — 2026-06-30 (session 7)
+  - Root cause: `#loadingScreen { display: flex }` (ID selector) beat `[hidden] { display: none }` (attribute selector) on specificity
+  - Fix: added `#loadingScreen[hidden] { display: none; }` immediately after the existing block — same specificity tier, later in cascade wins
+  - worker/index.js not touched; no wrangler deploy needed
+- [x] Test session data archived in live D1 — 2026-06-30 (session 7)
+  - SET status = 'archived' for client_name IN ('Test 3', 'TEST 2', 'TEST CLIENT') — 3 rows written
+  - Sessions still appear in dashboard list (no filter added); hiding archived sessions is optional follow-up (add WHERE status != 'archived' to handleGetSessions query in worker/index.js)
 - [x] Phase 1 PDF pipeline fully complete and verified — 2026-06-30 (session 6)
   - Fixed consultant name: "Rafael Andrade" → "Rafael Prata" in dashboard.html buildTemplateData()
   - Data propagation, native print export, logo/filename polish, correct consultant name all confirmed end-to-end

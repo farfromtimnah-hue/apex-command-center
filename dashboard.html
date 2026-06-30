@@ -1348,7 +1348,7 @@ data.clientlogo = null;
 
       iframe.onload = function() {
   console.log("Apex PDF payload", data);
-  iframe.contentWindow.postMessage({ type: "apex-report-data", payload: data }, "*");
+  iframe.contentWindow.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
 };
 
 

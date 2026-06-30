@@ -488,7 +488,7 @@
     messageReceived = true;
     try {
       renderReport(event.data.payload);
-      window.parent.postMessage({ type: 'apex-report-rendered' }, '*');
+      event.source.postMessage({ type: 'apex-report-rendered' }, event.origin);
     } catch (err) {
       console.error('[Apex Report] postMessage render error:', err);
     }

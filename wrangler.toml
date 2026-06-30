@@ -5,12 +5,10 @@ compatibility_date = "2024-09-23"
 [[d1_databases]]
 binding       = "DB"
 database_name = "apex-command-center"
-database_id   = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id   = "03fdcf49-4a1f-43f3-a0d9-d54772074b74"
 
 # These vars are placeholders only.
 # Set CLAUDE_API_KEY and GRANOLA_API_KEY as Worker Secrets in the Cloudflare
 # dashboard (Settings > Variables > Secret variables) — never commit real keys here.
 [vars]
-CLAUDE_API_KEY      = ""
-GRANOLA_API_KEY     = ""
-FIREBASE_PROJECT_ID = ""
+FIREBASE_PROJECT_ID = "apex-command-center-4b038"

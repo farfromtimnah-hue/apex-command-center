@@ -239,7 +239,8 @@
     /* Pull form */
     .field-group { margin-bottom: 10px; }
 
-    .field-group input {
+    .field-group input,
+    .field-group textarea {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -250,7 +251,9 @@
       background: var(--surface);
       transition: border-color 0.15s;
     }
-    .field-group input:focus { outline: none; border-color: var(--gold); }
+    .field-group input:focus,
+    .field-group textarea:focus { outline: none; border-color: var(--gold); }
+    .field-group textarea { resize: vertical; min-height: 130px; line-height: 1.5; font-size: 12px; }
 
     .btn-primary {
       width: 100%;
@@ -561,19 +564,11 @@
       <!-- Sidebar: pull form + session list -->
       <aside class="sidebar">
 
-        <!-- Pull new transcript -->
+        <!-- Paste transcript manually -->
         <div class="sidebar-section">
           <div class="sidebar-label">
             <span class="show-pt">Nova Sessão</span>
             <span class="show-en">New Session</span>
-          </div>
-          <div class="field-group">
-            <input
-              type="text"
-              id="granolaId"
-              placeholder="Granola Note ID"
-              autocomplete="off"
-            >
           </div>
           <div class="field-group">
             <input
@@ -583,9 +578,21 @@
               placeholder="Client name"
             >
           </div>
+          <div class="field-group">
+            <input
+              type="date"
+              id="sessionDate"
+            >
+          </div>
+          <div class="field-group">
+            <textarea
+              id="transcriptText"
+              placeholder="Paste transcript here..."
+            ></textarea>
+          </div>
           <button class="btn-primary" id="btnPull" onclick="handlePullTranscript()">
-            <span class="show-pt">Buscar Transcript</span>
-            <span class="show-en">Pull Transcript</span>
+            <span class="show-pt">Salvar Transcript</span>
+            <span class="show-en">Save Transcript</span>
           </button>
           <div class="pull-status" id="pullStatus"></div>
         </div>
@@ -1103,33 +1110,35 @@
     }
 
     function handlePullTranscript() {
-      var granolaId  = document.getElementById("granolaId").value.trim();
-      var clientName = document.getElementById("clientName").value.trim();
-      var statusEl   = document.getElementById("pullStatus");
-      var btn        = document.getElementById("btnPull");
+      var clientName  = document.getElementById("clientName").value.trim();
+      var transcript  = document.getElementById("transcriptText").value.trim();
+      var sessionDate = document.getElementById("sessionDate").value;
+      var statusEl    = document.getElementById("pullStatus");
+      var btn         = document.getElementById("btnPull");
 
-      if (!granolaId || !clientName) {
-        statusEl.textContent = "Both fields are required.";
+      if (!clientName || !transcript) {
+        statusEl.textContent = "Client name and transcript are required.";
         statusEl.className = "pull-status is-error";
         return;
       }
 
       btn.disabled = true;
-      statusEl.textContent = "Fetching...";
+      statusEl.textContent = "Saving...";
       statusEl.className = "pull-status";
 
       apiFetch("/api/transcript", {
         method: "POST",
-        body: { granola_note_id: granolaId, client_name: clientName }
+        body: { client_name: clientName, transcript: transcript, date: sessionDate || null }
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
           btn.disabled = false;
-          statusEl.textContent = "Pulled: " + data.client_name;
+          statusEl.textContent = "Saved: " + data.client_name;
           statusEl.className = "pull-status is-ok";
-          document.getElementById("granolaId").value  = "";
-          document.getElementById("clientName").value = "";
+          document.getElementById("clientName").value   = "";
+          document.getElementById("sessionDate").value  = "";
+          document.getElementById("transcriptText").value = "";
 
           var newSession = {
             id: data.session_id,

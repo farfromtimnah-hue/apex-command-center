@@ -1,9 +1,6 @@
 // Apex Command Center — Cloudflare Worker
-// Verify Granola API base URL against current Granola API documentation
-// before deploying (https://api.granola.so/v1 assumed below).
 
 var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
-var GRANOLA_BASE_URL   = "https://api.granola.so/v1";
 var CLAUDE_API_URL     = "https://api.anthropic.com/v1/messages";
 var CLAUDE_MODEL       = "claude-sonnet-4-6";
 
@@ -131,7 +128,8 @@ async function handleGetSessions(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/transcript
-// Body: { granola_note_id: string, client_name: string }
+// Body: { client_name: string, transcript: string, date?: string (YYYY-MM-DD) }
+// Phase 1: accepts manually pasted transcript text directly.
 // ---------------------------------------------------------------------------
 
 async function handlePostTranscript(request, env) {
@@ -141,31 +139,16 @@ async function handlePostTranscript(request, env) {
         if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
-        if (!body.granola_note_id || !body.client_name) {
-            return jsonErr("granola_note_id and client_name are required", 400);
+        if (!body.client_name || !body.transcript) {
+            return jsonErr("client_name and transcript are required", 400);
         }
-
-        var granolaRes = await fetch(GRANOLA_BASE_URL + "/notes/" + body.granola_note_id, {
-            headers: { "Authorization": "Bearer " + env.GRANOLA_API_KEY }
-        });
-
-        if (!granolaRes.ok) {
-            var granolaText = await granolaRes.text();
-            return jsonErr("Granola API error " + granolaRes.status + ": " + granolaText, 502);
-        }
-
-        var granolaData   = await granolaRes.json();
-        var rawTranscript = granolaData.transcript
-            || granolaData.content
-            || granolaData.text
-            || JSON.stringify(granolaData);
 
         var sessionId   = crypto.randomUUID();
-        var sessionDate = new Date().toISOString().split("T")[0];
+        var sessionDate = body.date || new Date().toISOString().split("T")[0];
 
         await env.DB.prepare(
             "INSERT INTO sessions (id, client_name, date, status, raw_transcript) VALUES (?, ?, ?, 'pending', ?)"
-        ).bind(sessionId, body.client_name, sessionDate, rawTranscript).run();
+        ).bind(sessionId, body.client_name, sessionDate, body.transcript).run();
 
         return jsonOk({ session_id: sessionId, client_name: body.client_name, date: sessionDate });
     } catch (e) {

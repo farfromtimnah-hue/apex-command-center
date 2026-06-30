@@ -1,0 +1,192 @@
+{
+  "client_name": "Meridian Capital",
+  "client_logo": null,
+  "session_date": "12 Junho 2026",
+  "consultant_name": "Rafael Andrade",
+  "document_title": "Relatório\nEstratégico",
+
+  "report_number": "2026-0612",
+  "report_code": "MC",
+
+  "executive_summary": "Nesta sessão mapeamos os principais gargalos operacionais da Meridian Capital e definimos uma agenda de crescimento centrada em margem, eficiência comercial e estrutura de liderança para os próximos noventa dias.",
+
+  "headline_insights": [
+    {
+      "title": "Margem sob pressão",
+      "body": "O custo de aquisição cresceu 34% no último ano sem ganho proporcional de receita recorrente."
+    },
+    {
+      "title": "Liderança concentrada",
+      "body": "Decisões críticas dependem de duas pessoas, criando risco operacional e gargalo de escala."
+    },
+    {
+      "title": "Oportunidade de premiumização",
+      "body": "A base atual sustenta um reposicionamento de portfólio com ticket médio duas vezes superior."
+    }
+  ],
+
+  "recommendations": [
+    {
+      "number": "01",
+      "title": "Reestruturar o funil comercial",
+      "body": "Separar aquisição de retenção e instituir metas de receita recorrente por trimestre."
+    },
+    {
+      "number": "02",
+      "title": "Descentralizar a tomada de decisão",
+      "body": "Formalizar um comitê executivo com alçadas claras e ritos semanais de gestão."
+    },
+    {
+      "number": "03",
+      "title": "Reposicionar o portfólio premium",
+      "body": "Lançar uma linha de serviço de alto valor para os 20% de clientes mais rentáveis."
+    },
+    {
+      "number": "04",
+      "title": "Implementar painel de indicadores",
+      "body": "Consolidar métricas de margem, CAC e churn em um único painel revisado mensalmente."
+    }
+  ],
+
+  "client_actions": [
+    {
+      "text": "Definir e documentar as alçadas de decisão do comitê executivo.",
+      "due": "20 Jun"
+    },
+    {
+      "text": "Selecionar os 20 clientes-âncora para a oferta premium.",
+      "due": "27 Jun"
+    },
+    {
+      "text": "Revisar os contratos de aquisição com fornecedores de mídia.",
+      "due": "30 Jun"
+    },
+    {
+      "text": "Aprovar o orçamento do painel de indicadores.",
+      "due": "05 Jul"
+    },
+    {
+      "text": "Agendar as reuniões de alinhamento com as lideranças de área.",
+      "due": "08 Jul"
+    }
+  ],
+
+  "consultant_followups": [
+    {
+      "text": "Enviar o modelo de governança do comitê executivo.",
+      "due": "18 Jun"
+    },
+    {
+      "text": "Compartilhar o benchmark de margem do setor.",
+      "due": "22 Jun"
+    },
+    {
+      "text": "Estruturar a proposta da linha de serviço premium.",
+      "due": "29 Jun"
+    }
+  ],
+
+  "next_session_focus_intro": "A próxima sessão consolidará a estrutura de governança e dará início à validação da oferta premium junto aos clientes-âncora selecionados.",
+  "next_session_focus_points": [
+    {
+      "number": "01",
+      "text": "Validar o desenho do comitê executivo"
+    },
+    {
+      "number": "02",
+      "text": "Apresentar o protótipo da oferta premium"
+    },
+    {
+      "number": "03",
+      "text": "Revisar os primeiros indicadores de margem"
+    }
+  ],
+  "next_meeting_date": "26 Junho 2026",
+  "next_meeting_time": "14h00",
+
+  "swot": {
+    "strengths": [
+      "Marca consolidada no segmento",
+      "Base de clientes fiéis",
+      "Equipe técnica sênior",
+      "Posição de caixa saudável"
+    ],
+    "weaknesses": [
+      "Dependência de poucos decisores",
+      "Processos comerciais informais",
+      "Margem operacional em queda",
+      "Baixa recorrência de receita"
+    ],
+    "opportunities": [
+      "Premiumização do portfólio",
+      "Expansão para novos mercados",
+      "Parcerias estratégicas de canal",
+      "Automação de processos operacionais"
+    ],
+    "threats": [
+      "Aumento do custo de aquisição",
+      "Novos entrantes digitais",
+      "Pressão de preço no mercado",
+      "Concentração de receita em poucos clientes"
+    ]
+  },
+
+  "thirty_day_plan": [
+    {
+      "week_label": "Semana 01",
+      "week_title": "Governança",
+      "items": [
+        {
+          "text": "Comitê executivo formalizado",
+          "owner": "Cliente"
+        },
+        {
+          "text": "Modelo de governança entregue",
+          "owner": "Apex"
+        }
+      ]
+    },
+    {
+      "week_label": "Semana 02",
+      "week_title": "Comercial",
+      "items": [
+        {
+          "text": "Funil de aquisição redesenhado",
+          "owner": "Apex"
+        },
+        {
+          "text": "Metas trimestrais aprovadas",
+          "owner": "Cliente"
+        }
+      ]
+    },
+    {
+      "week_label": "Semana 03",
+      "week_title": "Premium",
+      "items": [
+        {
+          "text": "Oferta premium estruturada",
+          "owner": "Apex"
+        },
+        {
+          "text": "Clientes-âncora selecionados",
+          "owner": "Cliente"
+        }
+      ]
+    },
+    {
+      "week_label": "Semana 04",
+      "week_title": "Indicadores",
+      "items": [
+        {
+          "text": "Painel de indicadores no ar",
+          "owner": "Cliente"
+        },
+        {
+          "text": "Primeira revisão de margem",
+          "owner": "Apex"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#000000">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#000000"/>
+    <g transform="translate(600 360)" fill="none" stroke="#C9A43A" stroke-width="14" stroke-linejoin="miter">
+      <path d="M-150 110 L0 -110 L150 110"/>
+      <path d="M-40 110 L70 -42 L210 110" transform="translate(-30 0)"/>
+    </g>
+    <text x="600" y="560" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="84" fill="#C9A43A" letter-spacing="20">APEX</text>
+    <text x="600" y="610" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600" font-size="22" fill="#C9A43A" letter-spacing="10">BUSINESS &amp; LEADERSHIP</text>
+  </svg>
+</template>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  @page { size: letter; margin: 0; }
+  @media print {
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { margin: 0; padding: 0; background: #fff; }
+    .app-bg { background: #fff !important; padding: 0 !important; gap: 0 !important; }
+    .screen-only { display: none !important; }
+    .page { box-shadow: none !important; margin: 0 !important; break-after: page; }
+    .page:last-child { break-after: auto; }
+  }
+</style>
+</helmet>
+<div class="app-bg" style="background:#26262a; padding:40px 0 80px; display:flex; flex-direction:column; align-items:center; gap:40px; min-height:100vh;">
+
+  <div class="screen-only" style="font-family:'Inter',sans-serif; color:#9a9a9a; font-size:12px; letter-spacing:.14em; text-transform:uppercase;">Apex · Modelo de Relatório · Cmd/Ctrl + P para exportar PDF</div>
+
+  <!-- ============ PAGE 1 — COVER ============ -->
+  <div class="page" data-screen-label="Cover" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#000000; color:#ffffff; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:72px 72px 56px; display:flex; flex-direction:column;">
+
+      <!-- co-brand header -->
+      <div style="display:flex; align-items:center; gap:30px;">
+        <div style="display:flex; align-items:center; gap:16px;">
+          <svg width="46" height="38" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+            <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="4.5" stroke-linejoin="miter"/>
+            <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="4.5" stroke-linejoin="miter"/>
+          </svg>
+          <div style="line-height:1;">
+            <div style="font-family:'Inter',sans-serif; font-weight:800; font-size:26px; letter-spacing:.22em; color:#C9A43A;">APEX</div>
+            <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:8.5px; letter-spacing:.34em; color:#C9A43A; margin-top:6px;">BUSINESS &amp; LEADERSHIP</div>
+          </div>
+        </div>
+        <div style="width:1px; height:32px; background:#C9A43A;"></div>
+        <div id="cover-cobrand" style="font-family:'Inter',sans-serif; font-weight:800; font-size:15px; letter-spacing:.26em; color:#ffffff;"><span data-slot="client_name">MERIDIAN CAPITAL</span></div>
+      </div>
+
+      <!-- center title block -->
+      <div style="margin-top:auto; margin-bottom:auto;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:12px; letter-spacing:.4em; color:#C9A43A; text-transform:uppercase; margin-bottom:26px;">Confidencial — Sessão de Consultoria</div>
+        <h1 id="cover-document-title" style="font-family:'Playfair Display',serif; font-weight:800; font-size:78px; line-height:1.02; letter-spacing:-.01em; margin:0; color:#ffffff;">Relatório<br>Estratégico</h1>
+        <div style="width:64px; height:2px; background:#C9A43A; margin:40px 0 0;"></div>
+      </div>
+
+      <!-- metadata grid -->
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:8px; padding-top:36px; border-top:1px solid rgba(255,255,255,.14);">
+        <div>
+          <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:10px; letter-spacing:.26em; color:#8a8a8a; text-transform:uppercase; margin-bottom:12px;">Cliente</div>
+          <div id="cover-client-name" style="font-family:'Playfair Display',serif; font-weight:600; font-size:22px; color:#ffffff;"><span data-slot="client_name">Meridian Capital</span></div>
+        </div>
+        <div>
+          <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:10px; letter-spacing:.26em; color:#8a8a8a; text-transform:uppercase; margin-bottom:12px;">Data da Sessão</div>
+          <div style="font-family:'Inter',sans-serif; font-weight:500; font-size:18px; color:#ffffff;"><span data-slot="session_date">12 Junho 2026</span></div>
+        </div>
+        <div>
+          <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:10px; letter-spacing:.26em; color:#8a8a8a; text-transform:uppercase; margin-bottom:12px;">Consultor</div>
+          <div style="font-family:'Inter',sans-serif; font-weight:500; font-size:18px; color:#ffffff;"><span data-slot="consultant_name">Rafael Andrade</span></div>
+        </div>
+      </div>
+
+      <!-- bottom rule -->
+      <div style="margin-top:44px;">
+        <div style="height:1px; background:#C9A43A;"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+          <div style="font-family:'Inter',sans-serif; font-weight:500; font-size:11px; letter-spacing:.22em; color:#C9A43A;">APEXBUSINESS.PRO</div>
+          <div style="font-family:'Inter',sans-serif; font-weight:400; font-size:11px; letter-spacing:.18em; color:#6f6f6f;">N.º <span data-slot="report_number">2026-0612</span> · <span data-slot="report_code">MC</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ PAGE 2 — EXECUTIVE SUMMARY ============ -->
+  <div class="page" data-screen-label="Executive Summary" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#F7F6F4; color:#0F0F0F; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:64px 72px 56px; display:flex; flex-direction:column;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <svg width="28" height="22" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.22em; color:#9a958a;">01&nbsp;&nbsp;/&nbsp;&nbsp;08</div>
+      </div>
+      <div style="height:1px; background:#C9A43A; margin:18px 0 0;"></div>
+
+      <div style="margin-top:54px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.34em; color:#C9A43A; text-transform:uppercase;">01 — Visão Geral da Sessão</div>
+        <h2 style="font-family:'Playfair Display',serif; font-weight:800; font-size:52px; line-height:1.04; letter-spacing:-.01em; margin:18px 0 0; color:#0F0F0F;">Resumo Executivo</h2>
+      </div>
+
+      <p id="executive-summary" style="font-family:'Inter',sans-serif; font-weight:400; font-size:18px; line-height:1.62; color:#34322d; margin:34px 0 0; max-width:600px;"><span data-slot="executive_summary">Nesta sessão mapeamos os principais gargalos operacionais da Meridian Capital e definimos uma agenda de crescimento centrada em margem, eficiência comercial e estrutura de liderança para os próximos noventa dias.</span></p>
+
+      <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.28em; color:#9a958a; text-transform:uppercase; margin:56px 0 22px;">Insights Centrais</div>
+
+      <div id="headline-insights" style="display:flex; flex-direction:column; gap:18px;">
+        <!-- rendered by script -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ PAGE 3 — KEY RECOMMENDATIONS ============ -->
+  <div class="page" data-screen-label="Key Recommendations" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#F7F6F4; color:#0F0F0F; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:64px 72px 56px; display:flex; flex-direction:column;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <svg width="28" height="22" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.22em; color:#9a958a;">02&nbsp;&nbsp;/&nbsp;&nbsp;08</div>
+      </div>
+      <div style="height:1px; background:#C9A43A; margin:18px 0 0;"></div>
+
+      <div style="margin-top:54px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.34em; color:#C9A43A; text-transform:uppercase;">02 — Direcionamento</div>
+        <h2 style="font-family:'Playfair Display',serif; font-weight:800; font-size:52px; line-height:1.04; letter-spacing:-.01em; margin:18px 0 0; color:#0F0F0F;">Recomendações</h2>
+      </div>
+
+      <div id="recommendations" style="display:flex; flex-direction:column; margin-top:42px; border-top:1px solid #e2ddd2;">
+        <!-- rendered by script -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ PAGE 4 — CLIENT ACTION ITEMS (HERO) ============ -->
+  <div class="page" data-screen-label="Client Action Items" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#F7F6F4; color:#0F0F0F; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:64px 72px 56px; display:flex; flex-direction:column;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <svg width="28" height="22" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.22em; color:#9a958a;">03&nbsp;&nbsp;/&nbsp;&nbsp;08</div>
+      </div>
+      <div style="height:1px; background:#C9A43A; margin:18px 0 0;"></div>
+
+      <div style="margin-top:50px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.34em; color:#C9A43A; text-transform:uppercase;">03 — Compromissos do Cliente</div>
+        <h2 style="font-family:'Playfair Display',serif; font-weight:900; font-size:62px; line-height:1.0; letter-spacing:-.015em; margin:16px 0 0; color:#0F0F0F;">Ações do Cliente</h2>
+        <div style="font-family:'Inter',sans-serif; font-weight:400; font-size:15px; color:#7a766c; margin-top:16px;">Cinco compromissos assumidos nesta sessão · prazo de execução em até 30 dias.</div>
+      </div>
+
+      <div id="client-actions" style="display:flex; flex-direction:column; gap:14px; margin-top:38px;">
+        <!-- rendered by script -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ PAGE 5 — CONSULTANT FOLLOW-UP ============ -->
+  <div class="page" data-screen-label="Consultant Follow-up" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#F7F6F4; color:#0F0F0F; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:64px 72px 56px; display:flex; flex-direction:column;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <svg width="28" height="22" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.22em; color:#9a958a;">04&nbsp;&nbsp;/&nbsp;&nbsp;08</div>
+      </div>
+      <div style="height:1px; background:#C9A43A; margin:18px 0 0;"></div>
+
+      <div style="margin-top:54px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.34em; color:#a79c80; text-transform:uppercase;">04 — Compromissos da Apex</div>
+        <h2 style="font-family:'Playfair Display',serif; font-weight:700; font-size:42px; line-height:1.06; letter-spacing:-.01em; margin:16px 0 0; color:#3a382f;">Acompanhamento do Consultor</h2>
+        <div style="font-family:'Inter',sans-serif; font-weight:400; font-size:14.5px; color:#8a857a; margin-top:14px;">Itens de responsabilidade da Apex para suporte à execução do cliente.</div>
+      </div>
+
+      <div id="consultant-followups" style="display:flex; flex-direction:column; gap:12px; margin-top:34px;">
+        <!-- rendered by script -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ PAGE 6 — NEXT SESSION FOCUS ============ -->
+  <div class="page" data-screen-label="Next Session Focus" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#F7F6F4; color:#0F0F0F; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:64px 72px 56px; display:flex; flex-direction:column;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <svg width="28" height="22" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.22em; color:#9a958a;">05&nbsp;&nbsp;/&nbsp;&nbsp;08</div>
+      </div>
+      <div style="height:1px; background:#C9A43A; margin:18px 0 0;"></div>
+
+      <div style="margin-top:54px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.34em; color:#C9A43A; text-transform:uppercase;">05 — Próximos Passos</div>
+        <h2 style="font-family:'Playfair Display',serif; font-weight:700; font-size:46px; line-height:1.05; letter-spacing:-.01em; margin:16px 0 0; color:#0F0F0F;">Foco da Próxima Sessão</h2>
+      </div>
+
+      <p id="next-session-intro" style="font-family:'Inter',sans-serif; font-weight:400; font-size:17px; line-height:1.62; color:#44413a; margin:28px 0 0; max-width:560px;"><span data-slot="next_session_focus_intro">A próxima sessão consolidará a estrutura de governança e dará início à validação da oferta premium junto aos clientes-âncora selecionados.</span></p>
+
+      <div id="next-session-points" style="display:flex; flex-direction:column; margin-top:44px; border-top:1px solid #e2ddd2;">
+        <!-- rendered by script -->
+      </div>
+
+      <div style="margin-top:auto; display:flex; align-items:center; justify-content:space-between; background:#000000; color:#ffffff; padding:28px 34px;">
+        <div>
+          <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:10px; letter-spacing:.3em; color:#C9A43A; text-transform:uppercase;">Próxima Sessão</div>
+          <div style="font-family:'Playfair Display',serif; font-weight:600; font-size:26px; margin-top:8px;"><span data-slot="next_meeting_date">26 Junho 2026</span></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:10px; letter-spacing:.3em; color:#8a8a8a; text-transform:uppercase;">Horário</div>
+          <div style="font-family:'Inter',sans-serif; font-weight:500; font-size:22px; margin-top:8px;"><span data-slot="next_meeting_time">14h00</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ PAGE 7 — SWOT MATRIX ============ -->
+  <div class="page" data-screen-label="SWOT Matrix" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#F7F6F4; color:#0F0F0F; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:64px 72px 56px; display:flex; flex-direction:column;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <svg width="28" height="22" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.22em; color:#9a958a;">06&nbsp;&nbsp;/&nbsp;&nbsp;08</div>
+      </div>
+      <div style="height:1px; background:#C9A43A; margin:18px 0 0;"></div>
+
+      <div style="margin-top:50px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.34em; color:#C9A43A; text-transform:uppercase;">06 — Diagnóstico</div>
+        <h2 style="font-family:'Playfair Display',serif; font-weight:800; font-size:50px; line-height:1.04; letter-spacing:-.01em; margin:16px 0 0; color:#0F0F0F;">Matriz SWOT</h2>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:30px; margin-top:40px;">
+        <div style="background:#E8ECF2; padding:30px 32px;">
+          <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:.2em; color:#3a4555; text-transform:uppercase; margin-bottom:20px;">Forças</div>
+          <div id="swot-strengths" style="display:flex; flex-direction:column; gap:13px;">
+            <!-- rendered by script -->
+          </div>
+        </div>
+        <div style="background:#F0EFED; padding:30px 32px;">
+          <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:.2em; color:#5a554d; text-transform:uppercase; margin-bottom:20px;">Fraquezas</div>
+          <div id="swot-weaknesses" style="display:flex; flex-direction:column; gap:13px;">
+            <!-- rendered by script -->
+          </div>
+        </div>
+        <div style="background:#F5EFE0; padding:30px 32px;">
+          <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:.2em; color:#8a7430; text-transform:uppercase; margin-bottom:20px;">Oportunidades</div>
+          <div id="swot-opportunities" style="display:flex; flex-direction:column; gap:13px;">
+            <!-- rendered by script -->
+          </div>
+        </div>
+        <div style="background:#ECEEF0; padding:30px 32px;">
+          <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:.2em; color:#4d555c; text-transform:uppercase; margin-bottom:20px;">Ameaças</div>
+          <div id="swot-threats" style="display:flex; flex-direction:column; gap:13px;">
+            <!-- rendered by script -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ PAGE 8 — 30-DAY SPRINT ============ -->
+  <div class="page" data-screen-label="30-Day Sprint" style="width:816px; height:1056px; position:relative; overflow:hidden; background:#F7F6F4; color:#0F0F0F; box-shadow:0 24px 70px rgba(0,0,0,.5); font-family:'Inter',sans-serif;">
+    <div style="position:absolute; inset:0; padding:64px 72px 56px; display:flex; flex-direction:column;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <svg width="28" height="22" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="5" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.22em; color:#9a958a;">07&nbsp;&nbsp;/&nbsp;&nbsp;08</div>
+      </div>
+      <div style="height:1px; background:#C9A43A; margin:18px 0 0;"></div>
+
+      <div style="margin-top:50px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:11px; letter-spacing:.34em; color:#C9A43A; text-transform:uppercase;">07 — Execução</div>
+        <h2 style="font-family:'Playfair Display',serif; font-weight:800; font-size:50px; line-height:1.04; letter-spacing:-.01em; margin:16px 0 0; color:#0F0F0F;">Plano de 30 Dias</h2>
+      </div>
+
+      <div id="thirty-day-plan" style="display:flex; flex-direction:column; gap:16px; margin-top:36px;">
+        <!-- rendered by script -->
+      </div>
+
+      <div style="margin-top:auto; display:flex; align-items:center; gap:16px;">
+        <svg width="22" height="17" viewBox="0 0 120 92" fill="none" aria-hidden="true">
+          <path d="M8 84 L50 14 L92 84" stroke="#C9A43A" stroke-width="6" stroke-linejoin="miter"/>
+          <path d="M40 84 L72 36 L112 84" stroke="#C9A43A" stroke-width="6" stroke-linejoin="miter"/>
+        </svg>
+        <div style="font-family:'Inter',sans-serif; font-weight:500; font-size:11px; letter-spacing:.22em; color:#9a958a;">APEX BUSINESS &amp; LEADERSHIP · APEXBUSINESS.PRO</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script>
+(function () {
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Fill every [data-slot="key"] span with the matching JSON value.
+  function fillSlots(data) {
+    document.querySelectorAll('[data-slot]').forEach(function (el) {
+      var key = el.getAttribute('data-slot');
+      if (data[key] !== undefined && data[key] !== null) {
+        el.textContent = data[key];
+      }
+    });
+  }
+
+  // Cover: co-brand header + client name field (supports optional logo)
+  function fillCover(data) {
+    // Co-brand header (uppercase display)
+    var cobrand = document.getElementById('cover-cobrand');
+    if (cobrand) {
+      if (data.client_logo) {
+        cobrand.innerHTML = '<img src="' + esc(data.client_logo) + '" alt="' + esc(data.client_name) + '" style="max-height:32px; max-width:160px; object-fit:contain; filter:brightness(0) invert(1);">';
+      } else {
+        cobrand.textContent = String(data.client_name || '').toUpperCase();
+      }
+    }
+    // Metadata grid client name (serif, mixed case)
+    var clientNameEl = document.getElementById('cover-client-name');
+    if (clientNameEl) {
+      if (data.client_logo) {
+        clientNameEl.innerHTML = '<img src="' + esc(data.client_logo) + '" alt="' + esc(data.client_name) + '" style="max-height:28px; max-width:180px; object-fit:contain; filter:brightness(0) invert(1);">';
+      } else {
+        clientNameEl.textContent = data.client_name || '';
+      }
+    }
+    // Document title (supports \n → <br>)
+    var titleEl = document.getElementById('cover-document-title');
+    if (titleEl && data.document_title) {
+      titleEl.innerHTML = esc(data.document_title).replace(/\\n|\n/g, '<br>');
+    }
+  }
+
+  // Page 2: headline insights
+  function fillHeadlineInsights(insights) {
+    var container = document.getElementById('headline-insights');
+    if (!container || !Array.isArray(insights)) return;
+    container.innerHTML = insights.map(function (item) {
+      return (
+        '<div style="display:flex; gap:24px; background:#ffffff; border:1px solid #e7e3da; padding:26px 30px;">' +
+          '<div style="width:3px; background:#C9A43A; flex:none; align-self:stretch;"></div>' +
+          '<div>' +
+            '<div style="font-family:\'Playfair Display\',serif; font-weight:700; font-size:22px; color:#0F0F0F;">' + esc(item.title) + '</div>' +
+            '<div style="font-family:\'Inter\',sans-serif; font-weight:400; font-size:15.5px; line-height:1.55; color:#54514a; margin-top:8px;">' + esc(item.body) + '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // Page 3: recommendations
+  function fillRecommendations(recs) {
+    var container = document.getElementById('recommendations');
+    if (!container || !Array.isArray(recs)) return;
+    container.innerHTML = recs.map(function (item) {
+      return (
+        '<div style="display:flex; gap:28px; align-items:flex-start; padding:26px 0; border-bottom:1px solid #e2ddd2;">' +
+          '<div style="flex:none; width:54px; height:54px; border:1.5px solid #C9A43A; display:flex; align-items:center; justify-content:center; font-family:\'Playfair Display\',serif; font-weight:700; font-size:20px; color:#C9A43A;">' + esc(item.number) + '</div>' +
+          '<div>' +
+            '<div style="font-family:\'Playfair Display\',serif; font-weight:700; font-size:24px; color:#0F0F0F; line-height:1.15;">' + esc(item.title) + '</div>' +
+            '<div style="font-family:\'Inter\',sans-serif; font-weight:400; font-size:15.5px; line-height:1.55; color:#54514a; margin-top:8px; max-width:560px;">' + esc(item.body) + '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // Page 4: client actions
+  function fillClientActions(actions) {
+    var container = document.getElementById('client-actions');
+    if (!container || !Array.isArray(actions)) return;
+    container.innerHTML = actions.map(function (item) {
+      return (
+        '<div style="display:flex; align-items:center; gap:24px; background:#ffffff; border:1px solid #e3ded3; box-shadow:0 1px 3px rgba(20,18,12,.05); padding:24px 28px;">' +
+          '<div style="flex:none; width:26px; height:26px; border-radius:50%; border:1.8px solid #b9b3a4;"></div>' +
+          '<div style="flex:1; font-family:\'Inter\',sans-serif; font-weight:500; font-size:17px; line-height:1.4; color:#1d1c18;">' + esc(item.text) + '</div>' +
+          '<div style="flex:none; font-family:\'Inter\',sans-serif; font-weight:600; font-size:13px; letter-spacing:.04em; color:#C9A43A; background:#FDF5E0; padding:8px 16px; border-radius:999px; white-space:nowrap;">' + esc(item.due) + '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // Page 5: consultant follow-ups
+  function fillConsultantFollowups(followups) {
+    var container = document.getElementById('consultant-followups');
+    if (!container || !Array.isArray(followups)) return;
+    container.innerHTML = followups.map(function (item) {
+      return (
+        '<div style="display:flex; align-items:center; gap:22px; background:#f2efe8; border:1px solid #e6e1d6; padding:21px 26px;">' +
+          '<div style="flex:none; width:24px; height:24px; border-radius:50%; border:1.5px solid #c4bdad;"></div>' +
+          '<div style="flex:1; font-family:\'Inter\',sans-serif; font-weight:500; font-size:16px; line-height:1.4; color:#4a473f;">' + esc(item.text) + '</div>' +
+          '<div style="flex:none; font-family:\'Inter\',sans-serif; font-weight:600; font-size:12.5px; letter-spacing:.04em; color:#a98e36; background:#f6efdd; padding:7px 15px; border-radius:999px; white-space:nowrap;">' + esc(item.due) + '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // Page 6: next session focus points
+  function fillNextSessionPoints(points) {
+    var container = document.getElementById('next-session-points');
+    if (!container || !Array.isArray(points)) return;
+    container.innerHTML = points.map(function (item) {
+      return (
+        '<div style="display:flex; align-items:baseline; gap:26px; padding:24px 0; border-bottom:1px solid #e2ddd2;">' +
+          '<div style="font-family:\'Playfair Display\',serif; font-weight:700; font-size:30px; color:#C9A43A; min-width:48px;">' + esc(item.number) + '</div>' +
+          '<div style="font-family:\'Inter\',sans-serif; font-weight:500; font-size:19px; color:#26241f;">' + esc(item.text) + '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // Page 7: SWOT quadrants
+  function fillSwotQuadrant(id, items, dotColor, textColor) {
+    var container = document.getElementById(id);
+    if (!container || !Array.isArray(items)) return;
+    container.innerHTML = items.map(function (item) {
+      return (
+        '<div style="font-family:\'Inter\',sans-serif; font-weight:400; font-size:15px; color:' + textColor + '; padding-left:18px; position:relative;">' +
+          '<span style="position:absolute; left:0; top:9px; width:5px; height:5px; background:' + dotColor + '; border-radius:50%;"></span>' +
+          esc(item) +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // Page 8: 30-day plan
+  function fillThirtyDayPlan(plan) {
+    var container = document.getElementById('thirty-day-plan');
+    if (!container || !Array.isArray(plan)) return;
+    container.innerHTML = plan.map(function (week) {
+      var itemsHtml = (week.items || []).map(function (item) {
+        var isApex = item.owner && item.owner.toLowerCase() === 'apex';
+        var ownerColor = isApex ? '#a98e36' : '#7a766c';
+        return (
+          '<div style="background:#f6f4ef; padding:16px 18px;">' +
+            '<div style="font-family:\'Inter\',sans-serif; font-weight:600; font-size:14.5px; color:#26241f; line-height:1.35;">' + esc(item.text) + '</div>' +
+            '<div style="font-family:\'Inter\',sans-serif; font-weight:600; font-size:10px; letter-spacing:.16em; color:' + ownerColor + '; text-transform:uppercase; margin-top:10px;">' + esc(item.owner) + '</div>' +
+          '</div>'
+        );
+      }).join('');
+
+      return (
+        '<div style="display:flex; gap:26px; align-items:stretch; background:#ffffff; border:1px solid #e3ded3; padding:22px 26px;">' +
+          '<div style="flex:none; width:128px; border-right:1px solid #ece7dc; padding-right:22px; display:flex; flex-direction:column; justify-content:center;">' +
+            '<div style="font-family:\'Inter\',sans-serif; font-weight:700; font-size:11px; letter-spacing:.22em; color:#C9A43A; text-transform:uppercase;">' + esc(week.week_label) + '</div>' +
+            '<div style="font-family:\'Playfair Display\',serif; font-weight:700; font-size:21px; color:#0F0F0F; margin-top:6px;">' + esc(week.week_title) + '</div>' +
+          '</div>' +
+          '<div style="flex:1; display:grid; grid-template-columns:1fr 1fr; gap:14px;">' +
+            itemsHtml +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // ── main loader ───────────────────────────────────────────────────────────
+
+  fetch('./apex-report-data.json')
+    .then(function (res) {
+      if (!res.ok) throw new Error('Failed to load apex-report-data.json — HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      fillSlots(data);
+      fillCover(data);
+      fillHeadlineInsights(data.headline_insights);
+      fillRecommendations(data.recommendations);
+      fillClientActions(data.client_actions);
+      fillConsultantFollowups(data.consultant_followups);
+      fillNextSessionPoints(data.next_session_focus_points);
+      fillSwotQuadrant('swot-strengths',    data.swot && data.swot.strengths,    '#5a6678', '#3a4150');
+      fillSwotQuadrant('swot-weaknesses',   data.swot && data.swot.weaknesses,   '#8a8276', '#4f4a42');
+      fillSwotQuadrant('swot-opportunities',data.swot && data.swot.opportunities,'#C9A43A', '#5f5430');
+      fillSwotQuadrant('swot-threats',      data.swot && data.swot.threats,      '#6b747c', '#454c52');
+      fillThirtyDayPlan(data.thirty_day_plan);
+    })
+    .catch(function (err) {
+      console.error('[Apex Report]', err);
+    });
+})();
+</script>
+
+</body>
+</html>

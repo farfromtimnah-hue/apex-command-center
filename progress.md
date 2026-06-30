@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 7)
+**Last updated:** 2026-06-30 (session 8)
 **Current phase:** Phase 1 — manual transcript intake
-**Last session summary:** Fixed loading spinner never disappearing (CSS specificity conflict — added #loadingScreen[hidden] { display: none }). Archived 3 test sessions in live D1 (Test 3, TEST 2, TEST CLIENT now status='archived' — still visible in session list; filtering them out is optional follow-up).
+**Last session summary:** Filtered archived sessions from dashboard list. handleGetSessions now queries WHERE status != 'archived'. 'archived' is the standing convention for hiding test/old sessions without deleting data.
 
 ---
 
@@ -32,6 +32,10 @@
   - Fix 1: worker/index.js handleGetSessions — added pdf_data to SELECT list
   - Fix 2: dashboard.html handleGeneratePdf — now reads JSON.parse(session.pdf_data) directly
   - Confirmed: wrangler deploy successful, version 1e869289, apex-api.farfromtimnah.workers.dev
+- [x] Archived sessions filtered from dashboard list — 2026-06-30 (session 8)
+  - worker/index.js handleGetSessions: added WHERE status != 'archived' to sessions SELECT
+  - 'archived' is the standing convention for hiding test/old sessions without deleting data — use UPDATE sessions SET status = 'archived' WHERE ... to hide any session
+  - Deployed via wrangler deploy (see version below)
 - [x] Loading spinner bug fixed — 2026-06-30 (session 7)
   - Root cause: `#loadingScreen { display: flex }` (ID selector) beat `[hidden] { display: none }` (attribute selector) on specificity
   - Fix: added `#loadingScreen[hidden] { display: none; }` immediately after the existing block — same specificity tier, later in cascade wins

@@ -117,7 +117,7 @@ async function handleGetSessions(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, client_name, date, status, summary_json, pdf_data, approved_at, created_at " +
-            "FROM sessions ORDER BY created_at DESC"
+            "FROM sessions WHERE status != 'archived' ORDER BY created_at DESC"
         ).all();
 
         return jsonOk({ sessions: res.results });

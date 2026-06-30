@@ -115,11 +115,23 @@ async function handleGetSessions(request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
-        var res = await env.DB.prepare(
-            "SELECT id, client_name, date, status, summary_json, pdf_data, approved_at, created_at " +
-            "FROM sessions WHERE status != 'archived' ORDER BY created_at DESC"
-        ).all();
+        var url = new URL(request.url);
+        var clientIdFilter = url.searchParams.get("client_id");
 
+        var stmt;
+        if (clientIdFilter) {
+            stmt = env.DB.prepare(
+                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, approved_at, created_at " +
+                "FROM sessions WHERE status != 'archived' AND client_id = ? ORDER BY created_at DESC"
+            ).bind(clientIdFilter);
+        } else {
+            stmt = env.DB.prepare(
+                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, approved_at, created_at " +
+                "FROM sessions WHERE status != 'archived' ORDER BY created_at DESC"
+            );
+        }
+
+        var res = await stmt.all();
         return jsonOk({ sessions: res.results });
     } catch (e) {
         return jsonErr("Error fetching sessions: " + e.message, 500);
@@ -398,6 +410,106 @@ async function handlePostClients(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id  — single client, all columns
+// ---------------------------------------------------------------------------
+
+async function handleGetClient(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var client = await env.DB.prepare(
+            "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
+            "package, status, phone, email, whatsapp, created_at FROM clients WHERE id = ?"
+        ).bind(id).first();
+
+        if (!client) { return jsonErr("Client not found", 404); }
+        return jsonOk({ client: client });
+    } catch (e) {
+        return jsonErr("Error fetching client: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/notes  — all notes, newest first
+// ---------------------------------------------------------------------------
+
+async function handleGetClientNotes(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, client_id, content, created_by, created_at FROM client_notes " +
+            "WHERE client_id = ? ORDER BY created_at DESC"
+        ).bind(id).all();
+
+        return jsonOk({ notes: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching notes: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/notes
+// Body: { content: string }  (also accepts note_text for spec compat)
+// created_by is derived from the authenticated user's role — never trusted from client
+// ---------------------------------------------------------------------------
+
+async function handlePostClientNote(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json();
+        var content = ((body.content || body.note_text || "")).trim();
+        if (!content) { return jsonErr("content is required", 400); }
+
+        var createdBy = user.role === "alice" ? "Alice" : user.role === "rafa" ? "Rafa" : "Dev";
+
+        var noteId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_notes (id, client_id, content, created_by) VALUES (?, ?, ?, ?)"
+        ).bind(noteId, id, content, createdBy).run();
+
+        var note = await env.DB.prepare(
+            "SELECT id, client_id, content, created_by, created_at FROM client_notes WHERE id = ?"
+        ).bind(noteId).first();
+
+        return jsonOk({ note: note });
+    } catch (e) {
+        return jsonErr("Error saving note: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/documents/latest
+// Returns the most recent document for this client (via session JOIN).
+// Chose a dedicated lightweight route over extending sessions response to keep
+// session payloads lean — client profile only needs "does a doc exist?" as a
+// separate concern from the session list.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientLatestDocument(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var doc = await env.DB.prepare(
+            "SELECT d.id, d.session_id, d.created_at " +
+            "FROM documents d " +
+            "JOIN sessions s ON s.id = d.session_id " +
+            "WHERE s.client_id = ? " +
+            "ORDER BY d.created_at DESC LIMIT 1"
+        ).bind(id).first();
+
+        return jsonOk({ document: doc || null });
+    } catch (e) {
+        return jsonErr("Error fetching document: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -418,6 +530,22 @@ export default {
         if (path === "/api/transcript" && method === "POST") { return handlePostTranscript(request, env); }
         if (path === "/api/summarize"  && method === "POST") { return handlePostSummarize(request, env); }
         if (path === "/api/approve"    && method === "POST") { return handlePostApprove(request, env); }
+
+        // Parameterized routes: /api/clients/:id[/notes | /documents/latest]
+        var segs = path.replace(/^\//, "").split("/");
+        if (segs[0] === "api" && segs[1] === "clients" && segs[2]) {
+            var cid = segs[2];
+            if (segs.length === 3 && method === "GET") {
+                return handleGetClient(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "notes") {
+                if (method === "GET")  { return handleGetClientNotes(cid, request, env); }
+                if (method === "POST") { return handlePostClientNote(cid, request, env); }
+            }
+            if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
+                return handleGetClientLatestDocument(cid, request, env);
+            }
+        }
 
         return jsonErr("Not found", 404);
     }

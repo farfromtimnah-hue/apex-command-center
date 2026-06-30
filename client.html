@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex — Cliente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Bilingual toggle ──────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Status badge (sessions table) ─────────────────────────────────── */
+    .status-badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .status-badge::before { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; }
+
+    body.lang-pt .status-badge[data-status="pending"]::before    { content: "Pendente"; }
+    body.lang-pt .status-badge[data-status="summarized"]::before { content: "Resumido"; }
+    body.lang-pt .status-badge[data-status="approved"]::before   { content: "Aprovado"; }
+    body.lang-en .status-badge[data-status="pending"]::before    { content: "Pending"; }
+    body.lang-en .status-badge[data-status="summarized"]::before { content: "Summarized"; }
+    body.lang-en .status-badge[data-status="approved"]::before   { content: "Approved"; }
+
+    .status-badge[data-status="pending"]    { background: #fdf3dc; color: #8a6200; }
+    .status-badge[data-status="summarized"] { background: #dce8fd; color: #1a4a8a; }
+    .status-badge[data-status="approved"]   { background: #ddfaec; color: #1a6640; }
+
+    /* ─── Summary section titles ─────────────────────────────────────────── */
+    .section-title { font-size: 13px; font-weight: 700; color: var(--brown); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.6px; }
+
+    body.lang-pt .section-title[data-key="discussion_overview"]::before    { content: "Visão Geral da Discussão"; }
+    body.lang-pt .section-title[data-key="recommendations"]::before        { content: "Recomendações"; }
+    body.lang-pt .section-title[data-key="client_action_items"]::before    { content: "Ações do Cliente"; }
+    body.lang-pt .section-title[data-key="rafa_followups"]::before         { content: "Follow-ups do Rafa"; }
+    body.lang-pt .section-title[data-key="next_session_focus"]::before     { content: "Foco da Próxima Sessão"; }
+    body.lang-pt .section-title[data-key="client_profile_updates"]::before { content: "Perfil do Cliente — Atualizações"; }
+    body.lang-en .section-title[data-key="discussion_overview"]::before    { content: "Discussion Overview"; }
+    body.lang-en .section-title[data-key="recommendations"]::before        { content: "Recommendations"; }
+    body.lang-en .section-title[data-key="client_action_items"]::before    { content: "Client Action Items"; }
+    body.lang-en .section-title[data-key="rafa_followups"]::before         { content: "Rafa Follow-ups"; }
+    body.lang-en .section-title[data-key="next_session_focus"]::before     { content: "Next Session Focus"; }
+    body.lang-en .section-title[data-key="client_profile_updates"]::before { content: "Client Profile Updates"; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .logo-img { height: 32px; width: auto; display: block; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 32px;
+      gap: 24px;
+      overflow-y: auto;
+    }
+
+    /* ─── Client page header ─────────────────────────────────────────────── */
+    .client-page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .client-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .client-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .package-lozenge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.5);
+      color: var(--brown);
+    }
+
+    .status-client-lozenge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    .status-client-lozenge[data-status="active"]   { background: #ddfaec; color: #1a6640; }
+    .status-client-lozenge[data-status="inactive"] { background: #fdf3dc; color: #8a6200; }
+    .status-client-lozenge[data-status="paused"]   { background: #fdf3dc; color: #8a6200; }
+    .status-client-lozenge[data-status="lead"]     { background: #dce8fd; color: #1a4a8a; }
+    .status-client-lozenge[data-status="closed"]   { background: #f2f2f2; color: #555; }
+
+    body.lang-pt .status-client-lozenge[data-status="active"]::before   { content: "Ativo"; }
+    body.lang-pt .status-client-lozenge[data-status="inactive"]::before { content: "Pausado"; }
+    body.lang-pt .status-client-lozenge[data-status="paused"]::before   { content: "Pausado"; }
+    body.lang-pt .status-client-lozenge[data-status="lead"]::before     { content: "Lead"; }
+    body.lang-pt .status-client-lozenge[data-status="closed"]::before   { content: "Encerrado"; }
+    body.lang-en .status-client-lozenge[data-status="active"]::before   { content: "Active"; }
+    body.lang-en .status-client-lozenge[data-status="inactive"]::before { content: "Paused"; }
+    body.lang-en .status-client-lozenge[data-status="paused"]::before   { content: "Paused"; }
+    body.lang-en .status-client-lozenge[data-status="lead"]::before     { content: "Lead"; }
+    body.lang-en .status-client-lozenge[data-status="closed"]::before   { content: "Closed"; }
+
+    .client-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    /* ─── Shared buttons ─────────────────────────────────────────────────── */
+    .btn-action {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-action:hover    { opacity: 0.88; }
+    .btn-action:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--text); color: var(--text); }
+
+    .btn-primary {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 10px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+    .btn-primary:hover    { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .btn-link:hover { opacity: 0.75; }
+
+    .btn-sm {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-sm:hover { border-color: var(--gold); color: var(--gold); }
+
+    .btn-add {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-add:hover { border-color: var(--gold); color: var(--gold); }
+
+    .pull-status {
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 16px;
+      margin-top: 4px;
+    }
+    .pull-status.is-error { color: #b44040; }
+    .pull-status.is-ok    { color: #1a6640; }
+
+    /* ─── Two-column layout ──────────────────────────────────────────────── */
+    .two-col-layout {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .col-main {
+      flex: 0 0 65%;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-width: 0;
+    }
+
+    .col-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    /* ─── Content cards (left column) ───────────────────────────────────── */
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .content-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ─── Sessions table ─────────────────────────────────────────────────── */
+    .sessions-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .sessions-table th {
+      padding: 10px 18px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sessions-table td {
+      padding: 13px 18px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .sessions-table tr:last-child td { border-bottom: none; }
+    .sessions-table tr:hover td { background: var(--surface); }
+
+    .session-row-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pdf-status {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pdf-status.is-ok    { color: #1a6640; }
+    .pdf-status.is-error { color: #b44040; }
+
+    /* ─── Empty state ────────────────────────────────────────────────────── */
+    .sessions-empty {
+      padding: 52px 24px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .empty-icon {
+      font-size: 42px;
+      margin-bottom: 4px;
+      opacity: 0.6;
+    }
+
+    .empty-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .empty-helper {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 360px;
+      line-height: 1.6;
+    }
+
+    .btn-cta {
+      margin-top: 4px;
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 22px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-cta:hover { opacity: 0.88; }
+
+    /* ─── Notes section ──────────────────────────────────────────────────── */
+    .notes-list { padding: 4px 0; }
+
+    .note-item {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .note-item:last-child { border-bottom: none; }
+
+    .note-content {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+      white-space: pre-wrap;
+      margin-bottom: 6px;
+    }
+
+    .note-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .notes-empty {
+      padding: 28px 20px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* ─── Info cards (right column) ──────────────────────────────────────── */
+    .info-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 20px;
+    }
+
+    .info-card-heading {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .info-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 9px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .info-row:last-child { margin-bottom: 0; }
+
+    .info-label {
+      color: var(--muted);
+      flex-shrink: 0;
+      min-width: 80px;
+    }
+
+    .info-value {
+      color: var(--text);
+      font-weight: 500;
+      word-break: break-word;
+    }
+
+    .profile-text {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .coming-soon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .coming-soon-icon { font-size: 22px; opacity: 0.5; }
+
+    /* ─── Summary cards (in modal) ───────────────────────────────────────── */
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 12px;
+    }
+    .summary-card:last-child { margin-bottom: 0; }
+
+    .summary-text {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    /* ─── Modals ─────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,29,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay[hidden] { display: none !important; }
+
+    .modal-box {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 8px 48px rgba(26,26,29,0.22);
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-box-wide { max-width: 740px; }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--card);
+      z-index: 1;
+    }
+
+    .modal-header h3 { font-size: 16px; font-weight: 700; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    .modal-body {
+      padding: 20px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field-group input,
+    .field-group textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 11px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.15s;
+    }
+    .field-group input:focus,
+    .field-group textarea:focus { outline: none; border-color: var(--gold); }
+    .field-group textarea { resize: vertical; min-height: 130px; line-height: 1.5; }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 820px) {
+      .two-col-layout { flex-direction: column; }
+      .col-main { flex: none; width: 100%; }
+      .col-side { width: 100%; }
+      #appMain { padding: 16px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
+  <header id="appHeader">
+    <a href="dashboard.html" style="display:flex;align-items:center;">
+      <img
+        src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
+        alt="Apex"
+        class="logo-img"
+      >
+    </a>
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="toggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════════ LOADING ══════════════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- Client page header -->
+    <div class="client-page-header">
+      <div>
+        <h1 class="client-name" id="clientName">—</h1>
+        <div class="client-badges" id="clientBadges"></div>
+      </div>
+      <div class="client-actions">
+        <button class="btn-action" onclick="openNewSessionModal()">
+          <span class="show-pt">Nova Sessão</span>
+          <span class="show-en">New Session</span>
+        </button>
+        <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
+          <span class="show-pt">Gerar PDF</span>
+          <span class="show-en">Generate PDF</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="two-col-layout">
+
+      <!-- ── LEFT: Sessions + Notes ─────────────────────────────────────── -->
+      <div class="col-main">
+
+        <!-- Sessions section -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Sessões</span>
+              <span class="show-en">Sessions</span>
+            </h2>
+          </div>
+          <div id="sessionsSection">
+            <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+          </div>
+        </div>
+
+        <!-- Notes section -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Notas</span>
+              <span class="show-en">Notes</span>
+            </h2>
+            <button class="btn-add" onclick="openNoteModal()">
+              + <span class="show-pt">Adicionar Nota</span><span class="show-en">Add Note</span>
+            </button>
+          </div>
+          <div id="notesSection">
+            <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+          </div>
+        </div>
+
+      </div><!-- /col-main -->
+
+      <!-- ── RIGHT: Info + Document + Activity ──────────────────────────── -->
+      <div class="col-side">
+
+        <!-- Client info card -->
+        <div class="info-card" id="clientInfoCard">
+          <div class="info-card-heading">
+            <span class="show-pt">Informações</span>
+            <span class="show-en">Info</span>
+          </div>
+          <div class="coming-soon"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>
+        </div>
+
+        <!-- Document summary -->
+        <div class="info-card" id="documentCard">
+          <div class="info-card-heading">
+            <span class="show-pt">Documentos</span>
+            <span class="show-en">Documents</span>
+          </div>
+          <div class="coming-soon"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>
+        </div>
+
+        <!-- Activity timeline: placeholder — no activity log data source exists yet -->
+        <div class="info-card">
+          <div class="info-card-heading">
+            <span class="show-pt">Atividade Recente</span>
+            <span class="show-en">Recent Activity</span>
+          </div>
+          <div class="coming-soon">
+            <div class="coming-soon-icon">⏳</div>
+            <span class="show-pt">Em breve</span>
+            <span class="show-en">Coming soon</span>
+          </div>
+        </div>
+
+      </div><!-- /col-side -->
+
+    </div><!-- /two-col-layout -->
+
+  </main><!-- /appMain -->
+
+  <!-- ═══════════════ MODAL: Nova Sessão ═══════════════════════════════════ -->
+  <div id="modalNewSession" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Nova Sessão</span>
+          <span class="show-en">New Session</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalNewSession')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <input type="date" id="nsDate">
+        </div>
+        <div class="field-group">
+          <textarea
+            id="nsTranscript"
+            style="min-height:180px;"
+            placeholder="Cole o transcript aqui... / Paste transcript here..."
+          ></textarea>
+        </div>
+        <button class="btn-primary" id="btnSaveSession" onclick="handleNewSession()">
+          <span class="show-pt">Salvar Sessão</span>
+          <span class="show-en">Save Session</span>
+        </button>
+        <div class="pull-status" id="nsStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Ver Resumo ════════════════════════════════════ -->
+  <div id="modalSummary" class="modal-overlay" hidden>
+    <div class="modal-box modal-box-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="summaryModalTitle"></h3>
+        <button class="modal-close" onclick="closeModalById('modalSummary')">×</button>
+      </div>
+      <div class="modal-body" id="summaryModalBody"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Adicionar Nota ════════════════════════════════ -->
+  <div id="modalNote" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Adicionar Nota</span>
+          <span class="show-en">Add Note</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalNote')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <textarea
+            id="noteContent"
+            style="min-height:120px;"
+            placeholder="Nota..."
+          ></textarea>
+        </div>
+        <button class="btn-primary" id="btnSaveNote" onclick="handleAddNote()">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div class="pull-status" id="noteStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
+  <script>
+    // ── Configuration ──────────────────────────────────────────────────────
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var SECTION_KEYS = [
+      "discussion_overview",
+      "recommendations",
+      "client_action_items",
+      "rafa_followups",
+      "next_session_focus",
+      "client_profile_updates"
+    ];
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth        = null;
+    var currentUser = null;
+    var CLIENT_ID   = new URLSearchParams(window.location.search).get("id");
+    var clientData  = null;
+    var sessions    = [];
+    var latestApprovedSession = null; // for header Gerar PDF
+
+    if (!CLIENT_ID) { window.location.href = "dashboard.html"; }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+
+    function toggleLang() {
+      var b = document.body;
+      if (b.classList.contains("lang-pt")) {
+        b.classList.remove("lang-pt");
+        b.classList.add("lang-en");
+      } else {
+        b.classList.remove("lang-en");
+        b.classList.add("lang-pt");
+      }
+    }
+
+    function formatDate(str) {
+      if (!str) { return "--"; }
+      var p = str.split("-");
+      if (p.length !== 3) { return str; }
+      return p[2] + "/" + p[1] + "/" + p[0];
+    }
+
+    function formatDateTime(str) {
+      if (!str) { return "--"; }
+      var normalized = str.replace("T", " ").split(".")[0];
+      var parts      = normalized.split(" ");
+      var datePart   = parts[0] || "";
+      var timePart   = parts[1] ? parts[1].slice(0, 5) : "";
+      var d = datePart.split("-");
+      var date = d.length === 3 ? d[2] + "/" + d[1] + "/" + d[0] : datePart;
+      return timePart ? date + " " + timePart : date;
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function apiFetch(path, opts) {
+      return getToken().then(function(token) {
+        var method  = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + token };
+        var fetchOpts = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fetchOpts.body = JSON.stringify(opts.body);
+        }
+        return fetch(WORKER_URL + path, fetchOpts);
+      });
+    }
+
+    function closeModalById(id) {
+      document.getElementById(id).hidden = true;
+    }
+
+    // Close modal on overlay click
+    document.addEventListener("click", function(e) {
+      var modals = ["modalNewSession", "modalSummary", "modalNote"];
+      for (var i = 0; i < modals.length; i++) {
+        var el = document.getElementById(modals[i]);
+        if (el && !el.hidden && e.target === el) {
+          el.hidden = true;
+        }
+      }
+    });
+
+    // ── Auth & bootstrap ───────────────────────────────────────────────────
+
+    function handleSignOut() {
+      auth.signOut().then(function() {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        window.location.href = "index.html";
+      });
+    }
+
+    function setupPage(role) {
+      document.getElementById("headerEmail").textContent =
+        sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      document.getElementById("headerRole").textContent = role;
+
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden = false;
+
+      loadClientPage();
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function(user) {
+        if (!user) { window.location.href = "index.html"; return; }
+        currentUser = user;
+        var cachedRole = sessionStorage.getItem("apex_role");
+        if (cachedRole) {
+          setupPage(cachedRole);
+        } else {
+          getToken().then(function(token) {
+            return fetch(WORKER_URL + "/api/role", {
+              headers: { "Authorization": "Bearer " + token }
+            });
+          }).then(function(res) {
+            return res.json();
+          }).then(function(data) {
+            sessionStorage.setItem("apex_role",  data.role);
+            sessionStorage.setItem("apex_email", data.email);
+            setupPage(data.role);
+          }).catch(function() {
+            window.location.href = "index.html";
+          });
+        }
+      });
+    }
+
+    // ── Load page data (parallel) ──────────────────────────────────────────
+
+    function loadClientPage() {
+      loadClient();
+      loadSessions();
+      loadNotes();
+      loadLatestDocument();
+    }
+
+    function loadClient() {
+      apiFetch("/api/clients/" + CLIENT_ID)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          clientData = data.client;
+          renderClientHeader(clientData);
+          renderClientInfoCard(clientData);
+        })
+        .catch(function(e) {
+          document.getElementById("clientName").textContent = "Cliente não encontrado";
+          console.error("Load client error:", e.message);
+        });
+    }
+
+    function loadSessions() {
+      apiFetch("/api/sessions?client_id=" + CLIENT_ID)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          sessions = data.sessions || [];
+          // Track most recent approved session with pdf_data for header button
+          latestApprovedSession = null;
+          for (var i = 0; i < sessions.length; i++) {
+            if (sessions[i].status === "approved" && sessions[i].pdf_data) {
+              latestApprovedSession = sessions[i];
+              break;
+            }
+          }
+          if (latestApprovedSession) {
+            document.getElementById("btnHeaderPdf").hidden = false;
+          }
+          renderSessionsSection(sessions);
+        })
+        .catch(function(e) {
+          document.getElementById("sessionsSection").innerHTML =
+            '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar sessões.</div>';
+          console.error("Load sessions error:", e.message);
+        });
+    }
+
+    function loadNotes() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/notes")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          renderNotesSection(data.notes || []);
+        })
+        .catch(function(e) {
+          document.getElementById("notesSection").innerHTML =
+            '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar notas.</div>';
+          console.error("Load notes error:", e.message);
+        });
+    }
+
+    function loadLatestDocument() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/documents/latest")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          renderDocumentCard(data.document);
+        })
+        .catch(function(e) {
+          renderDocumentCard(null);
+          console.error("Load document error:", e.message);
+        });
+    }
+
+    // ── Render: client header ──────────────────────────────────────────────
+
+    function renderClientHeader(client) {
+      document.getElementById("clientName").textContent = client.name || "—";
+      document.title = "Apex — " + (client.name || "Cliente");
+
+      var badgesEl = document.getElementById("clientBadges");
+      badgesEl.innerHTML = "";
+
+      if (client.package) {
+        var pkg = document.createElement("span");
+        pkg.className = "package-lozenge";
+        pkg.textContent = client.package;
+        badgesEl.appendChild(pkg);
+      }
+
+      var statusVal = (client.status || "active").toLowerCase();
+      var statusEl  = document.createElement("span");
+      statusEl.className = "status-client-lozenge";
+      statusEl.setAttribute("data-status", statusVal);
+      badgesEl.appendChild(statusEl);
+    }
+
+    // ── Render: client info card ───────────────────────────────────────────
+
+    function renderClientInfoCard(client) {
+      var card = document.getElementById("clientInfoCard");
+
+      var headingEl = document.createElement("div");
+      headingEl.className = "info-card-heading";
+      headingEl.innerHTML = '<span class="show-pt">Informações</span><span class="show-en">Info</span>';
+
+      var rows = [];
+
+      function addRow(labelPt, labelEn, value) {
+        if (!value) { return; }
+        rows.push({
+          labelPt: labelPt,
+          labelEn: labelEn,
+          value: value
+        });
+      }
+
+      addRow("Sócios",        "Owners",    client.owners);
+      addRow("Setor",         "Industry",  client.industry);
+      addRow("Localização",   "Location",  client.location);
+      addRow("Telefone",      "Phone",     client.phone);
+      addRow("Email",         "Email",     client.email);
+      addRow("WhatsApp",      "WhatsApp",  client.whatsapp);
+
+      var rowsEl = document.createElement("div");
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var rowEl = document.createElement("div");
+        rowEl.className = "info-row";
+
+        var labelEl = document.createElement("span");
+        labelEl.className = "info-label";
+        labelEl.innerHTML =
+          '<span class="show-pt">' + escHtml(r.labelPt) + '</span>' +
+          '<span class="show-en">' + escHtml(r.labelEn) + '</span>';
+
+        var valEl = document.createElement("span");
+        valEl.className = "info-value";
+        valEl.textContent = r.value;
+
+        rowEl.appendChild(labelEl);
+        rowEl.appendChild(valEl);
+        rowsEl.appendChild(rowEl);
+      }
+
+      card.innerHTML = "";
+      card.appendChild(headingEl);
+      card.appendChild(rowsEl);
+
+      // Profile text (bilingual)
+      if (client.profile_pt || client.profile_en) {
+        var profileEl = document.createElement("div");
+        profileEl.className = "profile-text";
+
+        if (client.profile_pt) {
+          var ptP = document.createElement("p");
+          ptP.className = "show-pt";
+          ptP.style.cssText = "font-size:13px;line-height:1.7;color:var(--text);";
+          ptP.textContent = client.profile_pt;
+          profileEl.appendChild(ptP);
+        }
+        if (client.profile_en) {
+          var enP = document.createElement("p");
+          enP.className = "show-en";
+          enP.style.cssText = "font-size:13px;line-height:1.7;color:var(--text);";
+          enP.textContent = client.profile_en;
+          profileEl.appendChild(enP);
+        }
+        card.appendChild(profileEl);
+      }
+    }
+
+    // ── Render: sessions section ───────────────────────────────────────────
+
+    function renderSessionsSection(sess) {
+      var container = document.getElementById("sessionsSection");
+
+      if (!sess || sess.length === 0) {
+        container.innerHTML = "";
+        var empty = document.createElement("div");
+        empty.className = "sessions-empty";
+        empty.innerHTML =
+          '<div class="empty-icon">📅</div>' +
+          '<div class="empty-title show-pt">Nenhuma sessão ainda</div>' +
+          '<div class="empty-title show-en" style="display:none;">No sessions yet</div>' +
+          '<div class="empty-helper show-pt">Sessões, resumos e documentos aparecerao aqui após a primeira sessão.</div>' +
+          '<div class="empty-helper show-en" style="display:none;">Sessions, summaries and documents will appear here after the first session.</div>';
+        var ctaBtn = document.createElement("button");
+        ctaBtn.className = "btn-cta";
+        ctaBtn.innerHTML = '<span class="show-pt">Criar Primeira Sessão</span><span class="show-en">Create First Session</span>';
+        ctaBtn.onclick = openNewSessionModal;
+        empty.appendChild(ctaBtn);
+        container.appendChild(empty);
+        return;
+      }
+
+      var table = document.createElement("table");
+      table.className = "sessions-table";
+
+      var thead = document.createElement("thead");
+      thead.innerHTML =
+        "<tr>" +
+          '<th class="show-pt">Data</th><th class="show-en" style="display:none">Date</th>' +
+          '<th class="show-pt">Tipo</th><th class="show-en" style="display:none">Type</th>' +
+          '<th class="show-pt">Status</th><th class="show-en" style="display:none">Status</th>' +
+          '<th class="show-pt">Ações</th><th class="show-en" style="display:none">Actions</th>' +
+        "</tr>";
+      table.appendChild(thead);
+
+      var tbody = document.createElement("tbody");
+      for (var i = 0; i < sess.length; i++) {
+        (function(s) {
+          var tr = document.createElement("tr");
+
+          var tdDate = document.createElement("td");
+          tdDate.textContent = formatDate(s.date);
+          tdDate.style.fontWeight = "500";
+
+          var tdTipo = document.createElement("td");
+          tdTipo.innerHTML = '<span class="show-pt">Sessão</span><span class="show-en">Session</span>';
+          tdTipo.style.color = "var(--muted)";
+
+          var tdStatus = document.createElement("td");
+          var badge = document.createElement("span");
+          badge.className = "status-badge";
+          badge.setAttribute("data-status", s.status);
+          tdStatus.appendChild(badge);
+
+          var tdAcoes = document.createElement("td");
+          var actDiv  = document.createElement("div");
+          actDiv.className = "session-row-actions";
+
+          // Ver button
+          if (s.summary_json) {
+            var verBtn = document.createElement("button");
+            verBtn.className = "btn-sm";
+            verBtn.innerHTML = '<span class="show-pt">Ver</span><span class="show-en">View</span>';
+            verBtn.onclick = function() { openSummaryModal(s); };
+            actDiv.appendChild(verBtn);
+          }
+
+          // Gerar PDF button
+          if (s.status === "approved" && s.pdf_data) {
+            var pdfBtn = document.createElement("button");
+            pdfBtn.className = "btn-sm";
+            pdfBtn.innerHTML = '<span class="show-pt">Gerar PDF</span><span class="show-en">Generate PDF</span>';
+            var pdfStatusEl = document.createElement("span");
+            pdfStatusEl.className = "pdf-status";
+            pdfBtn.onclick = function() { handleGeneratePdf(s, pdfStatusEl, pdfBtn); };
+            actDiv.appendChild(pdfBtn);
+            actDiv.appendChild(pdfStatusEl);
+          }
+
+          tdAcoes.appendChild(actDiv);
+
+          tr.appendChild(tdDate);
+          tr.appendChild(tdTipo);
+          tr.appendChild(tdStatus);
+          tr.appendChild(tdAcoes);
+          tbody.appendChild(tr);
+        })(sess[i]);
+      }
+      table.appendChild(tbody);
+      container.innerHTML = "";
+      container.appendChild(table);
+    }
+
+    // ── Render: notes section ──────────────────────────────────────────────
+
+    function renderNotesSection(notes) {
+      var container = document.getElementById("notesSection");
+      container.innerHTML = "";
+
+      if (!notes || notes.length === 0) {
+        var emptyEl = document.createElement("div");
+        emptyEl.className = "notes-empty";
+        emptyEl.innerHTML =
+          '<span class="show-pt">Nenhuma nota ainda.</span>' +
+          '<span class="show-en">No notes yet.</span>';
+        container.appendChild(emptyEl);
+        return;
+      }
+
+      var list = document.createElement("div");
+      list.className = "notes-list";
+      for (var i = 0; i < notes.length; i++) {
+        var n     = notes[i];
+        var item  = document.createElement("div");
+        item.className = "note-item";
+
+        var contentEl = document.createElement("div");
+        contentEl.className = "note-content";
+        contentEl.textContent = n.content;
+
+        var metaEl = document.createElement("div");
+        metaEl.className = "note-meta";
+        metaEl.textContent = (n.created_by || "—") + " · " + formatDateTime(n.created_at);
+
+        item.appendChild(contentEl);
+        item.appendChild(metaEl);
+        list.appendChild(item);
+      }
+      container.appendChild(list);
+    }
+
+    // ── Render: document card ──────────────────────────────────────────────
+
+    function renderDocumentCard(doc) {
+      var card = document.getElementById("documentCard");
+      card.innerHTML = "";
+
+      var headingEl = document.createElement("div");
+      headingEl.className = "info-card-heading";
+      headingEl.innerHTML =
+        '<span class="show-pt">Documentos</span>' +
+        '<span class="show-en">Documents</span>';
+      card.appendChild(headingEl);
+
+      if (!doc) {
+        var emptyEl = document.createElement("div");
+        emptyEl.style.cssText = "font-size:13px;color:var(--muted);";
+        emptyEl.innerHTML =
+          '<span class="show-pt">Nenhum documento ainda.</span>' +
+          '<span class="show-en">No documents yet.</span>';
+        card.appendChild(emptyEl);
+        return;
+      }
+
+      var rowEl = document.createElement("div");
+      rowEl.className = "info-row";
+      rowEl.style.flexDirection = "column";
+      rowEl.style.gap = "4px";
+
+      var labelEl = document.createElement("div");
+      labelEl.className = "info-label";
+      labelEl.innerHTML =
+        '<span class="show-pt">Último relatório</span>' +
+        '<span class="show-en">Latest report</span>';
+
+      var valEl = document.createElement("div");
+      valEl.className = "info-value";
+      valEl.style.display = "flex";
+      valEl.style.alignItems = "center";
+      valEl.style.gap = "8px";
+
+      var dateSpan = document.createElement("span");
+      dateSpan.textContent = formatDateTime(doc.created_at);
+
+      var badgeEl = document.createElement("span");
+      badgeEl.className = "status-badge";
+      badgeEl.setAttribute("data-status", "approved");
+
+      valEl.appendChild(dateSpan);
+      valEl.appendChild(badgeEl);
+      rowEl.appendChild(labelEl);
+      rowEl.appendChild(valEl);
+      card.appendChild(rowEl);
+    }
+
+    // ── Summary modal ──────────────────────────────────────────────────────
+
+    function openSummaryModal(session) {
+      var modal     = document.getElementById("modalSummary");
+      var titleEl   = document.getElementById("summaryModalTitle");
+      var bodyEl    = document.getElementById("summaryModalBody");
+
+      titleEl.textContent = session.client_name + " — " + formatDate(session.date);
+      bodyEl.innerHTML    = "";
+
+      var summary = null;
+      if (session.summary_json) {
+        try { summary = JSON.parse(session.summary_json); } catch (e) { /* ignore */ }
+      }
+
+      renderSummaryCards(bodyEl, summary);
+      modal.hidden = false;
+    }
+
+    function renderSummaryCards(container, summary) {
+      container.innerHTML = "";
+      if (!summary) {
+        container.innerHTML = '<p style="color:var(--muted);font-size:13px;">Resumo não disponível.</p>';
+        return;
+      }
+
+      for (var i = 0; i < SECTION_KEYS.length; i++) {
+        var key  = SECTION_KEYS[i];
+        var sec  = summary[key] || {};
+        var card = document.createElement("div");
+        card.className = "summary-card";
+
+        var titleEl = document.createElement("h3");
+        titleEl.className = "section-title";
+        titleEl.setAttribute("data-key", key);
+        card.appendChild(titleEl);
+
+        var ptWrap = document.createElement("div");
+        ptWrap.className = "show-pt";
+        var ptP = document.createElement("p");
+        ptP.className = "summary-text";
+        ptP.textContent = sec.pt || "";
+        ptWrap.appendChild(ptP);
+
+        var enWrap = document.createElement("div");
+        enWrap.className = "show-en";
+        var enP = document.createElement("p");
+        enP.className = "summary-text";
+        enP.textContent = sec.en || "";
+        enWrap.appendChild(enP);
+
+        card.appendChild(ptWrap);
+        card.appendChild(enWrap);
+        container.appendChild(card);
+      }
+    }
+
+    // ── New session modal ──────────────────────────────────────────────────
+
+    function openNewSessionModal() {
+      var today = new Date().toISOString().split("T")[0];
+      document.getElementById("nsDate").value       = today;
+      document.getElementById("nsTranscript").value = "";
+      document.getElementById("nsStatus").textContent = "";
+      document.getElementById("nsStatus").className   = "pull-status";
+      document.getElementById("btnSaveSession").disabled = false;
+      document.getElementById("modalNewSession").hidden  = false;
+    }
+
+    function handleNewSession() {
+      var transcript = document.getElementById("nsTranscript").value.trim();
+      var date       = document.getElementById("nsDate").value;
+      var statusEl   = document.getElementById("nsStatus");
+      var btn        = document.getElementById("btnSaveSession");
+
+      if (!transcript) {
+        statusEl.textContent = "O transcript é obrigatório.";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+
+      btn.disabled         = true;
+      statusEl.textContent = "Salvando...";
+      statusEl.className   = "pull-status";
+
+      apiFetch("/api/transcript", {
+        method: "POST",
+        body: { client_id: CLIENT_ID, transcript: transcript, date: date || null }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Sessão salva.";
+          statusEl.className   = "pull-status is-ok";
+          setTimeout(function() {
+            closeModalById("modalNewSession");
+            loadSessions();
+          }, 800);
+        })
+        .catch(function(e) {
+          btn.disabled         = false;
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className   = "pull-status is-error";
+        });
+    }
+
+    // ── Header Gerar PDF ───────────────────────────────────────────────────
+
+    function handleHeaderPdf() {
+      if (!latestApprovedSession) { return; }
+      handleGeneratePdf(latestApprovedSession, null, document.getElementById("btnHeaderPdf"));
+    }
+
+    // ── Generate PDF (adapted from dashboard.html) ─────────────────────────
+    // statusEl and btnEl are optional — if null, errors go to console only
+
+    function handleGeneratePdf(session, statusEl, btnEl) {
+      var pdfData;
+      try {
+        pdfData = session.pdf_data ? JSON.parse(session.pdf_data) : null;
+      } catch (e) {
+        if (statusEl) {
+          statusEl.textContent = "Erro: não foi possível ler pdf_data.";
+          statusEl.className   = "pdf-status is-error";
+        }
+        return;
+      }
+
+      if (!pdfData) {
+        if (statusEl) {
+          statusEl.textContent = "pdf_data ausente — execute Gerar Resumo para gerar o PDF.";
+          statusEl.className   = "pdf-status is-error";
+        }
+        return;
+      }
+
+      if (btnEl) { btnEl.disabled = true; }
+      if (statusEl) {
+        statusEl.textContent = "Abrindo...";
+        statusEl.className   = "pdf-status";
+      }
+
+      var dateParts    = (session.date || "").split("-");
+      var reportNumber = dateParts.length === 3
+        ? dateParts[0] + "-" + dateParts[1] + dateParts[2]
+        : (session.date || "");
+      var nameWords  = (session.client_name || "").split(/\s+/);
+      var reportCode = "";
+      for (var wi = 0; wi < nameWords.length; wi++) {
+        if (nameWords[wi]) { reportCode += nameWords[wi].charAt(0).toUpperCase(); }
+      }
+      reportCode = reportCode.slice(0, 4) || "XX";
+
+      var data = {};
+      for (var k in pdfData) {
+        if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; }
+      }
+      data.client_name     = session.client_name;
+      data.session_date    = formatDate(session.date);
+      data.consultant_name = "Rafael Prata";
+      data.report_number   = reportNumber;
+      data.report_code     = reportCode;
+      data.client_logo     = null;
+
+      var TEMPLATE_URL = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
+      var newTab = window.open(TEMPLATE_URL, "_blank");
+
+      if (!newTab) {
+        if (statusEl) {
+          statusEl.textContent = "Popup bloqueado — permita popups e tente novamente.";
+          statusEl.className   = "pdf-status is-error";
+        }
+        if (btnEl) { btnEl.disabled = false; }
+        return;
+      }
+
+      var sent = false;
+      function sendData() {
+        if (sent) { return; }
+        sent = true;
+        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
+        if (btnEl) { btnEl.disabled = false; }
+        if (statusEl) {
+          statusEl.textContent = "Diálogo de impressão aberto.";
+          statusEl.className   = "pdf-status is-ok";
+        }
+      }
+
+      var fallbackId = setTimeout(sendData, 1500);
+      newTab.addEventListener("load", function() {
+        clearTimeout(fallbackId);
+        sendData();
+      });
+    }
+
+    // ── Note modal ─────────────────────────────────────────────────────────
+
+    function openNoteModal() {
+      document.getElementById("noteContent").value    = "";
+      document.getElementById("noteStatus").textContent = "";
+      document.getElementById("noteStatus").className   = "pull-status";
+      document.getElementById("btnSaveNote").disabled   = false;
+      document.getElementById("modalNote").hidden        = false;
+    }
+
+    function handleAddNote() {
+      var content  = document.getElementById("noteContent").value.trim();
+      var statusEl = document.getElementById("noteStatus");
+      var btn      = document.getElementById("btnSaveNote");
+
+      if (!content) {
+        statusEl.textContent = "A nota não pode estar vazia.";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+
+      btn.disabled         = true;
+      statusEl.textContent = "Salvando...";
+      statusEl.className   = "pull-status";
+
+      apiFetch("/api/clients/" + CLIENT_ID + "/notes", {
+        method: "POST",
+        body: { content: content }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Nota salva.";
+          statusEl.className   = "pull-status is-ok";
+          setTimeout(function() {
+            closeModalById("modalNote");
+            loadNotes();
+          }, 600);
+        })
+        .catch(function(e) {
+          btn.disabled         = false;
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className   = "pull-status is-error";
+        });
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+    init();
+  </script>
+
+</body>
+</html>

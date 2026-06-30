@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 5)
+**Last updated:** 2026-06-30 (session 6)
 **Current phase:** Phase 1 — manual transcript intake
-**Last session summary:** Final PDF polish — removed redundant cover-page text (logo image already contains APEX / BUSINESS & LEADERSHIP), added static then dynamic document title so browser print dialog suggests a real filename. PDF pipeline is now fully functional end-to-end.
+**Last session summary:** Phase 1 PDF generation complete and verified end-to-end. Fixed consultant name (Rafael Andrade → Rafael Prata). Data propagation, native print export, logo/filename polish, and correct consultant name all confirmed working.
 
 ---
 
@@ -32,6 +32,9 @@
   - Fix 1: worker/index.js handleGetSessions — added pdf_data to SELECT list
   - Fix 2: dashboard.html handleGeneratePdf — now reads JSON.parse(session.pdf_data) directly
   - Confirmed: wrangler deploy successful, version 1e869289, apex-api.farfromtimnah.workers.dev
+- [x] Phase 1 PDF pipeline fully complete and verified — 2026-06-30 (session 6)
+  - Fixed consultant name: "Rafael Andrade" → "Rafael Prata" in dashboard.html buildTemplateData()
+  - Data propagation, native print export, logo/filename polish, correct consultant name all confirmed end-to-end
 - [x] PDF template cosmetic polish — 2026-06-30 (session 5)
   - Removed redundant "APEX" / "BUSINESS & LEADERSHIP" text next to cover logo (logo image already contains that text)
   - Added static <title>Apex - Relatorio Estrategico</title> so print dialog has a real default filename

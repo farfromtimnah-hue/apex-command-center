@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 4)
+**Last updated:** 2026-06-30 (session 5)
 **Current phase:** Phase 1 — manual transcript intake
-**Last session summary:** Replaced html2pdf.js export with native browser print-to-PDF. Template opens in a new tab, receives data via postMessage, calls window.print() from inside its own window so the browser's native print dialog appears over the template (not the dashboard). Slicing artifacts from html2pdf are gone.
+**Last session summary:** Final PDF polish — removed redundant cover-page text (logo image already contains APEX / BUSINESS & LEADERSHIP), added static then dynamic document title so browser print dialog suggests a real filename. PDF pipeline is now fully functional end-to-end.
 
 ---
 
@@ -32,6 +32,11 @@
   - Fix 1: worker/index.js handleGetSessions — added pdf_data to SELECT list
   - Fix 2: dashboard.html handleGeneratePdf — now reads JSON.parse(session.pdf_data) directly
   - Confirmed: wrangler deploy successful, version 1e869289, apex-api.farfromtimnah.workers.dev
+- [x] PDF template cosmetic polish — 2026-06-30 (session 5)
+  - Removed redundant "APEX" / "BUSINESS & LEADERSHIP" text next to cover logo (logo image already contains that text)
+  - Added static <title>Apex - Relatorio Estrategico</title> so print dialog has a real default filename
+  - renderReport() now sets document.title dynamically to "Apex - {client_name} - {session_date}" before fillSlots()
+  - PDF pipeline confirmed fully functional end-to-end: data propagation fixed (session 3), native print replacing html2pdf (session 4), polish (session 5)
 - [x] PDF export switched from html2pdf.js to native browser print — 2026-06-30 (session 4)
   - Root cause of old approach: html2pdf slices the page into fixed-height chunks with no awareness of CSS page-break rules, producing dark bars and split content
   - The template already carried "CMD/CTRL + P PARA EXPORTAR PDF" — it was designed for native print from the start

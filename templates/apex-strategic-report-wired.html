@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<title>Apex - Relatorio Estrategico</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
@@ -41,10 +42,6 @@
       <div style="display:flex; align-items:center; gap:30px;">
         <div style="display:flex; align-items:center; gap:16px;">
           <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex Business &amp; Leadership" style="height: 46px; width: auto;">
-          <div style="line-height:1;">
-            <div style="font-family:'Inter',sans-serif; font-weight:800; font-size:26px; letter-spacing:.22em; color:#C9A43A;">APEX</div>
-            <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:8.5px; letter-spacing:.34em; color:#C9A43A; margin-top:6px;">BUSINESS &amp; LEADERSHIP</div>
-          </div>
         </div>
         <div style="width:1px; height:32px; background:#C9A43A;"></div>
         <div id="cover-cobrand" style="font-family:'Inter',sans-serif; font-weight:800; font-size:15px; letter-spacing:.26em; color:#ffffff;"><span data-slot="client_name">MERIDIAN CAPITAL</span></div>
@@ -463,6 +460,9 @@
   // ── render function ───────────────────────────────────────────────────────
 
   function renderReport(data) {
+    if (data.client_name) {
+      document.title = 'Apex - ' + data.client_name + (data.session_date ? ' - ' + data.session_date : '');
+    }
     fillSlots(data);
     fillCover(data);
     fillHeadlineInsights(data.headline_insights);

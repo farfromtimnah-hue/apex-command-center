@@ -572,13 +572,42 @@
             <span class="show-en">New Session</span>
           </div>
           <div class="field-group">
-            <input
-              type="text"
-              id="clientName"
-              autocomplete="off"
-              placeholder="Client name"
-            >
+            <select id="clientSelect" onchange="handleNewClientSelect(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;">
+              <option value="">— selecionar cliente —</option>
+            </select>
           </div>
+
+          <!-- Inline create-client form (shown when "+ Novo Cliente" selected) -->
+          <div id="newClientForm" hidden style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--brown);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+              <span class="show-pt">Novo Cliente</span>
+              <span class="show-en">New Client</span>
+            </div>
+            <div class="field-group"><input type="text"  id="nc_name"     autocomplete="off" placeholder="Nome / Name *"></div>
+            <div class="field-group"><input type="text"  id="nc_owners"   autocomplete="off" placeholder="Sócios / Owners"></div>
+            <div class="field-group"><input type="text"  id="nc_industry" autocomplete="off" placeholder="Setor / Industry"></div>
+            <div class="field-group"><input type="text"  id="nc_location" autocomplete="off" placeholder="Localização / Location"></div>
+            <div class="field-group"><input type="text"  id="nc_package"  autocomplete="off" placeholder="Pacote / Package"></div>
+            <div class="field-group">
+              <select id="nc_status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
+                <option value="active">Ativo / Active</option>
+                <option value="lead">Lead</option>
+                <option value="inactive">Inativo / Inactive</option>
+              </select>
+            </div>
+            <div class="field-group"><input type="text"  id="nc_phone"    autocomplete="off" placeholder="Telefone / Phone"></div>
+            <div class="field-group"><input type="email" id="nc_email"    autocomplete="off" placeholder="Email"></div>
+            <div class="field-group"><input type="text"  id="nc_whatsapp" autocomplete="off" placeholder="WhatsApp"></div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <button class="btn-primary"    style="flex:1;font-size:12px;padding:8px 0;" onclick="handleCreateClient()">
+                <span class="show-pt">Salvar Cliente</span>
+                <span class="show-en">Save Client</span>
+              </button>
+              <button class="btn-secondary" style="padding:8px 12px;font-size:12px;" onclick="handleCancelNewClient()">✕</button>
+            </div>
+            <div class="pull-status" id="newClientStatus"></div>
+          </div>
+
           <div class="field-group">
             <input
               type="date"
@@ -731,6 +760,7 @@
     var currentRole     = null;
     var currentViewRole = null;
     var sessions        = [];
+    var clients         = [];
     var activeSessionId = null;
     var rafaActiveId    = null;
 
@@ -745,6 +775,7 @@
         b.classList.remove("lang-en");
         b.classList.add("lang-pt");
       }
+      renderClientDropdown();
     }
 
     function formatDate(str) {
@@ -818,6 +849,7 @@
 
       setView(currentViewRole);
       loadSessions();
+      loadClients();
     }
 
     function fetchRoleAndSetup() {
@@ -890,6 +922,117 @@
         })
         .catch(function(e) {
           console.error("Load sessions error:", e.message);
+        });
+    }
+
+    function loadClients() {
+      apiFetch("/api/clients")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          clients = data.clients || [];
+          renderClientDropdown();
+        })
+        .catch(function(e) {
+          console.error("Load clients error:", e.message);
+        });
+    }
+
+    function renderClientDropdown() {
+      var sel = document.getElementById("clientSelect");
+      if (!sel) { return; }
+      var current = (sel.value && sel.value !== "__new__") ? sel.value : "";
+      var isEn = document.body.classList.contains("lang-en");
+
+      sel.innerHTML = "";
+
+      var ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = isEn ? "— select client —" : "— selecionar cliente —";
+      sel.appendChild(ph);
+
+      var newOpt = document.createElement("option");
+      newOpt.value = "__new__";
+      newOpt.textContent = isEn ? "+ New Client" : "+ Novo Cliente";
+      sel.appendChild(newOpt);
+
+      var divider = document.createElement("option");
+      divider.disabled = true;
+      divider.textContent = "────────────────";
+      sel.appendChild(divider);
+
+      var sorted = clients.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+      for (var i = 0; i < sorted.length; i++) {
+        var c = sorted[i];
+        var opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === current) { opt.selected = true; }
+        sel.appendChild(opt);
+      }
+    }
+
+    function handleNewClientSelect(val) {
+      var form = document.getElementById("newClientForm");
+      if (!form) { return; }
+      if (val !== "__new__") { form.hidden = true; return; }
+      form.hidden = false;
+      var fields = ["nc_name", "nc_owners", "nc_industry", "nc_location", "nc_package", "nc_phone", "nc_email", "nc_whatsapp"];
+      for (var i = 0; i < fields.length; i++) {
+        var el = document.getElementById(fields[i]);
+        if (el) { el.value = ""; }
+      }
+      var st = document.getElementById("nc_status");
+      if (st) { st.value = "active"; }
+      var msg = document.getElementById("newClientStatus");
+      if (msg) { msg.textContent = ""; msg.className = "pull-status"; }
+      var nameEl = document.getElementById("nc_name");
+      if (nameEl) { nameEl.focus(); }
+    }
+
+    function handleCancelNewClient() {
+      var form = document.getElementById("newClientForm");
+      if (form) { form.hidden = true; }
+      var sel = document.getElementById("clientSelect");
+      if (sel) { sel.value = ""; }
+    }
+
+    function handleCreateClient() {
+      var nameEl  = document.getElementById("nc_name");
+      var statusEl = document.getElementById("newClientStatus");
+      var name = (nameEl ? nameEl.value : "").trim();
+      if (!name) {
+        statusEl.textContent = "Nome é obrigatório.";
+        statusEl.className = "pull-status is-error";
+        return;
+      }
+      statusEl.textContent = "Salvando...";
+      statusEl.className = "pull-status";
+
+      apiFetch("/api/clients", {
+        method: "POST",
+        body: {
+          name:     name,
+          owners:   (document.getElementById("nc_owners").value   || "").trim() || null,
+          industry: (document.getElementById("nc_industry").value || "").trim() || null,
+          location: (document.getElementById("nc_location").value || "").trim() || null,
+          package:  (document.getElementById("nc_package").value  || "").trim() || null,
+          status:    document.getElementById("nc_status").value   || "active",
+          phone:    (document.getElementById("nc_phone").value    || "").trim() || null,
+          email:    (document.getElementById("nc_email").value    || "").trim() || null,
+          whatsapp: (document.getElementById("nc_whatsapp").value || "").trim() || null
+        }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          clients.push({ id: data.client_id, name: name, status: "active" });
+          renderClientDropdown();
+          document.getElementById("clientSelect").value = data.client_id;
+          document.getElementById("newClientForm").hidden = true;
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "pull-status is-error";
         });
     }
 
@@ -1114,14 +1257,14 @@
     }
 
     function handlePullTranscript() {
-      var clientName  = document.getElementById("clientName").value.trim();
+      var clientId    = document.getElementById("clientSelect").value;
       var transcript  = document.getElementById("transcriptText").value.trim();
       var sessionDate = document.getElementById("sessionDate").value;
       var statusEl    = document.getElementById("pullStatus");
       var btn         = document.getElementById("btnPull");
 
-      if (!clientName || !transcript) {
-        statusEl.textContent = "Client name and transcript are required.";
+      if (!clientId || clientId === "__new__" || !transcript) {
+        statusEl.textContent = "Selecione um cliente e cole o transcript.";
         statusEl.className = "pull-status is-error";
         return;
       }
@@ -1132,7 +1275,7 @@
 
       apiFetch("/api/transcript", {
         method: "POST",
-        body: { client_name: clientName, transcript: transcript, date: sessionDate || null }
+        body: { client_id: clientId, transcript: transcript, date: sessionDate || null }
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {
@@ -1140,13 +1283,14 @@
           btn.disabled = false;
           statusEl.textContent = "Saved: " + data.client_name;
           statusEl.className = "pull-status is-ok";
-          document.getElementById("clientName").value   = "";
-          document.getElementById("sessionDate").value  = "";
+          document.getElementById("clientSelect").value  = "";
+          document.getElementById("sessionDate").value   = "";
           document.getElementById("transcriptText").value = "";
 
           var newSession = {
             id: data.session_id,
             client_name: data.client_name,
+            client_id: data.client_id,
             date: data.date,
             status: "pending",
             summary_json: null,

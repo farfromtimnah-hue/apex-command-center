@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 8)
-**Current phase:** Phase 1 — manual transcript intake
-**Last session summary:** Filtered archived sessions from dashboard list. handleGetSessions now queries WHERE status != 'archived'. 'archived' is the standing convention for hiding test/old sessions without deleting data.
+**Last updated:** 2026-06-30 (session 9)
+**Current phase:** Phase 2 complete — new schema + summarize route writing to session_summaries and documents
+**Last session summary:** Added session_summaries and documents tables to schema. Updated handlePostSummarize to write structured keys to session_summaries, pdf_data to documents, and pdf_data to sessions.pdf_data (dashboard compat). Phase 4 blocked pending Elevante content in clients/elevante.md.
 
 ---
 
@@ -21,6 +21,24 @@
 ## Test session: "Test 3", id 740c0efd-d19b-49aa-9866-cdafce1dd0f5 — has
 ## valid pdf_data inserted directly in D1. Use it to confirm PDF generation.
 ## ==========================================================================
+
+## Completed (session 9 — 2026-06-30)
+- [x] Phase 1 schema: session_summaries and documents tables added to schema.sql
+  - session_summaries: id, session_id (UNIQUE), summary_pt/en, recommendations_pt/en, client_action_items_pt/en, rafa_followups_pt/en, next_session_focus_pt/en, client_profile_updates_pt/en
+  - documents: id, session_id (UNIQUE), pdf_data TEXT, created_at
+  - sessions table: added pdf_data TEXT to schema.sql (already existed in live D1 — schema now matches)
+- [x] Phase 2: handlePostSummarize updated (worker/index.js)
+  - Writes pdf_data to sessions.pdf_data (dashboard compat fix — previously only test session had pdf_data)
+  - Writes 6 structured keys to session_summaries using ON CONFLICT upsert
+  - Writes pdf_data verbatim to documents using ON CONFLICT upsert
+  - All 3 writes are idempotent — re-summarizing a session updates in place
+- [x] Phase 4: Elevante RDE 04 seed built and validated (clients/elevate_seed.sql)
+  - clients/elevante.md populated with full session content
+  - clients/elevate_seed.sql: 3 INSERTs (sessions, session_summaries, documents) — all JSON blobs validated
+  - Session UUID: f4a8d2e1-3c5b-4f7e-8a9b-0c1d2e3f4a5b | client_name: "Elevate" | date: 2026-06-10
+  - pdf_data: 3 headline_insights, 4 recommendations, 6 client_actions, 4 consultant_followups, 3 focus_points, full SWOT, thirty_day_plan=[]
+  - thirty_day_plan is explicitly empty array (no sprint data for this session)
+  - Run: wrangler d1 execute apex-command-center --file clients/elevate_seed.sql
 
 ## Completed (recent additions — 2026-06-30)
 - [x] Login glass panel switched to dark tint for readability — 2026-06-30

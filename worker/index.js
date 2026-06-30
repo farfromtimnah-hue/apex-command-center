@@ -128,8 +128,8 @@ async function handleGetSessions(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/transcript
-// Body: { client_name: string, transcript: string, date?: string (YYYY-MM-DD) }
-// Phase 1: accepts manually pasted transcript text directly.
+// Body: { client_id: string, client_name?: string, transcript: string, date?: string (YYYY-MM-DD) }
+// client_id is the real relationship; client_name is display fallback (resolved from clients table if omitted).
 // ---------------------------------------------------------------------------
 
 async function handlePostTranscript(request, env) {
@@ -139,18 +139,30 @@ async function handlePostTranscript(request, env) {
         if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
-        if (!body.client_name || !body.transcript) {
-            return jsonErr("client_name and transcript are required", 400);
+        if (!body.transcript) { return jsonErr("transcript is required", 400); }
+        if (!body.client_id && !body.client_name) {
+            return jsonErr("client_id or client_name is required", 400);
         }
+
+        var clientName = body.client_name || null;
+        var clientId   = body.client_id   || null;
+
+        // If client_id provided without client_name, look up the display name
+        if (clientId && !clientName) {
+            var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?")
+                .bind(clientId).first();
+            if (client) { clientName = client.name; }
+        }
+        if (!clientName) { return jsonErr("client not found", 404); }
 
         var sessionId   = crypto.randomUUID();
         var sessionDate = body.date || new Date().toISOString().split("T")[0];
 
         await env.DB.prepare(
-            "INSERT INTO sessions (id, client_name, date, status, raw_transcript) VALUES (?, ?, ?, 'pending', ?)"
-        ).bind(sessionId, body.client_name, sessionDate, body.transcript).run();
+            "INSERT INTO sessions (id, client_name, client_id, date, status, raw_transcript) VALUES (?, ?, ?, ?, 'pending', ?)"
+        ).bind(sessionId, clientName, clientId, sessionDate, body.transcript).run();
 
-        return jsonOk({ session_id: sessionId, client_name: body.client_name, date: sessionDate });
+        return jsonOk({ session_id: sessionId, client_name: clientName, client_id: clientId, date: sessionDate });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
     }
@@ -233,9 +245,53 @@ async function handlePostSummarize(request, env) {
             summaryJson = JSON.parse(match[0]);
         }
 
+        var pdfData = summaryJson.pdf_data || null;
+
+        // Update sessions: keep full summary_json for dashboard compat, write pdf_data to its own column
         await env.DB.prepare(
-            "UPDATE sessions SET summary_json = ?, status = 'summarized' WHERE id = ?"
-        ).bind(JSON.stringify(summaryJson), body.session_id).run();
+            "UPDATE sessions SET summary_json = ?, pdf_data = ?, status = 'summarized' WHERE id = ?"
+        ).bind(JSON.stringify(summaryJson), pdfData ? JSON.stringify(pdfData) : null, body.session_id).run();
+
+        // Write 6 structured keys to session_summaries
+        var ss = summaryJson;
+        var summaryId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO session_summaries " +
+            "(id, session_id, summary_pt, summary_en, recommendations_pt, recommendations_en, " +
+            "client_action_items_pt, client_action_items_en, rafa_followups_pt, rafa_followups_en, " +
+            "next_session_focus_pt, next_session_focus_en, client_profile_updates_pt, client_profile_updates_en) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT(session_id) DO UPDATE SET " +
+            "summary_pt = excluded.summary_pt, summary_en = excluded.summary_en, " +
+            "recommendations_pt = excluded.recommendations_pt, recommendations_en = excluded.recommendations_en, " +
+            "client_action_items_pt = excluded.client_action_items_pt, client_action_items_en = excluded.client_action_items_en, " +
+            "rafa_followups_pt = excluded.rafa_followups_pt, rafa_followups_en = excluded.rafa_followups_en, " +
+            "next_session_focus_pt = excluded.next_session_focus_pt, next_session_focus_en = excluded.next_session_focus_en, " +
+            "client_profile_updates_pt = excluded.client_profile_updates_pt, client_profile_updates_en = excluded.client_profile_updates_en"
+        ).bind(
+            summaryId, body.session_id,
+            ss.discussion_overview   ? ss.discussion_overview.pt   : null,
+            ss.discussion_overview   ? ss.discussion_overview.en   : null,
+            ss.recommendations       ? ss.recommendations.pt       : null,
+            ss.recommendations       ? ss.recommendations.en       : null,
+            ss.client_action_items   ? ss.client_action_items.pt   : null,
+            ss.client_action_items   ? ss.client_action_items.en   : null,
+            ss.rafa_followups        ? ss.rafa_followups.pt        : null,
+            ss.rafa_followups        ? ss.rafa_followups.en        : null,
+            ss.next_session_focus    ? ss.next_session_focus.pt    : null,
+            ss.next_session_focus    ? ss.next_session_focus.en    : null,
+            ss.client_profile_updates ? ss.client_profile_updates.pt : null,
+            ss.client_profile_updates ? ss.client_profile_updates.en : null
+        ).run();
+
+        // Write pdf_data to documents table (verbatim, no transformation)
+        if (pdfData) {
+            var docId = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO documents (id, session_id, pdf_data) VALUES (?, ?, ?) " +
+                "ON CONFLICT(session_id) DO UPDATE SET pdf_data = excluded.pdf_data"
+            ).bind(docId, body.session_id, JSON.stringify(pdfData)).run();
+        }
 
         return jsonOk({ session_id: body.session_id, summary: summaryJson });
     } catch (e) {
@@ -280,6 +336,68 @@ async function handlePostApprove(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients
+// ---------------------------------------------------------------------------
+
+async function handleGetClients(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
+            "package, status, phone, email, whatsapp, created_at " +
+            "FROM clients ORDER BY name ASC"
+        ).all();
+
+        return jsonOk({ clients: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching clients: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients
+// Body: { name, owners?, industry?, location?, logo_url?, profile_pt?, profile_en? }
+// ---------------------------------------------------------------------------
+
+async function handlePostClients(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.name) { return jsonErr("name is required", 400); }
+
+        var clientId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO clients " +
+            "(id, name, owners, industry, location, logo_url, profile_pt, profile_en, package, status, phone, email, whatsapp) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            clientId,
+            body.name,
+            body.owners     || null,
+            body.industry   || null,
+            body.location   || null,
+            body.logo_url   || null,
+            body.profile_pt || null,
+            body.profile_en || null,
+            body.package    || null,
+            body.status     || "active",
+            body.phone      || null,
+            body.email      || null,
+            body.whatsapp   || null
+        ).run();
+
+        return jsonOk({ client_id: clientId, name: body.name });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -295,6 +413,8 @@ export default {
 
         if (path === "/api/role"       && method === "GET")  { return handleGetRole(request, env); }
         if (path === "/api/sessions"   && method === "GET")  { return handleGetSessions(request, env); }
+        if (path === "/api/clients"    && method === "GET")  { return handleGetClients(request, env); }
+        if (path === "/api/clients"    && method === "POST") { return handlePostClients(request, env); }
         if (path === "/api/transcript" && method === "POST") { return handlePostTranscript(request, env); }
         if (path === "/api/summarize"  && method === "POST") { return handlePostSummarize(request, env); }
         if (path === "/api/approve"    && method === "POST") { return handlePostApprove(request, env); }

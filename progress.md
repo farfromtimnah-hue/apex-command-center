@@ -1,16 +1,37 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30
+**Last updated:** 2026-06-30 (session 3)
 **Current phase:** Phase 1 — manual transcript intake
-**Last session summary:** Infrastructure fully deployed and working (Firebase auth, Worker, D1, GitHub Pages). Switching transcript intake from Granola API to manual paste for Phase 1.
+**Last session summary:** Fixed "pdf_data ausente" bug on Gerar PDF button. Root cause was a two-part mismatch: (1) Worker SELECT omitted the pdf_data column so it never reached the frontend, and (2) frontend was looking for pdf_data nested inside summary_json instead of reading the top-level pdf_data column. Both fixed, committed, pushed, and deployed (wrangler deploy confirmed, version 1e869289).
 
 ---
+
+## ==========================================================================
+## CRITICAL — READ BEFORE TOUCHING Gerar PDF / pdf_data IN FUTURE SESSIONS
+## ==========================================================================
+## pdf_data lives in its OWN TOP-LEVEL COLUMN on the sessions table (added
+## manually via D1 console with ALTER TABLE sessions ADD COLUMN pdf_data TEXT).
+## It is NOT nested inside summary_json. Any code that reads summary_json and
+## then accesses .pdf_data from it will ALWAYS fail.
+##
+## Worker (worker/index.js): handleGetSessions SELECT must include pdf_data.
+## Frontend (dashboard.html): handleGeneratePdf reads session.pdf_data directly
+##   with JSON.parse(session.pdf_data) — never goes through summary_json.
+##
+## Test session: "Test 3", id 740c0efd-d19b-49aa-9866-cdafce1dd0f5 — has
+## valid pdf_data inserted directly in D1. Use it to confirm PDF generation.
+## ==========================================================================
 
 ## Completed (recent additions — 2026-06-29/30)
 - [x] Gerar PDF button — end-to-end PDF generation via iframe + postMessage + html2pdf.js — 2026-06-29
   - worker/index.js: added pdf_data as 7th key in SUMMARY_PROMPT; bumped max_tokens to 8192
   - templates/apex-strategic-report-wired.html: extracted renderReport(), added postMessage listener + JSON-file fallback
   - dashboard.html: html2pdf CDN tag, Gerar PDF button, handleGeneratePdf(), handleApprove preserves pdf_data
+- [x] Gerar PDF "pdf_data ausente" bug fixed and deployed — 2026-06-30 (session 3)
+  - Root cause: Worker SELECT omitted pdf_data column; frontend read summary_json.pdf_data instead of session.pdf_data
+  - Fix 1: worker/index.js handleGetSessions — added pdf_data to SELECT list
+  - Fix 2: dashboard.html handleGeneratePdf — now reads JSON.parse(session.pdf_data) directly
+  - Confirmed: wrangler deploy successful, version 1e869289, apex-api.farfromtimnah.workers.dev
 - [x] Security: postMessage origin pinned on all three sides — 2026-06-30
   - dashboard.html incoming listener: event.origin guard (farfromtimnah-hue.github.io)
   - dashboard.html outgoing postMessage: target origin pinned (not *)

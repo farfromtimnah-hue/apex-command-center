@@ -1267,16 +1267,24 @@
       }
       reportCode = reportCode.slice(0, 4) || "XX";
 
-      var data = {};
-      for (var k in pdfData) {
-        if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; }
-      }
-      data.clientname     = session.client_name;
-data.sessiondate    = formatDate(session.date);
+     var data = {};
+for (var k in pdfData) {
+  if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; }
+}
+data.client_name = session.client_name;
+data.session_date = formatDate(session.date);
+data.consultant_name = "Rafael Andrade";
+data.report_number = reportNumber;
+data.report_code = reportCode;
+data.client_logo = null;
+
+data.clientname = session.client_name;
+data.sessiondate = formatDate(session.date);
 data.consultantname = "Rafael Andrade";
-data.reportnumber   = reportNumber;
-data.reportcode     = reportCode;
-data.clientlogo     = null;
+data.reportnumber = reportNumber;
+data.reportcode = reportCode;
+data.clientlogo = null;
+
 
       var iframe = document.createElement("iframe");
       iframe.style.position    = "fixed";
@@ -1339,8 +1347,10 @@ data.clientlogo     = null;
       window.addEventListener("message", onRendered);
 
       iframe.onload = function() {
-        iframe.contentWindow.postMessage({ type: "apex-report-data", payload: data }, "*");
-      };
+  console.log("Apex PDF payload", data);
+  iframe.contentWindow.postMessage({ type: "apex-report-data", payload: data }, "*");
+};
+
 
       iframe.src = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
     }

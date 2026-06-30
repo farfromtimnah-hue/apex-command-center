@@ -1271,12 +1271,12 @@
       for (var k in pdfData) {
         if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; }
       }
-      data.client_name     = session.client_name;
-      data.session_date    = formatDate(session.date);
-      data.consultant_name = "Rafael Andrade";
-      data.report_number   = reportNumber;
-      data.report_code     = reportCode;
-      data.client_logo     = null;
+      data.clientname     = session.client_name;
+data.sessiondate    = formatDate(session.date);
+data.consultantname = "Rafael Andrade";
+data.reportnumber   = reportNumber;
+data.reportcode     = reportCode;
+data.clientlogo     = null;
 
       var iframe = document.createElement("iframe");
       iframe.style.position    = "fixed";

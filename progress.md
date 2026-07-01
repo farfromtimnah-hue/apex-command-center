@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-01 (session 12 — Batch 1: shared nav fixes)
-**Current phase:** Shared nav fully fixed (Batch 1 complete)
-**Last session summary:** Fixed 3 shared nav bugs: removed duplicate Apex logo from all page headers (logo now only in sidebar per spec), added explicit height to navSidebar to ensure collapse toggle is always visible, and injected header CSS to keep controls right-aligned after logo removal. No Worker changes; no new pages; no schema changes.
+**Last updated:** 2026-07-01 (session 13 — Batch 2: language persistence, logo upload, payment method)
+**Current phase:** Batch 2 complete — all 7 bug fixes done; Worker deployed; pushed to GitHub
+**Last session summary:** Fixed language persistence (nav.js + all 7 app pages), confirmed sidebar collapse/dev switcher persist via sessionStorage, added client logo upload (R2-backed, worker-mediated), added payment method dropdown to client.html, and added payment_method column to D1.
 
 ---
 
@@ -21,6 +21,54 @@
 ## Test session: "Test 3", id 740c0efd-d19b-49aa-9866-cdafce1dd0f5 — has
 ## valid pdf_data inserted directly in D1. Use it to confirm PDF generation.
 ## ==========================================================================
+
+## Completed (session 13 — 2026-07-01, Batch 2: language persistence, logo upload, payment method)
+- [x] nav.js — added `window.apexNavToggleLang()` that toggles body class AND saves `apex_lang` to sessionStorage
+  - `initNav()` now reads `apex_lang` from sessionStorage and applies it on every page load
+  - This is why EN mode reset after navigation — language class was never saved before
+- [x] All 7 app pages (dashboard, clients, client, sessions, documents, tasks, settings) — changed lang button `onclick` from `toggleLang()` to `apexNavToggleLang()`
+  - Language toggle now persists across all page navigations
+- [x] Sidebar collapse (items 2+3): code was already correct in session 12 — state saved to `apex_nav_collapsed` in sessionStorage, `initNav()` restores it on load. Verified present in all 7 pages.
+- [x] Dev view switcher (item 4): code already correct — state in `apex_dev_view`, `initNav()` marks active button. Only `setView()` call (content switch) is limited to dashboard.html by design.
+- [x] Duplicate logo (item 1): confirmed fixed in session 12 — no logo elements in any page header, logo only in sidebar injected by nav.js.
+- [x] wrangler.toml — added `[[r2_buckets]]` binding: `ASSETS → apex-command-center`
+- [x] worker/index.js — 3 new routes:
+  - `POST /api/clients/:id/logo` — validates auth (alice/developer), validates file type (JPG/PNG/GIF/WebP), stores in R2 as `logos/{id}.{ext}`, updates `clients.logo_url`
+  - `GET /api/clients/:id/logo-image` — proxies from R2, no raw R2 paths exposed; auth-free (non-sensitive logo assets addressed by UUID)
+  - `PATCH /api/clients/:id` — updates `payment_method` (alice/developer only)
+  - Updated `GET /api/clients` and `GET /api/clients/:id` to include `payment_method` in SELECT
+  - Added `PATCH` to `Access-Control-Allow-Methods` CORS header
+- [x] D1 — `ALTER TABLE clients ADD COLUMN payment_method TEXT` (applied live to apex-command-center)
+- [x] client.html — logo upload card (right column):
+  - Shows placeholder icon or live preview via `GET /api/clients/:id/logo-image`
+  - Upload button (alice/developer only, hidden for rafa via `initLogoDisplay()`)
+  - File type validated client-side before upload
+  - Preview updates immediately after successful upload
+- [x] client.html — Payment Method card (below Notes in left column):
+  - Single-select: Zelle, Physical Check, Stripe
+  - Loads current value from client data on page load
+  - Saves on change via `PATCH /api/clients/:id`
+  - Bilingual label, quiet/compact appearance
+- [x] Worker deployed: version 2c9e18f3, apex-api.farfromtimnah.workers.dev
+- [x] Pushed to GitHub: commit 44d6bd9, origin/main
+
+**Files touched (session 13):** nav.js, wrangler.toml, worker/index.js, client.html, clients.html, dashboard.html, sessions.html, documents.html, tasks.html, settings.html
+
+**QA checklist (live test required):**
+1. Confirm only one Apex logo visible — should pass (session 12 fix, confirmed in code)
+2. Confirm sidebar collapse works (click toggle) — code is correct; needs browser confirm
+3. Confirm collapse state persists after navigating between pages
+4. Confirm dev role switcher shows correct active button after navigation (developer account only)
+5. Confirm toggling to EN and navigating to another page keeps EN mode
+6. Confirm all nav labels (Sessions, Documents, Tasks, Settings) show in EN when in EN mode
+7. Confirm client.html shows Payment Method dropdown below Notes
+8. Confirm client.html shows logo card with upload button (alice/developer) or preview
+9. Confirm logo upload works end-to-end (upload → preview updates)
+10. Confirm payment method dropdown saves and reloads correctly
+11. Confirm PT and EN both work on client.html
+12. Confirm no console errors
+
+**Known gap:** Worker deploy done but logo route requires alice/developer role. Rafa will see logo preview but not upload button.
 
 ## Completed (session 12 — 2026-07-01, Batch 1: shared nav fixes)
 - [x] nav.js — two CSS fixes in injectStyles()

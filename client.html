@@ -675,7 +675,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="toggleLang()">
+      <button class="lang-btn" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -753,10 +753,49 @@
           </div>
         </div>
 
+        <!-- Payment method card -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Metodo de Pagamento</span>
+              <span class="show-en">Payment Method</span>
+            </h2>
+          </div>
+          <div style="padding:14px 20px;">
+            <select id="paymentMethodSelect" onchange="handlePaymentMethodChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;">
+              <option value="">— selecionar / select —</option>
+              <option value="Zelle">Zelle</option>
+              <option value="Physical Check">Physical Check</option>
+              <option value="Stripe">Stripe</option>
+            </select>
+            <div class="pull-status" id="paymentStatus"></div>
+          </div>
+        </div>
+
       </div><!-- /col-main -->
 
       <!-- ── RIGHT: Info + Document + Activity ──────────────────────────── -->
       <div class="col-side">
+
+        <!-- Logo card -->
+        <div class="info-card" id="logoCard">
+          <div class="info-card-heading">
+            <span class="show-pt">Logo</span>
+            <span class="show-en">Logo</span>
+          </div>
+          <div id="logoPreviewWrap" style="margin-bottom:12px;min-height:48px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:72px;height:72px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:22px;" id="logoPlaceholder">🏢</div>
+            <img id="logoPreviewImg" src="" alt="Logo" style="display:none;max-height:72px;max-width:120px;border-radius:6px;object-fit:contain;">
+          </div>
+          <div id="logoUploadWrap">
+            <input type="file" id="logoFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleLogoFileSelected(this)">
+            <button class="btn-add" onclick="document.getElementById('logoFileInput').click()">
+              <span class="show-pt">Enviar Logo</span>
+              <span class="show-en">Upload Logo</span>
+            </button>
+            <div class="pull-status" id="logoStatus"></div>
+          </div>
+        </div>
 
         <!-- Client info card -->
         <div class="info-card" id="clientInfoCard">
@@ -1040,6 +1079,8 @@
           clientData = data.client;
           renderClientHeader(clientData);
           renderClientInfoCard(clientData);
+          initLogoDisplay(clientData);
+          initPaymentMethod(clientData);
         })
         .catch(function(e) {
           document.getElementById("clientName").textContent = "Cliente não encontrado";
@@ -1620,6 +1661,106 @@
           btn.disabled         = false;
           statusEl.textContent = "Erro: " + e.message;
           statusEl.className   = "pull-status is-error";
+        });
+    }
+
+    // ── Logo display + upload ──────────────────────────────────────────────
+
+    function initLogoDisplay(client) {
+      var role = sessionStorage.getItem("apex_role") || "";
+      var canUpload = role === "alice" || role === "developer";
+      var uploadWrap = document.getElementById("logoUploadWrap");
+      if (uploadWrap) { uploadWrap.style.display = canUpload ? "" : "none"; }
+
+      if (client && client.logo_url) {
+        var img = document.getElementById("logoPreviewImg");
+        var placeholder = document.getElementById("logoPlaceholder");
+        if (img) {
+          img.src = WORKER_URL + "/api/clients/" + CLIENT_ID + "/logo-image";
+          img.style.display = "block";
+          img.onerror = function() {
+            img.style.display = "none";
+            if (placeholder) { placeholder.style.display = "flex"; }
+          };
+          if (placeholder) { placeholder.style.display = "none"; }
+        }
+      }
+    }
+
+    function handleLogoFileSelected(input) {
+      if (!input.files || !input.files[0]) { return; }
+      var file = input.files[0];
+      var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+      var statusEl = document.getElementById("logoStatus");
+
+      if (allowed.indexOf(file.type) === -1) {
+        statusEl.textContent = "Tipo invalido. Use JPG, PNG, GIF ou WebP.";
+        statusEl.className = "pull-status is-error";
+        input.value = "";
+        return;
+      }
+
+      statusEl.textContent = "Enviando...";
+      statusEl.className = "pull-status";
+
+      var formData = new FormData();
+      formData.append("logo", file);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/logo", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Logo salvo.";
+          statusEl.className = "pull-status is-ok";
+          var img = document.getElementById("logoPreviewImg");
+          var placeholder = document.getElementById("logoPlaceholder");
+          if (img) {
+            img.src = WORKER_URL + "/api/clients/" + CLIENT_ID + "/logo-image?t=" + Date.now();
+            img.style.display = "block";
+            if (placeholder) { placeholder.style.display = "none"; }
+          }
+          input.value = "";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = "pull-status"; }, 3000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "pull-status is-error";
+          input.value = "";
+        });
+    }
+
+    // ── Payment method ────────────────────────────────────────────────────
+
+    function initPaymentMethod(client) {
+      var sel = document.getElementById("paymentMethodSelect");
+      if (!sel) { return; }
+      var current = (client && client.payment_method) ? client.payment_method : "";
+      sel.value = current;
+    }
+
+    function handlePaymentMethodChange(value) {
+      var statusEl = document.getElementById("paymentStatus");
+      statusEl.textContent = "Salvando...";
+      statusEl.className = "pull-status";
+
+      apiFetch("/api/clients/" + CLIENT_ID, {
+        method: "PATCH",
+        body: { payment_method: value || null }
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Salvo.";
+          statusEl.className = "pull-status is-ok";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = "pull-status"; }, 2000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "pull-status is-error";
         });
     }
 

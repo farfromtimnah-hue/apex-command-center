@@ -191,6 +191,20 @@
     btn.innerHTML = navSvg(collapsed ? "chevron-right" : "chevron-left");
   }
 
+  // ── Public: language toggle (shared across all pages) ────────────────────
+  window.apexNavToggleLang = function () {
+    var b = document.body;
+    if (b.classList.contains("lang-pt")) {
+      b.classList.remove("lang-pt");
+      b.classList.add("lang-en");
+      sessionStorage.setItem("apex_lang", "en");
+    } else {
+      b.classList.remove("lang-en");
+      b.classList.add("lang-pt");
+      sessionStorage.setItem("apex_lang", "pt");
+    }
+  };
+
   // ── Public: toggle collapse ───────────────────────────────────────────────
   window.apexNavToggle = function () {
     var sidebar = document.getElementById("navSidebar");
@@ -232,6 +246,16 @@
     if (!sidebar) { return; }
 
     injectStyles();
+
+    // Restore language preference across page navigation
+    var savedLang = sessionStorage.getItem("apex_lang");
+    if (savedLang === "en") {
+      document.body.classList.remove("lang-pt");
+      document.body.classList.add("lang-en");
+    } else {
+      document.body.classList.remove("lang-en");
+      document.body.classList.add("lang-pt");
+    }
 
     var role = sessionStorage.getItem("apex_role") || "alice";
     var items = (role === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;

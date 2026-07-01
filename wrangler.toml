@@ -7,6 +7,10 @@ binding       = "DB"
 database_name = "apex-command-center"
 database_id   = "03fdcf49-4a1f-43f3-a0d9-d54772074b74"
 
+[[r2_buckets]]
+binding     = "ASSETS"
+bucket_name = "apex-command-center"
+
 # These vars are placeholders only.
 # Set CLAUDE_API_KEY and GRANOLA_API_KEY as Worker Secrets in the Cloudflare
 # dashboard (Settings > Variables > Secret variables) — never commit real keys here.

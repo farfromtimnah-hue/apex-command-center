@@ -6,7 +6,7 @@ var CLAUDE_MODEL       = "claude-sonnet-4-6";
 
 var CORS_HEADERS = {
     "Access-Control-Allow-Origin":  "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
 };
 
@@ -358,7 +358,7 @@ async function handleGetClients(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, created_at " +
+            "package, status, phone, email, whatsapp, payment_method, created_at " +
             "FROM clients ORDER BY name ASC"
         ).all();
 
@@ -420,7 +420,7 @@ async function handleGetClient(id, request, env) {
 
         var client = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, created_at FROM clients WHERE id = ?"
+            "package, status, phone, email, whatsapp, payment_method, created_at FROM clients WHERE id = ?"
         ).bind(id).first();
 
         if (!client) { return jsonErr("Client not found", 404); }
@@ -510,6 +510,101 @@ async function handleGetClientLatestDocument(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/logo
+// Body: multipart/form-data with 'logo' file field (JPG, PNG, GIF, WebP only)
+// alice / developer only; stores in R2; updates clients.logo_url with the key
+// ---------------------------------------------------------------------------
+
+async function handlePostClientLogo(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var form = await request.formData();
+        var file = form.get("logo");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("logo file is required", 400); }
+
+        var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+        if (allowed.indexOf(file.type) === -1) {
+            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, or WebP image.", 400);
+        }
+
+        var ext = (file.type === "image/png") ? "png"
+                : (file.type === "image/gif") ? "gif"
+                : (file.type === "image/webp") ? "webp"
+                : "jpg";
+        var key = "logos/" + id + "." + ext;
+
+        await env.ASSETS.put(key, await file.arrayBuffer(), {
+            httpMetadata: { contentType: file.type }
+        });
+
+        await env.DB.prepare("UPDATE clients SET logo_url = ? WHERE id = ?")
+            .bind(key, id).run();
+
+        return jsonOk({ logo_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading logo: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/logo-image
+// Serves the client logo from R2 — no raw R2 paths exposed to frontend.
+// Auth-free: logos are non-sensitive image assets referenced by client UUID.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientLogoImage(id, request, env) {
+    try {
+        var client = await env.DB.prepare("SELECT logo_url FROM clients WHERE id = ?")
+            .bind(id).first();
+
+        if (!client || !client.logo_url) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(client.logo_url);
+        if (!obj) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var imgHeaders = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": (obj.httpMetadata && obj.httpMetadata.contentType) ? obj.httpMetadata.contentType : "image/jpeg",
+            "Cache-Control": "public, max-age=86400"
+        });
+        return new Response(obj.body, { status: 200, headers: imgHeaders });
+    } catch (e) {
+        return jsonErr("Error fetching logo: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/clients/:id
+// Body: { payment_method?: string }
+// alice / developer only; updates specific client fields
+// ---------------------------------------------------------------------------
+
+async function handlePatchClient(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+
+        if (body.hasOwnProperty("payment_method")) {
+            await env.DB.prepare("UPDATE clients SET payment_method = ? WHERE id = ?")
+                .bind(body.payment_method || null, id).run();
+        }
+
+        return jsonOk({ updated: true });
+    } catch (e) {
+        return jsonErr("Error updating client: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -531,16 +626,21 @@ export default {
         if (path === "/api/summarize"  && method === "POST") { return handlePostSummarize(request, env); }
         if (path === "/api/approve"    && method === "POST") { return handlePostApprove(request, env); }
 
-        // Parameterized routes: /api/clients/:id[/notes | /documents/latest]
+        // Parameterized routes: /api/clients/:id[/notes | /logo | /logo-image | /documents/latest]
         var segs = path.replace(/^\//, "").split("/");
         if (segs[0] === "api" && segs[1] === "clients" && segs[2]) {
             var cid = segs[2];
-            if (segs.length === 3 && method === "GET") {
-                return handleGetClient(cid, request, env);
-            }
+            if (segs.length === 3 && method === "GET")   { return handleGetClient(cid, request, env); }
+            if (segs.length === 3 && method === "PATCH") { return handlePatchClient(cid, request, env); }
             if (segs.length === 4 && segs[3] === "notes") {
                 if (method === "GET")  { return handleGetClientNotes(cid, request, env); }
                 if (method === "POST") { return handlePostClientNote(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "logo" && method === "POST") {
+                return handlePostClientLogo(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "logo-image" && method === "GET") {
+                return handleGetClientLogoImage(cid, request, env);
             }
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
                 return handleGetClientLatestDocument(cid, request, env);

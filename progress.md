@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 11)
-**Current phase:** Full nav infrastructure built (Phase 1–3 complete)
-**Last session summary:** Built persistent collapsible sidebar (nav.js), 5 new pages (clients.html real, sessions/documents/tasks/settings placeholders), retrofitted dashboard.html and client.html. Removed #devBar from dashboard.html — view switcher (Alice|Rafa|Dev) now lives inside nav sidebar for developer role. Tasks deliberately added to Rafa's sidebar beyond original spec text.
+**Last updated:** 2026-07-01 (session 12 — Batch 1: shared nav fixes)
+**Current phase:** Shared nav fully fixed (Batch 1 complete)
+**Last session summary:** Fixed 3 shared nav bugs: removed duplicate Apex logo from all page headers (logo now only in sidebar per spec), added explicit height to navSidebar to ensure collapse toggle is always visible, and injected header CSS to keep controls right-aligned after logo removal. No Worker changes; no new pages; no schema changes.
 
 ---
 
@@ -21,6 +21,32 @@
 ## Test session: "Test 3", id 740c0efd-d19b-49aa-9866-cdafce1dd0f5 — has
 ## valid pdf_data inserted directly in D1. Use it to confirm PDF generation.
 ## ==========================================================================
+
+## Completed (session 12 — 2026-07-01, Batch 1: shared nav fixes)
+- [x] nav.js — two CSS fixes in injectStyles()
+  - Added `height: calc(100vh - 64px)` to `#navSidebar` rule — explicit height so collapse toggle and dev view switcher are never clipped by overflow:hidden regardless of how the body/pageWrapper flex chain resolves
+  - Added `#appHeader { justify-content: flex-end; }` — keeps user controls right-aligned after logo removal
+- [x] Removed duplicate Apex logo from #appHeader on all 7 app pages:
+  - dashboard.html: removed bare <img class="logo-img"> (no link wrapper on this page)
+  - clients.html, sessions.html, documents.html, tasks.html, settings.html, client.html: removed <a href="dashboard.html"><img></a> block
+  - Logo now appears ONLY in the nav sidebar (injected by nav.js), per spec
+- [x] No Worker changes, no schema changes, no new pages
+
+**Files touched (session 12):** nav.js, dashboard.html, clients.html, client.html, sessions.html, documents.html, tasks.html, settings.html
+
+**QA checklist status (code review only — no live browser test this session):**
+- Duplicate logo: FIXED — removed from HTML on all pages
+- Collapse toggle: FIXED — navSidebar now has explicit height so toggle is always visible
+- Dev view switcher: FIXED — same height fix ensures switcher is never clipped
+- Role-aware nav (Alice/Rafa/Dev): UNCHANGED — nav.js role logic untouched
+- Bilingual PT/EN: UNCHANGED — nav.js bilingual CSS rules untouched
+- Tasks in Rafa sidebar: UNCHANGED — per Nicole's explicit instruction
+
+**Known gap:** Session 12 fixes were code-review only. Nicole should do a live browser QA against the deployed GitHub Pages site to confirm toggle/switcher are now visually present on clients.html, sessions.html, etc.
+
+**Next recommended batch (Batch 2):** Build out real pages for Sessions, Documents, Tasks, Settings (currently showing "Em breve / Coming soon"). Do NOT start until Nicole confirms Batch 1 QA passes.
+
+---
 
 ## Completed (session 11 — 2026-06-30)
 - [x] nav.js — shared persistent nav sidebar component

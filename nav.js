@@ -72,7 +72,8 @@
       "#contentArea { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }" +
 
       /* Nav sidebar shell */
-      "#navSidebar { width: 240px; background: #1a1a1d; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width 0.2s ease; border-right: 1px solid #2a2a2e; }" +
+      "#appHeader { justify-content: flex-end; }" +
+      "#navSidebar { width: 240px; height: calc(100vh - 64px); background: #1a1a1d; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width 0.2s ease; border-right: 1px solid #2a2a2e; }" +
       "#navSidebar.apex-nav-collapsed { width: 72px; }" +
 
       /* Logo row */

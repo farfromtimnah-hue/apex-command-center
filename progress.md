@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-06-30 (session 10)
-**Current phase:** client.html built (spec section 7 complete)
-**Last session summary:** Built 5 new worker routes (GET /api/clients/:id, GET|POST /api/clients/:id/notes, GET /api/clients/:id/documents/latest, updated sessions to include client_id + filter). Created client.html two-column profile screen. Linked client names in dashboard.html to client.html. Activity timeline is a known placeholder gap — no generic event log data source exists yet.
+**Last updated:** 2026-06-30 (session 11)
+**Current phase:** Full nav infrastructure built (Phase 1–3 complete)
+**Last session summary:** Built persistent collapsible sidebar (nav.js), 5 new pages (clients.html real, sessions/documents/tasks/settings placeholders), retrofitted dashboard.html and client.html. Removed #devBar from dashboard.html — view switcher (Alice|Rafa|Dev) now lives inside nav sidebar for developer role. Tasks deliberately added to Rafa's sidebar beyond original spec text.
 
 ---
 
@@ -21,6 +21,41 @@
 ## Test session: "Test 3", id 740c0efd-d19b-49aa-9866-cdafce1dd0f5 — has
 ## valid pdf_data inserted directly in D1. Use it to confirm PDF generation.
 ## ==========================================================================
+
+## Completed (session 11 — 2026-06-30)
+- [x] nav.js — shared persistent nav sidebar component
+  - Renders into `<div id="navSidebar">` injected by each page
+  - Role-aware: Alice (6 items: Dashboard, Clients, Sessions, Documents, Tasks, Settings), Rafa (4 items: Overview, My Clients, Sessions, Tasks), Developer (Alice's full set + Alice|Rafa|Dev view switcher)
+  - Tasks included in Rafa's sidebar per Nicole's explicit instruction (deviation from spec text)
+  - Active-state: gold left-edge indicator, matched by pathname filename
+  - Expand (240px) / collapse (72px icon rail) with tooltip on hover; state persisted in sessionStorage
+  - Developer view switcher calls `setView()` on host page; stores `apex_dev_view` in sessionStorage
+  - CSS variable `--nav-width` (not `--sidebar`) to avoid collision with dashboard.html's existing `--sidebar: 296px`
+  - All CSS injected by nav.js itself; no per-page CSS needed
+  - Uses `var`/`function()`, no arrow functions, no localStorage, plain ASCII in JS strings
+- [x] clients.html — real clients list page
+  - Fetches GET /api/clients, renders table: name (link to client.html?id=), package lozenge, status lozenge
+  - Empty state if no clients; error state on fetch failure
+  - Full nav sidebar, auth guard, bilingual show-pt/show-en pattern
+- [x] sessions.html, documents.html, tasks.html, settings.html — placeholder pages
+  - Each: standard header + nav sidebar + auth guard + "Em breve / Coming soon" text only
+  - No fake UI, no illustrations, no mock data per spec
+- [x] dashboard.html — Phase 3 retrofit
+  - Removed `#devBar` element entirely and all related CSS (.dev-label, .btn-view, etc.)
+  - Added `#pageWrapper` (flex row) + `#contentArea` (flex column) wrapper around loadingScreen + appMain
+  - `<div id="navSidebar">` injected as first child of pageWrapper
+  - `<script src="nav.js">` added
+  - `setupDashboard()`: removed devBar.hidden logic, reads `apex_dev_view` from sessionStorage for developer role initial view, calls `initNav()` before `setView()`
+  - `setView()`: now references `navBtnAlice`/`navBtnRafa`/`navBtnDev` (nav.js-rendered elements) instead of old devBar buttons
+  - Print CSS updated: `#navSidebar` hidden (replaces old `#devBar`)
+- [x] client.html — Phase 3 retrofit
+  - Added same `#pageWrapper` / `#navSidebar` / `#contentArea` wrapper structure
+  - `<script src="nav.js">` added
+  - `setupPage()` calls `initNav()` after showing appMain
+
+## Real pages vs placeholders (post-session-11)
+- REAL (full functionality): Dashboard (dashboard.html), Client profile (client.html), Clients list (clients.html)
+- PLACEHOLDER (coming soon only): Sessions, Documents, Tasks, Settings
 
 ## Completed (session 10 — 2026-06-30)
 - [x] client.html — client profile screen (spec section 7), deployed to GitHub Pages

@@ -148,39 +148,6 @@
     }
     .lang-btn:hover { background: var(--gold-dim); }
 
-    /* ─── Developer view-toggle bar ─────────────────────────────────────── */
-    #devBar {
-      background: #242428;
-      padding: 8px 28px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      border-bottom: 1px solid #333;
-    }
-
-    .dev-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.35);
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      margin-right: 4px;
-    }
-
-    .btn-view {
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.18);
-      color: rgba(255,255,255,0.55);
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      padding: 4px 14px;
-      border-radius: 16px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .btn-view:hover  { border-color: var(--gold); color: var(--gold); }
-    .btn-view.active { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); font-weight: 600; }
 
     /* ─── Loading screen ─────────────────────────────────────────────────── */
     #loadingScreen {
@@ -465,7 +432,7 @@
       @page { margin: 0; }
 
       #appHeader,
-      #devBar,
+      #navSidebar,
       .sidebar,
       .detail-actions,
       .detail-empty,
@@ -536,18 +503,9 @@
     </div>
   </header>
 
-  <!-- ═══════════════ DEVELOPER BAR ════════════════════════════════════════ -->
-  <div id="devBar" hidden>
-    <span class="dev-label">DEV</span>
-    <button class="btn-view active" id="btnAlice" onclick="setView('alice')">
-      <span class="show-pt">Vista Alice</span>
-      <span class="show-en">Alice View</span>
-    </button>
-    <button class="btn-view" id="btnRafa" onclick="setView('rafa')">
-      <span class="show-pt">Vista Rafa</span>
-      <span class="show-en">Rafa View</span>
-    </button>
-  </div>
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
 
   <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
   <div id="loadingScreen">
@@ -719,7 +677,11 @@
 
   </main><!-- /appMain -->
 
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -838,8 +800,7 @@
       document.getElementById("headerRole").textContent = role;
 
       if (role === "developer") {
-        document.getElementById("devBar").hidden = false;
-        currentViewRole = "alice";
+        currentViewRole = sessionStorage.getItem("apex_dev_view") || "alice";
       } else {
         currentViewRole = role;
       }
@@ -847,6 +808,7 @@
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
 
+      window.initNav && window.initNav();
       setView(currentViewRole);
       loadSessions();
       loadClients();
@@ -903,10 +865,12 @@
       aliceEl.style.display = (role === "alice") ? "flex" : "none";
       rafaEl.style.display  = (role === "rafa")  ? "flex" : "none";
 
-      var btnA = document.getElementById("btnAlice");
-      var btnR = document.getElementById("btnRafa");
-      if (btnA) { btnA.className = "btn-view" + (role === "alice" ? " active" : ""); }
-      if (btnR) { btnR.className = "btn-view" + (role === "rafa"  ? " active" : ""); }
+      var btnA = document.getElementById("navBtnAlice");
+      var btnR = document.getElementById("navBtnRafa");
+      var btnD = document.getElementById("navBtnDev");
+      if (btnA) { btnA.className = "apex-nav-view-btn" + (role === "alice" ? " apex-nav-view-active" : ""); }
+      if (btnR) { btnR.className = "apex-nav-view-btn" + (role === "rafa"  ? " apex-nav-view-active" : ""); }
+      if (btnD) { btnD.className = "apex-nav-view-btn"; }
 
       if (sessions.length > 0) { renderSessionList(); }
     }

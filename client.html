@@ -693,6 +693,10 @@
     </div>
   </header>
 
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
   <!-- ═══════════════ LOADING ══════════════════════════════════════════════ -->
   <div id="loadingScreen">
     <div class="spinner"></div>
@@ -798,6 +802,9 @@
 
   </main><!-- /appMain -->
 
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
   <!-- ═══════════════ MODAL: Nova Sessão ═══════════════════════════════════ -->
   <div id="modalNewSession" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
@@ -867,6 +874,7 @@
   </div>
 
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -990,6 +998,7 @@
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
 
+      window.initNav && window.initNav();
       loadClientPage();
     }
 

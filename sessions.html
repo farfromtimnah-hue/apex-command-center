@@ -812,7 +812,7 @@
 
     // ── View switching (developer role toggle) ─────────────────────────────
 
-    function setView(role) {
+    window.setView = function(role) {
       currentViewRole = role;
 
       var aliceEl = document.getElementById("aliceView");

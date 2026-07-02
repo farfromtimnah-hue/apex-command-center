@@ -434,10 +434,99 @@
       padding: 8px 0 4px;
     }
 
+    /* ─── Overdue section ────────────────────────────────────────────────── */
+    #overdueSection {
+      background: #8B3A2A;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      overflow: hidden;
+    }
+
+    .overdue-header {
+      padding: 12px 18px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    .overdue-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      flex-wrap: wrap;
+    }
+
+    .overdue-client {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .overdue-text {
+      font-size: 13px;
+      color: #ffffff;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .overdue-due {
+      font-size: 12px;
+      color: rgba(255,255,255,0.75);
+      white-space: nowrap;
+    }
+
+    .overdue-chip {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: rgba(0,0,0,0.2);
+      color: #ffffff;
+      border-radius: 6px;
+      padding: 2px 7px;
+      white-space: nowrap;
+    }
+
+    /* ─── Client filter ──────────────────────────────────────────────────── */
+    .client-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .client-filter-label {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .client-filter-select {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--card);
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      max-width: 200px;
+    }
+    .client-filter-select:focus { border-color: var(--gold); }
+
     /* ─── Responsive ─────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
       #appMain { padding: 16px; }
       .task-meta { gap: 6px; }
+      .overdue-row { gap: 6px; }
     }
   </style>
 </head>
@@ -483,6 +572,9 @@
       </h1>
     </div>
 
+    <!-- Overdue section (global, above tabs) -->
+    <div id="overdueSection" style="display:none;"></div>
+
     <!-- Role tabs -->
     <div class="role-tabs">
       <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
@@ -495,6 +587,18 @@
         <span class="show-en">Client</span>
         <span class="role-tab-count" id="tabCountClient">0</span>
       </button>
+    </div>
+
+    <!-- Client filter -->
+    <div class="client-filter-row">
+      <span class="client-filter-label show-pt">Cliente:</span>
+      <span class="client-filter-label show-en">Client:</span>
+      <select class="client-filter-select" id="clientFilterSelect" onchange="onClientFilterChange()">
+        <option value="">
+          <span class="show-pt">Todos os Clientes</span>
+          <span class="show-en">All Clients</span>
+        </option>
+      </select>
     </div>
 
     <!-- Sort controls + done chip -->
@@ -546,12 +650,13 @@
     };
 
     // ── State ──────────────────────────────────────────────────────────────
-    var auth        = null;
-    var currentUser = null;
-    var taskView    = "date";         // "date" | "type"
-    var tabRole     = "consultant";   // "consultant" | "client"
-    var allTasks    = [];             // all derived task rows (both tabs)
-    var completedMap = {};            // taskKey → true/false; keyed per session
+    var auth         = null;
+    var currentUser  = null;
+    var taskView     = "date";         // "date" | "type"
+    var tabRole      = "consultant";   // "consultant" | "client"
+    var clientFilter = "";             // "" = all clients, otherwise clientName string
+    var allTasks     = [];             // all derived task rows (both tabs)
+    var completedMap = {};             // taskKey → true/false; keyed per session
 
     // ── Month abbrev map for parsing "DD Mon" due strings ─────────────────
     var MONTH_MAP = {
@@ -646,6 +751,8 @@
         .then(function(data) {
           allTasks = deriveTasks(data.sessions || []);
           updateTabCounts();
+          renderOverdueSection();
+          populateClientFilter();
           renderTaskView();
         })
         .catch(function(e) {
@@ -794,10 +901,19 @@
 
     function setTabRole(role) {
       tabRole = role;
+      clientFilter = "";
+      var sel = document.getElementById("clientFilterSelect");
+      if (sel) { sel.value = ""; }
       document.getElementById("tabBtnConsultant").className =
         "role-tab-btn" + (role === "consultant" ? " active" : "");
       document.getElementById("tabBtnClient").className =
         "role-tab-btn" + (role === "client" ? " active" : "");
+      renderTaskView();
+    }
+
+    function onClientFilterChange() {
+      var sel = document.getElementById("clientFilterSelect");
+      if (sel) { clientFilter = sel.value; }
       renderTaskView();
     }
 
@@ -811,11 +927,16 @@
     }
 
     function getTabTasks() {
+      var base;
       if (tabRole === "consultant") {
-        return allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
+        base = allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
       } else {
-        return allTasks.filter(function(t) { return t.type === "client"; });
+        base = allTasks.filter(function(t) { return t.type === "client"; });
       }
+      if (clientFilter) {
+        base = base.filter(function(t) { return t.clientName === clientFilter; });
+      }
+      return base;
     }
 
     function updateTabCounts() {
@@ -844,6 +965,82 @@
           '<span class="show-pt">' + done + ' de ' + total + ' concluída' + (done !== 1 ? 's' : '') + '</span>' +
           '<span class="show-en">' + done + ' of ' + total + ' done</span>';
       }
+    }
+
+    // ── Overdue section (global — both tabs) ──────────────────────────────
+
+    function renderOverdueSection() {
+      var sec = document.getElementById("overdueSection");
+      if (!sec) { return; }
+
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var overdue = allTasks.filter(function(t) {
+        return t.dueDate && t.dueDate < today && !completedMap[t.key];
+      });
+
+      if (overdue.length === 0) {
+        sec.style.display = "none";
+        sec.innerHTML = "";
+        return;
+      }
+
+      overdue.sort(function(a, b) { return a.dueDate - b.dueDate; });
+
+      var html = '<div class="overdue-header">' +
+        '<span class="show-pt">ATRASADO</span>' +
+        '<span class="show-en">OVERDUE</span>' +
+        ' (' + overdue.length + ')' +
+        '</div>';
+
+      for (var i = 0; i < overdue.length; i++) {
+        var t = overdue[i];
+        var tabLabel = (t.type === "client")
+          ? '<span class="overdue-chip"><span class="show-pt">Cliente</span><span class="show-en">Client</span></span>'
+          : '<span class="overdue-chip"><span class="show-pt">Consultor</span><span class="show-en">Consultant</span></span>';
+        var dueHtml = t.due
+          ? '<span class="overdue-due"><span class="show-pt">Prazo: ' + escHtml(t.due) + '</span><span class="show-en">Due: ' + escHtml(t.due) + '</span></span>'
+          : '';
+        html += '<div class="overdue-row">' +
+          '<span class="overdue-client">' + escHtml(t.clientName) + '</span>' +
+          '<span class="overdue-text">' + escHtml(t.text) + '</span>' +
+          dueHtml +
+          tabLabel +
+          '</div>';
+      }
+
+      sec.innerHTML = html;
+      sec.style.display = "block";
+    }
+
+    // ── Client filter ──────────────────────────────────────────────────────
+
+    function populateClientFilter() {
+      var sel = document.getElementById("clientFilterSelect");
+      if (!sel) { return; }
+
+      // Collect unique client names from all tasks
+      var seen = {};
+      var names = [];
+      for (var i = 0; i < allTasks.length; i++) {
+        var cn = allTasks[i].clientName;
+        if (cn && !seen[cn]) {
+          seen[cn] = true;
+          names.push(cn);
+        }
+      }
+      names.sort();
+
+      // Rebuild options — keep default "all" option
+      sel.innerHTML = '<option value="">Todos os Clientes / All Clients</option>';
+      for (var j = 0; j < names.length; j++) {
+        var opt = document.createElement("option");
+        opt.value = names[j];
+        opt.textContent = names[j];
+        sel.appendChild(opt);
+      }
+      sel.value = clientFilter;
     }
 
     function renderTaskView() {
@@ -954,6 +1151,7 @@
 
       updateTabCounts();
       updateDoneChip(getTabTasks());
+      renderOverdueSection();
 
       // Persist to backend (fire-and-forget, no spinner)
       var patch = {};
@@ -1109,7 +1307,7 @@
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────
-    init();
+    window.onload = function() { init(); };
   </script>
 
 </body>

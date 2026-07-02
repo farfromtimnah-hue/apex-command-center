@@ -716,6 +716,38 @@
       flex-wrap: wrap;
     }
 
+    /* ─── Inline status edit ────────────────────────────────────────────── */
+    .status-edit-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color 0.12s;
+      vertical-align: middle;
+    }
+    .status-edit-btn:hover { color: var(--gold); }
+
+    .status-edit-select {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: #f2f2f2;
+      color: #555;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+    }
+
     /* ─── Inline package edit ────────────────────────────────────────────── */
     .pkg-edit-btn {
       background: none;
@@ -1845,10 +1877,29 @@
       badgesEl.appendChild(pkgWrap);
 
       var statusVal = (client.status || "active").toLowerCase();
-      var statusEl  = document.createElement("span");
-      statusEl.className = "status-client-lozenge";
-      statusEl.setAttribute("data-status", statusVal);
-      badgesEl.appendChild(statusEl);
+      var statusWrap = document.createElement("span");
+      statusWrap.id = "statusWrap";
+      statusWrap.style.display = "inline-flex";
+      statusWrap.style.alignItems = "center";
+      statusWrap.style.gap = "4px";
+
+      var statusLoz = document.createElement("span");
+      statusLoz.className = "status-client-lozenge";
+      statusLoz.id = "statusLozenge";
+      statusLoz.setAttribute("data-status", statusVal);
+      statusWrap.appendChild(statusLoz);
+
+      if (canEdit) {
+        var statusEditBtn = document.createElement("button");
+        statusEditBtn.className = "status-edit-btn";
+        statusEditBtn.title = "Editar status / Edit status";
+        statusEditBtn.textContent = "✎";
+        (function(sv) {
+          statusEditBtn.onclick = function() { openStatusEdit(sv); };
+        })(statusVal);
+        statusWrap.appendChild(statusEditBtn);
+      }
+      badgesEl.appendChild(statusWrap);
 
       // Next meeting placeholder — no real data yet, show placeholder
       var nextEl = document.getElementById("nextMeetingLozenge");
@@ -1937,6 +1988,90 @@
 
       pkgWrap.appendChild(sel);
       pkgWrap.appendChild(saveStatus);
+      sel.focus();
+    }
+
+    var STATUS_OPTIONS = [
+      { value: "active",   pt: "Ativo",     en: "Active" },
+      { value: "inactive", pt: "Pausado",   en: "Paused" },
+      { value: "closed",   pt: "Encerrado", en: "Closed" }
+    ];
+
+    function openStatusEdit(current) {
+      var statusWrap = document.getElementById("statusWrap");
+      if (!statusWrap) { return; }
+
+      statusWrap.innerHTML = "";
+      var sel = document.createElement("select");
+      sel.className = "status-edit-select";
+
+      for (var i = 0; i < STATUS_OPTIONS.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = STATUS_OPTIONS[i].value;
+        opt.textContent = STATUS_OPTIONS[i].pt + " / " + STATUS_OPTIONS[i].en;
+        if (STATUS_OPTIONS[i].value === current) { opt.selected = true; }
+        sel.appendChild(opt);
+      }
+
+      var saveMsg = document.createElement("span");
+      saveMsg.style.cssText = "font-size:11px;color:var(--muted);margin-left:6px;";
+
+      sel.onchange = function() {
+        var newStatus = sel.value;
+        saveMsg.textContent = "...";
+        apiFetch("/api/clients/" + CLIENT_ID, {
+          method: "PATCH",
+          body: { status: newStatus }
+        }).then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data.error) { throw new Error(data.error); }
+            if (clientData) { clientData.status = newStatus; }
+            saveMsg.textContent = "";
+            statusWrap.innerHTML = "";
+            var loz = document.createElement("span");
+            loz.className = "status-client-lozenge";
+            loz.id = "statusLozenge";
+            loz.setAttribute("data-status", newStatus);
+            var btn = document.createElement("button");
+            btn.className = "status-edit-btn";
+            btn.title = "Editar status / Edit status";
+            btn.textContent = "✎";
+            (function(sv) {
+              btn.onclick = function() { openStatusEdit(sv); };
+            })(newStatus);
+            statusWrap.appendChild(loz);
+            statusWrap.appendChild(btn);
+          })
+          .catch(function() {
+            saveMsg.textContent = "Erro";
+            saveMsg.style.color = "#b44040";
+          });
+      };
+
+      sel.onblur = function() {
+        setTimeout(function() {
+          if (document.activeElement !== sel) {
+            statusWrap.innerHTML = "";
+            var curStatus = (clientData && clientData.status) ? clientData.status : "active";
+            var loz = document.createElement("span");
+            loz.className = "status-client-lozenge";
+            loz.id = "statusLozenge";
+            loz.setAttribute("data-status", curStatus);
+            var btn = document.createElement("button");
+            btn.className = "status-edit-btn";
+            btn.title = "Editar status / Edit status";
+            btn.textContent = "✎";
+            (function(sv) {
+              btn.onclick = function() { openStatusEdit(sv); };
+            })(curStatus);
+            statusWrap.appendChild(loz);
+            statusWrap.appendChild(btn);
+          }
+        }, 200);
+      };
+
+      statusWrap.appendChild(sel);
+      statusWrap.appendChild(saveMsg);
       sel.focus();
     }
 

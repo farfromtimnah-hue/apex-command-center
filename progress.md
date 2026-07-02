@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 23 — Edit Sections drag reorder)
-**Current phase:** Session 23 complete — Edit Sections mode added to client.html with native HTML5 drag-and-drop reorder, localStorage persistence, and restored collapse state on Done.
-**Last session summary:** Reverted nav.js to pre-session-19 state to restore sessions.html. Diagnosed view switcher: click handler fires correctly but window.setView is undefined on all pages (dashboard.html removed its setView in session 16; sessions.html has setView as a local function not on window).
+**Last updated:** 2026-07-02 (session 24 — Status editable + tasks.html completion pass)
+**Current phase:** Session 24 complete — Status pill now editable on client.html; tasks.html gets global overdue section and per-tab client filter.
+**Last session summary:** Status pill on client.html is now editable (alice/developer only) — same ✎ pencil pattern as package, select saves via PATCH /api/clients/:id, pill updates immediately. tasks.html gets a global overdue section (above tabs, reddish-brown #8B3A2A, shows tasks from both tabs that are past-due and incomplete) and a client filter dropdown (below tabs, resets on tab switch).
 
 ---
 
@@ -281,6 +281,47 @@
 9. Enter invalid role (can't happen via dropdown, but confirm server rejects if tampered)
 10. Log in as alice or rafa → add-user.html shows "Acesso restrito" message, no form visible
 11. After adding Alice's new email with role "alice", confirm she can log in with that email and reach the dashboard
+
+## Completed (session 24 — 2026-07-02, Status editable + tasks completion pass)
+
+### CHANGE 1 — Status editable on client.html
+- [x] Status pill (Ativo / Pausado / Encerrado) now has a ✎ pencil button (alice/developer only) — same UX as package edit
+- [x] Clicking pencil opens inline select with options: Ativo/Active, Pausado/Paused, Encerrado/Closed
+- [x] On select, saves via PATCH /api/clients/:id with {status: value}; pill updates immediately on success; cancel on blur
+- [x] statusWrap/statusLozenge/statusEditBtn DOM pattern mirrors pkgWrap; CSS classes status-edit-btn + status-edit-select added
+- [x] No Worker changes needed (PATCH /api/clients/:id already handles status field from session 14)
+
+### CHANGE 2A — Client filter on tasks.html
+- [x] Client filter dropdown added below role tabs; label "Todos os Clientes / All Clients" + one entry per client with tasks
+- [x] clientFilter state var; onClientFilterChange() updates state and re-renders
+- [x] getTabTasks() applies clientFilter after tab type filter
+- [x] populateClientFilter() builds unique sorted client list from allTasks; called after deriveTasks
+- [x] Filter resets to "All Clients" when switching tabs (setTabRole clears clientFilter)
+
+### CHANGE 2B — Overdue section on tasks.html
+- [x] #overdueSection div injected above role tabs in HTML
+- [x] renderOverdueSection() finds all allTasks with dueDate < today and !completedMap[key], sorted by due date
+- [x] Shows above tabs — global, both tab types shown with Consultor/Cliente chip label
+- [x] Styling: #8B3A2A background, white text, 12px border-radius, 0 2px 8px shadow, rgba(255,255,255,0.12) row separators
+- [x] Due date in rgba(255,255,255,0.75); client name + task text in #ffffff; chip: rgba(0,0,0,0.2) bg
+- [x] renderOverdueSection() called on load and on every toggleComplete (completing a task removes it from overdue)
+- [x] window.onload wraps init() call (was bare init() call before)
+
+**Files touched (session 24):** client.html, tasks.html, progress.md
+
+**No Worker changes, no D1 schema changes, no new routes.**
+
+**QA checklist (browser test required):**
+1. Open client.html for any client (alice/developer role) → status pill shows ✎ pencil button
+2. Click pencil → inline select appears with Ativo/Active, Pausado/Paused, Encerrado/Closed options
+3. Select new status → pill updates immediately; reload → status persists (D1)
+4. rafa role → no pencil button on status pill
+5. Open tasks.html → client filter dropdown visible below tabs; shows "Todos os Clientes / All Clients" + client names
+6. Select a client → only that client's tasks shown in current tab
+7. Switch tabs → filter resets to All Clients
+8. If any tasks are overdue and incomplete → overdue section appears above tabs in reddish-brown
+9. Complete an overdue task → it disappears from overdue section immediately
+10. Bilingual toggle works on overdue section and client filter labels
 
 ## Completed (session 23 — 2026-07-02, Edit Sections drag reorder)
 

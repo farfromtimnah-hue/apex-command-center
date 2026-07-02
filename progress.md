@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-01 (session 13 — Batch 2: language persistence, logo upload, payment method)
-**Current phase:** Batch 2 complete — all 7 bug fixes done; Worker deployed; pushed to GitHub
-**Last session summary:** Fixed language persistence (nav.js + all 7 app pages), confirmed sidebar collapse/dev switcher persist via sessionStorage, added client logo upload (R2-backed, worker-mediated), added payment method dropdown to client.html, and added payment_method column to D1.
+**Last updated:** 2026-07-02 (session 14 — standalone new-client flow, profile header shell, contacts MVP)
+**Current phase:** Session 14 complete — Worker deployed (version 0c836594); D1 contacts column added; pushed to GitHub pending
+**Last session summary:** Added standalone Add New Client button + modal to clients.html (no session/transcript flow). New modal saves a client-only record and redirects to client.html?id=NEW_ID. Upgraded client.html header to a profile shell with inline logo thumbnail, package/status/next-meeting lozenges. Added Contacts section with multi-contact MVP (JSON array stored in clients.contacts column). Worker updated to expose contacts field everywhere and support PATCH for contacts.
 
 ---
 
@@ -250,6 +250,51 @@
 - [x] wrangler.toml configured with real D1 ID, Firebase project ID — 2026-06-29
 - [x] Full login flow confirmed working end to end — 2026-06-29
 - [x] GitHub repo live, .gitignore verified — 2026-06-29
+
+## Completed (session 14 — 2026-07-02, standalone new-client flow + profile header + contacts MVP)
+- [x] clients.html — Added "Novo Cliente / Add New Client" button (top-right, hidden for rafa role)
+  - Modal with fields: name*, package, status, owners, industry, location, phone, whatsapp, email
+  - On save: POST /api/clients → redirect to client.html?id=NEW_CLIENT_ID
+  - Button hidden for rafa role (alice/developer only)
+- [x] client.html — Replaced flat client-page-header with profile-header-shell card
+  - Shows inline logo thumbnail (or 🏢 placeholder) in the header
+  - Package lozenge + status lozenge rendered by existing renderClientHeader()
+  - Next meeting lozenge placeholder ("Sem reunião agendada / No meeting scheduled")
+  - Actions (Nova Sessão, Gerar PDF) moved into header shell right side
+- [x] client.html — Added Contacts section (left column, between Notes and Payment Method)
+  - "Adicionar Contato / Add Contact" button opens modal
+  - Contact modal fields: name*, role/title, phone, whatsapp, email
+  - Contacts stored as JSON array in clients.contacts column (interim MVP — no new table)
+  - Renders all contacts as individual cards; supports unlimited contacts
+  - Saves via PATCH /api/clients/:id with { contacts: JSON.stringify(array) }
+  - Local state updated immediately after save without full page reload
+- [x] worker/index.js — GET /api/clients/:id now returns contacts column
+- [x] worker/index.js — GET /api/clients now returns contacts column
+- [x] worker/index.js — Added GET /api/clients/:id/contacts route (parses JSON, returns array)
+- [x] worker/index.js — Expanded PATCH /api/clients/:id to handle: contacts, name, owners, industry, location, phone, email, whatsapp, package, status (in addition to existing payment_method)
+- [x] D1 — ALTER TABLE clients ADD COLUMN contacts TEXT (applied to live apex-command-center)
+- [x] schema.sql — Updated to include payment_method and contacts columns (now matches live schema)
+- [x] Worker deployed: version 0c836594, apex-api.farfromtimnah.workers.dev
+
+**Files touched (session 14):** clients.html, client.html, worker/index.js, worker/schema.sql, progress.md
+
+**Schema change:** `ALTER TABLE clients ADD COLUMN contacts TEXT` — already applied to live D1. contacts is a JSON TEXT column storing an array of {name, role, phone, whatsapp, email} objects. This is an interim MVP approach: no normalized contacts table needed, easily readable, can be migrated to a proper table later.
+
+**QA checklist (browser test required):**
+1. Open clients.html → confirm "Novo Cliente" button visible (alice/developer), hidden for rafa
+2. Click button → modal opens with all fields; no session/transcript fields present
+3. Fill name + any other fields → click Salvar Cliente → lands on client.html?id=NEW_ID
+4. Confirm new client profile shows with empty sessions, empty notes, empty contacts
+5. In client.html header → confirm 🏢 placeholder (or logo if uploaded), name, package lozenge, status lozenge, next-meeting placeholder lozenge
+6. Click "Adicionar Contato" → modal opens with name/role/phone/whatsapp/email fields
+7. Add a contact → save → contact appears in Contacts section without page reload
+8. Add a second contact → confirm both contacts show
+9. Reload page → confirm contacts still show (persisted in D1)
+10. Confirm existing logo upload still works (card in right column still present)
+11. Confirm payment method dropdown still works and saves
+12. Confirm existing Nova Sessão flow still works from header button
+13. Confirm existing notes section still works
+14. Confirm no console errors
 
 ## In Progress
 - [ ] Switching /api/transcript from Granola API to manual paste

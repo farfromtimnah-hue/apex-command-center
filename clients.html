@@ -192,6 +192,132 @@
       color: #b44040;
       font-size: 13px;
     }
+
+    /* ── Page header row ─────────────────────────────────────────────────── */
+    .page-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    /* ── Add client button ───────────────────────────────────────────────── */
+    .btn-add-client {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .btn-add-client:hover { opacity: 0.88; }
+
+    /* ── Modal ───────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,29,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay[hidden] { display: none !important; }
+
+    .modal-box {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 8px 48px rgba(26,26,29,0.22);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--card);
+      z-index: 1;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 700; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    .modal-body {
+      padding: 20px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-group label { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+    .field-group input,
+    .field-group select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 11px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .field-group input:focus,
+    .field-group select:focus { outline: none; border-color: var(--gold); }
+
+    .field-row { display: flex; gap: 12px; }
+    .field-row .field-group { flex: 1; }
+
+    .btn-primary {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 11px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+    .btn-primary:hover    { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .form-status {
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 16px;
+    }
+    .form-status.is-error { color: #b44040; }
+    .form-status.is-ok    { color: #1a6640; }
   </style>
 </head>
 <body class="lang-pt">
@@ -222,10 +348,16 @@
         <span class="show-en">Loading...</span>
       </div>
       <main id="appMain" hidden>
-        <h1 class="page-heading">
-          <span class="show-pt">Clientes</span>
-          <span class="show-en">Clients</span>
-        </h1>
+        <div class="page-header-row">
+          <h1 class="page-heading">
+            <span class="show-pt">Clientes</span>
+            <span class="show-en">Clients</span>
+          </h1>
+          <button class="btn-add-client" id="btnAddClient" onclick="openNewClientModal()">
+            <span class="show-pt">+ Novo Cliente</span>
+            <span class="show-en">+ Add New Client</span>
+          </button>
+        </div>
         <div class="content-card">
           <div id="clientsListContainer">
             <div class="empty-state show-pt">Carregando clientes...</div>
@@ -233,6 +365,79 @@
           </div>
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: Novo Cliente / Add New Client ══════════════════════════════ -->
+  <div id="modalNewClient" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Novo Cliente</span>
+          <span class="show-en">Add New Client</span>
+        </h3>
+        <button class="modal-close" onclick="document.getElementById('modalNewClient').hidden=true">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label><span class="show-pt">Nome *</span><span class="show-en">Name *</span></label>
+          <input type="text" id="ncName" placeholder="Nome da empresa / Company name">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span class="show-pt">Pacote</span><span class="show-en">Package</span></label>
+            <select id="ncPackage">
+              <option value="">— selecionar —</option>
+              <option value="Essencial">Essencial</option>
+              <option value="Profissional">Profissional</option>
+              <option value="Premium">Premium</option>
+              <option value="VIP">VIP</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Status</label>
+            <select id="ncStatus">
+              <option value="active">Ativo / Active</option>
+              <option value="lead">Lead</option>
+              <option value="paused">Pausado / Paused</option>
+              <option value="closed">Encerrado / Closed</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label><span class="show-pt">Sócios / Responsável</span><span class="show-en">Owners</span></label>
+          <input type="text" id="ncOwners" placeholder="ex: João Silva, Maria Lima">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span class="show-pt">Setor</span><span class="show-en">Industry</span></label>
+            <input type="text" id="ncIndustry" placeholder="ex: Tecnologia">
+          </div>
+          <div class="field-group">
+            <label><span class="show-pt">Localização</span><span class="show-en">Location</span></label>
+            <input type="text" id="ncLocation" placeholder="ex: São Paulo, SP">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span class="show-pt">Telefone</span><span class="show-en">Phone</span></label>
+            <input type="text" id="ncPhone" placeholder="+55 11 99999-0000">
+          </div>
+          <div class="field-group">
+            <label>WhatsApp</label>
+            <input type="text" id="ncWhatsapp" placeholder="+55 11 99999-0000">
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Email</label>
+          <input type="email" id="ncEmail" placeholder="contato@empresa.com">
+        </div>
+        <button class="btn-primary" id="btnSaveNewClient" onclick="handleSaveNewClient()">
+          <span class="show-pt">Salvar Cliente</span>
+          <span class="show-en">Save Client</span>
+        </button>
+        <div class="form-status" id="ncStatus2"></div>
+      </div>
     </div>
   </div>
 
@@ -291,6 +496,10 @@
       document.getElementById("headerRole").textContent  = role;
       document.getElementById("loadingScreen").hidden    = true;
       document.getElementById("appMain").hidden          = false;
+      // Only alice and developer can create clients
+      var canCreate = (role === "alice" || role === "developer");
+      var addBtn = document.getElementById("btnAddClient");
+      if (addBtn) { addBtn.style.display = canCreate ? "" : "none"; }
       window.initNav && window.initNav();
       loadClients();
     }
@@ -377,6 +586,73 @@
     function escHtml(str) {
       return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
+
+    function openNewClientModal() {
+      document.getElementById("ncName").value     = "";
+      document.getElementById("ncOwners").value   = "";
+      document.getElementById("ncIndustry").value = "";
+      document.getElementById("ncLocation").value = "";
+      document.getElementById("ncPhone").value    = "";
+      document.getElementById("ncWhatsapp").value = "";
+      document.getElementById("ncEmail").value    = "";
+      document.getElementById("ncPackage").value  = "";
+      document.getElementById("ncStatus").value   = "active";
+      document.getElementById("ncStatus2").textContent = "";
+      document.getElementById("ncStatus2").className   = "form-status";
+      document.getElementById("btnSaveNewClient").disabled = false;
+      document.getElementById("modalNewClient").hidden = false;
+    }
+
+    function handleSaveNewClient() {
+      var name = (document.getElementById("ncName").value || "").trim();
+      var statusEl = document.getElementById("ncStatus2");
+      var btn      = document.getElementById("btnSaveNewClient");
+
+      if (!name) {
+        statusEl.textContent = "Nome é obrigatório. / Name is required.";
+        statusEl.className   = "form-status is-error";
+        return;
+      }
+
+      btn.disabled         = true;
+      statusEl.textContent = "Salvando...";
+      statusEl.className   = "form-status";
+
+      var payload = {
+        name:     name,
+        owners:   (document.getElementById("ncOwners").value   || "").trim() || null,
+        industry: (document.getElementById("ncIndustry").value || "").trim() || null,
+        location: (document.getElementById("ncLocation").value || "").trim() || null,
+        phone:    (document.getElementById("ncPhone").value    || "").trim() || null,
+        whatsapp: (document.getElementById("ncWhatsapp").value || "").trim() || null,
+        email:    (document.getElementById("ncEmail").value    || "").trim() || null,
+        package:  document.getElementById("ncPackage").value  || null,
+        status:   document.getElementById("ncStatus").value   || "active"
+      };
+
+      getToken().then(function (token) {
+        return fetch(WORKER_URL + "/api/clients", {
+          method:  "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body:    JSON.stringify(payload)
+        });
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          window.location.href = "client.html?id=" + encodeURIComponent(data.client_id);
+        })
+        .catch(function (e) {
+          btn.disabled         = false;
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className   = "form-status is-error";
+        });
+    }
+
+    // Close modal on overlay click
+    document.addEventListener("click", function (e) {
+      var m = document.getElementById("modalNewClient");
+      if (m && !m.hidden && e.target === m) { m.hidden = true; }
+    });
 
     function init() {
       firebase.initializeApp(FIREBASE_CONFIG);

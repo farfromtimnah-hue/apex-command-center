@@ -358,7 +358,7 @@ async function handleGetClients(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, created_at " +
+            "package, status, phone, email, whatsapp, payment_method, contacts, created_at " +
             "FROM clients ORDER BY name ASC"
         ).all();
 
@@ -420,13 +420,36 @@ async function handleGetClient(id, request, env) {
 
         var client = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, created_at FROM clients WHERE id = ?"
+            "package, status, phone, email, whatsapp, payment_method, contacts, created_at FROM clients WHERE id = ?"
         ).bind(id).first();
 
         if (!client) { return jsonErr("Client not found", 404); }
         return jsonOk({ client: client });
     } catch (e) {
         return jsonErr("Error fetching client: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/contacts
+// Returns contacts array parsed from the contacts JSON column.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientContacts(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare("SELECT contacts FROM clients WHERE id = ?").bind(id).first();
+        if (!row) { return jsonErr("Client not found", 404); }
+
+        var contacts = [];
+        if (row.contacts) {
+            try { contacts = JSON.parse(row.contacts); } catch(e) { contacts = []; }
+        }
+        return jsonOk({ contacts: contacts });
+    } catch (e) {
+        return jsonErr("Error fetching contacts: " + e.message, 500);
     }
 }
 
@@ -592,13 +615,66 @@ async function handlePatchClient(id, request, env) {
         if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
+        var updated = false;
 
+        // Update each recognized field individually so we don't need dynamic binding
         if (body.hasOwnProperty("payment_method")) {
             await env.DB.prepare("UPDATE clients SET payment_method = ? WHERE id = ?")
                 .bind(body.payment_method || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("contacts")) {
+            await env.DB.prepare("UPDATE clients SET contacts = ? WHERE id = ?")
+                .bind(body.contacts || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("name") && body.name) {
+            await env.DB.prepare("UPDATE clients SET name = ? WHERE id = ?")
+                .bind(body.name, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("owners")) {
+            await env.DB.prepare("UPDATE clients SET owners = ? WHERE id = ?")
+                .bind(body.owners || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("industry")) {
+            await env.DB.prepare("UPDATE clients SET industry = ? WHERE id = ?")
+                .bind(body.industry || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("location")) {
+            await env.DB.prepare("UPDATE clients SET location = ? WHERE id = ?")
+                .bind(body.location || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("phone")) {
+            await env.DB.prepare("UPDATE clients SET phone = ? WHERE id = ?")
+                .bind(body.phone || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("email")) {
+            await env.DB.prepare("UPDATE clients SET email = ? WHERE id = ?")
+                .bind(body.email || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("whatsapp")) {
+            await env.DB.prepare("UPDATE clients SET whatsapp = ? WHERE id = ?")
+                .bind(body.whatsapp || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("package")) {
+            await env.DB.prepare("UPDATE clients SET package = ? WHERE id = ?")
+                .bind(body.package || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("status")) {
+            await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
+                .bind(body.status || null, id).run();
+            updated = true;
         }
 
-        return jsonOk({ updated: true });
+        return jsonOk({ updated: updated });
     } catch (e) {
         return jsonErr("Error updating client: " + e.message, 500);
     }
@@ -635,6 +711,9 @@ export default {
             if (segs.length === 4 && segs[3] === "notes") {
                 if (method === "GET")  { return handleGetClientNotes(cid, request, env); }
                 if (method === "POST") { return handlePostClientNote(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "contacts" && method === "GET") {
+                return handleGetClientContacts(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "logo" && method === "POST") {
                 return handlePostClientLogo(cid, request, env);

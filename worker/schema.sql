@@ -37,21 +37,27 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 CREATE TABLE IF NOT EXISTS clients (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    owners      TEXT,
-    industry    TEXT,
-    location    TEXT,
-    logo_url    TEXT,
-    profile_pt  TEXT,
-    profile_en  TEXT,
-    package     TEXT,
-    status      TEXT DEFAULT 'active',
-    phone       TEXT,
-    email       TEXT,
-    whatsapp    TEXT,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    id             TEXT PRIMARY KEY,
+    name           TEXT NOT NULL,
+    owners         TEXT,
+    industry       TEXT,
+    location       TEXT,
+    logo_url       TEXT,
+    profile_pt     TEXT,
+    profile_en     TEXT,
+    package        TEXT,
+    status         TEXT DEFAULT 'active',
+    phone          TEXT,
+    email          TEXT,
+    whatsapp       TEXT,
+    payment_method TEXT,
+    contacts       TEXT,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- NOTE: payment_method and contacts were added to the live D1 database via:
+--   ALTER TABLE clients ADD COLUMN payment_method TEXT;
+--   ALTER TABLE clients ADD COLUMN contacts TEXT;
+-- contacts stores a JSON array of {name, role, phone, whatsapp, email} objects.
 
 CREATE TABLE IF NOT EXISTS client_notes (
     id          TEXT PRIMARY KEY,

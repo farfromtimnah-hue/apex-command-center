@@ -1,7 +1,7 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 22 — Overview, Digital Presence, Tasks, Collapse controls)
-**Current phase:** Session 21 complete — sessions.html regression fixed (nav.js reverted to pre-session-19); view switcher root cause diagnosed.
+**Last updated:** 2026-07-02 (session 23 — Edit Sections drag reorder)
+**Current phase:** Session 23 complete — Edit Sections mode added to client.html with native HTML5 drag-and-drop reorder, localStorage persistence, and restored collapse state on Done.
 **Last session summary:** Reverted nav.js to pre-session-19 state to restore sessions.html. Diagnosed view switcher: click handler fires correctly but window.setView is undefined on all pages (dashboard.html removed its setView in session 16; sessions.html has setView as a local function not on window).
 
 ---
@@ -281,6 +281,40 @@
 9. Enter invalid role (can't happen via dropdown, but confirm server rejects if tampered)
 10. Log in as alice or rafa → add-user.html shows "Acesso restrito" message, no form visible
 11. After adding Alice's new email with role "alice", confirm she can log in with that email and reach the dashboard
+
+## Completed (session 23 — 2026-07-02, Edit Sections drag reorder)
+
+### Edit Sections mode
+- [x] "Edit Sections" small secondary outlined button added above the two-column layout in client.html
+- [x] Click enters edit mode: all 9 reorderable section bodies collapse, drag handles (Unicode braille &#9783;) appear left of each header, collapse chevrons hide
+- [x] Native HTML5 drag-and-drop (draggable + ondragstart/ondragover/ondragleave/ondrop/ondragend) — no external library
+- [x] "Done" button replaces "Edit Sections" while in edit mode; click saves order to localStorage key apex_section_order_{clientId} and restores collapse states
+- [x] On page load: reads apex_section_order_{clientId} from localStorage, reorders sections in #sectionsList; falls back to default order
+- [x] Default order: overview → sessions → dp → clientTasks → consultantTasks → contacts → notes → payment → docs
+- [x] Contacts section moved from right column (col-side) into left column (col-main / #sectionsList) — now reorderable
+- [x] Documents section moved from right column (col-side) into left column (col-main / #sectionsList) — now reorderable
+- [x] Right column (col-side) now holds only Logo and Recent Activity (non-reorderable)
+- [x] toggleSection() is a no-op while is-edit-sections body class is active — prevents accidental collapse during drag
+- [x] All existing per-section collapse controls (chevron toggles) untouched and still functional in view mode
+- [x] All section IDs updated to sec-{key} pattern; data-section-id attribute used for order tracking
+- [x] documentCardInner div introduced; renderDocumentCard() targets it instead of rebuilding outer card
+- [x] window.onload wraps init() call
+- [x] Plain ASCII only in all JS strings; var throughout; regular function() everywhere; null checks on getElementById
+
+**Files touched (session 23):** client.html, progress.md
+
+**QA checklist (browser test required):**
+1. Open client.html for any client → "Edit Sections" small outlined button visible near top, above the two-column layout
+2. Click "Edit Sections" → all section bodies collapse to header-only; drag handles appear on left of each header; "Done" button appears; "Edit Sections" button hidden
+3. Drag a section (e.g. Notes) above another (e.g. Sessoes) → section moves in place
+4. Click "Done" → sections expand back to their previous collapsed/open state; order is saved
+5. Reload page → sections appear in the saved order
+6. Clear localStorage key apex_section_order_{clientId} → reload → default order restored
+7. Contacts and Documents sections appear in left column (no longer in right sidebar)
+8. Right sidebar shows only Logo and Recent Activity
+9. Per-section chevron collapse controls still work normally when NOT in edit mode
+10. Bilingual toggle works on all section headers (PT/EN)
+11. No console errors
 
 ## Completed (session 22 — 2026-07-02, Overview + Digital Presence + Tasks + Collapse)
 

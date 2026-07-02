@@ -860,6 +860,48 @@
     .card-body-collapsible { transition: none; }
     .card-body-collapsible[hidden] { display: none !important; }
 
+    /* ─── Edit Sections / drag reorder ──────────────────────────────────── */
+    .btn-edit-sections {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 6px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-edit-sections:hover { border-color: var(--text); color: var(--text); }
+
+    .edit-sections-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .drag-handle {
+      display: none;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: grab;
+      padding: 0 6px 0 0;
+      user-select: none;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    body.is-edit-sections .drag-handle { display: block; }
+    body.is-edit-sections .collapse-btn { display: none; }
+    body.is-edit-sections .content-card-header { cursor: grab; }
+    body.is-edit-sections .card-body-collapsible { display: none !important; }
+
+    .section-drag-over { outline: 2px dashed var(--gold); outline-offset: 2px; border-radius: var(--radius); }
+
+    #sectionsList { display: flex; flex-direction: column; gap: 24px; }
+
     /* ─── Digital Presence section ───────────────────────────────────────── */
     .dp-read-list { padding: 4px 0; }
 
@@ -1080,20 +1122,34 @@
       </div>
     </div>
 
+    <!-- Edit Sections bar -->
+    <div class="edit-sections-bar">
+      <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
+        <span class="show-pt">&#9776; Editar Secoes</span>
+        <span class="show-en">&#9776; Edit Sections</span>
+      </button>
+      <button class="btn-edit-sections" id="btnDoneSections" onclick="exitEditSectionsMode()" style="display:none;border-color:var(--gold);color:var(--brown);">
+        <span class="show-pt">Concluido</span>
+        <span class="show-en">Done</span>
+      </button>
+    </div>
+
     <!-- Two-column layout -->
     <div class="two-col-layout">
 
-      <!-- ── LEFT: Overview + Sessions + Digital Presence + Tasks + Notes + Payment ── -->
+      <!-- ── LEFT: reorderable sections ── -->
       <div class="col-main">
+        <div id="sectionsList">
 
-        <!-- Overview card — above sessions -->
-        <div class="content-card" id="overviewCard">
+        <!-- Overview card -->
+        <div class="content-card" id="sec-overview" data-section-id="overview">
           <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
             <h2 class="content-card-title">
-              <span class="show-pt">Visão Geral</span>
+              <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" title="Recolher / Collapse">▼</button>
+            <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" title="Recolher / Collapse">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="overviewBody">
             <div class="overview-grid" id="overviewGrid">
@@ -1103,13 +1159,14 @@
         </div>
 
         <!-- Sessions section -->
-        <div class="content-card">
+        <div class="content-card" id="sec-sessions" data-section-id="sessions">
           <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
             <h2 class="content-card-title">
-              <span class="show-pt">Sessões</span>
+              <span class="show-pt">Sessoes</span>
               <span class="show-en">Sessions</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" title="Recolher / Collapse">▼</button>
+            <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" title="Recolher / Collapse">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="sessionsBody">
             <div id="sessionsSection">
@@ -1119,17 +1176,18 @@
         </div>
 
         <!-- Digital Presence section -->
-        <div class="content-card">
+        <div class="content-card" id="sec-dp" data-section-id="dp">
           <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
             <h2 class="content-card-title">
-              <span class="show-pt">Presença Digital</span>
+              <span class="show-pt">Presenca Digital</span>
               <span class="show-en">Digital Presence</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
               <button class="btn-add" id="btnDpEdit" onclick="openDigitalPresenceModal()">
                 <span class="show-pt">Editar</span><span class="show-en">Edit</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('dp')" id="collapseDp" title="Recolher / Collapse">▼</button>
+              <button class="collapse-btn" onclick="toggleSection('dp')" id="collapseDp" title="Recolher / Collapse">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="dpBody">
@@ -1140,8 +1198,9 @@
         </div>
 
         <!-- Client Tasks section -->
-        <div class="content-card">
+        <div class="content-card" id="sec-clientTasks" data-section-id="clientTasks">
           <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Cliente</span>
               <span class="show-en">Client Tasks</span>
@@ -1150,7 +1209,7 @@
               <button class="btn-add" id="btnAddClientTask" onclick="openAddTaskForm('client')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('clientTasks')" id="collapseClientTasks" title="Recolher / Collapse">▼</button>
+              <button class="collapse-btn" onclick="toggleSection('clientTasks')" id="collapseClientTasks" title="Recolher / Collapse">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="clientTasksBody">
@@ -1159,7 +1218,7 @@
             </div>
             <div id="clientTaskAddForm" style="display:none;">
               <div class="tasks-add-form">
-                <input type="text" id="clientTaskDesc" placeholder="Descrição / Description">
+                <input type="text" id="clientTaskDesc" placeholder="Descricao / Description">
                 <input type="date" id="clientTaskDue" title="Due date">
                 <button class="btn-add" onclick="handleAddTask('client')">
                   <span class="show-pt">Salvar</span><span class="show-en">Save</span>
@@ -1170,8 +1229,9 @@
         </div>
 
         <!-- Consultant Tasks section -->
-        <div class="content-card">
+        <div class="content-card" id="sec-consultantTasks" data-section-id="consultantTasks">
           <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Consultor</span>
               <span class="show-en">Consultant Tasks</span>
@@ -1180,7 +1240,7 @@
               <button class="btn-add" id="btnAddConsultantTask" onclick="openAddTaskForm('consultant')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('consultantTasks')" id="collapseConsultantTasks" title="Recolher / Collapse">▼</button>
+              <button class="collapse-btn" onclick="toggleSection('consultantTasks')" id="collapseConsultantTasks" title="Recolher / Collapse">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="consultantTasksBody">
@@ -1189,7 +1249,7 @@
             </div>
             <div id="consultantTaskAddForm" style="display:none;">
               <div class="tasks-add-form">
-                <input type="text" id="consultantTaskDesc" placeholder="Descrição / Description">
+                <input type="text" id="consultantTaskDesc" placeholder="Descricao / Description">
                 <input type="date" id="consultantTaskDue" title="Due date">
                 <button class="btn-add" onclick="handleAddTask('consultant')">
                   <span class="show-pt">Salvar</span><span class="show-en">Save</span>
@@ -1199,57 +1259,10 @@
           </div>
         </div>
 
-        <!-- Notes section -->
-        <div class="content-card">
+        <!-- Contacts section (moved from right column — reorderable) -->
+        <div class="content-card" id="sec-contacts" data-section-id="contacts">
           <div class="content-card-header">
-            <h2 class="content-card-title">
-              <span class="show-pt">Notas</span>
-              <span class="show-en">Notes</span>
-            </h2>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn-add" onclick="openNoteModal()">
-                + <span class="show-pt">Adicionar Nota</span><span class="show-en">Add Note</span>
-              </button>
-              <button class="collapse-btn" onclick="toggleSection('notes')" id="collapseNotes" title="Recolher / Collapse">▼</button>
-            </div>
-          </div>
-          <div class="card-body-collapsible" id="notesBody">
-            <div id="notesSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Payment method — low-visibility internal field, kept at bottom of left column -->
-        <div class="content-card">
-          <div class="content-card-header">
-            <h2 class="content-card-title">
-              <span class="show-pt">Metodo de Pagamento</span>
-              <span class="show-en">Payment Method</span>
-            </h2>
-            <button class="collapse-btn" onclick="toggleSection('payment')" id="collapsePayment" title="Recolher / Collapse">▼</button>
-          </div>
-          <div class="card-body-collapsible" id="paymentBody">
-            <div style="padding:14px 20px;">
-              <select id="paymentMethodSelect" onchange="handlePaymentMethodChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;">
-                <option value="">— selecionar / select —</option>
-                <option value="Zelle">Zelle</option>
-                <option value="Physical Check">Physical Check</option>
-                <option value="Stripe">Stripe</option>
-              </select>
-              <div class="pull-status" id="paymentStatus"></div>
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /col-main -->
-
-      <!-- ── RIGHT: Contacts + Logo + Documents + Activity ── -->
-      <div class="col-side">
-
-        <!-- Contacts card — near top of right sidebar so they're close to the header -->
-        <div class="content-card">
-          <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Contatos</span>
               <span class="show-en">Contacts</span>
@@ -1258,7 +1271,7 @@
               <button class="btn-add" onclick="openContactModal()">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('contacts')" id="collapseContacts" title="Recolher / Collapse">▼</button>
+              <button class="collapse-btn" onclick="toggleSection('contacts')" id="collapseContacts" title="Recolher / Collapse">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="contactsBody">
@@ -1268,6 +1281,74 @@
           </div>
         </div>
 
+        <!-- Notes section -->
+        <div class="content-card" id="sec-notes" data-section-id="notes">
+          <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Notas</span>
+              <span class="show-en">Notes</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-add" onclick="openNoteModal()">
+                + <span class="show-pt">Adicionar Nota</span><span class="show-en">Add Note</span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('notes')" id="collapseNotes" title="Recolher / Collapse">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="notesBody">
+            <div id="notesSection">
+              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment method -->
+        <div class="content-card" id="sec-payment" data-section-id="payment">
+          <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Metodo de Pagamento</span>
+              <span class="show-en">Payment Method</span>
+            </h2>
+            <button class="collapse-btn" onclick="toggleSection('payment')" id="collapsePayment" title="Recolher / Collapse">&#9660;</button>
+          </div>
+          <div class="card-body-collapsible" id="paymentBody">
+            <div style="padding:14px 20px;">
+              <select id="paymentMethodSelect" onchange="handlePaymentMethodChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;">
+                <option value="">&#8212; selecionar / select &#8212;</option>
+                <option value="Zelle">Zelle</option>
+                <option value="Physical Check">Physical Check</option>
+                <option value="Stripe">Stripe</option>
+              </select>
+              <div class="pull-status" id="paymentStatus"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Documents section (reorderable) -->
+        <div class="content-card" id="sec-docs" data-section-id="docs">
+          <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Documentos</span>
+              <span class="show-en">Documents</span>
+            </h2>
+            <button class="collapse-btn" onclick="toggleSection('docs')" id="collapseDocs" title="Recolher / Collapse">&#9660;</button>
+          </div>
+          <div class="card-body-collapsible" id="docsBody">
+            <div id="documentCardInner">
+              <div class="coming-soon"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        </div><!-- /sectionsList -->
+      </div><!-- /col-main -->
+
+      <!-- ── RIGHT: Logo + Activity (non-reorderable) ── -->
+      <div class="col-side">
+
         <!-- Logo card -->
         <div class="info-card" id="logoCard">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
@@ -1275,11 +1356,11 @@
               <span class="show-pt">Logo</span>
               <span class="show-en">Logo</span>
             </div>
-            <button class="collapse-btn" onclick="toggleSection('logo')" id="collapseLogo" title="Recolher / Collapse">▼</button>
+            <button class="collapse-btn" onclick="toggleSection('logo')" id="collapseLogo" title="Recolher / Collapse">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="logoBody">
             <div id="logoPreviewWrap" style="margin-bottom:12px;min-height:48px;display:flex;align-items:center;justify-content:center;">
-              <div style="width:72px;height:72px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:22px;" id="logoPlaceholder">🏢</div>
+              <div style="width:72px;height:72px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:22px;" id="logoPlaceholder">&#127970;</div>
               <img id="logoPreviewImg" src="" alt="Logo" style="display:none;max-height:72px;max-width:120px;border-radius:6px;object-fit:contain;">
             </div>
             <div id="logoUploadWrap">
@@ -1293,32 +1374,18 @@
           </div>
         </div>
 
-        <!-- Document summary -->
-        <div class="info-card" id="documentCard">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div class="info-card-heading" style="margin-bottom:0;">
-              <span class="show-pt">Documentos</span>
-              <span class="show-en">Documents</span>
-            </div>
-            <button class="collapse-btn" onclick="toggleSection('docs')" id="collapseDocs" title="Recolher / Collapse">▼</button>
-          </div>
-          <div class="card-body-collapsible" id="docsBody">
-            <div class="coming-soon"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>
-          </div>
-        </div>
-
-        <!-- Activity timeline: placeholder — no activity log data source exists yet -->
+        <!-- Activity timeline: placeholder -->
         <div class="info-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
             <div class="info-card-heading" style="margin-bottom:0;">
               <span class="show-pt">Atividade Recente</span>
               <span class="show-en">Recent Activity</span>
             </div>
-            <button class="collapse-btn" onclick="toggleSection('activity')" id="collapseActivity" title="Recolher / Collapse">▼</button>
+            <button class="collapse-btn" onclick="toggleSection('activity')" id="collapseActivity" title="Recolher / Collapse">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="activityBody">
             <div class="coming-soon">
-              <div class="coming-soon-icon">⏳</div>
+              <div class="coming-soon-icon">&#9203;</div>
               <span class="show-pt">Em breve</span>
               <span class="show-en">Coming soon</span>
             </div>
@@ -1625,6 +1692,7 @@
     // ── Load page data (parallel) ──────────────────────────────────────────
 
     function loadClientPage() {
+      initSectionOrder();
       loadClient();
       loadSessions();
       loadNotes();
@@ -2134,35 +2202,28 @@
     // ── Render: document card ──────────────────────────────────────────────
 
     function renderDocumentCard(doc) {
-      var card = document.getElementById("documentCard");
-      card.innerHTML = "";
-
-      var headingEl = document.createElement("div");
-      headingEl.className = "info-card-heading";
-      headingEl.innerHTML =
-        '<span class="show-pt">Documentos</span>' +
-        '<span class="show-en">Documents</span>';
-      card.appendChild(headingEl);
+      var inner = document.getElementById("documentCardInner");
+      if (!inner) { return; }
+      inner.innerHTML = "";
 
       if (!doc) {
         var emptyEl = document.createElement("div");
-        emptyEl.style.cssText = "font-size:13px;color:var(--muted);";
+        emptyEl.style.cssText = "font-size:13px;color:var(--muted);padding:16px 20px;";
         emptyEl.innerHTML =
           '<span class="show-pt">Nenhum documento ainda.</span>' +
           '<span class="show-en">No documents yet.</span>';
-        card.appendChild(emptyEl);
+        inner.appendChild(emptyEl);
         return;
       }
 
       var rowEl = document.createElement("div");
       rowEl.className = "info-row";
-      rowEl.style.flexDirection = "column";
-      rowEl.style.gap = "4px";
+      rowEl.style.cssText = "flex-direction:column;gap:4px;padding:16px 20px;";
 
       var labelEl = document.createElement("div");
       labelEl.className = "info-label";
       labelEl.innerHTML =
-        '<span class="show-pt">Último relatório</span>' +
+        '<span class="show-pt">Ultimo relatorio</span>' +
         '<span class="show-en">Latest report</span>';
 
       var valEl = document.createElement("div");
@@ -2182,7 +2243,7 @@
       valEl.appendChild(badgeEl);
       rowEl.appendChild(labelEl);
       rowEl.appendChild(valEl);
-      card.appendChild(rowEl);
+      inner.appendChild(rowEl);
     }
 
     // ── Summary modal ──────────────────────────────────────────────────────
@@ -2682,6 +2743,7 @@
     }
 
     function toggleSection(sectionKey) {
+      if (document.body.classList.contains("is-edit-sections")) { return; }
       for (var i = 0; i < COLLAPSE_SECTIONS.length; i++) {
         if (COLLAPSE_SECTIONS[i].key === sectionKey) {
           var s = COLLAPSE_SECTIONS[i];
@@ -2693,6 +2755,164 @@
           return;
         }
       }
+    }
+
+    // ── Edit Sections (drag reorder) ───────────────────────────────────────
+
+    var DEFAULT_SECTION_ORDER = [
+      "overview", "sessions", "dp", "clientTasks", "consultantTasks",
+      "contacts", "notes", "payment", "docs"
+    ];
+
+    var dragSrcEl = null;
+
+    function sectionOrderKey() {
+      return "apex_section_order_" + (CLIENT_ID || "");
+    }
+
+    function loadSectionOrder() {
+      var stored = localStorage.getItem(sectionOrderKey());
+      if (!stored) { return DEFAULT_SECTION_ORDER.slice(); }
+      try {
+        var arr = JSON.parse(stored);
+        if (!Array.isArray(arr) || arr.length === 0) { return DEFAULT_SECTION_ORDER.slice(); }
+        return arr;
+      } catch(e) { return DEFAULT_SECTION_ORDER.slice(); }
+    }
+
+    function applySectionOrder(order) {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      for (var i = 0; i < order.length; i++) {
+        var el = document.getElementById("sec-" + order[i]);
+        if (el) { list.appendChild(el); }
+      }
+    }
+
+    function initSectionOrder() {
+      var order = loadSectionOrder();
+      applySectionOrder(order);
+    }
+
+    function enterEditSectionsMode() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+
+      document.body.classList.add("is-edit-sections");
+
+      var btnEdit = document.getElementById("btnEditSections");
+      var btnDone = document.getElementById("btnDoneSections");
+      if (btnEdit) { btnEdit.style.display = "none"; }
+      if (btnDone) { btnDone.style.display = ""; }
+
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) {
+        enableDrag(cards[i]);
+      }
+    }
+
+    function exitEditSectionsMode() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+
+      document.body.classList.remove("is-edit-sections");
+
+      var btnEdit = document.getElementById("btnEditSections");
+      var btnDone = document.getElementById("btnDoneSections");
+      if (btnEdit) { btnEdit.style.display = ""; }
+      if (btnDone) { btnDone.style.display = "none"; }
+
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) {
+        disableDrag(cards[i]);
+        cards[i].classList.remove("section-drag-over");
+      }
+
+      var order = [];
+      var ordered = list.querySelectorAll("[data-section-id]");
+      for (var j = 0; j < ordered.length; j++) {
+        order.push(ordered[j].getAttribute("data-section-id"));
+      }
+      localStorage.setItem(sectionOrderKey(), JSON.stringify(order));
+
+      initCollapseStates();
+    }
+
+    function enableDrag(el) {
+      el.setAttribute("draggable", "true");
+      el.ondragstart  = function(e) { handleDragStart(e, el); };
+      el.ondragover   = function(e) { handleDragOver(e, el); };
+      el.ondragleave  = function(e) { handleDragLeave(e, el); };
+      el.ondrop       = function(e) { handleDrop(e, el); };
+      el.ondragend    = function(e) { handleDragEnd(e, el); };
+    }
+
+    function disableDrag(el) {
+      el.setAttribute("draggable", "false");
+      el.ondragstart  = null;
+      el.ondragover   = null;
+      el.ondragleave  = null;
+      el.ondrop       = null;
+      el.ondragend    = null;
+    }
+
+    function handleDragStart(e, el) {
+      dragSrcEl = el;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", el.getAttribute("data-section-id"));
+      el.style.opacity = "0.45";
+    }
+
+    function handleDragOver(e, el) {
+      if (e.preventDefault) { e.preventDefault(); }
+      if (el === dragSrcEl) { return; }
+      e.dataTransfer.dropEffect = "move";
+      el.classList.add("section-drag-over");
+      return false;
+    }
+
+    function handleDragLeave(e, el) {
+      el.classList.remove("section-drag-over");
+    }
+
+    function handleDrop(e, el) {
+      if (e.stopPropagation) { e.stopPropagation(); }
+      if (!dragSrcEl || dragSrcEl === el) { return false; }
+
+      el.classList.remove("section-drag-over");
+
+      var list = document.getElementById("sectionsList");
+      if (!list) { return false; }
+
+      var children = list.children;
+      var srcIdx = -1;
+      var tgtIdx = -1;
+      for (var i = 0; i < children.length; i++) {
+        if (children[i] === dragSrcEl) { srcIdx = i; }
+        if (children[i] === el)        { tgtIdx = i; }
+      }
+
+      if (srcIdx === -1 || tgtIdx === -1) { return false; }
+
+      if (srcIdx < tgtIdx) {
+        list.insertBefore(dragSrcEl, el.nextSibling);
+      } else {
+        list.insertBefore(dragSrcEl, el);
+      }
+
+      return false;
+    }
+
+    function handleDragEnd(e, el) {
+      el.style.opacity = "";
+      var list = document.getElementById("sectionsList");
+      if (list) {
+        var cards = list.querySelectorAll("[data-section-id]");
+        for (var i = 0; i < cards.length; i++) {
+          cards[i].classList.remove("section-drag-over");
+        }
+      }
+      dragSrcEl = null;
     }
 
     // ── Digital Presence ───────────────────────────────────────────────────
@@ -3119,7 +3339,7 @@
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────
-    init();
+    window.onload = function() { init(); };
   </script>
 
 </body>

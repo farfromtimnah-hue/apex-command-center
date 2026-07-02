@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 19 — mobile nav: bottom dock + More sheet)
-**Current phase:** Session 19 complete — mobile nav unblocked. Bottom icon dock replaces sidebar below 768px; More sheet exposes all remaining items including dev controls.
-**Last session summary:** Fixed blocking mobile bug where sidebar was hidden on mobile with zero replacement. nav.js now injects a fixed bottom icon dock (Dashboard, Clients, Sessions + More tab) below 768px. Tapping More slides up a sheet listing remaining nav items (Documents, Tasks, Settings, Add User for developer role) plus the dev view switcher. Desktop sidebar completely untouched. No Worker/D1 changes.
+**Last updated:** 2026-07-02 (session 20 — Add User tool + mobile nav dock)
+**Current phase:** Session 20 complete — developer-only Add User page live; mobile nav dock from session 19 also live (no further changes needed there).
+**Last session summary:** Built Add User tool so new login emails can be added to the users allowlist without a manual D1 query. New page add-user.html (developer-only, 403 shown to other roles), plus 3 new Worker routes (GET/POST /api/users, DELETE /api/users/:email). Worker deployed (version eee370c3).
 
 ---
 
@@ -250,6 +250,37 @@
 - [x] wrangler.toml configured with real D1 ID, Firebase project ID — 2026-06-29
 - [x] Full login flow confirmed working end to end — 2026-06-29
 - [x] GitHub repo live, .gitignore verified — 2026-06-29
+
+## Completed (session 20 — 2026-07-02, Add User tool)
+- [x] worker/index.js — CORS headers: added DELETE to Access-Control-Allow-Methods
+- [x] worker/index.js — GET /api/users: developer only; returns all rows from users table (email, role) ordered by email
+- [x] worker/index.js — POST /api/users: developer only; body {email, role}; trims + lowercases email; validates role (alice|rafa|developer); INSERT OR REPLACE so re-adding updates role instead of erroring
+- [x] worker/index.js — DELETE /api/users/:email: developer only; removes row; 404 if not found; wired in fetch router under segs[1]==="users" && method==="DELETE"
+- [x] add-user.html — new developer-only page; shows 403 message if non-developer logs in (server-side check enforced by Worker, client-side gate shows friendly message)
+  - Form: email input + role dropdown (Alice/Rafa/Developer) + Save button
+  - On submit: POST /api/users; shows inline success (green) or error (red) message; clears email input on success
+  - Success message includes saved email + role for confirmation
+  - Below form: table of all current approved users (email + color-coded role pill: green=alice, blue=rafa, gold=developer)
+  - Table reloads automatically after each successful save
+  - nav.js Mobile More sheet already linked to add-user.html from session 19 — link now resolves
+- [x] Worker deployed: version eee370c3, apex-api.farfromtimnah.workers.dev
+
+**Files touched (session 20):** worker/index.js, add-user.html (new), progress.md
+
+**No D1 schema changes** — users table already exists with email + role columns.
+
+**QA checklist (browser test required):**
+1. Log in as developer → navigate to More sheet (mobile) or nav sidebar → "Add User" link
+2. add-user.html loads; shows "Gerenciar Usuarios / Manage Users" heading
+3. Current users table shows existing rows (alice, rafa, developer emails)
+4. Enter a new email (e.g. alicecorsino12@gmail.com) → select role "Alice" → click Save
+5. Green success message shows with email + role confirmation
+6. Users table refreshes and shows the new row immediately
+7. Re-submit same email with different role → row updates (INSERT OR REPLACE), no error
+8. Leave email blank → red "Email obrigatorio" message, no API call
+9. Enter invalid role (can't happen via dropdown, but confirm server rejects if tampered)
+10. Log in as alice or rafa → add-user.html shows "Acesso restrito" message, no form visible
+11. After adding Alice's new email with role "alice", confirm she can log in with that email and reach the dashboard
 
 ## Completed (session 19 — 2026-07-02, mobile nav: bottom dock + More sheet)
 - [x] nav.js — fixed blocking mobile bug: sidebar was `display: none` below 720px with no replacement

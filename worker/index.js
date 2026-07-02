@@ -6,7 +6,7 @@ var CLAUDE_MODEL       = "claude-sonnet-4-6";
 
 var CORS_HEADERS = {
     "Access-Control-Allow-Origin":  "*",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
 };
 
@@ -725,6 +725,75 @@ async function handlePatchClient(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/users  — developer only, list all users
+// ---------------------------------------------------------------------------
+
+async function handleGetUsers(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare("SELECT email, role FROM users ORDER BY email ASC").all();
+        return jsonOk({ users: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching users: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/users  — developer only, add or update a user
+// Body: { email: string, role: string }  role must be alice | rafa | developer
+// Uses INSERT OR REPLACE so re-adding an existing email updates its role.
+// ---------------------------------------------------------------------------
+
+async function handlePostUsers(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.email) { return jsonErr("email is required", 400); }
+        if (!body.role)  { return jsonErr("role is required", 400); }
+
+        var validRoles = ["alice", "rafa", "developer"];
+        if (validRoles.indexOf(body.role) === -1) {
+            return jsonErr("role must be one of: alice, rafa, developer", 400);
+        }
+
+        var email = body.email.trim().toLowerCase();
+        if (!email) { return jsonErr("email is required", 400); }
+
+        await env.DB.prepare("INSERT OR REPLACE INTO users (email, role) VALUES (?, ?)")
+            .bind(email, body.role).run();
+
+        return jsonOk({ email: email, role: body.role });
+    } catch (e) {
+        return jsonErr("Error saving user: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: DELETE /api/users/:email  — developer only, remove a user
+// ---------------------------------------------------------------------------
+
+async function handleDeleteUser(email, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var decoded = decodeURIComponent(email);
+        var res = await env.DB.prepare("DELETE FROM users WHERE email = ?").bind(decoded).run();
+        if (res.changes === 0) { return jsonErr("User not found", 404); }
+        return jsonOk({ deleted: decoded });
+    } catch (e) {
+        return jsonErr("Error deleting user: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -745,11 +814,18 @@ export default {
         if (path === "/api/transcript" && method === "POST") { return handlePostTranscript(request, env); }
         if (path === "/api/summarize"  && method === "POST") { return handlePostSummarize(request, env); }
         if (path === "/api/approve"    && method === "POST") { return handlePostApprove(request, env); }
+        if (path === "/api/users"      && method === "GET")  { return handleGetUsers(request, env); }
+        if (path === "/api/users"      && method === "POST") { return handlePostUsers(request, env); }
 
         // Parameterized routes: /api/sessions/:id/task-completions
         var segs = path.replace(/^\//, "").split("/");
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "task-completions" && method === "PATCH") {
             return handlePatchSessionTaskCompletions(segs[2], request, env);
+        }
+
+        // /api/users/:email  DELETE
+        if (segs[0] === "api" && segs[1] === "users" && segs[2] && method === "DELETE") {
+            return handleDeleteUser(segs[2], request, env);
         }
 
         // Parameterized routes: /api/clients/:id[/notes | /logo | /logo-image | /documents/latest]

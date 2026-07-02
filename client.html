@@ -2760,12 +2760,21 @@
         var urlEl = document.createElement("span");
         urlEl.className = "dp-platform-url";
         if (pData.url) {
-          var a = document.createElement("a");
-          a.href = pData.url;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.textContent = pData.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-          urlEl.appendChild(a);
+          try {
+            var parsed = new URL(pData.url);
+            if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+              var a = document.createElement("a");
+              a.href = parsed.href;
+              a.target = "_blank";
+              a.rel = "noopener noreferrer";
+              a.textContent = pData.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+              urlEl.appendChild(a);
+            } else {
+              urlEl.textContent = pData.url;
+            }
+          } catch(e) {
+            urlEl.textContent = pData.url;
+          }
         }
 
         var notesCount = (pData.notes && pData.notes.length > 0)

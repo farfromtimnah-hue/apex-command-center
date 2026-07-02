@@ -770,7 +770,18 @@ async function handlePatchDigitalPresence(id, request, env) {
         }
 
         if (!existing[body.platform]) { existing[body.platform] = {}; }
-        if (body.hasOwnProperty("url")) { existing[body.platform].url = body.url || null; }
+        if (body.hasOwnProperty("url")) {
+            var safeUrl = null;
+            if (body.url) {
+                try {
+                    var parsed = new URL(body.url);
+                    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+                        safeUrl = body.url;
+                    }
+                } catch(e) { /* reject invalid URLs */ }
+            }
+            existing[body.platform].url = safeUrl;
+        }
         if (body.hasOwnProperty("notes")) { existing[body.platform].notes = body.notes || []; }
 
         await env.DB.prepare("UPDATE clients SET digital_presence = ? WHERE id = ?")
@@ -864,9 +875,14 @@ async function handlePatchTask(id, request, env) {
         var allowed = ["pending", "done"];
         if (allowed.indexOf(body.status) === -1) { return jsonErr("status must be pending or done", 400); }
 
-        var res = await env.DB.prepare("UPDATE tasks SET status = ? WHERE id = ?")
+        // Verify the task exists and caller has access via their role
+        var task = await env.DB.prepare("SELECT id, client_id FROM tasks WHERE id = ?").bind(id).first();
+        if (!task) { return jsonErr("Task not found", 404); }
+        // Only alice and developer can mutate tasks (same gate as task creation and client writes)
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        await env.DB.prepare("UPDATE tasks SET status = ? WHERE id = ?")
             .bind(body.status, id).run();
-        if (res.changes === 0) { return jsonErr("Task not found", 404); }
 
         return jsonOk({ ok: true, status: body.status });
     } catch (e) {

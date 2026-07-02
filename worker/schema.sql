@@ -51,18 +51,31 @@ CREATE TABLE IF NOT EXISTS clients (
     phone          TEXT,
     email          TEXT,
     whatsapp       TEXT,
-    payment_method TEXT,
-    contacts       TEXT,
-    created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    payment_method    TEXT,
+    contacts          TEXT,
+    digital_presence  TEXT,
+    created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
--- NOTE: payment_method and contacts were added to the live D1 database via:
+-- NOTE: payment_method, contacts, and digital_presence were added to the live D1 database via:
 --   ALTER TABLE clients ADD COLUMN payment_method TEXT;
 --   ALTER TABLE clients ADD COLUMN contacts TEXT;
+--   ALTER TABLE clients ADD COLUMN digital_presence TEXT;
 -- contacts stores a JSON array of {name, role, phone, whatsapp, email} objects.
+-- digital_presence stores a JSON object keyed by platform name → {url, notes:[{date,working,needs_improvement}]}
 
 -- NOTE: task_completions was added to the live sessions table via:
 --   ALTER TABLE sessions ADD COLUMN task_completions TEXT;
 -- Stores a JSON object keyed by task key (e.g. "rafa_0", "client_1") → boolean.
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id          TEXT PRIMARY KEY,
+    client_id   TEXT NOT NULL,
+    type        TEXT NOT NULL,       -- 'client' | 'consultant'
+    description TEXT NOT NULL,
+    due_date    TEXT,
+    status      TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'done'
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
 CREATE TABLE IF NOT EXISTS client_notes (
     id          TEXT PRIMARY KEY,

@@ -725,6 +725,156 @@ async function handlePatchClient(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/digital-presence
+// ---------------------------------------------------------------------------
+
+async function handleGetDigitalPresence(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare("SELECT digital_presence FROM clients WHERE id = ?").bind(id).first();
+        if (!row) { return jsonErr("Client not found", 404); }
+
+        var data = null;
+        if (row.digital_presence) {
+            try { data = JSON.parse(row.digital_presence); } catch(e) { data = null; }
+        }
+        return jsonOk({ digital_presence: data || {} });
+    } catch (e) {
+        return jsonErr("Error fetching digital presence: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/clients/:id/digital-presence
+// Body: { platform: string, url?: string, notes?: [{date, working, needs_improvement}] }
+// Merges into the existing digital_presence JSON object.
+// ---------------------------------------------------------------------------
+
+async function handlePatchDigitalPresence(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.platform) { return jsonErr("platform is required", 400); }
+
+        var row = await env.DB.prepare("SELECT digital_presence FROM clients WHERE id = ?").bind(id).first();
+        if (!row) { return jsonErr("Client not found", 404); }
+
+        var existing = {};
+        if (row.digital_presence) {
+            try { existing = JSON.parse(row.digital_presence); } catch(e) { existing = {}; }
+        }
+
+        if (!existing[body.platform]) { existing[body.platform] = {}; }
+        if (body.hasOwnProperty("url")) { existing[body.platform].url = body.url || null; }
+        if (body.hasOwnProperty("notes")) { existing[body.platform].notes = body.notes || []; }
+
+        await env.DB.prepare("UPDATE clients SET digital_presence = ? WHERE id = ?")
+            .bind(JSON.stringify(existing), id).run();
+
+        return jsonOk({ digital_presence: existing });
+    } catch (e) {
+        return jsonErr("Error updating digital presence: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/tasks
+// Returns tasks for this client, optionally filtered by ?type=client|consultant
+// ---------------------------------------------------------------------------
+
+async function handleGetClientTasks(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var url = new URL(request.url);
+        var typeFilter = url.searchParams.get("type");
+
+        var stmt;
+        if (typeFilter) {
+            stmt = env.DB.prepare(
+                "SELECT id, client_id, type, description, due_date, status, created_at " +
+                "FROM tasks WHERE client_id = ? AND type = ? ORDER BY due_date ASC, created_at ASC"
+            ).bind(id, typeFilter);
+        } else {
+            stmt = env.DB.prepare(
+                "SELECT id, client_id, type, description, due_date, status, created_at " +
+                "FROM tasks WHERE client_id = ? ORDER BY type ASC, due_date ASC, created_at ASC"
+            ).bind(id);
+        }
+
+        var res = await stmt.all();
+        return jsonOk({ tasks: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching tasks: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/tasks
+// Body: { type: "client"|"consultant", description: string, due_date?: string }
+// ---------------------------------------------------------------------------
+
+async function handlePostClientTask(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.description) { return jsonErr("description is required", 400); }
+        if (body.type !== "client" && body.type !== "consultant") {
+            return jsonErr("type must be client or consultant", 400);
+        }
+
+        var taskId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO tasks (id, client_id, type, description, due_date, status) VALUES (?, ?, ?, ?, ?, 'pending')"
+        ).bind(taskId, id, body.type, body.description, body.due_date || null).run();
+
+        var task = await env.DB.prepare(
+            "SELECT id, client_id, type, description, due_date, status, created_at FROM tasks WHERE id = ?"
+        ).bind(taskId).first();
+
+        return jsonOk({ task: task });
+    } catch (e) {
+        return jsonErr("Error creating task: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/tasks/:id
+// Body: { status?: string }
+// Any authenticated user can toggle task status (done/pending).
+// ---------------------------------------------------------------------------
+
+async function handlePatchTask(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json();
+        if (!body.hasOwnProperty("status")) { return jsonErr("status is required", 400); }
+
+        var allowed = ["pending", "done"];
+        if (allowed.indexOf(body.status) === -1) { return jsonErr("status must be pending or done", 400); }
+
+        var res = await env.DB.prepare("UPDATE tasks SET status = ? WHERE id = ?")
+            .bind(body.status, id).run();
+        if (res.changes === 0) { return jsonErr("Task not found", 404); }
+
+        return jsonOk({ ok: true, status: body.status });
+    } catch (e) {
+        return jsonErr("Error updating task: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/users  — developer only, list all users
 // ---------------------------------------------------------------------------
 
@@ -849,6 +999,19 @@ export default {
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
                 return handleGetClientLatestDocument(cid, request, env);
             }
+            if (segs.length === 4 && segs[3] === "digital-presence") {
+                if (method === "GET")   { return handleGetDigitalPresence(cid, request, env); }
+                if (method === "PATCH") { return handlePatchDigitalPresence(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "tasks") {
+                if (method === "GET")  { return handleGetClientTasks(cid, request, env); }
+                if (method === "POST") { return handlePostClientTask(cid, request, env); }
+            }
+        }
+
+        // /api/tasks/:id  PATCH (status toggle — syncs with tasks.html)
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && method === "PATCH") {
+            return handlePatchTask(segs[2], request, env);
         }
 
         return jsonErr("Not found", 404);

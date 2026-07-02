@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 15 — package editing, Sprint option, contact layout, intake contacts)
-**Current phase:** Session 14 complete — Worker deployed (version 0c836594); D1 contacts column added; pushed to GitHub pending
-**Last session summary:** Added standalone Add New Client button + modal to clients.html (no session/transcript flow). New modal saves a client-only record and redirects to client.html?id=NEW_ID. Upgraded client.html header to a profile shell with inline logo thumbnail, package/status/next-meeting lozenges. Added Contacts section with multi-contact MVP (JSON array stored in clients.contacts column). Worker updated to expose contacts field everywhere and support PATCH for contacts.
+**Last updated:** 2026-07-02 (session 16 — sessions.html workbench extraction, dashboard.html overview)
+**Current phase:** Session 16 complete — sessions.html is now the real session workbench; dashboard.html is a lightweight overview page.
+**Last session summary:** Moved the full session workflow (transcript intake, Gerar Resumo, Aprovar, Gerar PDF, session list, detail panel, summary cards) from dashboard.html into sessions.html. dashboard.html now shows a stat-card snapshot (pending/summarized/approved counts + total) and a recent-sessions table with links to client.html and sessions.html. No Worker changes, no schema changes.
 
 ---
 
@@ -250,6 +250,41 @@
 - [x] wrangler.toml configured with real D1 ID, Firebase project ID — 2026-06-29
 - [x] Full login flow confirmed working end to end — 2026-06-29
 - [x] GitHub repo live, .gitignore verified — 2026-06-29
+
+## Completed (session 16 — 2026-07-02, sessions workbench extraction + dashboard overview)
+- [x] sessions.html — Replaced placeholder "Em breve" page with the full session workbench:
+  - Alice/developer view: client selector dropdown (with inline create-client mini-form), date + transcript fields, Salvar Transcript button, session list sidebar (all sessions), detail panel with Gerar Resumo / Aprovar & Enviar / Gerar PDF actions, summary cards (editable when summarized, read-only otherwise)
+  - Rafa view: approved-sessions list sidebar + read-only summary card detail panel with Print button
+  - Developer role: setView() switches between alice and rafa views using navBtnAlice/navBtnRafa from nav.js
+  - Inline create-client form uses package select (Essencial/Profissional/Sprint/Premium/VIP) consistent with rest of app
+- [x] dashboard.html — Stripped the full workbench; replaced with lightweight overview:
+  - Stat cards row: Pending / Summarized / Approved / Total counts (derived from GET /api/sessions)
+  - Recent sessions table: up to 10 most recent, columns Client (links to client.html) / Date / Status / "Abrir →" (links to sessions.html)
+  - Page heading + "+ Nova Sessão" CTA button (links to sessions.html)
+  - "Ver todas →" link next to Recent Sessions heading
+- [x] No Worker changes, no D1 schema changes
+- [x] No nav.js changes
+
+**Files touched (session 16):** sessions.html, dashboard.html, progress.md
+
+**Route/data-flow notes:**
+- sessions.html uses the same API routes as dashboard.html did: GET /api/sessions, GET /api/clients, POST /api/transcript, POST /api/summarize, POST /api/approve, plus the PDF template postMessage flow
+- dashboard.html now only calls GET /api/sessions (for stats + recent list)
+- The inline create-client mini-form in sessions.html calls POST /api/clients (same as before)
+
+**QA checklist (browser test required):**
+1. Log in as alice → lands on dashboard.html → see 4 stat cards with real counts, recent sessions table
+2. Click "+ Nova Sessão" or "Sessions" nav link → lands on sessions.html → alice workbench visible
+3. Select a client from dropdown → fill date + transcript → Salvar Transcript → new session appears in list, detail opens as "pending"
+4. Click "Gerar Resumo" → summary cards render with PT/EN toggle working, status updates to "Resumido"
+5. Edit a summary field → click "Aprovar & Enviar" → status updates to "Aprovado"
+6. Click "Gerar PDF" on an approved session → template tab opens, PDF flow works
+7. Log in as rafa → sessions.html shows approved-session sidebar only
+8. Developer role: nav view switcher toggles between alice and rafa views on sessions.html
+9. Click client name link in dashboard recent-sessions table → goes to client.html
+10. dashboard.html "Abrir →" link in sessions table → goes to sessions.html (not a specific session — acceptable for now)
+11. Bilingual toggle works on both pages
+12. No console errors
 
 ## Completed (session 15 — 2026-07-02, package editing + Sprint option + contact layout + intake contacts)
 - [x] clients.html — Added Sprint to package select in new-client modal (between Profissional and Premium)

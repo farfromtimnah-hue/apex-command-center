@@ -23,7 +23,6 @@
       --card     : #ffffff;
       --radius   : 10px;
       --shadow   : 0 2px 16px rgba(26,26,29,0.08);
-      --sidebar  : 296px;
     }
 
     body {
@@ -39,13 +38,18 @@
     body.lang-pt .show-en { display: none; }
     body.lang-en .show-pt { display: none; }
 
-    /* ─── Status badge labels (CSS content keeps Portuguese out of JS) ─── */
+    /* ─── Status badge ───────────────────────────────────────────────────── */
+    .status-badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
     .status-badge::before { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; }
 
     body.lang-pt .status-badge[data-status="pending"]::before    { content: "Pendente"; }
     body.lang-pt .status-badge[data-status="summarized"]::before { content: "Resumido"; }
     body.lang-pt .status-badge[data-status="approved"]::before   { content: "Aprovado"; }
-
     body.lang-en .status-badge[data-status="pending"]::before    { content: "Pending"; }
     body.lang-en .status-badge[data-status="summarized"]::before { content: "Summarized"; }
     body.lang-en .status-badge[data-status="approved"]::before   { content: "Approved"; }
@@ -53,31 +57,6 @@
     .status-badge[data-status="pending"]    { background: #fdf3dc; color: #8a6200; }
     .status-badge[data-status="summarized"] { background: #dce8fd; color: #1a4a8a; }
     .status-badge[data-status="approved"]   { background: #ddfaec; color: #1a6640; }
-
-    .status-badge {
-      display: inline-block;
-      padding: 3px 9px;
-      border-radius: 20px;
-      font-size: 11px;
-    }
-
-    /* ─── Summary section titles (CSS content for bilingual labels) ────── */
-    .section-title { font-size: 13px; font-weight: 700; color: var(--brown); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.6px; }
-    .section-title::before { content: attr(data-key); }
-
-    body.lang-pt .section-title[data-key="discussion_overview"]::before    { content: "Visão Geral da Discussão"; }
-    body.lang-pt .section-title[data-key="recommendations"]::before        { content: "Recomendações"; }
-    body.lang-pt .section-title[data-key="client_action_items"]::before    { content: "Ações do Cliente"; }
-    body.lang-pt .section-title[data-key="rafa_followups"]::before         { content: "Follow-ups do Rafa"; }
-    body.lang-pt .section-title[data-key="next_session_focus"]::before     { content: "Foco da Próxima Sessão"; }
-    body.lang-pt .section-title[data-key="client_profile_updates"]::before { content: "Perfil do Cliente — Atualizações"; }
-
-    body.lang-en .section-title[data-key="discussion_overview"]::before    { content: "Discussion Overview"; }
-    body.lang-en .section-title[data-key="recommendations"]::before        { content: "Recommendations"; }
-    body.lang-en .section-title[data-key="client_action_items"]::before    { content: "Client Action Items"; }
-    body.lang-en .section-title[data-key="rafa_followups"]::before         { content: "Rafa Follow-ups"; }
-    body.lang-en .section-title[data-key="next_session_focus"]::before     { content: "Next Session Focus"; }
-    body.lang-en .section-title[data-key="client_profile_updates"]::before { content: "Client Profile Updates"; }
 
     /* ─── Header ────────────────────────────────────────────────────────── */
     #appHeader {
@@ -148,7 +127,6 @@
     }
     .lang-btn:hover { background: var(--gold-dim); }
 
-
     /* ─── Loading screen ─────────────────────────────────────────────────── */
     #loadingScreen {
       flex: 1;
@@ -172,309 +150,155 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ─── App layout ─────────────────────────────────────────────────────── */
+    /* ─── App main ───────────────────────────────────────────────────────── */
     #appMain {
       flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
-
-    /* ─── Sidebar ────────────────────────────────────────────────────────── */
-    .sidebar {
-      width: var(--sidebar);
-      min-width: var(--sidebar);
-      border-right: 1px solid var(--border);
-      background: var(--card);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .sidebar-section {
-      padding: 20px 18px 14px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .sidebar-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-
-    /* Pull form */
-    .field-group { margin-bottom: 10px; }
-
-    .field-group input,
-    .field-group textarea {
-      width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 9px 11px;
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      color: var(--text);
-      background: var(--surface);
-      transition: border-color 0.15s;
-    }
-    .field-group input:focus,
-    .field-group textarea:focus { outline: none; border-color: var(--gold); }
-    .field-group textarea { resize: vertical; min-height: 130px; line-height: 1.5; font-size: 12px; }
-
-    .btn-primary {
-      width: 100%;
-      background: var(--gold);
-      color: #fff;
-      border: none;
-      border-radius: 7px;
-      padding: 10px 16px;
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      margin-top: 4px;
-    }
-    .btn-primary:hover    { opacity: 0.88; }
-    .btn-primary:disabled { opacity: 0.42; cursor: not-allowed; }
-
-    .pull-status {
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--muted);
-      min-height: 16px;
-    }
-    .pull-status.is-error { color: #b44040; }
-    .pull-status.is-ok    { color: #1a6640; }
-
-    /* Session list */
-    .session-scroll {
-      flex: 1;
       overflow-y: auto;
-    }
-
-    .session-row {
-      padding: 13px 18px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.12s;
-    }
-    .session-row:hover    { background: var(--surface); }
-    .session-row.selected { background: #fdf7eb; border-left: 3px solid var(--gold); padding-left: 15px; }
-
-    .session-row .client { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-    .session-row .meta   { display: flex; align-items: center; justify-content: space-between; }
-    .session-row .date   { font-size: 12px; color: var(--muted); }
-
-    .empty-list {
-      padding: 28px 18px;
-      font-size: 13px;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    /* ─── Detail panel ────────────────────────────────────────────────────── */
-    #detailPanel {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .detail-empty {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 12px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .detail-empty .arrow { font-size: 28px; opacity: 0.3; }
-
-    #detailContent {
       padding: 28px 32px;
       display: flex;
       flex-direction: column;
       gap: 24px;
     }
 
-    /* Detail header */
-    .detail-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .detail-head h2 {
-      font-size: 20px;
+    /* ─── Page heading ───────────────────────────────────────────────────── */
+    .page-heading {
+      font-size: 22px;
       font-weight: 700;
-      margin-bottom: 5px;
+      color: var(--text);
     }
 
-    .detail-meta {
-      font-size: 13px;
-      color: var(--muted);
+    /* ─── Stat cards row ─────────────────────────────────────────────────── */
+    .stat-row {
       display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .detail-actions {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    /* Buttons */
-    .btn-action {
-      background: var(--gold);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 11px 22px;
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-    .btn-action:hover    { opacity: 0.88; }
-    .btn-action:disabled { opacity: 0.42; cursor: not-allowed; }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 20px;
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-    }
-    .btn-secondary:hover { border-color: var(--text); color: var(--text); }
-
-    .action-status {
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .action-status.is-ok    { color: #1a6640; }
-    .action-status.is-error { color: #b44040; }
-
-    /* ─── Summary cards ──────────────────────────────────────────────────── */
-    #summaryCards {
-      display: flex;
-      flex-direction: column;
       gap: 16px;
+      flex-wrap: wrap;
     }
 
-    .summary-card {
+    .stat-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 20px 22px;
-    }
-
-    .summary-field {
-      width: 100%;
-      min-height: 90px;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 10px 12px;
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      line-height: 1.6;
-      color: var(--text);
-      background: var(--surface);
-      resize: vertical;
-      transition: border-color 0.15s;
-    }
-    .summary-field:focus { outline: none; border-color: var(--gold); }
-
-    .summary-text {
-      font-size: 14px;
-      line-height: 1.7;
-      color: var(--text);
-      white-space: pre-wrap;
-    }
-
-    /* ─── Rafa full-width view ───────────────────────────────────────────── */
-    #rafaContent {
+      padding: 20px 24px;
       flex: 1;
+      min-width: 140px;
       display: flex;
-      gap: 0;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-value.is-gold { color: var(--gold); }
+
+    /* ─── Content card ───────────────────────────────────────────────────── */
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
       overflow: hidden;
     }
 
-    /* ─── Rafa: reuses sidebar + detailPanel rules above ─────────────────── */
-
-    /* ─── Approved indicator ─────────────────────────────────────────────── */
-    .approved-note {
-      font-size: 12px;
-      color: #1a6640;
-      background: #ddfaec;
-      border-radius: 6px;
-      padding: 6px 12px;
+    .content-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
     }
 
-    /* ─── Print styles ───────────────────────────────────────────────────── */
+    .content-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ─── Sessions table ─────────────────────────────────────────────────── */
+    .sessions-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .sessions-table th {
+      padding: 10px 18px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sessions-table td {
+      padding: 13px 18px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .sessions-table tr:last-child td { border-bottom: none; }
+    .sessions-table tbody tr:hover td { background: #fdf7eb; }
+
+    .client-link {
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      transition: color 0.12s;
+    }
+    .client-link:hover { color: var(--gold); }
+
+    /* ─── Empty / error states ───────────────────────────────────────────── */
+    .table-empty {
+      padding: 32px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ─── CTA link button ────────────────────────────────────────────────── */
+    .btn-cta-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .btn-cta-link:hover { opacity: 0.88; }
+
+    /* ─── Print ──────────────────────────────────────────────────────────── */
     @media print {
-      @page { margin: 0; }
-
-      #appHeader,
-      #navSidebar,
-      .sidebar,
-      .detail-actions,
-      .detail-empty,
-      #loadingScreen { display: none !important; }
-
-      #appMain     { display: block; overflow: visible; }
-      #detailPanel { overflow: visible; }
-
-      #detailContent {
-        padding: 28px 36px;
-        display: block;
-      }
-
-      .summary-card {
-        page-break-inside: avoid;
-        break-inside: avoid;
-        box-shadow: none;
-        border: 1px solid #ccc;
-        margin-bottom: 16px;
-      }
-
-      .summary-field {
-        border: none;
-        background: transparent;
-        resize: none;
-        padding: 0;
-        font-size: 13px;
-      }
-
-      .detail-head {
-        margin-bottom: 24px;
-        border-bottom: 2px solid #1a1a1d;
-        padding-bottom: 16px;
-      }
+      #appHeader, #navSidebar { display: none !important; }
     }
 
     /* ─── Responsive ─────────────────────────────────────────────────────── */
-    @media (max-width: 720px) {
-      :root { --sidebar: 100%; }
-      #appMain { flex-direction: column; overflow: auto; }
-      .sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); max-height: 340px; }
-      #detailPanel { overflow: visible; }
+    @media (max-width: 600px) {
+      #appMain { padding: 16px; }
+      .stat-card { min-width: 100px; }
     }
   </style>
 </head>
@@ -509,166 +333,71 @@
     <span class="show-en">Loading...</span>
   </div>
 
-  <!-- ═══════════════ MAIN APP ══════════════════════════════════════════════ -->
+  <!-- ═══════════════ MAIN OVERVIEW ════════════════════════════════════════ -->
   <main id="appMain" hidden>
 
-    <!-- ── ALICE VIEW ──────────────────────────────────────────────────── -->
-    <div id="aliceView" style="display:none; flex:1; overflow:hidden; display:none;">
+    <!-- Page heading + CTA -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <h1 class="page-heading">
+        <span class="show-pt">Visão Geral</span>
+        <span class="show-en">Overview</span>
+      </h1>
+      <a href="sessions.html" class="btn-cta-link">
+        <span class="show-pt">+ Nova Sessão</span>
+        <span class="show-en">+ New Session</span>
+      </a>
+    </div>
 
-      <!-- Sidebar: pull form + session list -->
-      <aside class="sidebar">
-
-        <!-- Paste transcript manually -->
-        <div class="sidebar-section">
-          <div class="sidebar-label">
-            <span class="show-pt">Nova Sessão</span>
-            <span class="show-en">New Session</span>
-          </div>
-          <div class="field-group">
-            <select id="clientSelect" onchange="handleNewClientSelect(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;">
-              <option value="">— selecionar cliente —</option>
-            </select>
-          </div>
-
-          <!-- Inline create-client form (shown when "+ Novo Cliente" selected) -->
-          <div id="newClientForm" hidden style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
-            <div style="font-size:11px;font-weight:700;color:var(--brown);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-              <span class="show-pt">Novo Cliente</span>
-              <span class="show-en">New Client</span>
-            </div>
-            <div class="field-group"><input type="text"  id="nc_name"     autocomplete="off" placeholder="Nome / Name *"></div>
-            <div class="field-group"><input type="text"  id="nc_owners"   autocomplete="off" placeholder="Sócios / Owners"></div>
-            <div class="field-group"><input type="text"  id="nc_industry" autocomplete="off" placeholder="Setor / Industry"></div>
-            <div class="field-group"><input type="text"  id="nc_location" autocomplete="off" placeholder="Localização / Location"></div>
-            <div class="field-group"><input type="text"  id="nc_package"  autocomplete="off" placeholder="Pacote / Package"></div>
-            <div class="field-group">
-              <select id="nc_status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
-                <option value="active">Ativo / Active</option>
-                <option value="lead">Lead</option>
-                <option value="inactive">Inativo / Inactive</option>
-              </select>
-            </div>
-            <div class="field-group"><input type="text"  id="nc_phone"    autocomplete="off" placeholder="Telefone / Phone"></div>
-            <div class="field-group"><input type="email" id="nc_email"    autocomplete="off" placeholder="Email"></div>
-            <div class="field-group"><input type="text"  id="nc_whatsapp" autocomplete="off" placeholder="WhatsApp"></div>
-            <div style="display:flex;gap:8px;margin-top:4px;">
-              <button class="btn-primary"    style="flex:1;font-size:12px;padding:8px 0;" onclick="handleCreateClient()">
-                <span class="show-pt">Salvar Cliente</span>
-                <span class="show-en">Save Client</span>
-              </button>
-              <button class="btn-secondary" style="padding:8px 12px;font-size:12px;" onclick="handleCancelNewClient()">✕</button>
-            </div>
-            <div class="pull-status" id="newClientStatus"></div>
-          </div>
-
-          <div class="field-group">
-            <input
-              type="date"
-              id="sessionDate"
-            >
-          </div>
-          <div class="field-group">
-            <textarea
-              id="transcriptText"
-              placeholder="Paste transcript here..."
-            ></textarea>
-          </div>
-          <button class="btn-primary" id="btnPull" onclick="handlePullTranscript()">
-            <span class="show-pt">Salvar Transcript</span>
-            <span class="show-en">Save Transcript</span>
-          </button>
-          <div class="pull-status" id="pullStatus"></div>
+    <!-- Snapshot stats -->
+    <div class="stat-row" id="statRow">
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="show-pt">Pendentes</span>
+          <span class="show-en">Pending</span>
         </div>
-
-        <!-- Session list -->
-        <div class="sidebar-section" style="border-bottom:none; padding-bottom:6px;">
-          <div class="sidebar-label">
-            <span class="show-pt">Sessões</span>
-            <span class="show-en">Sessions</span>
-          </div>
-        </div>
-        <div class="session-scroll" id="aliceSessionList">
-          <!-- Rendered by JS -->
-        </div>
-
-      </aside>
-
-      <!-- Detail panel -->
-      <section id="detailPanel">
-        <div class="detail-empty" id="detailEmpty">
-          <span class="arrow">&#8592;</span>
-          <span class="show-pt">Selecione uma sessao para ver os detalhes.</span>
-          <span class="show-en">Select a session to view details.</span>
-        </div>
-        <div id="detailContent" hidden>
-          <div class="detail-head">
-            <div>
-              <h2 id="detailClient"></h2>
-              <div class="detail-meta">
-                <span id="detailDate"></span>
-                <span class="status-badge" id="detailStatus"></span>
-                <span class="approved-note" id="detailApproved" hidden></span>
-              </div>
-            </div>
-          </div>
-          <div class="detail-actions" id="detailActions">
-            <!-- Populated by renderDetail() -->
-          </div>
-          <div id="summaryCards">
-            <!-- Summary cards rendered here -->
-          </div>
-        </div>
-      </section>
-
-    </div><!-- /aliceView -->
-
-    <!-- ── RAFA VIEW ───────────────────────────────────────────────────── -->
-    <div id="rafaView" style="display:none; flex:1; overflow:hidden;">
-
-      <div id="rafaContent" style="flex:1; display:flex; overflow:hidden;">
-
-        <!-- Sidebar: approved sessions list -->
-        <aside class="sidebar">
-          <div class="sidebar-section" style="border-bottom:none; padding-bottom:6px;">
-            <div class="sidebar-label">
-              <span class="show-pt">Sessões Aprovadas</span>
-              <span class="show-en">Approved Sessions</span>
-            </div>
-          </div>
-          <div class="session-scroll" id="rafaSessionList">
-            <!-- Rendered by JS -->
-          </div>
-        </aside>
-
-        <!-- Read-only detail panel (reuses same #detailPanel structure via JS) -->
-        <section id="rafaDetailPanel" style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
-          <div class="detail-empty" id="rafaDetailEmpty">
-            <span class="arrow">&#8592;</span>
-            <span class="show-pt">Selecione uma sessao para ver o resumo.</span>
-            <span class="show-en">Select a session to view the summary.</span>
-          </div>
-          <div id="rafaDetailContent" hidden style="padding:28px 32px; display:flex; flex-direction:column; gap:24px;">
-            <div class="detail-head">
-              <div>
-                <h2 id="rafaDetailClient"></h2>
-                <div class="detail-meta">
-                  <span id="rafaDetailDate"></span>
-                  <span class="status-badge" data-status="approved" id="rafaDetailStatus"></span>
-                </div>
-              </div>
-              <button class="btn-secondary" onclick="window.print()">
-                <span class="show-pt">Imprimir</span>
-                <span class="show-en">Print</span>
-              </button>
-            </div>
-            <div id="rafaSummaryCards">
-              <!-- Rendered by JS -->
-            </div>
-          </div>
-        </section>
-
+        <div class="stat-value" id="statPending">—</div>
       </div>
-    </div><!-- /rafaView -->
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="show-pt">Resumidos</span>
+          <span class="show-en">Summarized</span>
+        </div>
+        <div class="stat-value" id="statSummarized">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="show-pt">Aprovados</span>
+          <span class="show-en">Approved</span>
+        </div>
+        <div class="stat-value is-gold" id="statApproved">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="show-pt">Total de Sessões</span>
+          <span class="show-en">Total Sessions</span>
+        </div>
+        <div class="stat-value" id="statTotal">—</div>
+      </div>
+    </div>
+
+    <!-- Recent sessions table -->
+    <div class="content-card">
+      <div class="content-card-header">
+        <h2 class="content-card-title">
+          <span class="show-pt">Sessões Recentes</span>
+          <span class="show-en">Recent Sessions</span>
+        </h2>
+        <a href="sessions.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
+          <span class="show-pt">Ver todas →</span>
+          <span class="show-en">View all →</span>
+        </a>
+      </div>
+      <div id="recentSessionsContainer">
+        <div class="table-empty">
+          <div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div>
+        </div>
+      </div>
+    </div>
 
   </main><!-- /appMain -->
 
@@ -687,9 +416,7 @@
     crossorigin="anonymous"></script>
 
   <script>
-    // ── CONFIGURATION ─────────────────────────────────────────────────────
-    // Replace every placeholder before deploying.
-
+    // ── Configuration ──────────────────────────────────────────────────────
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
 
     var FIREBASE_CONFIG = {
@@ -700,40 +427,13 @@
       messagingSenderId: "894743550437",
       appId:             "1:894743550437:web:45041f841f7e8196db770c"
     };
-    // ─────────────────────────────────────────────────────────────────────
-
-    var SECTION_KEYS = [
-      "discussion_overview",
-      "recommendations",
-      "client_action_items",
-      "rafa_followups",
-      "next_session_focus",
-      "client_profile_updates"
-    ];
 
     // ── State ──────────────────────────────────────────────────────────────
-    var auth            = null;
-    var currentUser     = null;
-    var currentRole     = null;
-    var currentViewRole = null;
-    var sessions        = [];
-    var clients         = [];
-    var activeSessionId = null;
-    var rafaActiveId    = null;
+    var auth        = null;
+    var currentUser = null;
+    var currentRole = null;
 
     // ── Utilities ──────────────────────────────────────────────────────────
-
-    function toggleLang() {
-      var b = document.body;
-      if (b.classList.contains("lang-pt")) {
-        b.classList.remove("lang-pt");
-        b.classList.add("lang-en");
-      } else {
-        b.classList.remove("lang-en");
-        b.classList.add("lang-pt");
-      }
-      renderClientDropdown();
-    }
 
     function formatDate(str) {
       if (!str) { return "--"; }
@@ -747,37 +447,13 @@
       return currentUser.getIdToken();
     }
 
-    function apiFetch(path, opts) {
+    function apiFetch(path) {
       return getToken().then(function(token) {
-        var method  = (opts && opts.method) || "GET";
-        var headers = { "Authorization": "Bearer " + token };
-        var fetchOpts = { method: method, headers: headers };
-        if (opts && opts.body) {
-          headers["Content-Type"] = "application/json";
-          fetchOpts.body = JSON.stringify(opts.body);
-        }
-        return fetch(WORKER_URL + path, fetchOpts);
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
       });
     }
 
-    function findSession(id) {
-      for (var i = 0; i < sessions.length; i++) {
-        if (sessions[i].id === id) { return sessions[i]; }
-      }
-      return null;
-    }
-
-    function updateSession(updated) {
-      for (var i = 0; i < sessions.length; i++) {
-        if (sessions[i].id === updated.id) {
-          sessions[i] = updated;
-          return;
-        }
-      }
-      sessions.unshift(updated);
-    }
-
-    // ── Auth & init ────────────────────────────────────────────────────────
+    // ── Auth & bootstrap ───────────────────────────────────────────────────
 
     function handleSignOut() {
       auth.signOut().then(function() {
@@ -794,41 +470,11 @@
         sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
       document.getElementById("headerRole").textContent = role;
 
-      if (role === "developer") {
-        currentViewRole = sessionStorage.getItem("apex_dev_view") || "alice";
-      } else {
-        currentViewRole = role;
-      }
-
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
 
       window.initNav && window.initNav();
-      setView(currentViewRole);
-      loadSessions();
-      loadClients();
-    }
-
-    function fetchRoleAndSetup() {
-      getToken()
-        .then(function(token) {
-          return fetch(WORKER_URL + "/api/role", {
-            headers: { "Authorization": "Bearer " + token }
-          });
-        })
-        .then(function(res) {
-          if (!res.ok) { throw new Error("HTTP " + res.status); }
-          return res.json();
-        })
-        .then(function(data) {
-          sessionStorage.setItem("apex_role",  data.role);
-          sessionStorage.setItem("apex_email", data.email);
-          setupDashboard(data.role);
-        })
-        .catch(function() {
-          sessionStorage.removeItem("apex_role");
-          window.location.href = "index.html";
-        });
+      loadOverview();
     }
 
     function init() {
@@ -836,652 +482,135 @@
       auth = firebase.auth();
 
       auth.onAuthStateChanged(function(user) {
-        if (!user) {
-          window.location.href = "index.html";
-          return;
-        }
+        if (!user) { window.location.href = "index.html"; return; }
         currentUser = user;
         var cachedRole = sessionStorage.getItem("apex_role");
         if (cachedRole) {
           setupDashboard(cachedRole);
         } else {
-          fetchRoleAndSetup();
+          getToken().then(function(token) {
+            return fetch(WORKER_URL + "/api/role", { headers: { "Authorization": "Bearer " + token } });
+          }).then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          }).then(function(data) {
+            sessionStorage.setItem("apex_role",  data.role);
+            sessionStorage.setItem("apex_email", data.email);
+            setupDashboard(data.role);
+          }).catch(function() {
+            sessionStorage.removeItem("apex_role");
+            window.location.href = "index.html";
+          });
         }
       });
     }
 
-    // ── View switching (developer toggle) ──────────────────────────────────
+    // ── Overview data ──────────────────────────────────────────────────────
 
-    function setView(role) {
-      currentViewRole = role;
-
-      var aliceEl = document.getElementById("aliceView");
-      var rafaEl  = document.getElementById("rafaView");
-      aliceEl.style.display = (role === "alice") ? "flex" : "none";
-      rafaEl.style.display  = (role === "rafa")  ? "flex" : "none";
-
-      var btnA = document.getElementById("navBtnAlice");
-      var btnR = document.getElementById("navBtnRafa");
-      var btnD = document.getElementById("navBtnDev");
-      if (btnA) { btnA.className = "apex-nav-view-btn" + (role === "alice" ? " apex-nav-view-active" : ""); }
-      if (btnR) { btnR.className = "apex-nav-view-btn" + (role === "rafa"  ? " apex-nav-view-active" : ""); }
-      if (btnD) { btnD.className = "apex-nav-view-btn"; }
-
-      if (sessions.length > 0) { renderSessionList(); }
-    }
-
-    // ── Session loading ────────────────────────────────────────────────────
-
-    function loadSessions() {
+    function loadOverview() {
       apiFetch("/api/sessions")
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          sessions = data.sessions || [];
-          renderSessionList();
+          var sessions = data.sessions || [];
+          renderStats(sessions);
+          renderRecentSessions(sessions);
         })
         .catch(function(e) {
-          console.error("Load sessions error:", e.message);
+          document.getElementById("recentSessionsContainer").innerHTML =
+            '<div class="table-empty" style="color:#b44040;">Erro ao carregar sessões.</div>';
+          console.error("Overview load error:", e.message);
         });
     }
 
-    function loadClients() {
-      apiFetch("/api/clients")
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          clients = data.clients || [];
-          renderClientDropdown();
-        })
-        .catch(function(e) {
-          console.error("Load clients error:", e.message);
-        });
-    }
-
-    function renderClientDropdown() {
-      var sel = document.getElementById("clientSelect");
-      if (!sel) { return; }
-      var current = (sel.value && sel.value !== "__new__") ? sel.value : "";
-      var isEn = document.body.classList.contains("lang-en");
-
-      sel.innerHTML = "";
-
-      var ph = document.createElement("option");
-      ph.value = "";
-      ph.textContent = isEn ? "— select client —" : "— selecionar cliente —";
-      sel.appendChild(ph);
-
-      var newOpt = document.createElement("option");
-      newOpt.value = "__new__";
-      newOpt.textContent = isEn ? "+ New Client" : "+ Novo Cliente";
-      sel.appendChild(newOpt);
-
-      var divider = document.createElement("option");
-      divider.disabled = true;
-      divider.textContent = "────────────────";
-      sel.appendChild(divider);
-
-      var sorted = clients.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
-      for (var i = 0; i < sorted.length; i++) {
-        var c = sorted[i];
-        var opt = document.createElement("option");
-        opt.value = c.id;
-        opt.textContent = c.name;
-        if (c.id === current) { opt.selected = true; }
-        sel.appendChild(opt);
-      }
-    }
-
-    function handleNewClientSelect(val) {
-      var form = document.getElementById("newClientForm");
-      if (!form) { return; }
-      if (val !== "__new__") { form.hidden = true; return; }
-      form.hidden = false;
-      var fields = ["nc_name", "nc_owners", "nc_industry", "nc_location", "nc_package", "nc_phone", "nc_email", "nc_whatsapp"];
-      for (var i = 0; i < fields.length; i++) {
-        var el = document.getElementById(fields[i]);
-        if (el) { el.value = ""; }
-      }
-      var st = document.getElementById("nc_status");
-      if (st) { st.value = "active"; }
-      var msg = document.getElementById("newClientStatus");
-      if (msg) { msg.textContent = ""; msg.className = "pull-status"; }
-      var nameEl = document.getElementById("nc_name");
-      if (nameEl) { nameEl.focus(); }
-    }
-
-    function handleCancelNewClient() {
-      var form = document.getElementById("newClientForm");
-      if (form) { form.hidden = true; }
-      var sel = document.getElementById("clientSelect");
-      if (sel) { sel.value = ""; }
-    }
-
-    function handleCreateClient() {
-      var nameEl  = document.getElementById("nc_name");
-      var statusEl = document.getElementById("newClientStatus");
-      var name = (nameEl ? nameEl.value : "").trim();
-      if (!name) {
-        statusEl.textContent = "Nome é obrigatório.";
-        statusEl.className = "pull-status is-error";
-        return;
-      }
-      statusEl.textContent = "Salvando...";
-      statusEl.className = "pull-status";
-
-      apiFetch("/api/clients", {
-        method: "POST",
-        body: {
-          name:     name,
-          owners:   (document.getElementById("nc_owners").value   || "").trim() || null,
-          industry: (document.getElementById("nc_industry").value || "").trim() || null,
-          location: (document.getElementById("nc_location").value || "").trim() || null,
-          package:  (document.getElementById("nc_package").value  || "").trim() || null,
-          status:    document.getElementById("nc_status").value   || "active",
-          phone:    (document.getElementById("nc_phone").value    || "").trim() || null,
-          email:    (document.getElementById("nc_email").value    || "").trim() || null,
-          whatsapp: (document.getElementById("nc_whatsapp").value || "").trim() || null
-        }
-      })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          clients.push({ id: data.client_id, name: name, status: "active" });
-          renderClientDropdown();
-          document.getElementById("clientSelect").value = data.client_id;
-          document.getElementById("newClientForm").hidden = true;
-        })
-        .catch(function(e) {
-          statusEl.textContent = "Erro: " + e.message;
-          statusEl.className = "pull-status is-error";
-        });
-    }
-
-    function renderSessionList() {
-      if (currentViewRole === "alice") {
-        renderAliceList();
-      } else {
-        renderRafaList();
-      }
-    }
-
-    // ── Alice: session list ────────────────────────────────────────────────
-
-    function renderAliceList() {
-      var container = document.getElementById("aliceSessionList");
-      if (!container) { return; }
-
-      if (sessions.length === 0) {
-        container.innerHTML = '<div class="empty-list"><span class="show-pt">Nenhuma sessao encontrada.</span><span class="show-en">No sessions found.</span></div>';
-        return;
-      }
-
-      container.innerHTML = "";
+    function renderStats(sessions) {
+      var pending = 0, summarized = 0, approved = 0;
       for (var i = 0; i < sessions.length; i++) {
-        container.appendChild(makeSessionRow(sessions[i], activeSessionId, "alice"));
+        var s = sessions[i].status;
+        if (s === "pending")    { pending++; }
+        if (s === "summarized") { summarized++; }
+        if (s === "approved")   { approved++; }
       }
+      document.getElementById("statPending").textContent    = pending;
+      document.getElementById("statSummarized").textContent = summarized;
+      document.getElementById("statApproved").textContent   = approved;
+      document.getElementById("statTotal").textContent      = sessions.length;
     }
 
-    function makeSessionRow(session, selectedId, view) {
-      var row = document.createElement("div");
-      row.className = "session-row" + (session.id === selectedId ? " selected" : "");
+    function renderRecentSessions(sessions) {
+      var container = document.getElementById("recentSessionsContainer");
+      var recent = sessions.slice(0, 10);
 
-      var clientDiv = document.createElement("div");
-      clientDiv.className = "client";
-
-      if (session.client_id) {
-        var clientLink = document.createElement("a");
-        clientLink.href = "client.html?id=" + session.client_id;
-        clientLink.textContent = session.client_name;
-        clientLink.style.cssText = "color:inherit;text-decoration:none;transition:color 0.12s;";
-        clientLink.onmouseover = function() { this.style.color = "var(--gold)"; };
-        clientLink.onmouseout  = function() { this.style.color = "inherit"; };
-        clientLink.addEventListener("click", function(e) { e.stopPropagation(); });
-        clientDiv.appendChild(clientLink);
-      } else {
-        clientDiv.textContent = session.client_name;
+      if (recent.length === 0) {
+        container.innerHTML =
+          '<div class="table-empty">' +
+          '<span class="show-pt">Nenhuma sessão ainda. <a href="sessions.html" style="color:var(--gold);">Criar primeira sessão →</a></span>' +
+          '<span class="show-en">No sessions yet. <a href="sessions.html" style="color:var(--gold);">Create first session →</a></span>' +
+          '</div>';
+        return;
       }
 
-      var metaDiv  = document.createElement("div");
-      metaDiv.className = "meta";
+      var table = document.createElement("table");
+      table.className = "sessions-table";
 
-      var dateSpan = document.createElement("span");
-      dateSpan.className = "date";
-      dateSpan.textContent = formatDate(session.date);
+      var thead = document.createElement("thead");
+      thead.innerHTML =
+        "<tr>" +
+          '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>' +
+          '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>' +
+          '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>' +
+          '<th></th>' +
+        "</tr>";
+      table.appendChild(thead);
 
-      var badge = document.createElement("span");
-      badge.className = "status-badge";
-      badge.setAttribute("data-status", session.status);
-
-      metaDiv.appendChild(dateSpan);
-      metaDiv.appendChild(badge);
-      row.appendChild(clientDiv);
-      row.appendChild(metaDiv);
-
-      if (view === "alice") {
-        row.onclick = makeSelectHandler(session.id);
-      } else {
-        row.onclick = makeRafaSelectHandler(session.id);
-      }
-
-      return row;
-    }
-
-    function makeSelectHandler(id) {
-      return function() { selectSession(id); };
-    }
-
-    // ── Alice: select and render session detail ────────────────────────────
-
-    function selectSession(id) {
-      activeSessionId = id;
-      renderAliceList();
-
-      var session = findSession(id);
-      if (!session) { return; }
-
-      document.getElementById("detailEmpty").hidden = true;
-      document.getElementById("detailContent").hidden = false;
-
-      document.getElementById("detailClient").textContent = session.client_name;
-      document.getElementById("detailDate").textContent   = formatDate(session.date);
-
-      var statusEl = document.getElementById("detailStatus");
-      statusEl.setAttribute("data-status", session.status);
-
-      var approvedEl = document.getElementById("detailApproved");
-      if (session.approved_at) {
-        approvedEl.hidden = false;
-        approvedEl.textContent = "Approved " + formatDate(session.approved_at.split("T")[0]);
-      } else {
-        approvedEl.hidden = true;
-      }
-
-      renderAliceActions(session);
-      renderSummaryCards(
-        document.getElementById("summaryCards"),
-        session.summary_json ? JSON.parse(session.summary_json) : null,
-        session.status === "summarized"
-      );
-    }
-
-    function renderAliceActions(session) {
-      var actionsEl = document.getElementById("detailActions");
-      actionsEl.innerHTML = "";
-
-      var statusDiv = document.createElement("div");
-      statusDiv.className = "action-status";
-      statusDiv.id = "actionStatus";
-      actionsEl.appendChild(statusDiv);
-
-      if (session.status === "pending") {
-        var btn = document.createElement("button");
-        btn.className = "btn-action";
-        btn.id = "btnProcess";
-        btn.innerHTML = '<span class="show-pt">Gerar Resumo</span><span class="show-en">Generate Summary</span>';
-        btn.onclick = makeProcessHandler(session.id);
-        actionsEl.appendChild(btn);
-      }
-
-      if (session.status === "summarized") {
-        var appBtn = document.createElement("button");
-        appBtn.className = "btn-action";
-        appBtn.id = "btnApprove";
-        appBtn.innerHTML = '<span class="show-pt">Aprovar &amp; Enviar</span><span class="show-en">Approve &amp; Send</span>';
-        appBtn.onclick = makeApproveHandler(session.id);
-        actionsEl.appendChild(appBtn);
-      }
-
-      if (session.status === "approved") {
-        var pdfBtn = document.createElement("button");
-        pdfBtn.className = "btn-secondary";
-        pdfBtn.id = "btnGeneratePdf";
-        pdfBtn.innerHTML = '<span class="show-pt">Gerar PDF</span><span class="show-en">Generate PDF</span>';
+      var tbody = document.createElement("tbody");
+      for (var i = 0; i < recent.length; i++) {
         (function(s) {
-          pdfBtn.onclick = function() { handleGeneratePdf(s); };
-        })(session);
-        actionsEl.appendChild(pdfBtn);
-      }
-    }
+          var tr = document.createElement("tr");
 
-    function makeProcessHandler(id) {
-      return function() { handleProcess(id); };
-    }
-
-    function makeApproveHandler(id) {
-      return function() { handleApprove(id); };
-    }
-
-    // ── Summary card rendering ─────────────────────────────────────────────
-
-    function renderSummaryCards(container, summary, editable) {
-      container.innerHTML = "";
-      if (!summary) { return; }
-
-      for (var i = 0; i < SECTION_KEYS.length; i++) {
-        var key  = SECTION_KEYS[i];
-        var sec  = summary[key] || {};
-        var card = document.createElement("div");
-        card.className = "summary-card";
-
-        var titleEl = document.createElement("h3");
-        titleEl.className = "section-title";
-        titleEl.setAttribute("data-key", key);
-        card.appendChild(titleEl);
-
-        var ptWrap = document.createElement("div");
-        ptWrap.className = "show-pt";
-
-        var enWrap = document.createElement("div");
-        enWrap.className = "show-en";
-
-        if (editable) {
-          var ptArea = document.createElement("textarea");
-          ptArea.className = "summary-field";
-          ptArea.setAttribute("data-key", key);
-          ptArea.setAttribute("data-lang", "pt");
-          ptArea.value = sec.pt || "";
-          ptWrap.appendChild(ptArea);
-
-          var enArea = document.createElement("textarea");
-          enArea.className = "summary-field";
-          enArea.setAttribute("data-key", key);
-          enArea.setAttribute("data-lang", "en");
-          enArea.value = sec.en || "";
-          enWrap.appendChild(enArea);
-        } else {
-          var ptP = document.createElement("p");
-          ptP.className = "summary-text";
-          ptP.textContent = sec.pt || "";
-          ptWrap.appendChild(ptP);
-
-          var enP = document.createElement("p");
-          enP.className = "summary-text";
-          enP.textContent = sec.en || "";
-          enWrap.appendChild(enP);
-        }
-
-        card.appendChild(ptWrap);
-        card.appendChild(enWrap);
-        container.appendChild(card);
-      }
-    }
-
-    function collectEditedSummary() {
-      var result = {};
-      var fields = document.querySelectorAll("#summaryCards .summary-field");
-      for (var i = 0; i < fields.length; i++) {
-        var field = fields[i];
-        var key   = field.getAttribute("data-key");
-        var lang  = field.getAttribute("data-lang");
-        if (!result[key]) { result[key] = {}; }
-        result[key][lang] = field.value;
-      }
-      return result;
-    }
-
-    // ── Alice actions ──────────────────────────────────────────────────────
-
-    function setActionStatus(msg, state) {
-      var el = document.getElementById("actionStatus");
-      if (!el) { return; }
-      el.textContent = msg;
-      el.className = "action-status" + (state ? " " + state : "");
-    }
-
-    function handlePullTranscript() {
-      var clientId    = document.getElementById("clientSelect").value;
-      var transcript  = document.getElementById("transcriptText").value.trim();
-      var sessionDate = document.getElementById("sessionDate").value;
-      var statusEl    = document.getElementById("pullStatus");
-      var btn         = document.getElementById("btnPull");
-
-      if (!clientId || clientId === "__new__" || !transcript) {
-        statusEl.textContent = "Selecione um cliente e cole o transcript.";
-        statusEl.className = "pull-status is-error";
-        return;
-      }
-
-      btn.disabled = true;
-      statusEl.textContent = "Saving...";
-      statusEl.className = "pull-status";
-
-      apiFetch("/api/transcript", {
-        method: "POST",
-        body: { client_id: clientId, transcript: transcript, date: sessionDate || null }
-      })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          btn.disabled = false;
-          statusEl.textContent = "Saved: " + data.client_name;
-          statusEl.className = "pull-status is-ok";
-          document.getElementById("clientSelect").value  = "";
-          document.getElementById("sessionDate").value   = "";
-          document.getElementById("transcriptText").value = "";
-
-          var newSession = {
-            id: data.session_id,
-            client_name: data.client_name,
-            client_id: data.client_id,
-            date: data.date,
-            status: "pending",
-            summary_json: null,
-            approved_at: null
-          };
-          sessions.unshift(newSession);
-          renderAliceList();
-          selectSession(newSession.id);
-        })
-        .catch(function(e) {
-          btn.disabled = false;
-          statusEl.textContent = "Error: " + e.message;
-          statusEl.className = "pull-status is-error";
-        });
-    }
-
-    function handleProcess(sessionId) {
-      var btn = document.getElementById("btnProcess");
-      if (btn) { btn.disabled = true; }
-      setActionStatus("Generating summary...");
-
-      apiFetch("/api/summarize", { method: "POST", body: { session_id: sessionId } })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          var session = findSession(sessionId);
-          if (session) {
-            session.status = "summarized";
-            session.summary_json = JSON.stringify(data.summary);
+          // Client name cell
+          var tdClient = document.createElement("td");
+          if (s.client_id) {
+            var link = document.createElement("a");
+            link.href = "client.html?id=" + s.client_id;
+            link.className = "client-link";
+            link.textContent = s.client_name || "—";
+            tdClient.appendChild(link);
+          } else {
+            tdClient.textContent = s.client_name || "—";
+            tdClient.style.color = "var(--muted)";
           }
-          renderAliceList();
-          setActionStatus("");
-          selectSession(sessionId);
-        })
-        .catch(function(e) {
-          if (btn) { btn.disabled = false; }
-          setActionStatus("Error: " + e.message, "is-error");
-        });
-    }
+          tr.appendChild(tdClient);
 
-    function handleApprove(sessionId) {
-      var btn    = document.getElementById("btnApprove");
-      var edited = collectEditedSummary();
+          // Date
+          var tdDate = document.createElement("td");
+          tdDate.textContent = formatDate(s.date);
+          tdDate.style.color = "var(--muted)";
+          tr.appendChild(tdDate);
 
-      // Carry forward pdf_data so it survives the approve step
-      var existing = findSession(sessionId);
-      if (existing && existing.summary_json) {
-        try {
-          var orig = JSON.parse(existing.summary_json);
-          if (orig.pdf_data) { edited.pdf_data = orig.pdf_data; }
-        } catch (e) { /* ignore parse errors */ }
+          // Status badge
+          var tdStatus = document.createElement("td");
+          var badge = document.createElement("span");
+          badge.className = "status-badge";
+          badge.setAttribute("data-status", s.status || "pending");
+          tdStatus.appendChild(badge);
+          tr.appendChild(tdStatus);
+
+          // Action link → sessions.html workbench
+          var tdAction = document.createElement("td");
+          tdAction.style.textAlign = "right";
+          var actionLink = document.createElement("a");
+          actionLink.href = "sessions.html";
+          actionLink.style.cssText = "font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;";
+          actionLink.innerHTML = '<span class="show-pt">Abrir →</span><span class="show-en">Open →</span>';
+          tdAction.appendChild(actionLink);
+          tr.appendChild(tdAction);
+
+          tbody.appendChild(tr);
+        })(recent[i]);
       }
-
-      if (btn) { btn.disabled = true; }
-      setActionStatus("Approving...");
-
-      apiFetch("/api/approve", {
-        method: "POST",
-        body: { session_id: sessionId, edited_summary: edited }
-      })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          var session = findSession(sessionId);
-          if (session) {
-            session.status = "approved";
-            session.approved_at = data.approved_at;
-            session.summary_json = JSON.stringify(edited);
-          }
-          renderAliceList();
-          setActionStatus("Approved.", "is-ok");
-          selectSession(sessionId);
-        })
-        .catch(function(e) {
-          if (btn) { btn.disabled = false; }
-          setActionStatus("Error: " + e.message, "is-error");
-        });
-    }
-
-    function handleGeneratePdf(session) {
-      var actionStatus = document.getElementById("actionStatus");
-      var btn          = document.getElementById("btnGeneratePdf");
-
-      var pdfData;
-      try {
-        pdfData = session.pdf_data ? JSON.parse(session.pdf_data) : null;
-      } catch (e) {
-        if (actionStatus) {
-          actionStatus.textContent = "Erro: nao foi possivel ler pdf_data.";
-          actionStatus.className = "action-status is-error";
-        }
-        return;
-      }
-
-      if (!pdfData) {
-        if (actionStatus) {
-          actionStatus.textContent = "pdf_data ausente - execute Gerar Resumo novamente para gerar o PDF.";
-          actionStatus.className = "action-status is-error";
-        }
-        return;
-      }
-
-      if (btn) { btn.disabled = true; }
-      if (actionStatus) {
-        actionStatus.textContent = "Gerando PDF...";
-        actionStatus.className = "action-status";
-      }
-
-      var dateParts  = (session.date || "").split("-");
-      var reportNumber = dateParts.length === 3
-        ? dateParts[0] + "-" + dateParts[1] + dateParts[2]
-        : (session.date || "");
-      var nameWords  = (session.client_name || "").split(/\s+/);
-      var reportCode = "";
-      for (var wi = 0; wi < nameWords.length; wi++) {
-        if (nameWords[wi]) { reportCode += nameWords[wi].charAt(0).toUpperCase(); }
-      }
-      reportCode = reportCode.slice(0, 4) || "XX";
-
-     var data = {};
-for (var k in pdfData) {
-  if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; }
-}
-data.client_name = session.client_name;
-data.session_date = formatDate(session.date);
-data.consultant_name = "Rafael Prata";
-data.report_number = reportNumber;
-data.report_code = reportCode;
-data.client_logo = null;
-
-data.clientname = session.client_name;
-data.sessiondate = formatDate(session.date);
-data.consultantname = "Rafael Andrade";
-data.reportnumber = reportNumber;
-data.reportcode = reportCode;
-data.clientlogo = null;
-
-
-      var TEMPLATE_URL = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
-
-      var newTab = window.open(TEMPLATE_URL, "_blank");
-      if (!newTab) {
-        if (actionStatus) {
-          actionStatus.textContent = "Popup bloqueado — permita popups para este site e tente novamente.";
-          actionStatus.className = "action-status is-error";
-        }
-        if (btn) { btn.disabled = false; }
-        return;
-      }
-
-      if (actionStatus) {
-        actionStatus.textContent = "Abrindo template...";
-        actionStatus.className = "action-status";
-      }
-
-      var sent = false;
-
-      function sendData() {
-        if (sent) { return; }
-        sent = true;
-        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
-        if (btn) { btn.disabled = false; }
-        if (actionStatus) {
-          actionStatus.textContent = "Dialogo de impressao aberto na nova aba.";
-          actionStatus.className = "action-status is-ok";
-        }
-      }
-
-      var fallbackId = setTimeout(sendData, 1500);
-
-      newTab.addEventListener("load", function() {
-        clearTimeout(fallbackId);
-        sendData();
-      });
-    }
-
-    // ── Rafa: session list and detail ──────────────────────────────────────
-
-    function renderRafaList() {
-      var container = document.getElementById("rafaSessionList");
-      if (!container) { return; }
-
-      var approved = [];
-      for (var i = 0; i < sessions.length; i++) {
-        if (sessions[i].status === "approved") { approved.push(sessions[i]); }
-      }
-
-      if (approved.length === 0) {
-        container.innerHTML = '<div class="empty-list"><span class="show-pt">Nenhuma sessao aprovada.</span><span class="show-en">No approved sessions.</span></div>';
-        return;
-      }
-
+      table.appendChild(tbody);
       container.innerHTML = "";
-      for (var j = 0; j < approved.length; j++) {
-        container.appendChild(makeSessionRow(approved[j], rafaActiveId, "rafa"));
-      }
-    }
-
-    function makeRafaSelectHandler(id) {
-      return function() { selectRafaSession(id); };
-    }
-
-    function selectRafaSession(id) {
-      rafaActiveId = id;
-      renderRafaList();
-
-      var session = findSession(id);
-      if (!session) { return; }
-
-      document.getElementById("rafaDetailEmpty").hidden   = true;
-      document.getElementById("rafaDetailContent").hidden = false;
-
-      document.getElementById("rafaDetailClient").textContent = session.client_name;
-      document.getElementById("rafaDetailDate").textContent   = formatDate(session.date);
-
-      renderSummaryCards(
-        document.getElementById("rafaSummaryCards"),
-        session.summary_json ? JSON.parse(session.summary_json) : null,
-        false
-      );
+      container.appendChild(table);
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────

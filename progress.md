@@ -1,6 +1,6 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 21 — nav.js revert + view switcher diagnosis)
+**Last updated:** 2026-07-02 (session 22 — Overview, Digital Presence, Tasks, Collapse controls)
 **Current phase:** Session 21 complete — sessions.html regression fixed (nav.js reverted to pre-session-19); view switcher root cause diagnosed.
 **Last session summary:** Reverted nav.js to pre-session-19 state to restore sessions.html. Diagnosed view switcher: click handler fires correctly but window.setView is undefined on all pages (dashboard.html removed its setView in session 16; sessions.html has setView as a local function not on window).
 
@@ -281,6 +281,59 @@
 9. Enter invalid role (can't happen via dropdown, but confirm server rejects if tampered)
 10. Log in as alice or rafa → add-user.html shows "Acesso restrito" message, no form visible
 11. After adding Alice's new email with role "alice", confirm she can log in with that email and reach the dashboard
+
+## Completed (session 22 — 2026-07-02, Overview + Digital Presence + Tasks + Collapse)
+
+### Overview card
+- [x] New card above Sessions (left column); 7 fields: Business Name, Owner(s), Sector, Location, Package, Status, Next Meeting
+- [x] Inline-editable: clicking a value shows an input; blur saves via PATCH /api/clients/:id; Escape cancels
+- [x] Replaces Empresa card — data pulled from existing client record (name, owners, industry, location, package, status)
+- [x] Empresa / clientInfoCard div removed from right column
+
+### Digital Presence section
+- [x] Below Overview, left column; read view shows only platforms with data (URL + note count)
+- [x] Edit button opens modal with 7 platform tabs (Website, Instagram, TikTok, LinkedIn, Facebook, Google Business, YouTube)
+- [x] Per platform: URL field + add review note form (working / needs improvement); existing notes shown in read view
+- [x] Notes save with ISO timestamp; stored in D1 under clients.digital_presence (JSON TEXT column)
+- [x] D1: ALTER TABLE clients ADD COLUMN digital_presence TEXT — applied to live apex-command-center
+- [x] Worker: GET /api/clients/:id/digital-presence + PATCH /api/clients/:id/digital-presence
+- [x] Security: URL scheme validated client-side (http/https only) before anchor href assignment; same validation enforced server-side in handlePatchDigitalPresence
+
+### Client Tasks section
+- [x] Below Digital Presence, left column; type = 'client'
+- [x] Each task row: description, due date, completion checkbox
+- [x] Completion toggles done state (strikethrough + opacity) — row stays visible, does not disappear
+- [x] Completion persists to D1 via PATCH /api/tasks/:id
+
+### Consultant Tasks section
+- [x] Same as Client Tasks but type = 'consultant'
+- [x] Same D1-backed completion state — PATCH /api/tasks/:id updates the same tasks table that tasks.html can read
+
+### D1 schema
+- [x] CREATE TABLE tasks (id TEXT PRIMARY KEY, client_id TEXT, type TEXT, description TEXT, due_date TEXT, status TEXT DEFAULT 'pending', created_at TEXT)
+- [x] Worker routes: GET /api/clients/:id/tasks, POST /api/clients/:id/tasks, PATCH /api/tasks/:id
+- [x] Security: PATCH /api/tasks/:id requires alice or developer role; verifies task exists before UPDATE
+
+### Section collapse controls
+- [x] Every section card gets a collapse toggle (▼/▶ chevron in card header)
+- [x] Collapsed/open state saved per user per section in localStorage: apex_collapse_{clientId}_{sectionName}
+- [x] 11 sections wired: overview, sessions, dp, clientTasks, consultantTasks, notes, payment, contacts, logo, docs, activity
+
+**Files touched (session 22):** client.html, worker/index.js, worker/schema.sql, progress.md
+
+**Deployments:** Worker version 6d44d297 (apex-api.farfromtimnah.workers.dev); GitHub Pages confirmed live (all 10 feature markers found in fetched HTML)
+
+**QA checklist (browser test required):**
+1. Open client.html for any client → Overview card visible above Sessions with all 7 fields
+2. Click a field value (Business Name, Owner, Sector, Location) → input appears; type new value → blur → saves without reload
+3. Empresa / Business card is gone from right sidebar
+4. Scroll to Digital Presence → "Nenhuma presença digital" if empty
+5. Click Editar → modal opens; select Instagram tab; enter URL + review note → Save → read view updates
+6. Reload page → digital presence data still shows (persisted in D1)
+7. Scroll to Client Tasks → empty state; click + Adicionar → form appears; fill description + date → Save → task appears
+8. Click task checkbox → row dims/strikethrough; reload → still done
+9. Same test for Consultant Tasks
+10. Collapse any card by clicking ▼ → body hides, chevron flips to ▶; reload → stays collapsed (localStorage)
 
 ## Completed (session 21 — 2026-07-02, nav.js revert + view switcher diagnosis)
 

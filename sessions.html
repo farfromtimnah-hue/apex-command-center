@@ -817,7 +817,7 @@
 
       var aliceEl = document.getElementById("aliceView");
       var rafaEl  = document.getElementById("rafaView");
-      aliceEl.style.display = (role === "alice") ? "flex" : "none";
+      aliceEl.style.display = (role === "alice" || role === "dev") ? "flex" : "none";
       rafaEl.style.display  = (role === "rafa")  ? "flex" : "none";
 
       var btnA = document.getElementById("navBtnAlice");

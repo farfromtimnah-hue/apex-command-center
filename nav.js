@@ -221,7 +221,9 @@
 
   // ── Public: dev view switcher ─────────────────────────────────────────────
   window.apexNavSetView = function (v) {
-    sessionStorage.setItem("apex_dev_view", v);
+    if (v !== "dev") {
+      sessionStorage.setItem("apex_dev_view", v);
+    }
 
     // Update switcher button active states
     var mapping = { "navBtnAlice": "alice", "navBtnRafa": "rafa", "navBtnDev": "dev" };

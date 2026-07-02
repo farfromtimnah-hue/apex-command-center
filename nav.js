@@ -37,6 +37,20 @@
       tipPt: "Tarefas",                        tipEn: "Tasks" }
   ];
 
+  // ── Dock config: top 3 primary destinations per role + "More" ──────────
+  // DOCK_KEYS lists the nav item keys shown directly in the dock.
+  // Everything else goes in the More sheet.
+  var DOCK_KEYS_ALICE = ["dashboard", "clients", "sessions"];
+  var DOCK_KEYS_RAFA  = ["dashboard", "clients", "sessions"];
+  // Developer sees same primary set as Alice; More sheet adds Add User + dev controls
+  var DOCK_KEYS_DEV   = ["dashboard", "clients", "sessions"];
+
+  // ── Mobile state ─────────────────────────────────────────────────────────
+  var _mobileRole    = "alice";
+  var _mobileItems   = NAV_ITEMS_ALICE;
+  var _mobileDevView = "";
+  var _isMoreOpen    = false;
+
   // ── SVG icon builder ────────────────────────────────────────────────────
   function navSvg(type) {
     var open = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
@@ -57,6 +71,12 @@
       body = '<polyline points="15 18 9 12 15 6"/>';
     } else if (type === "chevron-right") {
       body = '<polyline points="9 18 15 12 9 6"/>';
+    } else if (type === "more-horizontal") {
+      body = '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>';
+    } else if (type === "x") {
+      body = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+    } else if (type === "user-plus") {
+      body = '<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>';
     }
     return open + body + '</svg>';
   }
@@ -117,8 +137,52 @@
       "body.lang-pt .show-en { display: none; }" +
       "body.lang-en .show-pt { display: none; }" +
 
-      /* Mobile: hide the nav rail entirely */
-      "@media (max-width: 720px) { #navSidebar { display: none; } }";
+      /* ── Mobile: hide sidebar, show bottom dock ── */
+      "@media (max-width: 768px) {" +
+        "#navSidebar { display: none; }" +
+        "#apexMobileDock { display: flex; }" +
+        "#appMain, #contentArea { padding-bottom: 72px; }" +
+      "}" +
+
+      /* Mobile dock — hidden by default, shown via media query above */
+      "#apexMobileDock { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 64px; background: #1a1a1d; border-top: 1px solid #2a2a2e; z-index: 900; align-items: stretch; justify-content: space-around; padding: 0; safe-area-inset-bottom: env(safe-area-inset-bottom); padding-bottom: env(safe-area-inset-bottom, 0px); }" +
+
+      /* Dock tab buttons */
+      ".apex-dock-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 500; text-decoration: none; padding: 8px 4px; position: relative; transition: color 0.15s; -webkit-tap-highlight-color: transparent; }" +
+      ".apex-dock-tab:hover { color: rgba(255,255,255,0.85); }" +
+      ".apex-dock-tab.apex-dock-active { color: #C9A43A; }" +
+      ".apex-dock-tab svg { width: 22px; height: 22px; }" +
+      ".apex-dock-label { font-size: 10px; line-height: 1; }" +
+
+      /* More sheet overlay */
+      "#apexMoreOverlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 910; }" +
+      "#apexMoreOverlay.apex-more-open { display: block; }" +
+
+      /* More sheet panel */
+      "#apexMoreSheet { position: fixed; left: 0; right: 0; bottom: 0; background: #1a1a1d; border-top: 1px solid #2a2a2e; border-radius: 16px 16px 0 0; z-index: 920; transform: translateY(100%); transition: transform 0.25s ease; padding-bottom: env(safe-area-inset-bottom, 0px); }" +
+      "#apexMoreSheet.apex-more-open { transform: translateY(0); }" +
+
+      /* Sheet handle + header */
+      ".apex-sheet-handle { width: 36px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 12px auto 0; }" +
+      ".apex-sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 10px; border-bottom: 1px solid #2a2a2e; }" +
+      ".apex-sheet-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 0.8px; text-transform: uppercase; }" +
+      ".apex-sheet-close { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }" +
+      ".apex-sheet-close:hover { color: rgba(255,255,255,0.8); }" +
+
+      /* Sheet nav items */
+      ".apex-sheet-items { padding: 8px 0 16px; }" +
+      "a.apex-sheet-item { display: flex; align-items: center; gap: 14px; padding: 13px 20px; color: rgba(255,255,255,0.65); font-size: 14px; font-weight: 500; text-decoration: none; font-family: 'Inter', sans-serif; transition: color 0.15s, background 0.15s; }" +
+      "a.apex-sheet-item:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.06); }" +
+      "a.apex-sheet-item.apex-sheet-active { color: #C9A43A; }" +
+      ".apex-sheet-item-icon { width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }" +
+
+      /* Dev section in More sheet */
+      ".apex-sheet-dev-section { border-top: 1px solid #2a2a2e; padding: 12px 20px 16px; }" +
+      ".apex-sheet-dev-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 10px; }" +
+      ".apex-sheet-switcher-btns { display: flex; gap: 6px; margin-bottom: 10px; }" +
+      ".apex-sheet-view-btn { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.5); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: 12px; cursor: pointer; transition: all 0.15s; }" +
+      ".apex-sheet-view-btn:hover { border-color: #C9A43A; color: #C9A43A; }" +
+      ".apex-sheet-view-btn.apex-sheet-view-active { background: rgba(201,164,58,0.14); border-color: #C9A43A; color: #C9A43A; font-weight: 600; }";
 
     document.head.appendChild(el);
   }
@@ -182,6 +246,149 @@
     return html;
   }
 
+  // ── Mobile dock + More sheet builders ────────────────────────────────────
+  function getDockKeys(role) {
+    if (role === "rafa") { return DOCK_KEYS_RAFA; }
+    if (role === "developer") { return DOCK_KEYS_DEV; }
+    return DOCK_KEYS_ALICE;
+  }
+
+  function buildMobileDock(role, items, devView) {
+    var activePage = getActivePage();
+    var dockKeys = getDockKeys(role);
+    var html = '';
+
+    // Render primary dock tabs
+    for (var i = 0; i < dockKeys.length; i++) {
+      var key = dockKeys[i];
+      var item = null;
+      for (var k = 0; k < items.length; k++) {
+        if (items[k].key === key) { item = items[k]; break; }
+      }
+      if (!item) { continue; }
+      var isActive = (activePage === item.href);
+      var activeClass = isActive ? ' apex-dock-active' : '';
+      html += '<a class="apex-dock-tab' + activeClass + '" href="' + item.href + '">';
+      html += navSvg(item.icon);
+      html += '<span class="apex-dock-label">';
+      html += '<span class="show-pt">' + item.tipPt + '</span>';
+      html += '<span class="show-en">' + item.tipEn + '</span>';
+      html += '</span>';
+      html += '</a>';
+    }
+
+    // More tab
+    html += '<button class="apex-dock-tab" id="apexDockMoreBtn" onclick="apexNavOpenMore()">';
+    html += navSvg("more-horizontal");
+    html += '<span class="apex-dock-label">';
+    html += '<span class="show-pt">Mais</span>';
+    html += '<span class="show-en">More</span>';
+    html += '</span>';
+    html += '</button>';
+
+    return html;
+  }
+
+  function buildMoreSheet(role, items, devView) {
+    var activePage = getActivePage();
+    var dockKeys = getDockKeys(role);
+    var html = '';
+
+    html += '<div class="apex-sheet-handle"></div>';
+    html += '<div class="apex-sheet-header">';
+    html += '<span class="apex-sheet-title">';
+    html += '<span class="show-pt">Navegar</span>';
+    html += '<span class="show-en">Navigate</span>';
+    html += '</span>';
+    html += '<button class="apex-sheet-close" onclick="apexNavCloseMore()">' + navSvg("x") + '</button>';
+    html += '</div>';
+
+    html += '<div class="apex-sheet-items">';
+
+    // Items NOT in the dock
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var inDock = false;
+      for (var d = 0; d < dockKeys.length; d++) {
+        if (dockKeys[d] === item.key) { inDock = true; break; }
+      }
+      if (inDock) { continue; }
+      var isActive = (activePage === item.href);
+      var activeClass = isActive ? ' apex-sheet-active' : '';
+      html += '<a class="apex-sheet-item' + activeClass + '" href="' + item.href + '">';
+      html += '<span class="apex-sheet-item-icon">' + navSvg(item.icon) + '</span>';
+      html += '<span>';
+      html += '<span class="show-pt">' + item.labelPt + '</span>';
+      html += '<span class="show-en">' + item.labelEn + '</span>';
+      html += '</span>';
+      html += '</a>';
+    }
+
+    // Developer-only: Add User page
+    if (role === "developer") {
+      html += '<a class="apex-sheet-item" href="add-user.html">';
+      html += '<span class="apex-sheet-item-icon">' + navSvg("user-plus") + '</span>';
+      html += '<span>';
+      html += '<span class="show-pt">Adicionar Usuario</span>';
+      html += '<span class="show-en">Add User</span>';
+      html += '</span>';
+      html += '</a>';
+    }
+
+    html += '</div>';
+
+    // Developer-only: view switcher + nav collapse toggle in sheet
+    if (role === "developer") {
+      html += '<div class="apex-sheet-dev-section">';
+      html += '<div class="apex-sheet-dev-label">DEV</div>';
+      html += '<div class="apex-sheet-switcher-btns">';
+      var btns = [
+        { id: "mobileNavBtnAlice", v: "alice", label: "Alice" },
+        { id: "mobileNavBtnRafa",  v: "rafa",  label: "Rafa"  },
+        { id: "mobileNavBtnDev",   v: "dev",   label: "Dev"   }
+      ];
+      for (var j = 0; j < btns.length; j++) {
+        var b = btns[j];
+        var ac = (devView === b.v) ? ' apex-sheet-view-active' : '';
+        html += '<button id="' + b.id + '" class="apex-sheet-view-btn' + ac + '" onclick="apexNavSetView(\'' + b.v + '\')">' + b.label + '</button>';
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+
+    return html;
+  }
+
+  // ── Inject mobile dock + sheet into DOM ───────────────────────────────────
+  function injectMobileDock(role, items, devView) {
+    // Remove any prior dock/sheet/overlay
+    var old;
+    old = document.getElementById("apexMobileDock");
+    if (old) { old.parentNode.removeChild(old); }
+    old = document.getElementById("apexMoreSheet");
+    if (old) { old.parentNode.removeChild(old); }
+    old = document.getElementById("apexMoreOverlay");
+    if (old) { old.parentNode.removeChild(old); }
+
+    // Dock
+    var dock = document.createElement("div");
+    dock.id = "apexMobileDock";
+    dock.innerHTML = buildMobileDock(role, items, devView);
+    document.body.appendChild(dock);
+
+    // Overlay (tap-outside to close)
+    var overlay = document.createElement("div");
+    overlay.id = "apexMoreOverlay";
+    overlay.onclick = function () { apexNavCloseMore(); };
+    document.body.appendChild(overlay);
+
+    // Sheet
+    var sheet = document.createElement("div");
+    sheet.id = "apexMoreSheet";
+    sheet.innerHTML = buildMoreSheet(role, items, devView);
+    document.body.appendChild(sheet);
+  }
+
   // ── Refresh the collapse arrow icon ──────────────────────────────────────
   function refreshToggleIcon() {
     var btn = document.getElementById("apexNavToggle");
@@ -190,6 +397,23 @@
     var collapsed = sidebar.classList.contains("apex-nav-collapsed");
     btn.innerHTML = navSvg(collapsed ? "chevron-right" : "chevron-left");
   }
+
+  // ── Public: open/close More sheet ─────────────────────────────────────────
+  window.apexNavOpenMore = function () {
+    _isMoreOpen = true;
+    var overlay = document.getElementById("apexMoreOverlay");
+    var sheet = document.getElementById("apexMoreSheet");
+    if (overlay) { overlay.className = "apex-more-open"; }
+    if (sheet) { sheet.className = "apex-more-open"; }
+  };
+
+  window.apexNavCloseMore = function () {
+    _isMoreOpen = false;
+    var overlay = document.getElementById("apexMoreOverlay");
+    var sheet = document.getElementById("apexMoreSheet");
+    if (overlay) { overlay.className = ""; }
+    if (sheet) { sheet.className = ""; }
+  };
 
   // ── Public: language toggle (shared across all pages) ────────────────────
   window.apexNavToggleLang = function () {
@@ -222,14 +446,25 @@
   // ── Public: dev view switcher ─────────────────────────────────────────────
   window.apexNavSetView = function (v) {
     sessionStorage.setItem("apex_dev_view", v);
+    _mobileDevView = v;
 
-    // Update switcher button active states
+    // Update desktop sidebar buttons
     var mapping = { "navBtnAlice": "alice", "navBtnRafa": "rafa", "navBtnDev": "dev" };
     var ids = ["navBtnAlice", "navBtnRafa", "navBtnDev"];
     for (var i = 0; i < ids.length; i++) {
       var btn = document.getElementById(ids[i]);
       if (btn) {
         btn.className = "apex-nav-view-btn" + (mapping[ids[i]] === v ? " apex-nav-view-active" : "");
+      }
+    }
+
+    // Update mobile sheet buttons
+    var mobileMapping = { "mobileNavBtnAlice": "alice", "mobileNavBtnRafa": "rafa", "mobileNavBtnDev": "dev" };
+    var mobileIds = ["mobileNavBtnAlice", "mobileNavBtnRafa", "mobileNavBtnDev"];
+    for (var m = 0; m < mobileIds.length; m++) {
+      var mbtn = document.getElementById(mobileIds[m]);
+      if (mbtn) {
+        mbtn.className = "apex-sheet-view-btn" + (mobileMapping[mobileIds[m]] === v ? " apex-sheet-view-active" : "");
       }
     }
 
@@ -261,6 +496,11 @@
     var items = (role === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;
     var devView = (role === "developer") ? (sessionStorage.getItem("apex_dev_view") || "alice") : "";
 
+    // Store mobile state
+    _mobileRole    = role;
+    _mobileItems   = items;
+    _mobileDevView = devView;
+
     sidebar.innerHTML = buildNavHTML(role, items, devView);
 
     if (sessionStorage.getItem("apex_nav_collapsed") === "1") {
@@ -268,6 +508,9 @@
     }
 
     refreshToggleIcon();
+
+    // Inject mobile dock + More sheet
+    injectMobileDock(role, items, devView);
   };
 
 })();

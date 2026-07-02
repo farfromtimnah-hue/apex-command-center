@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 18 — tasks.html role tabs + completion)
-**Current phase:** Session 18 complete — tasks.html now has Consultant/Client tabs, completion toggle with D1 persistence, and calmer visual layout.
-**Last session summary:** Refined tasks.html. Added two top-level role tabs (Consultant / Client) so Rafa defaults to his own follow-ups. Kept By Date / By Type sort controls inside each tab. Replaced colored dot with circular checkbox toggle — clicking marks a task done (strikethrough, muted, low opacity) or undone. Completion state saved to localStorage immediately, then PATCHed to a new task_completions column on sessions in D1 (fire-and-forget, silent fallback). Worker deployed (version 059b98c6). D1 schema updated (ALTER TABLE sessions ADD COLUMN task_completions TEXT).
+**Last updated:** 2026-07-02 (session 19 — mobile nav: bottom dock + More sheet)
+**Current phase:** Session 19 complete — mobile nav unblocked. Bottom icon dock replaces sidebar below 768px; More sheet exposes all remaining items including dev controls.
+**Last session summary:** Fixed blocking mobile bug where sidebar was hidden on mobile with zero replacement. nav.js now injects a fixed bottom icon dock (Dashboard, Clients, Sessions + More tab) below 768px. Tapping More slides up a sheet listing remaining nav items (Documents, Tasks, Settings, Add User for developer role) plus the dev view switcher. Desktop sidebar completely untouched. No Worker/D1 changes.
 
 ---
 
@@ -250,6 +250,41 @@
 - [x] wrangler.toml configured with real D1 ID, Firebase project ID — 2026-06-29
 - [x] Full login flow confirmed working end to end — 2026-06-29
 - [x] GitHub repo live, .gitignore verified — 2026-06-29
+
+## Completed (session 19 — 2026-07-02, mobile nav: bottom dock + More sheet)
+- [x] nav.js — fixed blocking mobile bug: sidebar was `display: none` below 720px with no replacement
+- [x] nav.js — mobile breakpoint changed from 720px to 768px (standard phone breakpoint)
+- [x] nav.js — bottom dock injected into `<body>` by `initNav()` at runtime
+  - Fixed position at bottom of screen, 64px tall, dark background matching sidebar
+  - Shows top 3 primary destinations per role: Dashboard, Clients, Sessions (+ More tab)
+  - Active dock tab highlighted in gold (#C9A43A), matching desktop sidebar active state
+  - Bilingual labels (PT/EN) from same nav item definitions; respects `apex_lang` session state
+- [x] nav.js — "More" tab opens a bottom sheet with all remaining nav items
+  - Overlay dims the page; tap outside or close button dismisses the sheet
+  - For Alice role: Documents, Tasks, Settings in sheet
+  - For Rafa role: Tasks in sheet (Rafa's set is only 4 items total)
+  - For Developer role: Documents, Tasks, Settings, Add User page link + dev view switcher (Alice/Rafa/Dev buttons) in sheet
+  - `apexNavSetView()` updated to sync both desktop sidebar buttons AND mobile sheet buttons
+- [x] nav.js — `@media (max-width: 768px)` adds `padding-bottom: 72px` to `#appMain` / `#contentArea` so content isn't hidden behind dock
+- [x] No changes to any HTML page, Worker, D1 schema, or routes
+
+**Files touched (session 19):** nav.js, progress.md
+
+**QA checklist (browser test required — must test on phone or mobile emulation):**
+1. Open any app page in browser devtools at 390px width (iPhone viewport)
+2. Confirm: left sidebar is gone, bottom dock appears with 4 tabs (Dashboard, Clients, Sessions, More)
+3. Confirm: active page's dock tab is gold; other tabs are muted
+4. Tap a dock tab → navigates to that page; new page loads with dock visible, correct active tab
+5. Tap "More" tab → dark overlay appears, sheet slides up from bottom
+6. Confirm More sheet lists: Documents, Tasks, Settings (alice role) or Tasks (rafa role)
+7. Developer role More sheet: also shows Add User link + Alice/Rafa/Dev view switcher buttons
+8. Tap a More sheet item → navigates to that page (sheet closes naturally on navigation)
+9. Tap outside the sheet (on the overlay) → sheet closes, overlay disappears
+10. Tap the X button in sheet header → sheet closes
+11. Switch to 1200px (desktop) → dock is gone, sidebar is visible as before; no regressions
+12. Test bilingual toggle: switch to EN → dock labels and sheet labels update
+
+**Known gap:** Add User page (add-user.html) does not exist yet — that is Part 1, a separate task. The More sheet link will 404 until Part 1 is built.
 
 ## Completed (session 18 — 2026-07-02, tasks.html role tabs + completion)
 - [x] tasks.html — Consultant / Client top-level tabs (underline style, with pending/total count badge)

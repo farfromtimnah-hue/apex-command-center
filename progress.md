@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 20 — Add User tool + mobile nav dock)
-**Current phase:** Session 20 complete — developer-only Add User page live; mobile nav dock from session 19 also live (no further changes needed there).
-**Last session summary:** Built Add User tool so new login emails can be added to the users allowlist without a manual D1 query. New page add-user.html (developer-only, 403 shown to other roles), plus 3 new Worker routes (GET/POST /api/users, DELETE /api/users/:email). Worker deployed (version eee370c3).
+**Last updated:** 2026-07-02 (session 21 — nav.js revert + view switcher diagnosis)
+**Current phase:** Session 21 complete — sessions.html regression fixed (nav.js reverted to pre-session-19); view switcher root cause diagnosed.
+**Last session summary:** Reverted nav.js to pre-session-19 state to restore sessions.html. Diagnosed view switcher: click handler fires correctly but window.setView is undefined on all pages (dashboard.html removed its setView in session 16; sessions.html has setView as a local function not on window).
 
 ---
 
@@ -281,6 +281,27 @@
 9. Enter invalid role (can't happen via dropdown, but confirm server rejects if tampered)
 10. Log in as alice or rafa → add-user.html shows "Acesso restrito" message, no form visible
 11. After adding Alice's new email with role "alice", confirm she can log in with that email and reach the dashboard
+
+## Completed (session 21 — 2026-07-02, nav.js revert + view switcher diagnosis)
+
+### Part A — sessions.html blank (FIXED)
+- [x] Root cause confirmed via headless Playwright testing: session 19's `injectMobileDock()` added elements to `document.body` via `initNav()`. Testing confirmed this caused a regression on sessions.html (page appeared blank / transcript upload workflow inaccessible).
+- [x] Fix: reverted nav.js to its pre-session-19 state (commit f5661ce) — mobile dock additions removed entirely
+- [x] Confirmed live: sessions.html now renders correctly on GitHub Pages with zero JS errors, appMain visible, alice view active
+- [x] add-user.html and all session 20 Worker work untouched
+- [x] Git push confirmed: dfabf0f..67fc6fc main → main
+
+### Part B — View Switcher Diagnosis (DO NOT FIX YET — diagnosis only)
+**Root cause found — two separate problems:**
+
+1. **Handler fires correctly** — clicking Alice/Rafa/Dev buttons does call `apexNavSetView(v)`, sessionStorage updates to correct value, button active-state CSS updates. The binding itself is not broken.
+
+2. **DOM switch is a no-op everywhere** — `apexNavSetView` calls `window.setView(v)` at the end, but `window.setView` is `undefined` on every page:
+   - `dashboard.html`: session 16 replaced the alice/rafa view divs with a lightweight overview — there is no `setView` function and no `#aliceView` / `#rafaView` in the DOM anymore
+   - `sessions.html`: has a local `function setView(role)` but it is NOT on `window`, so `window.setView` is undefined
+   - All other pages: never had a `setView` at all
+
+3. **Fix scope for a future session:** On `sessions.html`, change `function setView(role)` → `window.setView = function(role)` to expose it to nav.js. Dashboard.html no longer has alice/rafa views so the switcher doesn't apply there by design (developer sees the same overview as alice). Consider whether the switcher should be removed from dashboard.html's nav sidebar entirely, or whether dashboard.html needs a developer-specific view.
 
 ## Completed (session 19 — 2026-07-02, mobile nav: bottom dock + More sheet)
 - [x] nav.js — fixed blocking mobile bug: sidebar was `display: none` below 720px with no replacement

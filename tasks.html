@@ -8,17 +8,21 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --surface: #f9f7f4;
-      --header:  #1a1a1d;
-      --gold:    #C9A43A;
-      --gold-dim: rgba(201,164,58,0.14);
-      --text:    #1a1a1d;
-      --muted:   #6b6660;
-      --border:  #e8e2d9;
-      --card:    #ffffff;
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
     }
 
     body {
@@ -30,7 +34,11 @@
       flex-direction: column;
     }
 
-    /* ── Header ─────────────────────────────────────────────────────────── */
+    /* ─── Bilingual toggle ──────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
     #appHeader {
       background: var(--header);
       height: 64px;
@@ -41,52 +49,297 @@
       flex-shrink: 0;
       gap: 16px;
     }
+
     .logo-img { height: 32px; width: auto; display: block; }
-    .header-right { display: flex; align-items: center; gap: 14px; }
-    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
-    .role-badge {
-      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
-      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
-      padding: 2px 8px; border-radius: 10px;
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
     .btn-header {
-      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
-      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
-      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
       transition: border-color 0.15s, color 0.15s;
     }
     .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
     .lang-btn {
-      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
-      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
     }
     .lang-btn:hover { background: var(--gold-dim); }
 
-    /* ── Loading screen ──────────────────────────────────────────────────── */
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
     #loadingScreen {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
     }
     #loadingScreen[hidden] { display: none !important; }
+
     .spinner {
-      width: 32px; height: 32px; border: 3px solid var(--border);
-      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── App main ────────────────────────────────────────────────────────── */
+    /* ─── App main ───────────────────────────────────────────────────────── */
     #appMain {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 8px;
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
-    .coming-soon-text {
-      font-size: 15px; color: var(--muted); text-align: center;
+
+    /* ─── Page header row ────────────────────────────────────────────────── */
+    .page-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .page-heading {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ─── View toggle pills ──────────────────────────────────────────────── */
+    .view-toggle {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .view-toggle-btn {
+      background: transparent;
+      border: none;
+      padding: 7px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+
+    .view-toggle-btn + .view-toggle-btn {
+      border-left: 1px solid var(--border);
+    }
+
+    .view-toggle-btn.active {
+      background: var(--gold);
+      color: #fff;
+    }
+
+    .view-toggle-btn:not(.active):hover {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    /* ─── Task cards container ───────────────────────────────────────────── */
+    #tasksContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ─── Group heading (by-type view) ──────────────────────────────────── */
+    .group-heading {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 16px 0 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    .group-heading:first-child {
+      padding-top: 0;
+    }
+
+    /* ─── Task row ───────────────────────────────────────────────────────── */
+    .task-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .task-row:hover {
+      border-color: var(--gold);
+    }
+
+    /* Type dot */
+    .task-dot {
+      flex-shrink: 0;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+    }
+
+    .task-dot.rafa     { background: var(--gold); }
+    .task-dot.client   { background: #8ab4f8; }
+    .task-dot.text     { background: #c4b5a0; }
+
+    .task-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-text {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .task-client {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brown);
+      text-decoration: none;
+    }
+    .task-client:hover { text-decoration: underline; }
+
+    .task-session-date {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .task-due {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 2px 7px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .task-due.overdue {
+      color: #b44040;
+      border-color: rgba(180,64,64,0.3);
+      background: #fff0f0;
+    }
+
+    .task-type-tag {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .task-type-tag.rafa   { color: var(--brown); border-color: rgba(201,164,58,0.4); background: var(--gold-dim); }
+    .task-type-tag.client { color: #3a5f9a; border-color: rgba(58,95,154,0.3); background: rgba(58,95,154,0.08); }
+
+    /* ─── Empty state ────────────────────────────────────────────────────── */
+    .tasks-empty {
+      padding: 52px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tasks-empty-icon {
+      font-size: 36px;
+      opacity: 0.5;
+    }
+
+    /* ─── Session source note (footer-style) ────────────────────────────── */
+    .tasks-footer-note {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      #appMain { padding: 16px; }
+      .task-meta { gap: 6px; }
     }
   </style>
 </head>
 <body class="lang-pt">
 
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
   <header id="appHeader">
     <div class="header-right">
       <div class="user-pill">
@@ -107,18 +360,45 @@
   <div id="pageWrapper">
     <div id="navSidebar"></div>
     <div id="contentArea">
-      <div id="loadingScreen">
-        <div class="spinner"></div>
-        <span class="show-pt">Carregando...</span>
-        <span class="show-en">Loading...</span>
-      </div>
-      <main id="appMain" hidden>
-        <p class="coming-soon-text show-pt">Em breve</p>
-        <p class="coming-soon-text show-en">Coming soon</p>
-      </main>
-    </div>
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
   </div>
 
+  <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <div class="page-header-row">
+      <h1 class="page-heading">
+        <span class="show-pt">Tarefas</span>
+        <span class="show-en">Tasks</span>
+      </h1>
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" id="btnViewDate" onclick="setTaskView('date')">
+          <span class="show-pt">Por Data</span>
+          <span class="show-en">By Date</span>
+        </button>
+        <button class="view-toggle-btn" id="btnViewType" onclick="setTaskView('type')">
+          <span class="show-pt">Por Tipo</span>
+          <span class="show-en">By Type</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="tasksContainer">
+      <!-- Rendered by JS -->
+    </div>
+
+  </main><!-- /appMain -->
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -127,9 +407,11 @@
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
     integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
     crossorigin="anonymous"></script>
-  <script src="nav.js"></script>
 
   <script>
+    // ── Configuration ──────────────────────────────────────────────────────
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
     var FIREBASE_CONFIG = {
       apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
       authDomain:        "apex-command-center-4b038.firebaseapp.com",
@@ -139,17 +421,31 @@
       appId:             "1:894743550437:web:45041f841f7e8196db770c"
     };
 
-    var auth = null;
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth        = null;
     var currentUser = null;
+    var taskView    = "date";   // "date" | "type"
+    var allTasks    = [];       // derived task rows
 
-    function toggleLang() {
-      var b = document.body;
-      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
-      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
-    }
+    // ── Month abbrev map for parsing "DD Mon" due strings ─────────────────
+    var MONTH_MAP = {
+      "jan": 0, "fev": 0, "feb": 0,
+      "mar": 2,
+      "abr": 3, "apr": 3,
+      "mai": 4, "may": 4,
+      "jun": 5,
+      "jul": 6,
+      "ago": 7, "aug": 7,
+      "set": 8, "sep": 8,
+      "out": 9, "oct": 9,
+      "nov": 10,
+      "dez": 11, "dec": 11
+    };
+
+    // ── Auth & bootstrap ───────────────────────────────────────────────────
 
     function handleSignOut() {
-      auth.signOut().then(function () {
+      auth.signOut().then(function() {
         sessionStorage.removeItem("apex_role");
         sessionStorage.removeItem("apex_email");
         window.location.href = "index.html";
@@ -157,35 +453,405 @@
     }
 
     function setupPage(role) {
-      document.getElementById("headerEmail").textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
-      document.getElementById("headerRole").textContent  = role;
-      document.getElementById("loadingScreen").hidden    = true;
-      document.getElementById("appMain").hidden          = false;
+      document.getElementById("headerEmail").textContent =
+        sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      document.getElementById("headerRole").textContent = role;
+
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden = false;
+
       window.initNav && window.initNav();
+      loadTasks();
     }
 
     function init() {
       firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth();
-      auth.onAuthStateChanged(function (user) {
+
+      auth.onAuthStateChanged(function(user) {
         if (!user) { window.location.href = "index.html"; return; }
         currentUser = user;
         var cached = sessionStorage.getItem("apex_role");
         if (cached) {
           setupPage(cached);
         } else {
-          user.getIdToken().then(function (token) {
-            return fetch("https://apex-api.farfromtimnah.workers.dev/api/role", { headers: { "Authorization": "Bearer " + token } });
-          }).then(function (res) { return res.json(); }).then(function (data) {
-            sessionStorage.setItem("apex_role",  data.role);
-            sessionStorage.setItem("apex_email", data.email);
-            setupPage(data.role);
-          }).catch(function () { window.location.href = "index.html"; });
+          user.getIdToken().then(function(token) {
+            return fetch(WORKER_URL + "/api/role", { headers: { "Authorization": "Bearer " + token } });
+          }).then(function(res) { return res.json(); })
+            .then(function(data) {
+              sessionStorage.setItem("apex_role",  data.role);
+              sessionStorage.setItem("apex_email", data.email);
+              setupPage(data.role);
+            })
+            .catch(function() { window.location.href = "index.html"; });
         }
       });
     }
 
+    // ── Data: fetch sessions and derive tasks ──────────────────────────────
+
+    function loadTasks() {
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/sessions", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          allTasks = deriveTasks(data.sessions || []);
+          renderTaskView();
+        })
+        .catch(function(e) {
+          document.getElementById("tasksContainer").innerHTML =
+            '<div class="tasks-empty" style="color:#b44040;">Erro ao carregar tarefas: ' + escHtml(e.message) + '</div>';
+        });
+    }
+
+    function user_getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    // ── Task derivation ────────────────────────────────────────────────────
+    // Primary: pdf_data.consultant_followups (Rafa) + pdf_data.client_actions (client)
+    //   — structured array [{text, due}] with per-item due dates
+    // Fallback: summary_json.rafa_followups.pt/en — free text block, one task per session
+    //
+    // Only sessions with status !== 'pending' (i.e. has a summary) contribute tasks.
+
+    function deriveTasks(sessions) {
+      var tasks = [];
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        if (!s.summary_json && !s.pdf_data) { continue; }
+
+        var clientName = s.client_name || "—";
+        var clientId   = s.client_id   || null;
+        var sessionDate = s.date        || null;
+        var sessionYear = sessionDate ? parseInt(sessionDate.split("-")[0], 10) : today.getFullYear();
+
+        // ── Prefer structured pdf_data arrays ──────────────────────────────
+        var pdfData = null;
+        if (s.pdf_data) {
+          try { pdfData = JSON.parse(s.pdf_data); } catch(e) { pdfData = null; }
+        }
+
+        if (pdfData && pdfData.consultant_followups && pdfData.consultant_followups.length) {
+          for (var j = 0; j < pdfData.consultant_followups.length; j++) {
+            var cf = pdfData.consultant_followups[j];
+            var dueDate = parseDueDate(cf.due, sessionYear, today);
+            tasks.push({
+              type:        "rafa",
+              text:        cf.text || "",
+              due:         cf.due  || null,
+              dueDate:     dueDate,
+              overdue:     dueDate ? dueDate < today : false,
+              clientName:  clientName,
+              clientId:    clientId,
+              sessionDate: sessionDate,
+              sessionId:   s.id
+            });
+          }
+        }
+
+        if (pdfData && pdfData.client_actions && pdfData.client_actions.length) {
+          for (var k = 0; k < pdfData.client_actions.length; k++) {
+            var ca = pdfData.client_actions[k];
+            var dueDate2 = parseDueDate(ca.due, sessionYear, today);
+            tasks.push({
+              type:        "client",
+              text:        ca.text || "",
+              due:         ca.due  || null,
+              dueDate:     dueDate2,
+              overdue:     dueDate2 ? dueDate2 < today : false,
+              clientName:  clientName,
+              clientId:    clientId,
+              sessionDate: sessionDate,
+              sessionId:   s.id
+            });
+          }
+        }
+
+        // ── Fallback: rafa_followups text block (no pdf_data) ──────────────
+        if (!pdfData && s.summary_json) {
+          var sj = null;
+          try { sj = JSON.parse(s.summary_json); } catch(e) { sj = null; }
+          if (sj && sj.rafa_followups) {
+            var rfText = document.body.classList.contains("lang-en")
+              ? (sj.rafa_followups.en || sj.rafa_followups.pt || "")
+              : (sj.rafa_followups.pt || sj.rafa_followups.en || "");
+            if (rfText) {
+              tasks.push({
+                type:        "text",
+                text:        rfText,
+                due:         null,
+                dueDate:     null,
+                overdue:     false,
+                clientName:  clientName,
+                clientId:    clientId,
+                sessionDate: sessionDate,
+                sessionId:   s.id
+              });
+            }
+          }
+        }
+      }
+
+      return tasks;
+    }
+
+    // Parse "DD Mon" string (e.g. "20 Jun") into a Date object.
+    // Uses sessionYear as the year. If that date is more than 6 months in the past,
+    // bump to the following year (handles sessions near year-end).
+    function parseDueDate(dueStr, sessionYear, today) {
+      if (!dueStr) { return null; }
+      var parts = dueStr.trim().split(/\s+/);
+      if (parts.length < 2) { return null; }
+      var day   = parseInt(parts[0], 10);
+      var mon   = MONTH_MAP[parts[1].toLowerCase().slice(0, 3)];
+      if (isNaN(day) || mon === undefined) { return null; }
+
+      var d = new Date(sessionYear, mon, day);
+      d.setHours(0, 0, 0, 0);
+
+      // If the parsed date is more than ~6 months before today, assume next year
+      var sixMonthsAgo = new Date(today);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      if (d < sixMonthsAgo) {
+        d = new Date(sessionYear + 1, mon, day);
+        d.setHours(0, 0, 0, 0);
+      }
+
+      return d;
+    }
+
+    // ── View toggle ────────────────────────────────────────────────────────
+
+    function setTaskView(view) {
+      taskView = view;
+      document.getElementById("btnViewDate").className =
+        "view-toggle-btn" + (view === "date" ? " active" : "");
+      document.getElementById("btnViewType").className =
+        "view-toggle-btn" + (view === "type" ? " active" : "");
+      renderTaskView();
+    }
+
+    function renderTaskView() {
+      if (taskView === "date") {
+        renderByDate();
+      } else {
+        renderByType();
+      }
+    }
+
+    // ── Render: by date ────────────────────────────────────────────────────
+
+    function renderByDate() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      if (allTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      // Sort: tasks with due date first (ascending), then undated
+      var dated   = [];
+      var undated = [];
+      for (var i = 0; i < allTasks.length; i++) {
+        if (allTasks[i].dueDate) { dated.push(allTasks[i]); }
+        else                      { undated.push(allTasks[i]); }
+      }
+      dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
+      // undated sorted by client name
+      undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
+
+      var sorted = dated.concat(undated);
+
+      for (var j = 0; j < sorted.length; j++) {
+        container.appendChild(makeTaskRow(sorted[j], true));
+      }
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── Render: by type ────────────────────────────────────────────────────
+
+    function renderByType() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      if (allTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      var rafaTasks   = [];
+      var clientTasks = [];
+      var textTasks   = [];
+
+      for (var i = 0; i < allTasks.length; i++) {
+        var t = allTasks[i];
+        if (t.type === "rafa")   { rafaTasks.push(t); }
+        else if (t.type === "client") { clientTasks.push(t); }
+        else                          { textTasks.push(t); }
+      }
+
+      // Sort each group by due date then client name
+      function sortGroup(arr) {
+        var dated   = arr.filter(function(t) { return t.dueDate; });
+        var undated = arr.filter(function(t) { return !t.dueDate; });
+        dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
+        undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
+        return dated.concat(undated);
+      }
+
+      function appendGroup(labelPt, labelEn, tasks, dotClass) {
+        if (tasks.length === 0) { return; }
+        var heading = document.createElement("div");
+        heading.className = "group-heading";
+        heading.innerHTML =
+          '<span class="show-pt">' + escHtml(labelPt) + ' (' + tasks.length + ')</span>' +
+          '<span class="show-en">' + escHtml(labelEn) + ' (' + tasks.length + ')</span>';
+        container.appendChild(heading);
+        var sorted = sortGroup(tasks);
+        for (var i = 0; i < sorted.length; i++) {
+          container.appendChild(makeTaskRow(sorted[i], false));
+        }
+      }
+
+      appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks,   "rafa");
+      appendGroup("Ações do Cliente",         "Client Action Items",  clientTasks, "client");
+      appendGroup("Resumo de Follow-ups",      "Follow-up Summary",   textTasks,   "text");
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── DOM builders ───────────────────────────────────────────────────────
+
+    function makeTaskRow(task, showTypeTag) {
+      var row = document.createElement("div");
+      row.className = "task-row";
+
+      // Colored dot
+      var dot = document.createElement("div");
+      dot.className = "task-dot " + task.type;
+      row.appendChild(dot);
+
+      var body = document.createElement("div");
+      body.className = "task-body";
+
+      // Task text
+      var textEl = document.createElement("div");
+      textEl.className = "task-text";
+      textEl.textContent = task.text;
+      body.appendChild(textEl);
+
+      // Meta line
+      var meta = document.createElement("div");
+      meta.className = "task-meta";
+
+      // Client name (link if has client_id)
+      if (task.clientId) {
+        var clientLink = document.createElement("a");
+        clientLink.className = "task-client";
+        clientLink.href = "client.html?id=" + encodeURIComponent(task.clientId);
+        clientLink.textContent = task.clientName;
+        meta.appendChild(clientLink);
+      } else if (task.clientName) {
+        var clientSpan = document.createElement("span");
+        clientSpan.className = "task-client";
+        clientSpan.style.textDecoration = "none";
+        clientSpan.textContent = task.clientName;
+        meta.appendChild(clientSpan);
+      }
+
+      // Session date
+      if (task.sessionDate) {
+        var sep = document.createElement("span");
+        sep.style.cssText = "color:var(--border);font-size:11px;";
+        sep.textContent = "·";
+        meta.appendChild(sep);
+
+        var sdEl = document.createElement("span");
+        sdEl.className = "task-session-date";
+        sdEl.innerHTML =
+          '<span class="show-pt">Sessão ' + escHtml(formatDate(task.sessionDate)) + '</span>' +
+          '<span class="show-en">Session ' + escHtml(formatDate(task.sessionDate)) + '</span>';
+        meta.appendChild(sdEl);
+      }
+
+      // Due date pill
+      if (task.due) {
+        var sep2 = document.createElement("span");
+        sep2.style.cssText = "color:var(--border);font-size:11px;";
+        sep2.textContent = "·";
+        meta.appendChild(sep2);
+
+        var dueEl = document.createElement("span");
+        dueEl.className = "task-due" + (task.overdue ? " overdue" : "");
+        dueEl.innerHTML =
+          '<span class="show-pt">Prazo: ' + escHtml(task.due) + '</span>' +
+          '<span class="show-en">Due: ' + escHtml(task.due) + '</span>';
+        meta.appendChild(dueEl);
+      }
+
+      // Type tag (shown in by-date view to distinguish rafa vs client)
+      if (showTypeTag) {
+        var tagEl = document.createElement("span");
+        if (task.type === "rafa") {
+          tagEl.className = "task-type-tag rafa";
+          tagEl.innerHTML = '<span class="show-pt">Consultor</span><span class="show-en">Consultant</span>';
+        } else if (task.type === "client") {
+          tagEl.className = "task-type-tag client";
+          tagEl.innerHTML = '<span class="show-pt">Cliente</span><span class="show-en">Client</span>';
+        }
+        if (task.type !== "text") { meta.appendChild(tagEl); }
+      }
+
+      body.appendChild(meta);
+      row.appendChild(body);
+      return row;
+    }
+
+    function makeEmpty() {
+      var el = document.createElement("div");
+      el.className = "tasks-empty";
+      el.innerHTML =
+        '<div class="tasks-empty-icon">✓</div>' +
+        '<span class="show-pt">Nenhuma tarefa encontrada.<br>Tarefas aparecem aqui após sessões serem resumidas.</span>' +
+        '<span class="show-en">No tasks found.<br>Tasks appear here after sessions are summarized.</span>';
+      return el;
+    }
+
+    function makeFooterNote() {
+      var el = document.createElement("div");
+      el.className = "tasks-footer-note";
+      el.innerHTML =
+        '<span class="show-pt">Tarefas derivadas automaticamente dos resumos de sessão.</span>' +
+        '<span class="show-en">Tasks automatically derived from session summaries.</span>';
+      return el;
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+
+    function formatDate(str) {
+      if (!str) { return "--"; }
+      var p = str.split("-");
+      if (p.length !== 3) { return str; }
+      return p[2] + "/" + p[1] + "/" + p[0];
+    }
+
+    function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
     init();
   </script>
+
 </body>
 </html>

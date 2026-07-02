@@ -6,8 +6,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     status      TEXT NOT NULL DEFAULT 'pending',
     raw_transcript TEXT,
     summary_json   TEXT,
-    pdf_data       TEXT,
-    approved_at    TEXT,
+    pdf_data          TEXT,
+    task_completions  TEXT,
+    approved_at       TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -58,6 +59,10 @@ CREATE TABLE IF NOT EXISTS clients (
 --   ALTER TABLE clients ADD COLUMN payment_method TEXT;
 --   ALTER TABLE clients ADD COLUMN contacts TEXT;
 -- contacts stores a JSON array of {name, role, phone, whatsapp, email} objects.
+
+-- NOTE: task_completions was added to the live sessions table via:
+--   ALTER TABLE sessions ADD COLUMN task_completions TEXT;
+-- Stores a JSON object keyed by task key (e.g. "rafa_0", "client_1") → boolean.
 
 CREATE TABLE IF NOT EXISTS client_notes (
     id          TEXT PRIMARY KEY,

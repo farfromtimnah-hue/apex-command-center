@@ -155,6 +155,65 @@
       color: var(--text);
     }
 
+    /* ─── Role tabs (Consultant / Client) ───────────────────────────────── */
+    .role-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .role-tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      padding: 10px 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+
+    .role-tab-btn.active {
+      color: var(--text);
+      border-bottom-color: var(--gold);
+    }
+
+    .role-tab-btn:not(.active):hover {
+      color: var(--text);
+    }
+
+    .role-tab-count {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      margin-left: 6px;
+      color: var(--muted);
+      vertical-align: middle;
+    }
+
+    .role-tab-btn.active .role-tab-count {
+      background: var(--gold-dim);
+      border-color: rgba(201,164,58,0.3);
+      color: var(--brown);
+    }
+
+    /* ─── Controls bar (sort + done count) ──────────────────────────────── */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
     /* ─── View toggle pills ──────────────────────────────────────────────── */
     .view-toggle {
       display: flex;
@@ -192,11 +251,17 @@
       color: var(--text);
     }
 
+    /* ─── Done counter chip ──────────────────────────────────────────────── */
+    .done-chip {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
     /* ─── Task cards container ───────────────────────────────────────────── */
     #tasksContainer {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
 
     /* ─── Group heading (by-type view) ──────────────────────────────────── */
@@ -220,28 +285,67 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 18px;
+      padding: 12px 16px;
       display: flex;
-      gap: 14px;
+      gap: 12px;
       align-items: flex-start;
+      transition: border-color 0.12s, opacity 0.15s;
     }
 
     .task-row:hover {
+      border-color: rgba(201,164,58,0.5);
+    }
+
+    /* Done state */
+    .task-row.done {
+      opacity: 0.52;
+      border-color: var(--border);
+    }
+    .task-row.done:hover {
+      opacity: 0.62;
+      border-color: var(--border);
+    }
+    .task-row.done .task-text {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    /* ─── Checkbox toggle ────────────────────────────────────────────────── */
+    .task-check {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.12s, background 0.12s;
+      padding: 0;
+    }
+
+    .task-check:hover {
       border-color: var(--gold);
     }
 
-    /* Type dot */
-    .task-dot {
-      flex-shrink: 0;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-top: 6px;
+    .task-check.checked {
+      border-color: #888;
+      background: #888;
     }
 
-    .task-dot.rafa     { background: var(--gold); }
-    .task-dot.client   { background: #8ab4f8; }
-    .task-dot.text     { background: #c4b5a0; }
+    .task-check.checked::after {
+      content: "";
+      display: block;
+      width: 5px;
+      height: 9px;
+      border: 1.5px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
 
     .task-body {
       flex: 1;
@@ -252,13 +356,13 @@
       font-size: 13px;
       line-height: 1.55;
       color: var(--text);
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .task-meta {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
@@ -371,11 +475,30 @@
   <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
   <main id="appMain" hidden>
 
+    <!-- Page heading -->
     <div class="page-header-row">
       <h1 class="page-heading">
         <span class="show-pt">Tarefas</span>
         <span class="show-en">Tasks</span>
       </h1>
+    </div>
+
+    <!-- Role tabs -->
+    <div class="role-tabs">
+      <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
+        <span class="show-pt">Consultor</span>
+        <span class="show-en">Consultant</span>
+        <span class="role-tab-count" id="tabCountConsultant">0</span>
+      </button>
+      <button class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
+        <span class="show-pt">Cliente</span>
+        <span class="show-en">Client</span>
+        <span class="role-tab-count" id="tabCountClient">0</span>
+      </button>
+    </div>
+
+    <!-- Sort controls + done chip -->
+    <div class="controls-bar">
       <div class="view-toggle">
         <button class="view-toggle-btn active" id="btnViewDate" onclick="setTaskView('date')">
           <span class="show-pt">Por Data</span>
@@ -386,6 +509,7 @@
           <span class="show-en">By Type</span>
         </button>
       </div>
+      <span class="done-chip" id="doneChip"></span>
     </div>
 
     <div id="tasksContainer">
@@ -424,8 +548,10 @@
     // ── State ──────────────────────────────────────────────────────────────
     var auth        = null;
     var currentUser = null;
-    var taskView    = "date";   // "date" | "type"
-    var allTasks    = [];       // derived task rows
+    var taskView    = "date";         // "date" | "type"
+    var tabRole     = "consultant";   // "consultant" | "client"
+    var allTasks    = [];             // all derived task rows (both tabs)
+    var completedMap = {};            // taskKey → true/false; keyed per session
 
     // ── Month abbrev map for parsing "DD Mon" due strings ─────────────────
     var MONTH_MAP = {
@@ -441,6 +567,28 @@
       "nov": 10,
       "dez": 11, "dec": 11
     };
+
+    // ── Completion persistence (localStorage) ──────────────────────────────
+    // Merged with backend task_completions loaded from sessions at startup.
+    // localStorage is the fast-read cache; backend is durable.
+
+    function completionStorageKey() {
+      var email = sessionStorage.getItem("apex_email") || "unknown";
+      return "apex_task_completions_" + email;
+    }
+
+    function loadLocalCompletions() {
+      try {
+        var raw = localStorage.getItem(completionStorageKey());
+        if (raw) { completedMap = JSON.parse(raw); }
+      } catch(e) { completedMap = {}; }
+    }
+
+    function saveLocalCompletions() {
+      try {
+        localStorage.setItem(completionStorageKey(), JSON.stringify(completedMap));
+      } catch(e) {}
+    }
 
     // ── Auth & bootstrap ───────────────────────────────────────────────────
 
@@ -461,6 +609,7 @@
       document.getElementById("appMain").hidden = false;
 
       window.initNav && window.initNav();
+      loadLocalCompletions();
       loadTasks();
     }
 
@@ -496,6 +645,7 @@
       }).then(function(res) { return res.json(); })
         .then(function(data) {
           allTasks = deriveTasks(data.sessions || []);
+          updateTabCounts();
           renderTaskView();
         })
         .catch(function(e) {
@@ -514,7 +664,8 @@
     //   — structured array [{text, due}] with per-item due dates
     // Fallback: summary_json.rafa_followups.pt/en — free text block, one task per session
     //
-    // Only sessions with status !== 'pending' (i.e. has a summary) contribute tasks.
+    // Completion state from task_completions column is merged into completedMap.
+    // Task key format: "{sessionId}_{type}_{index}"
 
     function deriveTasks(sessions) {
       var tasks = [];
@@ -525,12 +676,23 @@
         var s = sessions[i];
         if (!s.summary_json && !s.pdf_data) { continue; }
 
-        var clientName = s.client_name || "—";
-        var clientId   = s.client_id   || null;
+        var clientName  = s.client_name || "—";
+        var clientId    = s.client_id   || null;
         var sessionDate = s.date        || null;
         var sessionYear = sessionDate ? parseInt(sessionDate.split("-")[0], 10) : today.getFullYear();
+        var sessionId   = s.id;
 
-        // ── Prefer structured pdf_data arrays ──────────────────────────────
+        // Merge backend completions into completedMap (backend wins over local for this session)
+        if (s.task_completions) {
+          try {
+            var backendMap = JSON.parse(s.task_completions);
+            var bkeys = Object.keys(backendMap);
+            for (var bk = 0; bk < bkeys.length; bk++) {
+              completedMap[bkeys[bk]] = backendMap[bkeys[bk]];
+            }
+          } catch(e) {}
+        }
+
         var pdfData = null;
         if (s.pdf_data) {
           try { pdfData = JSON.parse(s.pdf_data); } catch(e) { pdfData = null; }
@@ -539,8 +701,10 @@
         if (pdfData && pdfData.consultant_followups && pdfData.consultant_followups.length) {
           for (var j = 0; j < pdfData.consultant_followups.length; j++) {
             var cf = pdfData.consultant_followups[j];
+            var taskKey = sessionId + "_rafa_" + j;
             var dueDate = parseDueDate(cf.due, sessionYear, today);
             tasks.push({
+              key:         taskKey,
               type:        "rafa",
               text:        cf.text || "",
               due:         cf.due  || null,
@@ -549,7 +713,7 @@
               clientName:  clientName,
               clientId:    clientId,
               sessionDate: sessionDate,
-              sessionId:   s.id
+              sessionId:   sessionId
             });
           }
         }
@@ -557,8 +721,10 @@
         if (pdfData && pdfData.client_actions && pdfData.client_actions.length) {
           for (var k = 0; k < pdfData.client_actions.length; k++) {
             var ca = pdfData.client_actions[k];
+            var taskKey2 = sessionId + "_client_" + k;
             var dueDate2 = parseDueDate(ca.due, sessionYear, today);
             tasks.push({
+              key:         taskKey2,
               type:        "client",
               text:        ca.text || "",
               due:         ca.due  || null,
@@ -567,12 +733,12 @@
               clientName:  clientName,
               clientId:    clientId,
               sessionDate: sessionDate,
-              sessionId:   s.id
+              sessionId:   sessionId
             });
           }
         }
 
-        // ── Fallback: rafa_followups text block (no pdf_data) ──────────────
+        // Fallback: rafa_followups text block (no pdf_data)
         if (!pdfData && s.summary_json) {
           var sj = null;
           try { sj = JSON.parse(s.summary_json); } catch(e) { sj = null; }
@@ -581,7 +747,9 @@
               ? (sj.rafa_followups.en || sj.rafa_followups.pt || "")
               : (sj.rafa_followups.pt || sj.rafa_followups.en || "");
             if (rfText) {
+              var taskKey3 = sessionId + "_text_0";
               tasks.push({
+                key:         taskKey3,
                 type:        "text",
                 text:        rfText,
                 due:         null,
@@ -590,7 +758,7 @@
                 clientName:  clientName,
                 clientId:    clientId,
                 sessionDate: sessionDate,
-                sessionId:   s.id
+                sessionId:   sessionId
               });
             }
           }
@@ -601,20 +769,17 @@
     }
 
     // Parse "DD Mon" string (e.g. "20 Jun") into a Date object.
-    // Uses sessionYear as the year. If that date is more than 6 months in the past,
-    // bump to the following year (handles sessions near year-end).
     function parseDueDate(dueStr, sessionYear, today) {
       if (!dueStr) { return null; }
       var parts = dueStr.trim().split(/\s+/);
       if (parts.length < 2) { return null; }
-      var day   = parseInt(parts[0], 10);
-      var mon   = MONTH_MAP[parts[1].toLowerCase().slice(0, 3)];
+      var day = parseInt(parts[0], 10);
+      var mon = MONTH_MAP[parts[1].toLowerCase().slice(0, 3)];
       if (isNaN(day) || mon === undefined) { return null; }
 
       var d = new Date(sessionYear, mon, day);
       d.setHours(0, 0, 0, 0);
 
-      // If the parsed date is more than ~6 months before today, assume next year
       var sixMonthsAgo = new Date(today);
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       if (d < sixMonthsAgo) {
@@ -625,7 +790,16 @@
       return d;
     }
 
-    // ── View toggle ────────────────────────────────────────────────────────
+    // ── Tab + view control ─────────────────────────────────────────────────
+
+    function setTabRole(role) {
+      tabRole = role;
+      document.getElementById("tabBtnConsultant").className =
+        "role-tab-btn" + (role === "consultant" ? " active" : "");
+      document.getElementById("tabBtnClient").className =
+        "role-tab-btn" + (role === "client" ? " active" : "");
+      renderTaskView();
+    }
 
     function setTaskView(view) {
       taskView = view;
@@ -636,12 +810,49 @@
       renderTaskView();
     }
 
+    function getTabTasks() {
+      if (tabRole === "consultant") {
+        return allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
+      } else {
+        return allTasks.filter(function(t) { return t.type === "client"; });
+      }
+    }
+
+    function updateTabCounts() {
+      var consultantTotal = allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; }).length;
+      var clientTotal     = allTasks.filter(function(t) { return t.type === "client"; }).length;
+
+      var consultantPending = allTasks.filter(function(t) {
+        return (t.type === "rafa" || t.type === "text") && !completedMap[t.key];
+      }).length;
+      var clientPending = allTasks.filter(function(t) {
+        return t.type === "client" && !completedMap[t.key];
+      }).length;
+
+      document.getElementById("tabCountConsultant").textContent = consultantPending + "/" + consultantTotal;
+      document.getElementById("tabCountClient").textContent     = clientPending + "/" + clientTotal;
+    }
+
+    function updateDoneChip(tabTasks) {
+      var done  = tabTasks.filter(function(t) { return completedMap[t.key]; }).length;
+      var total = tabTasks.length;
+      var chip  = document.getElementById("doneChip");
+      if (done === 0) {
+        chip.textContent = "";
+      } else {
+        chip.innerHTML =
+          '<span class="show-pt">' + done + ' de ' + total + ' concluída' + (done !== 1 ? 's' : '') + '</span>' +
+          '<span class="show-en">' + done + ' of ' + total + ' done</span>';
+      }
+    }
+
     function renderTaskView() {
       if (taskView === "date") {
         renderByDate();
       } else {
         renderByType();
       }
+      updateDoneChip(getTabTasks());
     }
 
     // ── Render: by date ────────────────────────────────────────────────────
@@ -650,26 +861,26 @@
       var container = document.getElementById("tasksContainer");
       container.innerHTML = "";
 
-      if (allTasks.length === 0) {
+      var tabTasks = getTabTasks();
+
+      if (tabTasks.length === 0) {
         container.appendChild(makeEmpty());
         return;
       }
 
-      // Sort: tasks with due date first (ascending), then undated
       var dated   = [];
       var undated = [];
-      for (var i = 0; i < allTasks.length; i++) {
-        if (allTasks[i].dueDate) { dated.push(allTasks[i]); }
-        else                      { undated.push(allTasks[i]); }
+      for (var i = 0; i < tabTasks.length; i++) {
+        if (tabTasks[i].dueDate) { dated.push(tabTasks[i]); }
+        else                      { undated.push(tabTasks[i]); }
       }
       dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
-      // undated sorted by client name
       undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
 
       var sorted = dated.concat(undated);
 
       for (var j = 0; j < sorted.length; j++) {
-        container.appendChild(makeTaskRow(sorted[j], true));
+        container.appendChild(makeTaskRow(sorted[j], tabRole === "consultant"));
       }
 
       container.appendChild(makeFooterNote());
@@ -681,23 +892,13 @@
       var container = document.getElementById("tasksContainer");
       container.innerHTML = "";
 
-      if (allTasks.length === 0) {
+      var tabTasks = getTabTasks();
+
+      if (tabTasks.length === 0) {
         container.appendChild(makeEmpty());
         return;
       }
 
-      var rafaTasks   = [];
-      var clientTasks = [];
-      var textTasks   = [];
-
-      for (var i = 0; i < allTasks.length; i++) {
-        var t = allTasks[i];
-        if (t.type === "rafa")   { rafaTasks.push(t); }
-        else if (t.type === "client") { clientTasks.push(t); }
-        else                          { textTasks.push(t); }
-      }
-
-      // Sort each group by due date then client name
       function sortGroup(arr) {
         var dated   = arr.filter(function(t) { return t.dueDate; });
         var undated = arr.filter(function(t) { return !t.dueDate; });
@@ -706,7 +907,7 @@
         return dated.concat(undated);
       }
 
-      function appendGroup(labelPt, labelEn, tasks, dotClass) {
+      function appendGroup(labelPt, labelEn, tasks) {
         if (tasks.length === 0) { return; }
         var heading = document.createElement("div");
         heading.className = "group-heading";
@@ -720,23 +921,81 @@
         }
       }
 
-      appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks,   "rafa");
-      appendGroup("Ações do Cliente",         "Client Action Items",  clientTasks, "client");
-      appendGroup("Resumo de Follow-ups",      "Follow-up Summary",   textTasks,   "text");
+      if (tabRole === "consultant") {
+        var rafaTasks = tabTasks.filter(function(t) { return t.type === "rafa"; });
+        var textTasks = tabTasks.filter(function(t) { return t.type === "text"; });
+        appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks);
+        appendGroup("Resumo de Follow-ups",     "Follow-up Summary",    textTasks);
+      } else {
+        appendGroup("Ações do Cliente", "Client Action Items", tabTasks);
+      }
 
       container.appendChild(makeFooterNote());
+    }
+
+    // ── Completion toggle ──────────────────────────────────────────────────
+
+    function toggleComplete(taskKey, sessionId, btn) {
+      var newVal = !completedMap[taskKey];
+      completedMap[taskKey] = newVal;
+      saveLocalCompletions();
+
+      // Update this row's visual state immediately
+      var row = btn.closest ? btn.closest(".task-row") : findParentRow(btn);
+      if (row) {
+        if (newVal) {
+          row.classList.add("done");
+          btn.classList.add("checked");
+        } else {
+          row.classList.remove("done");
+          btn.classList.remove("checked");
+        }
+      }
+
+      updateTabCounts();
+      updateDoneChip(getTabTasks());
+
+      // Persist to backend (fire-and-forget, no spinner)
+      var patch = {};
+      patch[taskKey] = newVal;
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/sessions/" + encodeURIComponent(sessionId) + "/task-completions", {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ completions: patch })
+        });
+      }).catch(function() {
+        // Silent fail — localStorage already holds the state
+      });
+    }
+
+    // Fallback for browsers without Element.closest
+    function findParentRow(el) {
+      while (el && el.parentNode) {
+        el = el.parentNode;
+        if (el.classList && el.classList.contains("task-row")) { return el; }
+      }
+      return null;
     }
 
     // ── DOM builders ───────────────────────────────────────────────────────
 
     function makeTaskRow(task, showTypeTag) {
-      var row = document.createElement("div");
-      row.className = "task-row";
+      var isDone = !!completedMap[task.key];
 
-      // Colored dot
-      var dot = document.createElement("div");
-      dot.className = "task-dot " + task.type;
-      row.appendChild(dot);
+      var row = document.createElement("div");
+      row.className = "task-row" + (isDone ? " done" : "");
+
+      // Checkbox toggle button
+      var check = document.createElement("button");
+      check.className = "task-check" + (isDone ? " checked" : "");
+      check.title = "Marcar como concluída / Mark complete";
+      check.setAttribute("aria-label", "Toggle complete");
+      // Use a self-contained closure via data attributes to avoid closure issues in loops
+      (function(tKey, sId, btn) {
+        btn.onclick = function() { toggleComplete(tKey, sId, btn); };
+      })(task.key, task.sessionId, check);
+      row.appendChild(check);
 
       var body = document.createElement("div");
       body.className = "task-body";
@@ -789,24 +1048,24 @@
         meta.appendChild(sep2);
 
         var dueEl = document.createElement("span");
-        dueEl.className = "task-due" + (task.overdue ? " overdue" : "");
+        dueEl.className = "task-due" + (task.overdue && !isDone ? " overdue" : "");
         dueEl.innerHTML =
           '<span class="show-pt">Prazo: ' + escHtml(task.due) + '</span>' +
           '<span class="show-en">Due: ' + escHtml(task.due) + '</span>';
         meta.appendChild(dueEl);
       }
 
-      // Type tag (shown in by-date view to distinguish rafa vs client)
-      if (showTypeTag) {
+      // Type tag (only shown in consultant tab, by-date view)
+      if (showTypeTag && task.type !== "client") {
         var tagEl = document.createElement("span");
         if (task.type === "rafa") {
           tagEl.className = "task-type-tag rafa";
           tagEl.innerHTML = '<span class="show-pt">Consultor</span><span class="show-en">Consultant</span>';
-        } else if (task.type === "client") {
-          tagEl.className = "task-type-tag client";
-          tagEl.innerHTML = '<span class="show-pt">Cliente</span><span class="show-en">Client</span>';
+        } else {
+          tagEl.className = "task-type-tag";
+          tagEl.innerHTML = '<span class="show-pt">Resumo</span><span class="show-en">Summary</span>';
         }
-        if (task.type !== "text") { meta.appendChild(tagEl); }
+        meta.appendChild(tagEl);
       }
 
       body.appendChild(meta);
@@ -818,7 +1077,7 @@
       var el = document.createElement("div");
       el.className = "tasks-empty";
       el.innerHTML =
-        '<div class="tasks-empty-icon">✓</div>' +
+        '<div class="tasks-empty-icon">&#10003;</div>' +
         '<span class="show-pt">Nenhuma tarefa encontrada.<br>Tarefas aparecem aqui após sessões serem resumidas.</span>' +
         '<span class="show-en">No tasks found.<br>Tasks appear here after sessions are summarized.</span>';
       return el;

@@ -121,12 +121,12 @@ async function handleGetSessions(request, env) {
         var stmt;
         if (clientIdFilter) {
             stmt = env.DB.prepare(
-                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, approved_at, created_at " +
+                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at " +
                 "FROM sessions WHERE status != 'archived' AND client_id = ? ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
-                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, approved_at, created_at " +
+                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at " +
                 "FROM sessions WHERE status != 'archived' ORDER BY created_at DESC"
             );
         }
@@ -135,6 +135,49 @@ async function handleGetSessions(request, env) {
         return jsonOk({ sessions: res.results });
     } catch (e) {
         return jsonErr("Error fetching sessions: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/sessions/:id/task-completions
+// Body: { completions: object }  — e.g. { "rafa_0": true, "client_1": false }
+// Merges the incoming completions object into the existing task_completions JSON for this session.
+// ---------------------------------------------------------------------------
+
+async function handlePatchSessionTaskCompletions(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json();
+        if (!body || typeof body.completions !== "object") {
+            return jsonErr("Missing completions object", 400);
+        }
+
+        // Load existing completions
+        var row = await env.DB.prepare(
+            "SELECT task_completions FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!row) { return jsonErr("Session not found", 404); }
+
+        var existing = {};
+        if (row.task_completions) {
+            try { existing = JSON.parse(row.task_completions); } catch(e) { existing = {}; }
+        }
+
+        // Merge incoming keys
+        var keys = Object.keys(body.completions);
+        for (var i = 0; i < keys.length; i++) {
+            existing[keys[i]] = body.completions[keys[i]];
+        }
+
+        await env.DB.prepare(
+            "UPDATE sessions SET task_completions = ? WHERE id = ?"
+        ).bind(JSON.stringify(existing), sessionId).run();
+
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error updating task completions: " + e.message, 500);
     }
 }
 
@@ -703,8 +746,13 @@ export default {
         if (path === "/api/summarize"  && method === "POST") { return handlePostSummarize(request, env); }
         if (path === "/api/approve"    && method === "POST") { return handlePostApprove(request, env); }
 
-        // Parameterized routes: /api/clients/:id[/notes | /logo | /logo-image | /documents/latest]
+        // Parameterized routes: /api/sessions/:id/task-completions
         var segs = path.replace(/^\//, "").split("/");
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "task-completions" && method === "PATCH") {
+            return handlePatchSessionTaskCompletions(segs[2], request, env);
+        }
+
+        // Parameterized routes: /api/clients/:id[/notes | /logo | /logo-image | /documents/latest]
         if (segs[0] === "api" && segs[1] === "clients" && segs[2]) {
             var cid = segs[2];
             if (segs.length === 3 && method === "GET")   { return handleGetClient(cid, request, env); }

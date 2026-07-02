@@ -385,8 +385,8 @@ async function handlePostClients(request, env) {
         var clientId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO clients " +
-            "(id, name, owners, industry, location, logo_url, profile_pt, profile_en, package, status, phone, email, whatsapp) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "(id, name, owners, industry, location, logo_url, profile_pt, profile_en, package, status, phone, email, whatsapp, contacts) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             clientId,
             body.name,
@@ -400,7 +400,8 @@ async function handlePostClients(request, env) {
             body.status     || "active",
             body.phone      || null,
             body.email      || null,
-            body.whatsapp   || null
+            body.whatsapp   || null,
+            body.contacts   || null
         ).run();
 
         return jsonOk({ client_id: clientId, name: body.name });

@@ -379,23 +379,25 @@
         <button class="modal-close" onclick="document.getElementById('modalNewClient').hidden=true">×</button>
       </div>
       <div class="modal-body">
+        <!-- Business info -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">
+          <span class="show-pt">Empresa</span><span class="show-en">Business</span>
+        </div>
         <div class="field-group">
-          <label><span class="show-pt">Nome *</span><span class="show-en">Name *</span></label>
-          <input type="text" id="ncName" placeholder="Nome da empresa / Company name">
+          <input type="text" id="ncName" placeholder="Nome da empresa * / Company name *">
         </div>
         <div class="field-row">
           <div class="field-group">
-            <label><span class="show-pt">Pacote</span><span class="show-en">Package</span></label>
             <select id="ncPackage">
-              <option value="">— selecionar —</option>
+              <option value="">— <span class="show-pt">Pacote</span><span class="show-en">Package</span> —</option>
               <option value="Essencial">Essencial</option>
               <option value="Profissional">Profissional</option>
+              <option value="Sprint">Sprint</option>
               <option value="Premium">Premium</option>
               <option value="VIP">VIP</option>
             </select>
           </div>
           <div class="field-group">
-            <label>Status</label>
             <select id="ncStatus">
               <option value="active">Ativo / Active</option>
               <option value="lead">Lead</option>
@@ -404,34 +406,59 @@
             </select>
           </div>
         </div>
-        <div class="field-group">
-          <label><span class="show-pt">Sócios / Responsável</span><span class="show-en">Owners</span></label>
-          <input type="text" id="ncOwners" placeholder="ex: João Silva, Maria Lima">
+        <div class="field-row">
+          <div class="field-group">
+            <input type="text" id="ncIndustry" placeholder="Setor / Industry">
+          </div>
+          <div class="field-group">
+            <input type="text" id="ncLocation" placeholder="Localização / Location">
+          </div>
+        </div>
+        <!-- Primary contact -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-top:4px;margin-bottom:2px;">
+          <span class="show-pt">Contato Principal</span><span class="show-en">Primary Contact</span>
         </div>
         <div class="field-row">
           <div class="field-group">
-            <label><span class="show-pt">Setor</span><span class="show-en">Industry</span></label>
-            <input type="text" id="ncIndustry" placeholder="ex: Tecnologia">
+            <input type="text" id="nc1Name" placeholder="Nome / Name">
           </div>
           <div class="field-group">
-            <label><span class="show-pt">Localização</span><span class="show-en">Location</span></label>
-            <input type="text" id="ncLocation" placeholder="ex: São Paulo, SP">
+            <input type="text" id="nc1Role" placeholder="Cargo / Role">
           </div>
         </div>
         <div class="field-row">
           <div class="field-group">
-            <label><span class="show-pt">Telefone</span><span class="show-en">Phone</span></label>
-            <input type="text" id="ncPhone" placeholder="+55 11 99999-0000">
+            <input type="text" id="nc1Phone" placeholder="Tel / WhatsApp">
           </div>
           <div class="field-group">
-            <label>WhatsApp</label>
-            <input type="text" id="ncWhatsapp" placeholder="+55 11 99999-0000">
+            <input type="email" id="nc1Email" placeholder="Email">
           </div>
         </div>
-        <div class="field-group">
-          <label>Email</label>
-          <input type="email" id="ncEmail" placeholder="contato@empresa.com">
+        <!-- Second contact (hidden by default) -->
+        <div id="nc2Wrap" style="display:none;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-top:4px;margin-bottom:2px;">
+            <span class="show-pt">Segundo Contato</span><span class="show-en">Second Contact</span>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <input type="text" id="nc2Name" placeholder="Nome / Name">
+            </div>
+            <div class="field-group">
+              <input type="text" id="nc2Role" placeholder="Cargo / Role">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <input type="text" id="nc2Phone" placeholder="Tel / WhatsApp">
+            </div>
+            <div class="field-group">
+              <input type="email" id="nc2Email" placeholder="Email">
+            </div>
+          </div>
         </div>
+        <button type="button" id="btnAddSecondContact" onclick="toggleSecondContact()" style="background:none;border:none;color:var(--gold);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;text-align:left;">
+          + <span class="show-pt">Adicionar segundo contato</span><span class="show-en">Add second contact</span>
+        </button>
         <button class="btn-primary" id="btnSaveNewClient" onclick="handleSaveNewClient()">
           <span class="show-pt">Salvar Cliente</span>
           <span class="show-en">Save Client</span>
@@ -588,19 +615,43 @@
     }
 
     function openNewClientModal() {
-      document.getElementById("ncName").value     = "";
-      document.getElementById("ncOwners").value   = "";
-      document.getElementById("ncIndustry").value = "";
-      document.getElementById("ncLocation").value = "";
-      document.getElementById("ncPhone").value    = "";
-      document.getElementById("ncWhatsapp").value = "";
-      document.getElementById("ncEmail").value    = "";
+      var ids = ["ncName","ncIndustry","ncLocation","nc1Name","nc1Role","nc1Phone","nc1Email","nc2Name","nc2Role","nc2Phone","nc2Email"];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) { el.value = ""; }
+      }
       document.getElementById("ncPackage").value  = "";
       document.getElementById("ncStatus").value   = "active";
       document.getElementById("ncStatus2").textContent = "";
       document.getElementById("ncStatus2").className   = "form-status";
       document.getElementById("btnSaveNewClient").disabled = false;
+      document.getElementById("nc2Wrap").style.display = "none";
+      document.getElementById("btnAddSecondContact").style.display = "";
       document.getElementById("modalNewClient").hidden = false;
+    }
+
+    function toggleSecondContact() {
+      var wrap = document.getElementById("nc2Wrap");
+      var btn  = document.getElementById("btnAddSecondContact");
+      if (wrap.style.display === "none") {
+        wrap.style.display = "";
+        btn.style.display  = "none";
+      }
+    }
+
+    function buildContactFromFields(nameId, roleId, phoneId, emailId) {
+      var name  = (document.getElementById(nameId)  ? document.getElementById(nameId).value  : "").trim();
+      var role  = (document.getElementById(roleId)  ? document.getElementById(roleId).value  : "").trim();
+      var phone = (document.getElementById(phoneId) ? document.getElementById(phoneId).value : "").trim();
+      var email = (document.getElementById(emailId) ? document.getElementById(emailId).value : "").trim();
+      if (!name && !phone && !email) { return null; }
+      return {
+        name:     name  || null,
+        role:     role  || null,
+        phone:    phone || null,
+        whatsapp: null,
+        email:    email || null
+      };
     }
 
     function handleSaveNewClient() {
@@ -618,16 +669,20 @@
       statusEl.textContent = "Salvando...";
       statusEl.className   = "form-status";
 
+      // Build contacts array from intake fields
+      var contacts = [];
+      var c1 = buildContactFromFields("nc1Name", "nc1Role", "nc1Phone", "nc1Email");
+      if (c1) { contacts.push(c1); }
+      var c2 = buildContactFromFields("nc2Name", "nc2Role", "nc2Phone", "nc2Email");
+      if (c2) { contacts.push(c2); }
+
       var payload = {
         name:     name,
-        owners:   (document.getElementById("ncOwners").value   || "").trim() || null,
         industry: (document.getElementById("ncIndustry").value || "").trim() || null,
         location: (document.getElementById("ncLocation").value || "").trim() || null,
-        phone:    (document.getElementById("ncPhone").value    || "").trim() || null,
-        whatsapp: (document.getElementById("ncWhatsapp").value || "").trim() || null,
-        email:    (document.getElementById("ncEmail").value    || "").trim() || null,
         package:  document.getElementById("ncPackage").value  || null,
-        status:   document.getElementById("ncStatus").value   || "active"
+        status:   document.getElementById("ncStatus").value   || "active",
+        contacts: contacts.length > 0 ? JSON.stringify(contacts) : null
       };
 
       getToken().then(function (token) {

@@ -716,6 +716,38 @@
       flex-wrap: wrap;
     }
 
+    /* ─── Inline package edit ────────────────────────────────────────────── */
+    .pkg-edit-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color 0.12s;
+      vertical-align: middle;
+    }
+    .pkg-edit-btn:hover { color: var(--gold); }
+
+    .pkg-edit-select {
+      border: 1px solid var(--gold);
+      border-radius: 20px;
+      padding: 2px 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--gold-dim);
+      color: var(--brown);
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+    }
+
     /* ─── Contacts section ───────────────────────────────────────────────── */
     .contact-card {
       padding: 14px 20px;
@@ -832,7 +864,7 @@
     <!-- Two-column layout -->
     <div class="two-col-layout">
 
-      <!-- ── LEFT: Sessions + Notes ─────────────────────────────────────── -->
+      <!-- ── LEFT: Sessions + Notes + Payment ─────────────────────────────── -->
       <div class="col-main">
 
         <!-- Sessions section -->
@@ -864,23 +896,7 @@
           </div>
         </div>
 
-        <!-- Contacts section -->
-        <div class="content-card">
-          <div class="content-card-header">
-            <h2 class="content-card-title">
-              <span class="show-pt">Contatos</span>
-              <span class="show-en">Contacts</span>
-            </h2>
-            <button class="btn-add" onclick="openContactModal()">
-              + <span class="show-pt">Adicionar Contato</span><span class="show-en">Add Contact</span>
-            </button>
-          </div>
-          <div id="contactsSection">
-            <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
-          </div>
-        </div>
-
-        <!-- Payment method card -->
+        <!-- Payment method — low-visibility internal field, kept at bottom of left column -->
         <div class="content-card">
           <div class="content-card-header">
             <h2 class="content-card-title">
@@ -901,8 +917,24 @@
 
       </div><!-- /col-main -->
 
-      <!-- ── RIGHT: Info + Document + Activity ──────────────────────────── -->
+      <!-- ── RIGHT: Contacts + Logo + Business Info + Documents + Activity ── -->
       <div class="col-side">
+
+        <!-- Contacts card — near top of right sidebar so they're close to the header -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Contatos</span>
+              <span class="show-en">Contacts</span>
+            </h2>
+            <button class="btn-add" onclick="openContactModal()">
+              + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
+            </button>
+          </div>
+          <div id="contactsSection">
+            <div style="padding:16px 20px;color:var(--muted);font-size:13px;">Carregando...</div>
+          </div>
+        </div>
 
         <!-- Logo card -->
         <div class="info-card" id="logoCard">
@@ -924,11 +956,11 @@
           </div>
         </div>
 
-        <!-- Client info card -->
+        <!-- Business info card — industry, location, owners, profile text -->
         <div class="info-card" id="clientInfoCard">
           <div class="info-card-heading">
-            <span class="show-pt">Informações</span>
-            <span class="show-en">Info</span>
+            <span class="show-pt">Empresa</span>
+            <span class="show-en">Business</span>
           </div>
           <div class="coming-soon"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>
         </div>
@@ -1324,6 +1356,8 @@
 
     // ── Render: client header ──────────────────────────────────────────────
 
+    var PACKAGE_OPTIONS = ["Essencial", "Profissional", "Sprint", "Premium", "VIP"];
+
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
       document.title = "Apex — " + (client.name || "Cliente");
@@ -1346,12 +1380,31 @@
       var badgesEl = document.getElementById("clientBadges");
       badgesEl.innerHTML = "";
 
-      if (client.package) {
-        var pkg = document.createElement("span");
-        pkg.className = "package-lozenge";
-        pkg.textContent = client.package;
-        badgesEl.appendChild(pkg);
+      // Package lozenge + inline edit (alice/developer only)
+      var role = sessionStorage.getItem("apex_role") || "";
+      var canEdit = (role === "alice" || role === "developer");
+
+      var pkgWrap = document.createElement("span");
+      pkgWrap.id = "pkgWrap";
+      pkgWrap.style.display = "inline-flex";
+      pkgWrap.style.alignItems = "center";
+      pkgWrap.style.gap = "4px";
+
+      var pkgLozenge = document.createElement("span");
+      pkgLozenge.className = "package-lozenge";
+      pkgLozenge.id = "pkgLozenge";
+      pkgLozenge.textContent = client.package || "—";
+      pkgWrap.appendChild(pkgLozenge);
+
+      if (canEdit) {
+        var editBtn = document.createElement("button");
+        editBtn.className = "pkg-edit-btn";
+        editBtn.title = "Editar pacote / Edit package";
+        editBtn.textContent = "✎";
+        editBtn.onclick = function() { openPackageEdit(client.package || ""); };
+        pkgWrap.appendChild(editBtn);
       }
+      badgesEl.appendChild(pkgWrap);
 
       var statusVal = (client.status || "active").toLowerCase();
       var statusEl  = document.createElement("span");
@@ -1368,6 +1421,87 @@
       }
     }
 
+    function openPackageEdit(current) {
+      var pkgWrap = document.getElementById("pkgWrap");
+      if (!pkgWrap) { return; }
+
+      // Replace lozenge+button with a select
+      pkgWrap.innerHTML = "";
+      var sel = document.createElement("select");
+      sel.className = "pkg-edit-select";
+
+      var emptyOpt = document.createElement("option");
+      emptyOpt.value = "";
+      emptyOpt.textContent = "—";
+      sel.appendChild(emptyOpt);
+
+      for (var i = 0; i < PACKAGE_OPTIONS.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = PACKAGE_OPTIONS[i];
+        opt.textContent = PACKAGE_OPTIONS[i];
+        if (PACKAGE_OPTIONS[i] === current) { opt.selected = true; }
+        sel.appendChild(opt);
+      }
+
+      var saveStatus = document.createElement("span");
+      saveStatus.style.cssText = "font-size:11px;color:var(--muted);margin-left:6px;";
+
+      sel.onchange = function() {
+        var newPkg = sel.value;
+        saveStatus.textContent = "…";
+        apiFetch("/api/clients/" + CLIENT_ID, {
+          method: "PATCH",
+          body: { package: newPkg || null }
+        }).then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data.error) { throw new Error(data.error); }
+            if (clientData) { clientData.package = newPkg; }
+            saveStatus.textContent = "";
+            // Swap back to lozenge display
+            pkgWrap.innerHTML = "";
+            var loz = document.createElement("span");
+            loz.className = "package-lozenge";
+            loz.id = "pkgLozenge";
+            loz.textContent = newPkg || "—";
+            var editBtn = document.createElement("button");
+            editBtn.className = "pkg-edit-btn";
+            editBtn.title = "Editar pacote / Edit package";
+            editBtn.textContent = "✎";
+            editBtn.onclick = function() { openPackageEdit(newPkg); };
+            pkgWrap.appendChild(loz);
+            pkgWrap.appendChild(editBtn);
+          })
+          .catch(function(e) {
+            saveStatus.textContent = "Erro";
+            saveStatus.style.color = "#b44040";
+          });
+      };
+
+      // Click elsewhere to cancel
+      sel.onblur = function() {
+        setTimeout(function() {
+          if (document.activeElement !== sel) {
+            pkgWrap.innerHTML = "";
+            var loz = document.createElement("span");
+            loz.className = "package-lozenge";
+            loz.id = "pkgLozenge";
+            loz.textContent = (clientData && clientData.package) ? clientData.package : "—";
+            var editBtn = document.createElement("button");
+            editBtn.className = "pkg-edit-btn";
+            editBtn.title = "Editar pacote / Edit package";
+            editBtn.textContent = "✎";
+            editBtn.onclick = function() { openPackageEdit(clientData ? clientData.package || "" : ""); };
+            pkgWrap.appendChild(loz);
+            pkgWrap.appendChild(editBtn);
+          }
+        }, 200);
+      };
+
+      pkgWrap.appendChild(sel);
+      pkgWrap.appendChild(saveStatus);
+      sel.focus();
+    }
+
     // ── Render: client info card ───────────────────────────────────────────
 
     function renderClientInfoCard(client) {
@@ -1375,7 +1509,7 @@
 
       var headingEl = document.createElement("div");
       headingEl.className = "info-card-heading";
-      headingEl.innerHTML = '<span class="show-pt">Informações</span><span class="show-en">Info</span>';
+      headingEl.innerHTML = '<span class="show-pt">Empresa</span><span class="show-en">Business</span>';
 
       var rows = [];
 
@@ -1391,9 +1525,6 @@
       addRow("Sócios",        "Owners",    client.owners);
       addRow("Setor",         "Industry",  client.industry);
       addRow("Localização",   "Location",  client.location);
-      addRow("Telefone",      "Phone",     client.phone);
-      addRow("Email",         "Email",     client.email);
-      addRow("WhatsApp",      "WhatsApp",  client.whatsapp);
 
       var rowsEl = document.createElement("div");
       for (var i = 0; i < rows.length; i++) {

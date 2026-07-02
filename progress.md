@@ -1,6 +1,6 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 14 — standalone new-client flow, profile header shell, contacts MVP)
+**Last updated:** 2026-07-02 (session 15 — package editing, Sprint option, contact layout, intake contacts)
 **Current phase:** Session 14 complete — Worker deployed (version 0c836594); D1 contacts column added; pushed to GitHub pending
 **Last session summary:** Added standalone Add New Client button + modal to clients.html (no session/transcript flow). New modal saves a client-only record and redirects to client.html?id=NEW_ID. Upgraded client.html header to a profile shell with inline logo thumbnail, package/status/next-meeting lozenges. Added Contacts section with multi-contact MVP (JSON array stored in clients.contacts column). Worker updated to expose contacts field everywhere and support PATCH for contacts.
 
@@ -250,6 +250,49 @@
 - [x] wrangler.toml configured with real D1 ID, Firebase project ID — 2026-06-29
 - [x] Full login flow confirmed working end to end — 2026-06-29
 - [x] GitHub repo live, .gitignore verified — 2026-06-29
+
+## Completed (session 15 — 2026-07-02, package editing + Sprint option + contact layout + intake contacts)
+- [x] clients.html — Added Sprint to package select in new-client modal (between Profissional and Premium)
+- [x] clients.html — Restructured new-client modal intake to include contact fields up front:
+  - Primary contact: name, role, phone/whatsapp (combined field), email
+  - "+ Add second contact" button reveals a second contact block (same fields)
+  - Both contacts saved into clients.contacts JSON array at creation time
+  - Removed legacy owners/phone/whatsapp/email top-level fields from the intake form (moved into contacts)
+  - Kept industry, location as business fields
+- [x] client.html — Added Sprint to PACKAGE_OPTIONS array (used by inline package edit)
+- [x] client.html — Made package editable via inline control in the profile header:
+  - alice/developer see a ✎ pencil button next to the package lozenge
+  - Clicking it replaces lozenge with a styled select (all packages incl. Sprint)
+  - On change: PATCHes /api/clients/:id, re-renders lozenge; on blur without change: cancels back to lozenge
+  - rafa sees the package lozenge display-only (no edit button)
+- [x] client.html — Moved Contacts section from left column to TOP of right sidebar
+  - Contacts now appear immediately below the profile header shell in the right column
+  - Position: above Logo, Business Info, Documents, Activity
+  - Left column now contains only: Sessions, Notes, Payment Method
+- [x] client.html — Removed phone/email/whatsapp from renderClientInfoCard (those are contact-level fields)
+  - Business info card (renamed "Empresa / Business") now shows only: owners, industry, location, profile text
+- [x] client.html — Payment method card stays at bottom of left column (low-visibility operational field)
+- [x] worker/index.js — Updated handlePostClients INSERT to include contacts column
+- [x] Worker deployed: version e2080a68, apex-api.farfromtimnah.workers.dev
+
+**Files touched (session 15):** clients.html, client.html, worker/index.js, progress.md
+
+**Schema change:** None — contacts column already exists from session 14.
+
+**Multi-contact persistence note:** Contacts are stored as a JSON array in clients.contacts (TEXT column). Intake flow in clients.html builds the array from up to 2 contacts entered during creation and passes it to POST /api/clients as contacts: JSON.stringify(array). PATCH /api/clients/:id (from client.html) appends further contacts to the same array.
+
+**QA checklist (browser test required):**
+1. Open clients.html → click "+ Novo Cliente" → modal shows business fields + primary contact fields + "+ Add second contact" link
+2. Fill business info + primary contact → save → lands on client.html → Contacts section shows the contact entered
+3. Click "+ Add second contact" during intake → second block appears → both contacts land in the profile
+4. On client.html, confirm Contacts card is in the right sidebar near the top (not buried below sessions/notes)
+5. On client.html, confirm package lozenge shows ✎ button for alice/developer; click it → select appears with Sprint option
+6. Change package → auto-saves via PATCH → lozenge updates to new value without page reload
+7. rafa role: package lozenge visible, no ✎ edit button
+8. Business info card shows only owners, industry, location — no phone/email/whatsapp
+9. Existing logo upload still works (Logo card still in right sidebar)
+10. Payment method dropdown stays at bottom of left column, still saves
+11. Nova Sessão, notes, PDF generation untouched
 
 ## Completed (session 14 — 2026-07-02, standalone new-client flow + profile header + contacts MVP)
 - [x] clients.html — Added "Novo Cliente / Add New Client" button (top-right, hidden for rafa role)

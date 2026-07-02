@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 17 — tasks.html real Rafa task view)
-**Current phase:** Session 17 complete — tasks.html is now a real cross-client task view derived from session summary data.
-**Last session summary:** Built tasks.html as a live task view for Rafa. Derives task rows from pdf_data.consultant_followups (Rafa's items) and pdf_data.client_actions (client items) already present in GET /api/sessions. Supports two views: by-date (chronological, overdue highlighted) and by-type (grouped: Consultant / Client / Text). No Worker changes, no schema changes.
+**Last updated:** 2026-07-02 (session 18 — tasks.html role tabs + completion)
+**Current phase:** Session 18 complete — tasks.html now has Consultant/Client tabs, completion toggle with D1 persistence, and calmer visual layout.
+**Last session summary:** Refined tasks.html. Added two top-level role tabs (Consultant / Client) so Rafa defaults to his own follow-ups. Kept By Date / By Type sort controls inside each tab. Replaced colored dot with circular checkbox toggle — clicking marks a task done (strikethrough, muted, low opacity) or undone. Completion state saved to localStorage immediately, then PATCHed to a new task_completions column on sessions in D1 (fire-and-forget, silent fallback). Worker deployed (version 059b98c6). D1 schema updated (ALTER TABLE sessions ADD COLUMN task_completions TEXT).
 
 ---
 
@@ -250,6 +250,47 @@
 - [x] wrangler.toml configured with real D1 ID, Firebase project ID — 2026-06-29
 - [x] Full login flow confirmed working end to end — 2026-06-29
 - [x] GitHub repo live, .gitignore verified — 2026-06-29
+
+## Completed (session 18 — 2026-07-02, tasks.html role tabs + completion)
+- [x] tasks.html — Consultant / Client top-level tabs (underline style, with pending/total count badge)
+  - Consultant tab (default): shows rafa + text tasks → answers "What does Rafa need to do next?"
+  - Client tab: shows client action items only
+- [x] tasks.html — By Date / By Type sort controls now work within whichever tab is active
+- [x] tasks.html — Completion toggle: circular checkbox on each row; click marks done (strikethrough, muted, 0.52 opacity) or undone
+  - Done chip in controls bar shows "N of M done / N de M concluídas"
+  - Tab count badge shows pending/total (e.g. "3/7")
+- [x] tasks.html — Completion state persisted:
+  - localStorage (instant, survives page reload, keyed by user email)
+  - PATCH /api/sessions/:id/task-completions (D1, fire-and-forget, silent fallback)
+  - On load: backend task_completions merged into local state (backend wins)
+- [x] worker/index.js — New handlePatchSessionTaskCompletions route
+  - Reads existing task_completions JSON, merges incoming keys, writes back
+  - Auth required; any role can mark tasks complete
+- [x] worker/index.js — GET /api/sessions now SELECTs task_completions column
+- [x] D1 — ALTER TABLE sessions ADD COLUMN task_completions TEXT (applied live)
+- [x] schema.sql — task_completions column documented
+- [x] Worker deployed: version 059b98c6, apex-api.farfromtimnah.workers.dev
+- [x] Pushed to GitHub: commit 05029c6, origin/main
+
+**Files touched (session 18):** tasks.html, worker/index.js, worker/schema.sql, progress.md
+
+**Schema change:** `ALTER TABLE sessions ADD COLUMN task_completions TEXT` — applied to live D1. Stores a JSON object of {taskKey → boolean} per session. Task keys are `{sessionId}_{type}_{index}` (e.g. `abc_rafa_0`, `abc_client_2`).
+
+**MVP compromise:** Completion is persisted per-session, not as a normalized task table. This means if a session's pdf_data is regenerated (re-summarize), the old task keys will no longer match new task keys and completions will reset. This is acceptable for the current scale.
+
+**QA checklist (browser test required):**
+1. Log in → Tasks page → default shows Consultant tab, By Date sort
+2. Consultant tab: shows only Rafa follow-up tasks; Client tab: shows only client action items
+3. Tab count badge shows pending/total (e.g. "3/7")
+4. Switch to By Type within Consultant tab → grouped by Follow-ups / Resumo headings
+5. Switch to Client tab → By Type shows "Ações do Cliente" group only
+6. Click checkbox on a task → row dims, text gets strikethrough, done chip updates
+7. Click again → task un-marks, row returns to full opacity
+8. Reload page → completed tasks stay completed (localStorage + backend)
+9. Overdue tasks still show red due pill (only when not done)
+10. Client name links still navigate to client.html
+11. Bilingual toggle works throughout (all labels, group headings, done chip)
+12. No console errors
 
 ## Completed (session 17 — 2026-07-02, tasks.html real Rafa task view)
 - [x] tasks.html — Replaced "Em breve" placeholder with a real cross-client task view:

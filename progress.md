@@ -1,5 +1,28 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-03 (session 44 — client.html profile header hero redesign)
+
+## Completed (session 44 — 2026-07-03, client.html profile header hero redesign)
+
+- [x] Replaced plain white `.profile-header-shell` with full hero + glass-tile treatment matching dashboard.html and clients.html
+- [x] Added `profile-hero-section` wrapper with `#clientHeroBg` + `#clientHeroScrim` elements and kenburns CSS animation
+- [x] Added `initHeroBg('clientHeroBg', 'clientHeroScrim')` function (exact same logic as dashboard.html / clients.html: random pick from picture1–5 with onerror fallback chain)
+- [x] `initHeroBg` called from the existing `window.onload` before `init()`
+- [x] `.profile-header-shell` restyled as glass-morphic container (dark backdrop-filter blur, semi-transparent border)
+- [x] `.client-name` in hero scoped via `.profile-header-meta .client-name` to render white over photo
+- [x] `.package-lozenge` and `.status-client-lozenge` colors updated for contrast against dark glass background (semi-transparent tints replacing solid pastels)
+- [x] All element IDs preserved: headerLogoWrap, headerLogoPlaceholder, headerLogoImg, clientName, clientBadges, nextMeetingLozenge, nextMeetingText, btnScheduleSession, btnHeaderPdf
+- [x] All onclick handlers preserved: openNewSessionModal, openScheduleSessionModal, handleHeaderPdf
+- [x] Non-header content (Edit Sections bar, Overview card, Sessions, Digital Presence, Logo upload, Recent Activity) untouched
+- [x] All JS uses var, function() declarations, null checks, plain ASCII strings
+
+### Deployment (session 44)
+- [x] git commit + push → GitHub Pages auto-deploy triggered
+
+**Files touched (session 44):** client.html, progress.md
+
+---
+
 **Last updated:** 2026-07-03 (session 43 — clients.html hero redesign + package dropdown fix)
 
 ## Completed (session 43 — 2026-07-03, clients.html hero redesign + package dropdown fix)

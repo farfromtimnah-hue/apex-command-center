@@ -200,9 +200,9 @@
       font-weight: 700;
       letter-spacing: 0.4px;
       text-transform: uppercase;
-      background: var(--gold-dim);
-      border: 1px solid rgba(201,164,58,0.5);
-      color: var(--brown);
+      background: rgba(201,164,58,0.28);
+      border: 1px solid rgba(201,164,58,0.6);
+      color: #e8c96a;
     }
 
     .status-client-lozenge {
@@ -213,11 +213,11 @@
       font-weight: 600;
       letter-spacing: 0.2px;
     }
-    .status-client-lozenge[data-status="active"]   { background: #ddfaec; color: #1a6640; }
-    .status-client-lozenge[data-status="inactive"] { background: #fdf3dc; color: #8a6200; }
-    .status-client-lozenge[data-status="paused"]   { background: #fdf3dc; color: #8a6200; }
-    .status-client-lozenge[data-status="lead"]     { background: #dce8fd; color: #1a4a8a; }
-    .status-client-lozenge[data-status="closed"]   { background: #f2f2f2; color: #555; }
+    .status-client-lozenge[data-status="active"]   { background: rgba(29,185,84,0.2);  border: 1px solid rgba(29,185,84,0.4);  color: #6effa0; }
+    .status-client-lozenge[data-status="inactive"] { background: rgba(255,180,50,0.18); border: 1px solid rgba(255,180,50,0.35); color: #ffc84a; }
+    .status-client-lozenge[data-status="paused"]   { background: rgba(255,180,50,0.18); border: 1px solid rgba(255,180,50,0.35); color: #ffc84a; }
+    .status-client-lozenge[data-status="lead"]     { background: rgba(80,140,255,0.2);  border: 1px solid rgba(80,140,255,0.35); color: #90b8ff; }
+    .status-client-lozenge[data-status="closed"]   { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); }
 
     body.lang-pt .status-client-lozenge[data-status="active"]::before   { content: "Ativo"; }
     body.lang-pt .status-client-lozenge[data-status="inactive"]::before { content: "Pausado"; }
@@ -649,16 +649,56 @@
     .field-group textarea:focus { outline: none; border-color: var(--gold); }
     .field-group textarea { resize: vertical; min-height: 130px; line-height: 1.5; }
 
-    /* ─── Profile header shell ───────────────────────────────────────────── */
+    /* ─── Profile hero header ────────────────────────────────────────────── */
+    .profile-hero-section {
+      position: relative;
+      padding: 32px 32px 28px;
+      overflow: hidden;
+      border-radius: 0;
+    }
+
+    #clientHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #clientHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #clientHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .profile-hero-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ─── Profile header shell (hero variant) ───────────────────────────── */
     .profile-header-shell {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 24px 28px;
       display: flex;
       align-items: flex-start;
       gap: 20px;
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding: 24px 28px;
     }
 
     .profile-header-logo {
@@ -666,12 +706,12 @@
       width: 64px;
       height: 64px;
       border-radius: 8px;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--muted);
+      color: rgba(255,255,255,0.7);
       font-size: 26px;
       overflow: hidden;
     }
@@ -689,6 +729,7 @@
 
     .profile-header-meta .client-name {
       margin-bottom: 10px;
+      color: #fff;
     }
 
     .profile-header-meta .client-badges {
@@ -703,9 +744,9 @@
       border-radius: 20px;
       font-size: 11px;
       font-weight: 600;
-      background: #f2f2f2;
-      color: #555;
-      border: 1px solid #e0e0e0;
+      background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.2);
     }
 
     .profile-header-actions {
@@ -1130,34 +1171,40 @@
   <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
   <main id="appMain" hidden>
 
-    <!-- Client profile header shell -->
-    <div class="profile-header-shell">
-      <div class="profile-header-logo" id="headerLogoWrap">
-        <span id="headerLogoPlaceholder">🏢</span>
-        <img id="headerLogoImg" src="" alt="" style="display:none;">
-      </div>
-      <div class="profile-header-meta">
-        <h1 class="client-name" id="clientName">—</h1>
-        <div class="client-badges" id="clientBadges">
-          <!-- package + status lozenges rendered by JS -->
-          <span class="next-meeting-lozenge" id="nextMeetingLozenge" style="display:none;">
-            📅 <span id="nextMeetingText"></span>
-          </span>
+    <!-- Client profile hero header -->
+    <div class="profile-hero-section">
+      <div id="clientHeroBg" aria-hidden="true"></div>
+      <div id="clientHeroScrim" aria-hidden="true"></div>
+      <div class="profile-hero-content">
+        <div class="profile-header-shell">
+          <div class="profile-header-logo" id="headerLogoWrap">
+            <span id="headerLogoPlaceholder">&#127970;</span>
+            <img id="headerLogoImg" src="" alt="" style="display:none;">
+          </div>
+          <div class="profile-header-meta">
+            <h1 class="client-name" id="clientName">&#8212;</h1>
+            <div class="client-badges" id="clientBadges">
+              <!-- package + status lozenges rendered by JS -->
+              <span class="next-meeting-lozenge" id="nextMeetingLozenge" style="display:none;">
+                &#128197; <span id="nextMeetingText"></span>
+              </span>
+            </div>
+          </div>
+          <div class="profile-header-actions">
+            <button class="btn-action" onclick="openNewSessionModal()">
+              <span class="show-pt">Nova Sess&#227;o</span>
+              <span class="show-en">New Session</span>
+            </button>
+            <button class="btn-action" id="btnScheduleSession" onclick="openScheduleSessionModal()" style="background:#C9A84C;color:#000;">
+              <span class="show-pt">Agendar Sess&#227;o</span>
+              <span class="show-en">Schedule Session</span>
+            </button>
+            <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
+              <span class="show-pt">Gerar PDF</span>
+              <span class="show-en">Generate PDF</span>
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="profile-header-actions">
-        <button class="btn-action" onclick="openNewSessionModal()">
-          <span class="show-pt">Nova Sessão</span>
-          <span class="show-en">New Session</span>
-        </button>
-        <button class="btn-action" id="btnScheduleSession" onclick="openScheduleSessionModal()" style="background:#C9A84C;color:#000;">
-          <span class="show-pt">Agendar Sessão</span>
-          <span class="show-en">Schedule Session</span>
-        </button>
-        <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
-          <span class="show-pt">Gerar PDF</span>
-          <span class="show-en">Generate PDF</span>
-        </button>
       </div>
     </div>
 
@@ -3700,8 +3747,38 @@
         .replace(/>/g, "&gt;");
     }
 
+    // ── Background photo (same image array + logic as dashboard.html) ─────
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl    = document.getElementById(imgElId);
+      var scrimEl = document.getElementById(scrimElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
     // ── Bootstrap ──────────────────────────────────────────────────────────
-    window.onload = function() { init(); };
+    window.onload = function() {
+      initHeroBg('clientHeroBg', 'clientHeroScrim');
+      init();
+    };
   </script>
 
 </body>

@@ -115,7 +115,7 @@ async function handleGetSessionsInbox(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var res = await env.DB.prepare(
             "SELECT id, client_name, client_id, date, status, raw_transcript, created_at " +
@@ -129,6 +129,30 @@ async function handleGetSessionsInbox(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/sessions/:id/discard
+// Soft-deletes an inbox session by setting status to 'discarded'.
+// ---------------------------------------------------------------------------
+
+async function handlePostSessionDiscard(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var session = await env.DB.prepare("SELECT id FROM sessions WHERE id = ?")
+            .bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        await env.DB.prepare("UPDATE sessions SET status = 'discarded' WHERE id = ?")
+            .bind(sessionId).run();
+
+        return jsonOk({ ok: true, session_id: sessionId, status: "discarded" });
+    } catch (e) {
+        return jsonErr("Error discarding session: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/sessions/:id/assign-client
 // Body: { client_id: string }
 // Assigns a client to an inbox session before summarizing.
@@ -138,7 +162,7 @@ async function handlePostSessionAssignClient(sessionId, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         if (!body.client_id) { return jsonErr("client_id is required", 400); }
@@ -320,7 +344,7 @@ async function handlePostTranscript(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         if (!body.transcript) { return jsonErr("transcript is required", 400); }
@@ -387,7 +411,7 @@ async function handlePostSummarize(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         if (!body.session_id) { return jsonErr("session_id is required", 400); }
@@ -492,7 +516,7 @@ async function handlePostApprove(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         if (!body.session_id) { return jsonErr("session_id is required", 400); }
@@ -549,7 +573,7 @@ async function handlePostClients(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         if (!body.name) { return jsonErr("name is required", 400); }
@@ -715,7 +739,7 @@ async function handlePostClientLogo(id, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var form = await request.formData();
         var file = form.get("logo");
@@ -785,7 +809,7 @@ async function handlePatchClient(id, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         var updated = false;
@@ -885,7 +909,7 @@ async function handlePatchDigitalPresence(id, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         if (!body.platform) { return jsonErr("platform is required", 400); }
@@ -964,7 +988,7 @@ async function handlePostClientTask(id, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
         if (!body.description) { return jsonErr("description is required", 400); }
@@ -1007,8 +1031,8 @@ async function handlePatchTask(id, request, env) {
         // Verify the task exists and caller has access via their role
         var task = await env.DB.prepare("SELECT id, client_id FROM tasks WHERE id = ?").bind(id).first();
         if (!task) { return jsonErr("Task not found", 404); }
-        // Only alice and developer can mutate tasks (same gate as task creation and client writes)
-        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        // Only alice, rafa, and developer can mutate tasks (same gate as task creation and client writes)
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         await env.DB.prepare("UPDATE tasks SET status = ? WHERE id = ?")
             .bind(body.status, id).run();
@@ -1043,7 +1067,10 @@ async function handlePostSessionsSchedule(request, env) {
         if (!client) { return jsonErr("Client not found", 404); }
 
         var sessionId    = crypto.randomUUID();
-        var meetLink     = body.session_type === "online_meet" ? "[PENDING_GOOGLE_API]" : null;
+        var meetLink = null;
+        if (body.session_type === "online_meet") {
+          meetLink = body.google_meet_link || "[PENDING_GOOGLE_API]";
+        }
 
         await env.DB.prepare(
             "INSERT INTO sessions (id, client_id, client_name, date, time, session_type, google_meet_link, status, raw_transcript) " +
@@ -1447,6 +1474,87 @@ async function handleDeleteUser(email, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/tasks/consultant
+// Query: scope=today|week
+// Returns consultant tasks across all clients, scoped by date window.
+// ---------------------------------------------------------------------------
+
+async function handleGetConsultantTasks(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var url   = new URL(request.url);
+        var scope = url.searchParams.get("scope");
+        if (scope !== "today" && scope !== "week") {
+            return jsonErr("scope must be today or week", 400);
+        }
+
+        var today = new Date().toISOString().split("T")[0];
+
+        var stmt;
+        if (scope === "today") {
+            stmt = env.DB.prepare(
+                "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
+                "t.description, t.due_date, t.status, t.created_at " +
+                "FROM tasks t JOIN clients c ON t.client_id = c.id " +
+                "WHERE t.type = 'consultant' AND t.due_date = ? " +
+                "ORDER BY t.due_date ASC"
+            ).bind(today);
+        } else {
+            // Compute Sunday-to-Saturday week boundaries using same logic as calendar.html getWeekDateStrings()
+            var now = new Date();
+            var dayOfWeek = now.getDay(); // 0=Sunday
+            var sunday = new Date(now);
+            sunday.setDate(now.getDate() - dayOfWeek);
+            var saturday = new Date(sunday);
+            saturday.setDate(sunday.getDate() + 6);
+            var weekStart = sunday.toISOString().split("T")[0];
+            var weekEnd   = saturday.toISOString().split("T")[0];
+
+            stmt = env.DB.prepare(
+                "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
+                "t.description, t.due_date, t.status, t.created_at " +
+                "FROM tasks t JOIN clients c ON t.client_id = c.id " +
+                "WHERE t.type = 'consultant' AND t.due_date >= ? AND t.due_date <= ? " +
+                "ORDER BY t.due_date ASC"
+            ).bind(weekStart, weekEnd);
+        }
+
+        var res = await stmt.all();
+        return jsonOk({ tasks: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching consultant tasks: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/tasks/consultant/overdue
+// Returns all overdue consultant tasks (pending, due_date < today).
+// ---------------------------------------------------------------------------
+
+async function handleGetConsultantTasksOverdue(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var today = new Date().toISOString().split("T")[0];
+
+        var res = await env.DB.prepare(
+            "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
+            "t.description, t.due_date, t.status, t.created_at " +
+            "FROM tasks t JOIN clients c ON t.client_id = c.id " +
+            "WHERE t.type = 'consultant' AND t.status = 'pending' AND t.due_date < ? " +
+            "ORDER BY t.due_date ASC"
+        ).bind(today).all();
+
+        return jsonOk({ tasks: res.results, count: res.results.length });
+    } catch (e) {
+        return jsonErr("Error fetching overdue consultant tasks: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -1486,6 +1594,9 @@ export default {
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "assign-client" && method === "POST") {
             return handlePostSessionAssignClient(segs[2], request, env);
         }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "discard" && method === "POST") {
+            return handlePostSessionDiscard(segs[2], request, env);
+        }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "whatsapp" && method === "POST") {
             return handlePostSessionWhatsapp(segs[2], request, env);
         }
@@ -1524,6 +1635,16 @@ export default {
                 if (method === "GET")  { return handleGetClientTasks(cid, request, env); }
                 if (method === "POST") { return handlePostClientTask(cid, request, env); }
             }
+        }
+
+        // /api/tasks/consultant/overdue  GET — must come before generic tasks/:id match
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] === "consultant" && segs[3] === "overdue" && method === "GET") {
+            return handleGetConsultantTasksOverdue(request, env);
+        }
+
+        // /api/tasks/consultant  GET (scope=today|week)
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] === "consultant" && !segs[3] && method === "GET") {
+            return handleGetConsultantTasks(request, env);
         }
 
         // /api/tasks/:id  PATCH (status toggle — syncs with tasks.html)

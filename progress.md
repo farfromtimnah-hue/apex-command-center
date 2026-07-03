@@ -1,5 +1,20 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-03 (session 45 — calendar.html cal-chip text wrapping fix)
+
+## Completed (session 45 — 2026-07-03, calendar.html cal-chip text wrapping fix)
+
+- [x] Changed `.cal-chip` overflow text behavior from ellipsis truncation to word wrapping
+- [x] Replaced `white-space: nowrap` + `text-overflow: ellipsis` with `white-space: normal` + `word-wrap: break-word`
+- [x] All other `.cal-chip` properties unchanged (max-width, min-width, padding, font-size, line-height, border-radius, color variants)
+
+### Deployment (session 45)
+- [x] git commit + push → GitHub Pages auto-deploy triggered
+
+**Files touched (session 45):** calendar.html, progress.md
+
+---
+
 **Last updated:** 2026-07-03 (session 44 — client.html profile header hero redesign)
 
 ## Completed (session 44 — 2026-07-03, client.html profile header hero redesign)

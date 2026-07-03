@@ -883,13 +883,13 @@
             <span class="show-en">Type</span>
           </div>
           <div class="type-toggle">
-            <button class="type-toggle-btn active" id="nsTypeMeet" onclick="setNewSessionType('meet')">Google Meet</button>
-            <button class="type-toggle-btn" id="nsTypeInPerson" onclick="setNewSessionType('inperson')">
+            <button class="type-toggle-btn active" id="nsTypeMeet" onclick="setNewSessionType('online_meet')">Google Meet</button>
+            <button class="type-toggle-btn" id="nsTypeInPerson" onclick="setNewSessionType('in_person')">
               <span class="show-pt">Presencial</span>
               <span class="show-en">In-Person</span>
             </button>
           </div>
-          <input type="hidden" id="nsTypeVal" value="meet">
+          <input type="hidden" id="nsTypeVal" value="online_meet">
           <div class="meet-info-wrap" id="nsMeetInfoWrap" style="margin-top:8px;">
             <div class="meet-info-text">
               <span class="show-pt">Link do Meet será gerado automaticamente.</span>
@@ -1310,7 +1310,7 @@
 
     function makeMonthChip(session) {
       var chip = document.createElement("div");
-      var typeCls = (session.session_type === "inperson") ? "inperson" : "online";
+      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
       chip.className = "cal-chip " + typeCls;
 
       var nameSpan = document.createElement("span");
@@ -1414,7 +1414,7 @@
 
     function makeWeekChip(session) {
       var chip = document.createElement("div");
-      var typeCls = (session.session_type === "inperson") ? "inperson" : "online";
+      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
       chip.className = "cal-week-chip " + typeCls;
       chip.innerHTML = '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       if (session.time) { chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + session.time.slice(0,5) + '</span>'; }
@@ -1492,7 +1492,7 @@
 
     function makeDayChip(session) {
       var chip = document.createElement("div");
-      var typeCls = (session.session_type === "inperson") ? "inperson" : "online";
+      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
       chip.className = "cal-day-chip " + typeCls;
       chip.innerHTML = '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       if (session.time) { chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + session.time.slice(0,5) + '</span>'; }
@@ -1508,18 +1508,18 @@
       document.getElementById("nsDate").value   = "";
       document.getElementById("nsTime").value   = "";
       document.getElementById("nsNotes").value  = "";
-      setNewSessionType("meet");
+      setNewSessionType("online_meet");
       var st = document.getElementById("nsStatus");
       if (st) { st.textContent = ""; st.className = "pull-status"; }
       document.getElementById("modalNewSession").hidden = false;
     }
 
     function setNewSessionType(type) {
-      document.getElementById("nsTypeMeet").className     = "type-toggle-btn" + (type === "meet"     ? " active" : "");
-      document.getElementById("nsTypeInPerson").className = "type-toggle-btn" + (type === "inperson" ? " active" : "");
+      document.getElementById("nsTypeMeet").className     = "type-toggle-btn" + (type === "online_meet" ? " active" : "");
+      document.getElementById("nsTypeInPerson").className = "type-toggle-btn" + (type === "in_person"   ? " active" : "");
       document.getElementById("nsTypeVal").value          = type;
       var wrap = document.getElementById("nsMeetInfoWrap");
-      if (type === "meet") { wrap.classList.remove("hidden-field"); }
+      if (type === "online_meet") { wrap.classList.remove("hidden-field"); }
       else                 { wrap.classList.add("hidden-field"); }
     }
 
@@ -1527,7 +1527,7 @@
       var clientId = document.getElementById("nsClient").value;
       var date     = document.getElementById("nsDate").value;
       var time     = document.getElementById("nsTime").value;
-      var type     = document.getElementById("nsTypeVal").value || "meet";
+      var type     = document.getElementById("nsTypeVal").value || "online_meet";
       var notes    = document.getElementById("nsNotes").value;
       var statusEl = document.getElementById("nsStatus");
       var btn      = document.getElementById("btnNsSubmit");
@@ -1574,9 +1574,9 @@
       document.getElementById("detailTime").textContent      = session.time ? session.time.slice(0,5) : "—";
 
       var typePillEl = document.getElementById("detailTypePill");
-      var typeCls = (session.session_type === "inperson") ? "inperson" : "online";
+      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
       var typeLabel;
-      if (session.session_type === "inperson") {
+      if (session.session_type === "in_person") {
         typeLabel = en ? "In-Person" : "Presencial";
       } else {
         typeLabel = "Google Meet";

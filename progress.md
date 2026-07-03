@@ -1,5 +1,33 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-03 (session 38 — Premium dashboard redesign)
+
+## Completed (session 38 — 2026-07-03, Premium dashboard redesign)
+
+### dashboard.html (only file touched)
+
+**Alice dashboard (renderAliceDashboard):**
+- Glass tile row (Pending / Summarized / Approved / Total) over rotating mountain photo background (same image array + selection logic as index.html)
+- Status bar: "X/Y sessoes aprovadas / sessions approved" with gold progress bar
+- Below photo: Recent Sessions table unchanged in data, restyled with existing card/table visual language
+- Developer role: completely untouched behavior, rendered via separate devDash section
+
+**Rafa dashboard (renderRafaDashboard):**
+- Daily / Weekly scope toggle (pill buttons, same pattern as calendar.html)
+- 3 glass tiles: Meetings (today or week), Tasks Due (scope-sensitive), Overdue (always full running total, never changes with toggle)
+- Status bar: X/Y tasks complete, switches with Daily/Weekly toggle
+- Meetings list: client name clickable to client.html, time (daily) or date+time (weekly), Join button if google_meet_link is valid
+- Tasks list: client name clickable, click-to-complete (PATCH /api/tasks/:id { status: done }), moves to Done section on success, persists in D1 across reloads
+- Active and Done tasks in two visually separate groups on same page
+
+### Deployment (session 38)
+- [x] git commit: 8008e9e "Premium dashboard redesign: glassmorphic tiles for Alice + full Rafa overview"
+- [x] git push origin main
+
+**Files touched (session 38):** dashboard.html only
+
+---
+
 **Last updated:** 2026-07-03 (session 37 — Fix New Session time input)
 
 ## Completed (session 37 — 2026-07-03, Fix New Session time input)
@@ -967,6 +995,43 @@ Insert a mock inbox session in D1 console:
 - [x] No Worker code touched. No frontend files touched. No other tables modified.
 
 **Files touched (session 29):** progress.md (schema change applied directly to live D1 via wrangler)
+
+---
+
+## Completed (session 38 — 2026-07-03, Rafa full permissions + consultant task endpoints)
+
+### worker/index.js — Task 1: Rafa Alice-level permissions
+Added `user.role !== "rafa"` to role checks in all listed endpoints:
+- handleGetSessionsInbox, handlePostSessionDiscard, handlePostSessionAssignClient
+- handlePostTranscript, handlePostSummarize, handlePostApprove
+- handlePostClients, handlePostClientLogo, handlePatchClient
+- handlePatchDigitalPresence, handlePostClientTask, handlePatchTask
+
+Developer-only endpoints (user management, Google OAuth start) unchanged.
+Open-to-all-auth endpoints (sessions/schedule, sessions/calendar, sessions/whatsapp) unchanged.
+
+### worker/index.js — Task 2: GET /api/tasks/consultant
+- Query param: `scope=today|week` (required)
+- `today`: due_date = server's current YYYY-MM-DD
+- `week`: due_date falls within current Sunday–Saturday window (same logic as calendar.html getWeekDateStrings)
+- JOINs clients table to include client_name and client_id
+- Auth: any authenticated role
+- Returns: `{ tasks: [...] }`
+
+### worker/index.js — Task 3: GET /api/tasks/consultant/overdue
+- All pending consultant tasks with due_date < today (running total, not scoped)
+- JOINs clients table to include client_name
+- Auth: any authenticated role
+- Returns: `{ tasks: [...], count: <number> }`
+- Route registered before generic `/api/tasks/:id` PATCH to avoid conflict
+
+### Deployment (session 38)
+- npx wrangler deploy succeeded
+- Version: f427d935-18fa-44f5-98bc-66a6031c09bb
+- Live: https://apex-api.farfromtimnah.workers.dev
+- Both new endpoints confirmed routing (return auth error on invalid token)
+
+**Files touched (session 38):** worker/index.js, progress.md
 
 ---
 

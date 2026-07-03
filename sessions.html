@@ -511,6 +511,8 @@
     }
 
     /* ─── Inbox tab ──────────────────────────────────────────────────────── */
+    [hidden] { display: none !important; }
+
     #tabInbox {
       padding: 24px;
       gap: 16px;
@@ -518,13 +520,14 @@
     }
 
     #inboxList {
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 16px;
     }
 
     .inbox-empty {
-      flex: 1;
+      margin: auto;
       display: flex;
       align-items: center;
       justify-content: center;

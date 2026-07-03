@@ -1163,7 +1163,7 @@
         container.appendChild(heading);
         var sorted = sortDoneGroup(tasks);
         for (var i = 0; i < sorted.length; i++) {
-          container.appendChild(makeTaskRow(sorted[i], false));
+          container.appendChild(makeTaskRow(sorted[i], false, true));
         }
       }
 
@@ -1223,15 +1223,16 @@
 
     // ── DOM builders ───────────────────────────────────────────────────────
 
-    function makeTaskRow(task, showTypeTag) {
+    function makeTaskRow(task, showTypeTag, suppressDoneStyle) {
       var isDone = !!completedMap[task.key];
+      var showDone = isDone && !suppressDoneStyle;
 
       var row = document.createElement("div");
-      row.className = "task-row" + (isDone ? " done" : "");
+      row.className = "task-row" + (showDone ? " done" : "");
 
       // Checkbox toggle button
       var check = document.createElement("button");
-      check.className = "task-check" + (isDone ? " checked" : "");
+      check.className = "task-check" + (showDone ? " checked" : "");
       check.title = "Marcar como concluída / Mark complete";
       check.setAttribute("aria-label", "Toggle complete");
       // Use a self-contained closure via data attributes to avoid closure issues in loops

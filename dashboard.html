@@ -1563,6 +1563,29 @@
       container.appendChild(table);
     }
 
+    // ── Dev preview switcher ───────────────────────────────────────────────
+    window.setView = function(role) {
+      var aliceDash = document.getElementById("aliceDash");
+      var rafaDash  = document.getElementById("rafaDash");
+      var devDash   = document.getElementById("devDash");
+      if (aliceDash) { aliceDash.hidden = true; }
+      if (rafaDash)  { rafaDash.hidden  = true; }
+      if (devDash)   { devDash.hidden   = true; }
+
+      if (role === "alice") {
+        if (aliceDash) { aliceDash.hidden = false; }
+        initHeroBg("heroBgImage", "heroBgScrim");
+        renderAliceDashboard();
+      } else if (role === "rafa") {
+        if (rafaDash) { rafaDash.hidden = false; }
+        initHeroBg("heroBgImageRafa", "heroBgScrimRafa");
+        renderRafaDashboard();
+      } else {
+        if (devDash) { devDash.hidden = false; }
+        loadDevOverview();
+      }
+    };
+
     // ── Bootstrap ──────────────────────────────────────────────────────────
     window.onload = function() { init(); };
   </script>

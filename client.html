@@ -173,9 +173,14 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 28px 32px;
-      gap: 24px;
       overflow-y: auto;
+    }
+
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
     }
 
     .client-name {
@@ -1128,7 +1133,7 @@
       .two-col-layout { flex-direction: column; }
       .col-main { flex: none; width: 100%; }
       .col-side { width: 100%; }
-      #appMain { padding: 16px; }
+      .below-hero-section { padding: 16px; }
       .profile-header-shell { flex-wrap: wrap; }
       .overview-grid { grid-template-columns: 1fr; }
       .overview-field { border-right: none; }
@@ -1207,6 +1212,8 @@
         </div>
       </div>
     </div>
+
+    <div class="below-hero-section">
 
     <!-- Edit Sections bar -->
     <div class="edit-sections-bar">
@@ -1481,6 +1488,8 @@
       </div><!-- /col-side -->
 
     </div><!-- /two-col-layout -->
+
+    </div><!-- /below-hero-section -->
 
   </main><!-- /appMain -->
 

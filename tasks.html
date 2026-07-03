@@ -434,62 +434,36 @@
       padding: 8px 0 4px;
     }
 
-    /* ─── Overdue section ────────────────────────────────────────────────── */
-    #overdueSection {
-      background: #8B3A2A;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-      overflow: hidden;
-    }
-
-    .overdue-header {
-      padding: 12px 18px;
+    /* ─── Overdue section (in-tab) ──────────────────────────────────────── */
+    .overdue-section-header {
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
-      color: #ffffff;
+      color: #b44040;
+      padding: 14px 0 6px;
+      border-bottom: 1px solid rgba(180,64,64,0.25);
+      margin-bottom: 4px;
     }
 
-    .overdue-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 18px;
-      border-top: 1px solid rgba(255,255,255,0.12);
-      flex-wrap: wrap;
+    .overdue-section-header:first-child {
+      padding-top: 0;
     }
 
-    .overdue-client {
-      font-size: 13px;
-      font-weight: 600;
-      color: #ffffff;
-    }
-
-    .overdue-text {
-      font-size: 13px;
-      color: #ffffff;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .overdue-due {
-      font-size: 12px;
-      color: rgba(255,255,255,0.75);
-      white-space: nowrap;
-    }
-
-    .overdue-chip {
-      font-size: 10px;
+    /* ─── Done section headers (inside Done tab) ─────────────────────────── */
+    .done-section-header {
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       text-transform: uppercase;
-      background: rgba(0,0,0,0.2);
-      color: #ffffff;
-      border-radius: 6px;
-      padding: 2px 7px;
-      white-space: nowrap;
+      color: var(--muted);
+      padding: 14px 0 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    .done-section-header:first-child {
+      padding-top: 0;
     }
 
     /* ─── Client filter ──────────────────────────────────────────────────── */
@@ -572,9 +546,6 @@
       </h1>
     </div>
 
-    <!-- Overdue section (global, above tabs) -->
-    <div id="overdueSection" style="display:none;"></div>
-
     <!-- Role tabs -->
     <div class="role-tabs">
       <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
@@ -586,6 +557,11 @@
         <span class="show-pt">Cliente</span>
         <span class="show-en">Client</span>
         <span class="role-tab-count" id="tabCountClient">0</span>
+      </button>
+      <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
+        <span class="show-pt">Concluídas</span>
+        <span class="show-en">Done</span>
+        <span class="role-tab-count" id="tabCountDone">0</span>
       </button>
     </div>
 
@@ -653,7 +629,7 @@
     var auth         = null;
     var currentUser  = null;
     var taskView     = "date";         // "date" | "type"
-    var tabRole      = "consultant";   // "consultant" | "client"
+    var tabRole      = "consultant";   // "consultant" | "client" | "done"
     var clientFilter = "";             // "" = all clients, otherwise clientName string
     var allTasks     = [];             // all derived task rows (both tabs)
     var completedMap = {};             // taskKey → true/false; keyed per session
@@ -751,7 +727,6 @@
         .then(function(data) {
           allTasks = deriveTasks(data.sessions || []);
           updateTabCounts();
-          renderOverdueSection();
           populateClientFilter();
           renderTaskView();
         })
@@ -908,6 +883,15 @@
         "role-tab-btn" + (role === "consultant" ? " active" : "");
       document.getElementById("tabBtnClient").className =
         "role-tab-btn" + (role === "client" ? " active" : "");
+      document.getElementById("tabBtnDone").className =
+        "role-tab-btn" + (role === "done" ? " active" : "");
+
+      // Hide sort/filter controls on Done tab — not applicable
+      var controlsBar   = document.querySelector(".controls-bar");
+      var clientFilterRow = document.querySelector(".client-filter-row");
+      if (controlsBar)    { controlsBar.style.display   = role === "done" ? "none" : ""; }
+      if (clientFilterRow){ clientFilterRow.style.display = role === "done" ? "none" : ""; }
+
       renderTaskView();
     }
 
@@ -950,14 +934,18 @@
         return t.type === "client" && !completedMap[t.key];
       }).length;
 
+      var doneCount = allTasks.filter(function(t) { return !!completedMap[t.key]; }).length;
+
       document.getElementById("tabCountConsultant").textContent = consultantPending + "/" + consultantTotal;
       document.getElementById("tabCountClient").textContent     = clientPending + "/" + clientTotal;
+      document.getElementById("tabCountDone").textContent       = doneCount;
     }
 
     function updateDoneChip(tabTasks) {
+      var chip = document.getElementById("doneChip");
+      if (tabRole === "done") { chip.textContent = ""; return; }
       var done  = tabTasks.filter(function(t) { return completedMap[t.key]; }).length;
       var total = tabTasks.length;
-      var chip  = document.getElementById("doneChip");
       if (done === 0) {
         chip.textContent = "";
       } else {
@@ -967,51 +955,24 @@
       }
     }
 
-    // ── Overdue section (global — both tabs) ──────────────────────────────
+    // ── Overdue header (prepended inside tabs) ────────────────────────────
 
-    function renderOverdueSection() {
-      var sec = document.getElementById("overdueSection");
-      if (!sec) { return; }
+    function makeOverdueSectionHeader(count) {
+      var el = document.createElement("div");
+      el.className = "overdue-section-header";
+      el.innerHTML =
+        '<span class="show-pt">ATRASADO (' + count + ')</span>' +
+        '<span class="show-en">OVERDUE (' + count + ')</span>';
+      return el;
+    }
 
-      var today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      var overdue = allTasks.filter(function(t) {
-        return t.dueDate && t.dueDate < today && !completedMap[t.key];
-      });
-
-      if (overdue.length === 0) {
-        sec.style.display = "none";
-        sec.innerHTML = "";
-        return;
-      }
-
-      overdue.sort(function(a, b) { return a.dueDate - b.dueDate; });
-
-      var html = '<div class="overdue-header">' +
-        '<span class="show-pt">ATRASADO</span>' +
-        '<span class="show-en">OVERDUE</span>' +
-        ' (' + overdue.length + ')' +
-        '</div>';
-
-      for (var i = 0; i < overdue.length; i++) {
-        var t = overdue[i];
-        var tabLabel = (t.type === "client")
-          ? '<span class="overdue-chip"><span class="show-pt">Cliente</span><span class="show-en">Client</span></span>'
-          : '<span class="overdue-chip"><span class="show-pt">Consultor</span><span class="show-en">Consultant</span></span>';
-        var dueHtml = t.due
-          ? '<span class="overdue-due"><span class="show-pt">Prazo: ' + escHtml(t.due) + '</span><span class="show-en">Due: ' + escHtml(t.due) + '</span></span>'
-          : '';
-        html += '<div class="overdue-row">' +
-          '<span class="overdue-client">' + escHtml(t.clientName) + '</span>' +
-          '<span class="overdue-text">' + escHtml(t.text) + '</span>' +
-          dueHtml +
-          tabLabel +
-          '</div>';
-      }
-
-      sec.innerHTML = html;
-      sec.style.display = "block";
+    function makeUpcomingSectionHeader() {
+      var el = document.createElement("div");
+      el.className = "group-heading";
+      el.innerHTML =
+        '<span class="show-pt">Próximas</span>' +
+        '<span class="show-en">Upcoming</span>';
+      return el;
     }
 
     // ── Client filter ──────────────────────────────────────────────────────
@@ -1044,7 +1005,9 @@
     }
 
     function renderTaskView() {
-      if (taskView === "date") {
+      if (tabRole === "done") {
+        renderDoneTab();
+      } else if (taskView === "date") {
         renderByDate();
       } else {
         renderByType();
@@ -1059,25 +1022,45 @@
       container.innerHTML = "";
 
       var tabTasks = getTabTasks();
+      var showTypeTag = tabRole === "consultant";
 
       if (tabTasks.length === 0) {
         container.appendChild(makeEmpty());
         return;
       }
 
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var overdueTasks  = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var remainingTasks = tabTasks.filter(function(t) { return !(t.dueDate && t.dueDate < today && !completedMap[t.key]); });
+
+      overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
+
+      if (overdueTasks.length > 0) {
+        container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
+        for (var oi = 0; oi < overdueTasks.length; oi++) {
+          container.appendChild(makeTaskRow(overdueTasks[oi], showTypeTag));
+        }
+      }
+
       var dated   = [];
       var undated = [];
-      for (var i = 0; i < tabTasks.length; i++) {
-        if (tabTasks[i].dueDate) { dated.push(tabTasks[i]); }
-        else                      { undated.push(tabTasks[i]); }
+      for (var i = 0; i < remainingTasks.length; i++) {
+        if (remainingTasks[i].dueDate) { dated.push(remainingTasks[i]); }
+        else                            { undated.push(remainingTasks[i]); }
       }
       dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
       undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
 
       var sorted = dated.concat(undated);
 
+      if (overdueTasks.length > 0 && sorted.length > 0) {
+        container.appendChild(makeUpcomingSectionHeader());
+      }
+
       for (var j = 0; j < sorted.length; j++) {
-        container.appendChild(makeTaskRow(sorted[j], tabRole === "consultant"));
+        container.appendChild(makeTaskRow(sorted[j], showTypeTag));
       }
 
       container.appendChild(makeFooterNote());
@@ -1094,6 +1077,20 @@
       if (tabTasks.length === 0) {
         container.appendChild(makeEmpty());
         return;
+      }
+
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var overdueTasks   = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var nonOverdueTasks = tabTasks.filter(function(t) { return !(t.dueDate && t.dueDate < today && !completedMap[t.key]); });
+
+      if (overdueTasks.length > 0) {
+        overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
+        container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
+        for (var oi = 0; oi < overdueTasks.length; oi++) {
+          container.appendChild(makeTaskRow(overdueTasks[oi], false));
+        }
       }
 
       function sortGroup(arr) {
@@ -1119,13 +1116,59 @@
       }
 
       if (tabRole === "consultant") {
-        var rafaTasks = tabTasks.filter(function(t) { return t.type === "rafa"; });
-        var textTasks = tabTasks.filter(function(t) { return t.type === "text"; });
+        var rafaTasks = nonOverdueTasks.filter(function(t) { return t.type === "rafa"; });
+        var textTasks = nonOverdueTasks.filter(function(t) { return t.type === "text"; });
         appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks);
         appendGroup("Resumo de Follow-ups",     "Follow-up Summary",    textTasks);
       } else {
-        appendGroup("Ações do Cliente", "Client Action Items", tabTasks);
+        appendGroup("Ações do Cliente", "Client Action Items", nonOverdueTasks);
       }
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── Render: Done tab ──────────────────────────────────────────────────
+
+    function renderDoneTab() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      var doneTasks = allTasks.filter(function(t) { return !!completedMap[t.key]; });
+
+      if (doneTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      var consultantDone = doneTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
+      var clientDone     = doneTasks.filter(function(t) { return t.type === "client"; });
+
+      function sortDoneGroup(arr) {
+        arr.sort(function(a, b) {
+          if (a.dueDate && b.dueDate) { return a.dueDate - b.dueDate; }
+          if (a.dueDate) { return -1; }
+          if (b.dueDate) { return 1; }
+          return a.clientName.localeCompare(b.clientName);
+        });
+        return arr;
+      }
+
+      function appendDoneGroup(labelPt, labelEn, tasks) {
+        if (tasks.length === 0) { return; }
+        var heading = document.createElement("div");
+        heading.className = "done-section-header";
+        heading.innerHTML =
+          '<span class="show-pt">' + escHtml(labelPt) + ' (' + tasks.length + ')</span>' +
+          '<span class="show-en">' + escHtml(labelEn) + ' (' + tasks.length + ')</span>';
+        container.appendChild(heading);
+        var sorted = sortDoneGroup(tasks);
+        for (var i = 0; i < sorted.length; i++) {
+          container.appendChild(makeTaskRow(sorted[i], false));
+        }
+      }
+
+      appendDoneGroup("Consultor", "Consultant", consultantDone);
+      appendDoneGroup("Cliente",   "Client",     clientDone);
 
       container.appendChild(makeFooterNote());
     }
@@ -1151,7 +1194,9 @@
 
       updateTabCounts();
       updateDoneChip(getTabTasks());
-      renderOverdueSection();
+
+      // Re-render the current tab so overdue/upcoming sections stay accurate
+      renderTaskView();
 
       // Persist to backend (fire-and-forget, no spinner)
       var patch = {};

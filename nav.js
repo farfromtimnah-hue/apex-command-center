@@ -65,6 +65,8 @@
       body = '<polyline points="15 18 9 12 15 6"/>';
     } else if (type === "chevron-right") {
       body = '<polyline points="9 18 15 12 9 6"/>';
+    } else if (type === "user-plus") {
+      body = '<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/>';
     }
     return open + body + '</svg>';
   }
@@ -269,6 +271,14 @@
 
     var role = sessionStorage.getItem("apex_role") || "alice";
     var items = (role === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;
+    if (role === "developer") {
+      items = items.slice();
+      items.push({
+        key: "adduser", href: "add-user.html", icon: "user-plus",
+        labelPt: "Adicionar Usu&aacute;rio", labelEn: "Add User",
+        tipPt: "Adicionar Usuario",           tipEn: "Add User"
+      });
+    }
     var devView = (role === "developer") ? (sessionStorage.getItem("apex_dev_view") || "alice") : "";
 
     sidebar.innerHTML = buildNavHTML(role, items, devView);

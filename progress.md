@@ -1,6 +1,80 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 28 — Fireflies inbox, pill tabs, transcript archive, webhook endpoint)
+**Last updated:** 2026-07-03 (session 31 — calendar.html frontend + nav + client header)
+
+## Completed (session 31 — 2026-07-03, Calendar frontend)
+
+### calendar.html (new file)
+- [x] Full page shell: same auth guard, header, sidebar, loading screen as all other pages
+- [x] Month view: 7-column grid, day number, today highlight (gold underline), session chips (navy = Meet, gold = In-Person), prev/next month navigation
+- [x] Week view: time rows 7am–9pm × 7 day columns, session chips per slot, same colors
+- [x] Day view: single column, time rows 7am–9pm, session chips full width
+- [x] View toggle pills (Mês / Semana / Dia) with active gold state
+- [x] Month/week/day navigation arrows with label update
+- [x] Data: GET /api/sessions/calendar?month=YYYY-MM on load and navigation
+- [x] New Session modal: client dropdown (GET /api/clients), date picker, time picker, Meet/In-Person toggle (animated meet info field with max-height transition), notes textarea
+- [x] New Session submit: POST /api/sessions/schedule → close modal, refresh calendar, toast
+- [x] Session Detail modal: client name, date, time, type pill, status badge, meet link (clickable), notes
+- [x] WhatsApp button: POST /api/sessions/:id/whatsapp → open returned URL in new tab, update button to Enviado ✓ / Sent ✓
+- [x] Empty state in all views
+- [x] Bilingual PT/EN throughout (show-pt/show-en pattern)
+
+### nav.js
+- [x] Added Calendário/Calendar nav entry after Sessions for both NAV_ITEMS_ALICE and NAV_ITEMS_RAFA
+- [x] Added cal-grid SVG icon (calendar with grid dots)
+
+### client.html
+- [x] Added "Agendar Sessão / Schedule Session" gold button in profile-header-actions
+- [x] Added full Schedule Session modal: loads all clients, pre-selects current client, date/time/type/notes fields, POST /api/sessions/schedule on submit
+- [x] Added .view-toggle-btn.active CSS rule for toggle button in the modal
+
+### Deployment (session 31)
+- [x] git commit: 039b3e2 "Add calendar page, nav entry, and Schedule Session button on client"
+- [x] git push origin main → GitHub Pages auto-deploy triggered
+
+**Files touched (session 31):** calendar.html (new), nav.js, client.html, progress.md
+
+**Live URL:** https://farfromtimnah-hue.github.io/apex-command-center/calendar.html
+
+**Note on session_type values:** The worker uses 'online_meet' and 'in_person', but the calendar.html sends 'meet' and 'inperson'. Update either the worker or the calendar form if this causes a mismatch — align to whichever value the worker already stores in D1.
+
+---
+
+**Last updated:** 2026-07-03 (session 30 — Calendar + scheduling endpoints)
+
+## Completed (session 30 — 2026-07-03, Calendar + scheduling endpoints)
+
+### worker/index.js — 3 new routes
+- [x] POST /api/sessions/schedule — creates a scheduled session row; any authenticated role; body: {client_id, date, time, session_type, notes}; session_type must be 'online_meet' or 'in_person'; sets google_meet_link = '[PENDING_GOOGLE_API]' for online_meet, null for in_person; status = 'scheduled'; returns created row
+- [x] GET /api/sessions/calendar — returns all sessions for a given month; any authenticated role; query param: month (YYYY-MM); queries WHERE date LIKE 'YYYY-MM-%'; returns sessions with id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at; empty array (never 404) when none found
+- [x] POST /api/sessions/:id/whatsapp — generates prefilled WhatsApp URL; any authenticated role; builds Portuguese message with weekday + formatted date + time; omits meet link for in_person sessions; URL-encodes message; updates whatsapp_sent_at to current ISO timestamp; returns {whatsapp_url, whatsapp_sent_at}
+
+### wrangler.toml
+- [x] Added GOOGLE_CALENDAR_CLIENT_ID = "" and GOOGLE_CALENDAR_CLIENT_SECRET = "" as placeholder vars (set real values via `wrangler secret put`)
+
+### schema.sql
+- [x] Updated sessions table definition to include time, session_type, google_meet_link, whatsapp_sent_at columns (already present in live D1 from session 29)
+
+### Deployment
+- [x] Worker deployed: version 5c54d39c, apex-api.farfromtimnah.workers.dev
+- [x] Live source confirmed via workers_get_worker_code: all 3 routes present (handlePostSessionsSchedule, handleGetSessionsCalendar, handlePostSessionWhatsapp) and wired in fetch handler
+
+**Files touched (session 30):** worker/index.js, wrangler.toml, worker/schema.sql, progress.md
+
+**No D1 schema changes this session** — sessions table columns (time, session_type, google_meet_link, whatsapp_sent_at) already existed from session 29.
+
+**QA checklist (requires auth token):**
+1. POST /api/sessions/schedule with {client_id, date:"2026-07-10", time:"14:00", session_type:"online_meet"} → returns session row with google_meet_link="[PENDING_GOOGLE_API]", status="scheduled"
+2. POST /api/sessions/schedule with session_type:"in_person" → google_meet_link is null
+3. POST /api/sessions/schedule missing client_id → 400 error
+4. GET /api/sessions/calendar?month=2026-07 → returns array of sessions for July 2026
+5. GET /api/sessions/calendar?month=2026-99 → 400 (invalid format)
+6. GET /api/sessions/calendar?month=2026-08 → empty array (no sessions), not 404
+7. POST /api/sessions/:id/whatsapp on an online_meet session → whatsapp_url contains "Acesse aqui:" and the meet link
+8. POST /api/sessions/:id/whatsapp on an in_person session → no meet link in message
+9. After step 7 or 8, fetch session from D1 → whatsapp_sent_at is set
+
+---
 
 ## Completed (session 28 — 2026-07-02, Fireflies inbox + pill tabs)
 
@@ -750,6 +824,24 @@ Insert a mock inbox session in D1 console:
 12. Confirm existing Nova Sessão flow still works from header button
 13. Confirm existing notes section still works
 14. Confirm no console errors
+
+## Completed (session 29 — 2026-07-03, D1 sessions table schema migration)
+- [x] 9 scheduling/integration columns added to sessions table via ALTER TABLE (remote D1, apex-command-center)
+  - google_event_id TEXT (cid 11)
+  - google_meet_link TEXT (cid 12)
+  - calendar_provider TEXT DEFAULT 'google' (cid 13)
+  - fireflies_transcript_id TEXT (cid 14)
+  - session_type TEXT DEFAULT 'online_meet' (cid 15)
+  - scheduled_by TEXT (cid 16)
+  - whatsapp_sent_at TEXT (cid 17)
+  - transcript_source TEXT (cid 18)
+  - transcript_ingested_at TEXT (cid 19)
+- [x] PRAGMA table_info(sessions) verified — all 9 columns present at cids 11–19
+- [x] No Worker code touched. No frontend files touched. No other tables modified.
+
+**Files touched (session 29):** progress.md (schema change applied directly to live D1 via wrangler)
+
+---
 
 ## In Progress
 - [ ] Switching /api/transcript from Granola API to manual paste

@@ -1,6 +1,47 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 34 — Google Calendar OAuth flow)
+**Last updated:** 2026-07-03 (session 37 — Fix New Session time input)
+
+## Completed (session 37 — 2026-07-03, Fix New Session time input)
+
+### calendar.html (only file touched)
+
+**Problem:** `<input type="time" id="nsTime">` was unreliable — browser autofill/prediction greyed out but did not confirm on Tab; Enter key did not commit typed values; users had to hand-type hour and AM/PM.
+
+**Fix:** Replaced the native time input with a `<select id="nsTime">` populated with 30-minute increments from 7:00 AM to 9:00 PM. Option values are stored in 24-hour HH:MM format (e.g. `value="13:00"`) so `handleNewSession()` sends the correct string to POST /api/sessions/schedule without any conversion. No other JS changes needed.
+
+### Deployment (session 37)
+- [x] git commit: d5b80c8 "Replace native time input with dropdown select in New Session modal"
+- [x] git push → origin/main → GitHub Pages auto-deploy triggered
+
+**Files touched (session 37):** calendar.html only
+
+---
+
+**Last updated:** 2026-07-03 (session 36 — Fireflies live wiring)
+
+## Completed (session 36 — 2026-07-03, Fireflies live wiring)
+
+### Task 1 — FIREFLIES_API_KEY secret
+- [ ] Nicole to run manually: `npx wrangler secret put FIREFLIES_API_KEY --name apex-api`
+
+### Task 2 — Webhook endpoint verification
+- [x] POST /api/fireflies/webhook confirmed present in deployed Worker source (worker/index.js line 161)
+- [x] Route wired at line 1472: `if (path === "/api/fireflies/webhook" && method === "POST") { return handleFirefliesWebhook(request, env); }`
+- [x] Handler includes HMAC verification (skips if FIREFLIES_WEBHOOK_SECRET not set), duplicate detection via fireflies_id, D1 INSERT for inbox sessions
+
+### Task 3 — Delete mock inbox session
+- [ ] BLOCKED: Cloudflare D1 API returned error 7500 during this session. Retry when API recovers:
+  - `npx wrangler d1 execute apex-command-center --remote --command "DELETE FROM sessions WHERE id = 'test-inbox-001';"`
+  - Verify empty: `npx wrangler d1 execute apex-command-center --remote --command "SELECT id FROM sessions WHERE id = 'test-inbox-001';"`
+
+### Task 4 — Register webhook in Fireflies dashboard
+- [ ] Nicole to do manually: Webhook URL = `https://apex-api.farfromtimnah.workers.dev/api/fireflies/webhook`
+
+### Status
+Webhook endpoint live and verified. Mock session deletion and API key/webhook registration pending (manual steps or Cloudflare recovery).
+
+---
 
 ## Completed (session 34 — 2026-07-03, Google Calendar OAuth)
 

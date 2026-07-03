@@ -281,6 +281,8 @@
       display: flex;
       flex-direction: column;
       gap: 3px;
+      overflow: hidden;
+      min-width: 0;
     }
     .cal-cell:nth-child(7n) { border-right: none; }
     .cal-cell.other-month { background: #fafaf9; }
@@ -310,6 +312,9 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      max-width: 100%;
+      box-sizing: border-box;
+      min-width: 0;
     }
     .cal-chip.online    { background: var(--cal-online);   color: var(--cal-online-text); }
     .cal-chip.inperson  { background: var(--cal-inperson); color: var(--cal-inperson-text); }
@@ -1177,28 +1182,30 @@
     }
 
     function navPrev() {
+      var prevMonth = curDate.getMonth();
       if (calView === "month") {
         curDate = new Date(curDate.getFullYear(), curDate.getMonth() - 1, 1);
         loadCalendar();
       } else if (calView === "week") {
-        curDate = new Date(curDate.getTime() - 7 * 86400000);
-        renderCalendar();
+        curDate = new Date(curDate.getFullYear(), curDate.getMonth(), curDate.getDate() - 7);
+        if (curDate.getMonth() !== prevMonth) { loadCalendar(); } else { renderCalendar(); }
       } else {
-        curDate = new Date(curDate.getTime() - 86400000);
-        renderCalendar();
+        curDate = new Date(curDate.getFullYear(), curDate.getMonth(), curDate.getDate() - 1);
+        if (curDate.getMonth() !== prevMonth) { loadCalendar(); } else { renderCalendar(); }
       }
     }
 
     function navNext() {
+      var prevMonth = curDate.getMonth();
       if (calView === "month") {
         curDate = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 1);
         loadCalendar();
       } else if (calView === "week") {
-        curDate = new Date(curDate.getTime() + 7 * 86400000);
-        renderCalendar();
+        curDate = new Date(curDate.getFullYear(), curDate.getMonth(), curDate.getDate() + 7);
+        if (curDate.getMonth() !== prevMonth) { loadCalendar(); } else { renderCalendar(); }
       } else {
-        curDate = new Date(curDate.getTime() + 86400000);
-        renderCalendar();
+        curDate = new Date(curDate.getFullYear(), curDate.getMonth(), curDate.getDate() + 1);
+        if (curDate.getMonth() !== prevMonth) { loadCalendar(); } else { renderCalendar(); }
       }
     }
 
@@ -1232,6 +1239,19 @@
     function getWeekStart(d) {
       var day = d.getDay();
       return new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+    }
+
+    // Return an array of 7 YYYY-MM-DD strings for the week containing d
+    function getWeekDateStrings(d) {
+      var ws = getWeekStart(d);
+      var y = ws.getFullYear(), m = ws.getMonth(), day = ws.getDate();
+      var result = [];
+      for (var i = 0; i < 7; i++) {
+        // Compute calendar date by incrementing day number; let Date handle month rollover
+        var dt = new Date(y, m, day + i);
+        result.push(dt.getFullYear() + "-" + padZ(dt.getMonth() + 1) + "-" + padZ(dt.getDate()));
+      }
+      return result;
     }
 
     // ── Build session lookup by date ───────────────────────────────────────
@@ -1335,14 +1355,12 @@
     (function() { for (var h = 7; h <= 21; h++) { HOURS.push(h); } })();
 
     function renderWeek() {
-      var content   = document.getElementById("calendarContent");
-      var today     = new Date();
-      today.setHours(0,0,0,0);
-      var weekStart = getWeekStart(curDate);
-      var en        = isEn();
-      var days      = en ? DAYS_EN : DAYS_PT;
-      var months    = en ? MONTHS_EN : MONTHS_PT;
-      var map       = buildSessionMap();
+      var content    = document.getElementById("calendarContent");
+      var todayStr   = (function() { var t = new Date(); return t.getFullYear() + "-" + padZ(t.getMonth()+1) + "-" + padZ(t.getDate()); })();
+      var weekDates  = getWeekDateStrings(curDate); // 7 YYYY-MM-DD strings, Sun→Sat
+      var en         = isEn();
+      var days       = en ? DAYS_EN : DAYS_PT;
+      var map        = buildSessionMap();
 
       var wrap = document.createElement("div");
       wrap.className = "cal-week-wrap";
@@ -1357,11 +1375,12 @@
       grid.appendChild(gutterHead);
 
       for (var d = 0; d < 7; d++) {
-        var dayD = new Date(weekStart.getTime() + d * 86400000);
-        var isTodayD = dayD.getTime() === today.getTime();
-        var headEl = document.createElement("div");
+        var dateStr  = weekDates[d];
+        var dayNum   = parseInt(dateStr.slice(8), 10);
+        var isTodayD = dateStr === todayStr;
+        var headEl   = document.createElement("div");
         headEl.className = "cal-week-day-head" + (isTodayD ? " today" : "");
-        headEl.textContent = days[d] + " " + padZ(dayD.getDate());
+        headEl.textContent = days[d] + " " + padZ(dayNum);
         grid.appendChild(headEl);
       }
 
@@ -1374,12 +1393,11 @@
         grid.appendChild(timeLabel);
 
         for (var dw = 0; dw < 7; dw++) {
-          var slotDay  = new Date(weekStart.getTime() + dw * 86400000);
-          var slotKey  = dateKey(slotDay);
+          var slotKey  = weekDates[dw];
+          var hourVal  = h;
           var slotSess = (map[slotKey] || []).filter(function(s) {
             if (!s.time) { return false; }
-            var sh = parseInt(s.time.split(":")[0], 10);
-            return sh === h;
+            return parseInt(s.time.split(":")[0], 10) === hourVal;
           });
 
           var slot = document.createElement("div");
@@ -1399,8 +1417,7 @@
       // Check if no sessions exist this week
       var weekSessions = 0;
       for (var dd = 0; dd < 7; dd++) {
-        var dk = dateKey(new Date(weekStart.getTime() + dd * 86400000));
-        weekSessions += (map[dk] || []).length;
+        weekSessions += (map[weekDates[dd]] || []).length;
       }
       if (weekSessions === 0) {
         var emptyRow = document.createElement("div");
@@ -1425,17 +1442,14 @@
     // ── Day view ───────────────────────────────────────────────────────────
 
     function renderDay() {
-      var content = document.getElementById("calendarContent");
-      var today   = new Date();
-      today.setHours(0,0,0,0);
-      var isToday = curDate.getFullYear() === today.getFullYear() &&
-                    curDate.getMonth()    === today.getMonth()    &&
-                    curDate.getDate()     === today.getDate();
+      var content    = document.getElementById("calendarContent");
+      var todayStr   = (function() { var t = new Date(); return t.getFullYear() + "-" + padZ(t.getMonth()+1) + "-" + padZ(t.getDate()); })();
+      var key        = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1) + "-" + padZ(curDate.getDate());
+      var isToday    = key === todayStr;
       var en     = isEn();
       var months = en ? MONTHS_EN : MONTHS_PT;
       var days   = en ? DAYS_EN : DAYS_PT;
       var map    = buildSessionMap();
-      var key    = dateKey(curDate);
       var daySessions = map[key] || [];
 
       var wrap = document.createElement("div");

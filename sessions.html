@@ -514,6 +514,13 @@
     #tabInbox {
       padding: 24px;
       gap: 16px;
+      overflow-y: auto;
+    }
+
+    #inboxList {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
 
     .inbox-empty {
@@ -1484,23 +1491,19 @@
 
       var count = inboxSessions.length;
 
+      // Always hide empty state before deciding whether to show it
+      emptyEl.hidden = true;
+      listEl.innerHTML = "";
+
       if (count > 0) {
         badge.textContent = count;
         badge.hidden = false;
+        for (var i = 0; i < inboxSessions.length; i++) {
+          listEl.appendChild(makeInboxCard(inboxSessions[i]));
+        }
       } else {
         badge.hidden = true;
-      }
-
-      listEl.innerHTML = "";
-
-      if (count === 0) {
         emptyEl.hidden = false;
-        return;
-      }
-      emptyEl.hidden = true;
-
-      for (var i = 0; i < inboxSessions.length; i++) {
-        listEl.appendChild(makeInboxCard(inboxSessions[i]));
       }
     }
 

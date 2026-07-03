@@ -1,5 +1,31 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-03 (session 47 — sessions.html photo hero section with stat tiles and relocated tab-bar)
+
+## Completed (session 47 — 2026-07-03, sessions.html hero section)
+
+- [x] Added `#sessionsHeroSection` div as first child of `#contentArea`, sibling above `#appMain` (does not disturb #appMain's existing flex/scroll layout)
+- [x] Hero elements: `#sessionsHeroBg` (kenburns background), `#sessionsHeroScrim` (dark overlay), `.sessions-hero-content` wrapper
+- [x] Added `initHeroBg('sessionsHeroBg', 'sessionsHeroScrim')` function (exact same random-pick + onerror fallback pattern as dashboard.html/clients.html)
+- [x] `initHeroBg` called from `setupPage()` alongside existing init logic
+- [x] 5 glass stat tiles: INBOX (status=inbox), AWAITING SUMMARY (status=pending), WHATSAPP SENT (whatsapp_sent_at not null), TOTAL SESSIONS (status != discarded), TRANSCRIPTS (raw_transcript not null — matches renderTranscriptList filter exactly)
+- [x] `updateSessionStats()` called from `loadSessions()` after sessions array is populated — no new API calls
+- [x] All tile labels bilingual with show-pt/show-en spans
+- [x] Relocated `.tab-bar#aliceTabBar` from inside `#aliceView` into `.sessions-hero-content` (below tile row); all IDs, onclick handlers, badge behavior unchanged
+- [x] Tab pills restyled for dark photo background: rgba(255,255,255,0.18) border, white/light text, active state retains var(--gold) background with dark text
+- [x] Removed `.tab-bar` white background and light-surface border treatment (no longer on white surface)
+- [x] `#aliceView` content now starts directly with `#tabInbox` panel — tab-switching logic and scroll behavior untouched
+- [x] kenburns CSS animation + prefers-reduced-motion disable added
+- [x] `#sessionsHeroSection` hidden in print styles
+- [x] All JS uses var, function() declarations, null checks, plain ASCII strings
+
+### Deployment (session 47)
+- [x] git commit + push → GitHub Pages auto-deploy triggered
+
+**Files touched (session 47):** sessions.html, progress.md
+
+---
+
 **Last updated:** 2026-07-03 (session 46 — client.html Edit Sections bar moved into hero)
 
 ## Completed (session 46 — 2026-07-03, client.html Edit Sections bar moved into hero)

@@ -179,61 +179,6 @@
       overflow: hidden;
     }
 
-    /* ─── Tab pill bar ───────────────────────────────────────────────────── */
-    .tab-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 16px 24px 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--card);
-      flex-shrink: 0;
-    }
-
-    .tab-pill {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      border: 1.5px solid var(--border);
-      background: transparent;
-      color: var(--muted);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-      position: relative;
-      top: 1px;
-    }
-    .tab-pill:hover { border-color: var(--gold); color: var(--text); }
-    .tab-pill.active {
-      background: var(--gold);
-      border-color: var(--gold);
-      color: #fff;
-      font-weight: 600;
-    }
-
-    .tab-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
-      border-radius: 9px;
-      font-size: 11px;
-      font-weight: 700;
-      background: rgba(255,255,255,0.28);
-      color: inherit;
-    }
-    .tab-pill:not(.active) .tab-badge {
-      background: rgba(201,164,58,0.18);
-      color: var(--brown);
-    }
-    .tab-badge[hidden] { display: none !important; }
-
     /* ─── Tab panels ─────────────────────────────────────────────────────── */
     .tab-panel {
       flex: 1;
@@ -683,6 +628,22 @@
     .btn-summarize:hover    { opacity: 0.88; }
     .btn-summarize:disabled { opacity: 0.42; cursor: not-allowed; }
 
+    .btn-discard {
+      background: none;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 13px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-discard:hover    { color: #b44040; border-color: #b44040; }
+    .btn-discard:disabled { opacity: 0.42; cursor: not-allowed; }
+
     .inbox-card-status {
       font-size: 12px;
       color: var(--muted);
@@ -813,6 +774,139 @@
     .ns-field-group textarea { resize: vertical; min-height: 200px; line-height: 1.5; font-size: 13px; }
     .ns-field-group select { appearance: none; -webkit-appearance: none; cursor: pointer; }
 
+    /* ─── Sessions hero section ─────────────────────────────────────────── */
+    .sessions-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #sessionsHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #sessionsHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #sessionsHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .sessions-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Glass tiles (shared pattern) ──────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Tab bar on hero ────────────────────────────────────────────────── */
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0;
+      border-bottom: none;
+      background: transparent;
+      flex-shrink: 0;
+    }
+
+    .tab-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 15px;
+      border-radius: 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      background: transparent;
+      color: rgba(255,255,255,0.75);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .tab-pill:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+    .tab-pill.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #1a1a1d;
+      font-weight: 600;
+    }
+
+    .tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.28);
+      color: inherit;
+    }
+    .tab-pill:not(.active) .tab-badge {
+      background: rgba(255,255,255,0.22);
+      color: rgba(255,255,255,0.85);
+    }
+    .tab-badge[hidden] { display: none !important; }
+
     /* ─── Print styles ───────────────────────────────────────────────────── */
     @media print {
       @page { margin: 0; }
@@ -822,7 +916,7 @@
       .sidebar,
       .detail-actions,
       .detail-empty,
-      .tab-bar,
+      .sessions-hero-section,
       #loadingScreen { display: none !important; }
 
       #appMain     { display: block; overflow: visible; }
@@ -862,6 +956,13 @@
       .sessions-layout { flex-direction: column; overflow: auto; }
       .sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); max-height: 340px; }
       #detailPanel { overflow: visible; }
+      .sessions-hero-section { padding: 16px; }
+      .glass-tile { min-width: 100px; padding: 12px 14px; }
+      .glass-tile-value { font-size: 22px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #sessionsHeroBg.is-loaded { animation: none; }
     }
   </style>
 </head>
@@ -896,13 +997,50 @@
     <span class="show-en">Loading...</span>
   </div>
 
-  <!-- ═══════════════ MAIN APP ══════════════════════════════════════════════ -->
-  <main id="appMain" hidden>
-
-    <!-- ── ALICE / DEVELOPER VIEW ─────────────────────────────────────── -->
-    <div id="aliceView">
-
-      <!-- Tab pill bar -->
+  <!-- ═══════════════ SESSIONS HERO ══════════════════════════════════════════ -->
+  <div class="sessions-hero-section" id="sessionsHeroSection" hidden>
+    <div id="sessionsHeroBg" aria-hidden="true"></div>
+    <div id="sessionsHeroScrim" aria-hidden="true"></div>
+    <div class="sessions-hero-content">
+      <!-- Stat tiles -->
+      <div class="glass-tile-row" id="sessionsStatTiles">
+        <div class="glass-tile">
+          <div class="glass-tile-label">
+            <span class="show-pt">CAIXA DE ENTRADA</span>
+            <span class="show-en">INBOX</span>
+          </div>
+          <div class="glass-tile-value" id="statInbox">--</div>
+        </div>
+        <div class="glass-tile">
+          <div class="glass-tile-label">
+            <span class="show-pt">AGUARDANDO RESUMO</span>
+            <span class="show-en">AWAITING SUMMARY</span>
+          </div>
+          <div class="glass-tile-value" id="statPending">--</div>
+        </div>
+        <div class="glass-tile">
+          <div class="glass-tile-label">
+            <span class="show-pt">WHATSAPP ENVIADO</span>
+            <span class="show-en">WHATSAPP SENT</span>
+          </div>
+          <div class="glass-tile-value" id="statWhatsapp">--</div>
+        </div>
+        <div class="glass-tile">
+          <div class="glass-tile-label">
+            <span class="show-pt">TOTAL DE SESSOES</span>
+            <span class="show-en">TOTAL SESSIONS</span>
+          </div>
+          <div class="glass-tile-value" id="statTotal">--</div>
+        </div>
+        <div class="glass-tile">
+          <div class="glass-tile-label">
+            <span class="show-pt">TRANSCRICOES</span>
+            <span class="show-en">TRANSCRIPTS</span>
+          </div>
+          <div class="glass-tile-value" id="statTranscripts">--</div>
+        </div>
+      </div>
+      <!-- Tab bar (relocated here from inside #aliceView) -->
       <div class="tab-bar" id="aliceTabBar">
         <button class="tab-pill active" id="tabBtnInbox" onclick="switchTab('inbox')">
           <span class="show-pt">Caixa de Entrada</span>
@@ -910,18 +1048,26 @@
           <span class="tab-badge" id="inboxBadge" hidden>0</span>
         </button>
         <button class="tab-pill" id="tabBtnSessions" onclick="switchTab('sessions')">
-          <span class="show-pt">Sessões</span>
+          <span class="show-pt">Sessoes</span>
           <span class="show-en">Sessions</span>
         </button>
         <button class="tab-pill" id="tabBtnNewSession" onclick="switchTab('newSession')">
-          <span class="show-pt">Nova Sessão</span>
+          <span class="show-pt">Nova Sessao</span>
           <span class="show-en">New Session</span>
         </button>
         <button class="tab-pill" id="tabBtnTranscripts" onclick="switchTab('transcripts')">
-          <span class="show-pt">Transcrições</span>
+          <span class="show-pt">Transcricoes</span>
           <span class="show-en">Transcripts</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MAIN APP ══════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- ── ALICE / DEVELOPER VIEW ─────────────────────────────────────── -->
+    <div id="aliceView">
 
       <!-- ── TAB 1: INBOX ──────────────────────────────────────────── -->
       <div class="tab-panel active" id="tabInbox">
@@ -1219,6 +1365,65 @@
       return null;
     }
 
+    // ── Hero background ────────────────────────────────────────────────────
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl    = document.getElementById(imgElId);
+      var scrimEl = document.getElementById(scrimElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
+    // ── Session stat tiles ─────────────────────────────────────────────────
+
+    function updateSessionStats() {
+      var countInbox       = 0;
+      var countPending     = 0;
+      var countWhatsapp    = 0;
+      var countTotal       = 0;
+      var countTranscripts = 0;
+
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        if (s.status === 'inbox')    { countInbox++; }
+        if (s.status === 'pending')  { countPending++; }
+        if (s.whatsapp_sent_at)      { countWhatsapp++; }
+        if (s.status !== 'discarded') { countTotal++; }
+        if (s.raw_transcript)        { countTranscripts++; }
+      }
+
+      var elInbox       = document.getElementById('statInbox');
+      var elPending     = document.getElementById('statPending');
+      var elWhatsapp    = document.getElementById('statWhatsapp');
+      var elTotal       = document.getElementById('statTotal');
+      var elTranscripts = document.getElementById('statTranscripts');
+
+      if (elInbox)       { elInbox.textContent       = countInbox; }
+      if (elPending)     { elPending.textContent     = countPending; }
+      if (elWhatsapp)    { elWhatsapp.textContent    = countWhatsapp; }
+      if (elTotal)       { elTotal.textContent       = countTotal; }
+      if (elTranscripts) { elTranscripts.textContent = countTranscripts; }
+    }
+
     // ── Auth & bootstrap ───────────────────────────────────────────────────
 
     function handleSignOut() {
@@ -1244,6 +1449,10 @@
 
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
+
+      var heroEl = document.getElementById("sessionsHeroSection");
+      if (heroEl) { heroEl.hidden = false; }
+      initHeroBg("sessionsHeroBg", "sessionsHeroScrim");
 
       window.initNav && window.initNav();
       setView(currentViewRole);
@@ -1324,6 +1533,7 @@
         .then(function(data) {
           sessions = data.sessions || [];
           renderSessionList();
+          updateSessionStats();
         })
         .catch(function(e) { console.error("Load sessions error:", e.message); });
     }
@@ -1651,6 +1861,16 @@
       })(session, clientSel, summarizeBtn);
 
       assignRow.appendChild(summarizeBtn);
+
+      var discardBtn = document.createElement("button");
+      discardBtn.className = "btn-discard";
+      discardBtn.id = "inbox-discard-" + session.id;
+      discardBtn.innerHTML = '<span class="show-pt">Excluir</span><span class="show-en">Delete</span>';
+      (function(sess, btn) {
+        btn.onclick = function() { handleInboxDiscard(sess, btn); };
+      })(session, discardBtn);
+      assignRow.appendChild(discardBtn);
+
       body.appendChild(assignRow);
       card.appendChild(body);
 
@@ -1701,6 +1921,35 @@
           btn.innerHTML = '<span class="show-pt">Resumir</span><span class="show-en">Summarize</span>';
           if (statusEl) {
             statusEl.textContent = (isEn ? "Error: " : "Erro: ") + e.message + " / " + (isEn ? "Please try again." : "Tente novamente.");
+            statusEl.className = "inbox-card-status is-error";
+          }
+        });
+    }
+
+    function handleInboxDiscard(session, btn) {
+      var statusEl = document.getElementById("inbox-status-" + session.id);
+      var isEn = document.body.classList.contains("lang-en");
+      var confirmMsg = isEn
+        ? "Discard this session? It will be hidden from the inbox."
+        : "Descartar esta sessão? Ela ficará oculta na caixa de entrada.";
+      if (!confirm(confirmMsg)) { return; }
+
+      btn.disabled = true;
+      if (statusEl) { statusEl.textContent = ""; statusEl.className = "inbox-card-status"; }
+
+      apiFetch("/api/sessions/" + session.id + "/discard", { method: "POST" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          inboxSessions = inboxSessions.filter(function(s) { return s.id !== session.id; });
+          var cardEl = document.getElementById("inbox-card-" + session.id);
+          if (cardEl) { cardEl.remove(); }
+          renderInbox();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          if (statusEl) {
+            statusEl.textContent = (isEn ? "Error: " : "Erro: ") + e.message;
             statusEl.className = "inbox-card-status is-error";
           }
         });

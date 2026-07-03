@@ -929,6 +929,24 @@ Insert a mock inbox session in D1 console:
 
 ---
 
+## Completed (session 35 — 2026-07-03, Fix Safari popup blocking on Google Calendar connect)
+
+### add-user.html (only file touched)
+- [x] `handleConnectGcal()` now opens `window.open('about:blank', '_blank')` synchronously on button click — before any async fetch
+- [x] After `getToken()` + `fetch('/api/google/oauth/start')` resolve, sets `popup.location.href = data.auth_url` on the already-open window
+- [x] On error: calls `popup.close()` and shows alert — no dangling blank tab
+- [x] Uses `var` + `function()` declarations, consistent with the rest of the page
+
+**Why this fixes Safari:** Safari blocks `window.open()` after an `await` / `.then()` chain because the call is no longer synchronous within the original user gesture handler. Opening `about:blank` immediately on click keeps the window creation inside the gesture, then redirecting an already-open window is always allowed.
+
+### Deployment (session 35)
+- [x] git commit: 72a9781 "Fix Safari popup blocking on Google Calendar connect"
+- [x] git push → origin/main → GitHub Pages auto-deploy triggered
+
+**Files touched (session 35):** add-user.html only
+
+---
+
 ## Completed (session 34 — 2026-07-03, Remove Google Calendar vars from wrangler.toml)
 
 - [x] Removed `GOOGLE_CALENDAR_CLIENT_ID = ""` and `GOOGLE_CALENDAR_CLIENT_SECRET = ""` from `[vars]` in wrangler.toml

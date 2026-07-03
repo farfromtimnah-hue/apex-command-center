@@ -1,5 +1,33 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-03 (session 48 — calendar.html photo hero section with 5 stat tiles and relocated header/toolbar)
+
+## Completed (session 48 — 2026-07-03, calendar.html hero section)
+
+- [x] Removed `padding: 24px 28px` from `#appMain`; added `.below-hero-section { padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; }` per the client.html pattern
+- [x] Wrapped `#calendarContent` in `.below-hero-section` div
+- [x] Added `.calendar-hero-section` as first child of `#appMain` with `#calendarHeroBg` (kenburns bg) + `#calendarHeroScrim` (dark overlay) + `.calendar-hero-content` wrapper
+- [x] Glass tile row with 5 tiles: TOTAL SESSIONS, THIS WEEK (Sun–Sat of current real-world date), ONLINE MEETINGS (session_type=online_meet), IN-PERSON (session_type=in_person), AWAITING MEET LINK (online_meet AND link null/empty/"[PENDING_GOOGLE_API]")
+- [x] `updateCalendarHeroTiles()` function added; called at end of `loadCalendar()` success and error handlers
+- [x] All tile labels bilingual with show-pt/show-en spans (TOTAL DE SESSOES, ESTA SEMANA, REUNIOES ONLINE, PRESENCIAL, AGUARDANDO LINK)
+- [x] Relocated `.page-header-row` (heading + New Session button) and `.cal-toolbar` (view toggle + month nav) into `.calendar-hero-content` below tiles
+- [x] Page heading changed to `.page-heading-hero` (white text)
+- [x] `.view-toggle` restyled for dark bg: rgba border + backdrop-filter blur, white text for inactive, gold for active
+- [x] `.month-nav-btn` restyled: dark glass bg, white text, gold on hover
+- [x] `.month-nav-label` color changed to white
+- [x] `.btn-new-session` uses rgba(201,164,58,0.9) gold for visibility over photo
+- [x] `initHeroBg('calendarHeroBg', 'calendarHeroScrim')` function added (exact same random-pick + onerror fallback pattern as other pages)
+- [x] `initHeroBg` called from `setupPage()` alongside existing init logic
+- [x] kenburns CSS animation + prefers-reduced-motion disable added
+- [x] All JS uses var, function() declarations, null checks, plain ASCII strings
+
+### Deployment (session 48)
+- [x] git commit + push → GitHub Pages auto-deploy triggered
+
+**Files touched (session 48):** calendar.html, progress.md
+
+---
+
 **Last updated:** 2026-07-03 (session 47 — sessions.html photo hero section with stat tiles and relocated tab-bar)
 
 ## Completed (session 47 — 2026-07-03, sessions.html hero section)

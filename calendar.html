@@ -139,10 +139,95 @@
     #appMain {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Calendar hero section ──────────────────────────────────────────── */
+    .calendar-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #calendarHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #calendarHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #calendarHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .calendar-hero-content {
+      position: relative;
+      z-index: 2;
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
     }
 
     /* ─── Page header row ────────────────────────────────────────────────── */
@@ -154,15 +239,9 @@
       flex-wrap: wrap;
     }
 
-    .page-heading {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
     /* ─── New Session button ─────────────────────────────────────────────── */
     .btn-new-session {
-      background: var(--gold);
+      background: rgba(201,164,58,0.9);
       color: #000;
       border: none;
       border-radius: 8px;
@@ -188,10 +267,12 @@
     .view-toggle {
       display: flex;
       gap: 0;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.18);
       border-radius: 8px;
       overflow: hidden;
-      background: var(--card);
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
     }
 
     .view-toggle-btn {
@@ -201,14 +282,14 @@
       font-family: 'Inter', sans-serif;
       font-size: 12px;
       font-weight: 600;
-      color: var(--muted);
+      color: rgba(255,255,255,0.6);
       cursor: pointer;
       transition: background 0.12s, color 0.12s;
       white-space: nowrap;
     }
-    .view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--border); }
+    .view-toggle-btn + .view-toggle-btn { border-left: 1px solid rgba(255,255,255,0.14); }
     .view-toggle-btn.active { background: var(--gold); color: #000; }
-    .view-toggle-btn:not(.active):hover { background: var(--surface); color: var(--text); }
+    .view-toggle-btn:not(.active):hover { color: #fff; }
 
     /* Month navigation */
     .month-nav {
@@ -218,8 +299,10 @@
     }
 
     .month-nav-btn {
-      background: var(--card);
-      border: 1px solid var(--border);
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.18);
       border-radius: 6px;
       width: 32px;
       height: 32px;
@@ -227,7 +310,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      color: var(--muted);
+      color: rgba(255,255,255,0.75);
       transition: border-color 0.12s, color 0.12s;
       font-size: 16px;
     }
@@ -236,9 +319,17 @@
     .month-nav-label {
       font-size: 16px;
       font-weight: 700;
-      color: var(--text);
+      color: #fff;
       min-width: 160px;
       text-align: center;
+    }
+
+    /* ─── Below hero section ─────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
 
     /* ─── Calendar grid (month view) ─────────────────────────────────────── */
@@ -751,9 +842,16 @@
 
     /* ─── Responsive ─────────────────────────────────────────────────────── */
     @media (max-width: 720px) {
-      #appMain { padding: 12px 14px; }
+      .calendar-hero-section { padding: 16px; }
+      .below-hero-section { padding: 12px 14px; }
+      .glass-tile { min-width: 100px; padding: 12px 14px; }
+      .glass-tile-value { font-size: 22px; }
       .cal-cell { min-height: 60px; }
       .month-nav-label { min-width: 120px; font-size: 14px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #calendarHeroBg.is-loaded { animation: none; }
     }
   </style>
 </head>
@@ -791,48 +889,99 @@
   <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
   <main id="appMain" hidden>
 
-    <!-- Page heading -->
-    <div class="page-header-row">
-      <h1 class="page-heading">
-        <span class="show-pt">Calendário</span>
-        <span class="show-en">Calendar</span>
-      </h1>
-      <button class="btn-new-session" onclick="openNewSessionModal()">
-        + <span class="show-pt">Nova Sessão</span>
-        <span class="show-en">New Session</span>
-      </button>
-    </div>
+    <!-- Calendar hero section -->
+    <div class="calendar-hero-section">
+      <div id="calendarHeroBg" aria-hidden="true"></div>
+      <div id="calendarHeroScrim" aria-hidden="true"></div>
+      <div class="calendar-hero-content">
 
-    <!-- Calendar toolbar -->
-    <div class="cal-toolbar">
-      <!-- View toggle -->
-      <div class="view-toggle">
-        <button class="view-toggle-btn active" id="viewBtnMonth" onclick="setCalView('month')">
-          <span class="show-pt">Mês</span>
-          <span class="show-en">Month</span>
-        </button>
-        <button class="view-toggle-btn" id="viewBtnWeek" onclick="setCalView('week')">
-          <span class="show-pt">Semana</span>
-          <span class="show-en">Week</span>
-        </button>
-        <button class="view-toggle-btn" id="viewBtnDay" onclick="setCalView('day')">
-          <span class="show-pt">Dia</span>
-          <span class="show-en">Day</span>
-        </button>
+        <!-- Stat tiles -->
+        <div class="glass-tile-row">
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TOTAL DE SESSOES</span>
+              <span class="show-en">TOTAL SESSIONS</span>
+            </div>
+            <div class="glass-tile-value" id="calStatTotal">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">ESTA SEMANA</span>
+              <span class="show-en">THIS WEEK</span>
+            </div>
+            <div class="glass-tile-value" id="calStatWeek">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">REUNIOES ONLINE</span>
+              <span class="show-en">ONLINE MEETINGS</span>
+            </div>
+            <div class="glass-tile-value" id="calStatOnline">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">PRESENCIAL</span>
+              <span class="show-en">IN-PERSON</span>
+            </div>
+            <div class="glass-tile-value" id="calStatInPerson">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">AGUARDANDO LINK</span>
+              <span class="show-en">AWAITING MEET LINK</span>
+            </div>
+            <div class="glass-tile-value" id="calStatAwaitLink">--</div>
+          </div>
+        </div>
+
+        <!-- Page heading -->
+        <div class="page-header-row">
+          <h1 class="page-heading-hero">
+            <span class="show-pt">Calendario</span>
+            <span class="show-en">Calendar</span>
+          </h1>
+          <button class="btn-new-session" onclick="openNewSessionModal()">
+            + <span class="show-pt">Nova Sessao</span>
+            <span class="show-en">New Session</span>
+          </button>
+        </div>
+
+        <!-- Calendar toolbar -->
+        <div class="cal-toolbar">
+          <!-- View toggle -->
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" id="viewBtnMonth" onclick="setCalView('month')">
+              <span class="show-pt">Mes</span>
+              <span class="show-en">Month</span>
+            </button>
+            <button class="view-toggle-btn" id="viewBtnWeek" onclick="setCalView('week')">
+              <span class="show-pt">Semana</span>
+              <span class="show-en">Week</span>
+            </button>
+            <button class="view-toggle-btn" id="viewBtnDay" onclick="setCalView('day')">
+              <span class="show-pt">Dia</span>
+              <span class="show-en">Day</span>
+            </button>
+          </div>
+
+          <!-- Month/week/day navigation -->
+          <div class="month-nav">
+            <button class="month-nav-btn" onclick="navPrev()">&#8249;</button>
+            <div class="month-nav-label" id="navLabel"></div>
+            <button class="month-nav-btn" onclick="navNext()">&#8250;</button>
+          </div>
+        </div>
+
+      </div><!-- /calendar-hero-content -->
+    </div><!-- /calendar-hero-section -->
+
+    <!-- Below-hero content -->
+    <div class="below-hero-section">
+      <!-- Calendar content area -->
+      <div id="calendarContent">
+        <!-- Rendered by JS -->
       </div>
-
-      <!-- Month/week/day navigation -->
-      <div class="month-nav">
-        <button class="month-nav-btn" onclick="navPrev()">&#8249;</button>
-        <div class="month-nav-label" id="navLabel"></div>
-        <button class="month-nav-btn" onclick="navNext()">&#8250;</button>
-      </div>
-    </div>
-
-    <!-- Calendar content area -->
-    <div id="calendarContent">
-      <!-- Rendered by JS -->
-    </div>
+    </div><!-- /below-hero-section -->
 
   </main><!-- /appMain -->
 
@@ -1136,6 +1285,7 @@
       document.getElementById("appMain").hidden = false;
 
       window.initNav && window.initNav();
+      initHeroBg('calendarHeroBg', 'calendarHeroScrim');
       loadClients();
       loadCalendar();
     }
@@ -1196,11 +1346,58 @@
         .then(function(data) {
           calSessions = data.sessions || [];
           renderCalendar();
+          updateCalendarHeroTiles();
         })
         .catch(function(e) {
           calSessions = [];
           renderCalendar();
+          updateCalendarHeroTiles();
         });
+    }
+
+    function updateCalendarHeroTiles() {
+      var today = new Date();
+      var weekStart = getWeekStart(today);
+      var weekEnd   = new Date(weekStart.getTime() + 7 * 86400000);
+
+      var countTotal     = 0;
+      var countWeek      = 0;
+      var countOnline    = 0;
+      var countInPerson  = 0;
+      var countAwaitLink = 0;
+
+      for (var i = 0; i < calSessions.length; i++) {
+        var s = calSessions[i];
+        countTotal++;
+
+        if (s.date) {
+          var parts = s.date.split("-");
+          if (parts.length === 3) {
+            var sd = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            if (sd >= weekStart && sd < weekEnd) { countWeek++; }
+          }
+        }
+
+        if (s.session_type === "online_meet") {
+          countOnline++;
+          var link = s.google_meet_link;
+          if (!link || link === "[PENDING_GOOGLE_API]") { countAwaitLink++; }
+        }
+
+        if (s.session_type === "in_person") { countInPerson++; }
+      }
+
+      var elTotal     = document.getElementById("calStatTotal");
+      var elWeek      = document.getElementById("calStatWeek");
+      var elOnline    = document.getElementById("calStatOnline");
+      var elInPerson  = document.getElementById("calStatInPerson");
+      var elAwaitLink = document.getElementById("calStatAwaitLink");
+
+      if (elTotal)     { elTotal.textContent     = countTotal; }
+      if (elWeek)      { elWeek.textContent      = countWeek; }
+      if (elOnline)    { elOnline.textContent    = countOnline; }
+      if (elInPerson)  { elInPerson.textContent  = countInPerson; }
+      if (elAwaitLink) { elAwaitLink.textContent = countAwaitLink; }
     }
 
     // ── View controls ──────────────────────────────────────────────────────
@@ -1750,6 +1947,33 @@
           btn.disabled = false;
           if (st2) { st2.textContent = (en ? "Error: " : "Erro: ") + e.message; st2.className = "pull-status is-error"; }
         });
+    }
+
+    // ── Hero background ────────────────────────────────────────────────────
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
     }
 
     // ── Utility ────────────────────────────────────────────────────────────

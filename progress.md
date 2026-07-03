@@ -1,6 +1,34 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 48 — calendar.html photo hero section with 5 stat tiles and relocated header/toolbar)
+**Last updated:** 2026-07-03 (session 49 — tasks.html photo hero section with 5 stat tiles and relocated header controls)
+
+## Completed (session 49 — 2026-07-03, tasks.html hero section)
+
+- [x] Removed `padding: 28px 32px` from `#appMain`; added `.below-hero-section { padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; }` per the calendar.html pattern
+- [x] Wrapped `#tasksContainer` in `.below-hero-section` div (only tasksContainer goes in wrapper)
+- [x] Added `.tasks-hero-section` as first child of `#appMain` with `#tasksHeroBg` (kenburns bg) + `#tasksHeroScrim` (dark overlay) + `.tasks-hero-content` wrapper
+- [x] `initHeroBg('tasksHeroBg', 'tasksHeroScrim')` function added (exact same random-pick + onerror fallback pattern as other pages)
+- [x] `initHeroBg` called from `setupPage()` alongside existing init logic
+- [x] Glass tile row with 5 tiles: TAREFAS DO CONSULTOR/CONSULTANT TASKS, TAREFAS DO CLIENTE/CLIENT TASKS, ATRASADAS/OVERDUE, CONCLUIDAS/COMPLETED, TOTAL DE TAREFAS/TOTAL TASKS
+- [x] Tile counts use exact same filter logic as `updateTabCounts()` — no re-derived logic
+- [x] `updateTasksHeroTiles()` function added; called in both `loadTasks()` success handler and `toggleComplete()` so tiles stay live when tasks are checked off
+- [x] Relocated `.page-header-row`, `.role-tabs`, `.client-filter-row`, `.controls-bar` into `.tasks-hero-content` below tiles
+- [x] Page heading changed to `.page-heading-hero` (white text)
+- [x] `.role-tab-btn` restyled for dark bg: rgba(255,255,255,0.55) inactive, white active, gold border-bottom active
+- [x] `.role-tab-count` badges restyled: rgba glass inactive, gold-tinted active
+- [x] `.view-toggle` restyled for dark bg: rgba border + backdrop-filter blur, rgba(255,255,255,0.6) text, gold active
+- [x] `.view-toggle-btn` restyled: white/translucent inactive, gold fill + dark text active
+- [x] `.client-filter-select` restyled: dark glass background, white text, rgba border
+- [x] `.done-chip` color updated to rgba white for legibility over photo
+- [x] kenburns CSS animation + prefers-reduced-motion disable added
+- [x] All JS uses var, function() declarations, null checks, plain ASCII strings
+
+### Deployment (session 49)
+- [x] git commit + push → GitHub Pages auto-deploy triggered
+
+**Files touched (session 49):** tasks.html, progress.md
+
+---
 
 ## Completed (session 48 — 2026-07-03, calendar.html hero section)
 

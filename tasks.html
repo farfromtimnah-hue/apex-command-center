@@ -134,10 +134,95 @@
     #appMain {
       flex: 1;
       overflow-y: auto;
-      padding: 28px 32px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+    }
+
+    /* ─── Tasks hero section ─────────────────────────────────────────────── */
+    .tasks-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #tasksHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #tasksHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #tasksHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .tasks-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
     }
 
     /* ─── Page header row ────────────────────────────────────────────────── */
@@ -149,17 +234,11 @@
       flex-wrap: wrap;
     }
 
-    .page-heading {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    /* ─── Role tabs (Consultant / Client) ───────────────────────────────── */
+    /* ─── Role tabs (Consultant / Client) — hero dark bg ────────────────── */
     .role-tabs {
       display: flex;
       gap: 0;
-      border-bottom: 2px solid var(--border);
+      border-bottom: 2px solid rgba(255,255,255,0.15);
     }
 
     .role-tab-btn {
@@ -171,38 +250,38 @@
       font-family: 'Inter', sans-serif;
       font-size: 13px;
       font-weight: 600;
-      color: var(--muted);
+      color: rgba(255,255,255,0.55);
       cursor: pointer;
       transition: color 0.12s, border-color 0.12s;
       white-space: nowrap;
     }
 
     .role-tab-btn.active {
-      color: var(--text);
+      color: #fff;
       border-bottom-color: var(--gold);
     }
 
     .role-tab-btn:not(.active):hover {
-      color: var(--text);
+      color: rgba(255,255,255,0.85);
     }
 
     .role-tab-count {
       display: inline-block;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
       border-radius: 10px;
       font-size: 10px;
       font-weight: 700;
       padding: 1px 6px;
       margin-left: 6px;
-      color: var(--muted);
+      color: rgba(255,255,255,0.65);
       vertical-align: middle;
     }
 
     .role-tab-btn.active .role-tab-count {
-      background: var(--gold-dim);
-      border-color: rgba(201,164,58,0.3);
-      color: var(--brown);
+      background: rgba(201,164,58,0.3);
+      border-color: rgba(201,164,58,0.5);
+      color: #e8c96a;
     }
 
     /* ─── Controls bar (sort + done count) ──────────────────────────────── */
@@ -214,14 +293,16 @@
       flex-wrap: wrap;
     }
 
-    /* ─── View toggle pills ──────────────────────────────────────────────── */
+    /* ─── View toggle pills — hero dark bg ──────────────────────────────── */
     .view-toggle {
       display: flex;
       gap: 0;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.18);
       border-radius: 8px;
       overflow: hidden;
-      background: var(--card);
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
     }
 
     .view-toggle-btn {
@@ -231,30 +312,44 @@
       font-family: 'Inter', sans-serif;
       font-size: 12px;
       font-weight: 600;
-      color: var(--muted);
+      color: rgba(255,255,255,0.6);
       cursor: pointer;
       transition: background 0.12s, color 0.12s;
       white-space: nowrap;
     }
 
     .view-toggle-btn + .view-toggle-btn {
-      border-left: 1px solid var(--border);
+      border-left: 1px solid rgba(255,255,255,0.14);
     }
 
     .view-toggle-btn.active {
       background: var(--gold);
-      color: #fff;
+      color: #000;
     }
 
     .view-toggle-btn:not(.active):hover {
-      background: var(--surface);
-      color: var(--text);
+      color: #fff;
     }
 
     /* ─── Done counter chip ──────────────────────────────────────────────── */
     .done-chip {
       font-size: 12px;
-      color: var(--muted);
+      color: rgba(255,255,255,0.65);
+    }
+
+    /* ─── Client filter — hero dark bg ──────────────────────────────────── */
+    .client-filter-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      white-space: nowrap;
+    }
+
+    /* ─── Below hero section ─────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
     /* ─── Task cards container ───────────────────────────────────────────── */
@@ -454,28 +549,24 @@
       padding-top: 0;
     }
 
-    /* ─── Client filter ──────────────────────────────────────────────────── */
+    /* ─── Client filter row ─────────────────────────────────────────────── */
     .client-filter-row {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .client-filter-label {
-      font-size: 12px;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
     .client-filter-select {
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.22);
       border-radius: 20px;
       padding: 4px 12px;
       font-family: 'Inter', sans-serif;
       font-size: 12px;
       font-weight: 500;
-      color: var(--text);
-      background: var(--card);
+      color: #fff;
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
       cursor: pointer;
       outline: none;
       appearance: none;
@@ -486,9 +577,16 @@
 
     /* ─── Responsive ─────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
-      #appMain { padding: 16px; }
+      .tasks-hero-section { padding: 16px; }
+      .below-hero-section { padding: 16px; }
+      .glass-tile { min-width: 100px; padding: 12px 14px; }
+      .glass-tile-value { font-size: 22px; }
       .task-meta { gap: 6px; }
       .overdue-row { gap: 6px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #tasksHeroBg.is-loaded { animation: none; }
     }
   </style>
 </head>
@@ -526,62 +624,110 @@
   <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
   <main id="appMain" hidden>
 
-    <!-- Page heading -->
-    <div class="page-header-row">
-      <h1 class="page-heading">
-        <span class="show-pt">Tarefas</span>
-        <span class="show-en">Tasks</span>
-      </h1>
-    </div>
+    <!-- Hero section with background photo, glass tiles, and header controls -->
+    <div class="tasks-hero-section">
+      <div id="tasksHeroBg" aria-hidden="true"></div>
+      <div id="tasksHeroScrim" aria-hidden="true"></div>
+      <div class="tasks-hero-content">
 
-    <!-- Role tabs -->
-    <div class="role-tabs">
-      <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
-        <span class="show-pt">Consultor</span>
-        <span class="show-en">Consultant</span>
-        <span class="role-tab-count" id="tabCountConsultant">0</span>
-      </button>
-      <button class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
-        <span class="show-pt">Cliente</span>
-        <span class="show-en">Client</span>
-        <span class="role-tab-count" id="tabCountClient">0</span>
-      </button>
-      <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
-        <span class="show-pt">Concluídas</span>
-        <span class="show-en">Done</span>
-        <span class="role-tab-count" id="tabCountDone">0</span>
-      </button>
-    </div>
+        <!-- Glass stat tiles -->
+        <div class="glass-tile-row">
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TAREFAS DO CONSULTOR</span>
+              <span class="show-en">CONSULTANT TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileConsultant">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TAREFAS DO CLIENTE</span>
+              <span class="show-en">CLIENT TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileClient">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">ATRASADAS</span>
+              <span class="show-en">OVERDUE</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileOverdue">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">CONCLUIDAS</span>
+              <span class="show-en">COMPLETED</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileCompleted">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TOTAL DE TAREFAS</span>
+              <span class="show-en">TOTAL TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileTotal">--</div>
+          </div>
+        </div>
 
-    <!-- Client filter -->
-    <div class="client-filter-row">
-      <span class="client-filter-label show-pt">Cliente:</span>
-      <span class="client-filter-label show-en">Client:</span>
-      <select class="client-filter-select" id="clientFilterSelect" onchange="onClientFilterChange()">
-        <option value="">
-          <span class="show-pt">Todos os Clientes</span>
-          <span class="show-en">All Clients</span>
-        </option>
-      </select>
-    </div>
+        <!-- Page heading -->
+        <div class="page-header-row">
+          <h1 class="page-heading-hero">
+            <span class="show-pt">Tarefas</span>
+            <span class="show-en">Tasks</span>
+          </h1>
+        </div>
 
-    <!-- Sort controls + done chip -->
-    <div class="controls-bar">
-      <div class="view-toggle">
-        <button class="view-toggle-btn active" id="btnViewDate" onclick="setTaskView('date')">
-          <span class="show-pt">Por Data</span>
-          <span class="show-en">By Date</span>
-        </button>
-        <button class="view-toggle-btn" id="btnViewType" onclick="setTaskView('type')">
-          <span class="show-pt">Por Tipo</span>
-          <span class="show-en">By Type</span>
-        </button>
+        <!-- Role tabs -->
+        <div class="role-tabs">
+          <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
+            <span class="show-pt">Consultor</span>
+            <span class="show-en">Consultant</span>
+            <span class="role-tab-count" id="tabCountConsultant">0</span>
+          </button>
+          <button class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
+            <span class="role-tab-count" id="tabCountClient">0</span>
+          </button>
+          <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
+            <span class="show-pt">Concluidas</span>
+            <span class="show-en">Done</span>
+            <span class="role-tab-count" id="tabCountDone">0</span>
+          </button>
+        </div>
+
+        <!-- Client filter -->
+        <div class="client-filter-row">
+          <span class="client-filter-label show-pt">Cliente:</span>
+          <span class="client-filter-label show-en">Client:</span>
+          <select class="client-filter-select" id="clientFilterSelect" onchange="onClientFilterChange()">
+            <option value="">Todos os Clientes / All Clients</option>
+          </select>
+        </div>
+
+        <!-- Sort controls + done chip -->
+        <div class="controls-bar">
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" id="btnViewDate" onclick="setTaskView('date')">
+              <span class="show-pt">Por Data</span>
+              <span class="show-en">By Date</span>
+            </button>
+            <button class="view-toggle-btn" id="btnViewType" onclick="setTaskView('type')">
+              <span class="show-pt">Por Tipo</span>
+              <span class="show-en">By Type</span>
+            </button>
+          </div>
+          <span class="done-chip" id="doneChip"></span>
+        </div>
+
+      </div><!-- /tasks-hero-content -->
+    </div><!-- /tasks-hero-section -->
+
+    <!-- Below hero: task rows -->
+    <div class="below-hero-section">
+      <div id="tasksContainer">
+        <!-- Rendered by JS -->
       </div>
-      <span class="done-chip" id="doneChip"></span>
-    </div>
-
-    <div id="tasksContainer">
-      <!-- Rendered by JS -->
     </div>
 
   </main><!-- /appMain -->
@@ -659,6 +805,70 @@
       } catch(e) {}
     }
 
+    // ── Hero background ────────────────────────────────────────────────────
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
+    // ── Hero stat tiles ────────────────────────────────────────────────────
+
+    function updateTasksHeroTiles() {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var consultantCount = allTasks.filter(function(t) {
+        return (t.type === "rafa" || t.type === "text") && !completedMap[t.key];
+      }).length;
+
+      var clientCount = allTasks.filter(function(t) {
+        return t.type === "client" && !completedMap[t.key];
+      }).length;
+
+      var overdueCount = allTasks.filter(function(t) {
+        return t.dueDate && t.dueDate < today && !completedMap[t.key];
+      }).length;
+
+      var completedCount = allTasks.filter(function(t) {
+        return !!completedMap[t.key];
+      }).length;
+
+      var totalCount = allTasks.length;
+
+      var tileConsultant = document.getElementById("heroTileConsultant");
+      var tileClient     = document.getElementById("heroTileClient");
+      var tileOverdue    = document.getElementById("heroTileOverdue");
+      var tileCompleted  = document.getElementById("heroTileCompleted");
+      var tileTotal      = document.getElementById("heroTileTotal");
+
+      if (tileConsultant) { tileConsultant.textContent = consultantCount; }
+      if (tileClient)     { tileClient.textContent     = clientCount; }
+      if (tileOverdue)    { tileOverdue.textContent    = overdueCount; }
+      if (tileCompleted)  { tileCompleted.textContent  = completedCount; }
+      if (tileTotal)      { tileTotal.textContent      = totalCount; }
+    }
+
     // ── Auth & bootstrap ───────────────────────────────────────────────────
 
     function handleSignOut() {
@@ -670,14 +880,18 @@
     }
 
     function setupPage(role) {
-      document.getElementById("headerEmail").textContent =
-        sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
-      document.getElementById("headerRole").textContent = role;
+      var emailEl = document.getElementById("headerEmail");
+      var roleEl  = document.getElementById("headerRole");
+      if (emailEl) { emailEl.textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : ""); }
+      if (roleEl)  { roleEl.textContent  = role; }
 
-      document.getElementById("loadingScreen").hidden = true;
-      document.getElementById("appMain").hidden = false;
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
 
       window.initNav && window.initNav();
+      initHeroBg('tasksHeroBg', 'tasksHeroScrim');
       loadLocalCompletions();
       loadTasks();
     }
@@ -715,6 +929,7 @@
         .then(function(data) {
           allTasks = deriveTasks(data.sessions || []);
           updateTabCounts();
+          updateTasksHeroTiles();
           populateClientFilter();
           renderTaskView();
         })
@@ -1169,6 +1384,7 @@
       saveLocalCompletions();
 
       updateTabCounts();
+      updateTasksHeroTiles();
       updateDoneChip(getTabTasks());
       renderTaskView();
 

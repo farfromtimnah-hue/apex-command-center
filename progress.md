@@ -1,5 +1,7 @@
 # Apex Command Center — Build Progress
 
+- [x] message_templates D1 table + seed migration applied; GET /api/settings/templates and PUT /api/settings/templates/:key (alice/rafa/developer); handlePostSessionWhatsapp refactored to load template from DB with DEFAULT_WHATSAPP_TEMPLATES fallback; deployed as version 0edf433c-29ae-4bd4-b5af-f52d0f71dc4c
+
 **Last updated:** 2026-07-03 (worker fix — exclude discarded sessions from handleGetSessions and handleGetSessionsCalendar)
 
 ## Completed (2026-07-03, worker fix — discarded session leak)

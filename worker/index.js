@@ -6,7 +6,7 @@ var CLAUDE_MODEL       = "claude-sonnet-4-6";
 
 var CORS_HEADERS = {
     "Access-Control-Allow-Origin":  "*",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
 };
 
@@ -1123,6 +1123,11 @@ async function handleGetSessionsCalendar(request, env) {
 
 var WEEKDAYS_PT = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
 
+var DEFAULT_WHATSAPP_TEMPLATES = {
+    session_in_person: "Olá! Sua sessão de consultoria está agendada para {weekday}, {date} às {time}.",
+    session_online: "Olá! Sua sessão de consultoria está agendada para {weekday}, {date} às {time}. Acesse aqui: {meetLink}"
+};
+
 async function handlePostSessionWhatsapp(sessionId, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -1140,13 +1145,17 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         var dateFormatted = dateParts[2] + "/" + dateParts[1] + "/" + dateParts[0];
         var time    = session.time || "";
 
-        var message;
-        if (session.session_type === "in_person") {
-            message = "Olá! Sua sessão de consultoria está agendada para " + weekday + ", " + dateFormatted + " às " + time + ".";
-        } else {
-            var meetLink = session.google_meet_link || "";
-            message = "Olá! Sua sessão de consultoria está agendada para " + weekday + ", " + dateFormatted + " às " + time + ". Acesse aqui: " + meetLink;
-        }
+        var templateKey = session.session_type === "in_person" ? "session_in_person" : "session_online";
+        var templateRow = await env.DB.prepare(
+            "SELECT template_text FROM message_templates WHERE template_key = ?"
+        ).bind(templateKey).first();
+        var templateText = (templateRow && templateRow.template_text) ? templateRow.template_text : DEFAULT_WHATSAPP_TEMPLATES[templateKey];
+        var meetLink = session.google_meet_link || "";
+        var message = templateText
+            .split("{weekday}").join(weekday)
+            .split("{date}").join(dateFormatted)
+            .split("{time}").join(time)
+            .split("{meetLink}").join(meetLink);
 
         var whatsappUrl = "https://wa.me/?text=" + encodeURIComponent(message);
         var sentAt      = new Date().toISOString();
@@ -1557,6 +1566,63 @@ async function handleGetConsultantTasksOverdue(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/settings/templates
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetSettingsTemplates(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT template_key, template_text, updated_at, updated_by FROM message_templates ORDER BY template_key"
+        ).all();
+
+        return jsonOk({ templates: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching templates: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/settings/templates/:key
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePutSettingsTemplate(key, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.template_text || !body.template_text.trim()) {
+            return jsonErr("template_text is required", 400);
+        }
+
+        var existing = await env.DB.prepare(
+            "SELECT template_key FROM message_templates WHERE template_key = ?"
+        ).bind(key).first();
+        if (!existing) { return jsonErr("Template not found", 404); }
+
+        var updatedAt = new Date().toISOString();
+        await env.DB.prepare(
+            "UPDATE message_templates SET template_text = ?, updated_at = ?, updated_by = ? WHERE template_key = ?"
+        ).bind(body.template_text, updatedAt, user.email, key).run();
+
+        var updated = await env.DB.prepare(
+            "SELECT template_key, template_text, updated_at, updated_by FROM message_templates WHERE template_key = ?"
+        ).bind(key).first();
+
+        return jsonOk(updated);
+    } catch (e) {
+        return jsonErr("Error updating template: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -1587,6 +1653,7 @@ export default {
         if (path === "/api/approve"              && method === "POST") { return handlePostApprove(request, env); }
         if (path === "/api/users"                && method === "GET")  { return handleGetUsers(request, env); }
         if (path === "/api/users"                && method === "POST") { return handlePostUsers(request, env); }
+        if (path === "/api/settings/templates"   && method === "GET")  { return handleGetSettingsTemplates(request, env); }
 
         // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client, /api/sessions/:id/whatsapp
         var segs = path.replace(/^\//, "").split("/");
@@ -1606,6 +1673,11 @@ export default {
         // /api/users/:email  DELETE
         if (segs[0] === "api" && segs[1] === "users" && segs[2] && method === "DELETE") {
             return handleDeleteUser(segs[2], request, env);
+        }
+
+        // /api/settings/templates/:key  PUT
+        if (segs[0] === "api" && segs[1] === "settings" && segs[2] === "templates" && segs[3] && method === "PUT") {
+            return handlePutSettingsTemplate(segs[3], request, env);
         }
 
         // Parameterized routes: /api/clients/:id[/notes | /logo | /logo-image | /documents/latest]

@@ -1,6 +1,49 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 41 — Fix broken picture1.jpg + add image load fallback)
+**Last updated:** 2026-07-03 (session 43 — clients.html hero redesign + package dropdown fix)
+
+## Completed (session 43 — 2026-07-03, clients.html hero redesign + package dropdown fix)
+
+### Part 1 — Package dropdown values corrected (both files)
+- [x] clients.html: Replaced 5 incorrect options (Essencial, Profissional, Sprint, Premium, VIP) in `#ncPackage` select with the 4 real APEX packages: Raio-X, Sprint, Premium, Executivo
+- [x] client.html: Replaced `PACKAGE_OPTIONS` array (was ["Essencial", "Profissional", "Sprint", "Premium", "VIP"]) with ["Raio-X", "Sprint", "Premium", "Executivo"]
+
+### Part 2 — clients.html redesigned with hero + glass tile pattern from dashboard.html
+- [x] Hero section: `#heroBgImage` + `#heroBgScrim` elements, `initHeroBg()` with random image selection (picture1–5) and onerror fallback chain, kenburns CSS animation — exact copy from dashboard.html
+- [x] CSS classes copied verbatim from dashboard.html: `.glass-tile-row`, `.glass-tile`, `.glass-tile-label`, `.glass-tile-value` (incl. `.is-gold`, `.is-red`), `.hero-content`, `.page-heading-hero`
+- [x] Hero content: page heading "Clientes / Clients" + 5 glass tiles in order: Active Clients (is-gold), Raio-X, Sprint, Premium, Executivo
+- [x] Tile counts computed client-side from same `loadClients()` fetch via new `renderTiles(clients)` function — no extra API call
+- [x] Active count: status.toLowerCase() === "active"; package counts: exact string match
+- [x] "+ Novo Cliente / + Add New Client" button moved to below-hero area (above table), hidden for non-create roles
+- [x] Client table (Name/Package/Status columns, lozenges, row hover) preserved exactly as before
+- [x] `window.onload = function() { init(); }` pattern adopted (was bare `init()` call)
+- [x] Bilingual show-pt/show-en spans on page heading and Active Clients tile label; package tile labels are proper nouns (no translation needed)
+- [x] All JS uses `var`, `function()` declarations, null checks on every getElementById, plain ASCII strings
+
+### Deployment (session 43)
+- [x] git commit + push → GitHub Pages auto-deploy triggered
+
+**Files touched (session 43):** clients.html, client.html, progress.md
+
+---
+
+**Last updated:** 2026-07-03 (session 42 — Fix discarded sessions appearing on calendar/dashboard)
+
+## Completed (session 42 — 2026-07-03, Fix discarded sessions in calendar endpoint)
+
+### Root cause
+`handleGetSessionsCalendar` in `worker/index.js` queried sessions with no status filter, so soft-deleted (discarded) sessions were returned to both `dashboard.html` (Rafa's Overview / This Week's Meetings) and `calendar.html`.
+
+### Fix
+Added `AND status != 'discarded'` to the WHERE clause in the D1 query inside `handleGetSessionsCalendar`, matching the existing pattern used by `handleGetSessions`.
+
+### Deployment (session 42)
+- [x] worker/index.js: query updated
+- [x] npx wrangler deploy
+
+**Files touched (session 42):** worker/index.js, progress.md
+
+---
 
 ## Completed (session 41 — 2026-07-03, Fix broken picture1.jpg + image load fallback)
 

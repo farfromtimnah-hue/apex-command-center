@@ -86,17 +86,114 @@
     #appMain {
       flex: 1;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Hero photo section ──────────────────────────────────────────────── */
+    .hero-section {
+      position: relative;
+      padding: 32px 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    #heroBgImage {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #heroBgImage.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #heroBgScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Page heading (white over photo) ────────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ── Glass tiles ─────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 20px 24px;
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .glass-tile-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 34px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .glass-tile-value.is-gold { color: var(--gold); }
+    .glass-tile-value.is-red  { color: #f87171; }
+
+    /* ── Below-hero section ──────────────────────────────────────────────── */
+    .below-section {
       padding: 28px 32px;
       display: flex;
       flex-direction: column;
       gap: 20px;
     }
 
-    /* ── Page header ─────────────────────────────────────────────────────── */
-    .page-heading {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
+    /* ── Below-hero header row ───────────────────────────────────────────── */
+    .below-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 16px;
     }
 
     /* ── Clients card ────────────────────────────────────────────────────── */
@@ -191,14 +288,6 @@
       padding: 20px;
       color: #b44040;
       font-size: 13px;
-    }
-
-    /* ── Page header row ─────────────────────────────────────────────────── */
-    .page-header-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
     }
 
     /* ── Add client button ───────────────────────────────────────────────── */
@@ -318,6 +407,17 @@
     }
     .form-status.is-error { color: #b44040; }
     .form-status.is-ok    { color: #1a6640; }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .hero-section { padding: 20px 16px; }
+      .below-section { padding: 16px; }
+      .glass-tile { min-width: 100px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #heroBgImage.is-loaded { animation: none; }
+    }
   </style>
 </head>
 <body class="lang-pt">
@@ -348,22 +448,60 @@
         <span class="show-en">Loading...</span>
       </div>
       <main id="appMain" hidden>
-        <div class="page-header-row">
-          <h1 class="page-heading">
-            <span class="show-pt">Clientes</span>
-            <span class="show-en">Clients</span>
-          </h1>
-          <button class="btn-add-client" id="btnAddClient" onclick="openNewClientModal()">
-            <span class="show-pt">+ Novo Cliente</span>
-            <span class="show-en">+ Add New Client</span>
-          </button>
-        </div>
-        <div class="content-card">
-          <div id="clientsListContainer">
-            <div class="empty-state show-pt">Carregando clientes...</div>
-            <div class="empty-state show-en">Loading clients...</div>
+
+        <!-- Hero section with background photo and glass tiles -->
+        <div class="hero-section">
+          <div id="heroBgImage" aria-hidden="true"></div>
+          <div id="heroBgScrim" aria-hidden="true"></div>
+          <div class="hero-content">
+            <h1 class="page-heading-hero">
+              <span class="show-pt">Clientes</span>
+              <span class="show-en">Clients</span>
+            </h1>
+            <div class="glass-tile-row">
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Clientes Ativos</span>
+                  <span class="show-en">Active Clients</span>
+                </div>
+                <div class="glass-tile-value is-gold" id="statActive">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Raio-X</div>
+                <div class="glass-tile-value" id="statRaioX">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Sprint</div>
+                <div class="glass-tile-value" id="statSprint">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Premium</div>
+                <div class="glass-tile-value" id="statPremium">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Executivo</div>
+                <div class="glass-tile-value" id="statExecutivo">--</div>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- Below hero: Add button + client table -->
+        <div class="below-section">
+          <div class="below-header-row">
+            <button class="btn-add-client" id="btnAddClient" onclick="openNewClientModal()">
+              <span class="show-pt">+ Novo Cliente</span>
+              <span class="show-en">+ Add New Client</span>
+            </button>
+          </div>
+          <div class="content-card">
+            <div id="clientsListContainer">
+              <div class="empty-state show-pt">Carregando clientes...</div>
+              <div class="empty-state show-en">Loading clients...</div>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
   </div>
@@ -376,7 +514,7 @@
           <span class="show-pt">Novo Cliente</span>
           <span class="show-en">Add New Client</span>
         </h3>
-        <button class="modal-close" onclick="document.getElementById('modalNewClient').hidden=true">×</button>
+        <button class="modal-close" onclick="document.getElementById('modalNewClient').hidden=true">&#215;</button>
       </div>
       <div class="modal-body">
         <!-- Business info -->
@@ -389,12 +527,11 @@
         <div class="field-row">
           <div class="field-group">
             <select id="ncPackage">
-              <option value="">— <span class="show-pt">Pacote</span><span class="show-en">Package</span> —</option>
-              <option value="Essencial">Essencial</option>
-              <option value="Profissional">Profissional</option>
+              <option value="">-- Pacote / Package --</option>
+              <option value="Raio-X">Raio-X</option>
               <option value="Sprint">Sprint</option>
               <option value="Premium">Premium</option>
-              <option value="VIP">VIP</option>
+              <option value="Executivo">Executivo</option>
             </select>
           </div>
           <div class="field-group">
@@ -411,7 +548,7 @@
             <input type="text" id="ncIndustry" placeholder="Setor / Industry">
           </div>
           <div class="field-group">
-            <input type="text" id="ncLocation" placeholder="Localização / Location">
+            <input type="text" id="ncLocation" placeholder="Localizacao / Location">
           </div>
         </div>
         <!-- Primary contact -->
@@ -493,12 +630,6 @@
     var auth        = null;
     var currentUser = null;
 
-    function toggleLang() {
-      var b = document.body;
-      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
-      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
-    }
-
     function handleSignOut() {
       auth.signOut().then(function () {
         sessionStorage.removeItem("apex_role");
@@ -518,29 +649,95 @@
       });
     }
 
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl    = document.getElementById(imgElId);
+      var scrimEl = document.getElementById(scrimElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function () {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function () {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
     function setupPage(role) {
-      document.getElementById("headerEmail").textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
-      document.getElementById("headerRole").textContent  = role;
-      document.getElementById("loadingScreen").hidden    = true;
-      document.getElementById("appMain").hidden          = false;
-      // Only alice and developer can create clients
-      var canCreate = (role === "alice" || role === "developer");
+      var emailEl = document.getElementById("headerEmail");
+      var roleEl  = document.getElementById("headerRole");
+      if (emailEl) { emailEl.textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : ""); }
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      var canCreate = (role === "alice" || role === "developer" || role === "rafa");
       var addBtn = document.getElementById("btnAddClient");
       if (addBtn) { addBtn.style.display = canCreate ? "" : "none"; }
+
       window.initNav && window.initNav();
+      initHeroBg("heroBgImage", "heroBgScrim");
       loadClients();
     }
 
     function loadClients() {
       apiFetch("/api/clients")
         .then(function (res) { return res.json(); })
-        .then(function (data) { renderClients(data.clients || []); })
+        .then(function (data) {
+          var clients = data.clients || [];
+          renderTiles(clients);
+          renderClients(clients);
+        })
         .catch(function (e) {
           var el = document.getElementById("clientsListContainer");
           if (el) {
             el.innerHTML = '<div class="error-msg">Erro ao carregar clientes: ' + escHtml(e.message) + '</div>';
           }
         });
+    }
+
+    function renderTiles(clients) {
+      var activeCount    = 0;
+      var raioXCount     = 0;
+      var sprintCount    = 0;
+      var premiumCount   = 0;
+      var executivoCount = 0;
+
+      for (var i = 0; i < clients.length; i++) {
+        var c = clients[i];
+        if (c.status && c.status.toLowerCase() === "active") { activeCount++; }
+        if (c.package === "Raio-X")    { raioXCount++; }
+        if (c.package === "Sprint")    { sprintCount++; }
+        if (c.package === "Premium")   { premiumCount++; }
+        if (c.package === "Executivo") { executivoCount++; }
+      }
+
+      var elActive    = document.getElementById("statActive");
+      var elRaioX     = document.getElementById("statRaioX");
+      var elSprint    = document.getElementById("statSprint");
+      var elPremium   = document.getElementById("statPremium");
+      var elExecutivo = document.getElementById("statExecutivo");
+
+      if (elActive)    { elActive.textContent    = activeCount; }
+      if (elRaioX)     { elRaioX.textContent     = raioXCount; }
+      if (elSprint)    { elSprint.textContent    = sprintCount; }
+      if (elPremium)   { elPremium.textContent   = premiumCount; }
+      if (elExecutivo) { elExecutivo.textContent = executivoCount; }
     }
 
     function renderClients(clients) {
@@ -571,29 +768,26 @@
         (function (c) {
           var tr = document.createElement("tr");
 
-          // Name cell with link
           var tdName = document.createElement("td");
           var link   = document.createElement("a");
-          link.className = "client-name-link";
-          link.href      = "client.html?id=" + encodeURIComponent(c.id);
-          link.textContent = c.name || "—";
+          link.className   = "client-name-link";
+          link.href        = "client.html?id=" + encodeURIComponent(c.id);
+          link.textContent = c.name || "--";
           tdName.appendChild(link);
           tr.appendChild(tdName);
 
-          // Package cell
           var tdPkg = document.createElement("td");
           if (c.package) {
             var pkgEl = document.createElement("span");
-            pkgEl.className  = "package-lozenge";
+            pkgEl.className   = "package-lozenge";
             pkgEl.textContent = c.package;
             tdPkg.appendChild(pkgEl);
           } else {
-            tdPkg.textContent = "—";
-            tdPkg.style.color = "var(--muted)";
+            tdPkg.textContent  = "--";
+            tdPkg.style.color  = "var(--muted)";
           }
           tr.appendChild(tdPkg);
 
-          // Status cell
           var tdStatus = document.createElement("td");
           var statusEl = document.createElement("span");
           statusEl.className = "status-lozenge";
@@ -620,19 +814,27 @@
         var el = document.getElementById(ids[i]);
         if (el) { el.value = ""; }
       }
-      document.getElementById("ncPackage").value  = "";
-      document.getElementById("ncStatus").value   = "active";
-      document.getElementById("ncStatus2").textContent = "";
-      document.getElementById("ncStatus2").className   = "form-status";
-      document.getElementById("btnSaveNewClient").disabled = false;
-      document.getElementById("nc2Wrap").style.display = "none";
-      document.getElementById("btnAddSecondContact").style.display = "";
-      document.getElementById("modalNewClient").hidden = false;
+      var ncPackageEl  = document.getElementById("ncPackage");
+      var ncStatusEl   = document.getElementById("ncStatus");
+      var ncStatus2El  = document.getElementById("ncStatus2");
+      var ncSaveBtn    = document.getElementById("btnSaveNewClient");
+      var nc2WrapEl    = document.getElementById("nc2Wrap");
+      var nc2BtnEl     = document.getElementById("btnAddSecondContact");
+      var modalEl      = document.getElementById("modalNewClient");
+
+      if (ncPackageEl)  { ncPackageEl.value   = ""; }
+      if (ncStatusEl)   { ncStatusEl.value    = "active"; }
+      if (ncStatus2El)  { ncStatus2El.textContent = ""; ncStatus2El.className = "form-status"; }
+      if (ncSaveBtn)    { ncSaveBtn.disabled   = false; }
+      if (nc2WrapEl)    { nc2WrapEl.style.display = "none"; }
+      if (nc2BtnEl)     { nc2BtnEl.style.display  = ""; }
+      if (modalEl)      { modalEl.hidden        = false; }
     }
 
     function toggleSecondContact() {
       var wrap = document.getElementById("nc2Wrap");
       var btn  = document.getElementById("btnAddSecondContact");
+      if (!wrap || !btn) { return; }
       if (wrap.style.display === "none") {
         wrap.style.display = "";
         btn.style.display  = "none";
@@ -655,33 +857,41 @@
     }
 
     function handleSaveNewClient() {
-      var name = (document.getElementById("ncName").value || "").trim();
-      var statusEl = document.getElementById("ncStatus2");
-      var btn      = document.getElementById("btnSaveNewClient");
+      var ncNameEl    = document.getElementById("ncName");
+      var ncStatus2El = document.getElementById("ncStatus2");
+      var ncSaveBtn   = document.getElementById("btnSaveNewClient");
+
+      if (!ncNameEl || !ncStatus2El || !ncSaveBtn) { return; }
+
+      var name = (ncNameEl.value || "").trim();
 
       if (!name) {
-        statusEl.textContent = "Nome é obrigatório. / Name is required.";
-        statusEl.className   = "form-status is-error";
+        ncStatus2El.textContent = "Nome e obrigatorio. / Name is required.";
+        ncStatus2El.className   = "form-status is-error";
         return;
       }
 
-      btn.disabled         = true;
-      statusEl.textContent = "Salvando...";
-      statusEl.className   = "form-status";
+      ncSaveBtn.disabled       = true;
+      ncStatus2El.textContent  = "Salvando...";
+      ncStatus2El.className    = "form-status";
 
-      // Build contacts array from intake fields
       var contacts = [];
       var c1 = buildContactFromFields("nc1Name", "nc1Role", "nc1Phone", "nc1Email");
       if (c1) { contacts.push(c1); }
       var c2 = buildContactFromFields("nc2Name", "nc2Role", "nc2Phone", "nc2Email");
       if (c2) { contacts.push(c2); }
 
+      var ncIndustryEl = document.getElementById("ncIndustry");
+      var ncLocationEl = document.getElementById("ncLocation");
+      var ncPackageEl  = document.getElementById("ncPackage");
+      var ncStatusEl   = document.getElementById("ncStatus");
+
       var payload = {
         name:     name,
-        industry: (document.getElementById("ncIndustry").value || "").trim() || null,
-        location: (document.getElementById("ncLocation").value || "").trim() || null,
-        package:  document.getElementById("ncPackage").value  || null,
-        status:   document.getElementById("ncStatus").value   || "active",
+        industry: (ncIndustryEl ? (ncIndustryEl.value || "").trim() : null) || null,
+        location: (ncLocationEl ? (ncLocationEl.value || "").trim() : null) || null,
+        package:  (ncPackageEl  ? ncPackageEl.value  : null) || null,
+        status:   (ncStatusEl   ? ncStatusEl.value   : "active") || "active",
         contacts: contacts.length > 0 ? JSON.stringify(contacts) : null
       };
 
@@ -697,13 +907,11 @@
           window.location.href = "client.html?id=" + encodeURIComponent(data.client_id);
         })
         .catch(function (e) {
-          btn.disabled         = false;
-          statusEl.textContent = "Erro: " + e.message;
-          statusEl.className   = "form-status is-error";
+          if (ncSaveBtn)   { ncSaveBtn.disabled    = false; }
+          if (ncStatus2El) { ncStatus2El.textContent = "Erro: " + e.message; ncStatus2El.className = "form-status is-error"; }
         });
     }
 
-    // Close modal on overlay click
     document.addEventListener("click", function (e) {
       var m = document.getElementById("modalNewClient");
       if (m && !m.hidden && e.target === m) { m.hidden = true; }
@@ -730,7 +938,7 @@
       });
     }
 
-    init();
+    window.onload = function () { init(); };
   </script>
 </body>
 </html>

@@ -1,6 +1,10 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 49 — tasks.html photo hero section with 5 stat tiles and relocated header controls)
+**Last updated:** 2026-07-03 (worker fix — exclude discarded sessions from handleGetSessions and handleGetSessionsCalendar)
+
+## Completed (2026-07-03, worker fix — discarded session leak)
+
+- [x] Excluded `discarded` sessions from `handleGetSessions` (both client-filtered and unfiltered queries) using `NOT IN ('archived','discarded')`; `handleGetSessionsCalendar` already had the fix applied
 
 ## Completed (session 49 — 2026-07-03, tasks.html hero section)
 

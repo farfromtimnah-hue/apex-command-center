@@ -231,24 +231,13 @@
 
   // ── Public: dev view switcher ─────────────────────────────────────────────
   window.apexNavSetView = function (v) {
-    if (v !== "dev") {
-      sessionStorage.setItem("apex_dev_view", v);
-    }
+    sessionStorage.setItem("apex_dev_view", v);
 
-    // Update switcher button active states
-    var mapping = { "navBtnAlice": "alice", "navBtnRafa": "rafa", "navBtnDev": "dev" };
-    var ids = ["navBtnAlice", "navBtnRafa", "navBtnDev"];
-    for (var i = 0; i < ids.length; i++) {
-      var btn = document.getElementById(ids[i]);
-      if (btn) {
-        btn.className = "apex-nav-view-btn" + (mapping[ids[i]] === v ? " apex-nav-view-active" : "");
-      }
-    }
-
-    // Tell the page to switch views (only works on dashboard.html)
     if (typeof window.setView === "function") {
       window.setView(v === "dev" ? "alice" : v);
     }
+
+    window.initNav && window.initNav();
   };
 
   // ── Public: init ─────────────────────────────────────────────────────────
@@ -270,8 +259,12 @@
     }
 
     var role = sessionStorage.getItem("apex_role") || "alice";
-    var items = (role === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;
-    if (role === "developer") {
+    var devView = (role === "developer") ? (sessionStorage.getItem("apex_dev_view") || "dev") : "";
+
+    var navRole = (role === "developer" && (devView === "alice" || devView === "rafa")) ? devView : role;
+
+    var items = (navRole === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;
+    if (navRole === "developer") {
       items = items.slice();
       items.push({
         key: "adduser", href: "add-user.html", icon: "user-plus",
@@ -279,7 +272,6 @@
         tipPt: "Adicionar Usuario",           tipEn: "Add User"
       });
     }
-    var devView = (role === "developer") ? (sessionStorage.getItem("apex_dev_view") || "alice") : "";
 
     sidebar.innerHTML = buildNavHTML(role, items, devView);
 

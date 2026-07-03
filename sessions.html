@@ -1249,7 +1249,7 @@
       setView(currentViewRole);
       loadSessions();
       loadClients();
-      if (currentViewRole === "alice" || currentViewRole === "dev") {
+      if (currentViewRole === "alice" || currentViewRole === "dev" || currentViewRole === "rafa") {
         loadInbox();
       }
     }
@@ -1302,8 +1302,8 @@
 
       var aliceEl = document.getElementById("aliceView");
       var rafaEl  = document.getElementById("rafaView");
-      aliceEl.style.display = (role === "alice" || role === "dev") ? "flex" : "none";
-      rafaEl.style.display  = (role === "rafa")  ? "flex" : "none";
+      aliceEl.style.display = (role === "alice" || role === "dev" || role === "rafa") ? "flex" : "none";
+      rafaEl.style.display  = "none";
 
       var btnA = document.getElementById("navBtnAlice");
       var btnR = document.getElementById("navBtnRafa");
@@ -1313,6 +1313,7 @@
       if (btnD) { btnD.className = "apex-nav-view-btn"; }
 
       if (sessions.length > 0) { renderSessionList(); }
+      if (role === "rafa") { switchTab("inbox"); }
     }
 
     // ── Data loading ───────────────────────────────────────────────────────
@@ -1790,11 +1791,7 @@
     // ── Session list rendering ─────────────────────────────────────────────
 
     function renderSessionList() {
-      if (currentViewRole === "alice" || currentViewRole === "dev") {
-        renderAliceList();
-      } else {
-        renderRafaList();
-      }
+      renderAliceList();
     }
 
     function renderAliceList() {

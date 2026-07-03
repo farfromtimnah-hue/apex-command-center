@@ -1,6 +1,43 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 38 — Premium dashboard redesign)
+**Last updated:** 2026-07-03 (session 40 — Add User nav link for developer role)
+
+## Completed (session 40 — 2026-07-03, Developer-only Add User nav link)
+
+### nav.js (only file touched)
+
+**Problem:** add-user.html was reachable only by typing the URL directly — no sidebar nav entry existed.
+
+**Fix:**
+1. Added `user-plus` icon type to `navSvg()` (person silhouette + cross).
+2. In `initNav`, after `var items = ...`, added a guard: when `apex_role === "developer"`, copies the items array via `.slice()` (preserving NAV_ITEMS_ALICE for real Alice logins) and pushes an Add User entry pointing to `add-user.html`.
+3. The link appears only when the authenticated role stored in `sessionStorage.apex_role` is `"developer"` — Alice and Rafa logins never see it, even if the dev switcher previews their view.
+
+### Deployment (session 40)
+- [x] git commit: 0456cd1 "Add developer-only 'Add User' nav link"
+- [x] git push origin main
+
+**Files touched (session 40):** nav.js only
+
+---
+
+## Completed (session 39 — 2026-07-03, Fix dev preview switcher)
+
+### dashboard.html (only file touched)
+
+**Problem:** nav.js's dev view switcher calls `window.setView(role)` but dashboard.html never defined it. The function was missing entirely — clicks silently failed (nav.js guards with `typeof window.setView === "function"` before calling).
+
+**Fix:** Added `window.setView = function(role)` after all render helpers (`renderAliceDashboard`, `renderRafaDashboard`, `loadDevOverview`, `initHeroBg`) are defined but before `window.onload`. Hides all three dashboard roots then shows the correct one and calls the appropriate render function.
+
+**Note on Dev button behavior:** nav.js passes `"alice"` (not `"dev"`) when the Dev switcher button is clicked — this resets the preview back to Alice view, which is the correct intended behavior.
+
+### Deployment (session 39)
+- [x] git commit: 9a3eeb9 "Fix dev preview switcher by defining window.setView on dashboard"
+- [x] git push origin main
+
+**Files touched (session 39):** dashboard.html only
+
+---
 
 ## Completed (session 38 — 2026-07-03, Premium dashboard redesign)
 

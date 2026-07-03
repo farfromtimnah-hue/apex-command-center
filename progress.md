@@ -1,5 +1,52 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-03 (session 34 — Google Calendar OAuth flow)
+
+## Completed (session 34 — 2026-07-03, Google Calendar OAuth)
+
+### D1 — new table
+- [x] `oauth_tokens` table created: id TEXT PK DEFAULT 'google_calendar', refresh_token TEXT NOT NULL, scope TEXT, created_at TEXT, updated_at TEXT
+- [x] Holds exactly one row (id = 'google_calendar'); INSERT OR REPLACE on each connect
+
+### worker/index.js — 4 new routes
+- [x] GET /api/google/oauth/start — developer only; builds Google OAuth URL with scope=calendar, access_type=offline, prompt=consent; returns { auth_url }; does NOT redirect
+- [x] GET /api/google/oauth/callback — no auth (Google calls directly); receives ?code=; exchanges for tokens via POST to oauth2.googleapis.com/token with 15s timeout; validates refresh_token presence; stores refresh_token + scope to D1 oauth_tokens via INSERT OR REPLACE; never logs or returns token; returns { ok: true, message }
+- [x] GET /api/google/oauth/status — developer or alice only; checks if row exists in oauth_tokens WHERE id='google_calendar'; returns { connected: true/false }; never returns token value
+- [x] POST /api/google/calendar/event — any authenticated role; body: { summary, description, start_datetime, end_datetime, add_meet_link }; looks up refresh_token from D1; exchanges for access_token with 15s timeout; POSTs to Google Calendar API with 15s timeout; supports conferenceData (Meet link) when add_meet_link=true; discards access_token after request (never stored); returns { google_event_id, google_meet_link, html_link }
+
+### Security
+- oauth_tokens table never returned by any endpoint
+- refresh_token stored only; access_token lives in Worker memory during single request
+- All D1 queries use .prepare().bind()
+- All Google API calls have 15s AbortController timeout
+- OAuth scope limited to calendar only
+
+### add-user.html
+- [x] "Google Calendar" content-card section added after Approved Users table
+- [x] Status indicator: calls GET /api/google/oauth/status on page load; shows green "Connected" or muted "Not connected"
+- [x] "Connect Google Calendar" gold button: calls GET /api/google/oauth/start, opens returned auth_url in new tab
+- [x] "Check Status" button: refreshes status indicator without page reload
+- [x] JS uses var, function declarations, window.onload pattern, null checks, Bearer token pattern matching rest of page
+
+### Deployment (session 34)
+- [x] D1 migration: oauth_tokens table created and verified (SELECT returns empty array — correct)
+- [x] Worker deployed: version ff7fafe2, apex-api.farfromtimnah.workers.dev
+- [x] Live endpoints verified: /api/google/oauth/status and /api/google/oauth/start both return 401 Unauthorized (routes live, auth working)
+- [x] git commit + push → GitHub Pages auto-deploy
+
+**Files touched (session 34):** worker/index.js, add-user.html, progress.md
+
+**QA checklist (requires developer auth token):**
+1. GET /api/google/oauth/status → { connected: false } before connecting
+2. GET /api/google/oauth/start → { auth_url: "https://accounts.google.com/..." }
+3. Open auth_url in browser → Google consent → redirects to /api/google/oauth/callback → { ok: true, message: "Google Calendar connected successfully" }
+4. GET /api/google/oauth/status → { connected: true } after connecting
+5. POST /api/google/calendar/event with valid body → { google_event_id, html_link } (and google_meet_link if add_meet_link=true)
+6. GET /api/google/oauth/status with rafa role → 403 Forbidden
+7. add-user.html shows status indicator and Connect button; status updates after Check Status click
+
+---
+
 **Last updated:** 2026-07-03 (session 33 — Fix calendar card overflow + week/day session rendering)
 
 ## Completed (session 31 — 2026-07-03, Calendar frontend)
@@ -879,6 +926,20 @@ Insert a mock inbox session in D1 console:
 - [x] No Worker code touched. No frontend files touched. No other tables modified.
 
 **Files touched (session 29):** progress.md (schema change applied directly to live D1 via wrangler)
+
+---
+
+## Completed (session 34 — 2026-07-03, Remove Google Calendar vars from wrangler.toml)
+
+- [x] Removed `GOOGLE_CALENDAR_CLIENT_ID = ""` and `GOOGLE_CALENDAR_CLIENT_SECRET = ""` from `[vars]` in wrangler.toml
+  - These were conflicting with wrangler secrets (error 10053 — binding name already in use)
+- [x] Redeployed with `npx wrangler deploy`
+  - Deploy succeeded: Version ID `559d207d-7df5-49d9-8082-daa8910bc9b1`
+  - Worker live at: https://apex-api.farfromtimnah.workers.dev
+
+**Files touched (session 34):** wrangler.toml only
+
+**Next step:** Nicole to run `wrangler secret put GOOGLE_CALENDAR_CLIENT_ID` and `wrangler secret put GOOGLE_CALENDAR_CLIENT_SECRET` manually
 
 ---
 

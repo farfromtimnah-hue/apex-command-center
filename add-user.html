@@ -268,6 +268,26 @@
           </div>
         </div>
 
+        <!-- Google Calendar OAuth -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">Google Calendar</h2>
+          </div>
+          <div class="content-card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            <div>
+              <span style="font-size:13px;color:var(--muted);">Status:</span>
+              <span id="gcalStatus" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">Checking...</span>
+            </div>
+            <button class="btn-submit" id="btnConnectGcal" onclick="handleConnectGcal()" style="flex-shrink:0;">
+              Connect Google Calendar
+            </button>
+            <button class="btn-submit" id="btnCheckGcalStatus" onclick="checkGcalStatus()"
+              style="background:transparent;border:1.5px solid var(--gold);color:var(--gold);flex-shrink:0;">
+              Check Status
+            </button>
+          </div>
+        </div>
+
       </main>
 
     </div><!-- /contentArea -->
@@ -429,6 +449,59 @@
       });
     }
 
+    // ── Google Calendar OAuth ────────────────────────────────────────────────
+    function checkGcalStatus() {
+      var statusEl = document.getElementById("gcalStatus");
+      if (!statusEl) { return; }
+      statusEl.textContent = "Checking...";
+      statusEl.style.color = "var(--muted)";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/google/oauth/status", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        if (data.connected) {
+          statusEl.textContent = "Connected";
+          statusEl.style.color = "#1a6640";
+        } else {
+          statusEl.textContent = "Not connected";
+          statusEl.style.color = "var(--muted)";
+        }
+      }).catch(function(e) {
+        statusEl.textContent = "Error: " + e.message;
+        statusEl.style.color = "#b44040";
+      });
+    }
+
+    function handleConnectGcal() {
+      var btn = document.getElementById("btnConnectGcal");
+      if (!btn) { return; }
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/google/oauth/start", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        if (data.auth_url) {
+          window.open(data.auth_url, "_blank");
+        } else {
+          alert("Error: no auth_url returned");
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        alert("Error starting OAuth: " + e.message);
+      });
+    }
+
     // ── Page setup ───────────────────────────────────────────────────────────
     function setupPage(role) {
       var emailEl = document.getElementById("headerEmail");
@@ -447,6 +520,7 @@
       document.getElementById("appMain").hidden = false;
       window.initNav && window.initNav();
       loadUsers();
+      checkGcalStatus();
     }
 
     // ── Bootstrap ────────────────────────────────────────────────────────────

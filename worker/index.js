@@ -1020,6 +1020,333 @@ async function handlePatchTask(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/sessions/schedule
+// Body: { client_id, date, time, session_type, notes }
+// session_type: 'online_meet' | 'in_person'
+// ---------------------------------------------------------------------------
+
+async function handlePostSessionsSchedule(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json();
+        if (!body.client_id)    { return jsonErr("client_id is required", 400); }
+        if (!body.date)         { return jsonErr("date is required", 400); }
+        if (!body.time)         { return jsonErr("time is required", 400); }
+        if (body.session_type !== "online_meet" && body.session_type !== "in_person") {
+            return jsonErr("session_type must be online_meet or in_person", 400);
+        }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
+            .bind(body.client_id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var sessionId    = crypto.randomUUID();
+        var meetLink     = body.session_type === "online_meet" ? "[PENDING_GOOGLE_API]" : null;
+
+        await env.DB.prepare(
+            "INSERT INTO sessions (id, client_id, client_name, date, time, session_type, google_meet_link, status, raw_transcript) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?)"
+        ).bind(sessionId, body.client_id, client.name, body.date, body.time, body.session_type, meetLink, body.notes || null).run();
+
+        var session = await env.DB.prepare(
+            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status, whatsapp_sent_at, created_at " +
+            "FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+
+        return jsonOk({ session: session });
+    } catch (e) {
+        return jsonErr("Error scheduling session: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/sessions/calendar
+// Query: month (YYYY-MM)
+// Returns all sessions for the given month.
+// ---------------------------------------------------------------------------
+
+async function handleGetSessionsCalendar(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var url   = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+            return jsonErr("month query param required (format: YYYY-MM)", 400);
+        }
+
+        var res = await env.DB.prepare(
+            "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at " +
+            "FROM sessions WHERE date LIKE ? ORDER BY date ASC, time ASC"
+        ).bind(month + "-%").all();
+
+        return jsonOk({ sessions: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching calendar: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/sessions/:id/whatsapp
+// Generates a prefilled WhatsApp URL and updates whatsapp_sent_at.
+// ---------------------------------------------------------------------------
+
+var WEEKDAYS_PT = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+
+async function handlePostSessionWhatsapp(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var session = await env.DB.prepare(
+            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status " +
+            "FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        var d       = new Date(session.date + "T12:00:00");
+        var weekday = WEEKDAYS_PT[d.getDay()];
+        var dateParts = session.date.split("-");
+        var dateFormatted = dateParts[2] + "/" + dateParts[1] + "/" + dateParts[0];
+        var time    = session.time || "";
+
+        var message;
+        if (session.session_type === "in_person") {
+            message = "Olá! Sua sessão de consultoria está agendada para " + weekday + ", " + dateFormatted + " às " + time + ".";
+        } else {
+            var meetLink = session.google_meet_link || "";
+            message = "Olá! Sua sessão de consultoria está agendada para " + weekday + ", " + dateFormatted + " às " + time + ". Acesse aqui: " + meetLink;
+        }
+
+        var whatsappUrl = "https://wa.me/?text=" + encodeURIComponent(message);
+        var sentAt      = new Date().toISOString();
+
+        await env.DB.prepare("UPDATE sessions SET whatsapp_sent_at = ? WHERE id = ?")
+            .bind(sentAt, sessionId).run();
+
+        return jsonOk({ whatsapp_url: whatsappUrl, whatsapp_sent_at: sentAt });
+    } catch (e) {
+        return jsonErr("Error generating WhatsApp URL: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google/oauth/start
+// Auth: developer only. Returns Google OAuth authorization URL as JSON.
+// ---------------------------------------------------------------------------
+
+async function handleGoogleOAuthStart(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var params = new URLSearchParams();
+        params.set("client_id",     env.GOOGLE_CALENDAR_CLIENT_ID);
+        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google/oauth/callback");
+        params.set("response_type", "code");
+        params.set("scope",         "https://www.googleapis.com/auth/calendar");
+        params.set("access_type",   "offline");
+        params.set("prompt",        "consent");
+
+        var authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + params.toString();
+        return jsonOk({ auth_url: authUrl });
+    } catch (e) {
+        return jsonErr("Error building OAuth URL: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google/oauth/callback
+// No auth — called by Google after user consent. Exchanges code for tokens.
+// ---------------------------------------------------------------------------
+
+async function handleGoogleOAuthCallback(request, env) {
+    try {
+        var url  = new URL(request.url);
+        var code = url.searchParams.get("code");
+        if (!code) { return jsonErr("Missing code parameter", 400); }
+
+        var controller = new AbortController();
+        var timer = setTimeout(function() { controller.abort(); }, 15000);
+
+        var tokenRes;
+        try {
+            tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+                method:  "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body:    new URLSearchParams({
+                    code:          code,
+                    client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
+                    client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                    redirect_uri:  "https://apex-api.farfromtimnah.workers.dev/api/google/oauth/callback",
+                    grant_type:    "authorization_code"
+                }).toString(),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timer);
+        }
+
+        var tokenData = await tokenRes.json();
+        if (!tokenRes.ok) {
+            return jsonErr("Token exchange failed: " + (tokenData.error_description || tokenData.error || "unknown"), 502);
+        }
+
+        var refreshToken = tokenData.refresh_token;
+        if (!refreshToken) {
+            return jsonErr("No refresh token returned -- ensure prompt=consent was set", 400);
+        }
+
+        var scope = tokenData.scope || null;
+
+        await env.DB.prepare(
+            "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, scope, updated_at) VALUES ('google_calendar', ?, ?, datetime('now'))"
+        ).bind(refreshToken, scope).run();
+
+        return jsonOk({ ok: true, message: "Google Calendar connected successfully" });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Token exchange timed out", 504); }
+        return jsonErr("OAuth callback error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google/oauth/status
+// Auth: developer or alice. Returns { connected: true/false } — never the token.
+// ---------------------------------------------------------------------------
+
+async function handleGoogleOAuthStatus(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer" && user.role !== "alice") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM oauth_tokens WHERE id = 'google_calendar'"
+        ).first();
+
+        return jsonOk({ connected: !!row });
+    } catch (e) {
+        return jsonErr("Error checking OAuth status: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/google/calendar/event
+// Auth: any role. Creates a Google Calendar event using stored refresh token.
+// Access token is used in memory only and never stored or returned.
+// ---------------------------------------------------------------------------
+
+async function handlePostGoogleCalendarEvent(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json();
+        if (!body.summary)        { return jsonErr("summary is required", 400); }
+        if (!body.start_datetime) { return jsonErr("start_datetime is required", 400); }
+        if (!body.end_datetime)   { return jsonErr("end_datetime is required", 400); }
+
+        var tokenRow = await env.DB.prepare(
+            "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_calendar'"
+        ).first();
+        if (!tokenRow) { return jsonErr("Google Calendar not connected", 400); }
+
+        // Exchange refresh token for access token
+        var refreshController = new AbortController();
+        var refreshTimer = setTimeout(function() { refreshController.abort(); }, 15000);
+
+        var refreshRes;
+        try {
+            refreshRes = await fetch("https://oauth2.googleapis.com/token", {
+                method:  "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body:    new URLSearchParams({
+                    client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
+                    client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                    refresh_token: tokenRow.refresh_token,
+                    grant_type:    "refresh_token"
+                }).toString(),
+                signal: refreshController.signal
+            });
+        } finally {
+            clearTimeout(refreshTimer);
+        }
+
+        var refreshData = await refreshRes.json();
+        if (!refreshRes.ok) {
+            return jsonErr("Failed to refresh access token: " + (refreshData.error_description || refreshData.error || "unknown"), 502);
+        }
+
+        var accessToken = refreshData.access_token;
+
+        // Build event body
+        var eventBody = {
+            summary:     body.summary,
+            description: body.description || undefined,
+            start: { dateTime: body.start_datetime, timeZone: "America/Sao_Paulo" },
+            end:   { dateTime: body.end_datetime,   timeZone: "America/Sao_Paulo" }
+        };
+
+        if (body.add_meet_link) {
+            eventBody.conferenceData = {
+                createRequest: {
+                    requestId: crypto.randomUUID(),
+                    conferenceSolutionKey: { type: "hangoutsMeet" }
+                }
+            };
+        }
+
+        var calUrl = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+        if (body.add_meet_link) { calUrl += "?conferenceDataVersion=1"; }
+
+        var calController = new AbortController();
+        var calTimer = setTimeout(function() { calController.abort(); }, 15000);
+
+        var calRes;
+        try {
+            calRes = await fetch(calUrl, {
+                method:  "POST",
+                headers: {
+                    "Authorization": "Bearer " + accessToken,
+                    "Content-Type":  "application/json"
+                },
+                body:   JSON.stringify(eventBody),
+                signal: calController.signal
+            });
+        } finally {
+            clearTimeout(calTimer);
+        }
+
+        // Discard accessToken — it is never stored
+        accessToken = null;
+
+        var calData = await calRes.json();
+        if (!calRes.ok) {
+            return jsonErr("Google Calendar API error: " + (calData.error && calData.error.message ? calData.error.message : JSON.stringify(calData)), calRes.status);
+        }
+
+        var meetLink = null;
+        if (calData.conferenceData && calData.conferenceData.entryPoints && calData.conferenceData.entryPoints[0]) {
+            meetLink = calData.conferenceData.entryPoints[0].uri || null;
+        }
+
+        return jsonOk({
+            google_event_id:  calData.id,
+            google_meet_link: meetLink,
+            html_link:        calData.htmlLink
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Google API request timed out", 504); }
+        return jsonErr("Error creating calendar event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/users  — developer only, list all users
 // ---------------------------------------------------------------------------
 
@@ -1102,9 +1429,15 @@ export default {
             return new Response(null, { status: 204, headers: CORS_HEADERS });
         }
 
-        if (path === "/api/role"                 && method === "GET")  { return handleGetRole(request, env); }
-        if (path === "/api/sessions"             && method === "GET")  { return handleGetSessions(request, env); }
-        if (path === "/api/sessions/inbox"       && method === "GET")  { return handleGetSessionsInbox(request, env); }
+        if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
+        if (path === "/api/google/oauth/start"        && method === "GET")  { return handleGoogleOAuthStart(request, env); }
+        if (path === "/api/google/oauth/callback"     && method === "GET")  { return handleGoogleOAuthCallback(request, env); }
+        if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
+        if (path === "/api/google/calendar/event"     && method === "POST") { return handlePostGoogleCalendarEvent(request, env); }
+        if (path === "/api/sessions"              && method === "GET")  { return handleGetSessions(request, env); }
+        if (path === "/api/sessions/inbox"        && method === "GET")  { return handleGetSessionsInbox(request, env); }
+        if (path === "/api/sessions/calendar"     && method === "GET")  { return handleGetSessionsCalendar(request, env); }
+        if (path === "/api/sessions/schedule"     && method === "POST") { return handlePostSessionsSchedule(request, env); }
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
         if (path === "/api/clients"              && method === "GET")  { return handleGetClients(request, env); }
         if (path === "/api/clients"              && method === "POST") { return handlePostClients(request, env); }
@@ -1114,13 +1447,16 @@ export default {
         if (path === "/api/users"                && method === "GET")  { return handleGetUsers(request, env); }
         if (path === "/api/users"                && method === "POST") { return handlePostUsers(request, env); }
 
-        // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client
+        // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client, /api/sessions/:id/whatsapp
         var segs = path.replace(/^\//, "").split("/");
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "task-completions" && method === "PATCH") {
             return handlePatchSessionTaskCompletions(segs[2], request, env);
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "assign-client" && method === "POST") {
             return handlePostSessionAssignClient(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "whatsapp" && method === "POST") {
+            return handlePostSessionWhatsapp(segs[2], request, env);
         }
 
         // /api/users/:email  DELETE

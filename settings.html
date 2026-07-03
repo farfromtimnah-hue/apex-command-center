@@ -3,22 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apex — Configurações</title>
+  <title>Apex &#8212; Configura&#231;&#245;es</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --surface: #f9f7f4;
-      --header:  #1a1a1d;
-      --gold:    #C9A43A;
-      --gold-dim: rgba(201,164,58,0.14);
-      --text:    #1a1a1d;
-      --muted:   #6b6660;
-      --border:  #e8e2d9;
-      --card:    #ffffff;
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
     }
 
     body {
@@ -30,7 +34,11 @@
       flex-direction: column;
     }
 
-    /* ── Header ─────────────────────────────────────────────────────────── */
+    /* ─── Bilingual toggle ──────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
     #appHeader {
       background: var(--header);
       height: 64px;
@@ -41,52 +49,334 @@
       flex-shrink: 0;
       gap: 16px;
     }
-    .logo-img { height: 32px; width: auto; display: block; }
-    .header-right { display: flex; align-items: center; gap: 14px; }
-    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
-    .role-badge {
-      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
-      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
-      padding: 2px 8px; border-radius: 10px;
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
     .btn-header {
-      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
-      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
-      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
       transition: border-color 0.15s, color 0.15s;
     }
     .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
     .lang-btn {
-      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
-      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
     }
     .lang-btn:hover { background: var(--gold-dim); }
 
-    /* ── Loading screen ──────────────────────────────────────────────────── */
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
     #loadingScreen {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
     }
     #loadingScreen[hidden] { display: none !important; }
+
     .spinner {
-      width: 32px; height: 32px; border: 3px solid var(--border);
-      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── App main ────────────────────────────────────────────────────────── */
+    /* ─── App main ───────────────────────────────────────────────────────── */
     #appMain {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 8px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
-    .coming-soon-text {
-      font-size: 15px; color: var(--muted); text-align: center;
+
+    /* ─── Settings hero section ──────────────────────────────────────────── */
+    .settings-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #settingsHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #settingsHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #settingsHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .settings-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 0 0 auto;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ─── Below hero section ─────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ─── Section heading ────────────────────────────────────────────────── */
+    .section-heading {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .section-subheading {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ─── Template card ──────────────────────────────────────────────────── */
+    .template-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .template-card + .template-card {
+      margin-top: 14px;
+    }
+
+    .template-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .template-textarea {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.12s;
+      outline: none;
+    }
+    .template-textarea:focus { border-color: var(--gold); }
+
+    .template-hint {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .template-hint code {
+      background: rgba(201,164,58,0.1);
+      border: 1px solid rgba(201,164,58,0.25);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: 'SF Mono', 'Fira Mono', monospace;
+      font-size: 11px;
+      color: var(--brown);
+    }
+
+    .template-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .template-meta strong {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ─── Template card footer ───────────────────────────────────────────── */
+    .template-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── Save button ────────────────────────────────────────────────────── */
+    .btn-save {
+      background: var(--gold);
+      border: none;
+      color: #000;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: opacity 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-save:hover:not(:disabled) { opacity: 0.88; }
+    .btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ─── Inline status message ──────────────────────────────────────────── */
+    .template-status {
+      font-size: 12px;
+      font-weight: 500;
+      min-height: 16px;
+    }
+    .template-status.ok  { color: #2e7d4f; }
+    .template-status.err { color: #b44040; }
+
+    /* ─── Empty / error states ───────────────────────────────────────────── */
+    .settings-empty {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .settings-empty-icon {
+      font-size: 32px;
+      opacity: 0.45;
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .settings-hero-section { padding: 16px; }
+      .below-hero-section { padding: 16px; }
+      .glass-tile-value { font-size: 22px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #settingsHeroBg.is-loaded { animation: none; }
     }
   </style>
 </head>
 <body class="lang-pt">
 
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
   <header id="appHeader">
     <div class="header-right">
       <div class="user-pill">
@@ -107,18 +397,70 @@
   <div id="pageWrapper">
     <div id="navSidebar"></div>
     <div id="contentArea">
-      <div id="loadingScreen">
-        <div class="spinner"></div>
-        <span class="show-pt">Carregando...</span>
-        <span class="show-en">Loading...</span>
-      </div>
-      <main id="appMain" hidden>
-        <p class="coming-soon-text show-pt">Em breve</p>
-        <p class="coming-soon-text show-en">Coming soon</p>
-      </main>
-    </div>
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
   </div>
 
+  <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- Hero section with background photo and glass tile -->
+    <div class="settings-hero-section">
+      <div id="settingsHeroBg" aria-hidden="true"></div>
+      <div id="settingsHeroScrim" aria-hidden="true"></div>
+      <div class="settings-hero-content">
+
+        <!-- Glass stat tile — templates count only -->
+        <div class="glass-tile-row">
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">MODELOS</span>
+              <span class="show-en">TEMPLATES</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileTemplates">--</div>
+          </div>
+        </div>
+
+        <!-- Page heading -->
+        <h1 class="page-heading-hero">
+          <span class="show-pt">Configura&#231;&#245;es</span>
+          <span class="show-en">Settings</span>
+        </h1>
+
+      </div><!-- /settings-hero-content -->
+    </div><!-- /settings-hero-section -->
+
+    <!-- Below hero: settings content -->
+    <div class="below-hero-section">
+
+      <!-- WhatsApp Message Templates section -->
+      <div id="templatesSection">
+        <div class="section-heading">
+          <span class="show-pt">Modelos de Mensagem WhatsApp</span>
+          <span class="show-en">WhatsApp Message Templates</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Edite os textos enviados automaticamente por WhatsApp ap&#243;s cada sess&#227;o.</span>
+          <span class="show-en">Edit the texts sent automatically via WhatsApp after each session.</span>
+        </div>
+        <div id="templatesContainer">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </div><!-- /below-hero-section -->
+
+  </main><!-- /appMain -->
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -127,9 +469,11 @@
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
     integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
     crossorigin="anonymous"></script>
-  <script src="nav.js"></script>
 
   <script>
+    // ── Configuration ──────────────────────────────────────────────────────
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
     var FIREBASE_CONFIG = {
       apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
       authDomain:        "apex-command-center-4b038.firebaseapp.com",
@@ -139,53 +483,314 @@
       appId:             "1:894743550437:web:45041f841f7e8196db770c"
     };
 
-    var auth = null;
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth        = null;
     var currentUser = null;
 
-    function toggleLang() {
-      var b = document.body;
-      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
-      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
+    // ── Hero background ────────────────────────────────────────────────────
+    function initHeroBg(imgElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          var next = i + 1;
+          if (next === imgs.length) { return; }
+          if (next % imgs.length === idx) { return; }
+          tryLoadImage(next);
+        };
+        img.src = url;
+      }
     }
 
+    // ── Auth helpers ───────────────────────────────────────────────────────
     function handleSignOut() {
-      auth.signOut().then(function () {
+      auth.signOut().then(function() {
         sessionStorage.removeItem("apex_role");
         sessionStorage.removeItem("apex_email");
         window.location.href = "index.html";
       });
     }
 
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    // ── Setup ──────────────────────────────────────────────────────────────
     function setupPage(role) {
-      document.getElementById("headerEmail").textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
-      document.getElementById("headerRole").textContent  = role;
-      document.getElementById("loadingScreen").hidden    = true;
-      document.getElementById("appMain").hidden          = false;
+      var emailEl = document.getElementById("headerEmail");
+      var roleEl  = document.getElementById("headerRole");
+      if (emailEl) { emailEl.textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : ""); }
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
       window.initNav && window.initNav();
+      initHeroBg('settingsHeroBg');
+      loadTemplates();
     }
 
     function init() {
       firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth();
-      auth.onAuthStateChanged(function (user) {
+
+      auth.onAuthStateChanged(function(user) {
         if (!user) { window.location.href = "index.html"; return; }
         currentUser = user;
         var cached = sessionStorage.getItem("apex_role");
         if (cached) {
           setupPage(cached);
         } else {
-          user.getIdToken().then(function (token) {
-            return fetch("https://apex-api.farfromtimnah.workers.dev/api/role", { headers: { "Authorization": "Bearer " + token } });
-          }).then(function (res) { return res.json(); }).then(function (data) {
-            sessionStorage.setItem("apex_role",  data.role);
-            sessionStorage.setItem("apex_email", data.email);
-            setupPage(data.role);
-          }).catch(function () { window.location.href = "index.html"; });
+          user.getIdToken().then(function(token) {
+            return fetch(WORKER_URL + "/api/role", { headers: { "Authorization": "Bearer " + token } });
+          }).then(function(res) { return res.json(); })
+            .then(function(data) {
+              sessionStorage.setItem("apex_role",  data.role);
+              sessionStorage.setItem("apex_email", data.email);
+              setupPage(data.role);
+            })
+            .catch(function() { window.location.href = "index.html"; });
         }
       });
     }
 
-    init();
+    // ── Load templates ─────────────────────────────────────────────────────
+    function loadTemplates() {
+      var container = document.getElementById("templatesContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var templates = data.templates || [];
+        renderTemplates(templates);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar modelos: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading templates: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Render templates ───────────────────────────────────────────────────
+    function renderTemplates(templates) {
+      var container = document.getElementById("templatesContainer");
+      if (!container) { return; }
+
+      var tilEl = document.getElementById("heroTileTemplates");
+      if (tilEl) { tilEl.textContent = templates.length; }
+
+      if (templates.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128203;</div>' +
+          '<span class="show-pt">Nenhum modelo encontrado.</span>' +
+          '<span class="show-en">No templates found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+
+      for (var i = 0; i < templates.length; i++) {
+        container.appendChild(makeTemplateCard(templates[i]));
+      }
+    }
+
+    // ── Make a single template card ────────────────────────────────────────
+    function makeTemplateCard(tpl) {
+      var key = tpl.template_key || "";
+
+      var card = document.createElement("div");
+      card.className = "template-card";
+
+      // Title — bilingual for known keys; raw key fallback for unknown
+      var titleEl = document.createElement("div");
+      titleEl.className = "template-card-title";
+      if (key === "session_in_person") {
+        titleEl.innerHTML =
+          '<span class="show-pt">Sess&#227;o Presencial</span>' +
+          '<span class="show-en">In-Person Session</span>';
+      } else if (key === "session_online") {
+        titleEl.innerHTML =
+          '<span class="show-pt">Sess&#227;o Online</span>' +
+          '<span class="show-en">Online Session</span>';
+      } else {
+        titleEl.textContent = key;
+      }
+      card.appendChild(titleEl);
+
+      // Textarea
+      var textarea = document.createElement("textarea");
+      textarea.className = "template-textarea";
+      textarea.value = tpl.template_text || "";
+      card.appendChild(textarea);
+
+      // Placeholder hint — tokens listed in HTML, no accented chars in JS strings
+      var hint = document.createElement("div");
+      hint.className = "template-hint";
+      hint.innerHTML =
+        '<span class="show-pt">' +
+          'Vari&#225;veis dispon&#237;veis: ' +
+          '<code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. ' +
+          'Estas s&#227;o preenchidas automaticamente ao enviar a mensagem. ' +
+          '<code>{meetLink}</code> aplica-se apenas a sess&#245;es online.' +
+        '</span>' +
+        '<span class="show-en">' +
+          'Available tokens: ' +
+          '<code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. ' +
+          'These are filled in automatically when the message is sent. ' +
+          '<code>{meetLink}</code> only applies to online sessions.' +
+        '</span>';
+      card.appendChild(hint);
+
+      // Meta line (updated_at / updated_by) — use a container so it can be refreshed
+      var metaEl = document.createElement("div");
+      metaEl.className = "template-meta";
+      renderMeta(metaEl, tpl);
+      card.appendChild(metaEl);
+
+      // Footer: status message + save button
+      var footer = document.createElement("div");
+      footer.className = "template-card-footer";
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "template-status";
+      footer.appendChild(statusEl);
+
+      var saveBtn = document.createElement("button");
+      saveBtn.className = "btn-save";
+      saveBtn.innerHTML =
+        '<span class="show-pt">Salvar</span>' +
+        '<span class="show-en">Save</span>';
+
+      // Capture variables for the click handler
+      (function(k, ta, btn, st, meta) {
+        btn.onclick = function() { saveTemplate(k, ta, btn, st, meta); };
+      })(key, textarea, saveBtn, statusEl, metaEl);
+
+      footer.appendChild(saveBtn);
+      card.appendChild(footer);
+
+      return card;
+    }
+
+    // ── Render meta line ───────────────────────────────────────────────────
+    function renderMeta(el, tpl) {
+      var updatedAt = tpl.updated_at || "--";
+      var updatedBy = tpl.updated_by || "--";
+      el.innerHTML =
+        '<span class="show-pt">' +
+          '<strong>Atualizado em:</strong> ' + escHtml(updatedAt) +
+          ' &nbsp;|&nbsp; <strong>Por:</strong> ' + escHtml(updatedBy) +
+        '</span>' +
+        '<span class="show-en">' +
+          '<strong>Updated:</strong> ' + escHtml(updatedAt) +
+          ' &nbsp;|&nbsp; <strong>By:</strong> ' + escHtml(updatedBy) +
+        '</span>';
+    }
+
+    // ── Save a template ────────────────────────────────────────────────────
+    function saveTemplate(key, textarea, btn, statusEl, metaEl) {
+      var text = textarea.value;
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!text || !text.trim()) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">O modelo n&#227;o pode estar vazio.</span>' +
+          '<span class="show-en">Template text cannot be empty.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates/" + encodeURIComponent(key), {
+          method: "PUT",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ template_text: text })
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+
+        statusEl.className = "template-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Salvo com sucesso.</span>' +
+          '<span class="show-en">Saved successfully.</span>';
+
+        // Refresh meta line from returned row
+        var row = data.template || data;
+        if (row && (row.updated_at || row.updated_by)) {
+          renderMeta(metaEl, row);
+        }
+
+        // Auto-clear success message after 3s
+        setTimeout(function() {
+          statusEl.className = "template-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao salvar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error saving: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+    window.onload = function() { init(); };
   </script>
+
 </body>
 </html>

@@ -1633,16 +1633,16 @@
         </div>
         <div style="margin-bottom:10px;">
           <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card);">
-            <button class="view-toggle-btn active" id="ssTypeMeet" onclick="setScheduleSessionType('meet')" style="flex:1;background:transparent;border:none;padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
+            <button class="view-toggle-btn active" id="ssTypeMeet" onclick="setScheduleSessionType('online_meet')" style="flex:1;background:transparent;border:none;padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
               <span class="show-pt">Google Meet</span>
               <span class="show-en">Google Meet</span>
             </button>
-            <button class="view-toggle-btn" id="ssTypeInPerson" onclick="setScheduleSessionType('inperson')" style="flex:1;background:transparent;border:none;border-left:1px solid var(--border);padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
+            <button class="view-toggle-btn" id="ssTypeInPerson" onclick="setScheduleSessionType('in_person')" style="flex:1;background:transparent;border:none;border-left:1px solid var(--border);padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
               <span class="show-pt">Presencial</span>
               <span class="show-en">In-Person</span>
             </button>
           </div>
-          <input type="hidden" id="ssTypeHidden" value="meet">
+          <input type="hidden" id="ssTypeHidden" value="online_meet">
           <div id="ssMeetInfo" style="max-height:60px;overflow:hidden;transition:max-height 0.25s ease;margin-top:8px;">
             <div style="font-size:12px;color:var(--muted);font-style:italic;padding:6px 10px;background:var(--surface);border-radius:6px;">
               <span class="show-pt">Link do Meet será gerado automaticamente.</span>
@@ -3580,7 +3580,7 @@
       if (timeEl) { timeEl.value = ""; }
       var notesEl = document.getElementById("ssNotes");
       if (notesEl) { notesEl.value = ""; }
-      setScheduleSessionType("meet");
+      setScheduleSessionType("online_meet");
       var statusEl = document.getElementById("ssStatus");
       if (statusEl) { statusEl.textContent = ""; statusEl.className = "pull-status"; }
       modal.hidden = false;
@@ -3617,9 +3617,9 @@
       var meetBtn      = document.getElementById("ssTypeMeet");
       var inPersonBtn  = document.getElementById("ssTypeInPerson");
       var meetInfo     = document.getElementById("ssMeetInfo");
-      if (meetBtn)     { meetBtn.className     = "view-toggle-btn" + (type === "meet" ? " active" : ""); }
-      if (inPersonBtn) { inPersonBtn.className = "view-toggle-btn" + (type === "inperson" ? " active" : ""); }
-      if (meetInfo)    { meetInfo.style.maxHeight = type === "meet" ? "60px" : "0"; }
+      if (meetBtn)     { meetBtn.className     = "view-toggle-btn" + (type === "online_meet" ? " active" : ""); }
+      if (inPersonBtn) { inPersonBtn.className = "view-toggle-btn" + (type === "in_person" ? " active" : ""); }
+      if (meetInfo)    { meetInfo.style.maxHeight = type === "online_meet" ? "60px" : "0"; }
       var inp = document.getElementById("ssTypeHidden");
       if (inp) { inp.value = type; }
     }
@@ -3628,7 +3628,7 @@
       var clientId  = (document.getElementById("ssClientSelect") || {}).value;
       var date      = (document.getElementById("ssDate")         || {}).value;
       var time      = (document.getElementById("ssTime")         || {}).value;
-      var type      = (document.getElementById("ssTypeHidden")   || {}).value || "meet";
+      var type      = (document.getElementById("ssTypeHidden")   || {}).value || "online_meet";
       var notes     = (document.getElementById("ssNotes")        || {}).value;
       var statusEl  = document.getElementById("ssStatus");
       var btn       = document.getElementById("btnScheduleSubmit");

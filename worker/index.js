@@ -1144,6 +1144,21 @@ async function handleGoogleOAuthStart(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
+        // Generate a cryptographically-random state value and store it server-side
+        // (bound to the initiating developer) so the callback can verify it.
+        // Expires in 10 minutes — enough for the consent screen, short enough to limit replay window.
+        var state     = crypto.randomUUID();
+        var expiresAt = Math.floor(Date.now() / 1000) + 600;
+
+        await env.DB.prepare(
+            "INSERT INTO oauth_state (state, initiated_by, expires_at) VALUES (?, ?, ?)"
+        ).bind(state, user.email, expiresAt).run();
+
+        // Purge any expired state rows to keep the table tidy
+        await env.DB.prepare(
+            "DELETE FROM oauth_state WHERE expires_at < ?"
+        ).bind(Math.floor(Date.now() / 1000)).run();
+
         var params = new URLSearchParams();
         params.set("client_id",     env.GOOGLE_CALENDAR_CLIENT_ID);
         params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google/oauth/callback");
@@ -1151,6 +1166,7 @@ async function handleGoogleOAuthStart(request, env) {
         params.set("scope",         "https://www.googleapis.com/auth/calendar");
         params.set("access_type",   "offline");
         params.set("prompt",        "consent");
+        params.set("state",         state);
 
         var authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + params.toString();
         return jsonOk({ auth_url: authUrl });
@@ -1166,9 +1182,24 @@ async function handleGoogleOAuthStart(request, env) {
 
 async function handleGoogleOAuthCallback(request, env) {
     try {
-        var url  = new URL(request.url);
-        var code = url.searchParams.get("code");
-        if (!code) { return jsonErr("Missing code parameter", 400); }
+        var url   = new URL(request.url);
+        var code  = url.searchParams.get("code");
+        var state = url.searchParams.get("state");
+        if (!code)  { return jsonErr("Missing code parameter", 400); }
+        if (!state) { return jsonErr("Missing state parameter", 400); }
+
+        // Verify state: must exist in D1, must not be expired, delete on first use (no replay)
+        var stateRow = await env.DB.prepare(
+            "SELECT initiated_by, expires_at FROM oauth_state WHERE state = ?"
+        ).bind(state).first();
+
+        if (!stateRow) { return jsonErr("Invalid or unknown state parameter", 400); }
+
+        await env.DB.prepare("DELETE FROM oauth_state WHERE state = ?").bind(state).run();
+
+        if (stateRow.expires_at < Math.floor(Date.now() / 1000)) {
+            return jsonErr("OAuth state expired -- please start the flow again", 400);
+        }
 
         var controller = new AbortController();
         var timer = setTimeout(function() { controller.abort(); }, 15000);

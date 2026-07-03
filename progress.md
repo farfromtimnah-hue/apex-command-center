@@ -1,8 +1,8 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-02 (session 24 — Status editable + tasks.html completion pass)
-**Current phase:** Session 24 complete — Status pill now editable on client.html; tasks.html gets global overdue section and per-tab client filter.
-**Last session summary:** Status pill on client.html is now editable (alice/developer only) — same ✎ pencil pattern as package, select saves via PATCH /api/clients/:id, pill updates immediately. tasks.html gets a global overdue section (above tabs, reddish-brown #8B3A2A, shows tasks from both tabs that are past-due and incomplete) and a client filter dropdown (below tabs, resets on tab switch).
+**Last updated:** 2026-07-02 (session 27 — pdf_data parse fix in sessions.html)
+**Current phase:** Session 27 complete — Generate PDF now works for sessions created through the normal transcript flow.
+**Last session summary:** Fixed `handleGeneratePdf` in sessions.html. The function was reading `session.pdf_data` as a top-level field, but `/api/sessions` does not return that column — so it was always undefined for sessions going through the transcript flow. The fix: fall back to extracting `pdf_data` from within `summary_json` (where `handleApprove` preserves it), then JSON.parse whichever source is found. Sessions with a top-level `session.pdf_data` still work. Error messages are now bilingual (PT/EN).
 
 ---
 

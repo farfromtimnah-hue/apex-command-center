@@ -940,9 +940,11 @@
 
     /* ─── Edit Sections / drag reorder ──────────────────────────────────── */
     .btn-edit-sections {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--border);
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      color: rgba(255,255,255,0.75);
+      border: 1px solid rgba(255,255,255,0.18);
       border-radius: 7px;
       padding: 6px 14px;
       font-family: 'Inter', sans-serif;
@@ -951,13 +953,13 @@
       cursor: pointer;
       transition: border-color 0.15s, color 0.15s;
     }
-    .btn-edit-sections:hover { border-color: var(--text); color: var(--text); }
+    .btn-edit-sections:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
 
     .edit-sections-bar {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 4px;
+      margin-top: 12px;
     }
 
     .drag-handle {
@@ -1210,22 +1212,21 @@
             </button>
           </div>
         </div>
+        <!-- Edit Sections bar — inside hero, left-aligned below the glass tile -->
+        <div class="edit-sections-bar">
+          <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
+            <span class="show-pt">&#9776; Editar Secoes</span>
+            <span class="show-en">&#9776; Edit Sections</span>
+          </button>
+          <button class="btn-edit-sections" id="btnDoneSections" onclick="exitEditSectionsMode()" style="display:none;border-color:rgba(201,164,58,0.7);color:#e8c96a;">
+            <span class="show-pt">Concluido</span>
+            <span class="show-en">Done</span>
+          </button>
+        </div>
       </div>
     </div>
 
     <div class="below-hero-section">
-
-    <!-- Edit Sections bar -->
-    <div class="edit-sections-bar">
-      <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
-        <span class="show-pt">&#9776; Editar Secoes</span>
-        <span class="show-en">&#9776; Edit Sections</span>
-      </button>
-      <button class="btn-edit-sections" id="btnDoneSections" onclick="exitEditSectionsMode()" style="display:none;border-color:var(--gold);color:var(--brown);">
-        <span class="show-pt">Concluido</span>
-        <span class="show-en">Done</span>
-      </button>
-    </div>
 
     <!-- Two-column layout -->
     <div class="two-col-layout">

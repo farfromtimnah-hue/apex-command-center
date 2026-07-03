@@ -1,5 +1,23 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-03 (session 46 — client.html Edit Sections bar moved into hero)
+
+## Completed (session 46 — 2026-07-03, client.html Edit Sections bar moved into hero)
+
+- [x] Moved `.edit-sections-bar` from below `.profile-hero-section` into `.profile-hero-content`, placed below `.profile-header-shell` inside the photo hero area
+- [x] Restyled `.btn-edit-sections` for dark background: rgba(26,22,18,0.45) fill + backdrop-filter blur(10px), white text (rgba(255,255,255,0.75)), rgba(255,255,255,0.18) border — matches `.view-toggle` pattern from dashboard.html
+- [x] Hover state updated to rgba(255,255,255,0.45) border + #fff text
+- [x] Done button inline style updated to gold-on-dark colors (border-color: rgba(201,164,58,0.7), color: #e8c96a) instead of light-background var(--gold)/var(--brown)
+- [x] `margin-bottom: 4px` on `.edit-sections-bar` replaced with `margin-top: 12px` for correct spacing inside the hero
+- [x] All IDs, onclick handlers (enterEditSectionsMode, exitEditSectionsMode), and bilingual show-pt/show-en spans unchanged
+
+### Deployment (session 46)
+- [x] git commit + push → GitHub Pages auto-deploy triggered
+
+**Files touched (session 46):** client.html, progress.md
+
+---
+
 **Last updated:** 2026-07-03 (session 45 — calendar.html cal-chip text wrapping fix)
 
 ## Completed (session 45 — 2026-07-03, calendar.html cal-chip text wrapping fix)

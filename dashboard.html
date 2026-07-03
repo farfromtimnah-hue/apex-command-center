@@ -973,9 +973,7 @@
         initHeroBg("heroBgImageRafa", "heroBgScrimRafa");
         renderRafaDashboard();
       } else {
-        var devDash = document.getElementById("devDash");
-        if (devDash) { devDash.hidden = false; }
-        loadDevOverview();
+        window.setView(sessionStorage.getItem("apex_dev_view") || "dev");
       }
     }
 

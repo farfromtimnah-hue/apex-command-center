@@ -1384,6 +1384,23 @@
         grid.appendChild(headEl);
       }
 
+      // "No time" row for untimed sessions
+      var untimedGutter = document.createElement("div");
+      untimedGutter.className = "cal-week-time-gutter";
+      untimedGutter.innerHTML = '<span class="show-pt" style="font-size:10px;opacity:0.7;">Sem horário</span><span class="show-en" style="font-size:10px;opacity:0.7;">No time</span>';
+      grid.appendChild(untimedGutter);
+
+      for (var dut = 0; dut < 7; dut++) {
+        var untimedSess = (map[weekDates[dut]] || []).filter(function(s) { return !s.time; });
+        var untimedSlot = document.createElement("div");
+        untimedSlot.className = "cal-week-slot";
+        untimedSlot.style.minHeight = untimedSess.length ? "auto" : "24px";
+        for (var us = 0; us < untimedSess.length; us++) {
+          untimedSlot.appendChild(makeWeekChip(untimedSess[us]));
+        }
+        grid.appendChild(untimedSlot);
+      }
+
       // Time slot rows
       for (var hi = 0; hi < HOURS.length; hi++) {
         var h = HOURS[hi];
@@ -1468,6 +1485,21 @@
       headLabel.className = "cal-day-head-label" + (isToday ? " today" : "");
       headLabel.textContent = days[curDate.getDay()] + ", " + padZ(curDate.getDate()) + " " + months[curDate.getMonth()];
       grid.appendChild(headLabel);
+
+      // "No time" row for untimed sessions
+      var dayUntimedGutter = document.createElement("div");
+      dayUntimedGutter.className = "cal-week-time-gutter";
+      dayUntimedGutter.innerHTML = '<span class="show-pt" style="font-size:10px;opacity:0.7;">Sem horário</span><span class="show-en" style="font-size:10px;opacity:0.7;">No time</span>';
+      grid.appendChild(dayUntimedGutter);
+
+      var dayUntimedSess = daySessions.filter(function(s) { return !s.time; });
+      var dayUntimedSlot = document.createElement("div");
+      dayUntimedSlot.className = "cal-day-slot";
+      dayUntimedSlot.style.minHeight = dayUntimedSess.length ? "auto" : "24px";
+      for (var dus = 0; dus < dayUntimedSess.length; dus++) {
+        dayUntimedSlot.appendChild(makeDayChip(dayUntimedSess[dus]));
+      }
+      grid.appendChild(dayUntimedSlot);
 
       for (var hi = 0; hi < HOURS.length; hi++) {
         var h = HOURS[hi];

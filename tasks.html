@@ -296,19 +296,7 @@
       border-color: rgba(201,164,58,0.5);
     }
 
-    /* Done state */
-    .task-row.done {
-      opacity: 0.52;
-      border-color: var(--border);
-    }
-    .task-row.done:hover {
-      opacity: 0.62;
-      border-color: var(--border);
-    }
-    .task-row.done .task-text {
-      text-decoration: line-through;
-      color: var(--muted);
-    }
+    /* .task-row.done intentionally removed — done tasks leave the tab entirely */
 
     /* ─── Checkbox toggle ────────────────────────────────────────────────── */
     .task-check {
@@ -1032,8 +1020,8 @@
       var today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      var overdueTasks  = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
-      var remainingTasks = tabTasks.filter(function(t) { return !(t.dueDate && t.dueDate < today && !completedMap[t.key]); });
+      var overdueTasks   = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var remainingTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
 
       overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
 
@@ -1082,8 +1070,8 @@
       var today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      var overdueTasks   = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
-      var nonOverdueTasks = tabTasks.filter(function(t) { return !(t.dueDate && t.dueDate < today && !completedMap[t.key]); });
+      var overdueTasks    = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var nonOverdueTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
 
       if (overdueTasks.length > 0) {
         overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
@@ -1175,27 +1163,13 @@
 
     // ── Completion toggle ──────────────────────────────────────────────────
 
-    function toggleComplete(taskKey, sessionId, btn) {
+    function toggleComplete(taskKey, sessionId) {
       var newVal = !completedMap[taskKey];
       completedMap[taskKey] = newVal;
       saveLocalCompletions();
 
-      // Update this row's visual state immediately
-      var row = btn.closest ? btn.closest(".task-row") : findParentRow(btn);
-      if (row) {
-        if (newVal) {
-          row.classList.add("done");
-          btn.classList.add("checked");
-        } else {
-          row.classList.remove("done");
-          btn.classList.remove("checked");
-        }
-      }
-
       updateTabCounts();
       updateDoneChip(getTabTasks());
-
-      // Re-render the current tab so overdue/upcoming sections stay accurate
       renderTaskView();
 
       // Persist to backend (fire-and-forget, no spinner)
@@ -1210,15 +1184,6 @@
       }).catch(function() {
         // Silent fail — localStorage already holds the state
       });
-    }
-
-    // Fallback for browsers without Element.closest
-    function findParentRow(el) {
-      while (el && el.parentNode) {
-        el = el.parentNode;
-        if (el.classList && el.classList.contains("task-row")) { return el; }
-      }
-      return null;
     }
 
     // ── DOM builders ───────────────────────────────────────────────────────
@@ -1236,9 +1201,9 @@
       check.title = "Marcar como concluída / Mark complete";
       check.setAttribute("aria-label", "Toggle complete");
       // Use a self-contained closure via data attributes to avoid closure issues in loops
-      (function(tKey, sId, btn) {
-        btn.onclick = function() { toggleComplete(tKey, sId, btn); };
-      })(task.key, task.sessionId, check);
+      (function(tKey, sId) {
+        check.onclick = function() { toggleComplete(tKey, sId); };
+      })(task.key, task.sessionId);
       row.appendChild(check);
 
       var body = document.createElement("div");

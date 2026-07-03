@@ -1292,12 +1292,23 @@
       var actionStatus = document.getElementById("actionStatus");
       var btn          = document.getElementById("btnGeneratePdf");
 
-      var pdfData;
+      var pdfData = null;
       try {
-        pdfData = session.pdf_data ? JSON.parse(session.pdf_data) : null;
+        // pdf_data may live as a top-level field on the session object (string)
+        // or inside summary_json (also stored as a JSON string).
+        var rawPdfData = session.pdf_data;
+        if (!rawPdfData && session.summary_json) {
+          var parsedSummary = typeof session.summary_json === "string"
+            ? JSON.parse(session.summary_json)
+            : session.summary_json;
+          rawPdfData = parsedSummary && parsedSummary.pdf_data ? parsedSummary.pdf_data : null;
+        }
+        if (rawPdfData) {
+          pdfData = typeof rawPdfData === "string" ? JSON.parse(rawPdfData) : rawPdfData;
+        }
       } catch(e) {
         if (actionStatus) {
-          actionStatus.textContent = "Erro: nao foi possivel ler pdf_data.";
+          actionStatus.textContent = "Erro: nao foi possivel ler pdf_data. / Error: could not read pdf_data.";
           actionStatus.className = "action-status is-error";
         }
         return;
@@ -1305,7 +1316,7 @@
 
       if (!pdfData) {
         if (actionStatus) {
-          actionStatus.textContent = "pdf_data ausente — execute Gerar Resumo para gerar o PDF.";
+          actionStatus.textContent = "pdf_data ausente — execute Gerar Resumo para gerar o PDF. / pdf_data missing — run Generate Summary first.";
           actionStatus.className = "action-status is-error";
         }
         return;

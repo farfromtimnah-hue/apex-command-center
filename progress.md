@@ -1,6 +1,6 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 32 — Fix session_type values in calendar.html)
+**Last updated:** 2026-07-03 (session 33 — Fix calendar card overflow + week/day session rendering)
 
 ## Completed (session 31 — 2026-07-03, Calendar frontend)
 
@@ -35,6 +35,31 @@
 **Files touched (session 31):** calendar.html (new), nav.js, client.html, progress.md
 
 **Live URL:** https://farfromtimnah-hue.github.io/apex-command-center/calendar.html
+
+---
+
+## Completed (session 33 — 2026-07-03, Fix calendar card overflow + week/day session rendering)
+
+### calendar.html (only file touched)
+
+**Bug 1 — Card overflow fixed:**
+- Added `max-width: 100%; box-sizing: border-box; min-width: 0` to `.cal-chip`
+- Added `overflow: hidden; min-width: 0` to `.cal-cell`
+- Month view chips now truncate with ellipsis; cell widths stay stable regardless of client name length
+
+**Bug 2 — Week/day views now show sessions:**
+- Root causes: (a) millisecond-based date arithmetic (`getTime() + n*86400000`) could drift across DST boundaries; (b) `calSessions` only holds the current month's data, so navigating week/day across a month boundary left slots empty
+- Added `getWeekDateStrings(d)` — builds 7 YYYY-MM-DD strings using pure `new Date(y, m, day+i)` local-date constructor, no millisecond math
+- `renderWeek()` now uses `weekDates[]` (string array) for all slot key lookups — pure string comparison against `s.date`
+- Fixed closure capture bug in week slot filter: captured `h` into `hourVal` inside the inner loop
+- `renderDay()` now derives its date key and today-check from string operations on `curDate` fields, not via `new Date()` comparison
+- `navPrev()` / `navNext()` now call `loadCalendar()` when week/day navigation crosses a month boundary, keeping `calSessions` in sync
+
+### Deployment (session 33)
+- [x] git commit: 38fd78f "Fix calendar card overflow and week/day session rendering"
+- [x] git push origin main → GitHub Actions triggered
+
+**Files touched (session 33):** calendar.html only
 
 ---
 

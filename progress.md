@@ -1,6 +1,28 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 40 — Add User nav link for developer role)
+**Last updated:** 2026-07-03 (session 41 — Fix broken picture1.jpg + add image load fallback)
+
+## Completed (session 41 — 2026-07-03, Fix broken picture1.jpg + image load fallback)
+
+### Root cause
+`assets/login/picture1.jpg` was a 2-byte stub — no image data. This caused the hero background to go grey on any page load where the random pick landed on picture1 (~1-in-5). Both `index.html` (login) and `dashboard.html` had no error recovery, so a failed image load left the background permanently grey.
+
+### Fix 1 — Replace corrupted file
+Copied `assets/login/picture2.jpg` over `picture1.jpg`. File is now 1,743,609 bytes (valid JPEG).
+
+### Fix 2 — `dashboard.html` onerror fallback
+Rewrote `initHeroBg()` to use a `tryLoadImage(i)` recursive helper. On `onerror`, it advances to the next image in the array (skipping back to `idx` if it would loop around, treating that as "all failed"). If all 5 images fail, it gives up gracefully and leaves the background as-is (no grey flash from a partially-set state).
+
+### Fix 3 — `index.html` onerror fallback
+Applied the same `tryLoadImage` pattern to the inline IIFE that sets `#bg-image` and `#bg-scrim` on the login page. Same behavior: random start, sequential fallback, graceful abort.
+
+### Deployment (session 41)
+- [x] git commit: a5424a0 "fix: replace corrupted picture1.jpg and add image load fallback"
+- [x] git push origin main → GitHub Pages auto-deploy triggered
+
+**Files touched (session 41):** assets/login/picture1.jpg, dashboard.html, index.html
+
+---
 
 ## Completed (session 40 — 2026-07-03, Developer-only Add User nav link)
 

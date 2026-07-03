@@ -1,6 +1,6 @@
 # Apex Command Center — Build Progress
 
-**Last updated:** 2026-07-03 (session 31 — calendar.html frontend + nav + client header)
+**Last updated:** 2026-07-03 (session 32 — Fix session_type values in calendar.html)
 
 ## Completed (session 31 — 2026-07-03, Calendar frontend)
 
@@ -36,7 +36,21 @@
 
 **Live URL:** https://farfromtimnah-hue.github.io/apex-command-center/calendar.html
 
-**Note on session_type values:** The worker uses 'online_meet' and 'in_person', but the calendar.html sends 'meet' and 'inperson'. Update either the worker or the calendar form if this causes a mismatch — align to whichever value the worker already stores in D1.
+---
+
+## Completed (session 32 — 2026-07-03, Fix session_type alignment)
+
+### calendar.html
+- [x] Fixed session_type values sent in POST /api/sessions/schedule: 'meet' → 'online_meet', 'inperson' → 'in_person'
+- [x] Fixed hidden input default value: 'meet' → 'online_meet'
+- [x] Fixed setNewSessionType() comparisons to use 'online_meet' and 'in_person'
+- [x] Fixed session detail display comparisons: session.session_type === "inperson" → "in_person" (5 occurrences)
+
+### Deployment (session 32)
+- [x] git commit: 085ad07 "Fix session_type values to match Worker validation"
+- [x] git push origin main → GitHub Actions triggered
+
+**Files touched (session 32):** calendar.html only
 
 ---
 

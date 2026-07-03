@@ -482,6 +482,8 @@
       if (!btn) { return; }
       btn.disabled = true;
 
+      var popup = window.open('about:blank', '_blank');
+
       getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/google/oauth/start", {
           headers: { "Authorization": "Bearer " + token }
@@ -492,12 +494,14 @@
       }).then(function(data) {
         btn.disabled = false;
         if (data.auth_url) {
-          window.open(data.auth_url, "_blank");
+          popup.location.href = data.auth_url;
         } else {
+          popup.close();
           alert("Error: no auth_url returned");
         }
       }).catch(function(e) {
         btn.disabled = false;
+        if (popup) { popup.close(); }
         alert("Error starting OAuth: " + e.message);
       });
     }

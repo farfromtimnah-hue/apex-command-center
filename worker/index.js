@@ -1483,6 +1483,7 @@ async function handleGetConsultantTasks(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var url   = new URL(request.url);
         var scope = url.searchParams.get("scope");
@@ -1537,6 +1538,7 @@ async function handleGetConsultantTasksOverdue(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var today = new Date().toISOString().split("T")[0];
 

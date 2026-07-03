@@ -3634,27 +3634,61 @@
       var btn       = document.getElementById("btnScheduleSubmit");
 
       if (!clientId || !date || !time) {
-        if (statusEl) { statusEl.textContent = "Cliente, data e hora são obrigatórios. / Client, date and time are required."; statusEl.className = "pull-status is-error"; }
+        if (statusEl) { statusEl.textContent = "Cliente, data e hora sao obrigatorios. / Client, date and time are required."; statusEl.className = "pull-status is-error"; }
         return;
       }
       if (btn) { btn.disabled = true; }
-      if (statusEl) { statusEl.textContent = "Agendando... / Scheduling..."; statusEl.className = "pull-status"; }
 
-      apiFetch("/api/sessions/schedule", {
-        method: "POST",
-        body: { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null }
-      })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          if (statusEl) { statusEl.textContent = "Agendado! / Scheduled!"; statusEl.className = "pull-status is-ok"; }
-          if (btn) { btn.disabled = false; }
-          setTimeout(function() { closeModalById("modalScheduleSession"); }, 1200);
+      function finishSchedule(meetLink) {
+        if (statusEl) { statusEl.textContent = "Agendando... / Scheduling..."; statusEl.className = "pull-status"; }
+        var body = { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null };
+        if (meetLink) { body.google_meet_link = meetLink; }
+        apiFetch("/api/sessions/schedule", { method: "POST", body: body })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data.error) { throw new Error(data.error); }
+            if (statusEl) { statusEl.textContent = "Agendado! / Scheduled!"; statusEl.className = "pull-status is-ok"; }
+            if (btn) { btn.disabled = false; }
+            loadSessions();
+            setTimeout(function() { closeModalById("modalScheduleSession"); }, 1200);
+          })
+          .catch(function(e) {
+            if (statusEl) { statusEl.textContent = "Erro: " + e.message; statusEl.className = "pull-status is-error"; }
+            if (btn) { btn.disabled = false; }
+          });
+      }
+
+      if (type === "online_meet") {
+        if (statusEl) { statusEl.textContent = "Criando evento no Google... / Creating Google event..."; statusEl.className = "pull-status"; }
+
+        var sel = document.getElementById("ssClientSelect");
+        var clientName = (sel && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : "Consultoria";
+
+        var timeParts = time.split(":");
+        var endHour = parseInt(timeParts[0], 10) + 1;
+        if (endHour > 23) { endHour = 23; }
+        var endTime = (endHour < 10 ? "0" : "") + endHour + ":" + timeParts[1];
+
+        apiFetch("/api/google/calendar/event", {
+          method: "POST",
+          body: {
+            summary: clientName + " - Consultoria Apex",
+            start_datetime: date + "T" + time + ":00",
+            end_datetime: date + "T" + endTime + ":00",
+            add_meet_link: true
+          }
         })
-        .catch(function(e) {
-          if (statusEl) { statusEl.textContent = "Erro: " + e.message; statusEl.className = "pull-status is-error"; }
-          if (btn) { btn.disabled = false; }
-        });
+          .then(function(res) { return res.json(); })
+          .then(function(calData) {
+            var meetLink = (calData && calData.google_meet_link) ? calData.google_meet_link : null;
+            finishSchedule(meetLink);
+          })
+          .catch(function() {
+            finishSchedule(null);
+          });
+      } else {
+        finishSchedule(null);
+      }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

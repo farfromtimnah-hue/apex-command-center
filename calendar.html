@@ -1590,7 +1590,7 @@
       if (session.meet_link) {
         meetRow.hidden = false;
         var link = document.getElementById("detailMeetLink");
-        link.href = session.meet_link;
+        link.href = safeUrl(session.meet_link);
         link.textContent = session.meet_link;
       } else {
         meetRow.hidden = true;
@@ -1646,6 +1646,14 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
+    }
+
+    function safeUrl(u) {
+      try {
+        var p = new URL(u);
+        if (p.protocol === "https:" || p.protocol === "http:") { return p.href; }
+      } catch(e) {}
+      return "#";
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────

@@ -1334,8 +1334,27 @@
           clients = data.clients || [];
           renderClientDropdown();
           renderTranscriptClientFilter();
+          populateInboxClientSelects();
         })
         .catch(function(e) { console.error("Load clients error:", e.message); });
+    }
+
+    function populateInboxClientSelects() {
+      var sorted = clients.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+      var selects = document.querySelectorAll(".inbox-client-select");
+      for (var i = 0; i < selects.length; i++) {
+        var sel = selects[i];
+        var currentVal = sel.value;
+        // Remove any options beyond the placeholder
+        while (sel.options.length > 1) { sel.remove(1); }
+        for (var j = 0; j < sorted.length; j++) {
+          var opt = document.createElement("option");
+          opt.value = sorted[j].id;
+          opt.textContent = sorted[j].name;
+          sel.appendChild(opt);
+        }
+        if (currentVal) { sel.value = currentVal; }
+      }
     }
 
     function renderClientDropdown() {

@@ -267,16 +267,25 @@
   <script>
   (function () {
     var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
-    var url = 'assets/login/' + imgs[Math.floor(Math.random() * imgs.length)];
+    var idx = Math.floor(Math.random() * imgs.length);
     var bgEl = document.getElementById('bg-image');
     var scrimEl = document.getElementById('bg-scrim');
-    var img = new Image();
-    img.onload = function () {
-      bgEl.style.backgroundImage = 'url(' + url + ')';
-      bgEl.classList.add('is-loaded');
-      scrimEl.style.opacity = '1';
-    };
-    img.src = url;
+    tryLoadImage(idx);
+
+    function tryLoadImage(i) {
+      if (i >= imgs.length) { return; }
+      var url = 'assets/login/' + imgs[i];
+      var img = new Image();
+      img.onload = function () {
+        bgEl.style.backgroundImage = 'url(' + url + ')';
+        bgEl.classList.add('is-loaded');
+        scrimEl.style.opacity = '1';
+      };
+      img.onerror = function () {
+        tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+      };
+      img.src = url;
+    }
   }());
   </script>
 

@@ -913,19 +913,28 @@
 
     function initHeroBg(imgElId, scrimElId) {
       var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
-      var url = 'assets/login/' + imgs[Math.floor(Math.random() * imgs.length)];
+      var idx = Math.floor(Math.random() * imgs.length);
       var bgEl    = document.getElementById(imgElId);
       var scrimEl = document.getElementById(scrimElId);
       if (!bgEl) { return; }
-      var img = new Image();
-      img.onload = function() {
-        bgEl.style.backgroundImage = 'url(' + url + ')';
-        bgEl.style.backgroundSize  = 'cover';
-        bgEl.style.backgroundPosition = 'center';
-        bgEl.style.backgroundRepeat   = 'no-repeat';
-        bgEl.classList.add('is-loaded');
-      };
-      img.src = url;
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage = 'url(' + url + ')';
+          bgEl.style.backgroundSize  = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
     }
 
     // ── Auth & bootstrap ───────────────────────────────────────────────────

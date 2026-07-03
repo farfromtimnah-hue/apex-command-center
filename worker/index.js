@@ -107,6 +107,135 @@ async function handleGetRole(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/sessions/inbox
+// Returns all sessions with status = 'inbox', newest first. Alice/developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetSessionsInbox(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, client_name, client_id, date, status, raw_transcript, created_at " +
+            "FROM sessions WHERE status = 'inbox' ORDER BY created_at DESC"
+        ).all();
+
+        return jsonOk({ sessions: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching inbox: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/sessions/:id/assign-client
+// Body: { client_id: string }
+// Assigns a client to an inbox session before summarizing.
+// ---------------------------------------------------------------------------
+
+async function handlePostSessionAssignClient(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.client_id) { return jsonErr("client_id is required", 400); }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
+            .bind(body.client_id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE sessions SET client_id = ?, client_name = ?, status = 'pending' WHERE id = ? AND status = 'inbox'"
+        ).bind(body.client_id, client.name, sessionId).run();
+
+        return jsonOk({ ok: true, client_id: body.client_id, client_name: client.name });
+    } catch (e) {
+        return jsonErr("Error assigning client: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/fireflies/webhook
+// No Firebase auth — called directly by Fireflies.
+// Verifies HMAC if FIREFLIES_WEBHOOK_SECRET is set; accepts all if empty.
+// ---------------------------------------------------------------------------
+
+async function handleFirefliesWebhook(request, env) {
+    try {
+        var rawBody = await request.text();
+
+        // HMAC verification — skip if secret not configured yet
+        var secret = (env.FIREFLIES_WEBHOOK_SECRET || "").trim();
+        if (secret) {
+            var sigHeader = request.headers.get("X-Hub-Signature-256") ||
+                            request.headers.get("X-Fireflies-Signature") || "";
+            var key = await crypto.subtle.importKey(
+                "raw",
+                new TextEncoder().encode(secret),
+                { name: "HMAC", hash: "SHA-256" },
+                false,
+                ["sign"]
+            );
+            var sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+            var sigHex = "sha256=" + Array.from(new Uint8Array(sig))
+                .map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+            if (sigHex !== sigHeader) {
+                console.log("Fireflies webhook signature mismatch");
+                return jsonErr("Signature mismatch", 401);
+            }
+        } else {
+            console.log("FIREFLIES_WEBHOOK_SECRET not set — accepting webhook without verification");
+        }
+
+        var payload;
+        try { payload = JSON.parse(rawBody); } catch(e) { return jsonErr("Invalid JSON", 400); }
+
+        // Extract fields from Fireflies payload format
+        var meetingId    = payload.meetingId || payload.id || null;
+        var title        = payload.title     || payload.meeting_title || "Fireflies Meeting";
+        var meetingDate  = payload.date      || payload.start_time    || null;
+        var transcript   = payload.transcript || payload.summary || null;
+
+        if (!meetingId) { return jsonOk({ ok: true, note: "No meetingId — skipped" }); }
+        if (!transcript) { return jsonOk({ ok: true, note: "No transcript content — skipped" }); }
+
+        // Normalize date to YYYY-MM-DD
+        var dateStr = new Date().toISOString().split("T")[0];
+        if (meetingDate) {
+            try {
+                var d = new Date(typeof meetingDate === "number" ? meetingDate * 1000 : meetingDate);
+                if (!isNaN(d.getTime())) { dateStr = d.toISOString().split("T")[0]; }
+            } catch(e) { /* use today */ }
+        }
+
+        // Prevent duplicates by checking fireflies_id stored in task_completions field
+        // We store {"fireflies_id": "<meetingId>"} so we can check without a schema change
+        var existing = await env.DB.prepare(
+            "SELECT id FROM sessions WHERE task_completions LIKE ? LIMIT 1"
+        ).bind('%"fireflies_id":"' + meetingId + '"%').first();
+
+        if (existing) {
+            return jsonOk({ ok: true, note: "Duplicate meetingId — skipped", session_id: existing.id });
+        }
+
+        var sessionId = crypto.randomUUID();
+        var fireflyMeta = JSON.stringify({ fireflies_id: meetingId });
+
+        await env.DB.prepare(
+            "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at) " +
+            "VALUES (?, ?, ?, 'inbox', ?, ?, datetime('now'))"
+        ).bind(sessionId, title, dateStr, transcript, fireflyMeta).run();
+
+        return jsonOk({ ok: true, session_id: sessionId });
+    } catch (e) {
+        return jsonErr("Webhook error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/sessions
 // ---------------------------------------------------------------------------
 
@@ -973,20 +1102,25 @@ export default {
             return new Response(null, { status: 204, headers: CORS_HEADERS });
         }
 
-        if (path === "/api/role"       && method === "GET")  { return handleGetRole(request, env); }
-        if (path === "/api/sessions"   && method === "GET")  { return handleGetSessions(request, env); }
-        if (path === "/api/clients"    && method === "GET")  { return handleGetClients(request, env); }
-        if (path === "/api/clients"    && method === "POST") { return handlePostClients(request, env); }
-        if (path === "/api/transcript" && method === "POST") { return handlePostTranscript(request, env); }
-        if (path === "/api/summarize"  && method === "POST") { return handlePostSummarize(request, env); }
-        if (path === "/api/approve"    && method === "POST") { return handlePostApprove(request, env); }
-        if (path === "/api/users"      && method === "GET")  { return handleGetUsers(request, env); }
-        if (path === "/api/users"      && method === "POST") { return handlePostUsers(request, env); }
+        if (path === "/api/role"                 && method === "GET")  { return handleGetRole(request, env); }
+        if (path === "/api/sessions"             && method === "GET")  { return handleGetSessions(request, env); }
+        if (path === "/api/sessions/inbox"       && method === "GET")  { return handleGetSessionsInbox(request, env); }
+        if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
+        if (path === "/api/clients"              && method === "GET")  { return handleGetClients(request, env); }
+        if (path === "/api/clients"              && method === "POST") { return handlePostClients(request, env); }
+        if (path === "/api/transcript"           && method === "POST") { return handlePostTranscript(request, env); }
+        if (path === "/api/summarize"            && method === "POST") { return handlePostSummarize(request, env); }
+        if (path === "/api/approve"              && method === "POST") { return handlePostApprove(request, env); }
+        if (path === "/api/users"                && method === "GET")  { return handleGetUsers(request, env); }
+        if (path === "/api/users"                && method === "POST") { return handlePostUsers(request, env); }
 
-        // Parameterized routes: /api/sessions/:id/task-completions
+        // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client
         var segs = path.replace(/^\//, "").split("/");
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "task-completions" && method === "PATCH") {
             return handlePatchSessionTaskCompletions(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "assign-client" && method === "POST") {
+            return handlePostSessionAssignClient(segs[2], request, env);
         }
 
         // /api/users/:email  DELETE

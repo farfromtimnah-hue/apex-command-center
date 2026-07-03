@@ -45,14 +45,17 @@
     body.lang-pt .status-badge[data-status="pending"]::before    { content: "Pendente"; }
     body.lang-pt .status-badge[data-status="summarized"]::before { content: "Resumido"; }
     body.lang-pt .status-badge[data-status="approved"]::before   { content: "Aprovado"; }
+    body.lang-pt .status-badge[data-status="inbox"]::before      { content: "Caixa de Entrada"; }
 
     body.lang-en .status-badge[data-status="pending"]::before    { content: "Pending"; }
     body.lang-en .status-badge[data-status="summarized"]::before { content: "Summarized"; }
     body.lang-en .status-badge[data-status="approved"]::before   { content: "Approved"; }
+    body.lang-en .status-badge[data-status="inbox"]::before      { content: "Inbox"; }
 
     .status-badge[data-status="pending"]    { background: #fdf3dc; color: #8a6200; }
     .status-badge[data-status="summarized"] { background: #dce8fd; color: #1a4a8a; }
     .status-badge[data-status="approved"]   { background: #ddfaec; color: #1a6640; }
+    .status-badge[data-status="inbox"]      { background: #f3e8ff; color: #6b21a8; }
 
     .status-badge {
       display: inline-block;
@@ -90,8 +93,6 @@
       flex-shrink: 0;
       gap: 16px;
     }
-
-    .logo-img { height: 32px; width: auto; display: block; }
 
     .header-right {
       display: flex;
@@ -178,6 +179,84 @@
       overflow: hidden;
     }
 
+    /* ─── Tab pill bar ───────────────────────────────────────────────────── */
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 24px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      flex-shrink: 0;
+    }
+
+    .tab-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      position: relative;
+      top: 1px;
+    }
+    .tab-pill:hover { border-color: var(--gold); color: var(--text); }
+    .tab-pill.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.28);
+      color: inherit;
+    }
+    .tab-pill:not(.active) .tab-badge {
+      background: rgba(201,164,58,0.18);
+      color: var(--brown);
+    }
+    .tab-badge[hidden] { display: none !important; }
+
+    /* ─── Tab panels ─────────────────────────────────────────────────────── */
+    .tab-panel {
+      flex: 1;
+      overflow-y: auto;
+      display: none;
+    }
+    .tab-panel.active { display: flex; flex-direction: column; }
+
+    /* ─── Alice outer wrap (tab bar + panels) ─────────────────────────────── */
+    #aliceView {
+      display: none;
+      flex: 1;
+      overflow: hidden;
+      flex-direction: column;
+    }
+
+    /* ─── Sessions tab: two-panel layout ─────────────────────────────────── */
+    .sessions-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
     /* ─── Sidebar ────────────────────────────────────────────────────────── */
     .sidebar {
       width: var(--sidebar);
@@ -207,7 +286,8 @@
     .field-group { margin-bottom: 10px; }
 
     .field-group input,
-    .field-group textarea {
+    .field-group textarea,
+    .field-group select {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -219,8 +299,10 @@
       transition: border-color 0.15s;
     }
     .field-group input:focus,
-    .field-group textarea:focus { outline: none; border-color: var(--gold); }
+    .field-group textarea:focus,
+    .field-group select:focus { outline: none; border-color: var(--gold); }
     .field-group textarea { resize: vertical; min-height: 130px; line-height: 1.5; font-size: 12px; }
+    .field-group select { appearance: none; -webkit-appearance: none; cursor: pointer; background: var(--card); }
 
     .btn-primary {
       width: 100%;
@@ -428,6 +510,299 @@
       overflow: hidden;
     }
 
+    /* ─── Inbox tab ──────────────────────────────────────────────────────── */
+    #tabInbox {
+      padding: 24px;
+      gap: 16px;
+    }
+
+    .inbox-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .inbox-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .inbox-card-header {
+      padding: 18px 22px 14px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .inbox-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .inbox-card-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .inbox-participants {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .inbox-card-body {
+      padding: 0 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .inbox-transcript-toggle {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      text-align: left;
+    }
+    .inbox-transcript-toggle:hover { text-decoration: underline; }
+
+    .inbox-transcript-preview {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .inbox-transcript-fade {
+      position: relative;
+    }
+    .inbox-transcript-fade::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 40px;
+      background: linear-gradient(to bottom, transparent, var(--surface));
+      border-radius: 0 0 8px 8px;
+      pointer-events: none;
+    }
+    .inbox-transcript-full {
+      overflow: hidden;
+      max-height: 120px;
+    }
+    .inbox-transcript-full.expanded {
+      max-height: none;
+    }
+    .inbox-transcript-full.expanded + .inbox-transcript-fade::after {
+      display: none;
+    }
+
+    .inbox-show-full {
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      text-decoration: underline;
+    }
+
+    .inbox-assign-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .inbox-assign-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .inbox-client-select {
+      flex: 1;
+      min-width: 160px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--text);
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+    .inbox-client-select:focus { outline: none; border-color: var(--gold); }
+
+    .btn-summarize {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 8px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn-summarize:hover    { opacity: 0.88; }
+    .btn-summarize:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .inbox-card-status {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 0 22px 14px;
+      min-height: 20px;
+    }
+    .inbox-card-status.is-error { color: #b44040; }
+    .inbox-card-status.is-ok    { color: #1a6640; }
+
+    /* ─── Transcripts tab ────────────────────────────────────────────────── */
+    #tabTranscripts {
+      padding: 24px;
+      gap: 16px;
+    }
+
+    .transcript-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-bottom: 4px;
+    }
+
+    .transcript-filter-bar select,
+    .transcript-filter-bar input[type="date"] {
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      background: var(--card);
+      color: var(--text);
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+    .transcript-filter-bar select:focus,
+    .transcript-filter-bar input[type="date"]:focus { outline: none; border-color: var(--gold); }
+
+    .transcript-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .transcript-card:hover { border-color: var(--gold); }
+
+    .transcript-card-header {
+      padding: 16px 20px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .transcript-card-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .transcript-card-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .transcript-card-preview {
+      padding: 0 20px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .transcript-card-full {
+      padding: 0 20px 16px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+
+    /* ─── New Session tab ────────────────────────────────────────────────── */
+    #tabNewSession {
+      padding: 24px 32px;
+      max-width: 600px;
+    }
+
+    .new-session-heading {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .ns-field-group { margin-bottom: 14px; }
+
+    .ns-field-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    .ns-field-group input,
+    .ns-field-group textarea,
+    .ns-field-group select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--card);
+      transition: border-color 0.15s;
+    }
+    .ns-field-group input:focus,
+    .ns-field-group textarea:focus,
+    .ns-field-group select:focus { outline: none; border-color: var(--gold); }
+    .ns-field-group textarea { resize: vertical; min-height: 200px; line-height: 1.5; font-size: 13px; }
+    .ns-field-group select { appearance: none; -webkit-appearance: none; cursor: pointer; }
+
     /* ─── Print styles ───────────────────────────────────────────────────── */
     @media print {
       @page { margin: 0; }
@@ -437,6 +812,7 @@
       .sidebar,
       .detail-actions,
       .detail-empty,
+      .tab-bar,
       #loadingScreen { display: none !important; }
 
       #appMain     { display: block; overflow: visible; }
@@ -473,7 +849,7 @@
     /* ─── Responsive ─────────────────────────────────────────────────────── */
     @media (max-width: 720px) {
       :root { --sidebar: 100%; }
-      #appMain { flex-direction: column; overflow: auto; }
+      .sessions-layout { flex-direction: column; overflow: auto; }
       .sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); max-height: 340px; }
       #detailPanel { overflow: visible; }
     }
@@ -514,114 +890,191 @@
   <main id="appMain" hidden>
 
     <!-- ── ALICE / DEVELOPER VIEW ─────────────────────────────────────── -->
-    <div id="aliceView" style="display:none; flex:1; overflow:hidden;">
+    <div id="aliceView">
 
-      <!-- Sidebar: paste transcript + session list -->
-      <aside class="sidebar">
+      <!-- Tab pill bar -->
+      <div class="tab-bar" id="aliceTabBar">
+        <button class="tab-pill active" id="tabBtnInbox" onclick="switchTab('inbox')">
+          <span class="show-pt">Caixa de Entrada</span>
+          <span class="show-en">Inbox</span>
+          <span class="tab-badge" id="inboxBadge" hidden>0</span>
+        </button>
+        <button class="tab-pill" id="tabBtnSessions" onclick="switchTab('sessions')">
+          <span class="show-pt">Sessões</span>
+          <span class="show-en">Sessions</span>
+        </button>
+        <button class="tab-pill" id="tabBtnNewSession" onclick="switchTab('newSession')">
+          <span class="show-pt">Nova Sessão</span>
+          <span class="show-en">New Session</span>
+        </button>
+        <button class="tab-pill" id="tabBtnTranscripts" onclick="switchTab('transcripts')">
+          <span class="show-pt">Transcrições</span>
+          <span class="show-en">Transcripts</span>
+        </button>
+      </div>
 
-        <div class="sidebar-section">
-          <div class="sidebar-label">
-            <span class="show-pt">Nova Sessão</span>
-            <span class="show-en">New Session</span>
+      <!-- ── TAB 1: INBOX ──────────────────────────────────────────── -->
+      <div class="tab-panel active" id="tabInbox">
+        <div class="inbox-empty" id="inboxEmpty" hidden>
+          <span class="show-pt">Nenhuma sessão na caixa de entrada.</span>
+          <span class="show-en">No sessions in inbox.</span>
+        </div>
+        <div id="inboxList">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- ── TAB 2: SESSIONS ───────────────────────────────────────── -->
+      <div class="tab-panel" id="tabSessions">
+        <div class="sessions-layout">
+
+          <!-- Sidebar: session list -->
+          <aside class="sidebar">
+            <div class="sidebar-section" style="border-bottom:none; padding-bottom:6px;">
+              <div class="sidebar-label">
+                <span class="show-pt">Sessões</span>
+                <span class="show-en">Sessions</span>
+              </div>
+            </div>
+            <div class="session-scroll" id="aliceSessionList">
+              <!-- Rendered by JS -->
+            </div>
+          </aside>
+
+          <!-- Detail panel -->
+          <section id="detailPanel">
+            <div class="detail-empty" id="detailEmpty">
+              <span class="arrow">&#8592;</span>
+              <span class="show-pt">Selecione uma sessao para ver os detalhes.</span>
+              <span class="show-en">Select a session to view details.</span>
+            </div>
+            <div id="detailContent" hidden>
+              <div class="detail-head">
+                <div>
+                  <h2 id="detailClient"></h2>
+                  <div class="detail-meta">
+                    <span id="detailDate"></span>
+                    <span class="status-badge" id="detailStatus"></span>
+                    <span class="approved-note" id="detailApproved" hidden></span>
+                  </div>
+                </div>
+              </div>
+              <div class="detail-actions" id="detailActions">
+                <!-- Populated by renderDetail() -->
+              </div>
+              <div id="summaryCards">
+                <!-- Summary cards rendered here -->
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- ── TAB 3: NEW SESSION ────────────────────────────────────── -->
+      <div class="tab-panel" id="tabNewSession">
+
+        <div class="new-session-heading">
+          <span class="show-pt">Nova Sessão</span>
+          <span class="show-en">New Session</span>
+        </div>
+
+        <!-- Client selector -->
+        <div class="ns-field-group">
+          <div class="ns-field-label">
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
           </div>
+          <select id="clientSelect" onchange="handleNewClientSelect(this.value)">
+            <option value="">
+              <span class="show-pt">— selecionar cliente —</span>
+              <span class="show-en">— select client —</span>
+            </option>
+          </select>
+        </div>
 
-          <!-- Client selector -->
+        <!-- Inline create-client form -->
+        <div id="newClientForm" hidden style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:700;color:var(--brown);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+            <span class="show-pt">Novo Cliente</span>
+            <span class="show-en">New Client</span>
+          </div>
+          <div class="field-group"><input type="text"  id="nc_name"     autocomplete="off" placeholder="Nome / Name *"></div>
+          <div class="field-group"><input type="text"  id="nc_industry" autocomplete="off" placeholder="Setor / Industry"></div>
+          <div class="field-group"><input type="text"  id="nc_location" autocomplete="off" placeholder="Localização / Location"></div>
           <div class="field-group">
-            <select id="clientSelect" onchange="handleNewClientSelect(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;">
-              <option value="">— selecionar cliente —</option>
+            <select id="nc_package" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
+              <option value="">— Pacote / Package —</option>
+              <option value="Essencial">Essencial</option>
+              <option value="Profissional">Profissional</option>
+              <option value="Sprint">Sprint</option>
+              <option value="Premium">Premium</option>
+              <option value="VIP">VIP</option>
             </select>
           </div>
-
-          <!-- Inline create-client form -->
-          <div id="newClientForm" hidden style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
-            <div style="font-size:11px;font-weight:700;color:var(--brown);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-              <span class="show-pt">Novo Cliente</span>
-              <span class="show-en">New Client</span>
-            </div>
-            <div class="field-group"><input type="text"  id="nc_name"     autocomplete="off" placeholder="Nome / Name *"></div>
-            <div class="field-group"><input type="text"  id="nc_industry" autocomplete="off" placeholder="Setor / Industry"></div>
-            <div class="field-group"><input type="text"  id="nc_location" autocomplete="off" placeholder="Localização / Location"></div>
-            <div class="field-group">
-              <select id="nc_package" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
-                <option value="">— Pacote / Package —</option>
-                <option value="Essencial">Essencial</option>
-                <option value="Profissional">Profissional</option>
-                <option value="Sprint">Sprint</option>
-                <option value="Premium">Premium</option>
-                <option value="VIP">VIP</option>
-              </select>
-            </div>
-            <div class="field-group">
-              <select id="nc_status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
-                <option value="active">Ativo / Active</option>
-                <option value="lead">Lead</option>
-                <option value="paused">Pausado / Paused</option>
-                <option value="closed">Encerrado / Closed</option>
-              </select>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:4px;">
-              <button class="btn-primary" style="flex:1;font-size:12px;padding:8px 0;" onclick="handleCreateClient()">
-                <span class="show-pt">Salvar Cliente</span>
-                <span class="show-en">Save Client</span>
-              </button>
-              <button class="btn-secondary" style="padding:8px 12px;font-size:12px;" onclick="handleCancelNewClient()">✕</button>
-            </div>
-            <div class="pull-status" id="newClientStatus"></div>
-          </div>
-
-          <!-- Date + transcript -->
           <div class="field-group">
-            <input type="date" id="sessionDate">
+            <select id="nc_status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
+              <option value="active">Ativo / Active</option>
+              <option value="lead">Lead</option>
+              <option value="paused">Pausado / Paused</option>
+              <option value="closed">Encerrado / Closed</option>
+            </select>
           </div>
-          <div class="field-group">
-            <textarea id="transcriptText" placeholder="Paste transcript here..."></textarea>
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <button class="btn-primary" style="flex:1;font-size:12px;padding:8px 0;" onclick="handleCreateClient()">
+              <span class="show-pt">Salvar Cliente</span>
+              <span class="show-en">Save Client</span>
+            </button>
+            <button class="btn-secondary" style="padding:8px 12px;font-size:12px;" onclick="handleCancelNewClient()">&#10005;</button>
           </div>
-          <button class="btn-primary" id="btnPull" onclick="handlePullTranscript()">
-            <span class="show-pt">Salvar Transcript</span>
-            <span class="show-en">Save Transcript</span>
-          </button>
-          <div class="pull-status" id="pullStatus"></div>
+          <div class="pull-status" id="newClientStatus"></div>
         </div>
 
-        <!-- Session list -->
-        <div class="sidebar-section" style="border-bottom:none; padding-bottom:6px;">
-          <div class="sidebar-label">
-            <span class="show-pt">Sessões</span>
-            <span class="show-en">Sessions</span>
+        <!-- Date -->
+        <div class="ns-field-group">
+          <div class="ns-field-label">
+            <span class="show-pt">Data da Sessão</span>
+            <span class="show-en">Session Date</span>
           </div>
+          <input type="date" id="sessionDate">
         </div>
-        <div class="session-scroll" id="aliceSessionList">
+
+        <!-- Transcript -->
+        <div class="ns-field-group">
+          <div class="ns-field-label">
+            <span class="show-pt">Transcript</span>
+            <span class="show-en">Transcript</span>
+          </div>
+          <textarea id="transcriptText" placeholder="Paste transcript here..."></textarea>
+        </div>
+
+        <button class="btn-primary" id="btnPull" onclick="handlePullTranscript()" style="max-width:260px;">
+          <span class="show-pt">Salvar Transcript</span>
+          <span class="show-en">Save Transcript</span>
+        </button>
+        <div class="pull-status" id="pullStatus"></div>
+
+      </div><!-- /tabNewSession -->
+
+      <!-- ── TAB 4: TRANSCRIPTS ────────────────────────────────────── -->
+      <div class="tab-panel" id="tabTranscripts">
+
+        <div class="transcript-filter-bar">
+          <select id="transcriptClientFilter" onchange="renderTranscriptList()">
+            <option value="">
+              <span class="show-pt">Todos os Clientes</span>
+              <span class="show-en">All Clients</span>
+            </option>
+          </select>
+          <input type="date" id="transcriptDateFrom" onchange="renderTranscriptList()">
+          <input type="date" id="transcriptDateTo"   onchange="renderTranscriptList()">
+        </div>
+
+        <div id="transcriptList">
           <!-- Rendered by JS -->
         </div>
 
-      </aside>
-
-      <!-- Detail panel -->
-      <section id="detailPanel">
-        <div class="detail-empty" id="detailEmpty">
-          <span class="arrow">&#8592;</span>
-          <span class="show-pt">Selecione uma sessao para ver os detalhes.</span>
-          <span class="show-en">Select a session to view details.</span>
-        </div>
-        <div id="detailContent" hidden>
-          <div class="detail-head">
-            <div>
-              <h2 id="detailClient"></h2>
-              <div class="detail-meta">
-                <span id="detailDate"></span>
-                <span class="status-badge" id="detailStatus"></span>
-                <span class="approved-note" id="detailApproved" hidden></span>
-              </div>
-            </div>
-          </div>
-          <div class="detail-actions" id="detailActions">
-            <!-- Populated by renderDetail() -->
-          </div>
-          <div id="summaryCards">
-            <!-- Summary cards rendered here -->
-          </div>
-        </div>
-      </section>
+      </div><!-- /tabTranscripts -->
 
     </div><!-- /aliceView -->
 
@@ -716,9 +1169,11 @@
     var currentRole     = null;
     var currentViewRole = null;
     var sessions        = [];
+    var inboxSessions   = [];
     var clients         = [];
     var activeSessionId = null;
     var rafaActiveId    = null;
+    var activeTab       = "inbox"; // default for alice
 
     // ── Utilities ──────────────────────────────────────────────────────────
 
@@ -784,6 +1239,9 @@
       setView(currentViewRole);
       loadSessions();
       loadClients();
+      if (currentViewRole === "alice" || currentViewRole === "dev") {
+        loadInbox();
+      }
     }
 
     function init() {
@@ -808,6 +1266,23 @@
             .catch(function() { window.location.href = "index.html"; });
         }
       });
+    }
+
+    // ── Tab switching ──────────────────────────────────────────────────────
+
+    function switchTab(tab) {
+      activeTab = tab;
+
+      var tabs = ["inbox", "sessions", "newSession", "transcripts"];
+      for (var i = 0; i < tabs.length; i++) {
+        var t = tabs[i];
+        var panel = document.getElementById("tab" + t.charAt(0).toUpperCase() + t.slice(1));
+        var btn   = document.getElementById("tabBtn" + t.charAt(0).toUpperCase() + t.slice(1));
+        if (panel) { panel.className = "tab-panel" + (t === tab ? " active" : ""); }
+        if (btn)   { btn.className   = "tab-pill"  + (t === tab ? " active" : ""); }
+      }
+
+      if (tab === "transcripts") { renderTranscriptList(); }
     }
 
     // ── View switching (developer role toggle) ─────────────────────────────
@@ -842,12 +1317,23 @@
         .catch(function(e) { console.error("Load sessions error:", e.message); });
     }
 
+    function loadInbox() {
+      apiFetch("/api/sessions/inbox")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          inboxSessions = data.sessions || [];
+          renderInbox();
+        })
+        .catch(function(e) { console.error("Load inbox error:", e.message); });
+    }
+
     function loadClients() {
       apiFetch("/api/clients")
         .then(function(res) { return res.json(); })
         .then(function(data) {
           clients = data.clients || [];
           renderClientDropdown();
+          renderTranscriptClientFilter();
         })
         .catch(function(e) { console.error("Load clients error:", e.message); });
     }
@@ -882,6 +1368,26 @@
         opt.value = c.id;
         opt.textContent = c.name;
         if (c.id === current) { opt.selected = true; }
+        sel.appendChild(opt);
+      }
+    }
+
+    function renderTranscriptClientFilter() {
+      var sel = document.getElementById("transcriptClientFilter");
+      if (!sel) { return; }
+      var isEn = document.body.classList.contains("lang-en");
+      var current = sel.value;
+      sel.innerHTML = "";
+      var ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = isEn ? "All Clients" : "Todos os Clientes";
+      sel.appendChild(ph);
+      var sorted = clients.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+      for (var i = 0; i < sorted.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = sorted[i].id;
+        opt.textContent = sorted[i].name;
+        if (sorted[i].id === current) { opt.selected = true; }
         sel.appendChild(opt);
       }
     }
@@ -949,10 +1455,317 @@
         });
     }
 
+    // ── Inbox rendering ────────────────────────────────────────────────────
+
+    function renderInbox() {
+      var badge   = document.getElementById("inboxBadge");
+      var emptyEl = document.getElementById("inboxEmpty");
+      var listEl  = document.getElementById("inboxList");
+      if (!listEl) { return; }
+
+      var count = inboxSessions.length;
+
+      if (count > 0) {
+        badge.textContent = count;
+        badge.hidden = false;
+      } else {
+        badge.hidden = true;
+      }
+
+      listEl.innerHTML = "";
+
+      if (count === 0) {
+        emptyEl.hidden = false;
+        return;
+      }
+      emptyEl.hidden = true;
+
+      for (var i = 0; i < inboxSessions.length; i++) {
+        listEl.appendChild(makeInboxCard(inboxSessions[i]));
+      }
+    }
+
+    function makeInboxCard(session) {
+      var card = document.createElement("div");
+      card.className = "inbox-card";
+      card.id = "inbox-card-" + session.id;
+
+      var isEn = document.body.classList.contains("lang-en");
+
+      // Header
+      var header = document.createElement("div");
+      header.className = "inbox-card-header";
+
+      var headerLeft = document.createElement("div");
+      headerLeft.style.flex = "1";
+
+      var title = document.createElement("div");
+      title.className = "inbox-card-title";
+      title.textContent = session.client_name || (isEn ? "Untitled Meeting" : "Reunião sem título");
+      headerLeft.appendChild(title);
+
+      var meta = document.createElement("div");
+      meta.className = "inbox-card-meta";
+
+      if (session.date) {
+        var dateSpan = document.createElement("span");
+        dateSpan.textContent = formatDate(session.date);
+        meta.appendChild(dateSpan);
+      }
+
+      var badge = document.createElement("span");
+      badge.className = "status-badge";
+      badge.setAttribute("data-status", "inbox");
+      meta.appendChild(badge);
+
+      headerLeft.appendChild(meta);
+      header.appendChild(headerLeft);
+      card.appendChild(header);
+
+      // Body
+      var body = document.createElement("div");
+      body.className = "inbox-card-body";
+
+      // Transcript preview
+      if (session.raw_transcript) {
+        var previewText = session.raw_transcript.slice(0, 500);
+        var fullText    = session.raw_transcript;
+
+        var toggleBtn = document.createElement("button");
+        toggleBtn.className = "inbox-transcript-toggle";
+        toggleBtn.innerHTML = '<span class="show-pt">&#9660; Ocultar transcript</span><span class="show-en">&#9660; Hide transcript</span>';
+        var previewShown = false;
+        toggleBtn.innerHTML = '<span class="show-pt">&#9654; Ver transcript</span><span class="show-en">&#9654; Preview transcript</span>';
+
+        var previewWrap = document.createElement("div");
+        previewWrap.style.display = "none";
+
+        var fadeWrap = document.createElement("div");
+        fadeWrap.className = "inbox-transcript-fade";
+
+        var previewDiv = document.createElement("div");
+        previewDiv.className = "inbox-transcript-preview inbox-transcript-full";
+        previewDiv.textContent = previewText + (fullText.length > 500 ? "..." : "");
+        fadeWrap.appendChild(previewDiv);
+        previewWrap.appendChild(fadeWrap);
+
+        if (fullText.length > 500) {
+          var showFullBtn = document.createElement("button");
+          showFullBtn.className = "inbox-show-full";
+          showFullBtn.innerHTML = '<span class="show-pt">Ver transcrição completa</span><span class="show-en">Show full transcript</span>';
+          var expanded = false;
+          showFullBtn.onclick = function() {
+            expanded = !expanded;
+            if (expanded) {
+              previewDiv.textContent = fullText;
+              previewDiv.classList.add("expanded");
+              showFullBtn.innerHTML = '<span class="show-pt">Mostrar menos</span><span class="show-en">Show less</span>';
+            } else {
+              previewDiv.textContent = previewText + "...";
+              previewDiv.classList.remove("expanded");
+              showFullBtn.innerHTML = '<span class="show-pt">Ver transcrição completa</span><span class="show-en">Show full transcript</span>';
+            }
+          };
+          previewWrap.appendChild(showFullBtn);
+        }
+
+        toggleBtn.onclick = function() {
+          previewShown = !previewShown;
+          previewWrap.style.display = previewShown ? "block" : "none";
+          if (previewShown) {
+            toggleBtn.innerHTML = '<span class="show-pt">&#9660; Ocultar transcript</span><span class="show-en">&#9660; Hide transcript</span>';
+          } else {
+            toggleBtn.innerHTML = '<span class="show-pt">&#9654; Ver transcript</span><span class="show-en">&#9654; Preview transcript</span>';
+          }
+        };
+
+        body.appendChild(toggleBtn);
+        body.appendChild(previewWrap);
+      }
+
+      // Client assignment row
+      var assignRow = document.createElement("div");
+      assignRow.className = "inbox-assign-row";
+
+      var assignLabel = document.createElement("span");
+      assignLabel.className = "inbox-assign-label";
+      assignLabel.innerHTML = '<span class="show-pt">Atribuir a:</span><span class="show-en">Assign to:</span>';
+      assignRow.appendChild(assignLabel);
+
+      var clientSel = document.createElement("select");
+      clientSel.className = "inbox-client-select";
+      clientSel.id = "inbox-client-" + session.id;
+
+      var ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = isEn ? "— select client —" : "— selecionar cliente —";
+      clientSel.appendChild(ph);
+
+      var sorted = clients.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+      for (var i = 0; i < sorted.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = sorted[i].id;
+        opt.textContent = sorted[i].name;
+        clientSel.appendChild(opt);
+      }
+      assignRow.appendChild(clientSel);
+
+      var summarizeBtn = document.createElement("button");
+      summarizeBtn.className = "btn-summarize";
+      summarizeBtn.disabled = true;
+      summarizeBtn.innerHTML = '<span class="show-pt">Resumir</span><span class="show-en">Summarize</span>';
+      summarizeBtn.id = "inbox-summarize-" + session.id;
+
+      clientSel.onchange = function() {
+        summarizeBtn.disabled = !clientSel.value;
+      };
+
+      (function(sess, sel, btn) {
+        btn.onclick = function() { handleInboxSummarize(sess, sel, btn); };
+      })(session, clientSel, summarizeBtn);
+
+      assignRow.appendChild(summarizeBtn);
+      body.appendChild(assignRow);
+      card.appendChild(body);
+
+      // Status line
+      var statusLine = document.createElement("div");
+      statusLine.className = "inbox-card-status";
+      statusLine.id = "inbox-status-" + session.id;
+      card.appendChild(statusLine);
+
+      return card;
+    }
+
+    function handleInboxSummarize(session, clientSel, btn) {
+      var clientId = clientSel.value;
+      if (!clientId) { return; }
+
+      var statusEl = document.getElementById("inbox-status-" + session.id);
+      var isEn = document.body.classList.contains("lang-en");
+
+      btn.disabled = true;
+      btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.75s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
+        (isEn ? "Summarizing..." : "Resumindo...");
+      if (statusEl) { statusEl.textContent = ""; statusEl.className = "inbox-card-status"; }
+
+      // First assign the client to the session, then summarize
+      apiFetch("/api/sessions/" + session.id + "/assign-client", {
+        method: "POST",
+        body: { client_id: clientId }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          return apiFetch("/api/summarize", { method: "POST", body: { session_id: session.id } });
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          // Remove from inbox list
+          inboxSessions = inboxSessions.filter(function(s) { return s.id !== session.id; });
+          var cardEl = document.getElementById("inbox-card-" + session.id);
+          if (cardEl) { cardEl.remove(); }
+          renderInbox();
+          // Reload sessions so it shows up in Sessions tab
+          loadSessions();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          btn.innerHTML = '<span class="show-pt">Resumir</span><span class="show-en">Summarize</span>';
+          if (statusEl) {
+            statusEl.textContent = (isEn ? "Error: " : "Erro: ") + e.message + " / " + (isEn ? "Please try again." : "Tente novamente.");
+            statusEl.className = "inbox-card-status is-error";
+          }
+        });
+    }
+
+    // ── Transcripts tab rendering ──────────────────────────────────────────
+
+    function renderTranscriptList() {
+      var listEl    = document.getElementById("transcriptList");
+      if (!listEl) { return; }
+
+      var clientFilter = document.getElementById("transcriptClientFilter");
+      var dateFrom     = document.getElementById("transcriptDateFrom");
+      var dateTo       = document.getElementById("transcriptDateTo");
+      var isEn = document.body.classList.contains("lang-en");
+
+      var filtered = sessions.filter(function(s) {
+        if (!s.raw_transcript) { return false; }
+        if (clientFilter && clientFilter.value && s.client_id !== clientFilter.value) { return false; }
+        if (dateFrom && dateFrom.value && s.date < dateFrom.value) { return false; }
+        if (dateTo && dateTo.value && s.date > dateTo.value) { return false; }
+        return true;
+      });
+
+      listEl.innerHTML = "";
+
+      if (filtered.length === 0) {
+        var empty = document.createElement("div");
+        empty.style.cssText = "padding:32px;color:var(--muted);font-size:14px;text-align:center;";
+        empty.innerHTML = '<span class="show-pt">Nenhuma transcrição encontrada.</span><span class="show-en">No transcripts found.</span>';
+        listEl.appendChild(empty);
+        return;
+      }
+
+      for (var i = 0; i < filtered.length; i++) {
+        listEl.appendChild(makeTranscriptCard(filtered[i]));
+      }
+    }
+
+    function makeTranscriptCard(session) {
+      var card = document.createElement("div");
+      card.className = "transcript-card";
+
+      var header = document.createElement("div");
+      header.className = "transcript-card-header";
+
+      var titleDiv = document.createElement("div");
+      titleDiv.className = "transcript-card-title";
+      titleDiv.textContent = session.client_name || "--";
+      header.appendChild(titleDiv);
+
+      var metaDiv = document.createElement("div");
+      metaDiv.className = "transcript-card-meta";
+
+      var dateSpan = document.createElement("span");
+      dateSpan.textContent = formatDate(session.date);
+      metaDiv.appendChild(dateSpan);
+
+      var badge = document.createElement("span");
+      badge.className = "status-badge";
+      badge.setAttribute("data-status", session.status);
+      metaDiv.appendChild(badge);
+
+      header.appendChild(metaDiv);
+      card.appendChild(header);
+
+      var preview = document.createElement("div");
+      preview.className = "transcript-card-preview";
+      preview.textContent = session.raw_transcript.slice(0, 200) + (session.raw_transcript.length > 200 ? "..." : "");
+      card.appendChild(preview);
+
+      var fullDiv = document.createElement("div");
+      fullDiv.className = "transcript-card-full";
+      fullDiv.textContent = session.raw_transcript;
+      fullDiv.style.display = "none";
+      card.appendChild(fullDiv);
+
+      var expanded = false;
+      card.onclick = function() {
+        expanded = !expanded;
+        fullDiv.style.display = expanded ? "block" : "none";
+        preview.style.display = expanded ? "none" : "block";
+      };
+
+      return card;
+    }
+
     // ── Session list rendering ─────────────────────────────────────────────
 
     function renderSessionList() {
-      if (currentViewRole === "alice") {
+      if (currentViewRole === "alice" || currentViewRole === "dev") {
         renderAliceList();
       } else {
         renderRafaList();
@@ -963,14 +1776,17 @@
       var container = document.getElementById("aliceSessionList");
       if (!container) { return; }
 
-      if (sessions.length === 0) {
+      // Filter out inbox sessions from the sessions tab list
+      var nonInbox = sessions.filter(function(s) { return s.status !== "inbox"; });
+
+      if (nonInbox.length === 0) {
         container.innerHTML = '<div class="empty-list"><span class="show-pt">Nenhuma sessao encontrada.</span><span class="show-en">No sessions found.</span></div>';
         return;
       }
 
       container.innerHTML = "";
-      for (var i = 0; i < sessions.length; i++) {
-        container.appendChild(makeSessionRow(sessions[i], activeSessionId, "alice"));
+      for (var i = 0; i < nonInbox.length; i++) {
+        container.appendChild(makeSessionRow(nonInbox[i], activeSessionId, "alice"));
       }
     }
 
@@ -1216,6 +2032,8 @@
           };
           sessions.unshift(newSession);
           renderAliceList();
+          // Switch to Sessions tab and select the new session
+          switchTab("sessions");
           selectSession(newSession.id);
         })
         .catch(function(e) {
@@ -1294,8 +2112,6 @@
 
       var pdfData = null;
       try {
-        // pdf_data may live as a top-level field on the session object (string)
-        // or inside summary_json (also stored as a JSON string).
         var rawPdfData = session.pdf_data;
         if (!rawPdfData && session.summary_json) {
           var parsedSummary = typeof session.summary_json === "string"

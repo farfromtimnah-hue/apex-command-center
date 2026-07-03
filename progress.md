@@ -1,5 +1,93 @@
 # Apex Command Center — Build Progress
 
+**Last updated:** 2026-07-02 (session 28 — Fireflies inbox, pill tabs, transcript archive, webhook endpoint)
+
+## Completed (session 28 — 2026-07-02, Fireflies inbox + pill tabs)
+
+### sessions.html — full redesign
+- [x] Four pill tabs across top of content area: Inbox / Sessions / New Session / Transcripts
+- [x] Active pill: gold filled; inactive: outlined/muted; badge on Inbox showing unread count (hidden if 0)
+- [x] Alice defaults to Inbox tab; Rafa sees Sessions-only layout (no tab bar, unchanged behavior)
+- [x] Developer role: sees Alice view with all four tabs (same as alice)
+
+### TAB 1 — Inbox (Alice/developer only)
+- [x] Fetches GET /api/sessions/inbox on page load
+- [x] Each card shows: meeting title, date, status badge (inbox/purple), transcript preview toggle
+- [x] "Ver transcript / Preview transcript" toggle collapses/expands preview (first 500 chars + fade)
+- [x] "Ver transcrição completa / Show full transcript" expands to full text
+- [x] Client assignment dropdown populated from GET /api/clients
+- [x] Summarize button disabled until client selected; shows spinner while loading
+- [x] On success: card removed, badge decremented, Sessions tab updated via loadSessions()
+- [x] On error: bilingual error message (PT/EN)
+- [x] Empty state: bilingual centered message when inbox is empty
+
+### TAB 2 — Sessions
+- [x] Existing two-panel layout (sidebar list + detail panel) moved into this tab
+- [x] Inbox sessions filtered OUT of this list (status !== 'inbox')
+- [x] All existing Gerar Resumo / Aprovar / Gerar PDF logic unchanged
+- [x] After saving a new transcript, auto-switches to Sessions tab and selects the new session
+
+### TAB 3 — New Session
+- [x] Manual paste form (client select, inline create-client, date, transcript textarea, Save Transcript)
+- [x] Layout upgraded to full-width tab panel (was sidebar column)
+- [x] All existing logic unchanged
+
+### TAB 4 — Transcripts
+- [x] Filter bar: client dropdown + date range (from/to)
+- [x] Lists all sessions WHERE raw_transcript IS NOT NULL, filtered by selections
+- [x] Each card: client name, date, status badge, first 200 chars of transcript
+- [x] Click to expand/collapse full raw_transcript
+
+### worker/index.js — new routes
+- [x] GET /api/sessions/inbox — alice/developer only; returns status='inbox' sessions newest first
+- [x] POST /api/sessions/:id/assign-client — assigns client_id + client_name, sets status='pending'
+- [x] POST /api/fireflies/webhook — no Firebase auth; HMAC verification if FIREFLIES_WEBHOOK_SECRET set;
+       accepts without verification if secret empty (for testing before key is configured)
+       Duplicate detection: checks task_completions JSON for fireflies_id before inserting
+       Stores meetingId as {"fireflies_id": "..."} in task_completions column (no schema migration needed)
+
+### wrangler.toml
+- [x] Added FIREFLIES_API_KEY = "" and FIREFLIES_WEBHOOK_SECRET = "" as placeholder vars
+       (set real values via `wrangler secret put FIREFLIES_API_KEY` and `wrangler secret put FIREFLIES_WEBHOOK_SECRET`)
+
+### Testing without live Fireflies account
+Insert a mock inbox session in D1 console:
+  INSERT INTO sessions (id, client_name, date, status, raw_transcript, created_at)
+  VALUES (
+    'test-inbox-001',
+    'Test Meeting - Fireflies Mock',
+    '2026-07-02',
+    'inbox',
+    'This is a mock transcript for testing the inbox UI. Rafael discussed quarterly goals, team hiring, and marketing strategy with the client. The session lasted approximately 45 minutes and covered three main action items.',
+    datetime('now')
+  );
+
+### What still needs the live API key to test
+- Fireflies webhook receiving real meeting data (POST /api/fireflies/webhook)
+- FIREFLIES_API_KEY is placeholder only — no pull/polling from Fireflies API yet (webhook push model)
+- Webhook URL to give Fireflies: https://apex-api.farfromtimnah.workers.dev/api/fireflies/webhook
+
+**Files touched (session 28):** sessions.html, worker/index.js, wrangler.toml, progress.md
+
+**QA checklist:**
+1. Log in as alice → sessions.html → four pill tabs visible: Inbox, Sessions, New Session, Transcripts
+2. Inbox tab active by default → mock session card visible (after inserting test data in D1)
+3. Inbox card shows title, date, purple "Caixa de Entrada" badge
+4. "Ver transcript" button → preview expands; "Ver transcrição completa" → full text shows
+5. Client dropdown populates from real clients; Summarize button disabled until client selected
+6. Select client → Summarize enabled → click → spinner shows → card disappears from inbox
+7. Badge count decrements; Sessions tab now shows the summarized session
+8. Sessions tab → existing two-panel layout works identically to before
+9. New Session tab → paste form works; saving redirects to Sessions tab with new session selected
+10. Transcripts tab → cards list all sessions with transcripts; filter by client and date range
+11. Click transcript card → expands to show full text; click again → collapses
+12. Log in as rafa → no tab bar, directly sees approved sessions sidebar (unchanged)
+13. Inbox badge hidden when count is 0
+14. Bilingual toggle works on all tabs (all labels, status badges, empty states)
+15. No console errors
+
+---
+
 **Last updated:** 2026-07-02 (session 27 — pdf_data parse fix in sessions.html)
 **Current phase:** Session 27 complete — Generate PDF now works for sessions created through the normal transcript flow.
 **Last session summary:** Fixed `handleGeneratePdf` in sessions.html. The function was reading `session.pdf_data` as a top-level field, but `/api/sessions` does not return that column — so it was always undefined for sessions going through the transcript flow. The fix: fall back to extracting `pdf_data` from within `summary_json` (where `handleApprove` preserves it), then JSON.parse whichever source is found. Sessions with a top-level `session.pdf_data` still work. Error messages are now bilingual (PT/EN).

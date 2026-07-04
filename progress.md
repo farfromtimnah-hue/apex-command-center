@@ -1,5 +1,7 @@
 # Apex Command Center — Build Progress
 
+- [x] Warm time-of-day bilingual greeting added to dashboard.html (Bom dia/Boa tarde/Boa noite + first name, above KPI tiles in hero for alice/rafa, above heading in devDash); uses browser local time (5-11h morning, 12-17h afternoon, 18-4h evening); display_name first-token with email-fallback; show-pt/show-en pattern; no second API call; XSS fix applied to populateHeaderUser (escHtml on firstName and initial)
+
 - [x] Top bar updated across all 6 pages (dashboard, client, sessions, calendar, tasks, settings) to show circular avatar image + first name instead of email; falls back to initial-letter placeholder if no avatar, and to email if display_name is null; apex_display_name and apex_avatar_url cached in sessionStorage alongside role/email; #headerRole badge unchanged
 - [x] GET /api/users/:email/avatar-image added to worker/index.js — auth-free route that decodes :email, looks up avatar_url in users table, fetches from R2 env.ASSETS, returns image with Content-Type + Cache-Control headers matching handleGetClientLogoImage pattern; deployed as version a63b9b4e-3b5e-4479-8bb4-286a14236de4
 - [x] settings.html hero tiles (Templates, Packages) wrapped in anchor links to their sections (#templatesSection, #packagesSection); smooth scroll added via html { scroll-behavior: smooth }; tile link uses display:contents anchor; hover adds gold border; counts and IDs unchanged

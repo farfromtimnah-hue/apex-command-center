@@ -216,6 +216,19 @@
       gap: 20px;
     }
 
+    /* ─── Greeting ──────────────────────────────────────────────────────── */
+    .dashboard-greeting {
+      font-size: 26px;
+      font-weight: 300;
+      color: rgba(255,255,255,0.92);
+      letter-spacing: -0.2px;
+      line-height: 1.2;
+      padding: 0 0 4px 0;
+    }
+    .dashboard-greeting strong {
+      font-weight: 600;
+    }
+
     /* ─── Page heading (white over photo) ───────────────────────────────── */
     .page-heading-hero {
       font-size: 22px;
@@ -591,6 +604,7 @@
         <div id="heroBgImage" aria-hidden="true"></div>
         <div id="heroBgScrim" aria-hidden="true"></div>
         <div class="hero-content">
+          <p class="dashboard-greeting" id="aliceGreeting" aria-live="polite"></p>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
             <h1 class="page-heading-hero">
               <span class="show-pt">Visao Geral</span>
@@ -673,6 +687,7 @@
         <div id="heroBgImageRafa" aria-hidden="true"></div>
         <div id="heroBgScrimRafa" aria-hidden="true" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;background:rgba(20,18,16,0.62);"></div>
         <div class="hero-content">
+          <p class="dashboard-greeting" id="rafaGreeting" aria-live="polite"></p>
           <!-- Heading row + scope toggle -->
           <div class="hero-toolbar">
             <h1 class="page-heading-hero">
@@ -761,6 +776,7 @@
     <!-- DEVELOPER dashboard (unchanged original) -->
     <div id="devDash" hidden>
       <div style="padding:28px 32px;display:flex;flex-direction:column;gap:24px;">
+        <p id="devGreeting" style="font-size:22px;font-weight:300;color:var(--text);letter-spacing:-0.2px;line-height:1.2;margin:0;" aria-live="polite"></p>
         <!-- Page heading + CTA -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
           <h1 class="page-heading-hero" style="color:var(--text);">
@@ -827,6 +843,11 @@
 
     </div><!-- /contentArea -->
   </div><!-- /pageWrapper -->
+
+  <!-- Hidden bilingual greeting text — sourced by renderGreeting() so accented chars stay in HTML -->
+  <span id="greetPtMorning"   hidden aria-hidden="true">Bom dia</span>
+  <span id="greetPtAfternoon" hidden aria-hidden="true">Boa tarde</span>
+  <span id="greetPtEvening"   hidden aria-hidden="true">Boa noite</span>
 
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
   <script src="nav.js"></script>
@@ -972,9 +993,46 @@
         imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
       } else {
         var initial = (label.charAt(0) || "?").toUpperCase();
-        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + initial + "</span>";
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
       }
-      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + firstName + "</span>";
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function renderGreeting(displayName, email) {
+      var hour = new Date().getHours();
+      var ptEl, enText;
+
+      if (hour >= 5 && hour < 12) {
+        var ptMorningEl = document.getElementById("greetPtMorning");
+        ptEl   = ptMorningEl ? ptMorningEl.textContent : "Bom dia";
+        enText = "Good morning";
+      } else if (hour >= 12 && hour < 18) {
+        var ptAfternoonEl = document.getElementById("greetPtAfternoon");
+        ptEl   = ptAfternoonEl ? ptAfternoonEl.textContent : "Boa tarde";
+        enText = "Good afternoon";
+      } else {
+        var ptEveningEl = document.getElementById("greetPtEvening");
+        ptEl   = ptEveningEl ? ptEveningEl.textContent : "Boa noite";
+        enText = "Good evening";
+      }
+
+      var rawLabel = (displayName && displayName.trim()) ? displayName.trim() : email;
+      var spaceIdx = rawLabel.indexOf(" ");
+      var firstName = spaceIdx > -1 ? rawLabel.slice(0, spaceIdx) : rawLabel;
+      if (!firstName) { firstName = email; }
+      // Capitalize first letter for email-based fallback
+      firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+
+      var safeFirst = escHtml(firstName);
+      var html =
+        '<span class="show-pt">' + escHtml(ptEl) + ', <strong>' + safeFirst + '!</strong></span>' +
+        '<span class="show-en">' + escHtml(enText) + ', <strong>' + safeFirst + '!</strong></span>';
+
+      var ids = ["aliceGreeting", "rafaGreeting", "devGreeting"];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) { el.innerHTML = html; }
+      }
     }
 
     function setupDashboard(role) {
@@ -985,6 +1043,7 @@
       var displayName = sessionStorage.getItem("apex_display_name") || null;
       var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
       populateHeaderUser(email, displayName, avatarUrl);
+      renderGreeting(displayName, email);
       if (roleEl)  { roleEl.textContent  = role; }
 
       var loadingEl = document.getElementById("loadingScreen");

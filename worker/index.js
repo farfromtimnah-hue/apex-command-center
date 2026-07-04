@@ -2656,8 +2656,10 @@ async function handleGetInvoices(request, env) {
             } finally {
                 clearTimeout(timer);
             }
-            if (!res.ok) { return []; }
             var data = await res.json();
+            if (!res.ok || data.code !== 0) {
+                throw new Error("Zoho invoices error (status=" + zohoStatus + " http=" + res.status + "): " + (data.message || JSON.stringify(data)));
+            }
             return data.invoices || [];
         }
 

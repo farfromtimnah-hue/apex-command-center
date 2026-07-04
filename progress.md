@@ -1,5 +1,7 @@
 # Apex Command Center — Build Progress
 
+- [x] POST /api/users/:email/avatar added to worker/index.js (session 54 — 2026-07-04): admin avatar upload route so settings.html can set any user's profile picture; requires alice/rafa/developer role; decodes email from URL, reads field "avatar", validates type, uses same safeEmail sanitization as handlePostMyAvatar so keys are identical; deployed as version f4fbb3dc-f3aa-4532-8eff-5054ccf38655
+
 - [x] Fixed dashboard greeting email fallback to truncate at @ instead of showing full address
 
 - [x] Warm time-of-day bilingual greeting added to dashboard.html (Bom dia/Boa tarde/Boa noite + first name, above KPI tiles in hero for alice/rafa, above heading in devDash); uses browser local time (5-11h morning, 12-17h afternoon, 18-4h evening); display_name first-token with email-fallback; show-pt/show-en pattern; no second API call; XSS fix applied to populateHeaderUser (escHtml on firstName and initial)

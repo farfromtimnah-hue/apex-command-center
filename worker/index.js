@@ -1588,6 +1588,52 @@ async function handlePostMyAvatar(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/users/:email/avatar
+// Admin avatar upload — allows alice/rafa/developer to set any user's picture.
+// Body: multipart/form-data with field "avatar" (image file)
+// ---------------------------------------------------------------------------
+
+async function handlePostUserAvatar(email, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var allowed_roles = ["alice", "rafa", "developer"];
+        if (allowed_roles.indexOf(user.role) === -1) { return jsonErr("Forbidden", 403); }
+
+        var decoded = decodeURIComponent(email);
+
+        var form = await request.formData();
+        var file = form.get("avatar");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("avatar file is required", 400); }
+
+        var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+        if (allowed.indexOf(file.type) === -1) {
+            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, or WebP image.", 400);
+        }
+
+        var ext = (file.type === "image/png")  ? "png"
+                : (file.type === "image/gif")  ? "gif"
+                : (file.type === "image/webp") ? "webp"
+                : "jpg";
+
+        var safeEmail = decoded.replace(/[^a-zA-Z0-9._-]/g, "_");
+        var key = "avatars/" + safeEmail + "." + ext;
+
+        await env.ASSETS.put(key, await file.arrayBuffer(), {
+            httpMetadata: { contentType: file.type }
+        });
+
+        await env.DB.prepare("UPDATE users SET avatar_url = ? WHERE email = ?")
+            .bind(key, decoded).run();
+
+        return jsonOk({ avatar_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading avatar: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/me/avatar-image
 // Serves the caller's own avatar from R2.
 // ---------------------------------------------------------------------------
@@ -2066,6 +2112,11 @@ export default {
         // /api/users/:email/avatar-image  GET
         if (segs[0] === "api" && segs[1] === "users" && segs[2] && segs[3] === "avatar-image" && method === "GET") {
             return handleGetUserAvatarImage(segs[2], request, env);
+        }
+
+        // /api/users/:email/avatar  POST
+        if (segs[0] === "api" && segs[1] === "users" && segs[2] && segs[3] === "avatar" && method === "POST") {
+            return handlePostUserAvatar(segs[2], request, env);
         }
 
         // /api/settings/templates/:key  PUT

@@ -17,7 +17,9 @@
 
 - [x] settings.html Profile Pictures section added first on page (DOM + hero tile order): hero tile shows "N / M" profiles with display_name set; data-driven user cards from GET /api/users (email, role badge, avatar, display_name input, Save Name -> PUT /api/users/:email/display-name, file picker -> POST /api/users/:email/avatar as multipart); avatar displayed via /api/users/:email/avatar-image with placeholder fallback; tile and in-card avatar update live on success; bilingual PT/EN throughout; hero tile order is now Profile Pictures -> Templates -> Packages.
 
-**Last updated:** 2026-07-04 (session 52 — settings.html Profile Pictures section)
+- [x] GET /api/role now returns display_name and avatar_url alongside role/email — authenticate() extended to SELECT role, display_name, avatar_url; handleGetRole updated to include both fields; deployed as version c9e38f72-c458-4915-b5f5-55a58a3bc224
+
+**Last updated:** 2026-07-04 (session 52 — settings.html Profile Pictures section + GET /api/role display_name/avatar_url fix)
 
 ## Completed (2026-07-03, worker fix — discarded session leak)
 

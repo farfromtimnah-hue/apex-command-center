@@ -86,10 +86,10 @@ async function authenticate(request, env) {
     var auth = request.headers.get("Authorization") || "";
     if (!auth.startsWith("Bearer ")) { return null; }
     var payload = await verifyFirebaseToken(auth.slice(7), env.FIREBASE_PROJECT_ID);
-    var row = await env.DB.prepare("SELECT role FROM users WHERE email = ?")
+    var row = await env.DB.prepare("SELECT role, display_name, avatar_url FROM users WHERE email = ?")
         .bind(payload.email).first();
     if (!row) { return null; }
-    return { email: payload.email, role: row.role };
+    return { email: payload.email, role: row.role, display_name: row.display_name ?? null, avatar_url: row.avatar_url ?? null };
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ async function handleGetRole(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        return jsonOk({ role: user.role, email: user.email });
+        return jsonOk({ role: user.role, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url });
     } catch (e) {
         return jsonErr("Auth failed: " + e.message, 401);
     }

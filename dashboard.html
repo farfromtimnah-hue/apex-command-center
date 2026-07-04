@@ -1016,11 +1016,16 @@
         enText = "Good evening";
       }
 
-      var rawLabel = (displayName && displayName.trim()) ? displayName.trim() : email;
-      var spaceIdx = rawLabel.indexOf(" ");
-      var firstName = spaceIdx > -1 ? rawLabel.slice(0, spaceIdx) : rawLabel;
-      if (!firstName) { firstName = email; }
-      // Capitalize first letter for email-based fallback
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var rawLabel = displayName.trim();
+        var spaceIdx = rawLabel.indexOf(" ");
+        firstName = spaceIdx > -1 ? rawLabel.slice(0, spaceIdx) : rawLabel;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      if (!firstName) { firstName = email || ""; }
       firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
 
       var safeFirst = escHtml(firstName);

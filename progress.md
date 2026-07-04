@@ -1,5 +1,7 @@
 # Apex Command Center — Build Progress
 
+- [x] Fixed dashboard greeting email fallback to truncate at @ instead of showing full address
+
 - [x] Warm time-of-day bilingual greeting added to dashboard.html (Bom dia/Boa tarde/Boa noite + first name, above KPI tiles in hero for alice/rafa, above heading in devDash); uses browser local time (5-11h morning, 12-17h afternoon, 18-4h evening); display_name first-token with email-fallback; show-pt/show-en pattern; no second API call; XSS fix applied to populateHeaderUser (escHtml on firstName and initial)
 
 - [x] Top bar updated across all 6 pages (dashboard, client, sessions, calendar, tasks, settings) to show circular avatar image + first name instead of email; falls back to initial-letter placeholder if no avatar, and to email if display_name is null; apex_display_name and apex_avatar_url cached in sessionStorage alongside role/email; #headerRole badge unchanged

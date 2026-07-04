@@ -362,6 +362,234 @@
       opacity: 0.45;
     }
 
+    /* ─── Package card ───────────────────────────────────────────────────── */
+    .pkg-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pkg-card + .pkg-card {
+      margin-top: 14px;
+    }
+
+    .pkg-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pkg-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .pkg-popular-badge {
+      background: var(--gold);
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .pkg-field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pkg-field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pkg-input-short {
+      width: 140px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brown);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input-short:focus { border-color: var(--gold); }
+
+    .pkg-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input:focus { border-color: var(--gold); }
+
+    .pkg-textarea {
+      width: 100%;
+      min-height: 54px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-textarea:focus { border-color: var(--gold); }
+
+    .pkg-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .pkg-item-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pkg-item-input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-item-input:focus { border-color: var(--gold); }
+
+    .btn-remove-item {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .btn-remove-item:hover { border-color: #b44040; color: #b44040; }
+
+    .btn-add-item {
+      background: none;
+      border: 1.5px dashed var(--border);
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+      align-self: flex-start;
+    }
+    .btn-add-item:hover { border-color: var(--gold); color: var(--brown); }
+
+    .pkg-popular-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pkg-popular-checkbox {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    .pkg-popular-label {
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .pkg-sort-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pkg-sort-input {
+      width: 70px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-sort-input:focus { border-color: var(--gold); }
+
+    .pkg-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .pkg-footer-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: 1.5px solid #b44040;
+      color: #b44040;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-delete:hover:not(:disabled) { background: #b44040; color: #fff; }
+    .btn-delete:disabled { opacity: 0.45; cursor: not-allowed; }
+
     /* ─── Responsive ─────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
       .settings-hero-section { padding: 16px; }
@@ -414,7 +642,7 @@
       <div id="settingsHeroScrim" aria-hidden="true"></div>
       <div class="settings-hero-content">
 
-        <!-- Glass stat tile — templates count only -->
+        <!-- Glass stat tiles — templates + packages -->
         <div class="glass-tile-row">
           <div class="glass-tile">
             <div class="glass-tile-label">
@@ -422,6 +650,13 @@
               <span class="show-en">TEMPLATES</span>
             </div>
             <div class="glass-tile-value" id="heroTileTemplates">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">PACOTES</span>
+              <span class="show-en">PACKAGES</span>
+            </div>
+            <div class="glass-tile-value" id="heroTilePackages">--</div>
           </div>
         </div>
 
@@ -449,6 +684,27 @@
         </div>
         <div id="templatesContainer">
           <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Packages section -->
+      <div id="packagesSection">
+        <div class="section-heading">
+          <span class="show-pt">Gerenciar Pacotes</span>
+          <span class="show-en">Manage Packages</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Adicione, edite ou remova os pacotes oferecidos aos clientes.</span>
+          <span class="show-en">Add, edit, or remove the packages offered to clients.</span>
+        </div>
+        <div id="packagesContainer">
+          <!-- Rendered by JS -->
+        </div>
+        <div style="margin-top:16px;">
+          <button class="btn-save" id="btnAddPackage" onclick="showAddPackageCard()">
+            <span class="show-pt">+ Adicionar Pacote</span>
+            <span class="show-en">+ Add Package</span>
+          </button>
         </div>
       </div>
 
@@ -545,6 +801,7 @@
       window.initNav && window.initNav();
       initHeroBg('settingsHeroBg');
       loadTemplates();
+      loadPackages();
     }
 
     function init() {
@@ -786,6 +1043,478 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
+    }
+
+    // ── Load packages ─────────────────────────────────────────────────────
+    function loadPackages() {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var pkgs = data.packages || [];
+        renderPackages(pkgs);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar pacotes: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading packages: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Render packages ────────────────────────────────────────────────────
+    function renderPackages(pkgs) {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+
+      var tileEl = document.getElementById("heroTilePackages");
+      if (tileEl) { tileEl.textContent = pkgs.length; }
+
+      if (pkgs.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128230;</div>' +
+          '<span class="show-pt">Nenhum pacote encontrado.</span>' +
+          '<span class="show-en">No packages found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+      for (var i = 0; i < pkgs.length; i++) {
+        container.appendChild(makePackageCard(pkgs[i], false));
+      }
+    }
+
+    // ── Make a single package card ─────────────────────────────────────────
+    function makePackageCard(pkg, isNew) {
+      var card = document.createElement("div");
+      card.className = "pkg-card";
+      if (!isNew && pkg.id) { card.setAttribute("data-pkg-id", pkg.id); }
+
+      // Header: title + popular badge
+      var headerEl = document.createElement("div");
+      headerEl.className = "pkg-card-header";
+
+      var titleEl = document.createElement("div");
+      titleEl.className = "pkg-card-title";
+      if (isNew) {
+        titleEl.innerHTML =
+          '<span class="show-pt">Novo Pacote</span>' +
+          '<span class="show-en">New Package</span>';
+      } else {
+        titleEl.textContent = pkg.full_name || pkg.short_name || "";
+      }
+      headerEl.appendChild(titleEl);
+
+      var badgeEl = document.createElement("span");
+      badgeEl.className = "pkg-popular-badge";
+      badgeEl.innerHTML =
+        '<span class="show-pt">Mais Popular</span>' +
+        '<span class="show-en">Most Popular</span>';
+      badgeEl.style.display = (pkg.is_popular) ? "" : "none";
+      headerEl.appendChild(badgeEl);
+
+      card.appendChild(headerEl);
+
+      // short_name
+      var shortRow = document.createElement("div");
+      shortRow.className = "pkg-field-row";
+      var shortLabel = document.createElement("div");
+      shortLabel.className = "pkg-field-label";
+      shortLabel.innerHTML =
+        '<span class="show-pt">R&#243;tulo curto</span>' +
+        '<span class="show-en">Short label</span>';
+      var shortInput = document.createElement("input");
+      shortInput.type = "text";
+      shortInput.className = "pkg-input-short";
+      shortInput.value = pkg.short_name || "";
+      shortRow.appendChild(shortLabel);
+      shortRow.appendChild(shortInput);
+      card.appendChild(shortRow);
+
+      // full_name
+      var fullRow = document.createElement("div");
+      fullRow.className = "pkg-field-row";
+      var fullLabel = document.createElement("div");
+      fullLabel.className = "pkg-field-label";
+      fullLabel.innerHTML =
+        '<span class="show-pt">Nome completo</span>' +
+        '<span class="show-en">Full name</span>';
+      var fullInput = document.createElement("input");
+      fullInput.type = "text";
+      fullInput.className = "pkg-input";
+      fullInput.value = pkg.full_name || "";
+      fullRow.appendChild(fullLabel);
+      fullRow.appendChild(fullInput);
+      card.appendChild(fullRow);
+
+      // audience
+      var audRow = document.createElement("div");
+      audRow.className = "pkg-field-row";
+      var audLabel = document.createElement("div");
+      audLabel.className = "pkg-field-label";
+      audLabel.innerHTML =
+        '<span class="show-pt">P&#250;blico-alvo</span>' +
+        '<span class="show-en">Audience</span>';
+      var audTextarea = document.createElement("textarea");
+      audTextarea.className = "pkg-textarea";
+      audTextarea.rows = 2;
+      audTextarea.value = pkg.audience || "";
+      audRow.appendChild(audLabel);
+      audRow.appendChild(audTextarea);
+      card.appendChild(audRow);
+
+      // included_items
+      var itemsRow = document.createElement("div");
+      itemsRow.className = "pkg-field-row";
+      var itemsLabel = document.createElement("div");
+      itemsLabel.className = "pkg-field-label";
+      itemsLabel.innerHTML =
+        '<span class="show-pt">Itens inclu&#237;dos</span>' +
+        '<span class="show-en">Included items</span>';
+      itemsRow.appendChild(itemsLabel);
+
+      var itemsList = document.createElement("div");
+      itemsList.className = "pkg-items-list";
+
+      var initialItems = pkg.included_items || [];
+      for (var j = 0; j < initialItems.length; j++) {
+        itemsList.appendChild(makeItemRow(itemsList, initialItems[j]));
+      }
+
+      var addItemBtn = document.createElement("button");
+      addItemBtn.type = "button";
+      addItemBtn.className = "btn-add-item";
+      addItemBtn.innerHTML =
+        '<span class="show-pt">+ Adicionar item</span>' +
+        '<span class="show-en">+ Add item</span>';
+      (function(list) {
+        addItemBtn.onclick = function() { list.appendChild(makeItemRow(list, "")); };
+      })(itemsList);
+
+      itemsRow.appendChild(itemsList);
+      itemsRow.appendChild(addItemBtn);
+      card.appendChild(itemsRow);
+
+      // is_popular checkbox
+      var popRow = document.createElement("div");
+      popRow.className = "pkg-popular-row";
+      var popChkId = "popChk_" + (pkg.id || "new");
+      var popChk = document.createElement("input");
+      popChk.type = "checkbox";
+      popChk.className = "pkg-popular-checkbox";
+      popChk.id = popChkId;
+      popChk.checked = !!pkg.is_popular;
+      var popLbl = document.createElement("label");
+      popLbl.className = "pkg-popular-label";
+      popLbl.setAttribute("for", popChkId);
+      popLbl.innerHTML =
+        '<span class="show-pt">Mais Popular</span>' +
+        '<span class="show-en">Most Popular</span>';
+
+      (function(badge, chk) {
+        chk.onchange = function() { badge.style.display = chk.checked ? "" : "none"; };
+      })(badgeEl, popChk);
+
+      popRow.appendChild(popChk);
+      popRow.appendChild(popLbl);
+      card.appendChild(popRow);
+
+      // sort_order
+      var sortRow = document.createElement("div");
+      sortRow.className = "pkg-sort-row pkg-field-row";
+      var sortLabel = document.createElement("div");
+      sortLabel.className = "pkg-field-label";
+      sortLabel.innerHTML =
+        '<span class="show-pt">Ordem</span>' +
+        '<span class="show-en">Sort order</span>';
+      var sortInput = document.createElement("input");
+      sortInput.type = "number";
+      sortInput.className = "pkg-sort-input";
+      sortInput.value = (pkg.sort_order !== undefined && pkg.sort_order !== null) ? pkg.sort_order : "";
+      sortRow.appendChild(sortLabel);
+      sortRow.appendChild(sortInput);
+      card.appendChild(sortRow);
+
+      // Footer: status + save + delete
+      var footer = document.createElement("div");
+      footer.className = "pkg-card-footer";
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "template-status";
+      footer.appendChild(statusEl);
+
+      var actions = document.createElement("div");
+      actions.className = "pkg-footer-actions";
+
+      var saveBtn = document.createElement("button");
+      saveBtn.className = "btn-save";
+      saveBtn.innerHTML =
+        '<span class="show-pt">Salvar</span>' +
+        '<span class="show-en">Save</span>';
+
+      if (!isNew) {
+        var delBtn = document.createElement("button");
+        delBtn.className = "btn-delete";
+        delBtn.innerHTML =
+          '<span class="show-pt">Excluir</span>' +
+          '<span class="show-en">Delete</span>';
+
+        (function(c, btn, st, id) {
+          btn.onclick = function() { deletePackage(id, c, btn, st); };
+        })(card, delBtn, statusEl, pkg.id);
+
+        actions.appendChild(delBtn);
+      }
+
+      actions.appendChild(saveBtn);
+      footer.appendChild(actions);
+      card.appendChild(footer);
+
+      if (isNew) {
+        (function(c, btn, st, sn, fn, au, il, pc, so, ti) {
+          btn.onclick = function() { createPackage(c, btn, st, sn, fn, au, il, pc, so, ti); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl);
+      } else {
+        (function(c, btn, st, sn, fn, au, il, pc, so, id) {
+          btn.onclick = function() { savePackage(id, c, btn, st, sn, fn, au, il, pc, so); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, pkg.id);
+      }
+
+      return card;
+    }
+
+    // ── Make a single item row ─────────────────────────────────────────────
+    function makeItemRow(list, value) {
+      var row = document.createElement("div");
+      row.className = "pkg-item-row";
+
+      var inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "pkg-item-input";
+      inp.value = value || "";
+
+      var rmBtn = document.createElement("button");
+      rmBtn.type = "button";
+      rmBtn.className = "btn-remove-item";
+      rmBtn.innerHTML = "&#10005;";
+      rmBtn.setAttribute("aria-label", "Remove item");
+      (function(r) {
+        rmBtn.onclick = function() { r.parentNode && r.parentNode.removeChild(r); };
+      })(row);
+
+      row.appendChild(inp);
+      row.appendChild(rmBtn);
+      return row;
+    }
+
+    // ── Collect item inputs from a list container ──────────────────────────
+    function collectItems(itemsList) {
+      var inputs = itemsList.querySelectorAll(".pkg-item-input");
+      var result = [];
+      for (var i = 0; i < inputs.length; i++) {
+        var v = inputs[i].value.trim();
+        if (v) { result.push(v); }
+      }
+      return result;
+    }
+
+    // ── Save (PUT) a package ───────────────────────────────────────────────
+    function savePackage(id, card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput) {
+      var shortName = shortInput.value.trim();
+      var fullName  = fullInput.value.trim();
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!shortName || !fullName) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Nome curto e nome completo s&#227;o obrigat&#243;rios.</span>' +
+          '<span class="show-en">Short name and full name are required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      var payload = {
+        short_name:     shortName,
+        full_name:      fullName,
+        audience:       audTextarea.value.trim(),
+        included_items: collectItems(itemsList),
+        is_popular:     popChk.checked,
+        sort_order:     sortInput.value !== "" ? parseInt(sortInput.value, 10) : null
+      };
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function() {
+        btn.disabled = false;
+        statusEl.className = "template-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Salvo com sucesso.</span>' +
+          '<span class="show-en">Saved successfully.</span>';
+        setTimeout(function() {
+          statusEl.className = "template-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao salvar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error saving: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Create (POST) a package ────────────────────────────────────────────
+    function createPackage(card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl) {
+      var shortName = shortInput.value.trim();
+      var fullName  = fullInput.value.trim();
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!shortName || !fullName) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Nome curto e nome completo s&#227;o obrigat&#243;rios.</span>' +
+          '<span class="show-en">Short name and full name are required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      var payload = {
+        short_name:     shortName,
+        full_name:      fullName,
+        audience:       audTextarea.value.trim(),
+        included_items: collectItems(itemsList),
+        is_popular:     popChk.checked,
+        sort_order:     sortInput.value !== "" ? parseInt(sortInput.value, 10) : null
+      };
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        var newPkg = data.package || data;
+        var container = document.getElementById("packagesContainer");
+        if (container && newPkg && newPkg.id) {
+          var savedCard = makePackageCard(newPkg, false);
+          container.replaceChild(savedCard, card);
+          var tileEl = document.getElementById("heroTilePackages");
+          if (tileEl) { tileEl.textContent = container.querySelectorAll(".pkg-card").length; }
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao criar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error creating: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Delete a package ───────────────────────────────────────────────────
+    function deletePackage(id, card, btn, statusEl) {
+      var confirmed = confirm(
+        document.body.classList.contains("lang-en")
+          ? "Delete this package? This cannot be undone."
+          : "Excluir este pacote? Esta ação não pode ser desfeita."
+      );
+      if (!confirmed) { return; }
+
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function() {
+        var container = document.getElementById("packagesContainer");
+        if (container && card.parentNode === container) {
+          container.removeChild(card);
+          var remaining = container.querySelectorAll(".pkg-card").length;
+          var tileEl = document.getElementById("heroTilePackages");
+          if (tileEl) { tileEl.textContent = remaining; }
+          if (remaining === 0) {
+            container.innerHTML =
+              '<div class="settings-empty">' +
+              '<div class="settings-empty-icon">&#128230;</div>' +
+              '<span class="show-pt">Nenhum pacote encontrado.</span>' +
+              '<span class="show-en">No packages found.</span>' +
+              '</div>';
+          }
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao excluir: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error deleting: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Show blank add-package card ────────────────────────────────────────
+    function showAddPackageCard() {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+      var blankCard = makePackageCard({
+        short_name: "", full_name: "", audience: "",
+        included_items: [], is_popular: false, sort_order: null
+      }, true);
+      container.appendChild(blankCard);
+      blankCard.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────

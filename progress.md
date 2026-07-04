@@ -1,5 +1,6 @@
 # Apex Command Center — Build Progress
 
+- [x] settings.html package management UI (add/edit/delete, wired to packages API) — data-driven cards from GET /api/settings/packages; per-card Save (PUT /api/settings/packages/:id) and Delete (DELETE /api/settings/packages/:id) with confirm; Add Package button reveals blank card that POSTs to /api/settings/packages and replaces itself with saved card; hero tile now shows both Templates and Packages counts; bilingual PT/EN throughout; mirrors templates section structural pattern
 - [x] packages table schema upgraded (short_name, full_name, audience, included_items, is_popular, sort_order) + full menu seed; GET/POST /api/settings/packages + PUT/DELETE /api/settings/packages/:id (alice/rafa/developer, included_items returned as real array); deployed as version eb51e6dc-b2a8-413f-b1a7-6937f9f34e2b
 - [x] packages D1 table + seed (migrations/packages.sql); GET/POST /api/settings/packages + PUT/DELETE /api/settings/packages/:id (alice/rafa/developer); deployed as version 9a4dcf13-a26e-4c05-a2e0-d3edd16a26e2
 - [x] message_templates D1 table + seed migration applied; GET /api/settings/templates and PUT /api/settings/templates/:key (alice/rafa/developer); handlePostSessionWhatsapp refactored to load template from DB with DEFAULT_WHATSAPP_TEMPLATES fallback; deployed as version 0edf433c-29ae-4bd4-b5af-f52d0f71dc4c

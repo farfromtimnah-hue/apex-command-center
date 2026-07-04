@@ -572,6 +572,84 @@
     }
     .pkg-sort-input:focus { border-color: var(--gold); }
 
+    /* ─── Payment plan toggle ────────────────────────────────────────────── */
+    .pkg-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pkg-toggle-switch {
+      position: relative;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .pkg-toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .pkg-toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 22px;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+
+    .pkg-toggle-slider::before {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.18s;
+    }
+
+    .pkg-toggle-switch input:checked + .pkg-toggle-slider {
+      background: var(--gold);
+    }
+
+    .pkg-toggle-switch input:checked + .pkg-toggle-slider::before {
+      transform: translateX(16px);
+    }
+
+    .pkg-toggle-label {
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .pkg-payment-plan-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .pkg-payment-plan-fields[hidden] { display: none !important; }
+
+    .pkg-input-price {
+      width: 160px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input-price:focus { border-color: var(--gold); }
+
     .pkg-card-footer {
       display: flex;
       align-items: center;
@@ -1650,6 +1728,101 @@
       itemsRow.appendChild(addItemBtn);
       card.appendChild(itemsRow);
 
+      // ── Pricing section ──────────────────────────────────────────────────
+
+      // base_price
+      var priceRow = document.createElement("div");
+      priceRow.className = "pkg-field-row";
+      var priceLabel = document.createElement("div");
+      priceLabel.className = "pkg-field-label";
+      priceLabel.innerHTML =
+        '<span class="show-pt">Pre&#231;o Base</span>' +
+        '<span class="show-en">Base Price</span>';
+      var priceInput = document.createElement("input");
+      priceInput.type = "number";
+      priceInput.min = "0";
+      priceInput.step = "0.01";
+      priceInput.className = "pkg-input-price";
+      priceInput.placeholder = "0.00";
+      priceInput.value = (pkg.base_price !== null && pkg.base_price !== undefined) ? pkg.base_price : "";
+      priceRow.appendChild(priceLabel);
+      priceRow.appendChild(priceInput);
+      card.appendChild(priceRow);
+
+      // has_payment_plan toggle
+      var toggleId = "ppToggle_" + (pkg.id || "new");
+      var toggleRow = document.createElement("div");
+      toggleRow.className = "pkg-toggle-row";
+
+      var toggleLabel = document.createElement("label");
+      toggleLabel.className = "pkg-toggle-switch";
+      var toggleChk = document.createElement("input");
+      toggleChk.type = "checkbox";
+      toggleChk.id = toggleId;
+      toggleChk.checked = !!pkg.has_payment_plan;
+      var toggleSlider = document.createElement("span");
+      toggleSlider.className = "pkg-toggle-slider";
+      toggleLabel.appendChild(toggleChk);
+      toggleLabel.appendChild(toggleSlider);
+
+      var toggleTextLabel = document.createElement("label");
+      toggleTextLabel.setAttribute("for", toggleId);
+      toggleTextLabel.className = "pkg-toggle-label";
+      toggleTextLabel.innerHTML =
+        '<span class="show-pt">Plano de Pagamento</span>' +
+        '<span class="show-en">Payment Plan</span>';
+
+      toggleRow.appendChild(toggleLabel);
+      toggleRow.appendChild(toggleTextLabel);
+      card.appendChild(toggleRow);
+
+      // Installment fields (hidden when toggle off)
+      var ppFields = document.createElement("div");
+      ppFields.className = "pkg-payment-plan-fields";
+      ppFields.hidden = !pkg.has_payment_plan;
+
+      var instCountRow = document.createElement("div");
+      instCountRow.className = "pkg-field-row";
+      var instCountLabel = document.createElement("div");
+      instCountLabel.className = "pkg-field-label";
+      instCountLabel.innerHTML =
+        '<span class="show-pt">N&#250;mero de Parcelas</span>' +
+        '<span class="show-en">Number of Installments</span>';
+      var instCountInput = document.createElement("input");
+      instCountInput.type = "number";
+      instCountInput.min = "1";
+      instCountInput.step = "1";
+      instCountInput.className = "pkg-input-price";
+      instCountInput.placeholder = "0";
+      instCountInput.value = (pkg.installment_count !== null && pkg.installment_count !== undefined) ? pkg.installment_count : "";
+      instCountRow.appendChild(instCountLabel);
+      instCountRow.appendChild(instCountInput);
+      ppFields.appendChild(instCountRow);
+
+      var instAmtRow = document.createElement("div");
+      instAmtRow.className = "pkg-field-row";
+      var instAmtLabel = document.createElement("div");
+      instAmtLabel.className = "pkg-field-label";
+      instAmtLabel.innerHTML =
+        '<span class="show-pt">Valor da Parcela</span>' +
+        '<span class="show-en">Amount per Installment</span>';
+      var instAmtInput = document.createElement("input");
+      instAmtInput.type = "number";
+      instAmtInput.min = "0";
+      instAmtInput.step = "0.01";
+      instAmtInput.className = "pkg-input-price";
+      instAmtInput.placeholder = "0.00";
+      instAmtInput.value = (pkg.installment_amount !== null && pkg.installment_amount !== undefined) ? pkg.installment_amount : "";
+      instAmtRow.appendChild(instAmtLabel);
+      instAmtRow.appendChild(instAmtInput);
+      ppFields.appendChild(instAmtRow);
+
+      card.appendChild(ppFields);
+
+      (function(chk, fields) {
+        chk.onchange = function() { fields.hidden = !chk.checked; };
+      })(toggleChk, ppFields);
+
       // is_popular checkbox
       var popRow = document.createElement("div");
       popRow.className = "pkg-popular-row";
@@ -1726,13 +1899,13 @@
       card.appendChild(footer);
 
       if (isNew) {
-        (function(c, btn, st, sn, fn, au, il, pc, so, ti) {
-          btn.onclick = function() { createPackage(c, btn, st, sn, fn, au, il, pc, so, ti); };
-        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl);
+        (function(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput) {
+          btn.onclick = function() { createPackage(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, toggleChk, instCountInput, instAmtInput);
       } else {
-        (function(c, btn, st, sn, fn, au, il, pc, so, id) {
-          btn.onclick = function() { savePackage(id, c, btn, st, sn, fn, au, il, pc, so); };
-        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, pkg.id);
+        (function(c, btn, st, sn, fn, au, il, pc, so, id, bpi, ppChk, icInput, iaInput) {
+          btn.onclick = function() { savePackage(id, c, btn, st, sn, fn, au, il, pc, so, bpi, ppChk, icInput, iaInput); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, pkg.id, priceInput, toggleChk, instCountInput, instAmtInput);
       }
 
       return card;
@@ -1774,7 +1947,7 @@
     }
 
     // ── Save (PUT) a package ───────────────────────────────────────────────
-    function savePackage(id, card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput) {
+    function savePackage(id, card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, priceInput, ppChk, icInput, iaInput) {
       var shortName = shortInput.value.trim();
       var fullName  = fullInput.value.trim();
 
@@ -1791,13 +1964,18 @@
 
       btn.disabled = true;
 
+      var hasPaymentPlan = ppChk.checked;
       var payload = {
-        short_name:     shortName,
-        full_name:      fullName,
-        audience:       audTextarea.value.trim(),
-        included_items: collectItems(itemsList),
-        is_popular:     popChk.checked,
-        sort_order:     sortInput.value !== "" ? parseInt(sortInput.value, 10) : null
+        short_name:         shortName,
+        full_name:          fullName,
+        audience:           audTextarea.value.trim(),
+        included_items:     collectItems(itemsList),
+        is_popular:         popChk.checked,
+        sort_order:         sortInput.value !== "" ? parseInt(sortInput.value, 10) : null,
+        base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
+        has_payment_plan:   hasPaymentPlan,
+        installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null
       };
 
       getToken().then(function(token) {
@@ -1836,7 +2014,7 @@
     }
 
     // ── Create (POST) a package ────────────────────────────────────────────
-    function createPackage(card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl) {
+    function createPackage(card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, ppChk, icInput, iaInput) {
       var shortName = shortInput.value.trim();
       var fullName  = fullInput.value.trim();
 
@@ -1853,13 +2031,18 @@
 
       btn.disabled = true;
 
+      var hasPaymentPlan = ppChk.checked;
       var payload = {
-        short_name:     shortName,
-        full_name:      fullName,
-        audience:       audTextarea.value.trim(),
-        included_items: collectItems(itemsList),
-        is_popular:     popChk.checked,
-        sort_order:     sortInput.value !== "" ? parseInt(sortInput.value, 10) : null
+        short_name:         shortName,
+        full_name:          fullName,
+        audience:           audTextarea.value.trim(),
+        included_items:     collectItems(itemsList),
+        is_popular:         popChk.checked,
+        sort_order:         sortInput.value !== "" ? parseInt(sortInput.value, 10) : null,
+        base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
+        has_payment_plan:   hasPaymentPlan,
+        installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null
       };
 
       getToken().then(function(token) {
@@ -1951,7 +2134,8 @@
       if (!container) { return; }
       var blankCard = makePackageCard({
         short_name: "", full_name: "", audience: "",
-        included_items: [], is_popular: false, sort_order: null
+        included_items: [], is_popular: false, sort_order: null,
+        base_price: null, has_payment_plan: false, installment_count: null, installment_amount: null
       }, true);
       container.appendChild(blankCard);
       blankCard.scrollIntoView({ behavior: "smooth", block: "start" });

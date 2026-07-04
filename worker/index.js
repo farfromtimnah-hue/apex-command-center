@@ -2035,7 +2035,8 @@ async function handleGetSettingsPackages(request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var res = await env.DB.prepare(
-            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order " +
+            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order, " +
+            "base_price, has_payment_plan, installment_count, installment_amount " +
             "FROM packages ORDER BY sort_order ASC, short_name ASC"
         ).all();
 
@@ -2045,13 +2046,17 @@ async function handleGetSettingsPackages(request, env) {
                 try { items = JSON.parse(row.included_items); } catch(e) { items = []; }
             }
             return {
-                id:             row.id,
-                short_name:     row.short_name,
-                full_name:      row.full_name,
-                audience:       row.audience,
-                included_items: items,
-                is_popular:     !!row.is_popular,
-                sort_order:     row.sort_order
+                id:                 row.id,
+                short_name:         row.short_name,
+                full_name:          row.full_name,
+                audience:           row.audience,
+                included_items:     items,
+                is_popular:         !!row.is_popular,
+                sort_order:         row.sort_order,
+                base_price:         row.base_price ?? null,
+                has_payment_plan:   !!row.has_payment_plan,
+                installment_count:  row.installment_count ?? null,
+                installment_amount: row.installment_amount ?? null
             };
         });
 
@@ -2087,11 +2092,15 @@ async function handlePostSettingsPackages(request, env) {
 
         var includedItems = Array.isArray(body.included_items) ? body.included_items : [];
         var isPopular     = body.is_popular ? 1 : 0;
+        var basePrice     = (body.base_price !== undefined && body.base_price !== null && body.base_price !== "") ? parseFloat(body.base_price) : null;
+        var hasPaymentPlan = body.has_payment_plan ? 1 : 0;
+        var installmentCount  = (hasPaymentPlan && body.installment_count  !== undefined && body.installment_count  !== null) ? parseInt(body.installment_count,  10) : null;
+        var installmentAmount = (hasPaymentPlan && body.installment_amount !== undefined && body.installment_amount !== null) ? parseFloat(body.installment_amount) : null;
 
         var pkgId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO packages (id, short_name, full_name, audience, included_items, is_popular, sort_order) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO packages (id, short_name, full_name, audience, included_items, is_popular, sort_order, base_price, has_payment_plan, installment_count, installment_amount) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             pkgId,
             body.short_name.trim(),
@@ -2099,11 +2108,16 @@ async function handlePostSettingsPackages(request, env) {
             body.audience || null,
             JSON.stringify(includedItems),
             isPopular,
-            sortOrder
+            sortOrder,
+            basePrice,
+            hasPaymentPlan,
+            installmentCount,
+            installmentAmount
         ).run();
 
         var row = await env.DB.prepare(
-            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order FROM packages WHERE id = ?"
+            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order, " +
+            "base_price, has_payment_plan, installment_count, installment_amount FROM packages WHERE id = ?"
         ).bind(pkgId).first();
 
         var items = [];
@@ -2112,13 +2126,17 @@ async function handlePostSettingsPackages(request, env) {
         }
 
         return jsonOk({ package: {
-            id:             row.id,
-            short_name:     row.short_name,
-            full_name:      row.full_name,
-            audience:       row.audience,
-            included_items: items,
-            is_popular:     !!row.is_popular,
-            sort_order:     row.sort_order
+            id:                 row.id,
+            short_name:         row.short_name,
+            full_name:          row.full_name,
+            audience:           row.audience,
+            included_items:     items,
+            is_popular:         !!row.is_popular,
+            sort_order:         row.sort_order,
+            base_price:         row.base_price ?? null,
+            has_payment_plan:   !!row.has_payment_plan,
+            installment_count:  row.installment_count ?? null,
+            installment_amount: row.installment_amount ?? null
         }});
     } catch (e) {
         return jsonErr("Error creating package: " + e.message, 500);
@@ -2175,9 +2193,29 @@ async function handlePutSettingsPackage(id, request, env) {
             await env.DB.prepare("UPDATE packages SET sort_order = ? WHERE id = ?")
                 .bind(body.sort_order, id).run();
         }
+        if (body.hasOwnProperty("base_price")) {
+            var bp = (body.base_price !== null && body.base_price !== "") ? parseFloat(body.base_price) : null;
+            await env.DB.prepare("UPDATE packages SET base_price = ? WHERE id = ?")
+                .bind(isNaN(bp) ? null : bp, id).run();
+        }
+        if (body.hasOwnProperty("has_payment_plan")) {
+            await env.DB.prepare("UPDATE packages SET has_payment_plan = ? WHERE id = ?")
+                .bind(body.has_payment_plan ? 1 : 0, id).run();
+        }
+        if (body.hasOwnProperty("installment_count")) {
+            var ic = (body.installment_count !== null && body.installment_count !== "") ? parseInt(body.installment_count, 10) : null;
+            await env.DB.prepare("UPDATE packages SET installment_count = ? WHERE id = ?")
+                .bind((ic !== null && !isNaN(ic)) ? ic : null, id).run();
+        }
+        if (body.hasOwnProperty("installment_amount")) {
+            var ia = (body.installment_amount !== null && body.installment_amount !== "") ? parseFloat(body.installment_amount) : null;
+            await env.DB.prepare("UPDATE packages SET installment_amount = ? WHERE id = ?")
+                .bind((ia !== null && !isNaN(ia)) ? ia : null, id).run();
+        }
 
         var row = await env.DB.prepare(
-            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order FROM packages WHERE id = ?"
+            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order, " +
+            "base_price, has_payment_plan, installment_count, installment_amount FROM packages WHERE id = ?"
         ).bind(id).first();
 
         var updatedItems = [];
@@ -2186,13 +2224,17 @@ async function handlePutSettingsPackage(id, request, env) {
         }
 
         return jsonOk({ package: {
-            id:             row.id,
-            short_name:     row.short_name,
-            full_name:      row.full_name,
-            audience:       row.audience,
-            included_items: updatedItems,
-            is_popular:     !!row.is_popular,
-            sort_order:     row.sort_order
+            id:                 row.id,
+            short_name:         row.short_name,
+            full_name:          row.full_name,
+            audience:           row.audience,
+            included_items:     updatedItems,
+            is_popular:         !!row.is_popular,
+            sort_order:         row.sort_order,
+            base_price:         row.base_price ?? null,
+            has_payment_plan:   !!row.has_payment_plan,
+            installment_count:  row.installment_count ?? null,
+            installment_amount: row.installment_amount ?? null
         }});
     } catch (e) {
         return jsonErr("Error updating package: " + e.message, 500);
@@ -2690,6 +2732,82 @@ async function handleGetInvoices(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/invoices/:zoho_invoice_id/package-check
+// Looks up the invoice's customer in Zoho, resolves the matching D1 client via
+// zoho_customer_id, then checks whether that client's package has a base_price set.
+// Returns { ok: true, has_price: bool, package_name: string|null }
+// Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetInvoicePackageCheck(zohoInvoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // Fetch the invoice from Zoho to get customer_id
+        var invUrl = "https://www.zohoapis.com/books/v3/invoices/" + zohoInvoiceId +
+            "?organization_id=" + zohoAuth.organization_id;
+        var ctrl = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, 15000);
+        var invRes;
+        try {
+            invRes = await fetch(invUrl, {
+                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                signal: ctrl.signal
+            });
+        } finally {
+            clearTimeout(timer);
+        }
+        var invData = await invRes.json();
+        if (!invRes.ok || invData.code !== 0) {
+            return jsonErr("Zoho invoice fetch failed: " + (invData.message || JSON.stringify(invData)), 502);
+        }
+
+        var zohoCustomerId = invData.invoice && invData.invoice.customer_id;
+        if (!zohoCustomerId) {
+            return jsonOk({ ok: true, has_price: false, package_name: null });
+        }
+
+        // Resolve D1 client via zoho_customer_id
+        var clientRow = await env.DB.prepare(
+            "SELECT package FROM clients WHERE zoho_customer_id = ?"
+        ).bind(String(zohoCustomerId)).first();
+
+        if (!clientRow || !clientRow.package) {
+            return jsonOk({ ok: true, has_price: false, package_name: null });
+        }
+
+        var packageShortName = clientRow.package;
+
+        // Look up the package's base_price
+        var pkgRow = await env.DB.prepare(
+            "SELECT short_name, full_name, base_price FROM packages WHERE short_name = ?"
+        ).bind(packageShortName).first();
+
+        if (!pkgRow) {
+            return jsonOk({ ok: true, has_price: false, package_name: packageShortName });
+        }
+
+        return jsonOk({
+            ok:           true,
+            has_price:    pkgRow.base_price !== null && pkgRow.base_price !== undefined,
+            package_name: pkgRow.short_name
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error checking package pricing: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/invoices/:zoho_invoice_id/mark-sent
 // Calls Zoho's "Mark as Sent" action, which changes invoice status from
 // draft → sent without emailing the client. Auth: alice / rafa / developer.
@@ -3133,6 +3251,11 @@ export default {
         // /api/tasks/:id  PATCH (status toggle — syncs with tasks.html)
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && method === "PATCH") {
             return handlePatchTask(segs[2], request, env);
+        }
+
+        // /api/invoices/:zoho_invoice_id/package-check  GET
+        if (segs[0] === "api" && segs[1] === "invoices" && segs[2] && segs[3] === "package-check" && method === "GET") {
+            return handleGetInvoicePackageCheck(segs[2], request, env);
         }
 
         // /api/invoices/:zoho_invoice_id/mark-sent  POST

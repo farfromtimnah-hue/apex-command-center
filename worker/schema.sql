@@ -96,3 +96,19 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Seed: operational account for Pra. Alice
 INSERT OR IGNORE INTO users (email, role) VALUES ('abnerprata@gmail.com', 'alice');
+
+-- NOTE: packages table and message_templates were added via migrations/ files.
+-- packages table (with pricing fields added via migrations/package_pricing.sql):
+-- CREATE TABLE IF NOT EXISTS packages (
+--   id                  TEXT PRIMARY KEY,
+--   short_name          TEXT NOT NULL,
+--   full_name           TEXT NOT NULL,
+--   audience            TEXT,
+--   included_items      TEXT,
+--   is_popular          INTEGER NOT NULL DEFAULT 0,
+--   sort_order          INTEGER,
+--   base_price          REAL,
+--   has_payment_plan    INTEGER NOT NULL DEFAULT 0,
+--   installment_count   INTEGER,
+--   installment_amount  REAL
+-- );

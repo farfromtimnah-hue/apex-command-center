@@ -784,13 +784,22 @@ async function handleGetClientLogoImage(id, request, env) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
 
+        if (!/^logos\/[A-Za-z0-9_-]+\.(png|jpe?g|gif|webp)$/.test(client.logo_url)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
         var obj = await env.ASSETS.get(client.logo_url);
         if (!obj) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
 
+        var allowedTypes = { "image/jpeg": 1, "image/png": 1, "image/gif": 1, "image/webp": 1 };
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ct = allowedTypes[stored] ? stored : "image/jpeg";
         var imgHeaders = Object.assign({}, CORS_HEADERS, {
-            "Content-Type": (obj.httpMetadata && obj.httpMetadata.contentType) ? obj.httpMetadata.contentType : "image/jpeg",
+            "Content-Type": ct,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=\"logo\"",
             "Cache-Control": "public, max-age=86400"
         });
         return new Response(obj.body, { status: 200, headers: imgHeaders });
@@ -1595,13 +1604,22 @@ async function handleGetMyAvatarImage(request, env) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
 
+        if (!/^avatars\/[A-Za-z0-9_.@-]+\.(png|jpe?g|gif|webp)$/.test(row.avatar_url)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
         var obj = await env.ASSETS.get(row.avatar_url);
         if (!obj) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
 
+        var allowedTypes = { "image/jpeg": 1, "image/png": 1, "image/gif": 1, "image/webp": 1 };
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ct = allowedTypes[stored] ? stored : "image/jpeg";
         var imgHeaders = Object.assign({}, CORS_HEADERS, {
-            "Content-Type": (obj.httpMetadata && obj.httpMetadata.contentType) ? obj.httpMetadata.contentType : "image/jpeg",
+            "Content-Type": ct,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=\"avatar\"",
             "Cache-Control": "public, max-age=86400"
         });
         return new Response(obj.body, { status: 200, headers: imgHeaders });
@@ -1962,13 +1980,22 @@ async function handleGetUserAvatarImage(email, request, env) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
 
+        if (!/^avatars\/[A-Za-z0-9_.@-]+\.(png|jpe?g|gif|webp)$/.test(row.avatar_url)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
         var obj = await env.ASSETS.get(row.avatar_url);
         if (!obj) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
 
+        var allowedTypes = { "image/jpeg": 1, "image/png": 1, "image/gif": 1, "image/webp": 1 };
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ct = allowedTypes[stored] ? stored : "image/jpeg";
         var imgHeaders = Object.assign({}, CORS_HEADERS, {
-            "Content-Type": (obj.httpMetadata && obj.httpMetadata.contentType) ? obj.httpMetadata.contentType : "image/jpeg",
+            "Content-Type": ct,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=\"avatar\"",
             "Cache-Control": "public, max-age=86400"
         });
         return new Response(obj.body, { status: 200, headers: imgHeaders });

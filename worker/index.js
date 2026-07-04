@@ -2336,6 +2336,7 @@ async function handlePostFinanceSubscriptions(request, env) {
         if (!body.service_name || !body.service_name.trim()) { return jsonErr("service_name is required", 400); }
         if (body.monthly_cost === undefined || body.monthly_cost === null) { return jsonErr("monthly_cost is required", 400); }
         if (!body.next_renewal_date) { return jsonErr("next_renewal_date is required", 400); }
+        if (body.manage_url && !/^https?:\/\//i.test(body.manage_url)) { return jsonErr("manage_url must start with http:// or https://", 400); }
 
         var id = crypto.randomUUID();
         await env.DB.prepare(
@@ -2368,6 +2369,7 @@ async function handlePutFinanceSubscription(id, request, env) {
             await env.DB.prepare("UPDATE subscriptions SET next_renewal_date = ? WHERE id = ?").bind(body.next_renewal_date, id).run();
         }
         if (body.hasOwnProperty("manage_url")) {
+            if (body.manage_url && !/^https?:\/\//i.test(body.manage_url)) { return jsonErr("manage_url must start with http:// or https://", 400); }
             await env.DB.prepare("UPDATE subscriptions SET manage_url = ? WHERE id = ?").bind(body.manage_url || null, id).run();
         }
 

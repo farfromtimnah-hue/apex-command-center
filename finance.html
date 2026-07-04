@@ -897,7 +897,13 @@
       return (str || "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function safeUrl(url) {
+      return /^https?:\/\//i.test(url || "") ? url : "";
     }
 
     function padZ(n) { return n < 10 ? "0" + n : "" + n; }
@@ -1335,8 +1341,9 @@
         if (daysLabel) {
           html += '<span class="sub-days ' + daysClass + '">' + daysLabel + '</span>';
         }
-        if (s.manage_url) {
-          html += '<a href="' + escHtml(s.manage_url) + '" target="_blank" rel="noopener" class="btn-ghost btn-sm" style="color:var(--gold);text-decoration:none;">';
+        var subManageUrl = safeUrl(s.manage_url);
+        if (subManageUrl) {
+          html += '<a href="' + escHtml(subManageUrl) + '" target="_blank" rel="noopener" class="btn-ghost btn-sm" style="color:var(--gold);text-decoration:none;">';
           html += '<span class="show-pt">Gerenciar</span><span class="show-en">Manage</span>';
           html += '</a>';
         }

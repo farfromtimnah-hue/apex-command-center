@@ -1423,6 +1423,221 @@ async function handlePostGoogleCalendarEvent(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/zoho/oauth/start
+// Auth: developer only. Returns Zoho OAuth authorization URL as JSON.
+// ---------------------------------------------------------------------------
+
+async function handleZohoOAuthStart(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var state     = crypto.randomUUID();
+        var expiresAt = Math.floor(Date.now() / 1000) + 600;
+
+        await env.DB.prepare(
+            "INSERT INTO oauth_state (state, initiated_by, expires_at) VALUES (?, ?, ?)"
+        ).bind(state, user.email, expiresAt).run();
+
+        await env.DB.prepare(
+            "DELETE FROM oauth_state WHERE expires_at < ?"
+        ).bind(Math.floor(Date.now() / 1000)).run();
+
+        var params = new URLSearchParams();
+        params.set("client_id",     env.ZOHO_BOOKS_CLIENT_ID);
+        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/zoho/oauth/callback");
+        params.set("response_type", "code");
+        params.set("access_type",   "offline");
+        params.set("prompt",        "consent");
+        params.set("scope",         "ZohoBooks.invoices.ALL,ZohoBooks.contacts.ALL,ZohoBooks.expenses.ALL,ZohoBooks.customerpayments.ALL,ZohoBooks.settings.READ");
+        params.set("state",         state);
+
+        var authUrl = "https://accounts.zoho.com/oauth/v2/auth?" + params.toString();
+        return jsonOk({ auth_url: authUrl });
+    } catch (e) {
+        return jsonErr("Error building Zoho OAuth URL: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/zoho/oauth/callback
+// No auth -- called by Zoho after user consent. Exchanges code for tokens,
+// then fetches and stores the organization_id alongside the refresh_token.
+// ---------------------------------------------------------------------------
+
+async function handleZohoOAuthCallback(request, env) {
+    try {
+        var url   = new URL(request.url);
+        var code  = url.searchParams.get("code");
+        var state = url.searchParams.get("state");
+        if (!code)  { return jsonErr("Missing code parameter", 400); }
+        if (!state) { return jsonErr("Missing state parameter", 400); }
+
+        var stateRow = await env.DB.prepare(
+            "SELECT initiated_by, expires_at FROM oauth_state WHERE state = ?"
+        ).bind(state).first();
+
+        if (!stateRow) { return jsonErr("Invalid or unknown state parameter", 400); }
+
+        await env.DB.prepare("DELETE FROM oauth_state WHERE state = ?").bind(state).run();
+
+        if (stateRow.expires_at < Math.floor(Date.now() / 1000)) {
+            return jsonErr("OAuth state expired -- please start the flow again", 400);
+        }
+
+        var tokenController = new AbortController();
+        var tokenTimer = setTimeout(function() { tokenController.abort(); }, 15000);
+
+        var tokenRes;
+        try {
+            tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+                method:  "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body:    new URLSearchParams({
+                    code:          code,
+                    client_id:     env.ZOHO_BOOKS_CLIENT_ID,
+                    client_secret: env.ZOHO_BOOKS_CLIENT_SECRET,
+                    redirect_uri:  "https://apex-api.farfromtimnah.workers.dev/api/zoho/oauth/callback",
+                    grant_type:    "authorization_code"
+                }).toString(),
+                signal: tokenController.signal
+            });
+        } finally {
+            clearTimeout(tokenTimer);
+        }
+
+        var tokenData = await tokenRes.json();
+        if (!tokenRes.ok) {
+            return jsonErr("Zoho token exchange failed: " + (tokenData.error_description || tokenData.error || "unknown"), 502);
+        }
+
+        var refreshToken = tokenData.refresh_token;
+        if (!refreshToken) {
+            return jsonErr("No refresh token returned -- ensure access_type=offline was set", 400);
+        }
+
+        var accessToken = tokenData.access_token;
+        if (!accessToken) {
+            return jsonErr("No access token returned from Zoho", 400);
+        }
+
+        // Fetch organization_id -- required for every future Zoho Books API call
+        var orgController = new AbortController();
+        var orgTimer = setTimeout(function() { orgController.abort(); }, 15000);
+
+        var orgRes;
+        try {
+            orgRes = await fetch("https://www.zohoapis.com/books/v3/organizations", {
+                method:  "GET",
+                headers: { "Authorization": "Zoho-oauthtoken " + accessToken },
+                signal:  orgController.signal
+            });
+        } finally {
+            clearTimeout(orgTimer);
+        }
+
+        var orgData = await orgRes.json();
+        if (!orgRes.ok) {
+            return jsonErr("Failed to fetch Zoho organizations: " + (orgData.message || JSON.stringify(orgData)), 502);
+        }
+
+        var organizations = orgData.organizations;
+        if (!organizations || !organizations.length) {
+            return jsonErr("No Zoho organizations found for this account", 400);
+        }
+
+        var organizationId = organizations[0].organization_id;
+        if (!organizationId) {
+            return jsonErr("organization_id missing from Zoho organizations response", 400);
+        }
+
+        await env.DB.prepare(
+            "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, organization_id, updated_at) VALUES ('zoho_books', ?, ?, datetime('now'))"
+        ).bind(refreshToken, String(organizationId)).run();
+
+        return jsonOk({ ok: true, message: "Zoho Books connected successfully" });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Zoho OAuth callback error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/zoho/oauth/status
+// Auth: developer or alice. Returns { connected: true/false } -- never the token.
+// ---------------------------------------------------------------------------
+
+async function handleZohoOAuthStatus(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer" && user.role !== "alice") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM oauth_tokens WHERE id = 'zoho_books'"
+        ).first();
+
+        return jsonOk({ connected: !!row });
+    } catch (e) {
+        return jsonErr("Error checking Zoho OAuth status: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: getZohoAccessToken(env)
+// Reads stored refresh_token and organization_id for id='zoho_books', then
+// exchanges the refresh_token for a fresh access_token (Zoho tokens expire
+// after 1 hour; no caching is done here -- that can be added later).
+// Returns { access_token, organization_id } or throws on failure.
+// ---------------------------------------------------------------------------
+
+async function getZohoAccessToken(env) {
+    var row = await env.DB.prepare(
+        "SELECT refresh_token, organization_id FROM oauth_tokens WHERE id = 'zoho_books'"
+    ).first();
+
+    if (!row || !row.refresh_token) {
+        throw new Error("Zoho Books not connected -- complete OAuth flow first");
+    }
+    if (!row.organization_id) {
+        throw new Error("Zoho organization_id not stored -- reconnect via OAuth flow");
+    }
+
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 15000);
+
+    var refreshRes;
+    try {
+        refreshRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+            method:  "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body:    new URLSearchParams({
+                client_id:     env.ZOHO_BOOKS_CLIENT_ID,
+                client_secret: env.ZOHO_BOOKS_CLIENT_SECRET,
+                refresh_token: row.refresh_token,
+                grant_type:    "refresh_token"
+            }).toString(),
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+
+    var refreshData = await refreshRes.json();
+    if (!refreshRes.ok) {
+        throw new Error("Zoho token refresh failed: " + (refreshData.error_description || refreshData.error || "unknown"));
+    }
+
+    var accessToken = refreshData.access_token;
+    if (!accessToken) {
+        throw new Error("Zoho refresh response did not include access_token");
+    }
+
+    return { access_token: accessToken, organization_id: row.organization_id };
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/users  — alice / rafa / developer only, list all users
 // ---------------------------------------------------------------------------
 
@@ -2415,6 +2630,9 @@ export default {
         if (path === "/api/google/oauth/callback"     && method === "GET")  { return handleGoogleOAuthCallback(request, env); }
         if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
         if (path === "/api/google/calendar/event"     && method === "POST") { return handlePostGoogleCalendarEvent(request, env); }
+        if (path === "/api/zoho/oauth/start"          && method === "GET")  { return handleZohoOAuthStart(request, env); }
+        if (path === "/api/zoho/oauth/callback"       && method === "GET")  { return handleZohoOAuthCallback(request, env); }
+        if (path === "/api/zoho/oauth/status"         && method === "GET")  { return handleZohoOAuthStatus(request, env); }
         if (path === "/api/sessions"              && method === "GET")  { return handleGetSessions(request, env); }
         if (path === "/api/sessions/inbox"        && method === "GET")  { return handleGetSessionsInbox(request, env); }
         if (path === "/api/sessions/calendar"     && method === "GET")  { return handleGetSessionsCalendar(request, env); }

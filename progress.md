@@ -1,5 +1,7 @@
 # Apex Command Center — Build Progress
 
+- [x] Top-bar display_name/avatar fix replicated to remaining 5 pages (session 55 — 2026-07-04): client.html, sessions.html, calendar.html, tasks.html, settings.html now match dashboard.html behavior: (1) handleSignOut clears currentUser + apex_display_name + apex_avatar_url + apex_dev_view before auth.signOut(); (2) populateHeaderUser uses email-truncated-at-@ fallback and escHtml on firstName/initial; (3) fetchAndApplyRole() added to always fire a fresh cache:no-store GET /api/role after onAuthStateChanged regardless of sessionStorage cache; (4) pageshow listener added to re-fetch on Safari bfcache restore; (5) escHtml added to sessions.html which was missing it entirely. No Worker changes.
+
 - [x] POST /api/users/:email/avatar added to worker/index.js (session 54 — 2026-07-04): admin avatar upload route so settings.html can set any user's profile picture; requires alice/rafa/developer role; decodes email from URL, reads field "avatar", validates type, uses same safeEmail sanitization as handlePostMyAvatar so keys are identical; deployed as version f4fbb3dc-f3aa-4532-8eff-5054ccf38655
 
 - [x] Fixed dashboard greeting email fallback to truncate at @ instead of showing full address

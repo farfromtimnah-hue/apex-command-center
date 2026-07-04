@@ -598,6 +598,78 @@
       font-size: 13px;
     }
 
+    /* ─── Invoice sub-tabs ───────────────────────────────────────────────── */
+    .inv-subtab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 6px;
+    }
+
+    .inv-subtab {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 10px 14px 9px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .inv-subtab:hover { color: var(--text); }
+    .inv-subtab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* ─── Invoice table ──────────────────────────────────────────────────── */
+    .inv-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .inv-table th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .inv-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .inv-table tr:last-child td { border-bottom: none; }
+    .inv-table tr:hover td { background: rgba(201,164,58,0.04); }
+
+    .inv-status-unpaid  { color: #92400e; background: #fef3c7; display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    .inv-status-overdue { color: #991b1b; background: #fee2e2; display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    .inv-status-paid    { color: #065f46; background: #d1fae5; display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    .inv-status-draft   { color: #475569; background: #f1f5f9; display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .btn-inv-view {
+      display: inline-flex;
+      align-items: center;
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.12s;
+      white-space: nowrap;
+    }
+    .btn-inv-view:hover { background: var(--gold-dim); }
+
     /* ─── Print ──────────────────────────────────────────────────────────── */
     @media print {
       #appHeader, #navSidebar, .finance-hero-section { display: none !important; }
@@ -840,6 +912,30 @@
         </div>
       </div>
 
+      <!-- ── Invoices ────────────────────────────────────────────────────── -->
+      <div class="content-card" id="invoicesSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Faturas</span>
+            <span class="show-en">Invoices</span>
+          </h2>
+        </div>
+        <!-- Sub-tab bar -->
+        <div class="inv-subtab-bar">
+          <button class="inv-subtab active" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
+            <span class="show-pt">Nao Pagas</span>
+            <span class="show-en">Unpaid</span>
+          </button>
+          <button class="inv-subtab" id="subtabPaid" onclick="switchInvoiceTab('paid')">
+            <span class="show-pt">Arquivo</span>
+            <span class="show-en">Archive</span>
+          </button>
+        </div>
+        <div id="invoicesList">
+          <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+        </div>
+      </div>
+
     </div><!-- /below-hero-section -->
   </main>
 
@@ -1066,6 +1162,7 @@
       loadChartData();
       loadSubscriptions();
       loadPendingTransactions();
+      loadInvoices("unpaid");
     }
 
     function init() {
@@ -1616,6 +1713,69 @@
           showToast("Ignorado / Ignored");
         })
         .catch(function() { showToast("Erro / Error"); });
+    }
+
+    // ── Invoices (finance.html tab) ────────────────────────────────────────
+
+    var currentInvoiceTab = "unpaid";
+
+    function switchInvoiceTab(tab) {
+      currentInvoiceTab = tab;
+      var unpaidBtn = document.getElementById("subtabUnpaid");
+      var paidBtn   = document.getElementById("subtabPaid");
+      if (unpaidBtn) { unpaidBtn.classList.toggle("active", tab === "unpaid"); }
+      if (paidBtn)   { paidBtn.classList.toggle("active", tab === "paid"); }
+      loadInvoices(tab);
+    }
+
+    function loadInvoices(tab) {
+      var listEl = document.getElementById("invoicesList");
+      if (!listEl) { return; }
+      listEl.innerHTML = '<div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>';
+      apiFetch("/api/invoices?status=" + (tab || "unpaid"))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          renderInvoiceTable(data.invoices || [], listEl);
+        })
+        .catch(function() {
+          listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao carregar faturas</span><span class="show-en">Error loading invoices</span></div>';
+        });
+    }
+
+    function renderInvoiceTable(invoices, listEl) {
+      if (invoices.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma fatura encontrada</span><span class="show-en">No invoices found</span></div>';
+        return;
+      }
+      var html = '<table class="inv-table"><thead><tr>';
+      html += '<th>#</th>';
+      html += '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>';
+      html += '<th><span class="show-pt">Total</span><span class="show-en">Total</span></th>';
+      html += '<th><span class="show-pt">Vencimento</span><span class="show-en">Due Date</span></th>';
+      html += '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>';
+      html += '<th></th>';
+      html += '</tr></thead><tbody>';
+      for (var i = 0; i < invoices.length; i++) {
+        var inv = invoices[i];
+        var statusClass = inv.status === "paid" ? "inv-status-paid"
+            : inv.status === "overdue" ? "inv-status-overdue"
+            : inv.status === "draft" ? "inv-status-draft"
+            : "inv-status-unpaid";
+        var statusLabel = inv.status === "paid" ? "Paga" : inv.status === "overdue" ? "Vencida" : inv.status === "draft" ? "Rascunho" : "A Pagar";
+        var invPath = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
+        html += '<tr>';
+        html += '<td style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
+        html += '<td>' + escHtml(inv.customer_name || "--") + '</td>';
+        html += '<td style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
+        html += '<td>' + escHtml(fmtDate(inv.due_date)) + '</td>';
+        html += '<td><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
+        html += '<td><a class="btn-inv-view" href="' + escHtml(invPath) + '" target="_blank" rel="noopener">';
+        html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
+        html += '</a></td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      listEl.innerHTML = html;
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────

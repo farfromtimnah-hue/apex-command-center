@@ -2612,6 +2612,312 @@ async function handleDeleteFinanceSubscription(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/invoices?status=unpaid|paid
+// Returns a simplified list of invoices filtered by status from Zoho Books.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetInvoices(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var status = url.searchParams.get("status") || "unpaid";
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // Zoho status filter: "unpaid" maps to status=sent or status=overdue, "paid" maps to status=paid
+        var zohoFilter = (status === "paid") ? "paid" : "sent,overdue,draft";
+        var zohoListUrl = "https://www.zohoapis.com/books/v3/invoices" +
+            "?organization_id=" + zohoAuth.organization_id +
+            "&status=" + zohoFilter +
+            "&per_page=100&sort_column=date&sort_order=D";
+
+        var listController = new AbortController();
+        var listTimer = setTimeout(function() { listController.abort(); }, 15000);
+
+        var zohoRes;
+        try {
+            zohoRes = await fetch(zohoListUrl, {
+                method: "GET",
+                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                signal: listController.signal
+            });
+        } finally {
+            clearTimeout(listTimer);
+        }
+
+        if (!zohoRes.ok) {
+            var zohoErrText = await zohoRes.text();
+            return jsonErr("Zoho invoice list failed (" + zohoRes.status + "): " + zohoErrText, 502);
+        }
+
+        var zohoData = await zohoRes.json();
+        var invoices = zohoData.invoices || [];
+
+        var simplified = [];
+        for (var i = 0; i < invoices.length; i++) {
+            var inv = invoices[i];
+            simplified.push({
+                invoice_id:     inv.invoice_id,
+                invoice_number: inv.invoice_number,
+                customer_name:  inv.customer_name,
+                total:          inv.total,
+                due_date:       inv.due_date,
+                status:         inv.status
+            });
+        }
+
+        return jsonOk({ invoices: simplified, status_filter: status });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching invoices: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/invoices
+// Returns that client's invoices split into unpaid and paid arrays,
+// matched via the client's zoho_customer_id.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientInvoices(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var clientRow = await env.DB.prepare(
+            "SELECT id, name, zoho_customer_id FROM clients WHERE id = ?"
+        ).bind(clientId).first();
+        if (!clientRow) { return jsonErr("Client not found", 404); }
+        if (!clientRow.zoho_customer_id) {
+            return jsonOk({ unpaid: [], paid: [], client_id: clientId, note: "No zoho_customer_id set for this client" });
+        }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // Fetch both unpaid and paid for this customer
+        async function fetchForStatus(zohoStatus, accessToken, orgId) {
+            var zohoUrl = "https://www.zohoapis.com/books/v3/invoices" +
+                "?organization_id=" + orgId +
+                "&customer_id=" + clientRow.zoho_customer_id +
+                "&status=" + zohoStatus +
+                "&per_page=100&sort_column=date&sort_order=D";
+
+            var controller = new AbortController();
+            var timer = setTimeout(function() { controller.abort(); }, 15000);
+
+            var res;
+            try {
+                res = await fetch(zohoUrl, {
+                    method: "GET",
+                    headers: { "Authorization": "Zoho-oauthtoken " + accessToken },
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timer);
+            }
+
+            if (!res.ok) { return []; }
+            var data = await res.json();
+            var list = data.invoices || [];
+            var result = [];
+            for (var i = 0; i < list.length; i++) {
+                var inv = list[i];
+                result.push({
+                    invoice_id:     inv.invoice_id,
+                    invoice_number: inv.invoice_number,
+                    customer_name:  inv.customer_name,
+                    total:          inv.total,
+                    due_date:       inv.due_date,
+                    status:         inv.status
+                });
+            }
+            return result;
+        }
+
+        var unpaid = await fetchForStatus("sent,overdue,draft", zohoAuth.access_token, zohoAuth.organization_id);
+        var paid   = await fetchForStatus("paid", zohoAuth.access_token, zohoAuth.organization_id);
+
+        return jsonOk({ unpaid: unpaid, paid: paid, client_id: clientId, client_name: clientRow.name });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching client invoices: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/invoices/:zoho_invoice_id/render-data
+// Fetches invoice from Zoho Books, looks up our internal client by zoho_customer_id,
+// and returns a JSON payload shaped exactly like apex-invoice-data-DRAFT.json.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+var APEX_API_BASE = "https://apex-api.farfromtimnah.workers.dev";
+
+// Formats a Zoho date string (YYYY-MM-DD) to DD/MM/YYYY for display.
+function formatZohoDate(zohoDate) {
+    if (!zohoDate) { return ""; }
+    var parts = zohoDate.split("-");
+    if (parts.length !== 3) { return zohoDate; }
+    return parts[2] + "/" + parts[1] + "/" + parts[0];
+}
+
+// Formats a number as a USD currency string (e.g. "$ 1,500.00").
+function formatCurrency(amount) {
+    if (amount === undefined || amount === null) { return "---"; }
+    var n = parseFloat(amount);
+    if (isNaN(n)) { return "---"; }
+    return "$ " + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+async function handleGetInvoiceRenderData(zohoInvoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        // 1. Get a fresh Zoho access token and org ID.
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // 2. Fetch the invoice from Zoho Books.
+        var zohoInvoiceUrl = "https://www.zohoapis.com/books/v3/invoices/" + zohoInvoiceId +
+            "?organization_id=" + zohoAuth.organization_id;
+
+        var invController = new AbortController();
+        var invTimer = setTimeout(function() { invController.abort(); }, 15000);
+
+        var zohoRes;
+        try {
+            zohoRes = await fetch(zohoInvoiceUrl, {
+                method:  "GET",
+                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                signal:  invController.signal
+            });
+        } finally {
+            clearTimeout(invTimer);
+        }
+
+        if (!zohoRes.ok) {
+            var zohoErrText = await zohoRes.text();
+            return jsonErr("Zoho invoice fetch failed (" + zohoRes.status + "): " + zohoErrText, 502);
+        }
+
+        var zohoData = await zohoRes.json();
+        if (!zohoData.invoice) {
+            return jsonErr("Zoho response did not include an invoice object", 502);
+        }
+        var inv = zohoData.invoice;
+
+        // 3. Look up our internal client by zoho_customer_id.
+        var zohoCustomerId = inv.customer_id;
+        if (!zohoCustomerId) {
+            return jsonErr("Invoice has no customer_id", 400);
+        }
+
+        var clientRow = await env.DB.prepare(
+            "SELECT id, name, email, payment_method FROM clients WHERE zoho_customer_id = ?"
+        ).bind(String(zohoCustomerId)).first();
+
+        if (!clientRow) {
+            return jsonErr("No local client found with zoho_customer_id " + zohoCustomerId, 404);
+        }
+
+        // 4. Build the client logo URL using our internal UUID.
+        var clientLogoUrl = APEX_API_BASE + "/api/clients/" + clientRow.id + "/logo-image";
+
+        // 5. Map Zoho line items to the template's itens shape.
+        var zohoLineItems = inv.line_items || [];
+        var itens = [];
+        for (var i = 0; i < zohoLineItems.length; i++) {
+            var li = zohoLineItems[i];
+            var discount = li.discount_amount && parseFloat(li.discount_amount) > 0
+                ? formatCurrency(li.discount_amount)
+                : "---";
+            itens.push({
+                descricao:      li.name || li.description || "",
+                detalhes:       li.description && li.name ? li.description : "",
+                quantidade:     li.quantity || 1,
+                valor_unitario: li.rate !== undefined ? formatCurrency(li.rate) : "---",
+                desconto:       discount,
+                subtotal:       li.item_total !== undefined ? formatCurrency(li.item_total) : "---"
+            });
+        }
+
+        // 6. Build the payment method field from our D1 record (Zoho has no equivalent).
+        var paymentMethod = clientRow.payment_method ||
+            "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente.";
+
+        // 7. Build the response shaped exactly like apex-invoice-data-DRAFT.json.
+        var renderData = {
+            invoice: {
+                numero:                     inv.invoice_number || "",
+                data_fatura:                formatZohoDate(inv.date),
+                data_vencimento:            formatZohoDate(inv.due_date),
+                termos_condicoes_pagamento: inv.payment_terms_label || "",
+                numero_pedido:              inv.reference_number || "",
+                assunto:                    inv.subject || "",
+                descricao:                  inv.notes || ""
+            },
+            empresa: {
+                nome:      "Apex Business & Leadership",
+                endereco:  "Tampa, FL",
+                telefone:  "",
+                website:   "apexbusiness.pro",
+                logo_url:  "https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
+            },
+            cliente: {
+                client_id:  clientRow.id,
+                nome:       inv.customer_name || clientRow.name,
+                endereco:   inv.billing_address
+                    ? [
+                        inv.billing_address.address,
+                        inv.billing_address.city,
+                        inv.billing_address.state,
+                        inv.billing_address.zip
+                      ].filter(Boolean).join(", ")
+                    : "",
+                email:      inv.email || clientRow.email || "",
+                logo_url:   clientLogoUrl
+            },
+            itens: itens,
+            totais: {
+                subtotal:       inv.sub_total !== undefined    ? formatCurrency(inv.sub_total)    : "---",
+                desconto_total: inv.discount_total !== undefined ? formatCurrency(inv.discount_total) : "---",
+                valor_total:    inv.total !== undefined         ? formatCurrency(inv.total)        : "---"
+            },
+            observacoes:        inv.notes || "",
+            formas_pagamento:   paymentMethod,
+            termos_e_condicoes: inv.terms || ""
+        };
+
+        return jsonOk(renderData);
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error building invoice render data: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -2653,6 +2959,7 @@ export default {
         if (path === "/api/settings/packages"    && method === "GET")  { return handleGetSettingsPackages(request, env); }
         if (path === "/api/settings/packages"    && method === "POST") { return handlePostSettingsPackages(request, env); }
 
+        if (path === "/api/invoices"                 && method === "GET")  { return handleGetInvoices(request, env); }
         if (path === "/api/finance/statement-upload" && method === "POST") { return handlePostFinanceStatementUpload(request, env); }
         if (path === "/api/finance/transactions"     && method === "GET")  { return handleGetFinanceTransactions(request, env); }
         if (path === "/api/finance/overview"         && method === "GET")  { return handleGetFinanceOverview(request, env); }
@@ -2732,6 +3039,9 @@ export default {
                 if (method === "GET")  { return handleGetClientTasks(cid, request, env); }
                 if (method === "POST") { return handlePostClientTask(cid, request, env); }
             }
+            if (segs.length === 4 && segs[3] === "invoices" && method === "GET") {
+                return handleGetClientInvoices(cid, request, env);
+            }
         }
 
         // /api/finance/transactions/:id/confirm|ignore
@@ -2763,6 +3073,11 @@ export default {
         // /api/tasks/:id  PATCH (status toggle — syncs with tasks.html)
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && method === "PATCH") {
             return handlePatchTask(segs[2], request, env);
+        }
+
+        // /api/invoices/:zoho_invoice_id/render-data  GET
+        if (segs[0] === "api" && segs[1] === "invoices" && segs[2] && segs[3] === "render-data" && method === "GET") {
+            return handleGetInvoiceRenderData(segs[2], request, env);
         }
 
         return jsonErr("Not found", 404);

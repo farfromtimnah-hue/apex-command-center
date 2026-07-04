@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fatura - Apex Business &amp; Leadership</title>
+  <style>
+    /* =====================================================================
+       APEX INVOICE TEMPLATE - DRAFT
+       Visual mockup only. Not wired to any route or live system.
+       All variable data is loaded from apex-invoice-data-DRAFT.json.
+       PDF export: use Cmd/Ctrl+P -> Save as PDF (native browser print).
+       ===================================================================== */
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background-color: #F5F3EE;
+      color: #1a1a1a;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* ---- HERO BAND ---- */
+    .hero-band {
+      width: 100%;
+      height: 190px;
+      overflow: hidden;
+      position: relative;
+      display: block;
+    }
+
+    .hero-band img {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+      object-position: center top;
+      display: block;
+    }
+
+    /* ---- HEADER TILE ROW — sits entirely within the hero photo ---- */
+    .header-tile-row {
+      display: flex;
+      align-items: center;
+      position: absolute;
+      bottom: 12px;
+      left: 36px;
+      right: 36px;
+      gap: 0;
+      z-index: 10;
+    }
+
+    /* Charcoal dark tile base — both Apex and client use this */
+    .apex-logo-tile,
+    .client-logo-tile {
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 220px;
+      min-width: 220px;
+      height: 90px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+      flex-shrink: 0;
+    }
+
+    .apex-logo-tile img {
+      max-height: 64px;
+      max-width: 190px;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Diagonal gold slash between tiles — SVG inline for reliable rendering */
+    .gold-rule {
+      flex-shrink: 0;
+      width: 36px;
+      height: 90px;
+      margin: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gold-rule svg {
+      width: 36px;
+      height: 90px;
+    }
+
+    .client-logo-tile img {
+      max-height: 64px;
+      max-width: 190px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .client-logo-tile .logo-placeholder {
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      font-style: italic;
+    }
+
+    /* Client tile wrapper — stacks logo tile + draft badge vertically */
+    .client-tile-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Draft badge — sits under client logo tile */
+    .draft-badge {
+      background: #c0392b;
+      color: #ffffff;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+
+    /* Solid dark pill behind client name — guarantees legibility regardless of photo behind it */
+    .gold-bar-label {
+      margin-left: 22px;
+      display: inline-block;
+      background: rgba(20, 20, 20, 0.82);
+      border-radius: 20px;
+      padding: 5px 18px;
+      color: #C9A84C;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1px solid rgba(201, 168, 76, 0.25);
+    }
+
+    /* Tighter spacer between hero and invoice meta area — reduced from 16px to 4px */
+    .hero-tile-spacer {
+      height: 4px;
+    }
+
+    /* ---- INVOICE META AREA ---- */
+    .invoice-meta-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 8px 36px 6px 36px;
+      gap: 24px;
+    }
+
+    .client-info-block {
+      flex: 1;
+    }
+
+    .client-info-block .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+    .client-info-block .client-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 3px;
+    }
+
+    .client-info-block .client-detail {
+      font-size: 12px;
+      color: #555;
+    }
+
+    /* Invoice number / dates block - right side */
+    .invoice-fields-block {
+      min-width: 280px;
+      max-width: 340px;
+    }
+
+    .invoice-fields-block table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .invoice-fields-block table td {
+      padding: 3px 8px;
+      font-size: 12px;
+      vertical-align: top;
+    }
+
+    .invoice-fields-block table td.field-label {
+      font-weight: 600;
+      color: #444;
+      white-space: nowrap;
+      width: 60%;
+    }
+
+    .invoice-fields-block table td.field-value {
+      color: #111;
+      font-weight: 400;
+    }
+
+    .invoice-number-display {
+      text-align: right;
+      margin-bottom: 6px;
+    }
+
+    .invoice-number-display .inv-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #111;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+
+    .invoice-number-display .inv-number {
+      font-size: 14px;
+      color: #C9A84C;
+      font-weight: 700;
+    }
+
+    /* ---- DIVIDER ---- */
+    .divider {
+      height: 2px;
+      background: linear-gradient(to right, #C9A84C 0%, #e8d9a8 60%, transparent 100%);
+      margin: 0 36px 10px 36px;
+    }
+
+    /* ---- SUBJECT / DESCRIPTION ROW ---- */
+    .subject-row {
+      padding: 0 36px 6px 36px;
+    }
+
+    .subject-row .field-group {
+      margin-bottom: 4px;
+    }
+
+    .subject-row .field-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #888;
+      margin-bottom: 3px;
+    }
+
+    .subject-row .field-value {
+      font-size: 13px;
+      color: #1a1a1a;
+    }
+
+    /* ---- LINE ITEMS TABLE ---- */
+    .table-wrapper {
+      padding: 0 36px 12px 36px;
+    }
+
+    .line-items-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .line-items-table thead tr {
+      background-color: #111111;
+      color: #ffffff;
+    }
+
+    .line-items-table thead th {
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .line-items-table thead th.col-num {
+      text-align: center;
+      width: 36px;
+    }
+
+    .line-items-table thead th.col-qty {
+      text-align: center;
+      width: 60px;
+    }
+
+    .line-items-table thead th.col-unit,
+    .line-items-table thead th.col-disc,
+    .line-items-table thead th.col-sub {
+      text-align: right;
+      width: 100px;
+    }
+
+    .line-items-table tbody tr {
+      background-color: #ffffff;
+      border-bottom: 1px solid #ece9e0;
+    }
+
+    .line-items-table tbody tr:nth-child(even) {
+      background-color: #FAF8F3;
+    }
+
+    .line-items-table tbody td {
+      padding: 5px 12px;
+      font-size: 12px;
+      color: #222;
+      vertical-align: top;
+    }
+
+    .line-items-table tbody td.col-num {
+      text-align: center;
+      color: #999;
+      font-size: 11px;
+    }
+
+    .line-items-table tbody td.col-qty {
+      text-align: center;
+    }
+
+    .line-items-table tbody td.col-unit,
+    .line-items-table tbody td.col-disc,
+    .line-items-table tbody td.col-sub {
+      text-align: right;
+      font-family: 'Courier New', monospace;
+      color: #444;
+    }
+
+    /* ---- POST-TABLE TWO-COLUMN LAYOUT ---- */
+    /* Left col: Observacoes + Formas de Pagamento; Right col: Sub Total + Amount Due tile */
+    .post-table-row {
+      padding: 0 36px 8px 36px;
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      break-before: avoid;
+      page-break-before: avoid;
+    }
+
+    .post-table-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .post-table-right {
+      flex-shrink: 0;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ---- TOTALS TABLE (inside post-table-right) ---- */
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .totals-table td {
+      padding: 4px 10px;
+      font-size: 12px;
+      vertical-align: top;
+    }
+
+    .totals-table td.tot-label {
+      font-weight: 600;
+      color: #555;
+      text-align: right;
+    }
+
+    .totals-table td.tot-value {
+      text-align: right;
+      font-family: 'Courier New', monospace;
+      color: #222;
+      width: 120px;
+    }
+
+    /* ---- AMOUNT DUE TILE (inside post-table-right) ---- */
+    .amount-due-tile {
+      background-color: #C9A84C;
+      border-radius: 10px;
+      padding: 12px 30px;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(201,168,76,0.30);
+    }
+
+    .amount-due-tile .adt-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #ffffff;
+      margin-bottom: 3px;
+    }
+
+    .amount-due-tile .adt-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+
+    /* ---- BOTTOM FIELD BLOCKS ---- */
+    .bottom-field-block .bf-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #888;
+      margin-bottom: 3px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 3px;
+    }
+
+    .bottom-field-block .bf-value {
+      font-size: 11px;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    /* Termos full-width block below both columns */
+    .termos-row {
+      padding: 0 36px 8px 36px;
+      break-before: avoid;
+      page-break-before: avoid;
+    }
+
+    /* ---- PAYMENT TILES ---- */
+    .payment-tiles {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .payment-tile {
+      background: #fff;
+      border: 1px solid #e0ddd5;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      min-width: 90px;
+    }
+
+    .payment-tile .pt-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .payment-tile .pt-cta {
+      font-size: 9px;
+      color: #888;
+    }
+
+    /* Stripe brand color text */
+    .stripe-wordmark {
+      font-size: 16px;
+      font-weight: 800;
+      color: #635BFF;
+      letter-spacing: -0.02em;
+      font-style: italic;
+    }
+
+    /* Simple QR-grid placeholder rendered via CSS — 7x7 grid */
+    .qr-placeholder {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(7, 1fr);
+      gap: 1px;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 2px;
+      border-radius: 3px;
+    }
+
+    .qr-placeholder span {
+      display: block;
+      border-radius: 1px;
+    }
+
+    /* ---- FOOTER ---- */
+    .footer {
+      background-color: #111111;
+      color: #cccccc;
+      padding: 10px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      break-before: avoid;
+      page-break-before: avoid;
+    }
+
+    .footer .footer-website {
+      font-size: 12px;
+      color: #C9A84C;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .footer .footer-center {
+      text-align: center;
+      font-size: 11px;
+      color: #aaa;
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .footer .footer-right {
+      font-size: 11px;
+      color: #777;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    /* ---- PRINT STYLES ---- */
+    @page { size: letter; margin: 0; }
+    @media print {
+      body {
+        background-color: #F5F3EE;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .hero-band,
+      .hero-band img {
+        height: 140px;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .footer {
+        page-break-before: avoid;
+        break-before: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =====================================================================
+       PRINT BUTTON - visible on screen only, hidden in print
+       ===================================================================== -->
+  <div class="no-print" style="text-align:right; padding:12px 36px 0 36px;">
+    <button onclick="window.print()" style="background:#111;color:#C9A84C;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.05em;">
+      Exportar PDF (Imprimir)
+    </button>
+  </div>
+
+  <!-- =====================================================================
+       1. HERO BAND
+       ===================================================================== -->
+  <div class="hero-band">
+    <img id="hero-img" src="assets/invoice-hero-crop.jpg" alt="Apex Banner" />
+    <!-- ===================================================================
+         HEADER TILE ROW: floats on hero — Apex glass tile | gold rule | client glass tile + draft badge
+         =================================================================== -->
+    <div class="header-tile-row">
+      <div class="apex-logo-tile">
+        <img id="apex-logo" src="" alt="Apex Business" />
+      </div>
+      <div class="gold-rule">
+        <svg viewBox="0 0 36 100" xmlns="http://www.w3.org/2000/svg">
+          <line x1="8" y1="4" x2="28" y2="96" stroke="#C9A84C" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <!-- ITEM 5: Draft badge sits directly under the client logo tile -->
+      <div class="client-tile-wrapper">
+        <div class="client-logo-tile">
+          <img id="client-logo" src="" alt="" style="display:none;" />
+          <span id="client-logo-fallback" class="logo-placeholder">Logo do Cliente</span>
+        </div>
+        <div class="draft-badge">RASCUNHO &mdash; NAO E UMA FATURA REAL</div>
+      </div>
+      <span class="gold-bar-label" id="gold-bar-client-name"></span>
+    </div>
+  </div>
+  <!-- ITEM 2: Reduced hero-to-header gap from 16px to 4px -->
+  <div class="hero-tile-spacer"></div>
+
+  <!-- =====================================================================
+       4. INVOICE META: client info left, invoice fields right
+       ===================================================================== -->
+  <div class="invoice-meta-area">
+    <div class="client-info-block">
+      <div class="section-label">Faturado para</div>
+      <div class="client-name" id="meta-client-name">--</div>
+      <div class="client-detail" id="meta-client-address">--</div>
+      <div class="client-detail" id="meta-client-email">--</div>
+    </div>
+
+    <div class="invoice-fields-block">
+      <div class="invoice-number-display">
+        <div class="inv-title">Fatura</div>
+        <div class="inv-number" id="inv-numero">--</div>
+      </div>
+      <table>
+        <tbody>
+          <tr>
+            <td class="field-label">Data da Fatura</td>
+            <td class="field-value" id="inv-data-fatura">--</td>
+          </tr>
+          <tr>
+            <td class="field-label">Data de Vencimento</td>
+            <td class="field-value" id="inv-data-vencimento">--</td>
+          </tr>
+          <tr>
+            <td class="field-label">Termos e Condições de Pagamento</td>
+            <td class="field-value" id="inv-termos-pagamento">--</td>
+          </tr>
+          <tr>
+            <td class="field-label">Nº do Pedido</td>
+            <td class="field-value" id="inv-numero-pedido">--</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- =====================================================================
+       SUBJECT / DESCRIPTION
+       ===================================================================== -->
+  <div class="subject-row">
+    <div class="field-group">
+      <div class="field-label">Assunto</div>
+      <div class="field-value" id="inv-assunto">--</div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Descrição</div>
+      <div class="field-value" id="inv-descricao">--</div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       5. LINE ITEMS TABLE
+       ===================================================================== -->
+  <div class="table-wrapper">
+    <table class="line-items-table">
+      <thead>
+        <tr>
+          <th class="col-num">#</th>
+          <th>Descrição</th>
+          <th class="col-qty">Qtd.</th>
+          <th class="col-unit">Valor Unitário</th>
+          <th class="col-disc">Desconto</th>
+          <th class="col-sub">Sub Total</th>
+        </tr>
+      </thead>
+      <tbody id="line-items-body">
+        <!-- populated by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- =====================================================================
+       ITEM 3: POST-TABLE TWO-COLUMN LAYOUT
+       Left: Observacoes + Formas de Pagamento
+       Right: Sub Total / Desconto Total / Valor Total tile
+       ===================================================================== -->
+  <div class="post-table-row">
+
+    <!-- LEFT COLUMN: notes + payment -->
+    <div class="post-table-left">
+      <div class="bottom-field-block">
+        <div class="bf-label">Observações</div>
+        <div class="bf-value" id="obs-value">--</div>
+      </div>
+
+      <!-- ITEM 4: Visual payment tiles — Zelle (QR placeholder) + Stripe (brand text) -->
+      <!-- NOTE: Both payment tiles below are PLACEHOLDER / DUMMY visuals for layout review.
+           They are not real payment integrations. The Zelle QR is a CSS-generated grid pattern
+           and does not scan. The Stripe button is styled text only — no real link. -->
+      <div class="bottom-field-block">
+        <div class="bf-label">Formas de Pagamento</div>
+        <div class="payment-tiles">
+
+          <!-- Zelle tile with CSS QR placeholder -->
+          <div class="payment-tile">
+            <div class="qr-placeholder" id="zelle-qr">
+              <!-- 7x7 = 49 cells; black cells simulate QR finder pattern corners + random data -->
+            </div>
+            <div class="pt-label">Zelle</div>
+          </div>
+
+          <!-- Stripe tile with brand wordmark (text approximation, #635BFF) -->
+          <div class="payment-tile">
+            <div class="stripe-wordmark">Stripe</div>
+            <div class="pt-label">Pagar com Stripe</div>
+            <div class="pt-cta">Link enviado por email</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: totals table + amount due tile -->
+    <div class="post-table-right">
+      <table class="totals-table">
+        <tbody>
+          <tr>
+            <td class="tot-label">Sub Total</td>
+            <td class="tot-value" id="tot-subtotal">---</td>
+          </tr>
+          <tr>
+            <td class="tot-label">Desconto Total</td>
+            <td class="tot-value" id="tot-desconto">---</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="amount-due-tile">
+        <div class="adt-label">Valor Total</div>
+        <div class="adt-value" id="adt-valor">---</div>
+      </div>
+    </div>
+
+  </div><!-- end post-table-row -->
+
+  <!-- =====================================================================
+       TERMOS E CONDICOES — full width, below both columns
+       ===================================================================== -->
+  <div class="termos-row">
+    <div class="bottom-field-block">
+      <div class="bf-label">Termos e Condições</div>
+      <div class="bf-value" id="termos-value">--</div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       FOOTER
+       IMPORTANT: business details below are PLACEHOLDER / DUMMY DATA ONLY.
+       Real Apex business name, address, and phone have not been provided.
+       Replace all values before this template goes live.
+       ===================================================================== -->
+  <div class="footer">
+    <a class="footer-website" id="footer-website" href="#" onclick="return false;">apexbusiness.pro</a>
+    <div class="footer-center" id="footer-center">
+      <!-- placeholder content populated by JS -->
+    </div>
+    <div class="footer-right">
+      Fatura gerada por Apex Command Center
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       SCRIPT: populates the invoice template from one of two sources:
+
+       LIVE MODE (served over https with ?invoice_id= param):
+         Reads ?invoice_id= from the URL and calls:
+           GET https://apex-api.farfromtimnah.workers.dev/api/invoices/{id}/render-data
+         The Worker endpoint fetches the invoice from Zoho Books, resolves the
+         internal client record from D1 (via zoho_customer_id), and returns JSON
+         shaped exactly like apex-invoice-data-DRAFT.json.
+         Requires a valid Firebase Bearer token in Authorization header — this
+         path is intended for the Command Center UI, not standalone browser opens.
+
+       LOCAL FALLBACK (file:// or no ?invoice_id= param):
+         Falls back to fetching apex-invoice-data-DRAFT.json from the same
+         directory. Use this path to double-click the file and preview locally.
+         No auth, no network dependency on the Worker.
+
+       Conventions: var, function declarations, no arrow functions, ASCII only,
+       null checks before every getElementById, all logic in window.onload.
+       ===================================================================== -->
+  <script>
+    var APEX_API_BASE = 'https://apex-api.farfromtimnah.workers.dev';
+
+    window.onload = function() {
+      buildQrPlaceholder();
+
+      /* ------------------------------------------------------------------
+         Detect mode: use ?invoice_id= param when served over https.
+         Over file:// or when param is absent, fall back to local JSON.
+         ------------------------------------------------------------------ */
+      var invoiceId = null;
+      if (window.location.protocol === 'https:') {
+        var params = new URLSearchParams(window.location.search);
+        invoiceId = params.get('invoice_id') || null;
+      }
+
+      if (invoiceId) {
+        /* ----------------------------------------------------------------
+           LIVE MODE: fetch from Worker endpoint.
+           The caller (Command Center UI) must pass its Firebase token.
+           We read it from sessionStorage key 'apex_firebase_token' — the
+           same key the Command Center stores after login.
+           ---------------------------------------------------------------- */
+        var token = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('apex_firebase_token') : null;
+        var headers = { 'Content-Type': 'application/json' };
+        if (token) { headers['Authorization'] = 'Bearer ' + token; }
+
+        fetch(APEX_API_BASE + '/api/invoices/' + encodeURIComponent(invoiceId) + '/render-data', {
+          method: 'GET',
+          headers: headers
+        })
+          .then(function(res) {
+            if (!res.ok) {
+              return res.json().then(function(e) {
+                throw new Error('API error ' + res.status + ': ' + (e.error || JSON.stringify(e)));
+              });
+            }
+            return res.json();
+          })
+          .then(function(data) {
+            populateInvoice(data);
+          })
+          .catch(function(err) {
+            console.error('[LIVE MODE] Erro ao carregar dados da fatura:', err);
+            showLoadError('Erro ao carregar fatura: ' + err.message);
+          });
+      } else {
+        /* ----------------------------------------------------------------
+           LOCAL FALLBACK: load apex-invoice-data-DRAFT.json from disk.
+           Works when opened via file:// or when no ?invoice_id= is set.
+           ---------------------------------------------------------------- */
+        fetch('apex-invoice-data-DRAFT.json')
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            populateInvoice(data);
+          })
+          .catch(function(err) {
+            console.error('[LOCAL FALLBACK] Erro ao carregar dados da fatura:', err);
+          });
+      }
+    };
+
+    function showLoadError(msg) {
+      var el = document.getElementById('inv-numero');
+      if (el) { el.textContent = 'ERRO'; }
+      var desc = document.getElementById('inv-descricao');
+      if (desc) { desc.textContent = msg; }
+    }
+
+    /* Build a simple black-and-white grid to simulate a QR code placeholder */
+    function buildQrPlaceholder() {
+      var container = document.getElementById('zelle-qr');
+      if (!container) { return; }
+      /* 7x7 pattern — 1=black, 0=white. Outer corners mimic QR finder squares. */
+      var pattern = [
+        1,1,1,1,1,1,1,
+        1,0,0,0,0,0,1,
+        1,0,1,0,1,0,1,
+        1,0,0,1,0,0,1,
+        1,0,1,0,1,0,1,
+        1,0,0,0,0,0,1,
+        1,1,1,1,1,1,1
+      ];
+      var html = '';
+      for (var i = 0; i < pattern.length; i++) {
+        var color = pattern[i] ? '#111111' : '#ffffff';
+        html += '<span style="background:' + color + ';"></span>';
+      }
+      container.innerHTML = html;
+    }
+
+    function setText(id, value) {
+      var el = document.getElementById(id);
+      if (el) { el.textContent = value || '--'; }
+    }
+
+    function populateInvoice(data) {
+      var inv = data.invoice || {};
+      var empresa = data.empresa || {};
+      var cliente = data.cliente || {};
+      var totais = data.totais || {};
+
+      // Apex logo
+      var apexLogo = document.getElementById('apex-logo');
+      if (apexLogo && empresa.logo_url) {
+        apexLogo.src = empresa.logo_url;
+      }
+
+      // Client logo - uses the client_id from JSON to build the live URL
+      // In production this URL is generated dynamically per client_id
+      var clientLogo = document.getElementById('client-logo');
+      var clientLogoFallback = document.getElementById('client-logo-fallback');
+      if (clientLogo && cliente.logo_url) {
+        clientLogo.src = cliente.logo_url;
+        clientLogo.alt = cliente.nome || 'Logo Cliente';
+        clientLogo.style.display = 'block';
+        clientLogo.onerror = function() {
+          clientLogo.style.display = 'none';
+          if (clientLogoFallback) { clientLogoFallback.style.display = 'inline'; }
+        };
+        if (clientLogoFallback) { clientLogoFallback.style.display = 'none'; }
+      }
+
+      // Gold bar client name label
+      var goldLabel = document.getElementById('gold-bar-client-name');
+      if (goldLabel && cliente.nome) {
+        goldLabel.textContent = cliente.nome;
+      }
+
+      // Invoice fields
+      setText('inv-numero', inv.numero);
+      setText('inv-data-fatura', inv.data_fatura);
+      setText('inv-data-vencimento', inv.data_vencimento);
+      setText('inv-termos-pagamento', inv.termos_condicoes_pagamento);
+      setText('inv-numero-pedido', inv.numero_pedido);
+      setText('inv-assunto', inv.assunto);
+      setText('inv-descricao', inv.descricao);
+
+      // Client info
+      setText('meta-client-name', cliente.nome);
+      setText('meta-client-address', cliente.endereco);
+      setText('meta-client-email', cliente.email);
+
+      // Line items
+      var tbody = document.getElementById('line-items-body');
+      if (tbody && data.itens && data.itens.length) {
+        var html = '';
+        for (var i = 0; i < data.itens.length; i++) {
+          var item = data.itens[i];
+          html += '<tr>';
+          html += '<td class="col-num">' + (i + 1) + '</td>';
+          html += '<td>' + escapeHtml(item.descricao || '') + '</td>';
+          html += '<td class="col-qty">' + escapeHtml(String(item.quantidade || 1)) + '</td>';
+          html += '<td class="col-unit">' + escapeHtml(item.valor_unitario || '---') + '</td>';
+          html += '<td class="col-disc">' + escapeHtml(item.desconto || '---') + '</td>';
+          html += '<td class="col-sub">' + escapeHtml(item.subtotal || '---') + '</td>';
+          html += '</tr>';
+        }
+        tbody.innerHTML = html;
+      }
+
+      // Totals
+      setText('tot-subtotal', totais.subtotal);
+      setText('tot-desconto', totais.desconto_total);
+      setText('adt-valor', totais.valor_total);
+
+      // Notes / terms (payment section is now static visual tiles)
+      setText('obs-value', data.observacoes);
+      setText('termos-value', data.termos_e_condicoes);
+
+      // Footer
+      var footerWebsite = document.getElementById('footer-website');
+      if (footerWebsite && empresa.website) {
+        footerWebsite.textContent = empresa.website;
+      }
+
+      var footerCenter = document.getElementById('footer-center');
+      if (footerCenter && empresa.nome) {
+        footerCenter.innerHTML =
+          escapeHtml(empresa.nome) + '<br>' +
+          escapeHtml(empresa.endereco || '') + '<br>' +
+          escapeHtml(empresa.telefone || '');
+      }
+    }
+
+    function escapeHtml(str) {
+      var d = document.createElement('div');
+      d.appendChild(document.createTextNode(str));
+      return d.innerHTML;
+    }
+  </script>
+
+</body>
+</html>

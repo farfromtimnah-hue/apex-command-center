@@ -15,6 +15,4 @@ bucket_name = "apex-command-center"
 # Set CLAUDE_API_KEY, FIREFLIES_API_KEY, and FIREFLIES_WEBHOOK_SECRET as Worker Secrets
 # via `wrangler secret put <NAME>` — never commit real keys here.
 [vars]
-FIREBASE_PROJECT_ID      = "apex-command-center-4b038"
-FIREFLIES_API_KEY        = ""
-FIREFLIES_WEBHOOK_SECRET = ""
+FIREBASE_PROJECT_ID          = "apex-command-center-4b038"

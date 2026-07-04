@@ -3,12 +3,16 @@ CREATE TABLE IF NOT EXISTS sessions (
     client_name TEXT NOT NULL,
     client_id   TEXT,
     date        TEXT NOT NULL,
+    time        TEXT,
+    session_type      TEXT,
     status      TEXT NOT NULL DEFAULT 'pending',
     raw_transcript TEXT,
     summary_json   TEXT,
     pdf_data          TEXT,
     task_completions  TEXT,
     approved_at       TEXT,
+    google_meet_link  TEXT,
+    whatsapp_sent_at  TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

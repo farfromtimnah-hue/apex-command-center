@@ -1,0 +1,83 @@
+{
+  "invoice": {
+    "numero": "INV-2025-0001",
+    "data_fatura": "01/07/2025",
+    "data_vencimento": "15/07/2025",
+    "termos_condicoes_pagamento": "15 dias",
+    "numero_pedido": "PED-2025-001",
+    "assunto": "Consultoria Estrategica - Pacote Sprint",
+    "descricao": "Servicos de consultoria empresarial e lideranca conforme pacote contratado."
+  },
+  "empresa": {
+    "nome": "Apex Business & Leadership",
+    "endereco": "123 Example Ave, Suite 100, Tampa, FL 33601",
+    "telefone": "(813) 555-0100",
+    "website": "apexbusiness.pro",
+    "logo_url": "https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
+  },
+  "cliente": {
+    "client_id": "b4dff5c5-cbcc-4609-aa93-0d82e8db6044",
+    "nome": "Metz Corp",
+    "endereco": "456 Client Street, Suite 200, Miami, FL 33101",
+    "email": "contato@metz.com",
+    "logo_url": "https://apex-api.farfromtimnah.workers.dev/api/clients/b4dff5c5-cbcc-4609-aa93-0d82e8db6044/logo-image"
+  },
+  "itens": [
+    {
+      "descricao": "Sprint estrategico de 90 dias",
+      "detalhes": "",
+      "quantidade": 1,
+      "valor_unitario": "---",
+      "desconto": "---",
+      "subtotal": "---"
+    },
+    {
+      "descricao": "Clareza, direcao e execucao guiada",
+      "detalhes": "",
+      "quantidade": 1,
+      "valor_unitario": "---",
+      "desconto": "---",
+      "subtotal": "---"
+    },
+    {
+      "descricao": "Sessoes estrategicas recorrentes",
+      "detalhes": "",
+      "quantidade": 1,
+      "valor_unitario": "---",
+      "desconto": "---",
+      "subtotal": "---"
+    },
+    {
+      "descricao": "+20 ferramentas praticas de gestao",
+      "detalhes": "",
+      "quantidade": 1,
+      "valor_unitario": "---",
+      "desconto": "---",
+      "subtotal": "---"
+    },
+    {
+      "descricao": "Metodo Avance (primeiros 40 dias)",
+      "detalhes": "",
+      "quantidade": 1,
+      "valor_unitario": "---",
+      "desconto": "---",
+      "subtotal": "---"
+    },
+    {
+      "descricao": "Acompanhamento e ajustes continuos",
+      "detalhes": "",
+      "quantidade": 1,
+      "valor_unitario": "---",
+      "desconto": "---",
+      "subtotal": "---"
+    }
+  ],
+  "totais": {
+    "subtotal": "---",
+    "desconto_total": "---",
+    "valor_total": "---"
+  },
+  "observacoes": "Pagamento a ser realizado conforme termos acordados em contrato.",
+  "formas_pagamento": "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente.",
+  "termos_e_condicoes": "Os servicos descritos nesta fatura sao regidos pelo contrato assinado entre as partes. O nao pagamento no prazo estipulado podera incorrer em juros de mora."
+}

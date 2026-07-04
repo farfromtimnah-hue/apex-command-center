@@ -2051,6 +2051,350 @@ async function handleGetUserAvatarImage(email, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/finance/statement-upload
+// Accepts a CSV or plain-text bank statement, sends to Claude, inserts parsed
+// transactions into bank_transactions with status='pending'.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceStatementUpload(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var formData = await request.formData();
+        var file = formData.get("statement");
+        if (!file) { return jsonErr("statement field is required", 400); }
+
+        var text = await file.text();
+        if (!text || !text.trim()) { return jsonErr("File is empty", 400); }
+
+        var claudeRes = await fetch(CLAUDE_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type":      "application/json",
+                "x-api-key":         env.CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01"
+            },
+            body: JSON.stringify({
+                model:      CLAUDE_MODEL,
+                max_tokens: 4096,
+                messages:   [{
+                    role: "user",
+                    content: "Parse the following bank statement and return ONLY a JSON array of transaction objects. Each object must have exactly these fields: date (YYYY-MM-DD string), description (string, original text), amount (positive number, always positive), transaction_type (string: income or expense), suggested_category (short Portuguese label such as Receita de Cliente, Assinatura, Despesa Operacional, Pessoal, Transferencia, Imposto, Marketing, Aluguel, Servicos, or similar based on the description), confidence (string: alta, media, or baixa). Return ONLY the JSON array with no markdown, no explanation, no extra text. Bank statement:\n\n" + text
+                }]
+            })
+        });
+
+        if (!claudeRes.ok) {
+            var claudeErr = await claudeRes.text();
+            return jsonErr("Claude API error: " + claudeErr, 502);
+        }
+
+        var claudeData = await claudeRes.json();
+        var rawText    = claudeData.content[0].text.trim();
+
+        var parsed;
+        try {
+            parsed = JSON.parse(rawText);
+        } catch (parseErr) {
+            var arrMatch = rawText.match(/\[[\s\S]*\]/);
+            if (!arrMatch) {
+                var objMatch = rawText.match(/\{[\s\S]*\}/);
+                if (!objMatch) { return jsonErr("Could not parse Claude response as JSON", 500); }
+                parsed = JSON.parse(objMatch[0]);
+            } else {
+                parsed = JSON.parse(arrMatch[0]);
+            }
+        }
+        if (!Array.isArray(parsed)) { parsed = [parsed]; }
+
+        var inserted = [];
+        for (var i = 0; i < parsed.length; i++) {
+            var t = parsed[i];
+            if (!t.date || !t.description || t.amount === undefined) { continue; }
+            var txType = (t.transaction_type === "income") ? "income" : "expense";
+            var conf   = (t.confidence === "alta" || t.confidence === "baixa") ? t.confidence : "media";
+            var txId   = crypto.randomUUID();
+            var amt    = Math.abs(parseFloat(t.amount) || 0);
+            var cat    = t.suggested_category || "Outro";
+            await env.DB.prepare(
+                "INSERT INTO bank_transactions (id, transaction_date, description, amount, transaction_type, suggested_category, confidence, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'))"
+            ).bind(txId, t.date, t.description, amt, txType, cat, conf).run();
+            inserted.push({ id: txId, transaction_date: t.date, description: t.description, amount: amt, transaction_type: txType, suggested_category: cat, confidence: conf, status: "pending", assigned_category: null });
+        }
+
+        return jsonOk({ transactions: inserted, count: inserted.length });
+    } catch (e) {
+        return jsonErr("Error processing statement: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/transactions?status=pending
+// Lists transactions filtered by status (default: all), most recent first.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceTransactions(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url    = new URL(request.url);
+        var status = url.searchParams.get("status") || "";
+
+        var res;
+        if (status) {
+            res = await env.DB.prepare(
+                "SELECT * FROM bank_transactions WHERE status = ? ORDER BY transaction_date DESC, created_at DESC"
+            ).bind(status).all();
+        } else {
+            res = await env.DB.prepare(
+                "SELECT * FROM bank_transactions ORDER BY transaction_date DESC, created_at DESC"
+            ).all();
+        }
+
+        return jsonOk({ transactions: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching transactions: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance/transactions/:id/confirm
+// Body: { assigned_category: string }
+// Sets status='confirmed' and assigned_category.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceTransactionConfirm(txId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.assigned_category || !body.assigned_category.trim()) {
+            return jsonErr("assigned_category is required", 400);
+        }
+
+        var existing = await env.DB.prepare("SELECT id FROM bank_transactions WHERE id = ?").bind(txId).first();
+        if (!existing) { return jsonErr("Transaction not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE bank_transactions SET status = 'confirmed', assigned_category = ? WHERE id = ?"
+        ).bind(body.assigned_category.trim(), txId).run();
+
+        return jsonOk({ ok: true, id: txId, status: "confirmed", assigned_category: body.assigned_category.trim() });
+    } catch (e) {
+        return jsonErr("Error confirming transaction: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance/transactions/:id/ignore
+// Sets status='ignored'.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceTransactionIgnore(txId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM bank_transactions WHERE id = ?").bind(txId).first();
+        if (!existing) { return jsonErr("Transaction not found", 404); }
+
+        await env.DB.prepare("UPDATE bank_transactions SET status = 'ignored' WHERE id = ?").bind(txId).run();
+
+        return jsonOk({ ok: true, id: txId, status: "ignored" });
+    } catch (e) {
+        return jsonErr("Error ignoring transaction: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/overview
+// Returns aggregated stats from confirmed transactions in the current calendar month.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceOverview(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var now = new Date();
+        var year  = now.getFullYear();
+        var month = now.getMonth() + 1;
+        var mm    = month < 10 ? "0" + month : "" + month;
+        var prefix = year + "-" + mm;
+
+        var incomeRow = await env.DB.prepare(
+            "SELECT SUM(amount) as total FROM bank_transactions WHERE status = 'confirmed' AND transaction_type = 'income' AND transaction_date LIKE ?"
+        ).bind(prefix + "%").first();
+
+        var expenseRow = await env.DB.prepare(
+            "SELECT SUM(amount) as total FROM bank_transactions WHERE status = 'confirmed' AND transaction_type = 'expense' AND transaction_date LIKE ?"
+        ).bind(prefix + "%").first();
+
+        var income   = incomeRow  && incomeRow.total  ? parseFloat(incomeRow.total)  : 0;
+        var expenses = expenseRow && expenseRow.total ? parseFloat(expenseRow.total) : 0;
+        var net      = income - expenses;
+
+        return jsonOk({ income: income, expenses: expenses, net: net, month: prefix });
+    } catch (e) {
+        return jsonErr("Error fetching overview: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/chart?months=6
+// Returns confirmed transactions grouped by month and type for the last N months.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceChart(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url    = new URL(request.url);
+        var months = parseInt(url.searchParams.get("months") || "6", 10);
+        if (isNaN(months) || months < 1 || months > 24) { months = 6; }
+
+        // Build list of YYYY-MM strings for the last N months
+        var now   = new Date();
+        var labels = [];
+        for (var i = months - 1; i >= 0; i--) {
+            var d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            var yr  = d.getFullYear();
+            var mo  = d.getMonth() + 1;
+            var mm  = mo < 10 ? "0" + mo : "" + mo;
+            labels.push(yr + "-" + mm);
+        }
+
+        var res = await env.DB.prepare(
+            "SELECT substr(transaction_date, 1, 7) as month, transaction_type, SUM(amount) as total " +
+            "FROM bank_transactions WHERE status = 'confirmed' AND substr(transaction_date, 1, 7) >= ? " +
+            "GROUP BY month, transaction_type ORDER BY month ASC"
+        ).bind(labels[0]).all();
+
+        // Index by month+type
+        var byMonth = {};
+        for (var j = 0; j < res.results.length; j++) {
+            var row = res.results[j];
+            if (!byMonth[row.month]) { byMonth[row.month] = { income: 0, expenses: 0 }; }
+            if (row.transaction_type === "income") { byMonth[row.month].income = parseFloat(row.total) || 0; }
+            else { byMonth[row.month].expenses = parseFloat(row.total) || 0; }
+        }
+
+        var data = [];
+        for (var k = 0; k < labels.length; k++) {
+            var lbl = labels[k];
+            data.push({
+                month:    lbl,
+                income:   byMonth[lbl] ? byMonth[lbl].income   : 0,
+                expenses: byMonth[lbl] ? byMonth[lbl].expenses : 0
+            });
+        }
+
+        return jsonOk({ data: data });
+    } catch (e) {
+        return jsonErr("Error fetching chart data: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Routes: GET/POST /api/finance/subscriptions
+//         PUT/DELETE /api/finance/subscriptions/:id
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceSubscriptions(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT * FROM subscriptions ORDER BY next_renewal_date ASC"
+        ).all();
+
+        return jsonOk({ subscriptions: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching subscriptions: " + e.message, 500);
+    }
+}
+
+async function handlePostFinanceSubscriptions(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.service_name || !body.service_name.trim()) { return jsonErr("service_name is required", 400); }
+        if (body.monthly_cost === undefined || body.monthly_cost === null) { return jsonErr("monthly_cost is required", 400); }
+        if (!body.next_renewal_date) { return jsonErr("next_renewal_date is required", 400); }
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO subscriptions (id, service_name, monthly_cost, next_renewal_date, manage_url, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))"
+        ).bind(id, body.service_name.trim(), parseFloat(body.monthly_cost) || 0, body.next_renewal_date, body.manage_url || null).run();
+
+        return jsonOk({ subscription: { id: id, service_name: body.service_name.trim(), monthly_cost: parseFloat(body.monthly_cost) || 0, next_renewal_date: body.next_renewal_date, manage_url: body.manage_url || null } });
+    } catch (e) {
+        return jsonErr("Error creating subscription: " + e.message, 500);
+    }
+}
+
+async function handlePutFinanceSubscription(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM subscriptions WHERE id = ?").bind(id).first();
+        if (!existing) { return jsonErr("Subscription not found", 404); }
+
+        var body = await request.json();
+        if (body.hasOwnProperty("service_name") && body.service_name && body.service_name.trim()) {
+            await env.DB.prepare("UPDATE subscriptions SET service_name = ? WHERE id = ?").bind(body.service_name.trim(), id).run();
+        }
+        if (body.hasOwnProperty("monthly_cost") && body.monthly_cost !== undefined) {
+            await env.DB.prepare("UPDATE subscriptions SET monthly_cost = ? WHERE id = ?").bind(parseFloat(body.monthly_cost) || 0, id).run();
+        }
+        if (body.hasOwnProperty("next_renewal_date") && body.next_renewal_date) {
+            await env.DB.prepare("UPDATE subscriptions SET next_renewal_date = ? WHERE id = ?").bind(body.next_renewal_date, id).run();
+        }
+        if (body.hasOwnProperty("manage_url")) {
+            await env.DB.prepare("UPDATE subscriptions SET manage_url = ? WHERE id = ?").bind(body.manage_url || null, id).run();
+        }
+
+        var row = await env.DB.prepare("SELECT * FROM subscriptions WHERE id = ?").bind(id).first();
+        return jsonOk({ subscription: row });
+    } catch (e) {
+        return jsonErr("Error updating subscription: " + e.message, 500);
+    }
+}
+
+async function handleDeleteFinanceSubscription(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM subscriptions WHERE id = ?").bind(id).first();
+        if (!existing) { return jsonErr("Subscription not found", 404); }
+
+        await env.DB.prepare("DELETE FROM subscriptions WHERE id = ?").bind(id).run();
+        return jsonOk({ ok: true, id: id });
+    } catch (e) {
+        return jsonErr("Error deleting subscription: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -2088,6 +2432,13 @@ export default {
         if (path === "/api/settings/templates"   && method === "GET")  { return handleGetSettingsTemplates(request, env); }
         if (path === "/api/settings/packages"    && method === "GET")  { return handleGetSettingsPackages(request, env); }
         if (path === "/api/settings/packages"    && method === "POST") { return handlePostSettingsPackages(request, env); }
+
+        if (path === "/api/finance/statement-upload" && method === "POST") { return handlePostFinanceStatementUpload(request, env); }
+        if (path === "/api/finance/transactions"     && method === "GET")  { return handleGetFinanceTransactions(request, env); }
+        if (path === "/api/finance/overview"         && method === "GET")  { return handleGetFinanceOverview(request, env); }
+        if (path === "/api/finance/chart"            && method === "GET")  { return handleGetFinanceChart(request, env); }
+        if (path === "/api/finance/subscriptions"    && method === "GET")  { return handleGetFinanceSubscriptions(request, env); }
+        if (path === "/api/finance/subscriptions"    && method === "POST") { return handlePostFinanceSubscriptions(request, env); }
 
         // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client, /api/sessions/:id/whatsapp
         var segs = path.replace(/^\//, "").split("/");
@@ -2161,6 +2512,22 @@ export default {
                 if (method === "GET")  { return handleGetClientTasks(cid, request, env); }
                 if (method === "POST") { return handlePostClientTask(cid, request, env); }
             }
+        }
+
+        // /api/finance/transactions/:id/confirm|ignore
+        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "transactions" && segs[3] && segs[4] === "confirm" && method === "POST") {
+            return handlePostFinanceTransactionConfirm(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "transactions" && segs[3] && segs[4] === "ignore" && method === "POST") {
+            return handlePostFinanceTransactionIgnore(segs[3], request, env);
+        }
+
+        // /api/finance/subscriptions/:id  PUT | DELETE
+        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "subscriptions" && segs[3] && method === "PUT") {
+            return handlePutFinanceSubscription(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "subscriptions" && segs[3] && method === "DELETE") {
+            return handleDeleteFinanceSubscription(segs[3], request, env);
         }
 
         // /api/tasks/consultant/overdue  GET — must come before generic tasks/:id match

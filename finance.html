@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex &#8212; Financeiro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Chart.js for bar/donut charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 14px; }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Finance hero section ───────────────────────────────────────────── */
+    .finance-hero-section {
+      position: relative;
+      padding: 28px 32px 24px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #financeHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #financeHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #financeHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .finance-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #financeHeroBg.is-loaded { animation: none; }
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 18px 22px;
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 30px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .glass-tile-value.is-gold  { color: var(--gold); }
+    .glass-tile-value.is-green { color: #4ade80; }
+    .glass-tile-value.is-red   { color: #f87171; }
+
+    .tile-trend {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.5);
+      margin-top: 2px;
+    }
+
+    /* ─── Below hero ─────────────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ─── Content cards ──────────────────────────────────────────────────── */
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .content-card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .content-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .content-card-body {
+      padding: 20px;
+    }
+
+    /* ─── Two-column chart row ───────────────────────────────────────────── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 860px) {
+      .charts-row { grid-template-columns: 1fr; }
+    }
+
+    /* ─── Donut chart wrapper ────────────────────────────────────────────── */
+    .donut-wrap {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .donut-chart-container {
+      position: relative;
+      width: 160px;
+      height: 160px;
+      flex-shrink: 0;
+    }
+
+    .donut-center-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .donut-center-amount {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .donut-center-sub {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .category-list {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .category-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .category-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .category-name {
+      flex: 1;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .category-amount {
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    /* ─── Status chips ───────────────────────────────────────────────────── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .chip-alta   { background: #d1fae5; color: #065f46; }
+    .chip-media  { background: #fef3c7; color: #92400e; }
+    .chip-baixa  { background: #fee2e2; color: #991b1b; }
+    .chip-income  { background: #d1fae5; color: #065f46; }
+    .chip-expense { background: #fee2e2; color: #991b1b; }
+    .chip-pending   { background: #fef3c7; color: #92400e; }
+    .chip-confirmed { background: #d1fae5; color: #065f46; }
+    .chip-ignored   { background: #f1f5f9; color: #64748b; }
+
+    /* ─── Transaction table ──────────────────────────────────────────────── */
+    .tx-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .tx-table th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tx-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .tx-table tr:last-child td { border-bottom: none; }
+
+    .tx-table tr:hover td { background: rgba(201,164,58,0.04); }
+
+    .tx-amount-income  { font-weight: 600; color: #065f46; }
+    .tx-amount-expense { font-weight: 600; color: #991b1b; }
+
+    .tx-desc {
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+    }
+
+    .tx-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* ─── Inline category select ─────────────────────────────────────────── */
+    .tx-cat-select {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 6px;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+    }
+    .tx-cat-select:focus { border-color: var(--gold); }
+
+    /* ─── Buttons ────────────────────────────────────────────────────────── */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--gold);
+      color: #1a1a1d;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.45; cursor: default; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--gold); }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 5px;
+      transition: color 0.12s, background 0.12s;
+    }
+    .btn-ghost:hover { color: var(--text); background: rgba(0,0,0,0.05); }
+
+    .btn-danger {
+      background: transparent;
+      border: none;
+      color: #991b1b;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 5px;
+      transition: background 0.12s;
+    }
+    .btn-danger:hover { background: #fee2e2; }
+
+    /* ─── Upload zone ────────────────────────────────────────────────────── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      text-align: center;
+      background: var(--surface);
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+    .upload-zone.drag-over {
+      border-color: var(--gold);
+      background: rgba(201,164,58,0.05);
+    }
+    .upload-zone-icon { font-size: 32px; margin-bottom: 8px; color: var(--muted); }
+    .upload-zone-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .upload-zone-sub { font-size: 12px; color: var(--muted); }
+
+    /* ─── Subscriptions list ─────────────────────────────────────────────── */
+    .sub-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sub-row:last-of-type { border-bottom: none; }
+    .sub-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+    .sub-cost { font-size: 13px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+    .sub-renewal { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .sub-days {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .sub-days.soon  { background: #fee2e2; color: #991b1b; }
+    .sub-days.ok    { background: #d1fae5; color: #065f46; }
+    .sub-days.later { background: #f1f5f9; color: #475569; }
+
+    /* ─── Add subscription form ──────────────────────────────────────────── */
+    .add-sub-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-input {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--card);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .form-input:focus { border-color: var(--gold); }
+
+    .form-full { grid-column: 1 / -1; }
+
+    /* ─── Toast ──────────────────────────────────────────────────────────── */
+    #financeToast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1a1a1d;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 9999;
+      transition: transform 0.25s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #financeToast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ─── Empty state ────────────────────────────────────────────────────── */
+    .empty-state {
+      padding: 32px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ─── Print ──────────────────────────────────────────────────────────── */
+    @media print {
+      #appHeader, #navSidebar, .finance-hero-section { display: none !important; }
+    }
+
+    @media (max-width: 600px) {
+      .finance-hero-section { padding: 20px 16px; }
+      .below-hero-section { padding: 16px; }
+      .glass-tile { min-width: 110px; }
+      .add-sub-form { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- Hero section -->
+    <div class="finance-hero-section">
+      <div id="financeHeroBg" aria-hidden="true"></div>
+      <div id="financeHeroScrim" aria-hidden="true"></div>
+      <div class="finance-hero-content">
+        <h1 class="page-heading-hero">
+          <span class="show-pt">Financeiro</span>
+          <span class="show-en">Financial</span>
+        </h1>
+        <div class="glass-tile-row">
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">Receita do Mes</span>
+              <span class="show-en">Monthly Income</span>
+            </div>
+            <div class="glass-tile-value is-gold" id="heroIncome">--</div>
+            <div class="tile-trend" id="heroIncomeTrend">&nbsp;</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">Despesas do Mes</span>
+              <span class="show-en">Monthly Expenses</span>
+            </div>
+            <div class="glass-tile-value is-red" id="heroExpenses">--</div>
+            <div class="tile-trend" id="heroExpensesTrend">&nbsp;</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">Saldo Liquido</span>
+              <span class="show-en">Net Balance</span>
+            </div>
+            <div class="glass-tile-value" id="heroNet">--</div>
+            <div class="tile-trend" id="heroNetTrend">&nbsp;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Below hero -->
+    <div class="below-hero-section">
+
+      <!-- ── Charts row ──────────────────────────────────────────────────── -->
+      <div class="charts-row">
+
+        <!-- Donut: category spending -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Despesas por Categoria</span>
+              <span class="show-en">Expenses by Category</span>
+            </h2>
+          </div>
+          <div class="content-card-body">
+            <div class="donut-wrap">
+              <div class="donut-chart-container">
+                <canvas id="donutChart" width="160" height="160"></canvas>
+                <div class="donut-center-label">
+                  <div class="donut-center-amount" id="donutTotal">R$0</div>
+                  <div class="donut-center-sub">
+                    <span class="show-pt">total</span>
+                    <span class="show-en">total</span>
+                  </div>
+                </div>
+              </div>
+              <div class="category-list" id="categoryList">
+                <div class="empty-state" style="padding:8px 0;text-align:left;">
+                  <span class="show-pt">Sem dados</span>
+                  <span class="show-en">No data</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bar: income vs expenses last 6 months -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Receita vs Despesas (6 meses)</span>
+              <span class="show-en">Income vs Expenses (6 months)</span>
+            </h2>
+          </div>
+          <div class="content-card-body" style="position:relative;height:220px;">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Subscriptions ───────────────────────────────────────────────── -->
+      <div class="content-card" id="subscriptionsSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Assinaturas</span>
+            <span class="show-en">Subscriptions</span>
+          </h2>
+          <button class="btn-secondary btn-sm" onclick="toggleAddSubForm()">
+            <span class="show-pt">+ Adicionar</span>
+            <span class="show-en">+ Add</span>
+          </button>
+        </div>
+        <div id="subsList">
+          <div class="empty-state">
+            <div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div>
+          </div>
+        </div>
+        <!-- Add subscription form (hidden by default) -->
+        <form id="addSubForm" class="add-sub-form" style="display:none;" onsubmit="submitAddSub(event)">
+          <div class="form-group">
+            <label class="form-label" for="subName">
+              <span class="show-pt">Servico</span>
+              <span class="show-en">Service</span>
+            </label>
+            <input id="subName" class="form-input" type="text" placeholder="Ex: Notion, Slack..." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="subCost">
+              <span class="show-pt">Custo Mensal (R$)</span>
+              <span class="show-en">Monthly Cost (R$)</span>
+            </label>
+            <input id="subCost" class="form-input" type="number" step="0.01" min="0" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="subRenewal">
+              <span class="show-pt">Proxima Renovacao</span>
+              <span class="show-en">Next Renewal</span>
+            </label>
+            <input id="subRenewal" class="form-input" type="date" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="subUrl">
+              <span class="show-pt">Link de Gerenciamento</span>
+              <span class="show-en">Manage URL</span>
+            </label>
+            <input id="subUrl" class="form-input" type="url" placeholder="https://...">
+          </div>
+          <div class="form-full" style="display:flex;gap:8px;justify-content:flex-end;">
+            <button type="button" class="btn-secondary btn-sm" onclick="toggleAddSubForm()">
+              <span class="show-pt">Cancelar</span>
+              <span class="show-en">Cancel</span>
+            </button>
+            <button type="submit" class="btn-primary btn-sm" id="saveSubBtn">
+              <span class="show-pt">Salvar</span>
+              <span class="show-en">Save</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── Bank statement upload ───────────────────────────────────────── -->
+      <div class="content-card" id="uploadSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Importar Extrato</span>
+            <span class="show-en">Import Statement</span>
+          </h2>
+        </div>
+        <div class="content-card-body">
+          <div class="upload-zone" id="uploadZone"
+               ondragover="onDragOver(event)"
+               ondragleave="onDragLeave(event)"
+               ondrop="onDrop(event)"
+               onclick="document.getElementById('fileInput').click()">
+            <div class="upload-zone-icon">&#8679;</div>
+            <div class="upload-zone-title">
+              <span class="show-pt">Arraste ou clique para selecionar</span>
+              <span class="show-en">Drag or click to select</span>
+            </div>
+            <div class="upload-zone-sub">
+              <span class="show-pt">CSV ou texto simples. PDF nao suportado ainda.</span>
+              <span class="show-en">CSV or plain text. PDF not yet supported.</span>
+            </div>
+          </div>
+          <input type="file" id="fileInput" accept=".csv,.txt,text/csv,text/plain" style="display:none;" onchange="onFileSelected(event)">
+          <div id="uploadStatus" style="margin-top:12px;font-size:13px;color:var(--muted);"></div>
+        </div>
+      </div>
+
+      <!-- ── Pending transactions ────────────────────────────────────────── -->
+      <div class="content-card" id="pendingSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Transacoes Pendentes</span>
+            <span class="show-en">Pending Transactions</span>
+          </h2>
+          <span id="pendingBadge" style="background:var(--gold-dim);color:var(--gold);font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;display:none;">0</span>
+        </div>
+        <div id="pendingList">
+          <div class="empty-state">
+            <span class="show-pt">Nenhuma transacao pendente</span>
+            <span class="show-en">No pending transactions</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /below-hero-section -->
+  </main>
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <div id="financeToast"></div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyCr27RQDtGw0YVX9TmHpXXkiSwSDSjJr1s",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth        = null;
+    var currentUser = null;
+
+    var donutChartInstance = null;
+    var barChartInstance   = null;
+
+    // Category colors (charcoal palette, gold accent for first)
+    var CAT_COLORS = [
+      "#C9A43A", "#4b5563", "#6b7280", "#9ca3af",
+      "#1a1a1d", "#374151", "#d1d5db", "#111827",
+      "#6b6660", "#a8a29e"
+    ];
+
+    var CATEGORY_OPTIONS = [
+      "Receita de Cliente",
+      "Assinatura",
+      "Despesa Operacional",
+      "Pessoal",
+      "Marketing",
+      "Imposto",
+      "Aluguel",
+      "Servicos",
+      "Transferencia",
+      "Outro"
+    ];
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+
+    function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function padZ(n) { return n < 10 ? "0" + n : "" + n; }
+
+    function fmtCurrency(n) {
+      var v = parseFloat(n) || 0;
+      return "R$ " + v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function fmtDate(str) {
+      if (!str) { return "--"; }
+      var p = str.split("-");
+      if (p.length !== 3) { return str; }
+      return p[2] + "/" + p[1] + "/" + p[0];
+    }
+
+    function daysUntil(dateStr) {
+      if (!dateStr) { return null; }
+      var today = new Date();
+      today.setHours(0,0,0,0);
+      var parts = dateStr.split("-");
+      var target = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      return Math.round((target - today) / 86400000);
+    }
+
+    function showToast(msg) {
+      var el = document.getElementById("financeToast");
+      if (!el) { return; }
+      el.textContent = msg;
+      el.classList.add("show");
+      setTimeout(function() { el.classList.remove("show"); }, 2800);
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function apiFetch(path, opts) {
+      return getToken().then(function(token) {
+        var method  = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + token };
+        var fOpts   = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fOpts.body = JSON.stringify(opts.body);
+        }
+        return fetch(WORKER_URL + path, fOpts);
+      });
+    }
+
+    // ── Hero background ────────────────────────────────────────────────────
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx  = Math.floor(Math.random() * imgs.length);
+      var bgEl    = document.getElementById(imgElId);
+      var scrimEl = document.getElementById(scrimElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          var next = i + 1;
+          if (next === imgs.length) { return; }
+          if (next % imgs.length === idx) { return; }
+          tryLoadImage(next);
+        };
+        img.src = url;
+      }
+    }
+
+    // ── Auth helpers ───────────────────────────────────────────────────────
+
+    function handleSignOut() {
+      currentUser = null;
+      sessionStorage.removeItem("apex_role");
+      sessionStorage.removeItem("apex_email");
+      sessionStorage.removeItem("apex_display_name");
+      sessionStorage.removeItem("apex_avatar_url");
+      sessionStorage.removeItem("apex_dev_view");
+      auth.signOut().then(function() {
+        window.location.href = "index.html";
+      });
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function setupPage(role) {
+      var roleEl      = document.getElementById("headerRole");
+      var email       = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl   = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl) { roleEl.textContent = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      window.initNav && window.initNav();
+      initHeroBg("financeHeroBg", "financeHeroScrim");
+      loadOverview();
+      loadChartData();
+      loadSubscriptions();
+      loadPendingTransactions();
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function(user) {
+        if (!user) { window.location.href = "index.html"; return; }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function() {
+          if (!cached) {
+            window.location.href = "index.html";
+          }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    // ── Overview (hero tiles) ──────────────────────────────────────────────
+
+    function loadOverview() {
+      apiFetch("/api/finance/overview")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var incomeEl   = document.getElementById("heroIncome");
+          var expensesEl = document.getElementById("heroExpenses");
+          var netEl      = document.getElementById("heroNet");
+          if (incomeEl)   { incomeEl.textContent   = fmtCurrency(data.income   || 0); }
+          if (expensesEl) { expensesEl.textContent = fmtCurrency(data.expenses || 0); }
+          if (netEl) {
+            netEl.textContent = fmtCurrency(data.net || 0);
+            var net = parseFloat(data.net) || 0;
+            netEl.className = "glass-tile-value " + (net >= 0 ? "is-green" : "is-red");
+          }
+        })
+        .catch(function() {});
+    }
+
+    // ── Chart data ─────────────────────────────────────────────────────────
+
+    function loadChartData() {
+      apiFetch("/api/finance/chart?months=6")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          renderBarChart(data.data || []);
+        })
+        .catch(function() {});
+
+      // Donut uses confirmed transactions from DB; load and aggregate client-side
+      apiFetch("/api/finance/transactions?status=confirmed")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var txs = data.transactions || [];
+          renderDonutChart(txs);
+        })
+        .catch(function() {});
+    }
+
+    function renderBarChart(data) {
+      var canvas = document.getElementById("barChart");
+      if (!canvas) { return; }
+      var labels  = [];
+      var incomes = [];
+      var expenses = [];
+      for (var i = 0; i < data.length; i++) {
+        var m = data[i].month;
+        var parts = m.split("-");
+        labels.push(parts[1] + "/" + parts[0].slice(2));
+        incomes.push(data[i].income || 0);
+        expenses.push(data[i].expenses || 0);
+      }
+      if (barChartInstance) { barChartInstance.destroy(); }
+      barChartInstance = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Receita / Income",
+              data: incomes,
+              backgroundColor: "rgba(201,164,58,0.75)",
+              borderRadius: 4
+            },
+            {
+              label: "Despesas / Expenses",
+              data: expenses,
+              backgroundColor: "rgba(75,85,99,0.7)",
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                font: { family: "Inter", size: 11 },
+                color: "#6b6660",
+                boxWidth: 12,
+                padding: 12
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  return ctx.dataset.label + ": " + fmtCurrency(ctx.parsed.y);
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: "Inter", size: 11 }, color: "#6b6660" }
+            },
+            y: {
+              grid: { color: "rgba(0,0,0,0.05)" },
+              ticks: {
+                font: { family: "Inter", size: 11 },
+                color: "#6b6660",
+                callback: function(v) { return "R$" + v.toFixed(0); }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderDonutChart(txs) {
+      var catTotals = {};
+      var grandTotal = 0;
+      for (var i = 0; i < txs.length; i++) {
+        var t = txs[i];
+        if (t.transaction_type !== "expense") { continue; }
+        var cat = t.assigned_category || t.suggested_category || "Outro";
+        catTotals[cat] = (catTotals[cat] || 0) + (parseFloat(t.amount) || 0);
+        grandTotal += parseFloat(t.amount) || 0;
+      }
+
+      var sorted = [];
+      for (var k in catTotals) {
+        if (catTotals.hasOwnProperty(k)) {
+          sorted.push({ name: k, total: catTotals[k] });
+        }
+      }
+      sorted.sort(function(a, b) { return b.total - a.total; });
+
+      var canvas = document.getElementById("donutChart");
+      var totalEl = document.getElementById("donutTotal");
+      var listEl  = document.getElementById("categoryList");
+      if (!canvas) { return; }
+
+      if (totalEl) { totalEl.textContent = fmtCurrency(grandTotal); }
+
+      if (sorted.length === 0) {
+        if (listEl) {
+          listEl.innerHTML = '<div class="empty-state" style="padding:8px 0;text-align:left;"><span class="show-pt">Sem dados</span><span class="show-en">No data</span></div>';
+        }
+        return;
+      }
+
+      var chartLabels  = [];
+      var chartData    = [];
+      var chartColors  = [];
+      for (var j = 0; j < sorted.length && j < 10; j++) {
+        chartLabels.push(sorted[j].name);
+        chartData.push(sorted[j].total);
+        chartColors.push(CAT_COLORS[j % CAT_COLORS.length]);
+      }
+
+      if (donutChartInstance) { donutChartInstance.destroy(); }
+      donutChartInstance = new Chart(canvas, {
+        type: "doughnut",
+        data: {
+          labels: chartLabels,
+          datasets: [{
+            data: chartData,
+            backgroundColor: chartColors,
+            borderWidth: 2,
+            borderColor: "#ffffff"
+          }]
+        },
+        options: {
+          responsive: false,
+          cutout: "65%",
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  return ctx.label + ": " + fmtCurrency(ctx.parsed);
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (listEl) {
+        var html = "";
+        for (var m = 0; m < sorted.length && m < 10; m++) {
+          var pct = grandTotal > 0 ? Math.round(sorted[m].total / grandTotal * 100) : 0;
+          html += '<div class="category-row">';
+          html += '<div class="category-dot" style="background:' + CAT_COLORS[m % CAT_COLORS.length] + '"></div>';
+          html += '<div class="category-name">' + escHtml(sorted[m].name) + '</div>';
+          html += '<div class="category-amount">' + fmtCurrency(sorted[m].total) + ' <span style="color:var(--muted);font-size:10px;font-weight:400;">(' + pct + '%)</span></div>';
+          html += '</div>';
+        }
+        listEl.innerHTML = html;
+      }
+    }
+
+    // ── Subscriptions ──────────────────────────────────────────────────────
+
+    var subsShowForm = false;
+
+    function toggleAddSubForm() {
+      var form = document.getElementById("addSubForm");
+      if (!form) { return; }
+      subsShowForm = !subsShowForm;
+      form.style.display = subsShowForm ? "grid" : "none";
+      if (subsShowForm) {
+        var subNameEl = document.getElementById("subName");
+        if (subNameEl) { subNameEl.focus(); }
+      }
+    }
+
+    function loadSubscriptions() {
+      apiFetch("/api/finance/subscriptions")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          renderSubscriptions(data.subscriptions || []);
+        })
+        .catch(function() {
+          var el = document.getElementById("subsList");
+          if (el) { el.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao carregar</span><span class="show-en">Load error</span></div>'; }
+        });
+    }
+
+    function renderSubscriptions(subs) {
+      var el = document.getElementById("subsList");
+      if (!el) { return; }
+      if (subs.length === 0) {
+        el.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma assinatura cadastrada</span><span class="show-en">No subscriptions yet</span></div>';
+        return;
+      }
+      var html = "";
+      for (var i = 0; i < subs.length; i++) {
+        var s    = subs[i];
+        var days = daysUntil(s.next_renewal_date);
+        var daysClass = "later";
+        var daysLabel = "";
+        if (days !== null) {
+          if (days <= 7)       { daysClass = "soon";  daysLabel = days + "d"; }
+          else if (days <= 30) { daysClass = "ok";    daysLabel = days + "d"; }
+          else                 { daysClass = "later"; daysLabel = days + "d"; }
+        }
+        html += '<div class="sub-row">';
+        html += '<div class="sub-name">' + escHtml(s.service_name) + '</div>';
+        html += '<div class="sub-cost">' + fmtCurrency(s.monthly_cost) + '/mo</div>';
+        html += '<div class="sub-renewal">' + fmtDate(s.next_renewal_date) + '</div>';
+        if (daysLabel) {
+          html += '<span class="sub-days ' + daysClass + '">' + daysLabel + '</span>';
+        }
+        if (s.manage_url) {
+          html += '<a href="' + escHtml(s.manage_url) + '" target="_blank" rel="noopener" class="btn-ghost btn-sm" style="color:var(--gold);text-decoration:none;">';
+          html += '<span class="show-pt">Gerenciar</span><span class="show-en">Manage</span>';
+          html += '</a>';
+        }
+        html += '<button class="btn-danger btn-sm" onclick="deleteSub(\'' + escHtml(s.id) + '\')">&#10005;</button>';
+        html += '</div>';
+      }
+      el.innerHTML = html;
+    }
+
+    function submitAddSub(evt) {
+      evt.preventDefault();
+      var nameEl    = document.getElementById("subName");
+      var costEl    = document.getElementById("subCost");
+      var renewalEl = document.getElementById("subRenewal");
+      var urlEl     = document.getElementById("subUrl");
+      var saveBtn   = document.getElementById("saveSubBtn");
+      if (!nameEl || !costEl || !renewalEl) { return; }
+
+      var nameVal    = nameEl.value.trim();
+      var costVal    = parseFloat(costEl.value) || 0;
+      var renewalVal = renewalEl.value;
+      var urlVal     = urlEl ? urlEl.value.trim() : "";
+
+      if (!nameVal || !renewalVal) { return; }
+      if (saveBtn) { saveBtn.disabled = true; }
+
+      apiFetch("/api/finance/subscriptions", {
+        method: "POST",
+        body: { service_name: nameVal, monthly_cost: costVal, next_renewal_date: renewalVal, manage_url: urlVal || null }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          if (saveBtn) { saveBtn.disabled = false; }
+          nameEl.value = "";
+          costEl.value = "";
+          renewalEl.value = "";
+          if (urlEl) { urlEl.value = ""; }
+          toggleAddSubForm();
+          loadSubscriptions();
+          showToast("Assinatura salva / Subscription saved");
+        })
+        .catch(function() {
+          if (saveBtn) { saveBtn.disabled = false; }
+          showToast("Erro ao salvar / Save error");
+        });
+    }
+
+    function deleteSub(id) {
+      if (!confirm("Excluir esta assinatura? / Delete this subscription?")) { return; }
+      apiFetch("/api/finance/subscriptions/" + id, { method: "DELETE" })
+        .then(function() {
+          loadSubscriptions();
+          showToast("Excluido / Deleted");
+        })
+        .catch(function() { showToast("Erro / Error"); });
+    }
+
+    // ── File upload (statement) ────────────────────────────────────────────
+
+    function onDragOver(evt) {
+      evt.preventDefault();
+      var zone = document.getElementById("uploadZone");
+      if (zone) { zone.classList.add("drag-over"); }
+    }
+
+    function onDragLeave(evt) {
+      var zone = document.getElementById("uploadZone");
+      if (zone) { zone.classList.remove("drag-over"); }
+    }
+
+    function onDrop(evt) {
+      evt.preventDefault();
+      var zone = document.getElementById("uploadZone");
+      if (zone) { zone.classList.remove("drag-over"); }
+      var files = evt.dataTransfer && evt.dataTransfer.files;
+      if (files && files.length > 0) {
+        processFile(files[0]);
+      }
+    }
+
+    function onFileSelected(evt) {
+      var files = evt.target && evt.target.files;
+      if (files && files.length > 0) {
+        processFile(files[0]);
+      }
+    }
+
+    function processFile(file) {
+      var statusEl = document.getElementById("uploadStatus");
+      if (!file) { return; }
+      var name = file.name || "";
+      var lname = name.toLowerCase();
+      if (lname.indexOf(".pdf") !== -1) {
+        if (statusEl) {
+          statusEl.innerHTML = '<span style="color:#991b1b;"><span class="show-pt">PDF nao suportado ainda. Use CSV ou TXT.</span><span class="show-en">PDF not yet supported. Use CSV or TXT.</span></span>';
+        }
+        return;
+      }
+      if (statusEl) {
+        statusEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border-width:2px;"></div><span class="show-pt">Analisando com IA...</span><span class="show-en">Analyzing with AI...</span></div>';
+      }
+
+      getToken().then(function(token) {
+        var fd = new FormData();
+        fd.append("statement", file);
+        return fetch(WORKER_URL + "/api/finance/statement-upload", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: fd
+        });
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) {
+            if (statusEl) {
+              statusEl.innerHTML = '<span style="color:#991b1b;">' + escHtml(data.error) + '</span>';
+            }
+            return;
+          }
+          var count = (data.transactions || []).length;
+          if (statusEl) {
+            statusEl.innerHTML = '<span style="color:#065f46;font-weight:600;">' +
+              '<span class="show-pt">' + count + ' transacoes encontradas e adicionadas para revisao.</span>' +
+              '<span class="show-en">' + count + ' transactions found and added for review.</span>' +
+              '</span>';
+          }
+          loadPendingTransactions();
+          showToast(count + " transacoes importadas / imported");
+        })
+        .catch(function(err) {
+          if (statusEl) {
+            statusEl.innerHTML = '<span style="color:#991b1b;"><span class="show-pt">Erro ao processar.</span><span class="show-en">Processing error.</span></span>';
+          }
+        });
+    }
+
+    // ── Pending transactions ───────────────────────────────────────────────
+
+    function loadPendingTransactions() {
+      apiFetch("/api/finance/transactions?status=pending")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          renderPendingTransactions(data.transactions || []);
+        })
+        .catch(function() {
+          var el = document.getElementById("pendingList");
+          if (el) {
+            el.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao carregar</span><span class="show-en">Load error</span></div>';
+          }
+        });
+    }
+
+    function renderPendingTransactions(txs) {
+      var listEl  = document.getElementById("pendingList");
+      var badgeEl = document.getElementById("pendingBadge");
+      if (!listEl) { return; }
+
+      if (badgeEl) {
+        if (txs.length > 0) {
+          badgeEl.style.display = "inline-block";
+          badgeEl.textContent = txs.length;
+        } else {
+          badgeEl.style.display = "none";
+        }
+      }
+
+      if (txs.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma transacao pendente</span><span class="show-en">No pending transactions</span></div>';
+        return;
+      }
+
+      var catOptsHtml = "";
+      for (var c = 0; c < CATEGORY_OPTIONS.length; c++) {
+        catOptsHtml += '<option value="' + escHtml(CATEGORY_OPTIONS[c]) + '">' + escHtml(CATEGORY_OPTIONS[c]) + '</option>';
+      }
+
+      var html = '<table class="tx-table"><thead><tr>';
+      html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
+      html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
+      html += '<th><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>';
+      html += '<th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>';
+      html += '<th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>';
+      html += '<th><span class="show-pt">Conf.</span><span class="show-en">Conf.</span></th>';
+      html += '<th><span class="show-pt">Acoes</span><span class="show-en">Actions</span></th>';
+      html += '</tr></thead><tbody>';
+
+      for (var i = 0; i < txs.length; i++) {
+        var t = txs[i];
+        var amtClass = t.transaction_type === "income" ? "tx-amount-income" : "tx-amount-expense";
+        var sign     = t.transaction_type === "income" ? "+" : "-";
+        var confChip = '<span class="chip chip-' + escHtml(t.confidence || "media") + '">' + escHtml(t.confidence || "media") + '</span>';
+        var typeChip = '<span class="chip chip-' + escHtml(t.transaction_type) + '">' +
+          '<span class="show-pt">' + (t.transaction_type === "income" ? "Entrada" : "Saida") + '</span>' +
+          '<span class="show-en">' + (t.transaction_type === "income" ? "Income" : "Expense") + '</span>' +
+          '</span>';
+
+        // Build category select with suggested category pre-selected
+        var sugCat = t.suggested_category || "Outro";
+        var catHtml = '<select class="tx-cat-select" id="catSel' + escHtml(t.id) + '">';
+        var matched = false;
+        for (var co = 0; co < CATEGORY_OPTIONS.length; co++) {
+          var sel = (CATEGORY_OPTIONS[co] === sugCat) ? " selected" : "";
+          if (CATEGORY_OPTIONS[co] === sugCat) { matched = true; }
+          catHtml += '<option value="' + escHtml(CATEGORY_OPTIONS[co]) + '"' + sel + '>' + escHtml(CATEGORY_OPTIONS[co]) + '</option>';
+        }
+        if (!matched) {
+          catHtml += '<option value="' + escHtml(sugCat) + '" selected>' + escHtml(sugCat) + '</option>';
+        }
+        catHtml += '</select>';
+
+        html += '<tr>';
+        html += '<td>' + escHtml(fmtDate(t.transaction_date)) + '</td>';
+        html += '<td><div class="tx-desc" title="' + escHtml(t.description) + '">' + escHtml(t.description) + '</div></td>';
+        html += '<td class="' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</td>';
+        html += '<td>' + typeChip + '</td>';
+        html += '<td>' + catHtml + '</td>';
+        html += '<td>' + confChip + '</td>';
+        html += '<td><div class="tx-actions">';
+        html += '<button class="btn-primary btn-sm" onclick="confirmTx(\'' + escHtml(t.id) + '\')">';
+        html += '<span class="show-pt">Confirmar</span><span class="show-en">Confirm</span>';
+        html += '</button>';
+        html += '<button class="btn-ghost btn-sm" onclick="ignoreTx(\'' + escHtml(t.id) + '\')">';
+        html += '<span class="show-pt">Ignorar</span><span class="show-en">Ignore</span>';
+        html += '</button>';
+        html += '</div></td>';
+        html += '</tr>';
+      }
+
+      html += '</tbody></table>';
+      listEl.innerHTML = html;
+    }
+
+    function confirmTx(txId) {
+      var selEl = document.getElementById("catSel" + txId);
+      var cat   = selEl ? selEl.value : "Outro";
+      apiFetch("/api/finance/transactions/" + txId + "/confirm", {
+        method: "POST",
+        body: { assigned_category: cat }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          loadPendingTransactions();
+          loadOverview();
+          loadChartData();
+          showToast("Confirmado / Confirmed");
+        })
+        .catch(function() { showToast("Erro / Error"); });
+    }
+
+    function ignoreTx(txId) {
+      apiFetch("/api/finance/transactions/" + txId + "/ignore", { method: "POST" })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          loadPendingTransactions();
+          showToast("Ignorado / Ignored");
+        })
+        .catch(function() { showToast("Erro / Error"); });
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+
+    window.onload = function() { init(); };
+  </script>
+</body>
+</html>

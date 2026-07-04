@@ -660,6 +660,28 @@
     .profile-status.ok  { color: #2e7d4f; }
     .profile-status.err { color: #b44040; }
 
+    .profile-avatar-preview {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+      display: block;
+    }
+    .profile-avatar-placeholder {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(201,164,58,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--gold);
+      border: 2px solid var(--border);
+    }
+
     /* ─── Responsive ─────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
       .settings-hero-section { padding: 16px; }
@@ -1023,6 +1045,14 @@
       });
     }
 
+    // ── Cache-bust the avatar preview for the given email ─────────────────
+    function updateProfileAvatarPreview(email) {
+      var previewEl = document.getElementById("profileAvatarPreview");
+      if (!previewEl) { return; }
+      var url = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+      previewEl.src = url + "?t=" + Date.now();
+    }
+
     // ── Render the upload form ─────────────────────────────────────────────
     function renderProfileUploadForm(users) {
       var container = document.getElementById("profileContainer");
@@ -1074,6 +1104,30 @@
       }
       selectRow.appendChild(userSelect);
       card.appendChild(selectRow);
+
+      // Current avatar preview
+      var previewRow = document.createElement("div");
+      previewRow.className = "profile-field-row";
+      var previewLabel = document.createElement("div");
+      previewLabel.className = "profile-field-label";
+      previewLabel.innerHTML =
+        '<span class="show-pt">Foto atual</span>' +
+        '<span class="show-en">Current photo</span>';
+      previewRow.appendChild(previewLabel);
+      var avatarPreviewImg = document.createElement("img");
+      avatarPreviewImg.id = "profileAvatarPreview";
+      avatarPreviewImg.className = "profile-avatar-preview";
+      avatarPreviewImg.alt = "";
+      if (users.length > 0) {
+        var initEmail = users[0].email;
+        avatarPreviewImg.src = WORKER_URL + "/api/users/" + encodeURIComponent(initEmail) + "/avatar-image?t=" + Date.now();
+      }
+      previewRow.appendChild(avatarPreviewImg);
+      card.appendChild(previewRow);
+
+      userSelect.onchange = function() {
+        updateProfileAvatarPreview(userSelect.value);
+      };
 
       // File input
       var fileRow = document.createElement("div");
@@ -1184,6 +1238,7 @@
           }
           tileEl.textContent = withAvatar + " / " + profileUsersData.length;
         }
+        updateProfileAvatarPreview(email);
         statusEl.className = "profile-status ok";
         statusEl.innerHTML =
           '<span class="show-pt">Foto enviada com sucesso.</span>' +

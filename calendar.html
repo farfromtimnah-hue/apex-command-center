@@ -1276,9 +1276,27 @@
       });
     }
 
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var label = (displayName && displayName.trim()) ? displayName.trim() : email;
+      var firstName = label.indexOf(" ") > -1 ? label.split(" ")[0] : label;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + initial + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + firstName + "</span>";
+    }
+
     function setupPage(role) {
-      document.getElementById("headerEmail").textContent =
-        sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
       document.getElementById("headerRole").textContent = role;
 
       document.getElementById("loadingScreen").hidden = true;
@@ -1307,6 +1325,8 @@
             .then(function(data) {
               sessionStorage.setItem("apex_role",  data.role);
               sessionStorage.setItem("apex_email", data.email);
+              sessionStorage.setItem("apex_display_name", data.display_name || "");
+              sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
               setupPage(data.role);
             })
             .catch(function() { window.location.href = "index.html"; });

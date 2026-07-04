@@ -618,7 +618,7 @@ async function handleGetClient(id, request, env) {
         var client = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
             "package, status, phone, email, whatsapp, payment_method, contacts, " +
-            "zelle_qr_r2_key, stripe_payment_link, created_at FROM clients WHERE id = ?"
+            "created_at FROM clients WHERE id = ?"
         ).bind(id).first();
 
         if (!client) { return jsonErr("Client not found", 404); }
@@ -771,91 +771,6 @@ async function handlePostClientLogo(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Route: POST /api/clients/:id/qr
-// Body: multipart/form-data with 'qr' file field (JPG, PNG, GIF, WebP only)
-// alice / developer only; stores in R2; updates clients.zelle_qr_r2_key
-// ---------------------------------------------------------------------------
-
-async function handlePostClientQr(id, request, env) {
-    try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
-
-        var form = await request.formData();
-        var file = form.get("qr");
-        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("qr file is required", 400); }
-
-        var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
-        if (allowed.indexOf(file.type) === -1) {
-            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, or WebP image.", 400);
-        }
-
-        var MAX_BYTES = 2 * 1024 * 1024; // 2 MB
-        var buf = await file.arrayBuffer();
-        if (buf.byteLength > MAX_BYTES) {
-            return jsonErr("File too large. Maximum size is 2 MB.", 400);
-        }
-
-        var ext = (file.type === "image/png") ? "png"
-                : (file.type === "image/gif") ? "gif"
-                : (file.type === "image/webp") ? "webp"
-                : "jpg";
-        var key = "qr-codes/" + id + "." + ext;
-
-        await env.ASSETS.put(key, buf, {
-            httpMetadata: { contentType: file.type }
-        });
-
-        await env.DB.prepare("UPDATE clients SET zelle_qr_r2_key = ? WHERE id = ?")
-            .bind(key, id).run();
-
-        return jsonOk({ qr_key: key });
-    } catch (e) {
-        return jsonErr("Error uploading QR code: " + e.message, 500);
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Route: GET /api/clients/:id/qr-image
-// Serves the Zelle QR code from R2 — no raw R2 paths exposed to frontend.
-// Auth-free: QR codes are non-sensitive image assets referenced by client UUID.
-// ---------------------------------------------------------------------------
-
-async function handleGetClientQrImage(id, request, env) {
-    try {
-        var client = await env.DB.prepare("SELECT zelle_qr_r2_key FROM clients WHERE id = ?")
-            .bind(id).first();
-
-        if (!client || !client.zelle_qr_r2_key) {
-            return new Response(null, { status: 404, headers: CORS_HEADERS });
-        }
-
-        if (!/^qr-codes\/[A-Za-z0-9_-]+\.(png|jpe?g|gif|webp)$/.test(client.zelle_qr_r2_key)) {
-            return new Response(null, { status: 404, headers: CORS_HEADERS });
-        }
-
-        var obj = await env.ASSETS.get(client.zelle_qr_r2_key);
-        if (!obj) {
-            return new Response(null, { status: 404, headers: CORS_HEADERS });
-        }
-
-        var allowedTypes = { "image/jpeg": 1, "image/png": 1, "image/gif": 1, "image/webp": 1 };
-        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
-        var ct = allowedTypes[stored] ? stored : "image/png";
-        var imgHeaders = Object.assign({}, CORS_HEADERS, {
-            "Content-Type": ct,
-            "X-Content-Type-Options": "nosniff",
-            "Content-Disposition": "inline; filename=\"qr-code\"",
-            "Cache-Control": "public, max-age=86400"
-        });
-        return new Response(obj.body, { status: 200, headers: imgHeaders });
-    } catch (e) {
-        return jsonErr("Error fetching QR code: " + e.message, 500);
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/logo-image
 // Serves the client logo from R2 — no raw R2 paths exposed to frontend.
 // Auth-free: logos are non-sensitive image assets referenced by client UUID.
@@ -965,12 +880,6 @@ async function handlePatchClient(id, request, env) {
                 .bind(body.status || null, id).run();
             updated = true;
         }
-        if (body.hasOwnProperty("stripe_payment_link")) {
-            await env.DB.prepare("UPDATE clients SET stripe_payment_link = ? WHERE id = ?")
-                .bind(body.stripe_payment_link || null, id).run();
-            updated = true;
-        }
-
         return jsonOk({ updated: updated });
     } catch (e) {
         return jsonErr("Error updating client: " + e.message, 500);
@@ -2360,6 +2269,153 @@ async function handleDeleteSettingsPackage(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/business/settings
+// Returns the single-row business_settings record (Zelle QR key + Stripe link).
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetBusinessSettings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT zelle_qr_r2_key, stripe_payment_link, updated_at FROM business_settings WHERE id = 1"
+        ).first();
+
+        return jsonOk({ settings: row || { zelle_qr_r2_key: null, stripe_payment_link: null, updated_at: null } });
+    } catch (e) {
+        return jsonErr("Error fetching business settings: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/business/settings
+// Updates the Stripe payment link on the single-row business_settings record.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePatchBusinessSettings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var updated = false;
+
+        if (body.hasOwnProperty("stripe_payment_link")) {
+            var link = body.stripe_payment_link ? body.stripe_payment_link.trim() : null;
+            if (link && !/^https?:\/\/.+/.test(link)) {
+                return jsonErr("stripe_payment_link must be a valid URL", 400);
+            }
+            await env.DB.prepare(
+                "UPDATE business_settings SET stripe_payment_link = ?, updated_at = ? WHERE id = 1"
+            ).bind(link || null, new Date().toISOString()).run();
+            updated = true;
+        }
+
+        return jsonOk({ updated: updated });
+    } catch (e) {
+        return jsonErr("Error updating business settings: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/business/qr
+// Body: multipart/form-data with 'qr' file field (JPG, PNG, GIF, WebP only)
+// Stores the Apex Zelle QR code in R2 and saves the key in business_settings.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostBusinessQr(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var form = await request.formData();
+        var file = form.get("qr");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("qr file is required", 400); }
+
+        var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+        if (allowed.indexOf(file.type) === -1) {
+            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, or WebP image.", 400);
+        }
+
+        var MAX_BYTES = 2 * 1024 * 1024;
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 2 MB.", 400);
+        }
+
+        // Magic-byte validation
+        var header = new Uint8Array(buf.slice(0, 12));
+        var isPng  = header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47;
+        var isJpg  = header[0] === 0xFF && header[1] === 0xD8;
+        var isGif  = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46;
+        var isWebp = header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50;
+        if (!isPng && !isJpg && !isGif && !isWebp) {
+            return jsonErr("File content does not match a supported image format.", 400);
+        }
+
+        var ext = isPng ? "png" : isGif ? "gif" : isWebp ? "webp" : "jpg";
+        var key = "business/zelle-qr." + ext;
+
+        await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
+
+        await env.DB.prepare(
+            "UPDATE business_settings SET zelle_qr_r2_key = ?, updated_at = ? WHERE id = 1"
+        ).bind(key, new Date().toISOString()).run();
+
+        return jsonOk({ qr_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading QR code: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/business/qr-image
+// Serves the business-wide Zelle QR code from R2.
+// Auth-free: non-sensitive image asset (will be embedded in invoice PDFs).
+// ---------------------------------------------------------------------------
+
+async function handleGetBusinessQrImage(request, env) {
+    try {
+        var row = await env.DB.prepare(
+            "SELECT zelle_qr_r2_key FROM business_settings WHERE id = 1"
+        ).first();
+
+        if (!row || !row.zelle_qr_r2_key) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        if (!/^business\/zelle-qr\.(png|jpe?g|gif|webp)$/.test(row.zelle_qr_r2_key)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(row.zelle_qr_r2_key);
+        if (!obj) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var allowedTypes = { "image/jpeg": 1, "image/png": 1, "image/gif": 1, "image/webp": 1 };
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ct = allowedTypes[stored] ? stored : "image/png";
+        var imgHeaders = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": ct,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=\"zelle-qr\"",
+            "Cache-Control": "public, max-age=86400"
+        });
+        return new Response(obj.body, { status: 200, headers: imgHeaders });
+    } catch (e) {
+        return jsonErr("Error fetching QR code: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/users/:email/avatar-image
 // Serves a user's avatar from R2 by email — no auth required so <img> tags work.
 // ---------------------------------------------------------------------------
@@ -3227,6 +3283,10 @@ export default {
         if (path === "/api/settings/templates"   && method === "GET")  { return handleGetSettingsTemplates(request, env); }
         if (path === "/api/settings/packages"    && method === "GET")  { return handleGetSettingsPackages(request, env); }
         if (path === "/api/settings/packages"    && method === "POST") { return handlePostSettingsPackages(request, env); }
+        if (path === "/api/business/settings"    && method === "GET")   { return handleGetBusinessSettings(request, env); }
+        if (path === "/api/business/settings"    && method === "PATCH") { return handlePatchBusinessSettings(request, env); }
+        if (path === "/api/business/qr"          && method === "POST")  { return handlePostBusinessQr(request, env); }
+        if (path === "/api/business/qr-image"    && method === "GET")   { return handleGetBusinessQrImage(request, env); }
 
         if (path === "/api/invoices"                 && method === "GET")  { return handleGetInvoices(request, env); }
         if (path === "/api/finance/statement-upload" && method === "POST") { return handlePostFinanceStatementUpload(request, env); }
@@ -3296,12 +3356,6 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "logo-image" && method === "GET") {
                 return handleGetClientLogoImage(cid, request, env);
-            }
-            if (segs.length === 4 && segs[3] === "qr" && method === "POST") {
-                return handlePostClientQr(cid, request, env);
-            }
-            if (segs.length === 4 && segs[3] === "qr-image" && method === "GET") {
-                return handleGetClientQrImage(cid, request, env);
             }
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
                 return handleGetClientLatestDocument(cid, request, env);

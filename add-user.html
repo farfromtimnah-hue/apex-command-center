@@ -288,6 +288,26 @@
           </div>
         </div>
 
+        <!-- Zoho Books OAuth -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">Zoho Books</h2>
+          </div>
+          <div class="content-card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            <div>
+              <span style="font-size:13px;color:var(--muted);">Status:</span>
+              <span id="zohoStatus" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">Checking...</span>
+            </div>
+            <button class="btn-submit" id="btnConnectZoho" onclick="handleConnectZoho()" style="flex-shrink:0;">
+              Connect Zoho Books
+            </button>
+            <button class="btn-submit" id="btnCheckZohoStatus" onclick="checkZohoStatus()"
+              style="background:transparent;border:1.5px solid var(--gold);color:var(--gold);flex-shrink:0;">
+              Check Status
+            </button>
+          </div>
+        </div>
+
       </main>
 
     </div><!-- /contentArea -->
@@ -506,6 +526,59 @@
       });
     }
 
+    // ── Zoho Books OAuth ────────────────────────────────────────────────────
+    function checkZohoStatus() {
+      var statusEl = document.getElementById("zohoStatus");
+      if (!statusEl) { return; }
+      statusEl.textContent = "Checking...";
+      statusEl.style.color = "var(--muted)";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/zoho/oauth/status", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        if (data.connected) {
+          statusEl.textContent = "Connected";
+          statusEl.style.color = "#1a6640";
+        } else {
+          statusEl.textContent = "Not connected";
+          statusEl.style.color = "var(--muted)";
+        }
+      }).catch(function(e) {
+        statusEl.textContent = "Error: " + e.message;
+        statusEl.style.color = "#b44040";
+      });
+    }
+
+    function handleConnectZoho() {
+      var btn = document.getElementById("btnConnectZoho");
+      if (!btn) { return; }
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/zoho/oauth/start", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          alert("Error: no auth_url returned");
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        alert("Error starting OAuth: " + e.message);
+      });
+    }
+
     // ── Page setup ───────────────────────────────────────────────────────────
     function setupPage(role) {
       var emailEl = document.getElementById("headerEmail");
@@ -525,6 +598,7 @@
       window.initNav && window.initNav();
       loadUsers();
       checkGcalStatus();
+      checkZohoStatus();
     }
 
     // ── Bootstrap ────────────────────────────────────────────────────────────

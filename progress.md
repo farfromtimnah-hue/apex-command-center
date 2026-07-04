@@ -7,7 +7,9 @@
 - [x] message_templates D1 table + seed migration applied; GET /api/settings/templates and PUT /api/settings/templates/:key (alice/rafa/developer); handlePostSessionWhatsapp refactored to load template from DB with DEFAULT_WHATSAPP_TEMPLATES fallback; deployed as version 0edf433c-29ae-4bd4-b5af-f52d0f71dc4c
 - [x] settings.html WhatsApp message template editor UI — replaces "Coming soon" stub; photo hero + 1 glass tile (template count); data-driven template cards from GET /api/settings/templates; bilingual PT/EN labels for known keys (session_in_person, session_online) via show-pt/show-en spans; textarea pre-filled with template_text; token hint line; meta line (updated_at/updated_by); Save button calls PUT /api/settings/templates/:key; success/error states; empty and load-error states.
 
-**Last updated:** 2026-07-03 (session 50 — settings.html WhatsApp message template editor UI)
+- [x] client.html package dropdown now pulls short_name list from GET /api/settings/packages on page load; PACKAGE_OPTIONS_FALLBACK hardcoded array used only if API fails/returns empty; openPackageEdit() uses live list first; unrecognized current values prepended as selected option; PUT save logic untouched.
+
+**Last updated:** 2026-07-04 (session 51 — client.html package dropdown live from packages API)
 
 ## Completed (2026-07-03, worker fix — discarded session leak)
 

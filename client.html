@@ -1987,7 +1987,8 @@
 
     // ── Render: client header ──────────────────────────────────────────────
 
-    var PACKAGE_OPTIONS = ["Raio-X", "Sprint", "Premium", "Executivo"];
+    var PACKAGE_OPTIONS_FALLBACK = ["Raio-X", "Sprint", "Premium", "Executivo"];
+    var PACKAGE_OPTIONS_LIVE = null;
 
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
@@ -2085,11 +2086,24 @@
       emptyOpt.textContent = "—";
       sel.appendChild(emptyOpt);
 
-      for (var i = 0; i < PACKAGE_OPTIONS.length; i++) {
+      var activeOptions = (PACKAGE_OPTIONS_LIVE && PACKAGE_OPTIONS_LIVE.length > 0)
+        ? PACKAGE_OPTIONS_LIVE
+        : PACKAGE_OPTIONS_FALLBACK;
+
+      // If the current value isn't in the active list, prepend it so it stays visible
+      if (current && activeOptions.indexOf(current) === -1) {
+        var missingOpt = document.createElement("option");
+        missingOpt.value = current;
+        missingOpt.textContent = current;
+        missingOpt.selected = true;
+        sel.appendChild(missingOpt);
+      }
+
+      for (var i = 0; i < activeOptions.length; i++) {
         var opt = document.createElement("option");
-        opt.value = PACKAGE_OPTIONS[i];
-        opt.textContent = PACKAGE_OPTIONS[i];
-        if (PACKAGE_OPTIONS[i] === current) { opt.selected = true; }
+        opt.value = activeOptions[i];
+        opt.textContent = activeOptions[i];
+        if (activeOptions[i] === current) { opt.selected = true; }
         sel.appendChild(opt);
       }
 
@@ -3788,6 +3802,18 @@
     window.onload = function() {
       initHeroBg('clientHeroBg', 'clientHeroScrim');
       init();
+      // Fetch live package list in the background; fail silently to PACKAGE_OPTIONS_FALLBACK
+      apiFetch("/api/settings/packages")
+        .then(function(res) {
+          if (!res.ok) { return; }
+          return res.json().then(function(data) {
+            var list = Array.isArray(data) ? data : (data && Array.isArray(data.packages) ? data.packages : null);
+            if (!list || list.length === 0) { return; }
+            var names = list.map(function(p) { return p.short_name || p; }).filter(Boolean);
+            if (names.length > 0) { PACKAGE_OPTIONS_LIVE = names; }
+          });
+        })
+        .catch(function() {});
     };
   </script>
 

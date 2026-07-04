@@ -770,6 +770,16 @@
     </div>
   </div>
 
+  <!-- Firebase SDK — required for live mode token retrieval -->
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
   <!-- =====================================================================
        SCRIPT: populates the invoice template from one of two sources:
 
@@ -779,8 +789,8 @@
          The Worker endpoint fetches the invoice from Zoho Books, resolves the
          internal client record from D1 (via zoho_customer_id), and returns JSON
          shaped exactly like apex-invoice-data-DRAFT.json.
-         Requires a valid Firebase Bearer token in Authorization header — this
-         path is intended for the Command Center UI, not standalone browser opens.
+         Requires a valid Firebase token — retrieved via currentUser.getIdToken()
+         from the signed-in Firebase user, same pattern as client.html/finance.html.
 
        LOCAL FALLBACK (file:// or no ?invoice_id= param):
          Falls back to fetching apex-invoice-data-DRAFT.json from the same
@@ -792,6 +802,15 @@
        ===================================================================== -->
   <script>
     var APEX_API_BASE = 'https://apex-api.farfromtimnah.workers.dev';
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
 
     window.onload = function() {
       buildQrPlaceholder();
@@ -808,34 +827,39 @@
 
       if (invoiceId) {
         /* ----------------------------------------------------------------
-           LIVE MODE: fetch from Worker endpoint.
-           The caller (Command Center UI) must pass its Firebase token.
-           We read it from sessionStorage key 'apex_firebase_token' — the
-           same key the Command Center stores after login.
+           LIVE MODE: fetch from Worker endpoint using a fresh Firebase ID
+           token from the currently signed-in user — same pattern as
+           client.html and finance.html (currentUser.getIdToken()).
+           We initialize Firebase here and wait for onAuthStateChanged before
+           fetching so the token is always valid and fresh.
            ---------------------------------------------------------------- */
-        var token = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('apex_firebase_token') : null;
-        var headers = { 'Content-Type': 'application/json' };
-        if (token) { headers['Authorization'] = 'Bearer ' + token; }
+        firebase.initializeApp(FIREBASE_CONFIG);
+        var auth = firebase.auth();
 
-        fetch(APEX_API_BASE + '/api/invoices/' + encodeURIComponent(invoiceId) + '/render-data', {
-          method: 'GET',
-          headers: headers
-        })
-          .then(function(res) {
+        auth.onAuthStateChanged(function(user) {
+          if (!user) {
+            showLoadError('Nao autenticado. Faca login no Command Center primeiro.');
+            return;
+          }
+          user.getIdToken().then(function(token) {
+            return fetch(
+              APEX_API_BASE + '/api/invoices/' + encodeURIComponent(invoiceId) + '/render-data',
+              { method: 'GET', headers: { 'Authorization': 'Bearer ' + token } }
+            );
+          }).then(function(res) {
             if (!res.ok) {
               return res.json().then(function(e) {
                 throw new Error('API error ' + res.status + ': ' + (e.error || JSON.stringify(e)));
               });
             }
             return res.json();
-          })
-          .then(function(data) {
+          }).then(function(data) {
             populateInvoice(data);
-          })
-          .catch(function(err) {
+          }).catch(function(err) {
             console.error('[LIVE MODE] Erro ao carregar dados da fatura:', err);
             showLoadError('Erro ao carregar fatura: ' + err.message);
           });
+        });
       } else {
         /* ----------------------------------------------------------------
            LOCAL FALLBACK: load apex-invoice-data-DRAFT.json from disk.

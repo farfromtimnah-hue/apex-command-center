@@ -670,6 +670,24 @@
     }
     .btn-inv-view:hover { background: var(--gold-dim); }
 
+    .btn-inv-whatsapp {
+      display: inline-flex;
+      align-items: center;
+      background: #25d366;
+      border: none;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.12s;
+    }
+    .btn-inv-whatsapp:hover { opacity: 0.85; }
+    .btn-inv-whatsapp:disabled { opacity: 0.45; cursor: default; }
+
     /* ─── Finance pill tab bar (hero) ───────────────────────────────────── */
     .fin-tab-bar {
       display: flex;
@@ -783,20 +801,6 @@
           <span class="show-en">Financial</span>
         </h1>
 
-        <!-- Pill tabs -->
-        <div class="fin-tab-bar" id="finTabBar">
-          <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
-            <span class="show-pt">Saude Financeira</span>
-            <span class="show-en">Financial Health</span>
-            <span class="fin-tab-badge" id="finBadgeSaude" hidden>0</span>
-          </button>
-          <button class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
-            <span class="show-pt">Faturas</span>
-            <span class="show-en">Invoices</span>
-            <span class="fin-tab-badge" id="finBadgeFaturas" hidden>0</span>
-          </button>
-        </div>
-
         <div class="glass-tile-row">
           <div class="glass-tile">
             <div class="glass-tile-label">
@@ -822,6 +826,20 @@
             <div class="glass-tile-value" id="heroNet">--</div>
             <div class="tile-trend" id="heroNetTrend">&nbsp;</div>
           </div>
+        </div>
+
+        <!-- Pill tabs -->
+        <div class="fin-tab-bar" id="finTabBar">
+          <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
+            <span class="show-pt">Saude Financeira</span>
+            <span class="show-en">Financial Health</span>
+            <span class="fin-tab-badge" id="finBadgeSaude" hidden>0</span>
+          </button>
+          <button class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
+            <span class="show-pt">Faturas</span>
+            <span class="show-en">Invoices</span>
+            <span class="fin-tab-badge" id="finBadgeFaturas" hidden>0</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1003,7 +1021,11 @@
         </div>
         <!-- Sub-tab bar -->
         <div class="inv-subtab-bar">
-          <button class="inv-subtab active" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
+          <button class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
+            <span class="show-pt">Rascunho</span>
+            <span class="show-en">Draft</span>
+          </button>
+          <button class="inv-subtab" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
             <span class="show-pt">Nao Pagas</span>
             <span class="show-en">Unpaid</span>
           </button>
@@ -1245,7 +1267,7 @@
       loadChartData();
       loadSubscriptions();
       loadPendingTransactions();
-      loadInvoices("unpaid");
+      loadInvoices("draft");
       updateFinanceBadges();
     }
 
@@ -1841,14 +1863,16 @@
 
     // ── Invoices (finance.html tab) ────────────────────────────────────────
 
-    var currentInvoiceTab = "unpaid";
+    var currentInvoiceTab = "draft";
 
     function switchInvoiceTab(tab) {
       currentInvoiceTab = tab;
+      var draftBtn  = document.getElementById("subtabDraft");
       var unpaidBtn = document.getElementById("subtabUnpaid");
       var paidBtn   = document.getElementById("subtabPaid");
+      if (draftBtn)  { draftBtn.classList.toggle("active",  tab === "draft"); }
       if (unpaidBtn) { unpaidBtn.classList.toggle("active", tab === "unpaid"); }
-      if (paidBtn)   { paidBtn.classList.toggle("active", tab === "paid"); }
+      if (paidBtn)   { paidBtn.classList.toggle("active",   tab === "paid"); }
       loadInvoices(tab);
     }
 
@@ -1856,21 +1880,22 @@
       var listEl = document.getElementById("invoicesList");
       if (!listEl) { return; }
       listEl.innerHTML = '<div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>';
-      apiFetch("/api/invoices?status=" + (tab || "unpaid"))
+      apiFetch("/api/invoices?status=" + (tab || "draft"))
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          renderInvoiceTable(data.invoices || [], listEl);
+          renderInvoiceTable(data.invoices || [], listEl, tab || "draft");
         })
         .catch(function() {
           listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao carregar faturas</span><span class="show-en">Error loading invoices</span></div>';
         });
     }
 
-    function renderInvoiceTable(invoices, listEl) {
+    function renderInvoiceTable(invoices, listEl, tab) {
       if (invoices.length === 0) {
         listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma fatura encontrada</span><span class="show-en">No invoices found</span></div>';
         return;
       }
+      var isDraft = (tab === "draft");
       var html = '<table class="inv-table"><thead><tr>';
       html += '<th>#</th>';
       html += '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>';
@@ -1878,6 +1903,7 @@
       html += '<th><span class="show-pt">Vencimento</span><span class="show-en">Due Date</span></th>';
       html += '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>';
       html += '<th></th>';
+      if (isDraft) { html += '<th></th>'; }
       html += '</tr></thead><tbody>';
       for (var i = 0; i < invoices.length; i++) {
         var inv = invoices[i];
@@ -1886,20 +1912,47 @@
             : inv.status === "draft" ? "inv-status-draft"
             : "inv-status-unpaid";
         var statusLabel = inv.status === "paid" ? "Paga" : inv.status === "overdue" ? "Vencida" : inv.status === "draft" ? "Rascunho" : "A Pagar";
-        var invPath = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
+        var invPath = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
+        var invPathLocal = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
         html += '<tr>';
         html += '<td style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
         html += '<td>' + escHtml(inv.customer_name || "--") + '</td>';
         html += '<td style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
         html += '<td>' + escHtml(fmtDate(inv.due_date)) + '</td>';
         html += '<td><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
-        html += '<td><a class="btn-inv-view" href="' + escHtml(invPath) + '" target="_blank" rel="noopener">';
+        html += '<td><a class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';
+        if (isDraft) {
+          html += '<td><button class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
+          html += '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>';
+          html += '</button></td>';
+        }
         html += '</tr>';
       }
       html += '</tbody></table>';
       listEl.innerHTML = html;
+    }
+
+    function sendInvoiceWhatsApp(invoiceId, invoiceLink) {
+      var btn = document.getElementById("waBtn" + invoiceId);
+      if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+
+      apiFetch("/api/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var message = "Ola! Segue a fatura para sua aprovacao:\n" + invoiceLink;
+          var waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
+          window.open(waUrl, "_blank");
+          showToast("Fatura marcada como enviada / Invoice marked as sent");
+          // Reload draft tab to show invoice gone, then switch to unpaid
+          setTimeout(function() { switchInvoiceTab("unpaid"); }, 1200);
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+          showToast("Erro: " + (e.message || "Falha ao enviar"));
+        });
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────

@@ -2633,38 +2633,43 @@ async function handleGetInvoices(request, env) {
             return jsonErr("Zoho auth error: " + e.message, 502);
         }
 
-        // Zoho status filter: "unpaid" maps to status=sent or status=overdue, "paid" maps to status=paid
-        var zohoFilter = (status === "paid") ? "paid" : "sent,overdue,draft";
-        var zohoListUrl = "https://www.zohoapis.com/books/v3/invoices" +
-            "?organization_id=" + zohoAuth.organization_id +
-            "&status=" + zohoFilter +
-            "&per_page=100&sort_column=date&sort_order=D";
+        // Zoho only accepts one status value at a time, so fetch each status separately and merge
+        var statusesToFetch = (status === "paid")   ? ["paid"] :
+                              (status === "draft")  ? ["draft"] :
+                              (status === "unpaid") ? ["sent", "overdue"] :
+                                                     ["sent", "overdue"];
 
-        var listController = new AbortController();
-        var listTimer = setTimeout(function() { listController.abort(); }, 15000);
-
-        var zohoRes;
-        try {
-            zohoRes = await fetch(zohoListUrl, {
-                method: "GET",
-                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
-                signal: listController.signal
-            });
-        } finally {
-            clearTimeout(listTimer);
+        async function fetchOneStatus(zohoStatus) {
+            var zohoListUrl = "https://www.zohoapis.com/books/v3/invoices" +
+                "?organization_id=" + zohoAuth.organization_id +
+                "&status=" + zohoStatus +
+                "&per_page=100&sort_column=date&sort_order=D";
+            var ctrl = new AbortController();
+            var timer = setTimeout(function() { ctrl.abort(); }, 15000);
+            var res;
+            try {
+                res = await fetch(zohoListUrl, {
+                    method: "GET",
+                    headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                    signal: ctrl.signal
+                });
+            } finally {
+                clearTimeout(timer);
+            }
+            if (!res.ok) { return []; }
+            var data = await res.json();
+            return data.invoices || [];
         }
 
-        if (!zohoRes.ok) {
-            var zohoErrText = await zohoRes.text();
-            return jsonErr("Zoho invoice list failed (" + zohoRes.status + "): " + zohoErrText, 502);
+        var allRaw = [];
+        for (var si = 0; si < statusesToFetch.length; si++) {
+            var batch = await fetchOneStatus(statusesToFetch[si]);
+            for (var bi = 0; bi < batch.length; bi++) { allRaw.push(batch[bi]); }
         }
-
-        var zohoData = await zohoRes.json();
-        var invoices = zohoData.invoices || [];
 
         var simplified = [];
-        for (var i = 0; i < invoices.length; i++) {
-            var inv = invoices[i];
+        for (var i = 0; i < allRaw.length; i++) {
+            var inv = allRaw[i];
             simplified.push({
                 invoice_id:     inv.invoice_id,
                 invoice_number: inv.invoice_number,
@@ -2679,6 +2684,53 @@ async function handleGetInvoices(request, env) {
     } catch (e) {
         if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error fetching invoices: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/invoices/:zoho_invoice_id/mark-sent
+// Calls Zoho's "Mark as Sent" action, which changes invoice status from
+// draft → sent without emailing the client. Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handlePostInvoiceMarkSent(zohoInvoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var markUrl = "https://www.zohoapis.com/books/v3/invoices/" + zohoInvoiceId +
+            "/status/sent?organization_id=" + zohoAuth.organization_id;
+
+        var ctrl  = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, 15000);
+        var res;
+        try {
+            res = await fetch(markUrl, {
+                method:  "POST",
+                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                signal:  ctrl.signal
+            });
+        } finally {
+            clearTimeout(timer);
+        }
+
+        var data = await res.json();
+        if (!res.ok || data.code !== 0) {
+            return jsonErr("Zoho mark-sent failed: " + (data.message || JSON.stringify(data)), 502);
+        }
+
+        return jsonOk({ ok: true, invoice_id: zohoInvoiceId, message: data.message || "Marked as sent" });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error marking invoice as sent: " + e.message, 500);
     }
 }
 
@@ -2750,7 +2802,11 @@ async function handleGetClientInvoices(clientId, request, env) {
             return result;
         }
 
-        var unpaid = await fetchForStatus("sent,overdue,draft", zohoAuth.access_token, zohoAuth.organization_id);
+        // Zoho only accepts one status per request; fetch each separately and merge
+        var sentBatch    = await fetchForStatus("sent",    zohoAuth.access_token, zohoAuth.organization_id);
+        var overdueBatch = await fetchForStatus("overdue", zohoAuth.access_token, zohoAuth.organization_id);
+        var draftBatch   = await fetchForStatus("draft",   zohoAuth.access_token, zohoAuth.organization_id);
+        var unpaid = sentBatch.concat(overdueBatch).concat(draftBatch);
         var paid   = await fetchForStatus("paid", zohoAuth.access_token, zohoAuth.organization_id);
 
         return jsonOk({ unpaid: unpaid, paid: paid, client_id: clientId, client_name: clientRow.name });
@@ -3073,6 +3129,11 @@ export default {
         // /api/tasks/:id  PATCH (status toggle — syncs with tasks.html)
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && method === "PATCH") {
             return handlePatchTask(segs[2], request, env);
+        }
+
+        // /api/invoices/:zoho_invoice_id/mark-sent  POST
+        if (segs[0] === "api" && segs[1] === "invoices" && segs[2] && segs[3] === "mark-sent" && method === "POST") {
+            return handlePostInvoiceMarkSent(segs[2], request, env);
         }
 
         // /api/invoices/:zoho_invoice_id/render-data  GET

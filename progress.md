@@ -19,7 +19,9 @@
 
 - [x] GET /api/role now returns display_name and avatar_url alongside role/email — authenticate() extended to SELECT role, display_name, avatar_url; handleGetRole updated to include both fields; deployed as version c9e38f72-c458-4915-b5f5-55a58a3bc224
 
-**Last updated:** 2026-07-04 (session 52 — settings.html Profile Pictures section + GET /api/role display_name/avatar_url fix)
+- [x] dashboard.html display_name / avatar rendering fix (session 53 — 2026-07-04): top bar name and greeting now always read from /api/role response (display_name), never from Firebase auth object; fresh /api/role fetch (cache:no-store) always fires after onAuthStateChanged regardless of sessionStorage cache; fast-paint from cache still happens first when role is cached; bfcache handled via pageshow listener (re-fetches without reload); handleSignOut clears apex_display_name + apex_avatar_url + apex_dev_view before signOut resolves; populateHeaderUser email fallback now truncates at @ correctly; window.setView does not touch top bar identity. 1 of 6 pages fixed (next: client.html, sessions.html, calendar.html, tasks.html, settings.html).
+
+**Last updated:** 2026-07-04 (session 53 — dashboard.html display_name/avatar rendering + fresh fetch fix)
 
 ## Completed (2026-07-03, worker fix — discarded session leak)
 

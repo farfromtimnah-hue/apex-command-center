@@ -975,9 +975,13 @@
     // ── Auth & bootstrap ───────────────────────────────────────────────────
 
     function handleSignOut() {
+      currentUser = null;
+      sessionStorage.removeItem("apex_role");
+      sessionStorage.removeItem("apex_email");
+      sessionStorage.removeItem("apex_display_name");
+      sessionStorage.removeItem("apex_avatar_url");
+      sessionStorage.removeItem("apex_dev_view");
       auth.signOut().then(function() {
-        sessionStorage.removeItem("apex_role");
-        sessionStorage.removeItem("apex_email");
         window.location.href = "index.html";
       });
     }
@@ -985,8 +989,15 @@
     function populateHeaderUser(email, displayName, avatarUrl) {
       var emailEl = document.getElementById("headerEmail");
       if (!emailEl) { return; }
-      var label = (displayName && displayName.trim()) ? displayName.trim() : email;
-      var firstName = label.indexOf(" ") > -1 ? label.split(" ")[0] : label;
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
       var imgHtml = "";
       if (avatarUrl) {
         var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
@@ -1073,6 +1084,28 @@
       }
     }
 
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        renderGreeting(data.display_name || null, data.email);
+        return data;
+      });
+    }
+
     function init() {
       firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth();
@@ -1080,25 +1113,27 @@
       auth.onAuthStateChanged(function(user) {
         if (!user) { window.location.href = "index.html"; return; }
         currentUser = user;
+
         var cachedRole = sessionStorage.getItem("apex_role");
         if (cachedRole) {
           setupDashboard(cachedRole);
-        } else {
-          getToken().then(function(token) {
-            return fetch(WORKER_URL + "/api/role", { headers: { "Authorization": "Bearer " + token } });
-          }).then(function(res) {
-            if (!res.ok) { throw new Error("HTTP " + res.status); }
-            return res.json();
-          }).then(function(data) {
-            sessionStorage.setItem("apex_role",  data.role);
-            sessionStorage.setItem("apex_email", data.email);
-            sessionStorage.setItem("apex_display_name", data.display_name || "");
-            sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        }
+
+        fetchAndApplyRole().then(function(data) {
+          if (!cachedRole) {
             setupDashboard(data.role);
-          }).catch(function() {
+          }
+        }).catch(function() {
+          if (!cachedRole) {
             sessionStorage.removeItem("apex_role");
             window.location.href = "index.html";
-          });
+          }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
         }
       });
     }

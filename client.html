@@ -1520,6 +1520,58 @@
           </div>
         </div>
 
+        <!-- Payment Details (Zelle QR + Stripe link) -->
+        <div class="content-card" id="sec-payment-details" data-section-id="payment-details">
+          <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Detalhes de Pagamento</span>
+              <span class="show-en">Payment Details</span>
+            </h2>
+            <button class="collapse-btn" onclick="toggleSection('payment-details')" id="collapsePaymentDetails" title="Recolher / Collapse">&#9660;</button>
+          </div>
+          <div class="card-body-collapsible" id="paymentDetailsBody">
+            <div style="padding:14px 20px;display:flex;flex-direction:column;gap:18px;">
+
+              <!-- Zelle QR Code -->
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+                  <span class="show-pt">QR Code Zelle</span>
+                  <span class="show-en">Zelle QR Code</span>
+                </div>
+                <div id="zelleQrPreviewWrap" style="margin-bottom:8px;display:none;">
+                  <img id="zelleQrPreviewImg" src="" alt="Zelle QR" style="max-width:140px;max-height:140px;border-radius:6px;border:1px solid var(--border);display:block;">
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;" id="zelleQrUploadRow">
+                  <input type="file" id="zelleQrFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleZelleQrFileSelected(this)">
+                  <button id="btnUploadZelleQr" onclick="document.getElementById('zelleQrFileInput').click()" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit;font-size:12px;cursor:pointer;">
+                    <span class="show-pt" id="zelleQrBtnLabelPt">Carregar QR Code</span>
+                    <span class="show-en" id="zelleQrBtnLabelEn">Upload QR Code</span>
+                  </button>
+                </div>
+                <div class="pull-status" id="zelleQrStatus" style="margin-top:6px;"></div>
+              </div>
+
+              <!-- Stripe Payment Link -->
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+                  <span class="show-pt">Link de Pagamento Stripe</span>
+                  <span class="show-en">Stripe Payment Link</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input type="url" id="stripePaymentLinkInput" placeholder="https://buy.stripe.com/..." style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);">
+                  <button onclick="handleSaveStripeLink()" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit;font-size:12px;cursor:pointer;white-space:nowrap;">
+                    <span class="show-pt">Salvar</span>
+                    <span class="show-en">Save</span>
+                  </button>
+                </div>
+                <div class="pull-status" id="stripeLinkStatus" style="margin-top:6px;"></div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
         <!-- Documents section (reorderable) -->
         <div class="content-card" id="sec-docs" data-section-id="docs">
           <div class="content-card-header">
@@ -2070,6 +2122,7 @@
           renderContactsSection(clientData.contacts ? parseContacts(clientData.contacts) : []);
           initLogoDisplay(clientData);
           initPaymentMethod(clientData);
+          initPaymentDetails(clientData);
         })
         .catch(function(e) {
           document.getElementById("clientName").textContent = "Cliente não encontrado";
@@ -3051,6 +3104,125 @@
         .catch(function(e) {
           statusEl.textContent = "Erro: " + e.message;
           statusEl.className = "pull-status is-error";
+        });
+    }
+
+    // ── Payment Details (Zelle QR + Stripe link) ───────────────────────────
+
+    function initPaymentDetails(client) {
+      // Show QR preview if one exists
+      if (client && client.zelle_qr_r2_key) {
+        var previewWrap = document.getElementById("zelleQrPreviewWrap");
+        var previewImg  = document.getElementById("zelleQrPreviewImg");
+        if (previewWrap && previewImg) {
+          previewImg.src = WORKER_URL + "/api/clients/" + CLIENT_ID + "/qr-image?t=" + Date.now();
+          previewImg.onerror = function() { previewWrap.style.display = "none"; };
+          previewWrap.style.display = "";
+        }
+        var btnPt = document.getElementById("zelleQrBtnLabelPt");
+        var btnEn = document.getElementById("zelleQrBtnLabelEn");
+        if (btnPt) { btnPt.textContent = "Alterar QR Code"; }
+        if (btnEn) { btnEn.textContent = "Change QR Code"; }
+      }
+
+      // Show Stripe link if one exists
+      if (client && client.stripe_payment_link) {
+        var input = document.getElementById("stripePaymentLinkInput");
+        if (input) { input.value = client.stripe_payment_link; }
+      }
+
+      // Hide upload row for read-only roles
+      var role = sessionStorage.getItem("apex_role") || "";
+      var canEdit = role === "alice" || role === "rafa" || role === "developer";
+      var uploadRow = document.getElementById("zelleQrUploadRow");
+      if (uploadRow) { uploadRow.style.display = canEdit ? "" : "none"; }
+      var saveBtn = document.querySelector("button[onclick='handleSaveStripeLink()']");
+      if (saveBtn) { saveBtn.style.display = canEdit ? "" : "none"; }
+      var stripeInput = document.getElementById("stripePaymentLinkInput");
+      if (stripeInput) { stripeInput.readOnly = !canEdit; }
+    }
+
+    function handleZelleQrFileSelected(input) {
+      if (!input.files || !input.files[0]) { return; }
+      var file = input.files[0];
+      var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+      var statusEl = document.getElementById("zelleQrStatus");
+
+      if (allowed.indexOf(file.type) === -1) {
+        if (statusEl) { statusEl.textContent = "Tipo invalido. Use JPG, PNG, GIF ou WebP."; statusEl.className = "pull-status is-error"; }
+        input.value = "";
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        if (statusEl) { statusEl.textContent = "Arquivo muito grande. Maximo 2 MB."; statusEl.className = "pull-status is-error"; }
+        input.value = "";
+        return;
+      }
+
+      if (statusEl) { statusEl.textContent = "Enviando..."; statusEl.className = "pull-status"; }
+
+      var formData = new FormData();
+      formData.append("qr", file);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/qr", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          if (statusEl) { statusEl.textContent = "QR Code salvo."; statusEl.className = "pull-status is-ok"; }
+
+          var previewWrap = document.getElementById("zelleQrPreviewWrap");
+          var previewImg  = document.getElementById("zelleQrPreviewImg");
+          if (previewWrap && previewImg) {
+            previewImg.src = WORKER_URL + "/api/clients/" + CLIENT_ID + "/qr-image?t=" + Date.now();
+            previewImg.onerror = function() { previewWrap.style.display = "none"; };
+            previewWrap.style.display = "";
+          }
+          var btnPt = document.getElementById("zelleQrBtnLabelPt");
+          var btnEn = document.getElementById("zelleQrBtnLabelEn");
+          if (btnPt) { btnPt.textContent = "Alterar QR Code"; }
+          if (btnEn) { btnEn.textContent = "Change QR Code"; }
+
+          input.value = "";
+          setTimeout(function() { if (statusEl) { statusEl.textContent = ""; statusEl.className = "pull-status"; } }, 3000);
+        })
+        .catch(function(e) {
+          if (statusEl) { statusEl.textContent = "Erro: " + e.message; statusEl.className = "pull-status is-error"; }
+          input.value = "";
+        });
+    }
+
+    function handleSaveStripeLink() {
+      var input    = document.getElementById("stripePaymentLinkInput");
+      var statusEl = document.getElementById("stripeLinkStatus");
+      var value    = input ? input.value.trim() : "";
+
+      if (value && !/^https?:\/\/.+/.test(value)) {
+        statusEl.textContent = "URL invalida. Deve comecar com http:// ou https://";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+
+      statusEl.textContent = "Salvando...";
+      statusEl.className   = "pull-status";
+
+      apiFetch("/api/clients/" + CLIENT_ID, {
+        method: "PATCH",
+        body: { stripe_payment_link: value || null }
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Salvo.";
+          statusEl.className   = "pull-status is-ok";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = "pull-status"; }, 2000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className   = "pull-status is-error";
         });
     }
 

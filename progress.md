@@ -9,7 +9,9 @@
 
 - [x] client.html package dropdown now pulls short_name list from GET /api/settings/packages on page load; PACKAGE_OPTIONS_FALLBACK hardcoded array used only if API fails/returns empty; openPackageEdit() uses live list first; unrecognized current values prepended as selected option; PUT save logic untouched.
 
-**Last updated:** 2026-07-04 (session 51 — client.html package dropdown live from packages API)
+- [x] settings.html Profile Pictures section added first on page (DOM + hero tile order): hero tile shows "N / M" profiles with display_name set; data-driven user cards from GET /api/users (email, role badge, avatar, display_name input, Save Name -> PUT /api/users/:email/display-name, file picker -> POST /api/users/:email/avatar as multipart); avatar displayed via /api/users/:email/avatar-image with placeholder fallback; tile and in-card avatar update live on success; bilingual PT/EN throughout; hero tile order is now Profile Pictures -> Templates -> Packages.
+
+**Last updated:** 2026-07-04 (session 52 — settings.html Profile Pictures section)
 
 ## Completed (2026-07-03, worker fix — discarded session leak)
 

@@ -602,6 +602,133 @@
     .btn-delete:hover:not(:disabled) { background: #b44040; color: #fff; }
     .btn-delete:disabled { opacity: 0.45; cursor: not-allowed; }
 
+    /* ─── Profile picture cards ─────────────────────────────────────────── */
+    .profile-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .profile-card + .profile-card {
+      margin-top: 14px;
+    }
+
+    .profile-card-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .profile-avatar-wrap {
+      width: 64px;
+      height: 64px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .profile-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .profile-avatar-placeholder {
+      font-size: 26px;
+      opacity: 0.45;
+      line-height: 1;
+    }
+
+    .profile-card-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .profile-email {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .profile-role-badge {
+      display: inline-block;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.35);
+      color: var(--brown);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+      align-self: flex-start;
+    }
+
+    .profile-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .profile-name-input {
+      flex: 1;
+      min-width: 140px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .profile-name-input:focus { border-color: var(--gold); }
+
+    .profile-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .profile-file-input {
+      font-size: 12px;
+      color: var(--muted);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .profile-card-footer {
+      display: flex;
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .profile-status-name { font-size: 12px; font-weight: 500; min-height: 16px; }
+    .profile-status-name.ok  { color: #2e7d4f; }
+    .profile-status-name.err { color: #b44040; }
+
+    .profile-status-avatar { font-size: 12px; font-weight: 500; min-height: 16px; }
+    .profile-status-avatar.ok  { color: #2e7d4f; }
+    .profile-status-avatar.err { color: #b44040; }
+
     /* ─── Responsive ─────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
       .settings-hero-section { padding: 16px; }
@@ -654,8 +781,17 @@
       <div id="settingsHeroScrim" aria-hidden="true"></div>
       <div class="settings-hero-content">
 
-        <!-- Glass stat tiles — templates + packages -->
+        <!-- Glass stat tiles — profile + templates + packages -->
         <div class="glass-tile-row">
+          <a href="#section-profile" class="glass-tile-link">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">PERFIS CONFIGURADOS</span>
+                <span class="show-en">PROFILES SET</span>
+              </div>
+              <div class="glass-tile-value" id="heroTileProfiles">--</div>
+            </div>
+          </a>
           <a href="#templatesSection" class="glass-tile-link">
             <div class="glass-tile">
               <div class="glass-tile-label">
@@ -687,6 +823,21 @@
 
     <!-- Below hero: settings content -->
     <div class="below-hero-section">
+
+      <!-- Profile Pictures section -->
+      <div id="section-profile">
+        <div class="section-heading">
+          <span class="show-pt">Fotos de Perfil</span>
+          <span class="show-en">Profile Pictures</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Gerencie o nome de exibi&#231;&#227;o e a foto de perfil de cada usu&#225;rio.</span>
+          <span class="show-en">Manage the display name and profile picture for each user.</span>
+        </div>
+        <div id="profileContainer">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
 
       <!-- WhatsApp Message Templates section -->
       <div id="templatesSection">
@@ -816,6 +967,7 @@
 
       window.initNav && window.initNav();
       initHeroBg('settingsHeroBg');
+      loadProfiles();
       loadTemplates();
       loadPackages();
     }
@@ -841,6 +993,309 @@
             })
             .catch(function() { window.location.href = "index.html"; });
         }
+      });
+    }
+
+    // ── Profile section state ──────────────────────────────────────────────
+    var profileUsersData = [];
+
+    // ── Update profile hero tile ───────────────────────────────────────────
+    function updateProfileTile() {
+      var tileEl = document.getElementById("heroTileProfiles");
+      if (!tileEl) { return; }
+      var withName = 0;
+      for (var i = 0; i < profileUsersData.length; i++) {
+        if (profileUsersData[i].display_name) { withName++; }
+      }
+      tileEl.textContent = withName + " / " + profileUsersData.length;
+    }
+
+    // ── Load profiles ──────────────────────────────────────────────────────
+    function loadProfiles() {
+      var container = document.getElementById("profileContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/users", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var users = data.users || [];
+        profileUsersData = users;
+        renderProfiles(users);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar usu&#225;rios: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading users: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Render profiles ────────────────────────────────────────────────────
+    function renderProfiles(users) {
+      var container = document.getElementById("profileContainer");
+      if (!container) { return; }
+
+      updateProfileTile();
+
+      if (users.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128100;</div>' +
+          '<span class="show-pt">Nenhum usu&#225;rio encontrado.</span>' +
+          '<span class="show-en">No users found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+      for (var i = 0; i < users.length; i++) {
+        container.appendChild(makeProfileCard(users[i], i));
+      }
+    }
+
+    // ── Build avatar display URL from R2 key ───────────────────────────────
+    function avatarDisplayUrl(email) {
+      return WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+    }
+
+    // ── Make a single profile card ─────────────────────────────────────────
+    function makeProfileCard(u, dataIdx) {
+      var card = document.createElement("div");
+      card.className = "profile-card";
+
+      // Top row: avatar + email/role
+      var topRow = document.createElement("div");
+      topRow.className = "profile-card-top";
+
+      var avatarWrap = document.createElement("div");
+      avatarWrap.className = "profile-avatar-wrap";
+
+      var avatarImg = document.createElement("img");
+      avatarImg.className = "profile-avatar-img";
+      avatarImg.alt = "";
+
+      var avatarPlaceholder = document.createElement("div");
+      avatarPlaceholder.className = "profile-avatar-placeholder";
+      avatarPlaceholder.innerHTML = "&#128100;";
+
+      if (u.avatar_url) {
+        avatarImg.src = avatarDisplayUrl(u.email);
+        avatarImg.style.display = "block";
+        avatarPlaceholder.style.display = "none";
+        (function(img, ph) {
+          img.onerror = function() {
+            img.style.display = "none";
+            ph.style.display = "";
+          };
+        })(avatarImg, avatarPlaceholder);
+      } else {
+        avatarImg.style.display = "none";
+        avatarPlaceholder.style.display = "";
+      }
+
+      avatarWrap.appendChild(avatarImg);
+      avatarWrap.appendChild(avatarPlaceholder);
+      topRow.appendChild(avatarWrap);
+
+      var infoEl = document.createElement("div");
+      infoEl.className = "profile-card-info";
+
+      var emailEl = document.createElement("div");
+      emailEl.className = "profile-email";
+      emailEl.textContent = u.email;
+      infoEl.appendChild(emailEl);
+
+      var roleEl = document.createElement("span");
+      roleEl.className = "profile-role-badge";
+      roleEl.textContent = u.role;
+      infoEl.appendChild(roleEl);
+
+      topRow.appendChild(infoEl);
+      card.appendChild(topRow);
+
+      // Display name row
+      var nameRow = document.createElement("div");
+      nameRow.className = "profile-name-row";
+
+      var nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.className = "profile-name-input";
+      nameInput.value = u.display_name || "";
+      nameInput.placeholder = document.body.classList.contains("lang-en") ? "Display name" : "Nome de exibicao";
+      nameRow.appendChild(nameInput);
+
+      var saveNameBtn = document.createElement("button");
+      saveNameBtn.className = "btn-save";
+      saveNameBtn.innerHTML =
+        '<span class="show-pt">Salvar Nome</span>' +
+        '<span class="show-en">Save Name</span>';
+      nameRow.appendChild(saveNameBtn);
+      card.appendChild(nameRow);
+
+      var nameStatusEl = document.createElement("div");
+      nameStatusEl.className = "profile-status-name";
+      card.appendChild(nameStatusEl);
+
+      // Avatar upload row
+      var uploadRow = document.createElement("div");
+      uploadRow.className = "profile-upload-row";
+
+      var fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.className = "profile-file-input";
+      fileInput.accept = "image/jpeg,image/png,image/gif,image/webp";
+      uploadRow.appendChild(fileInput);
+
+      var uploadBtn = document.createElement("button");
+      uploadBtn.className = "btn-save";
+      uploadBtn.innerHTML =
+        '<span class="show-pt">Enviar Foto</span>' +
+        '<span class="show-en">Upload Picture</span>';
+      uploadRow.appendChild(uploadBtn);
+      card.appendChild(uploadRow);
+
+      var avatarStatusEl = document.createElement("div");
+      avatarStatusEl.className = "profile-status-avatar";
+      card.appendChild(avatarStatusEl);
+
+      // Wire up save name
+      (function(email, inp, btn, st, idx) {
+        btn.onclick = function() { saveDisplayName(email, inp, btn, st, idx); };
+      })(u.email, nameInput, saveNameBtn, nameStatusEl, dataIdx);
+
+      // Wire up avatar upload
+      (function(email, fi, btn, st, aw, ai, ap, idx) {
+        btn.onclick = function() { uploadAvatar(email, fi, btn, st, aw, ai, ap, idx); };
+      })(u.email, fileInput, uploadBtn, avatarStatusEl, avatarWrap, avatarImg, avatarPlaceholder, dataIdx);
+
+      return card;
+    }
+
+    // ── Save display name ──────────────────────────────────────────────────
+    function saveDisplayName(email, nameInput, btn, statusEl, dataIdx) {
+      var name = nameInput.value.trim();
+
+      statusEl.className = "profile-status-name";
+      statusEl.textContent = "";
+
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/display-name", {
+          method: "PUT",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ display_name: name })
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function() {
+        btn.disabled = false;
+        if (dataIdx >= 0 && dataIdx < profileUsersData.length) {
+          profileUsersData[dataIdx].display_name = name || null;
+          updateProfileTile();
+        }
+        statusEl.className = "profile-status-name ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Nome salvo com sucesso.</span>' +
+          '<span class="show-en">Name saved successfully.</span>';
+        setTimeout(function() {
+          statusEl.className = "profile-status-name";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "profile-status-name err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao salvar nome: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error saving name: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Upload avatar ──────────────────────────────────────────────────────
+    function uploadAvatar(email, fileInput, btn, statusEl, avatarWrap, avatarImg, avatarPlaceholder, dataIdx) {
+      statusEl.className = "profile-status-avatar";
+      statusEl.textContent = "";
+
+      if (!fileInput.files || !fileInput.files[0]) {
+        statusEl.className = "profile-status-avatar err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Selecione uma imagem primeiro.</span>' +
+          '<span class="show-en">Please select an image first.</span>';
+        return;
+      }
+
+      var file = fileInput.files[0];
+      var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+      if (allowed.indexOf(file.type) === -1) {
+        statusEl.className = "profile-status-avatar err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Tipo de arquivo inv&#225;lido. Use JPG, PNG, GIF ou WebP.</span>' +
+          '<span class="show-en">Invalid file type. Please use JPG, PNG, GIF, or WebP.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      var formData = new FormData();
+      formData.append("avatar", file);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        var key = data.avatar_key || "";
+        if (dataIdx >= 0 && dataIdx < profileUsersData.length) {
+          profileUsersData[dataIdx].avatar_url = key || null;
+        }
+        // Refresh avatar image in card
+        var newSrc = avatarDisplayUrl(email) + "?t=" + Date.now();
+        avatarImg.src = newSrc;
+        avatarImg.style.display = "block";
+        avatarPlaceholder.style.display = "none";
+        statusEl.className = "profile-status-avatar ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Foto enviada com sucesso.</span>' +
+          '<span class="show-en">Picture uploaded successfully.</span>';
+        setTimeout(function() {
+          statusEl.className = "profile-status-avatar";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "profile-status-avatar err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao enviar foto: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error uploading picture: ' + escHtml(e.message) + '</span>';
       });
     }
 

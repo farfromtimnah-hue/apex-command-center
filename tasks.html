@@ -951,7 +951,19 @@
       auth = firebase.auth();
 
       auth.onAuthStateChanged(function(user) {
-        if (!user) { window.location.href = "index.html"; return; }
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                window.location.href = "index.html";
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
         currentUser = user;
         var cached = sessionStorage.getItem("apex_role");
         if (cached) {

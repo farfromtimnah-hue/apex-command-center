@@ -558,8 +558,30 @@
       .glass-tile { min-width: 100px; }
     }
 
+    #heroBgImageDev {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    #heroBgImageDev.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #heroBgScrimDev {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       #heroBgImage.is-loaded { animation: none; }
+      #heroBgImageDev.is-loaded { animation: none; }
     }
   </style>
 </head>
@@ -773,52 +795,59 @@
       </div>
     </div><!-- /rafaDash -->
 
-    <!-- DEVELOPER dashboard (unchanged original) -->
+    <!-- DEVELOPER dashboard -->
     <div id="devDash" hidden>
-      <div style="padding:28px 32px;display:flex;flex-direction:column;gap:24px;">
-        <p id="devGreeting" style="font-size:22px;font-weight:300;color:var(--text);letter-spacing:-0.2px;line-height:1.2;margin:0;" aria-live="polite"></p>
-        <!-- Page heading + CTA -->
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-          <h1 class="page-heading-hero" style="color:var(--text);">
-            <span class="show-pt">Visao Geral</span>
-            <span class="show-en">Overview</span>
-          </h1>
-          <a href="sessions.html" class="btn-cta-link">
-            <span class="show-pt">+ Nova Sessao</span>
-            <span class="show-en">+ New Session</span>
-          </a>
+      <!-- Hero photo section -->
+      <div class="hero-section">
+        <div id="heroBgImageDev" aria-hidden="true"></div>
+        <div id="heroBgScrimDev" aria-hidden="true"></div>
+        <div class="hero-content">
+          <p id="devGreeting" class="dashboard-greeting" aria-live="polite"></p>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <h1 class="page-heading-hero">
+              <span class="show-pt">Visao Geral</span>
+              <span class="show-en">Overview</span>
+            </h1>
+            <a href="sessions.html" class="btn-cta-link">
+              <span class="show-pt">+ Nova Sessao</span>
+              <span class="show-en">+ New Session</span>
+            </a>
+          </div>
+          <!-- Glass tiles -->
+          <div class="glass-tile-row" id="devStatRow">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">Pendentes</span>
+                <span class="show-en">Pending</span>
+              </div>
+              <div class="glass-tile-value" id="devStatPending">--</div>
+            </div>
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">Resumidos</span>
+                <span class="show-en">Summarized</span>
+              </div>
+              <div class="glass-tile-value" id="devStatSummarized">--</div>
+            </div>
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">Aprovados</span>
+                <span class="show-en">Approved</span>
+              </div>
+              <div class="glass-tile-value is-gold" id="devStatApproved">--</div>
+            </div>
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">Total de Sessoes</span>
+                <span class="show-en">Total Sessions</span>
+              </div>
+              <div class="glass-tile-value" id="devStatTotal">--</div>
+            </div>
+          </div>
         </div>
-        <!-- Stat row (original style) -->
-        <div style="display:flex;gap:16px;flex-wrap:wrap;" id="devStatRow">
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;flex:1;min-width:140px;display:flex;flex-direction:column;gap:6px;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);">
-              <span class="show-pt">Pendentes</span>
-              <span class="show-en">Pending</span>
-            </div>
-            <div style="font-size:32px;font-weight:700;color:var(--text);line-height:1;" id="devStatPending">--</div>
-          </div>
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;flex:1;min-width:140px;display:flex;flex-direction:column;gap:6px;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);">
-              <span class="show-pt">Resumidos</span>
-              <span class="show-en">Summarized</span>
-            </div>
-            <div style="font-size:32px;font-weight:700;color:var(--text);line-height:1;" id="devStatSummarized">--</div>
-          </div>
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;flex:1;min-width:140px;display:flex;flex-direction:column;gap:6px;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);">
-              <span class="show-pt">Aprovados</span>
-              <span class="show-en">Approved</span>
-            </div>
-            <div style="font-size:32px;font-weight:700;color:var(--gold);line-height:1;" id="devStatApproved">--</div>
-          </div>
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;flex:1;min-width:140px;display:flex;flex-direction:column;gap:6px;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);">
-              <span class="show-pt">Total de Sessoes</span>
-              <span class="show-en">Total Sessions</span>
-            </div>
-            <div style="font-size:32px;font-weight:700;color:var(--text);line-height:1;" id="devStatTotal">--</div>
-          </div>
-        </div>
+      </div>
+      <!-- Below photo section -->
+      <div class="below-section">
         <div class="content-card">
           <div class="content-card-header">
             <h2 class="content-card-title">
@@ -1722,6 +1751,7 @@
         renderRafaDashboard();
       } else {
         if (devDash) { devDash.hidden = false; }
+        initHeroBg("heroBgImageDev", "heroBgScrimDev");
         loadDevOverview();
       }
     };

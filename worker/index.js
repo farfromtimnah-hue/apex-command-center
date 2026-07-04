@@ -1623,6 +1623,133 @@ async function handlePutSettingsTemplate(key, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/settings/packages
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetSettingsPackages(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, name, sort_order FROM packages ORDER BY sort_order ASC, name ASC"
+        ).all();
+
+        return jsonOk({ packages: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching packages: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/settings/packages
+// Body: { name: string, sort_order?: number }
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostSettingsPackages(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.name || !body.name.trim()) { return jsonErr("name is required", 400); }
+
+        var sortOrder = body.sort_order;
+        if (sortOrder === undefined || sortOrder === null) {
+            var maxRow = await env.DB.prepare(
+                "SELECT MAX(sort_order) AS max_sort FROM packages"
+            ).first();
+            sortOrder = (maxRow && maxRow.max_sort !== null) ? maxRow.max_sort + 1 : 1;
+        }
+
+        var pkgId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO packages (id, name, sort_order) VALUES (?, ?, ?)"
+        ).bind(pkgId, body.name.trim(), sortOrder).run();
+
+        var pkg = await env.DB.prepare(
+            "SELECT id, name, sort_order FROM packages WHERE id = ?"
+        ).bind(pkgId).first();
+
+        return jsonOk({ package: pkg });
+    } catch (e) {
+        return jsonErr("Error creating package: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/settings/packages/:id
+// Body: { name?: string, sort_order?: number }
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePutSettingsPackage(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT id, name, sort_order FROM packages WHERE id = ?"
+        ).bind(id).first();
+        if (!existing) { return jsonErr("Package not found", 404); }
+
+        var body = await request.json();
+        if (body.hasOwnProperty("name") && (!body.name || !body.name.trim())) {
+            return jsonErr("name must not be blank", 400);
+        }
+
+        if (body.hasOwnProperty("name")) {
+            await env.DB.prepare("UPDATE packages SET name = ? WHERE id = ?")
+                .bind(body.name.trim(), id).run();
+        }
+        if (body.hasOwnProperty("sort_order")) {
+            await env.DB.prepare("UPDATE packages SET sort_order = ? WHERE id = ?")
+                .bind(body.sort_order, id).run();
+        }
+
+        var updated = await env.DB.prepare(
+            "SELECT id, name, sort_order FROM packages WHERE id = ?"
+        ).bind(id).first();
+
+        return jsonOk({ package: updated });
+    } catch (e) {
+        return jsonErr("Error updating package: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: DELETE /api/settings/packages/:id
+// Auth: alice / rafa / developer only.
+// Note: clients already assigned this package keep their stored text value in
+// clients.package (it is a plain text field, not a foreign key) — deleting a
+// package only removes it as a future selectable option; does not touch clients.
+// ---------------------------------------------------------------------------
+
+async function handleDeleteSettingsPackage(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT id FROM packages WHERE id = ?"
+        ).bind(id).first();
+        if (!existing) { return jsonErr("Package not found", 404); }
+
+        await env.DB.prepare("DELETE FROM packages WHERE id = ?").bind(id).run();
+
+        return jsonOk({ ok: true, id: id });
+    } catch (e) {
+        return jsonErr("Error deleting package: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -1654,6 +1781,8 @@ export default {
         if (path === "/api/users"                && method === "GET")  { return handleGetUsers(request, env); }
         if (path === "/api/users"                && method === "POST") { return handlePostUsers(request, env); }
         if (path === "/api/settings/templates"   && method === "GET")  { return handleGetSettingsTemplates(request, env); }
+        if (path === "/api/settings/packages"    && method === "GET")  { return handleGetSettingsPackages(request, env); }
+        if (path === "/api/settings/packages"    && method === "POST") { return handlePostSettingsPackages(request, env); }
 
         // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client, /api/sessions/:id/whatsapp
         var segs = path.replace(/^\//, "").split("/");
@@ -1678,6 +1807,14 @@ export default {
         // /api/settings/templates/:key  PUT
         if (segs[0] === "api" && segs[1] === "settings" && segs[2] === "templates" && segs[3] && method === "PUT") {
             return handlePutSettingsTemplate(segs[3], request, env);
+        }
+
+        // /api/settings/packages/:id  PUT | DELETE
+        if (segs[0] === "api" && segs[1] === "settings" && segs[2] === "packages" && segs[3] && method === "PUT") {
+            return handlePutSettingsPackage(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "settings" && segs[2] === "packages" && segs[3] && method === "DELETE") {
+            return handleDeleteSettingsPackage(segs[3], request, env);
         }
 
         // Parameterized routes: /api/clients/:id[/notes | /logo | /logo-image | /documents/latest]

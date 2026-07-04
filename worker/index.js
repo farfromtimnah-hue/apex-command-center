@@ -1634,10 +1634,27 @@ async function handleGetSettingsPackages(request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var res = await env.DB.prepare(
-            "SELECT id, name, sort_order FROM packages ORDER BY sort_order ASC, name ASC"
+            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order " +
+            "FROM packages ORDER BY sort_order ASC, short_name ASC"
         ).all();
 
-        return jsonOk({ packages: res.results });
+        var pkgs = res.results.map(function(row) {
+            var items = [];
+            if (row.included_items) {
+                try { items = JSON.parse(row.included_items); } catch(e) { items = []; }
+            }
+            return {
+                id:             row.id,
+                short_name:     row.short_name,
+                full_name:      row.full_name,
+                audience:       row.audience,
+                included_items: items,
+                is_popular:     !!row.is_popular,
+                sort_order:     row.sort_order
+            };
+        });
+
+        return jsonOk({ packages: pkgs });
     } catch (e) {
         return jsonErr("Error fetching packages: " + e.message, 500);
     }
@@ -1645,7 +1662,7 @@ async function handleGetSettingsPackages(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/settings/packages
-// Body: { name: string, sort_order?: number }
+// Body: { short_name, full_name, audience?, included_items? (array), is_popular? (boolean), sort_order? }
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -1656,7 +1673,8 @@ async function handlePostSettingsPackages(request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
-        if (!body.name || !body.name.trim()) { return jsonErr("name is required", 400); }
+        if (!body.short_name || !body.short_name.trim()) { return jsonErr("short_name is required", 400); }
+        if (!body.full_name  || !body.full_name.trim())  { return jsonErr("full_name is required", 400); }
 
         var sortOrder = body.sort_order;
         if (sortOrder === undefined || sortOrder === null) {
@@ -1666,16 +1684,41 @@ async function handlePostSettingsPackages(request, env) {
             sortOrder = (maxRow && maxRow.max_sort !== null) ? maxRow.max_sort + 1 : 1;
         }
 
+        var includedItems = Array.isArray(body.included_items) ? body.included_items : [];
+        var isPopular     = body.is_popular ? 1 : 0;
+
         var pkgId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO packages (id, name, sort_order) VALUES (?, ?, ?)"
-        ).bind(pkgId, body.name.trim(), sortOrder).run();
+            "INSERT INTO packages (id, short_name, full_name, audience, included_items, is_popular, sort_order) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            pkgId,
+            body.short_name.trim(),
+            body.full_name.trim(),
+            body.audience || null,
+            JSON.stringify(includedItems),
+            isPopular,
+            sortOrder
+        ).run();
 
-        var pkg = await env.DB.prepare(
-            "SELECT id, name, sort_order FROM packages WHERE id = ?"
+        var row = await env.DB.prepare(
+            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order FROM packages WHERE id = ?"
         ).bind(pkgId).first();
 
-        return jsonOk({ package: pkg });
+        var items = [];
+        if (row.included_items) {
+            try { items = JSON.parse(row.included_items); } catch(e) { items = []; }
+        }
+
+        return jsonOk({ package: {
+            id:             row.id,
+            short_name:     row.short_name,
+            full_name:      row.full_name,
+            audience:       row.audience,
+            included_items: items,
+            is_popular:     !!row.is_popular,
+            sort_order:     row.sort_order
+        }});
     } catch (e) {
         return jsonErr("Error creating package: " + e.message, 500);
     }
@@ -1683,7 +1726,7 @@ async function handlePostSettingsPackages(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: PUT /api/settings/packages/:id
-// Body: { name?: string, sort_order?: number }
+// Body: any subset of { short_name, full_name, audience, included_items (array), is_popular (boolean), sort_order }
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -1694,29 +1737,62 @@ async function handlePutSettingsPackage(id, request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var existing = await env.DB.prepare(
-            "SELECT id, name, sort_order FROM packages WHERE id = ?"
+            "SELECT id FROM packages WHERE id = ?"
         ).bind(id).first();
         if (!existing) { return jsonErr("Package not found", 404); }
 
         var body = await request.json();
-        if (body.hasOwnProperty("name") && (!body.name || !body.name.trim())) {
-            return jsonErr("name must not be blank", 400);
+        if (body.hasOwnProperty("short_name") && (!body.short_name || !body.short_name.trim())) {
+            return jsonErr("short_name must not be blank", 400);
+        }
+        if (body.hasOwnProperty("full_name") && (!body.full_name || !body.full_name.trim())) {
+            return jsonErr("full_name must not be blank", 400);
         }
 
-        if (body.hasOwnProperty("name")) {
-            await env.DB.prepare("UPDATE packages SET name = ? WHERE id = ?")
-                .bind(body.name.trim(), id).run();
+        if (body.hasOwnProperty("short_name")) {
+            await env.DB.prepare("UPDATE packages SET short_name = ? WHERE id = ?")
+                .bind(body.short_name.trim(), id).run();
+        }
+        if (body.hasOwnProperty("full_name")) {
+            await env.DB.prepare("UPDATE packages SET full_name = ? WHERE id = ?")
+                .bind(body.full_name.trim(), id).run();
+        }
+        if (body.hasOwnProperty("audience")) {
+            await env.DB.prepare("UPDATE packages SET audience = ? WHERE id = ?")
+                .bind(body.audience || null, id).run();
+        }
+        if (body.hasOwnProperty("included_items")) {
+            var items = Array.isArray(body.included_items) ? body.included_items : [];
+            await env.DB.prepare("UPDATE packages SET included_items = ? WHERE id = ?")
+                .bind(JSON.stringify(items), id).run();
+        }
+        if (body.hasOwnProperty("is_popular")) {
+            await env.DB.prepare("UPDATE packages SET is_popular = ? WHERE id = ?")
+                .bind(body.is_popular ? 1 : 0, id).run();
         }
         if (body.hasOwnProperty("sort_order")) {
             await env.DB.prepare("UPDATE packages SET sort_order = ? WHERE id = ?")
                 .bind(body.sort_order, id).run();
         }
 
-        var updated = await env.DB.prepare(
-            "SELECT id, name, sort_order FROM packages WHERE id = ?"
+        var row = await env.DB.prepare(
+            "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order FROM packages WHERE id = ?"
         ).bind(id).first();
 
-        return jsonOk({ package: updated });
+        var updatedItems = [];
+        if (row.included_items) {
+            try { updatedItems = JSON.parse(row.included_items); } catch(e) { updatedItems = []; }
+        }
+
+        return jsonOk({ package: {
+            id:             row.id,
+            short_name:     row.short_name,
+            full_name:      row.full_name,
+            audience:       row.audience,
+            included_items: updatedItems,
+            is_popular:     !!row.is_popular,
+            sort_order:     row.sort_order
+        }});
     } catch (e) {
         return jsonErr("Error updating package: " + e.message, 500);
     }

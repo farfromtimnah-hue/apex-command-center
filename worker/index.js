@@ -1414,16 +1414,16 @@ async function handlePostGoogleCalendarEvent(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Route: GET /api/users  — developer only, list all users
+// Route: GET /api/users  — alice / rafa / developer only, list all users
 // ---------------------------------------------------------------------------
 
 async function handleGetUsers(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
-        var res = await env.DB.prepare("SELECT email, role FROM users ORDER BY email ASC").all();
+        var res = await env.DB.prepare("SELECT email, role, display_name, avatar_url FROM users ORDER BY email ASC").all();
         return jsonOk({ users: res.results });
     } catch (e) {
         return jsonErr("Error fetching users: " + e.message, 500);
@@ -1487,6 +1487,128 @@ async function handleDeleteUser(email, request, env) {
 // Query: scope=today|week
 // Returns consultant tasks across all clients, scoped by date window.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/me/profile
+// Returns the current user's display_name and avatar_url.
+// ---------------------------------------------------------------------------
+
+async function handleGetMyProfile(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare("SELECT display_name, avatar_url FROM users WHERE email = ?")
+            .bind(user.email).first();
+
+        return jsonOk({
+            email:        user.email,
+            display_name: (row && row.display_name) ? row.display_name : null,
+            avatar_url:   (row && row.avatar_url)   ? row.avatar_url   : null
+        });
+    } catch (e) {
+        return jsonErr("Error fetching profile: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/me/profile
+// Body: { display_name?: string }
+// Any authenticated user may update their own display name.
+// ---------------------------------------------------------------------------
+
+async function handlePatchMyProfile(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json();
+        if (!body.display_name && body.display_name !== "") { return jsonErr("display_name is required", 400); }
+
+        var name = body.display_name.trim();
+        if (name.length > 100) { return jsonErr("display_name must be 100 characters or fewer", 400); }
+
+        await env.DB.prepare("UPDATE users SET display_name = ? WHERE email = ?")
+            .bind(name || null, user.email).run();
+
+        return jsonOk({ display_name: name || null });
+    } catch (e) {
+        return jsonErr("Error updating profile: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/me/avatar
+// Body: multipart/form-data with field "avatar" (image file)
+// Uploads avatar to R2 under avatars/<email>.<ext>, stores key in users.avatar_url.
+// ---------------------------------------------------------------------------
+
+async function handlePostMyAvatar(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var form = await request.formData();
+        var file = form.get("avatar");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("avatar file is required", 400); }
+
+        var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+        if (allowed.indexOf(file.type) === -1) {
+            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, or WebP image.", 400);
+        }
+
+        var ext = (file.type === "image/png")  ? "png"
+                : (file.type === "image/gif")  ? "gif"
+                : (file.type === "image/webp") ? "webp"
+                : "jpg";
+
+        var safeEmail = user.email.replace(/[^a-zA-Z0-9._-]/g, "_");
+        var key = "avatars/" + safeEmail + "." + ext;
+
+        await env.ASSETS.put(key, await file.arrayBuffer(), {
+            httpMetadata: { contentType: file.type }
+        });
+
+        await env.DB.prepare("UPDATE users SET avatar_url = ? WHERE email = ?")
+            .bind(key, user.email).run();
+
+        return jsonOk({ avatar_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading avatar: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/me/avatar-image
+// Serves the caller's own avatar from R2.
+// ---------------------------------------------------------------------------
+
+async function handleGetMyAvatarImage(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare("SELECT avatar_url FROM users WHERE email = ?")
+            .bind(user.email).first();
+
+        if (!row || !row.avatar_url) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(row.avatar_url);
+        if (!obj) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var imgHeaders = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": (obj.httpMetadata && obj.httpMetadata.contentType) ? obj.httpMetadata.contentType : "image/jpeg",
+            "Cache-Control": "public, max-age=86400"
+        });
+        return new Response(obj.body, { status: 200, headers: imgHeaders });
+    } catch (e) {
+        return jsonErr("Error fetching avatar: " + e.message, 500);
+    }
+}
 
 async function handleGetConsultantTasks(request, env) {
     try {
@@ -1856,6 +1978,10 @@ export default {
         if (path === "/api/approve"              && method === "POST") { return handlePostApprove(request, env); }
         if (path === "/api/users"                && method === "GET")  { return handleGetUsers(request, env); }
         if (path === "/api/users"                && method === "POST") { return handlePostUsers(request, env); }
+        if (path === "/api/me/profile"           && method === "GET")  { return handleGetMyProfile(request, env); }
+        if (path === "/api/me/profile"           && method === "PATCH") { return handlePatchMyProfile(request, env); }
+        if (path === "/api/me/avatar"            && method === "POST") { return handlePostMyAvatar(request, env); }
+        if (path === "/api/me/avatar-image"      && method === "GET")  { return handleGetMyAvatarImage(request, env); }
         if (path === "/api/settings/templates"   && method === "GET")  { return handleGetSettingsTemplates(request, env); }
         if (path === "/api/settings/packages"    && method === "GET")  { return handleGetSettingsPackages(request, env); }
         if (path === "/api/settings/packages"    && method === "POST") { return handlePostSettingsPackages(request, env); }

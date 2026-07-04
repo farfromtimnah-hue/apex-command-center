@@ -2802,11 +2802,13 @@ async function handleGetClientInvoices(clientId, request, env) {
             return result;
         }
 
-        // Zoho only accepts one status per request; fetch each separately and merge
-        var sentBatch    = await fetchForStatus("sent",    zohoAuth.access_token, zohoAuth.organization_id);
-        var overdueBatch = await fetchForStatus("overdue", zohoAuth.access_token, zohoAuth.organization_id);
-        var draftBatch   = await fetchForStatus("draft",   zohoAuth.access_token, zohoAuth.organization_id);
-        var unpaid = sentBatch.concat(overdueBatch).concat(draftBatch);
+        // Zoho only accepts one status per request; fetch each separately and merge.
+        // Draft and void invoices are intentionally excluded from client.html — only
+        // sent/overdue/partially_paid are visible to clients as "unpaid".
+        var sentBatch         = await fetchForStatus("sent",          zohoAuth.access_token, zohoAuth.organization_id);
+        var overdueBatch      = await fetchForStatus("overdue",       zohoAuth.access_token, zohoAuth.organization_id);
+        var partialBatch      = await fetchForStatus("partially_paid", zohoAuth.access_token, zohoAuth.organization_id);
+        var unpaid = sentBatch.concat(overdueBatch).concat(partialBatch);
         var paid   = await fetchForStatus("paid", zohoAuth.access_token, zohoAuth.organization_id);
 
         return jsonOk({ unpaid: unpaid, paid: paid, client_id: clientId, client_name: clientRow.name });

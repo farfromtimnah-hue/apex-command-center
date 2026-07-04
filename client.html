@@ -1274,9 +1274,19 @@
       <div id="clientHeroScrim" aria-hidden="true"></div>
       <div class="profile-hero-content">
         <div class="profile-header-shell">
-          <div class="profile-header-logo" id="headerLogoWrap">
-            <span id="headerLogoPlaceholder">&#127970;</span>
-            <img id="headerLogoImg" src="" alt="" style="display:none;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div class="profile-header-logo" id="headerLogoWrap">
+              <span id="headerLogoPlaceholder">&#127970;</span>
+              <img id="headerLogoImg" src="" alt="" style="display:none;">
+            </div>
+            <input type="file" id="logoFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleLogoFileSelected(this)">
+            <button id="btnHeroLogo" onclick="document.getElementById('logoFileInput').click()" style="display:none;background:rgba(26,22,18,0.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.85);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:4px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;transition:border-color 0.12s,color 0.12s;">
+              <span id="btnHeroLogoLabel">
+                <span class="show-pt">Adicionar Logo</span>
+                <span class="show-en">Add Logo</span>
+              </span>
+            </button>
+            <div class="pull-status" id="logoStatus" style="color:rgba(255,255,255,0.7);font-size:11px;min-height:0;"></div>
           </div>
           <div class="profile-header-meta">
             <h1 class="client-name" id="clientName">&#8212;</h1>
@@ -1527,7 +1537,7 @@
           </div>
         </div>
 
-        <!-- Invoices section (persistent, always visible, not reorderable) -->
+        <!-- Invoices section (persistent, not reorderable, sits above where Logo card was) -->
         <div class="content-card" id="sec-invoices">
           <div class="content-card-header">
             <h2 class="content-card-title">
@@ -1554,33 +1564,8 @@
         </div><!-- /sectionsList -->
       </div><!-- /col-main -->
 
-      <!-- ── RIGHT: Logo + Activity (non-reorderable) ── -->
+      <!-- ── RIGHT: Activity (non-reorderable) ── -->
       <div class="col-side">
-
-        <!-- Logo card -->
-        <div class="info-card" id="logoCard">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div class="info-card-heading" style="margin-bottom:0;">
-              <span class="show-pt">Logo</span>
-              <span class="show-en">Logo</span>
-            </div>
-            <button class="collapse-btn" onclick="toggleSection('logo')" id="collapseLogo" title="Recolher / Collapse">&#9660;</button>
-          </div>
-          <div class="card-body-collapsible" id="logoBody">
-            <div id="logoPreviewWrap" style="margin-bottom:12px;min-height:48px;display:flex;align-items:center;justify-content:center;">
-              <div style="width:72px;height:72px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:22px;" id="logoPlaceholder">&#127970;</div>
-              <img id="logoPreviewImg" src="" alt="Logo" style="display:none;max-height:72px;max-width:120px;border-radius:6px;object-fit:contain;">
-            </div>
-            <div id="logoUploadWrap">
-              <input type="file" id="logoFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleLogoFileSelected(this)">
-              <button class="btn-add" onclick="document.getElementById('logoFileInput').click()">
-                <span class="show-pt">Enviar Logo</span>
-                <span class="show-en">Upload Logo</span>
-              </button>
-              <div class="pull-status" id="logoStatus"></div>
-            </div>
-          </div>
-        </div>
 
         <!-- Activity timeline: placeholder -->
         <div class="info-card">
@@ -2968,20 +2953,17 @@
     function initLogoDisplay(client) {
       var role = sessionStorage.getItem("apex_role") || "";
       var canUpload = role === "alice" || role === "developer";
-      var uploadWrap = document.getElementById("logoUploadWrap");
-      if (uploadWrap) { uploadWrap.style.display = canUpload ? "" : "none"; }
+      var heroBtn = document.getElementById("btnHeroLogo");
+      if (heroBtn) { heroBtn.style.display = canUpload ? "" : "none"; }
 
       if (client && client.logo_url) {
-        var img = document.getElementById("logoPreviewImg");
-        var placeholder = document.getElementById("logoPlaceholder");
-        if (img) {
-          img.src = WORKER_URL + "/api/clients/" + CLIENT_ID + "/logo-image";
-          img.style.display = "block";
-          img.onerror = function() {
-            img.style.display = "none";
-            if (placeholder) { placeholder.style.display = "flex"; }
-          };
-          if (placeholder) { placeholder.style.display = "none"; }
+        var heroLabelEl = document.getElementById("btnHeroLogoLabel");
+        if (heroLabelEl) {
+          heroLabelEl.innerHTML = '<span class="show-pt">Alterar Logo</span><span class="show-en">Change Logo</span>';
+          var lang = document.body.classList.contains("lang-en") ? "lang-en" : "lang-pt";
+          heroLabelEl.querySelectorAll(".show-pt,.show-en").forEach(function(el) {
+            el.style.display = el.classList.contains("show-" + (lang === "lang-pt" ? "en" : "pt")) ? "none" : "";
+          });
         }
       }
     }
@@ -2993,14 +2975,12 @@
       var statusEl = document.getElementById("logoStatus");
 
       if (allowed.indexOf(file.type) === -1) {
-        statusEl.textContent = "Tipo invalido. Use JPG, PNG, GIF ou WebP.";
-        statusEl.className = "pull-status is-error";
+        if (statusEl) { statusEl.textContent = "Tipo invalido. Use JPG, PNG, GIF ou WebP."; }
         input.value = "";
         return;
       }
 
-      statusEl.textContent = "Enviando...";
-      statusEl.className = "pull-status";
+      if (statusEl) { statusEl.textContent = "Enviando..."; }
 
       var formData = new FormData();
       formData.append("logo", file);
@@ -3014,21 +2994,32 @@
       }).then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          statusEl.textContent = "Logo salvo.";
-          statusEl.className = "pull-status is-ok";
-          var img = document.getElementById("logoPreviewImg");
-          var placeholder = document.getElementById("logoPlaceholder");
-          if (img) {
-            img.src = WORKER_URL + "/api/clients/" + CLIENT_ID + "/logo-image?t=" + Date.now();
-            img.style.display = "block";
-            if (placeholder) { placeholder.style.display = "none"; }
+          if (statusEl) { statusEl.textContent = "Logo salvo."; }
+
+          // Refresh hero header logo
+          var hImg = document.getElementById("headerLogoImg");
+          var hPlaceholder = document.getElementById("headerLogoPlaceholder");
+          if (hImg) {
+            hImg.src = WORKER_URL + "/api/clients/" + CLIENT_ID + "/logo-image?t=" + Date.now();
+            hImg.style.display = "block";
+            hImg.onerror = function() {
+              hImg.style.display = "none";
+              if (hPlaceholder) { hPlaceholder.style.display = ""; }
+            };
+            if (hPlaceholder) { hPlaceholder.style.display = "none"; }
           }
+
+          // Update button label to "Alterar Logo"
+          var heroLabelEl = document.getElementById("btnHeroLogoLabel");
+          if (heroLabelEl) {
+            heroLabelEl.innerHTML = '<span class="show-pt">Alterar Logo</span><span class="show-en">Change Logo</span>';
+          }
+
           input.value = "";
-          setTimeout(function() { statusEl.textContent = ""; statusEl.className = "pull-status"; }, 3000);
+          setTimeout(function() { if (statusEl) { statusEl.textContent = ""; } }, 3000);
         })
         .catch(function(e) {
-          statusEl.textContent = "Erro: " + e.message;
-          statusEl.className = "pull-status is-error";
+          if (statusEl) { statusEl.textContent = "Erro: " + e.message; }
           input.value = "";
         });
     }
@@ -3191,7 +3182,6 @@
       { key: "notes",          bodyId: "notesBody",          btnId: "collapseNotes"          },
       { key: "payment",        bodyId: "paymentBody",        btnId: "collapsePayment"        },
       { key: "contacts",       bodyId: "contactsBody",       btnId: "collapseContacts"       },
-      { key: "logo",           bodyId: "logoBody",           btnId: "collapseLogo"           },
       { key: "docs",           bodyId: "docsBody",           btnId: "collapseDocs"           },
       { key: "activity",       bodyId: "activityBody",       btnId: "collapseActivity"       }
     ];

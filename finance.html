@@ -670,6 +670,62 @@
     }
     .btn-inv-view:hover { background: var(--gold-dim); }
 
+    /* ─── Finance pill tab bar (hero) ───────────────────────────────────── */
+    .fin-tab-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0;
+      border-bottom: none;
+      background: transparent;
+      flex-shrink: 0;
+    }
+
+    .fin-tab-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 15px;
+      border-radius: 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      background: transparent;
+      color: rgba(255,255,255,0.75);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .fin-tab-pill:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+    .fin-tab-pill.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #1a1a1d;
+      font-weight: 600;
+    }
+
+    .fin-tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.28);
+      color: inherit;
+    }
+    .fin-tab-pill:not(.active) .fin-tab-badge {
+      background: rgba(255,255,255,0.22);
+      color: rgba(255,255,255,0.85);
+    }
+    .fin-tab-badge[hidden] { display: none !important; }
+
+    /* ─── Finance tab panels ─────────────────────────────────────────────── */
+    .fin-tab-panel[hidden] { display: none !important; }
+
     /* ─── Print ──────────────────────────────────────────────────────────── */
     @media print {
       #appHeader, #navSidebar, .finance-hero-section { display: none !important; }
@@ -726,6 +782,21 @@
           <span class="show-pt">Financeiro</span>
           <span class="show-en">Financial</span>
         </h1>
+
+        <!-- Pill tabs -->
+        <div class="fin-tab-bar" id="finTabBar">
+          <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
+            <span class="show-pt">Saude Financeira</span>
+            <span class="show-en">Financial Health</span>
+            <span class="fin-tab-badge" id="finBadgeSaude" hidden>0</span>
+          </button>
+          <button class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
+            <span class="show-pt">Faturas</span>
+            <span class="show-en">Invoices</span>
+            <span class="fin-tab-badge" id="finBadgeFaturas" hidden>0</span>
+          </button>
+        </div>
+
         <div class="glass-tile-row">
           <div class="glass-tile">
             <div class="glass-tile-label">
@@ -755,7 +826,10 @@
       </div>
     </div>
 
-    <!-- Below hero -->
+    <!-- Tab panels -->
+
+    <!-- ── Panel: Saude Financeira ─────────────────────────────────────── -->
+    <div id="finPanelSaude" class="fin-tab-panel">
     <div class="below-hero-section">
 
       <!-- ── Charts row ──────────────────────────────────────────────────── -->
@@ -912,6 +986,13 @@
         </div>
       </div>
 
+    </div><!-- /below-hero-section (saude) -->
+    </div><!-- /finPanelSaude -->
+
+    <!-- ── Panel: Faturas ──────────────────────────────────────────────── -->
+    <div id="finPanelFaturas" class="fin-tab-panel" hidden>
+    <div class="below-hero-section">
+
       <!-- ── Invoices ────────────────────────────────────────────────────── -->
       <div class="content-card" id="invoicesSection">
         <div class="content-card-header">
@@ -936,7 +1017,9 @@
         </div>
       </div>
 
-    </div><!-- /below-hero-section -->
+    </div><!-- /below-hero-section (faturas) -->
+    </div><!-- /finPanelFaturas -->
+
   </main>
 
     </div><!-- /contentArea -->
@@ -1163,6 +1246,7 @@
       loadSubscriptions();
       loadPendingTransactions();
       loadInvoices("unpaid");
+      updateFinanceBadges();
     }
 
     function init() {
@@ -1622,6 +1706,13 @@
         }
       }
 
+      // Update Saude Financeira pill badge with pending count
+      var saudeBadge = document.getElementById("finBadgeSaude");
+      if (saudeBadge) {
+        if (txs.length > 0) { saudeBadge.textContent = txs.length; saudeBadge.hidden = false; }
+        else { saudeBadge.hidden = true; }
+      }
+
       if (txs.length === 0) {
         listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma transacao pendente</span><span class="show-en">No pending transactions</span></div>';
         return;
@@ -1713,6 +1804,39 @@
           showToast("Ignorado / Ignored");
         })
         .catch(function() { showToast("Erro / Error"); });
+    }
+
+    // ── Finance top-level tab switching ───────────────────────────────────
+
+    var currentFinanceTab = "saude";
+
+    var FIN_TABS = ["saude", "faturas"];
+
+    function switchFinanceTab(tab) {
+      currentFinanceTab = tab;
+      for (var i = 0; i < FIN_TABS.length; i++) {
+        var t = FIN_TABS[i];
+        var btn   = document.getElementById("finTabBtn" + t.charAt(0).toUpperCase() + t.slice(1));
+        var panel = document.getElementById("finPanel" + t.charAt(0).toUpperCase() + t.slice(1));
+        if (btn)   { btn.className   = "fin-tab-pill"  + (t === tab ? " active" : ""); }
+        if (panel) { panel.hidden    = (t !== tab); }
+      }
+    }
+
+    function updateFinanceBadges() {
+      // Badge 1: pending transaction count (already loaded by loadPendingTransactions)
+      // Badge 2: unpaid invoice count
+      apiFetch("/api/invoices?status=unpaid")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var count = (data.invoices || []).length;
+          var badge = document.getElementById("finBadgeFaturas");
+          if (badge) {
+            if (count > 0) { badge.textContent = count; badge.hidden = false; }
+            else { badge.hidden = true; }
+          }
+        })
+        .catch(function() {});
     }
 
     // ── Invoices (finance.html tab) ────────────────────────────────────────

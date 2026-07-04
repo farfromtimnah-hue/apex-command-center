@@ -1948,6 +1948,36 @@ async function handleDeleteSettingsPackage(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/users/:email/avatar-image
+// Serves a user's avatar from R2 by email — no auth required so <img> tags work.
+// ---------------------------------------------------------------------------
+
+async function handleGetUserAvatarImage(email, request, env) {
+    try {
+        var decoded = decodeURIComponent(email);
+        var row = await env.DB.prepare("SELECT avatar_url FROM users WHERE email = ?")
+            .bind(decoded).first();
+
+        if (!row || !row.avatar_url) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(row.avatar_url);
+        if (!obj) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var imgHeaders = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": (obj.httpMetadata && obj.httpMetadata.contentType) ? obj.httpMetadata.contentType : "image/jpeg",
+            "Cache-Control": "public, max-age=86400"
+        });
+        return new Response(obj.body, { status: 200, headers: imgHeaders });
+    } catch (e) {
+        return jsonErr("Error fetching avatar: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -2004,6 +2034,11 @@ export default {
         // /api/users/:email  DELETE
         if (segs[0] === "api" && segs[1] === "users" && segs[2] && method === "DELETE") {
             return handleDeleteUser(segs[2], request, env);
+        }
+
+        // /api/users/:email/avatar-image  GET
+        if (segs[0] === "api" && segs[1] === "users" && segs[2] && segs[3] === "avatar-image" && method === "GET") {
+            return handleGetUserAvatarImage(segs[2], request, env);
         }
 
         // /api/settings/templates/:key  PUT

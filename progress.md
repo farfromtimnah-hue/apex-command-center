@@ -1,5 +1,7 @@
 # Apex Command Center — Build Progress
 
+- [x] Fix: chart Y-axis labels now use fmtCurrency instead of hardcoded R$ formatting (session 64 — 2026-07-04): The Income vs Expenses bar chart's Y-axis ticks callback was hardcoded to "R$" + v.toFixed(0), missed by the earlier fmtCurrency fix (session 63) which corrected the tooltip labels. Replaced with fmtCurrency(v) to reuse the already-correct USD formatter. No Worker changes. File touched: finance.html only (plus progress.md).
+
 - [x] Fix: correct currency formatting in finance.html from BRL to USD (session 63 — 2026-07-04): fmtCurrency function was hardcoded to Brazilian Real format ("R$" prefix, period as thousands separator, comma as decimal). All financial data in this app is USD, so replaced with standard USD formatting: dollar sign prefix, comma as thousands separator, period as decimal, and correct negative handling ("-$" before the number, not inside it). No Worker changes. File touched: finance.html only (plus progress.md).
 
 - [x] Fix: correct wrong Firebase apiKey in finance.html (session 62 — 2026-07-04): finance.html had a different apiKey ("AIzaSyCr27RQD...") than every other page in the app, causing Firebase auth to initialize against the wrong project and triggering a login-flash-and-redirect-to-dashboard loop on that page. Replaced with the correct key ("AIzaSyB_OFg5o...") matching all other pages. authDomain, projectId, storageBucket, messagingSenderId, and appId were already correct and untouched. No Worker changes. File touched: finance.html only (plus progress.md).

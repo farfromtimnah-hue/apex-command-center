@@ -1212,7 +1212,7 @@
               ticks: {
                 font: { family: "Inter", size: 11 },
                 color: "#6b6660",
-                callback: function(v) { return "R$" + v.toFixed(0); }
+                callback: function(v) { return fmtCurrency(v); }
               }
             }
           }

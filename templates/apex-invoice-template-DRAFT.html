@@ -18,12 +18,23 @@
       padding: 0;
     }
 
+    html, body {
+      height: 100%;
+    }
+
     body {
       font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
       background-color: #F5F3EE;
       color: #1a1a1a;
       font-size: 13px;
       line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-content {
+      flex: 1;
     }
 
     /* ---- HERO BAND ---- */
@@ -564,6 +575,7 @@
   </style>
 </head>
 <body>
+<div class="page-content">
 
   <!-- =====================================================================
        PRINT BUTTON - visible on screen only, hidden in print
@@ -753,6 +765,8 @@
       <div class="bf-value" id="termos-value">--</div>
     </div>
   </div>
+
+</div><!-- /page-content -->
 
   <!-- =====================================================================
        FOOTER

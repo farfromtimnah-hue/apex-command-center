@@ -2047,11 +2047,14 @@
       var btn = document.getElementById("waBtn" + invoiceId);
       if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
 
+      var waWindow = window.open("", "_blank");
+
       apiFetch("/api/invoices/" + invoiceId + "/package-check")
         .then(function(res) { return res.json(); })
         .then(function(checkData) {
           if (!checkData.has_price) {
             if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+            if (waWindow) { waWindow.close(); }
             showPricingMissingModal(checkData.package_name);
             return;
           }
@@ -2061,13 +2064,18 @@
               if (data.error) { throw new Error(data.error); }
               var message = "Ola! Segue a fatura para sua aprovacao:\n" + invoiceLink;
               var waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
-              window.open(waUrl, "_blank");
+              if (waWindow) {
+                waWindow.location.href = waUrl;
+              } else {
+                window.open(waUrl, "_blank");
+              }
               showToast("Fatura marcada como enviada / Invoice marked as sent");
               setTimeout(function() { switchInvoiceTab("unpaid"); }, 1200);
             });
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+          if (waWindow) { waWindow.close(); }
           showToast("Erro: " + (e.message || "Falha ao enviar"));
         });
     }

@@ -3125,10 +3125,10 @@ async function handleGetFinanceReconciliation(request, env) {
 // given invoice. Fetches the transaction (amount, date) and the invoice
 // (balance) first so amount_applied never exceeds either.
 //
-// NOTE: The categorize/customerpayments body schema below follows Zoho's
-// Banking API docs but is NOT yet confirmed against a live call -- the stored
-// OAuth token lacked ZohoBooks.banking.ALL scope at build time. Confirm with
-// a real test transaction after Zoho is reconnected (see progress.md).
+// NOTE: The categorize/customerpayments body fields were confirmed against a
+// live Zoho call on 2026-07-06 (test statement line in "TEST BANK - DO NOT
+// USE"). account_id (the bank account holding the uncategorized line) is
+// REQUIRED — omitting it returns Zoho code 11086 "Invalid account chosen".
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -3185,6 +3185,7 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
             payment_mode: "banktransfer",
             amount:       txnAmount,
             date:         txn.date,
+            account_id:   txn.account_id,
             invoices: [
                 { invoice_id: body.invoice_id, amount_applied: amountApplied }
             ]
@@ -3207,7 +3208,13 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
 // Routes: POST /api/finance/reconciliation/:transaction_id/exclude|restore|unmatch
 // exclude — hide a transaction from reconciliation (Alice's non-client deposits)
 // restore — undo an exclude
-// unmatch — undo a categorize/match
+// unmatch — undo a categorize/match. Confirmed live 2026-07-06: lines
+// categorized via categorize/customerpayments must be reversed with
+// POST banktransactions/:id/uncategorize?account_id=... (unmatch returns Zoho
+// code 108023 "Only matched statement lines can be unmatched"); true matched
+// lines use POST banktransactions/:id/unmatch?account_id=... — both require
+// account_id as a query param (code 4 without it), so the transaction is
+// fetched first to read its account_id and status.
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -3217,14 +3224,7 @@ async function handlePostReconciliationAction(transactionId, action, request, en
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
-        var zohoPath;
-        if (action === "exclude") {
-            zohoPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/exclude";
-        } else if (action === "restore") {
-            zohoPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/restore";
-        } else if (action === "unmatch") {
-            zohoPath = "banktransactions/" + encodeURIComponent(transactionId) + "/unmatch";
-        } else {
+        if (action !== "exclude" && action !== "restore" && action !== "unmatch") {
             return jsonErr("Unknown action", 400);
         }
 
@@ -3233,6 +3233,22 @@ async function handlePostReconciliationAction(transactionId, action, request, en
             zohoAuth = await getZohoAccessToken(env);
         } catch (e) {
             return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var zohoPath;
+        if (action === "exclude") {
+            zohoPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/exclude";
+        } else if (action === "restore") {
+            zohoPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/restore";
+        } else {
+            var txRes = await zohoBankingFetch(zohoAuth, "GET", "banktransactions/" + encodeURIComponent(transactionId));
+            if (!txRes.ok) {
+                return jsonErr("Zoho transaction fetch failed: " + (txRes.data.message || JSON.stringify(txRes.data)), 502);
+            }
+            var txn = txRes.data.banktransaction || {};
+            var verb = (txn.status === "matched") ? "unmatch" : "uncategorize";
+            zohoPath = "banktransactions/" + encodeURIComponent(transactionId) + "/" + verb +
+                "?account_id=" + encodeURIComponent(txn.account_id || "");
         }
 
         var res = await zohoBankingFetch(zohoAuth, "POST", zohoPath);

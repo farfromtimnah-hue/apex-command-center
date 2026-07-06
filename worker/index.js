@@ -554,7 +554,7 @@ async function handleGetClients(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, created_at " +
+            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, created_at " +
             "FROM clients ORDER BY name ASC"
         ).all();
 
@@ -1450,7 +1450,7 @@ async function handleZohoOAuthStart(request, env) {
         params.set("response_type", "code");
         params.set("access_type",   "offline");
         params.set("prompt",        "consent");
-        params.set("scope",         "ZohoBooks.invoices.ALL,ZohoBooks.contacts.ALL,ZohoBooks.expenses.ALL,ZohoBooks.customerpayments.ALL,ZohoBooks.settings.READ");
+        params.set("scope",         "ZohoBooks.invoices.ALL,ZohoBooks.contacts.ALL,ZohoBooks.expenses.ALL,ZohoBooks.customerpayments.ALL,ZohoBooks.settings.READ,ZohoBooks.banking.ALL");
         params.set("state",         state);
 
         var authUrl = "https://accounts.zoho.com/oauth/v2/auth?" + params.toString();
@@ -3002,6 +3002,252 @@ async function handlePostInvoiceMarkSent(zohoInvoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Bank reconciliation — Zoho Books Banking API
+// Shared helper: zohoBankingFetch(zohoAuth, method, pathAndQuery, body)
+// pathAndQuery is relative to https://www.zohoapis.com/books/v3/ and must NOT
+// already contain organization_id (appended here, server-side).
+// ---------------------------------------------------------------------------
+
+async function zohoBankingFetch(zohoAuth, method, pathAndQuery, body) {
+    var zohoUrl = "https://www.zohoapis.com/books/v3/" + pathAndQuery +
+        (pathAndQuery.indexOf("?") === -1 ? "?" : "&") +
+        "organization_id=" + zohoAuth.organization_id;
+    var ctrl  = new AbortController();
+    var timer = setTimeout(function() { ctrl.abort(); }, 15000);
+    var res;
+    var fOpts = {
+        method:  method,
+        headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+        signal:  ctrl.signal
+    };
+    if (body) {
+        fOpts.headers["Content-Type"] = "application/json";
+        fOpts.body = JSON.stringify(body);
+    }
+    try {
+        res = await fetch(zohoUrl, fOpts);
+    } finally {
+        clearTimeout(timer);
+    }
+    var data = await res.json();
+    return { ok: (res.ok && data.code === 0), status: res.status, data: data };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/reconciliation?status=uncategorized|all|categorized|manually_added|excluded|matched&account_id=...
+// Lists bank transactions from Zoho Books. When account_id is omitted, every
+// bank/cash account in the org is queried and the results merged.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+var RECON_STATUS_MAP = {
+    "all":            "Status.All",
+    "uncategorized":  "Status.Uncategorized",
+    "categorized":    "Status.Categorized",
+    "manually_added": "Status.ManuallyAdded",
+    "excluded":       "Status.Excluded",
+    "matched":        "Status.Matched"
+};
+
+async function handleGetFinanceReconciliation(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var statusParam = (url.searchParams.get("status") || "uncategorized").toLowerCase();
+        var filterBy = RECON_STATUS_MAP[statusParam];
+        if (!filterBy) { return jsonErr("Invalid status. Use: all, uncategorized, categorized, manually_added, excluded, matched", 400); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var accountIds = [];
+        var requestedAccount = url.searchParams.get("account_id");
+        if (requestedAccount) {
+            accountIds.push(requestedAccount);
+        } else {
+            var acctRes = await zohoBankingFetch(zohoAuth, "GET", "bankaccounts");
+            if (!acctRes.ok) {
+                return jsonErr("Zoho bank accounts error: " + (acctRes.data.message || JSON.stringify(acctRes.data)), 502);
+            }
+            var accts = acctRes.data.bankaccounts || [];
+            for (var a = 0; a < accts.length; a++) {
+                if (accts[a].is_active) { accountIds.push(accts[a].account_id); }
+            }
+        }
+
+        var transactions = [];
+        for (var i = 0; i < accountIds.length; i++) {
+            var txRes = await zohoBankingFetch(zohoAuth, "GET",
+                "banktransactions?account_id=" + encodeURIComponent(accountIds[i]) +
+                "&filter_by=" + filterBy + "&per_page=200");
+            if (!txRes.ok) {
+                return jsonErr("Zoho bank transactions error: " + (txRes.data.message || JSON.stringify(txRes.data)), 502);
+            }
+            var raw = txRes.data.banktransactions || [];
+            for (var t = 0; t < raw.length; t++) {
+                transactions.push({
+                    transaction_id:   raw[t].transaction_id,
+                    date:             raw[t].date,
+                    amount:           raw[t].amount,
+                    description:      raw[t].description || "",
+                    payee:            raw[t].payee || "",
+                    customer_id:      raw[t].customer_id || "",
+                    status:           raw[t].status,
+                    transaction_type: raw[t].transaction_type,
+                    account_id:       raw[t].account_id,
+                    account_name:     raw[t].account_name || ""
+                });
+            }
+        }
+
+        transactions.sort(function(x, y) {
+            return (y.date || "") < (x.date || "") ? -1 : ((y.date || "") > (x.date || "") ? 1 : 0);
+        });
+
+        return jsonOk({ transactions: transactions, status_filter: statusParam });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching bank transactions: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance/reconciliation/:transaction_id/match-invoice
+// Body: { customer_id, invoice_id }
+// Categorizes an uncategorized deposit as a customer payment applied to the
+// given invoice. Fetches the transaction (amount, date) and the invoice
+// (balance) first so amount_applied never exceeds either.
+//
+// NOTE: The categorize/customerpayments body schema below follows Zoho's
+// Banking API docs but is NOT yet confirmed against a live call -- the stored
+// OAuth token lacked ZohoBooks.banking.ALL scope at build time. Confirm with
+// a real test transaction after Zoho is reconnected (see progress.md).
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostReconciliationMatchInvoice(transactionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.customer_id) { return jsonErr("customer_id is required", 400); }
+        if (!body.invoice_id)  { return jsonErr("invoice_id is required", 400); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // 1. Fetch the transaction for its amount and date
+        var txRes = await zohoBankingFetch(zohoAuth, "GET", "banktransactions/" + encodeURIComponent(transactionId));
+        if (!txRes.ok) {
+            return jsonErr("Zoho transaction fetch failed: " + (txRes.data.message || JSON.stringify(txRes.data)), 502);
+        }
+        var txn = txRes.data.banktransaction || {};
+        var txnAmount = parseFloat(txn.amount) || 0;
+
+        // 2. Fetch the invoice for its outstanding balance
+        var invUrl = "https://www.zohoapis.com/books/v3/invoices/" + encodeURIComponent(body.invoice_id) +
+            "?organization_id=" + zohoAuth.organization_id;
+        var ctrl  = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, 15000);
+        var invRes;
+        try {
+            invRes = await fetch(invUrl, {
+                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                signal: ctrl.signal
+            });
+        } finally {
+            clearTimeout(timer);
+        }
+        var invData = await invRes.json();
+        if (!invRes.ok || invData.code !== 0) {
+            return jsonErr("Zoho invoice fetch failed: " + (invData.message || JSON.stringify(invData)), 502);
+        }
+        var invBalance = parseFloat(invData.invoice && invData.invoice.balance) || 0;
+        var amountApplied = Math.min(txnAmount, invBalance);
+        if (amountApplied <= 0) { return jsonErr("Nothing to apply: transaction amount is " + txnAmount + ", invoice balance is " + invBalance, 400); }
+
+        // 3. Categorize the transaction as a customer payment applied to the invoice
+        var catBody = {
+            customer_id:  body.customer_id,
+            payment_mode: "banktransfer",
+            amount:       txnAmount,
+            date:         txn.date,
+            invoices: [
+                { invoice_id: body.invoice_id, amount_applied: amountApplied }
+            ]
+        };
+        var catRes = await zohoBankingFetch(zohoAuth, "POST",
+            "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/customerpayments",
+            catBody);
+        if (!catRes.ok) {
+            return jsonErr("Zoho categorize failed: " + (catRes.data.message || JSON.stringify(catRes.data)), 502);
+        }
+
+        return jsonOk({ ok: true, transaction_id: transactionId, invoice_id: body.invoice_id, amount_applied: amountApplied, message: catRes.data.message || "Categorized" });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error matching transaction to invoice: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Routes: POST /api/finance/reconciliation/:transaction_id/exclude|restore|unmatch
+// exclude — hide a transaction from reconciliation (Alice's non-client deposits)
+// restore — undo an exclude
+// unmatch — undo a categorize/match
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostReconciliationAction(transactionId, action, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoPath;
+        if (action === "exclude") {
+            zohoPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/exclude";
+        } else if (action === "restore") {
+            zohoPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/restore";
+        } else if (action === "unmatch") {
+            zohoPath = "banktransactions/" + encodeURIComponent(transactionId) + "/unmatch";
+        } else {
+            return jsonErr("Unknown action", 400);
+        }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var res = await zohoBankingFetch(zohoAuth, "POST", zohoPath);
+        if (!res.ok) {
+            return jsonErr("Zoho " + action + " failed: " + (res.data.message || JSON.stringify(res.data)), 502);
+        }
+
+        return jsonOk({ ok: true, transaction_id: transactionId, action: action, message: res.data.message || "Done" });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error on " + action + ": " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/invoices
 // Returns that client's invoices split into unpaid and paid arrays,
 // matched via the client's zoho_customer_id.
@@ -3295,6 +3541,7 @@ export default {
         if (path === "/api/finance/chart"            && method === "GET")  { return handleGetFinanceChart(request, env); }
         if (path === "/api/finance/subscriptions"    && method === "GET")  { return handleGetFinanceSubscriptions(request, env); }
         if (path === "/api/finance/subscriptions"    && method === "POST") { return handlePostFinanceSubscriptions(request, env); }
+        if (path === "/api/finance/reconciliation"   && method === "GET")  { return handleGetFinanceReconciliation(request, env); }
 
         // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client, /api/sessions/:id/whatsapp
         var segs = path.replace(/^\//, "").split("/");
@@ -3370,6 +3617,14 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "invoices" && method === "GET") {
                 return handleGetClientInvoices(cid, request, env);
+            }
+        }
+
+        // /api/finance/reconciliation/:transaction_id/match-invoice|exclude|restore|unmatch
+        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "reconciliation" && segs[3] && segs[4] && method === "POST") {
+            if (segs[4] === "match-invoice") { return handlePostReconciliationMatchInvoice(segs[3], request, env); }
+            if (segs[4] === "exclude" || segs[4] === "restore" || segs[4] === "unmatch") {
+                return handlePostReconciliationAction(segs[3], segs[4], request, env);
             }
         }
 

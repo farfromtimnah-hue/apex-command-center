@@ -98,6 +98,8 @@ CREATE TABLE IF NOT EXISTS users (
 INSERT OR IGNORE INTO users (email, role) VALUES ('abnerprata@gmail.com', 'alice');
 
 -- NOTE: packages table and message_templates were added via migrations/ files.
+-- NOTE: Resource Hub tables (resources, client_resources, resource_categories)
+-- were added via migrations/resources.sql.
 -- packages table (with pricing fields added via migrations/package_pricing.sql):
 -- CREATE TABLE IF NOT EXISTS packages (
 --   id                  TEXT PRIMARY KEY,

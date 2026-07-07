@@ -2890,6 +2890,71 @@ async function handlePostClientResourceMarkSent(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/growth
+// All monthly growth entries for a client, oldest month first (the frontend
+// compounds them sequentially, so order matters).
+// ---------------------------------------------------------------------------
+
+async function handleGetClientGrowth(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var rows = await env.DB.prepare(
+            "SELECT id, client_id, month_label, growth_percent, entered_by, entered_at " +
+            "FROM client_growth_entries WHERE client_id = ? ORDER BY month_label ASC"
+        ).bind(id).all();
+
+        return jsonOk({ growth_entries: rows.results });
+    } catch (e) {
+        return jsonErr("Error fetching growth entries: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/growth
+// Body: { month_label: 'YYYY-MM', growth_percent: number }
+// Upserts the client's growth entry for that month (one per client per month;
+// re-submitting a month corrects it). alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientGrowth(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var monthLabel = (body.month_label || "").trim();
+        if (!/^\d{4}-\d{2}$/.test(monthLabel)) { return jsonErr("month_label must be YYYY-MM", 400); }
+        var pct = Number(body.growth_percent);
+        if (body.growth_percent === null || body.growth_percent === undefined || body.growth_percent === "" || isNaN(pct)) {
+            return jsonErr("growth_percent must be a number", 400);
+        }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var enteredBy = user.display_name || user.role;
+        await env.DB.prepare(
+            "INSERT INTO client_growth_entries (id, client_id, month_label, growth_percent, entered_by) " +
+            "VALUES (?, ?, ?, ?, ?) " +
+            "ON CONFLICT (client_id, month_label) DO UPDATE SET " +
+            "growth_percent = excluded.growth_percent, entered_by = excluded.entered_by, " +
+            "entered_at = datetime('now')"
+        ).bind(crypto.randomUUID(), id, monthLabel, pct, enteredBy).run();
+
+        var row = await env.DB.prepare(
+            "SELECT id, client_id, month_label, growth_percent, entered_by, entered_at " +
+            "FROM client_growth_entries WHERE client_id = ? AND month_label = ?"
+        ).bind(id, monthLabel).first();
+        return jsonOk({ growth_entry: row });
+    } catch (e) {
+        return jsonErr("Error saving growth entry: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance/statement-upload
 // Accepts a CSV or plain-text bank statement, sends to Claude, inserts parsed
 // transactions into bank_transactions with status='pending'.
@@ -4952,6 +5017,10 @@ export default {
             if (segs.length === 4 && segs[3] === "resources") {
                 if (method === "GET")  { return handleGetClientResources(cid, request, env); }
                 if (method === "POST") { return handlePostClientResource(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "growth") {
+                if (method === "GET")  { return handleGetClientGrowth(cid, request, env); }
+                if (method === "POST") { return handlePostClientGrowth(cid, request, env); }
             }
             if (segs.length === 4 && segs[3] === "zoho-contact") {
                 if (method === "GET") { return handleGetClientZohoContact(cid, request, env); }

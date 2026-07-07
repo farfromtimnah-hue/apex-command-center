@@ -1523,6 +1523,28 @@
           </div>
         </div>
 
+        <!-- Growth tracking (Sales Dashboard) — monthly growth % entries -->
+        <div class="content-card" id="sec-growth" data-section-id="growth">
+          <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Crescimento</span>
+              <span class="show-en">Growth</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-add" onclick="openGrowthModal()">
+                + <span class="show-pt">Registrar</span><span class="show-en">Log Entry</span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('growth')" id="collapseGrowth" title="Recolher / Collapse">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="growthBody">
+            <div id="growthSection">
+              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Payment method -->
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
@@ -1686,6 +1708,44 @@
           <span class="show-en">Save</span>
         </button>
         <div class="pull-status" id="noteStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Registrar Crescimento ═════════════════════════ -->
+  <div id="modalGrowth" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Registrar Crescimento Mensal</span>
+          <span class="show-en">Log Monthly Growth</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalGrowth')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label>
+            <span class="show-pt">M&ecirc;s</span>
+            <span class="show-en">Month</span>
+          </label>
+          <input type="month" id="growthMonth">
+        </div>
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Crescimento (%)</span>
+            <span class="show-en">Growth (%)</span>
+          </label>
+          <input type="number" id="growthPercent" step="any" placeholder="ex: 345 / e.g. 345">
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          <span class="show-pt">Uma entrada por m&ecirc;s — salvar o mesmo m&ecirc;s novamente corrige o valor.</span>
+          <span class="show-en">One entry per month — saving the same month again corrects the value.</span>
+        </div>
+        <button class="btn-primary" id="btnSaveGrowth" onclick="handleSaveGrowth()">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div class="pull-status" id="growthStatus"></div>
       </div>
     </div>
   </div>
@@ -2034,7 +2094,7 @@
 
     // Close modal on overlay click
     document.addEventListener("click", function(e) {
-      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource"];
+      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource", "modalGrowth"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
         if (el && !el.hidden && e.target === el) {
@@ -2157,6 +2217,7 @@
       loadTasks("consultant");
       loadClientInvoices();
       loadClientResources();
+      loadClientGrowth();
       initCollapseStates();
     }
 
@@ -2215,6 +2276,149 @@
           '</div>';
       }
       container.innerHTML = html;
+    }
+
+    // ── Growth section (monthly growth % — Sales Dashboard feature) ────────
+
+    function loadClientGrowth() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/growth")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          renderClientGrowth(data.growth_entries || []);
+        })
+        .catch(function(e) {
+          document.getElementById("growthSection").innerHTML =
+            '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar crescimento: ' + escHtml(e.message) + '</div>';
+        });
+    }
+
+    var GROWTH_MONTHS_PT = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    var GROWTH_MONTHS_EN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    function formatMonthLabel(label) {
+      // 'YYYY-MM' → bilingual 'jul 2026' / 'Jul 2026'
+      var parts = (label || "").split("-");
+      if (parts.length !== 2) { return escHtml(label); }
+      var m = parseInt(parts[1], 10) - 1;
+      if (m < 0 || m > 11) { return escHtml(label); }
+      return '<span class="show-pt">' + GROWTH_MONTHS_PT[m] + ' ' + parts[0] + '</span>' +
+             '<span class="show-en">' + GROWTH_MONTHS_EN[m] + ' ' + parts[0] + '</span>';
+    }
+
+    function formatGrowthPct(p) {
+      var n = Math.round(p * 10) / 10;
+      return (n > 0 ? "+" : "") + n + "%";
+    }
+
+    function renderClientGrowth(entries) {
+      var container = document.getElementById("growthSection");
+      if (!container) { return; }
+
+      if (entries.length === 0) {
+        container.innerHTML =
+          '<div style="padding:20px;color:var(--muted);font-size:13px;">' +
+          '<span class="show-pt">Nenhum registro de crescimento ainda.</span>' +
+          '<span class="show-en">No growth entries yet.</span></div>';
+        return;
+      }
+
+      // entries arrive oldest month first — compound sequentially
+      var sum = 0, factor = 1;
+      for (var i = 0; i < entries.length; i++) {
+        sum    += entries[i].growth_percent;
+        factor *= (1 + entries[i].growth_percent / 100);
+      }
+      var avg        = sum / entries.length;
+      var compounded = (factor - 1) * 100;
+
+      var html =
+        '<div style="display:flex;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border);">' +
+        '<div style="flex:1;background:rgba(201,164,58,0.08);border:1px solid rgba(201,164,58,0.25);border-radius:8px;padding:10px 14px;">' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);">' +
+        '<span class="show-pt">M&eacute;dia Mensal</span><span class="show-en">Monthly Average</span></div>' +
+        '<div style="font-size:20px;font-weight:700;color:#C9A43A;margin-top:2px;">' + formatGrowthPct(avg) + '</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:1px;">' +
+        '<span class="show-pt">tend&ecirc;ncia m&eacute;dia das entradas</span><span class="show-en">average trend of entries</span></div>' +
+        '</div>' +
+        '<div style="flex:1;background:rgba(201,164,58,0.08);border:1px solid rgba(201,164,58,0.25);border-radius:8px;padding:10px 14px;">' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);">' +
+        '<span class="show-pt">Total Composto</span><span class="show-en">Compounded Total</span></div>' +
+        '<div style="font-size:20px;font-weight:700;color:#C9A43A;margin-top:2px;">' + formatGrowthPct(compounded) + '</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:1px;">' +
+        '<span class="show-pt">crescimento acumulado do per&iacute;odo</span><span class="show-en">cumulative growth over the period</span></div>' +
+        '</div>' +
+        '</div>';
+
+      // newest month first in the list
+      for (var j = entries.length - 1; j >= 0; j--) {
+        var en  = entries[j];
+        var neg = en.growth_percent < 0;
+        html +=
+          '<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);">' +
+          '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:600;">' + formatMonthLabel(en.month_label) + '</div>' +
+          '<div style="font-size:12px;color:var(--muted);margin-top:1px;">' +
+          '<span class="show-pt">Registrado em ' + formatResourceDate(en.entered_at) + (en.entered_by ? ' por ' + escHtml(en.entered_by) : '') + '</span>' +
+          '<span class="show-en">Entered ' + formatResourceDate(en.entered_at) + (en.entered_by ? ' by ' + escHtml(en.entered_by) : '') + '</span>' +
+          '</div></div>' +
+          '<div style="font-size:15px;font-weight:700;' + (neg ? 'color:#b44040;' : 'color:#C9A43A;') + '">' +
+          formatGrowthPct(en.growth_percent) + '</div>' +
+          '</div>';
+      }
+      container.innerHTML = html;
+    }
+
+    function openGrowthModal() {
+      var statusEl = document.getElementById("growthStatus");
+      statusEl.textContent = "";
+      statusEl.className   = "pull-status";
+      document.getElementById("btnSaveGrowth").disabled = false;
+      document.getElementById("growthPercent").value    = "";
+      var now = new Date();
+      document.getElementById("growthMonth").value =
+        now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+      document.getElementById("modalGrowth").hidden = false;
+    }
+
+    function handleSaveGrowth() {
+      var statusEl = document.getElementById("growthStatus");
+      var btn      = document.getElementById("btnSaveGrowth");
+      var month    = document.getElementById("growthMonth").value;
+      var pctRaw   = document.getElementById("growthPercent").value;
+
+      if (!/^\d{4}-\d{2}$/.test(month)) {
+        statusEl.textContent = "Selecione o mês. / Pick a month.";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+      if (pctRaw === "" || isNaN(Number(pctRaw))) {
+        statusEl.textContent = "Informe o percentual. / Enter the percentage.";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+
+      btn.disabled         = true;
+      statusEl.textContent = "Salvando... / Saving...";
+      statusEl.className   = "pull-status";
+
+      apiFetch("/api/clients/" + CLIENT_ID + "/growth", {
+        method: "POST",
+        body:   { month_label: month, growth_percent: Number(pctRaw) }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Crescimento registrado. / Growth saved.";
+          statusEl.className   = "pull-status is-ok";
+          loadClientGrowth();
+          setTimeout(function() { closeModalById("modalGrowth"); }, 700);
+        })
+        .catch(function(e) {
+          btn.disabled         = false;
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className   = "pull-status is-error";
+        });
     }
 
     function loadContacts() {
@@ -3549,6 +3753,7 @@
       { key: "consultantTasks",bodyId: "consultantTasksBody",btnId: "collapseConsultantTasks"},
       { key: "notes",          bodyId: "notesBody",          btnId: "collapseNotes"          },
       { key: "resources",      bodyId: "resourcesBody",      btnId: "collapseResources"      },
+      { key: "growth",         bodyId: "growthBody",         btnId: "collapseGrowth"         },
       { key: "payment",        bodyId: "paymentBody",        btnId: "collapsePayment"        },
       { key: "contacts",       bodyId: "contactsBody",       btnId: "collapseContacts"       },
       { key: "docs",           bodyId: "docsBody",           btnId: "collapseDocs"           },
@@ -3596,7 +3801,7 @@
 
     var DEFAULT_SECTION_ORDER = [
       "overview", "sessions", "dp", "clientTasks", "consultantTasks",
-      "contacts", "notes", "resources", "payment", "docs"
+      "contacts", "notes", "resources", "growth", "payment", "docs"
     ];
 
     var dragSrcEl = null;

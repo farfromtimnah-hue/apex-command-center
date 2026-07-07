@@ -522,14 +522,6 @@
               <span class="show-pt">Clientes</span>
               <span class="show-en">Clients</span>
             </h1>
-            <!-- Pending resource sends (Resource Hub) — hidden when queue is empty -->
-            <div class="pending-strip" id="pendingStrip" hidden>
-              <div class="pending-strip-title">
-                <span class="show-pt">Recursos Pendentes de Envio</span>
-                <span class="show-en">Pending Resource Sends</span>
-              </div>
-              <div id="pendingStripRows"></div>
-            </div>
             <div class="glass-tile-row">
               <div class="glass-tile">
                 <div class="glass-tile-label">
@@ -560,6 +552,14 @@
 
         <!-- Below hero: Add button + client table -->
         <div class="below-section">
+          <!-- Pending resource sends (Resource Hub) — hidden when queue is empty -->
+          <div class="pending-strip" id="pendingStrip" hidden>
+            <div class="pending-strip-title">
+              <span class="show-pt">Recursos Pendentes de Envio</span>
+              <span class="show-en">Pending Resource Sends</span>
+            </div>
+            <div id="pendingStripRows"></div>
+          </div>
           <div class="below-header-row">
             <button class="btn-add-client" id="btnAddClient" onclick="openNewClientModal()">
               <span class="show-pt">+ Novo Cliente</span>

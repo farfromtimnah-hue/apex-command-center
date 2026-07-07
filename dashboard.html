@@ -639,7 +639,9 @@
           </div>
           <!-- Glass tiles -->
           <div class="glass-tile-row">
-            <div class="glass-tile">
+            <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
+                 onclick="window.location.href='sessions.html'"
+                 title="Ver Inbox de Sessoes / Open Sessions Inbox">
               <div class="glass-tile-label">
                 <span class="show-pt">Pendentes</span>
                 <span class="show-en">Pending</span>
@@ -667,6 +669,15 @@
               </div>
               <div class="glass-tile-value" id="aliceStatTotal">--</div>
             </div>
+            <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
+                 onclick="window.location.href='clients.html'"
+                 title="Ver recursos pendentes na pagina Clientes / See pending resources on the Clients page">
+              <div class="glass-tile-label">
+                <span class="show-pt">Envios Pendentes</span>
+                <span class="show-en">Pending Sends</span>
+              </div>
+              <div class="glass-tile-value" id="aliceStatResourcePending">--</div>
+            </div>
           </div>
           <!-- Status bar -->
           <div class="glass-status-bar">
@@ -676,6 +687,16 @@
             </div>
             <div class="glass-progress-track">
               <div class="glass-progress-fill" id="aliceProgressFill" style="width:0%"></div>
+            </div>
+          </div>
+          <!-- Resource sends status bar (Resource Hub) — recalculates daily -->
+          <div class="glass-status-bar">
+            <div class="glass-status-label" id="aliceResourceStatusLabel">
+              <span class="show-pt">0/0 recursos enviados</span>
+              <span class="show-en">0/0 resources sent</span>
+            </div>
+            <div class="glass-progress-track">
+              <div class="glass-progress-fill" id="aliceResourceProgressFill" style="width:0%"></div>
             </div>
           </div>
         </div>
@@ -1183,7 +1204,49 @@
     // ALICE DASHBOARD
     // ══════════════════════════════════════════════════════════════════════
 
+    // Resource Hub daily progress bar + Pending Sends tile.
+    // Denominator = still-unsent now + sent earlier today; numerator = sent
+    // today ("today" = the browser's local date, so the bar resets at local
+    // midnight without any stored state — confirmed daily logic in build spec).
+    function renderAliceResourceProgress() {
+      apiFetch("/api/client-resources/progress")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var unsent = data.unsent || 0;
+          var stamps = data.recent_sent_timestamps || [];
+          var today  = new Date();
+          var sentToday = 0;
+          for (var i = 0; i < stamps.length; i++) {
+            var d = new Date(stamps[i]);
+            if (d.getFullYear() === today.getFullYear() &&
+                d.getMonth()    === today.getMonth() &&
+                d.getDate()     === today.getDate()) { sentToday++; }
+          }
+          var denom = unsent + sentToday;
+
+          var tileEl = document.getElementById("aliceStatResourcePending");
+          if (tileEl) { tileEl.textContent = unsent; }
+
+          var labelEl = document.getElementById("aliceResourceStatusLabel");
+          var fillEl  = document.getElementById("aliceResourceProgressFill");
+          if (labelEl) {
+            labelEl.innerHTML =
+              '<span class="show-pt">' + sentToday + '/' + denom + ' recursos enviados</span>' +
+              '<span class="show-en">' + sentToday + '/' + denom + ' resources sent</span>';
+          }
+          if (fillEl) {
+            fillEl.style.width = (denom > 0 ? Math.round((sentToday / denom) * 100) : 0) + "%";
+          }
+        })
+        .catch(function() {
+          var tileEl = document.getElementById("aliceStatResourcePending");
+          if (tileEl) { tileEl.textContent = "--"; }
+        });
+    }
+
     function renderAliceDashboard() {
+      renderAliceResourceProgress();
       apiFetch("/api/sessions")
         .then(function(res) { return res.json(); })
         .then(function(data) {

@@ -2830,6 +2830,36 @@ async function handleGetClientResourcesPending(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/client-resources/progress
+// Feeds the Overview "X/Y resources sent" daily bar. Returns the current
+// unsent count plus raw recent sent timestamps — the browser decides which of
+// those fall on "today" in the user's own timezone (denominator = unsent +
+// sent today, numerator = sent today; resets naturally at local midnight).
+// ---------------------------------------------------------------------------
+
+async function handleGetClientResourcesProgress(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var unsent = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM client_resources WHERE whatsapp_sent_at IS NULL"
+        ).first();
+        var recent = await env.DB.prepare(
+            "SELECT whatsapp_sent_at FROM client_resources " +
+            "WHERE whatsapp_sent_at IS NOT NULL AND whatsapp_sent_at >= datetime('now', '-2 days')"
+        ).all();
+
+        return jsonOk({
+            unsent: unsent ? unsent.n : 0,
+            recent_sent_timestamps: recent.results.map(function (r) { return r.whatsapp_sent_at; })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching resource progress: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/client-resources/:id/mark-sent
 // Records the WhatsApp send: sets whatsapp_sent_at + sent_by (the permanent
 // checkmark). The frontend opens wa.me synchronously BEFORE calling this, so
@@ -4827,6 +4857,7 @@ export default {
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
         if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }
+        if (path === "/api/client-resources/progress" && method === "GET")  { return handleGetClientResourcesProgress(request, env); }
         if (path === "/api/zoho/contacts/resync-status" && method === "GET")  { return handleGetZohoContactsResyncStatus(request, env); }
         if (path === "/api/zoho/contacts/resync"        && method === "POST") { return handlePostZohoContactsResync(request, env); }
 

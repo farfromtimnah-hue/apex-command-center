@@ -11,14 +11,17 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --surface: #f9f7f4;
-      --header:  #1a1a1d;
-      --gold:    #C9A43A;
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
       --gold-dim: rgba(201,164,58,0.14);
-      --text:    #1a1a1d;
-      --muted:   #6b6660;
-      --border:  #e8e2d9;
-      --card:    #ffffff;
+      --brown:    #7a5c2e;
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
     }
 
     body {
@@ -29,6 +32,10 @@
       display: flex;
       flex-direction: column;
     }
+
+    /* ── Bilingual ───────────────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
 
     /* ── Header ─────────────────────────────────────────────────────────── */
     #appHeader {
@@ -77,11 +84,374 @@
 
     /* ── App main ────────────────────────────────────────────────────────── */
     #appMain {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 8px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
-    .coming-soon-text {
-      font-size: 15px; color: var(--muted); text-align: center;
+
+    /* ── Hero photo section ──────────────────────────────────────────────── */
+    .hero-section {
+      position: relative;
+      padding: 32px 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    #heroBgImage {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #heroBgImage.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #heroBgScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ── Glass tiles ─────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 20px 24px;
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .glass-tile-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 34px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .glass-tile-value.is-gold { color: var(--gold); }
+
+    /* ── Tab pills (in hero, same pattern as sessions.html) ──────────────── */
+    .tab-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 15px;
+      border-radius: 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      background: transparent;
+      color: rgba(255,255,255,0.75);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .tab-pill:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+    .tab-pill.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #1a1a1d;
+      font-weight: 600;
+    }
+
+    /* ── Below-hero section ──────────────────────────────────────────────── */
+    .below-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .below-section[hidden] { display: none !important; }
+
+    .below-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 16px;
+    }
+
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    /* ── Tables ──────────────────────────────────────────────────────────── */
+    .list-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .list-table th {
+      padding: 10px 20px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .list-table td {
+      padding: 14px 20px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .list-table tr:last-child td { border-bottom: none; }
+    .list-table tbody tr:hover td { background: #fdf7eb; }
+
+    .resource-title { font-weight: 600; }
+    .resource-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .category-lozenge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.5);
+      color: var(--brown);
+    }
+
+    .type-lozenge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .type-lozenge[data-type="contact"] { background: #dce8fd; color: #1a4a8a; }
+    .type-lozenge[data-type="file"]    { background: #ddfaec; color: #1a6640; }
+    .type-lozenge[data-type="link"]    { background: #fdf3dc; color: #8a6200; }
+
+    body.lang-pt .type-lozenge[data-type="contact"]::before { content: "Contato"; }
+    body.lang-pt .type-lozenge[data-type="file"]::before    { content: "Arquivo"; }
+    body.lang-pt .type-lozenge[data-type="link"]::before    { content: "Link"; }
+    body.lang-en .type-lozenge[data-type="contact"]::before { content: "Contact"; }
+    body.lang-en .type-lozenge[data-type="file"]::before    { content: "File"; }
+    body.lang-en .type-lozenge[data-type="link"]::before    { content: "Link"; }
+
+    .detail-text { font-size: 12px; color: var(--muted); }
+    .detail-text a { color: var(--brown); }
+
+    .btn-row-action {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-row-action:hover { border-color: var(--gold); color: var(--brown); }
+
+    /* ── Empty / error states ────────────────────────────────────────────── */
+    .empty-state {
+      padding: 52px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .error-msg {
+      padding: 20px;
+      color: #b44040;
+      font-size: 13px;
+    }
+
+    /* ── Add button ──────────────────────────────────────────────────────── */
+    .btn-add {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .btn-add:hover { opacity: 0.88; }
+
+    /* ── Modal ───────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,29,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay[hidden] { display: none !important; }
+
+    .modal-box {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 8px 48px rgba(26,26,29,0.22);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--card);
+      z-index: 1;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 700; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    .modal-body {
+      padding: 20px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-group label { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+    .field-group input,
+    .field-group select,
+    .field-group textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 11px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .field-group textarea { resize: vertical; min-height: 60px; }
+    .field-group input:focus,
+    .field-group select:focus,
+    .field-group textarea:focus { outline: none; border-color: var(--gold); }
+
+    .field-row { display: flex; gap: 12px; }
+    .field-row .field-group { flex: 1; }
+
+    .btn-primary {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 11px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+    .btn-primary:hover    { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .form-status {
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 16px;
+    }
+    .form-status.is-error { color: #b44040; }
+    .form-status.is-ok    { color: #1a6640; }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .hero-section { padding: 20px 16px; }
+      .below-section { padding: 16px; }
+      .glass-tile { min-width: 100px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #heroBgImage.is-loaded { animation: none; }
     }
   </style>
 </head>
@@ -113,9 +483,196 @@
         <span class="show-en">Loading...</span>
       </div>
       <main id="appMain" hidden>
-        <p class="coming-soon-text show-pt">Em breve</p>
-        <p class="coming-soon-text show-en">Coming soon</p>
+
+        <!-- Hero section with background photo and glass tiles -->
+        <div class="hero-section">
+          <div id="heroBgImage" aria-hidden="true"></div>
+          <div id="heroBgScrim" aria-hidden="true"></div>
+          <div class="hero-content">
+            <h1 class="page-heading-hero">
+              <span class="show-pt">Documentos</span>
+              <span class="show-en">Documents</span>
+            </h1>
+            <div class="glass-tile-row">
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Total de Recursos</span>
+                  <span class="show-en">Total Resources</span>
+                </div>
+                <div class="glass-tile-value is-gold" id="statTotal">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Contatos</span>
+                  <span class="show-en">Contacts</span>
+                </div>
+                <div class="glass-tile-value" id="statContacts">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Arquivos</span>
+                  <span class="show-en">Files</span>
+                </div>
+                <div class="glass-tile-value" id="statFiles">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Links</div>
+                <div class="glass-tile-value" id="statLinks">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Envios Pendentes</span>
+                  <span class="show-en">Pending Sends</span>
+                </div>
+                <div class="glass-tile-value" id="statPending">--</div>
+              </div>
+            </div>
+            <div class="tab-row">
+              <button class="tab-pill active" id="tabBtnHub" onclick="switchTab('hub')">
+                <span class="show-pt">Central de Recursos</span>
+                <span class="show-en">Resource Hub</span>
+              </button>
+              <button class="tab-pill" id="tabBtnPdf" onclick="switchTab('pdf')">
+                <span class="show-pt">Arquivo de PDFs</span>
+                <span class="show-en">PDF Archive</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Resource Hub -->
+        <div class="below-section" id="tabHub">
+          <div class="below-header-row">
+            <button class="btn-add" id="btnAddResource" onclick="openResourceModal(null)">
+              <span class="show-pt">+ Novo Recurso</span>
+              <span class="show-en">+ Add Resource</span>
+            </button>
+          </div>
+          <div class="content-card">
+            <div id="resourceListContainer">
+              <div class="empty-state show-pt">Carregando recursos...</div>
+              <div class="empty-state show-en">Loading resources...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: PDF Archive -->
+        <div class="below-section" id="tabPdf" hidden>
+          <div class="content-card">
+            <div id="pdfListContainer">
+              <div class="empty-state show-pt">Carregando PDFs...</div>
+              <div class="empty-state show-en">Loading PDFs...</div>
+            </div>
+          </div>
+        </div>
+
       </main>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: Novo Recurso / Add Resource ═══════════════════════════════ -->
+  <div id="modalResource" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt" id="resModalTitlePt">Novo Recurso</span>
+          <span class="show-en" id="resModalTitleEn">Add Resource</span>
+        </h3>
+        <button class="modal-close" onclick="document.getElementById('modalResource').hidden=true">&#215;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Título *</span>
+            <span class="show-en">Title *</span>
+          </label>
+          <input type="text" id="resTitle" placeholder="Ex.: Contato de Marketing — Milena">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label>
+              <span class="show-pt">Categoria *</span>
+              <span class="show-en">Category *</span>
+            </label>
+            <select id="resCategory" onchange="onCategoryChange()"></select>
+          </div>
+          <div class="field-group">
+            <label>
+              <span class="show-pt">Tipo *</span>
+              <span class="show-en">Type *</span>
+            </label>
+            <select id="resType" onchange="onTypeChange()">
+              <option value="contact">Contato / Contact</option>
+              <option value="file">Arquivo / File</option>
+              <option value="link">Link</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group" id="resOtherWrap" style="display:none;">
+          <label>
+            <span class="show-pt">Nova Categoria *</span>
+            <span class="show-en">New Category *</span>
+          </label>
+          <input type="text" id="resOtherCategory" placeholder="Ex.: Tecnologia / Technology">
+        </div>
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Descrição</span>
+            <span class="show-en">Description</span>
+          </label>
+          <textarea id="resDescription" placeholder="Quando usar este recurso... / When to use this resource..."></textarea>
+        </div>
+
+        <!-- Contact fields -->
+        <div id="resContactFields">
+          <div class="field-group" style="margin-bottom:12px;">
+            <label>
+              <span class="show-pt">Nome do Contato</span>
+              <span class="show-en">Contact Name</span>
+            </label>
+            <input type="text" id="resContactName" placeholder="Nome / Name">
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label>
+                <span class="show-pt">Telefone</span>
+                <span class="show-en">Phone</span>
+              </label>
+              <input type="text" id="resContactPhone" placeholder="Tel / WhatsApp">
+            </div>
+            <div class="field-group">
+              <label>Email</label>
+              <input type="email" id="resContactEmail" placeholder="Email">
+            </div>
+          </div>
+        </div>
+
+        <!-- File field -->
+        <div id="resFileFields" style="display:none;">
+          <div class="field-group">
+            <label>
+              <span class="show-pt">Arquivo</span>
+              <span class="show-en">File</span>
+            </label>
+            <input type="file" id="resFile" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv">
+            <div class="detail-text" id="resFileCurrent" style="display:none;"></div>
+          </div>
+        </div>
+
+        <!-- Link field -->
+        <div id="resLinkFields" style="display:none;">
+          <div class="field-group">
+            <label>URL *</label>
+            <input type="url" id="resUrl" placeholder="https://...">
+          </div>
+        </div>
+
+        <button class="btn-primary" id="btnSaveResource" onclick="handleSaveResource()">
+          <span class="show-pt">Salvar Recurso</span>
+          <span class="show-en">Save Resource</span>
+        </button>
+        <div class="form-status" id="resFormStatus"></div>
+      </div>
     </div>
   </div>
 
@@ -130,6 +687,8 @@
   <script src="nav.js"></script>
 
   <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
     var FIREBASE_CONFIG = {
       apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
       authDomain:        "apex-command-center-4b038.firebaseapp.com",
@@ -139,14 +698,11 @@
       appId:             "1:894743550437:web:45041f841f7e8196db770c"
     };
 
-    var auth = null;
-    var currentUser = null;
-
-    function toggleLang() {
-      var b = document.body;
-      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
-      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
-    }
+    var auth          = null;
+    var currentUser   = null;
+    var allResources  = [];
+    var allCategories = [];
+    var editingResourceId = null;
 
     function handleSignOut() {
       auth.signOut().then(function () {
@@ -156,26 +712,480 @@
       });
     }
 
-    function setupPage(role) {
-      document.getElementById("headerEmail").textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
-      document.getElementById("headerRole").textContent  = role;
-      document.getElementById("loadingScreen").hidden    = true;
-      document.getElementById("appMain").hidden          = false;
-      window.initNav && window.initNav();
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
     }
+
+    function apiFetch(path) {
+      return getToken().then(function (token) {
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+      });
+    }
+
+    function escHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function () {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function () {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
+    /* ── Tabs ─────────────────────────────────────────────────────────────── */
+
+    function switchTab(tab) {
+      document.getElementById("tabBtnHub").classList.toggle("active", tab === "hub");
+      document.getElementById("tabBtnPdf").classList.toggle("active", tab === "pdf");
+      document.getElementById("tabHub").hidden = (tab !== "hub");
+      document.getElementById("tabPdf").hidden = (tab !== "pdf");
+      if (tab === "pdf") { loadPdfArchive(); }
+    }
+
+    /* ── Resource Hub ─────────────────────────────────────────────────────── */
+
+    function loadResources() {
+      apiFetch("/api/resources")
+        .then(function (res) {
+          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          return res.json();
+        })
+        .then(function (data) {
+          allResources  = data.resources  || [];
+          allCategories = data.categories || [];
+          renderTiles(data.pending_sends || 0);
+          renderResources();
+        })
+        .catch(function (e) {
+          var el = document.getElementById("resourceListContainer");
+          if (el) { el.innerHTML = '<div class="error-msg">Erro ao carregar recursos: ' + escHtml(e.message) + '</div>'; }
+        });
+    }
+
+    function renderTiles(pendingSends) {
+      var contacts = 0, files = 0, links = 0;
+      for (var i = 0; i < allResources.length; i++) {
+        var t = allResources[i].resource_type;
+        if (t === "contact") { contacts++; }
+        else if (t === "file") { files++; }
+        else if (t === "link") { links++; }
+      }
+      document.getElementById("statTotal").textContent    = allResources.length;
+      document.getElementById("statContacts").textContent = contacts;
+      document.getElementById("statFiles").textContent    = files;
+      document.getElementById("statLinks").textContent    = links;
+      document.getElementById("statPending").textContent  = pendingSends;
+    }
+
+    function resourceDetailHtml(r) {
+      if (r.resource_type === "contact") {
+        var parts = [];
+        if (r.contact_name)  { parts.push(escHtml(r.contact_name)); }
+        if (r.contact_phone) { parts.push(escHtml(r.contact_phone)); }
+        if (r.contact_email) { parts.push(escHtml(r.contact_email)); }
+        return parts.join(" · ") || "--";
+      }
+      if (r.resource_type === "file") {
+        if (!r.file_url) { return "--"; }
+        return '<a href="' + WORKER_URL + '/api/resources/' + encodeURIComponent(r.id) + '/file" target="_blank" rel="noopener">' +
+               escHtml(r.file_name || "arquivo") + '</a>';
+      }
+      if (r.resource_type === "link") {
+        if (!r.url) { return "--"; }
+        return '<a href="' + escHtml(r.url) + '" target="_blank" rel="noopener">' + escHtml(r.url) + '</a>';
+      }
+      return "--";
+    }
+
+    function renderResources() {
+      var container = document.getElementById("resourceListContainer");
+      if (!container) { return; }
+
+      if (allResources.length === 0) {
+        container.innerHTML =
+          '<div class="empty-state"><span class="show-pt">Nenhum recurso ainda. Clique em "+ Novo Recurso" para começar a biblioteca.</span>' +
+          '<span class="show-en">No resources yet. Click "+ Add Resource" to start the library.</span></div>';
+        return;
+      }
+
+      var html =
+        '<table class="list-table"><thead><tr>' +
+        '<th><span class="show-pt">Título</span><span class="show-en">Title</span></th>' +
+        '<th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>' +
+        '<th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>' +
+        '<th><span class="show-pt">Detalhes</span><span class="show-en">Details</span></th>' +
+        '<th></th>' +
+        '</tr></thead><tbody>';
+
+      for (var i = 0; i < allResources.length; i++) {
+        var r = allResources[i];
+        html +=
+          '<tr>' +
+          '<td><div class="resource-title">' + escHtml(r.title) + '</div>' +
+          (r.description ? '<div class="resource-desc">' + escHtml(r.description) + '</div>' : '') + '</td>' +
+          '<td><span class="category-lozenge">' + escHtml(r.category) + '</span></td>' +
+          '<td><span class="type-lozenge" data-type="' + escHtml(r.resource_type) + '"></span></td>' +
+          '<td class="detail-text">' + resourceDetailHtml(r) + '</td>' +
+          '<td style="text-align:right;">' +
+          '<button class="btn-row-action" onclick="openResourceModal(\'' + escHtml(r.id) + '\')">' +
+          '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button></td>' +
+          '</tr>';
+      }
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    /* ── Resource modal (add / edit) ──────────────────────────────────────── */
+
+    var OTHER_VALUE = "__other__";
+
+    function fillCategorySelect(selected) {
+      var sel = document.getElementById("resCategory");
+      var html = "";
+      for (var i = 0; i < allCategories.length; i++) {
+        html += '<option value="' + escHtml(allCategories[i]) + '"' +
+                (allCategories[i] === selected ? ' selected' : '') + '>' +
+                escHtml(allCategories[i]) + '</option>';
+      }
+      html += '<option value="' + OTHER_VALUE + '">Outro / Other...</option>';
+      sel.innerHTML = html;
+      if (selected && allCategories.indexOf(selected) === -1) { sel.value = OTHER_VALUE; }
+      onCategoryChange();
+    }
+
+    function onCategoryChange() {
+      var isOther = document.getElementById("resCategory").value === OTHER_VALUE;
+      document.getElementById("resOtherWrap").style.display = isOther ? "" : "none";
+    }
+
+    function onTypeChange() {
+      var type = document.getElementById("resType").value;
+      document.getElementById("resContactFields").style.display = (type === "contact") ? "" : "none";
+      document.getElementById("resFileFields").style.display    = (type === "file")    ? "" : "none";
+      document.getElementById("resLinkFields").style.display    = (type === "link")    ? "" : "none";
+    }
+
+    function openResourceModal(resourceId) {
+      editingResourceId = resourceId;
+      var r = null;
+      if (resourceId) {
+        for (var i = 0; i < allResources.length; i++) {
+          if (allResources[i].id === resourceId) { r = allResources[i]; break; }
+        }
+      }
+
+      document.getElementById("resModalTitlePt").textContent = r ? "Editar Recurso" : "Novo Recurso";
+      document.getElementById("resModalTitleEn").textContent = r ? "Edit Resource"  : "Add Resource";
+
+      document.getElementById("resTitle").value         = r ? (r.title || "") : "";
+      document.getElementById("resDescription").value   = r ? (r.description || "") : "";
+      document.getElementById("resType").value          = r ? r.resource_type : "contact";
+      document.getElementById("resContactName").value   = r ? (r.contact_name || "") : "";
+      document.getElementById("resContactPhone").value  = r ? (r.contact_phone || "") : "";
+      document.getElementById("resContactEmail").value  = r ? (r.contact_email || "") : "";
+      document.getElementById("resUrl").value           = r ? (r.url || "") : "";
+      document.getElementById("resFile").value          = "";
+      document.getElementById("resOtherCategory").value = (r && allCategories.indexOf(r.category) === -1) ? (r.category || "") : "";
+
+      var currentEl = document.getElementById("resFileCurrent");
+      if (r && r.resource_type === "file" && r.file_name) {
+        currentEl.style.display = "";
+        currentEl.textContent   = "Atual / Current: " + r.file_name;
+      } else {
+        currentEl.style.display = "none";
+      }
+
+      fillCategorySelect(r ? r.category : null);
+      onTypeChange();
+
+      var statusEl = document.getElementById("resFormStatus");
+      statusEl.textContent = "";
+      statusEl.className   = "form-status";
+      document.getElementById("btnSaveResource").disabled = false;
+      document.getElementById("modalResource").hidden     = false;
+    }
+
+    function handleSaveResource() {
+      var statusEl = document.getElementById("resFormStatus");
+      var btn      = document.getElementById("btnSaveResource");
+
+      var title = document.getElementById("resTitle").value.trim();
+      var type  = document.getElementById("resType").value;
+      var category = document.getElementById("resCategory").value;
+      if (category === OTHER_VALUE) {
+        category = document.getElementById("resOtherCategory").value.trim();
+      }
+
+      if (!title) {
+        statusEl.textContent = "Título é obrigatório. / Title is required.";
+        statusEl.className   = "form-status is-error";
+        return;
+      }
+      if (!category) {
+        statusEl.textContent = "Categoria é obrigatória. / Category is required.";
+        statusEl.className   = "form-status is-error";
+        return;
+      }
+      var url = document.getElementById("resUrl").value.trim();
+      if (type === "link" && !url) {
+        statusEl.textContent = "URL é obrigatória para links. / URL is required for links.";
+        statusEl.className   = "form-status is-error";
+        return;
+      }
+      var fileInput = document.getElementById("resFile");
+      var file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+      var editingFileResource = false;
+      if (editingResourceId) {
+        for (var i = 0; i < allResources.length; i++) {
+          if (allResources[i].id === editingResourceId && allResources[i].file_url) { editingFileResource = true; break; }
+        }
+      }
+      if (type === "file" && !file && !editingFileResource) {
+        statusEl.textContent = "Selecione um arquivo. / Choose a file.";
+        statusEl.className   = "form-status is-error";
+        return;
+      }
+
+      btn.disabled         = true;
+      statusEl.textContent = "Salvando... / Saving...";
+      statusEl.className   = "form-status";
+
+      var fields = {
+        title:         title,
+        category:      category,
+        resource_type: type,
+        description:   document.getElementById("resDescription").value.trim() || null,
+        contact_name:  document.getElementById("resContactName").value.trim()  || null,
+        contact_phone: document.getElementById("resContactPhone").value.trim() || null,
+        contact_email: document.getElementById("resContactEmail").value.trim() || null,
+        url:           url || null
+      };
+
+      var method = editingResourceId ? "PUT" : "POST";
+      var path   = editingResourceId ? "/api/resources/" + encodeURIComponent(editingResourceId) : "/api/resources";
+
+      getToken().then(function (token) {
+        if (file) {
+          var form = new FormData();
+          for (var k in fields) {
+            if (fields.hasOwnProperty(k) && fields[k] !== null) { form.append(k, fields[k]); }
+          }
+          form.append("file", file);
+          return fetch(WORKER_URL + path, {
+            method:  method,
+            headers: { "Authorization": "Bearer " + token },
+            body:    form
+          });
+        }
+        return fetch(WORKER_URL + path, {
+          method:  method,
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body:    JSON.stringify(fields)
+        });
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          document.getElementById("modalResource").hidden = true;
+          loadResources();
+        })
+        .catch(function (e) {
+          btn.disabled         = false;
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className   = "form-status is-error";
+        });
+    }
+
+    /* ── PDF Archive ──────────────────────────────────────────────────────── */
+
+    var pdfArchiveLoaded = false;
+
+    function loadPdfArchive() {
+      if (pdfArchiveLoaded) { return; }
+      apiFetch("/api/sessions")
+        .then(function (res) {
+          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          return res.json();
+        })
+        .then(function (data) {
+          pdfArchiveLoaded = true;
+          var sessions = (data.sessions || []).filter(function (s) {
+            return s.status === "approved" && s.pdf_data;
+          });
+          renderPdfArchive(sessions);
+        })
+        .catch(function (e) {
+          var el = document.getElementById("pdfListContainer");
+          if (el) { el.innerHTML = '<div class="error-msg">Erro ao carregar PDFs: ' + escHtml(e.message) + '</div>'; }
+        });
+    }
+
+    var pdfSessions = [];
+
+    function renderPdfArchive(sessions) {
+      pdfSessions = sessions;
+      var container = document.getElementById("pdfListContainer");
+      if (!container) { return; }
+
+      if (sessions.length === 0) {
+        container.innerHTML =
+          '<div class="empty-state"><span class="show-pt">Nenhum relatório gerado ainda.</span>' +
+          '<span class="show-en">No generated reports yet.</span></div>';
+        return;
+      }
+
+      var html =
+        '<table class="list-table"><thead><tr>' +
+        '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>' +
+        '<th><span class="show-pt">Data da Sessão</span><span class="show-en">Session Date</span></th>' +
+        '<th></th>' +
+        '</tr></thead><tbody>';
+
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        html +=
+          '<tr>' +
+          '<td><div class="resource-title">' + escHtml(s.client_name || "--") + '</div></td>' +
+          '<td class="detail-text">' + escHtml(formatDate(s.date)) + '</td>' +
+          '<td style="text-align:right;">' +
+          '<button class="btn-row-action" onclick="openSessionPdf(' + i + ')">' +
+          '<span class="show-pt">Abrir PDF</span><span class="show-en">Open PDF</span></button></td>' +
+          '</tr>';
+      }
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function formatDate(iso) {
+      if (!iso) { return "--"; }
+      var parts = iso.split("-");
+      if (parts.length !== 3) { return iso; }
+      return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+
+    // Opens the strategic-report template and hands it the session's pdf_data —
+    // same postMessage handoff pattern as client.html/sessions.html.
+    function openSessionPdf(index) {
+      var session = pdfSessions[index];
+      if (!session) { return; }
+
+      var pdfData;
+      try {
+        pdfData = session.pdf_data ? JSON.parse(session.pdf_data) : null;
+      } catch (e) { pdfData = null; }
+      if (!pdfData) {
+        window.alert("pdf_data ausente ou inválido. / pdf_data missing or invalid.");
+        return;
+      }
+
+      var dateParts    = (session.date || "").split("-");
+      var reportNumber = dateParts.length === 3
+        ? dateParts[0] + "-" + dateParts[1] + dateParts[2]
+        : (session.date || "");
+      var nameWords  = (session.client_name || "").split(/\s+/);
+      var reportCode = "";
+      for (var wi = 0; wi < nameWords.length; wi++) {
+        if (nameWords[wi]) { reportCode += nameWords[wi].charAt(0).toUpperCase(); }
+      }
+      reportCode = reportCode.slice(0, 4) || "XX";
+
+      var data = {};
+      for (var k in pdfData) {
+        if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; }
+      }
+      data.client_name     = session.client_name;
+      data.session_date    = formatDate(session.date);
+      data.consultant_name = "Rafael Prata";
+      data.report_number   = reportNumber;
+      data.report_code     = reportCode;
+      data.client_logo     = null;
+
+      var TEMPLATE_URL = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
+      var newTab = window.open(TEMPLATE_URL, "_blank");
+      if (!newTab) {
+        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        return;
+      }
+
+      var sent = false;
+      function sendData() {
+        if (sent) { return; }
+        sent = true;
+        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
+      }
+      var fallbackId = setTimeout(sendData, 1500);
+      newTab.addEventListener("load", function () {
+        clearTimeout(fallbackId);
+        sendData();
+      });
+    }
+
+    /* ── Page bootstrap ───────────────────────────────────────────────────── */
+
+    function setupPage(role) {
+      var emailEl = document.getElementById("headerEmail");
+      var roleEl  = document.getElementById("headerRole");
+      if (emailEl) { emailEl.textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : ""); }
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden       = false;
+
+      var canEdit = (role === "alice" || role === "developer" || role === "rafa");
+      var addBtn = document.getElementById("btnAddResource");
+      if (addBtn) { addBtn.style.display = canEdit ? "" : "none"; }
+
+      window.initNav && window.initNav();
+      initHeroBg("heroBgImage", "heroBgScrim");
+      loadResources();
+    }
+
+    document.addEventListener("click", function (e) {
+      var m = document.getElementById("modalResource");
+      if (m && !m.hidden && e.target === m) { m.hidden = true; }
+    });
 
     function init() {
       firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth();
       auth.onAuthStateChanged(function (user) {
-        if (!user) { window.location.href = "index.html"; return; }
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            setTimeout(function () {
+              if (!auth.currentUser) { window.location.href = "index.html"; }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
         currentUser = user;
         var cached = sessionStorage.getItem("apex_role");
         if (cached) {
           setupPage(cached);
         } else {
           user.getIdToken().then(function (token) {
-            return fetch("https://apex-api.farfromtimnah.workers.dev/api/role", { headers: { "Authorization": "Bearer " + token } });
+            return fetch(WORKER_URL + "/api/role", { headers: { "Authorization": "Bearer " + token } });
           }).then(function (res) { return res.json(); }).then(function (data) {
             sessionStorage.setItem("apex_role",  data.role);
             sessionStorage.setItem("apex_email", data.email);
@@ -185,7 +1195,7 @@
       });
     }
 
-    init();
+    window.onload = function () { init(); };
   </script>
 </body>
 </html>

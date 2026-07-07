@@ -2491,6 +2491,251 @@ async function handleGetUserAvatarImage(email, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Resource Hub (Documents page) — resources library + client assignment/send
+// tracking. Tables: resources, client_resources, resource_categories
+// (see migrations/resources.sql).
+// ---------------------------------------------------------------------------
+
+var RESOURCE_TYPES = ["contact", "file", "link"];
+
+function canEditResources(user) {
+    return user.role === "alice" || user.role === "rafa" || user.role === "developer";
+}
+
+// Inserts a category typed via the "Other" option so the dropdown self-extends.
+async function ensureResourceCategory(env, category) {
+    await env.DB.prepare(
+        "INSERT OR IGNORE INTO resource_categories (name, sort_order) VALUES (?, " +
+        "(SELECT COALESCE(MAX(sort_order), 0) + 1 FROM resource_categories))"
+    ).bind(category).run();
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/resources
+// Returns the full resource library, the live category list, and the count of
+// pending (unsent) client_resources rows for the Documents hero tile.
+// ---------------------------------------------------------------------------
+
+async function handleGetResources(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var resources = await env.DB.prepare(
+            "SELECT * FROM resources ORDER BY created_at DESC"
+        ).all();
+        var categories = await env.DB.prepare(
+            "SELECT name FROM resource_categories ORDER BY sort_order"
+        ).all();
+        var pending = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM client_resources WHERE whatsapp_sent_at IS NULL"
+        ).first();
+
+        return jsonOk({
+            resources:     resources.results,
+            categories:    categories.results.map(function (r) { return r.name; }),
+            pending_sends: pending ? pending.n : 0
+        });
+    } catch (e) {
+        return jsonErr("Error fetching resources: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared field extraction for resource create/edit. Accepts either JSON
+// (contact/link) or multipart/form-data with an optional 'file' field (file).
+// Returns { fields, file } — file is null for JSON bodies.
+// ---------------------------------------------------------------------------
+
+var RESOURCE_FILE_TYPES = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+    "image/gif": "gif", "image/webp": "webp",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "text/plain": "txt", "text/csv": "csv"
+};
+
+async function readResourceBody(request) {
+    var contentType = request.headers.get("Content-Type") || "";
+    if (contentType.indexOf("multipart/form-data") !== -1) {
+        var form = await request.formData();
+        var fields = {};
+        var names = ["category", "resource_type", "title", "description",
+                     "contact_name", "contact_phone", "contact_email", "url"];
+        for (var i = 0; i < names.length; i++) {
+            var v = form.get(names[i]);
+            fields[names[i]] = (typeof v === "string" && v.trim()) ? v.trim() : null;
+        }
+        var file = form.get("file");
+        if (file && typeof file.arrayBuffer !== "function") { file = null; }
+        return { fields: fields, file: file || null };
+    }
+    var body = await request.json();
+    return { fields: body, file: null };
+}
+
+function validateResourceFields(fields) {
+    if (!fields.title || !String(fields.title).trim()) { return "title is required"; }
+    if (!fields.category || !String(fields.category).trim()) { return "category is required"; }
+    if (RESOURCE_TYPES.indexOf(fields.resource_type) === -1) {
+        return "resource_type must be one of: " + RESOURCE_TYPES.join(", ");
+    }
+    if (fields.resource_type === "link" && !fields.url) { return "url is required for link resources"; }
+    return null;
+}
+
+async function storeResourceFile(env, resourceId, file) {
+    var ext = RESOURCE_FILE_TYPES[file.type];
+    if (!ext) { throw new Error("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file."); }
+    var key = "resources/" + resourceId + "." + ext;
+    await env.ASSETS.put(key, await file.arrayBuffer(), {
+        httpMetadata: { contentType: file.type }
+    });
+    return { key: key, name: file.name || ("resource." + ext) };
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/resources
+// Creates a resource. JSON for contact/link; multipart/form-data with a 'file'
+// field for file resources (stored in R2 under resources/<id>.<ext>).
+// New categories (typed via "Other") are added to resource_categories live.
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostResource(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var parsed = await readResourceBody(request);
+        var f = parsed.fields;
+        var err = validateResourceFields(f);
+        if (err) { return jsonErr(err, 400); }
+        if (f.resource_type === "file" && !parsed.file) {
+            return jsonErr("file is required for file resources", 400);
+        }
+
+        var id = crypto.randomUUID();
+        var fileUrl = null, fileName = null;
+        if (parsed.file) {
+            var stored = await storeResourceFile(env, id, parsed.file);
+            fileUrl  = stored.key;
+            fileName = stored.name;
+        }
+
+        await ensureResourceCategory(env, String(f.category).trim());
+
+        await env.DB.prepare(
+            "INSERT INTO resources (id, category, resource_type, title, description, " +
+            "contact_name, contact_phone, contact_email, file_url, file_name, url, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            id, String(f.category).trim(), f.resource_type, String(f.title).trim(),
+            f.description || null, f.contact_name || null, f.contact_phone || null,
+            f.contact_email || null, fileUrl, fileName, f.url || null,
+            user.display_name || user.role
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
+        return jsonOk({ resource: row });
+    } catch (e) {
+        return jsonErr("Error creating resource: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/resources/:id
+// Edits a resource. Same body rules as POST; a new file replaces the stored
+// one, otherwise the existing file is kept. alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePutResource(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
+        if (!existing) { return jsonErr("Resource not found", 404); }
+
+        var parsed = await readResourceBody(request);
+        var f = parsed.fields;
+        var err = validateResourceFields(f);
+        if (err) { return jsonErr(err, 400); }
+        if (f.resource_type === "file" && !parsed.file && !existing.file_url) {
+            return jsonErr("file is required for file resources", 400);
+        }
+
+        var fileUrl = existing.file_url, fileName = existing.file_name;
+        if (parsed.file) {
+            var stored = await storeResourceFile(env, id, parsed.file);
+            fileUrl  = stored.key;
+            fileName = stored.name;
+        }
+        if (f.resource_type !== "file") { fileUrl = null; fileName = null; }
+
+        await ensureResourceCategory(env, String(f.category).trim());
+
+        await env.DB.prepare(
+            "UPDATE resources SET category = ?, resource_type = ?, title = ?, description = ?, " +
+            "contact_name = ?, contact_phone = ?, contact_email = ?, file_url = ?, file_name = ?, url = ? " +
+            "WHERE id = ?"
+        ).bind(
+            String(f.category).trim(), f.resource_type, String(f.title).trim(),
+            f.description || null, f.contact_name || null, f.contact_phone || null,
+            f.contact_email || null, fileUrl, fileName, f.url || null, id
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
+        return jsonOk({ resource: row });
+    } catch (e) {
+        return jsonErr("Error updating resource: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/resources/:id/file
+// Serves a file-type resource from R2 — no raw R2 paths exposed to frontend.
+// Auth-free like logo-image: keyed by unguessable UUID, so the same URL can be
+// shared with a client via WhatsApp.
+// ---------------------------------------------------------------------------
+
+async function handleGetResourceFile(id, request, env) {
+    try {
+        var row = await env.DB.prepare("SELECT file_url, file_name FROM resources WHERE id = ?")
+            .bind(id).first();
+        if (!row || !row.file_url) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+        if (!/^resources\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.file_url)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(row.file_url);
+        if (!obj) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ct = RESOURCE_FILE_TYPES[stored] ? stored : "application/octet-stream";
+        var safeName = String(row.file_name || "resource").replace(/[^\w. -]/g, "_");
+        var fileHeaders = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": ct,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=\"" + safeName + "\"",
+            "Cache-Control": "public, max-age=86400"
+        });
+        return new Response(obj.body, { status: 200, headers: fileHeaders });
+    } catch (e) {
+        return jsonErr("Error fetching resource file: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance/statement-upload
 // Accepts a CSV or plain-text bank statement, sends to Claude, inserts parsed
 // transactions into bank_transactions with status='pending'.
@@ -4455,6 +4700,8 @@ export default {
         if (path === "/api/finance/expense-form-data" && method === "GET")  { return handleGetFinanceExpenseFormData(request, env); }
         if (path === "/api/finance/expenses"          && method === "GET")  { return handleGetFinanceExpenses(request, env); }
         if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
+        if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
+        if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
         if (path === "/api/zoho/contacts/resync-status" && method === "GET")  { return handleGetZohoContactsResyncStatus(request, env); }
         if (path === "/api/zoho/contacts/resync"        && method === "POST") { return handlePostZohoContactsResync(request, env); }
 
@@ -4471,6 +4718,14 @@ export default {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "whatsapp" && method === "POST") {
             return handlePostSessionWhatsapp(segs[2], request, env);
+        }
+
+        // /api/resources/:id  PUT | /api/resources/:id/file  GET
+        if (segs[0] === "api" && segs[1] === "resources" && segs[2]) {
+            if (segs.length === 3 && method === "PUT") { return handlePutResource(segs[2], request, env); }
+            if (segs.length === 4 && segs[3] === "file" && method === "GET") {
+                return handleGetResourceFile(segs[2], request, env);
+            }
         }
 
         // /api/users/:email  DELETE

@@ -1172,6 +1172,11 @@
             <span class="show-en">Reconciliation</span>
             <span class="fin-tab-badge" id="finBadgeConciliacao" hidden>0</span>
           </button>
+          <button class="fin-tab-pill" id="finTabBtnFerramentas" onclick="switchFinanceTab('ferramentas')">
+            <span class="show-pt">Ferramentas Zoho</span>
+            <span class="show-en">Zoho Tools</span>
+            <span class="fin-tab-badge" id="finBadgeFerramentas" hidden>0</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1407,6 +1412,193 @@
 
     </div><!-- /below-hero-section (conciliacao) -->
     </div><!-- /finPanelConciliacao -->
+
+    <!-- ── Panel: Ferramentas Zoho ─────────────────────────────────────── -->
+    <div id="finPanelFerramentas" class="fin-tab-panel" hidden>
+    <div class="below-hero-section">
+
+      <!-- ── Bank connection status (read-only) ──────────────────────────── -->
+      <div class="content-card" id="bankStatusSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Conexao Bancaria</span>
+            <span class="show-en">Bank Connection</span>
+          </h2>
+        </div>
+        <div class="content-card-body">
+          <div id="bankStatusBody">
+            <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--muted);">
+            <span class="show-pt">A conexao de uma conta bancaria real e feita junto com a Nicole, nao por aqui.</span>
+            <span class="show-en">Connecting a real bank account is done together with Nicole, not from here.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Expenses (create + recent list) ─────────────────────────────── -->
+      <div class="content-card" id="expensesSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Despesas</span>
+            <span class="show-en">Expenses</span>
+          </h2>
+          <button class="btn-secondary btn-sm" onclick="toggleAddExpenseForm()">
+            <span class="show-pt">+ Adicionar</span>
+            <span class="show-en">+ Add</span>
+          </button>
+        </div>
+        <form id="addExpenseForm" class="add-sub-form" style="display:none;" onsubmit="submitAddExpense(event)">
+          <div class="form-group">
+            <label class="form-label" for="expDesc">
+              <span class="show-pt">Descricao</span>
+              <span class="show-en">Description</span>
+            </label>
+            <input id="expDesc" class="form-input" type="text" maxlength="100" placeholder="Ex: Aluguel julho..." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="expAmount">
+              <span class="show-pt">Valor ($)</span>
+              <span class="show-en">Amount ($)</span>
+            </label>
+            <input id="expAmount" class="form-input" type="number" step="0.01" min="0.01" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="expDate">
+              <span class="show-pt">Data</span>
+              <span class="show-en">Date</span>
+            </label>
+            <input id="expDate" class="form-input" type="date" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="expCategory">
+              <span class="show-pt">Categoria</span>
+              <span class="show-en">Category</span>
+            </label>
+            <select id="expCategory" class="form-input" required>
+              <option value="">--</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="expPaidThrough">
+              <span class="show-pt">Pago Atraves De</span>
+              <span class="show-en">Paid Through</span>
+            </label>
+            <select id="expPaidThrough" class="form-input" required>
+              <option value="">--</option>
+            </select>
+          </div>
+          <div class="form-full" style="display:flex;gap:8px;justify-content:flex-end;">
+            <button type="button" class="btn-secondary btn-sm" onclick="toggleAddExpenseForm()">
+              <span class="show-pt">Cancelar</span>
+              <span class="show-en">Cancel</span>
+            </button>
+            <button type="submit" class="btn-primary btn-sm" id="saveExpenseBtn">
+              <span class="show-pt">Salvar</span>
+              <span class="show-en">Save</span>
+            </button>
+          </div>
+        </form>
+        <div id="expensesList">
+          <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+        </div>
+      </div>
+
+      <!-- ── Zoho contact details editor ─────────────────────────────────── -->
+      <div class="content-card" id="zohoContactSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Dados de Cobranca do Cliente</span>
+            <span class="show-en">Client Billing Details</span>
+          </h2>
+        </div>
+        <div class="content-card-body">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+            <span class="show-pt">Email, telefone e endereco de cobranca usados nas faturas.</span>
+            <span class="show-en">Email, phone and billing address used on invoices.</span>
+          </div>
+          <div class="form-group" style="max-width:320px;margin-bottom:14px;">
+            <label class="form-label" for="zcClientSelect">
+              <span class="show-pt">Cliente</span>
+              <span class="show-en">Client</span>
+            </label>
+            <select id="zcClientSelect" class="form-input" onchange="onZohoContactClientChange()">
+              <option value="">--</option>
+            </select>
+          </div>
+          <form id="zohoContactForm" class="add-sub-form" style="display:none;" onsubmit="submitZohoContact(event)">
+            <div class="form-group">
+              <label class="form-label" for="zcEmail">Email</label>
+              <input id="zcEmail" class="form-input" type="email" placeholder="email@exemplo.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="zcPhone">
+                <span class="show-pt">Telefone</span>
+                <span class="show-en">Phone</span>
+              </label>
+              <input id="zcPhone" class="form-input" type="text" maxlength="50">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="zcAddress">
+                <span class="show-pt">Endereco</span>
+                <span class="show-en">Address</span>
+              </label>
+              <input id="zcAddress" class="form-input" type="text" maxlength="500">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="zcCity">
+                <span class="show-pt">Cidade</span>
+                <span class="show-en">City</span>
+              </label>
+              <input id="zcCity" class="form-input" type="text" maxlength="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="zcState">
+                <span class="show-pt">Estado</span>
+                <span class="show-en">State</span>
+              </label>
+              <input id="zcState" class="form-input" type="text" maxlength="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="zcZip">
+                <span class="show-pt">CEP / ZIP</span>
+                <span class="show-en">ZIP</span>
+              </label>
+              <input id="zcZip" class="form-input" type="text" maxlength="50">
+            </div>
+            <div class="form-full" style="display:flex;gap:8px;justify-content:flex-end;">
+              <button type="submit" class="btn-primary btn-sm" id="saveZohoContactBtn">
+                <span class="show-pt">Salvar</span>
+                <span class="show-en">Save</span>
+              </button>
+            </div>
+          </form>
+          <div id="zohoContactStatus" style="font-size:13px;color:var(--muted);"></div>
+        </div>
+      </div>
+
+      <!-- ── Re-sync Zoho contacts ───────────────────────────────────────── -->
+      <div class="content-card" id="resyncSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Sincronizar Contatos Zoho</span>
+            <span class="show-en">Re-sync Zoho Contacts</span>
+          </h2>
+        </div>
+        <div class="content-card-body">
+          <div id="resyncStatusBody" style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+            <div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>
+          </div>
+          <button class="btn-primary btn-sm" id="resyncBtn" onclick="runZohoContactsResync()" disabled>
+            <span class="show-pt">Sincronizar Agora</span>
+            <span class="show-en">Re-sync Now</span>
+          </button>
+          <div id="resyncResultBody" style="font-size:13px;color:var(--muted);margin-top:12px;"></div>
+        </div>
+      </div>
+
+    </div><!-- /below-hero-section (ferramentas) -->
+    </div><!-- /finPanelFerramentas -->
 
   </main>
 
@@ -2199,7 +2391,7 @@
 
     var currentFinanceTab = "saude";
 
-    var FIN_TABS = ["saude", "faturas", "conciliacao"];
+    var FIN_TABS = ["saude", "faturas", "conciliacao", "ferramentas"];
 
     function switchFinanceTab(tab) {
       currentFinanceTab = tab;
@@ -2209,6 +2401,12 @@
         var panel = document.getElementById("finPanel" + t.charAt(0).toUpperCase() + t.slice(1));
         if (btn)   { btn.className   = "fin-tab-pill"  + (t === tab ? " active" : ""); }
         if (panel) { panel.hidden    = (t !== tab); }
+      }
+      // Zoho Tools data is loaded lazily on first open (several Zoho calls;
+      // avoids burning Zoho rate limit on every page load).
+      if (tab === "ferramentas" && !zohoToolsLoaded) {
+        zohoToolsLoaded = true;
+        loadZohoTools();
       }
     }
 
@@ -2812,6 +3010,315 @@
           showToast(toastMsg);
         })
         .catch(function(e) { showToast("Erro: " + (e.message || "Falha")); });
+    }
+
+    // ── Ferramentas Zoho / Zoho Tools tab ──────────────────────────────────
+
+    var zohoToolsLoaded  = false;
+    var zohoToolsClients = null;
+
+    function loadZohoTools() {
+      loadBankStatus();
+      loadExpenseFormData();
+      loadExpenses();
+      loadZohoToolsClients();
+      loadResyncStatus();
+    }
+
+    function loadBankStatus() {
+      var body = document.getElementById("bankStatusBody");
+      if (!body) { return; }
+      apiFetch("/api/finance/bank-status")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var html = "";
+          if (data.connected) {
+            html += '<span class="chip chip-confirmed"><span class="show-pt">Conta bancaria configurada</span><span class="show-en">Bank account configured</span></span>';
+            var accts = data.bank_accounts || [];
+            html += '<div style="margin-top:10px;font-size:13px;color:var(--text);">';
+            for (var i = 0; i < accts.length; i++) {
+              html += '<div>' + escHtml(accts[i].account_name) + ' <span style="color:var(--muted);">(' + escHtml(accts[i].account_type) + ')</span></div>';
+            }
+            html += '</div>';
+          } else {
+            html += '<span class="chip chip-pending"><span class="show-pt">Nenhuma conta bancaria conectada</span><span class="show-en">No bank account connected</span></span>';
+          }
+          body.innerHTML = html;
+        })
+        .catch(function() {
+          body.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao verificar conexao bancaria</span><span class="show-en">Error checking bank connection</span></div>';
+        });
+    }
+
+    function toggleAddExpenseForm() {
+      var form = document.getElementById("addExpenseForm");
+      if (!form) { return; }
+      var showing = form.style.display !== "none";
+      form.style.display = showing ? "none" : "grid";
+      if (!showing) {
+        var dateEl = document.getElementById("expDate");
+        if (dateEl && !dateEl.value) {
+          var n = new Date();
+          dateEl.value = n.getFullYear() + "-" + padZ(n.getMonth() + 1) + "-" + padZ(n.getDate());
+        }
+      }
+    }
+
+    function loadExpenseFormData() {
+      apiFetch("/api/finance/expense-form-data")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var catSel = document.getElementById("expCategory");
+          if (catSel) {
+            var cats = data.categories || [];
+            var html = '<option value="">--</option>';
+            for (var i = 0; i < cats.length; i++) {
+              html += '<option value="' + escHtml(cats[i].account_id) + '">' + escHtml(cats[i].account_name) + '</option>';
+            }
+            catSel.innerHTML = html;
+          }
+          var ptSel = document.getElementById("expPaidThrough");
+          if (ptSel) {
+            var pts = data.paid_through || [];
+            var html2 = '<option value="">--</option>';
+            for (var j = 0; j < pts.length; j++) {
+              html2 += '<option value="' + escHtml(pts[j].account_id) + '">' + escHtml(pts[j].account_name) + '</option>';
+            }
+            ptSel.innerHTML = html2;
+          }
+        })
+        .catch(function() { showToast("Erro ao carregar categorias / Error loading categories"); });
+    }
+
+    function loadExpenses() {
+      var listEl = document.getElementById("expensesList");
+      if (!listEl) { return; }
+      apiFetch("/api/finance/expenses")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          renderExpensesTable(data.expenses || [], listEl);
+        })
+        .catch(function() {
+          listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao carregar despesas</span><span class="show-en">Error loading expenses</span></div>';
+        });
+    }
+
+    function renderExpensesTable(expenses, listEl) {
+      if (expenses.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma despesa registrada</span><span class="show-en">No expenses recorded</span></div>';
+        return;
+      }
+      var html = '<table class="tx-table"><thead><tr>';
+      html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
+      html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
+      html += '<th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>';
+      html += '<th><span class="show-pt">Pago Atraves De</span><span class="show-en">Paid Through</span></th>';
+      html += '<th><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>';
+      html += '</tr></thead><tbody>';
+      for (var i = 0; i < expenses.length; i++) {
+        var e = expenses[i];
+        html += '<tr>';
+        html += '<td>' + escHtml(fmtDate(e.date)) + '</td>';
+        html += '<td><div class="tx-desc" title="' + escHtml(e.description) + '">' + escHtml(e.description || "--") + '</div></td>';
+        html += '<td>' + escHtml(e.account_name || "--") + '</td>';
+        html += '<td>' + escHtml(e.paid_through_account_name || "--") + '</td>';
+        html += '<td class="tx-amount-expense">-' + fmtCurrency(e.total) + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      listEl.innerHTML = html;
+    }
+
+    function submitAddExpense(ev) {
+      if (ev) { ev.preventDefault(); }
+      var descEl = document.getElementById("expDesc");
+      var amtEl  = document.getElementById("expAmount");
+      var dateEl = document.getElementById("expDate");
+      var catEl  = document.getElementById("expCategory");
+      var ptEl   = document.getElementById("expPaidThrough");
+      var btn    = document.getElementById("saveExpenseBtn");
+      if (!descEl || !amtEl || !dateEl || !catEl || !ptEl) { return; }
+      if (!catEl.value || !ptEl.value) { showToast("Selecione categoria e conta / Select category and account"); return; }
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/finance/expenses", {
+        method: "POST",
+        body: {
+          description:             descEl.value,
+          amount:                  parseFloat(amtEl.value),
+          date:                    dateEl.value,
+          account_id:              catEl.value,
+          paid_through_account_id: ptEl.value
+        }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          if (btn) { btn.disabled = false; }
+          descEl.value = "";
+          amtEl.value  = "";
+          toggleAddExpenseForm();
+          showToast("Despesa registrada / Expense recorded");
+          loadExpenses();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          showToast("Erro: " + (e.message || "Falha ao salvar despesa"));
+        });
+    }
+
+    // ── Zoho contact details editor ────────────────────────────────────────
+
+    function loadZohoToolsClients() {
+      var sel = document.getElementById("zcClientSelect");
+      if (!sel) { return; }
+      apiFetch("/api/clients")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var all = data.clients || [];
+          zohoToolsClients = [];
+          for (var i = 0; i < all.length; i++) {
+            if (all[i].zoho_customer_id) { zohoToolsClients.push(all[i]); }
+          }
+          var html = '<option value="">--</option>';
+          for (var j = 0; j < zohoToolsClients.length; j++) {
+            html += '<option value="' + escHtml(zohoToolsClients[j].id) + '">' + escHtml(zohoToolsClients[j].name) + '</option>';
+          }
+          sel.innerHTML = html;
+        })
+        .catch(function() { showToast("Erro ao carregar clientes / Error loading clients"); });
+    }
+
+    function onZohoContactClientChange() {
+      var sel      = document.getElementById("zcClientSelect");
+      var form     = document.getElementById("zohoContactForm");
+      var statusEl = document.getElementById("zohoContactStatus");
+      if (!sel || !form) { return; }
+      if (!sel.value) {
+        form.style.display = "none";
+        if (statusEl) { statusEl.textContent = ""; }
+        return;
+      }
+      form.style.display = "none";
+      if (statusEl) { statusEl.textContent = "Carregando... / Loading..."; }
+      apiFetch("/api/clients/" + sel.value + "/zoho-contact")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var emailEl = document.getElementById("zcEmail");
+          var phoneEl = document.getElementById("zcPhone");
+          var addrEl  = document.getElementById("zcAddress");
+          var cityEl  = document.getElementById("zcCity");
+          var stateEl = document.getElementById("zcState");
+          var zipEl   = document.getElementById("zcZip");
+          var ba = data.billing_address || {};
+          if (emailEl) { emailEl.value = data.email || ""; }
+          if (phoneEl) { phoneEl.value = data.phone || ""; }
+          if (addrEl)  { addrEl.value  = ba.address || ""; }
+          if (cityEl)  { cityEl.value  = ba.city    || ""; }
+          if (stateEl) { stateEl.value = ba.state   || ""; }
+          if (zipEl)   { zipEl.value   = ba.zip     || ""; }
+          form.style.display = "grid";
+          if (statusEl) { statusEl.textContent = ""; }
+        })
+        .catch(function(e) {
+          if (statusEl) { statusEl.textContent = "Erro / Error: " + (e.message || ""); }
+        });
+    }
+
+    function submitZohoContact(ev) {
+      if (ev) { ev.preventDefault(); }
+      var sel = document.getElementById("zcClientSelect");
+      var btn = document.getElementById("saveZohoContactBtn");
+      if (!sel || !sel.value) { return; }
+      var emailEl = document.getElementById("zcEmail");
+      var phoneEl = document.getElementById("zcPhone");
+      var addrEl  = document.getElementById("zcAddress");
+      var cityEl  = document.getElementById("zcCity");
+      var stateEl = document.getElementById("zcState");
+      var zipEl   = document.getElementById("zcZip");
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/clients/" + sel.value + "/zoho-contact", {
+        method: "PUT",
+        body: {
+          email: emailEl ? emailEl.value : "",
+          phone: phoneEl ? phoneEl.value : "",
+          billing_address: {
+            address: addrEl  ? addrEl.value  : "",
+            city:    cityEl  ? cityEl.value  : "",
+            state:   stateEl ? stateEl.value : "",
+            zip:     zipEl   ? zipEl.value   : ""
+          }
+        }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          if (btn) { btn.disabled = false; }
+          showToast("Dados salvos no Zoho / Details saved to Zoho");
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          showToast("Erro: " + (e.message || "Falha ao salvar"));
+        });
+    }
+
+    // ── Re-sync Zoho contacts ──────────────────────────────────────────────
+
+    function loadResyncStatus() {
+      var body = document.getElementById("resyncStatusBody");
+      var btn  = document.getElementById("resyncBtn");
+      if (!body) { return; }
+      apiFetch("/api/zoho/contacts/resync-status")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var missing = data.missing || 0;
+          if (missing === 0) {
+            body.innerHTML = '<span class="show-pt">Todos os clientes ja tem contato no Zoho.</span><span class="show-en">All clients already have a Zoho contact.</span>';
+            if (btn) { btn.disabled = true; }
+          } else {
+            var names = [];
+            var rows = data.clients || [];
+            for (var i = 0; i < rows.length; i++) { names.push(escHtml(rows[i].name)); }
+            body.innerHTML = '<span class="show-pt">' + missing + ' cliente(s) sem contato Zoho: </span>' +
+              '<span class="show-en">' + missing + ' client(s) missing a Zoho contact: </span>' +
+              '<strong>' + names.join(", ") + '</strong>';
+            if (btn) { btn.disabled = false; }
+          }
+        })
+        .catch(function() {
+          body.innerHTML = '<span class="show-pt">Erro ao verificar clientes</span><span class="show-en">Error checking clients</span>';
+        });
+    }
+
+    function runZohoContactsResync() {
+      var btn      = document.getElementById("resyncBtn");
+      var resultEl = document.getElementById("resyncResultBody");
+      if (btn) { btn.disabled = true; }
+      if (resultEl) { resultEl.textContent = "Sincronizando... / Syncing..."; }
+      apiFetch("/api/zoho/contacts/resync", { method: "POST" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var html = '<span class="show-pt">Concluido: ' + data.succeeded + ' criado(s), ' + data.failed + ' falha(s).</span>' +
+            '<span class="show-en">Done: ' + data.succeeded + ' created, ' + data.failed + ' failed.</span>';
+          var results = data.results || [];
+          for (var i = 0; i < results.length; i++) {
+            if (!results[i].ok) {
+              html += '<div style="color:#8B3A2A;margin-top:4px;">' + escHtml(results[i].name) + ': ' + escHtml(results[i].error || "") + '</div>';
+            }
+          }
+          if (resultEl) { resultEl.innerHTML = html; }
+          loadResyncStatus();
+          loadZohoToolsClients();
+        })
+        .catch(function(e) {
+          if (resultEl) { resultEl.textContent = "Erro / Error: " + (e.message || ""); }
+          loadResyncStatus();
+        });
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────

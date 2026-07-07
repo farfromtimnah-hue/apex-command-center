@@ -3712,6 +3712,447 @@ async function handleGetInvoiceRenderData(zohoInvoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/finance/bank-status
+// Read-only indicator: is a real (non-cash) bank-type account set up in Zoho?
+// Deliberately NOT a linking flow -- connecting a bank feed remains an
+// in-person Zoho-hosted step done by Nicole. Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceBankStatus(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var acctRes = await zohoBankingFetch(zohoAuth, "GET", "bankaccounts");
+        if (!acctRes.ok) {
+            return jsonErr("Zoho bank accounts error: " + (acctRes.data.message || JSON.stringify(acctRes.data)), 502);
+        }
+
+        var accts = acctRes.data.bankaccounts || [];
+        var bankAccounts = [];
+        for (var i = 0; i < accts.length; i++) {
+            var a = accts[i];
+            if (a.is_active && (a.account_type === "bank" || a.account_type === "credit_card")) {
+                bankAccounts.push({
+                    account_name: a.account_name,
+                    account_type: a.account_type,
+                    uncategorized_transactions: a.uncategorized_transactions || 0
+                });
+            }
+        }
+
+        return jsonOk({ connected: bankAccounts.length > 0, bank_accounts: bankAccounts });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching bank status: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/expense-form-data
+// Returns the dropdown data for the expense form: Zoho expense-category
+// accounts (chart of accounts, type=expense) and paid-through accounts
+// (bank/cash accounts). Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceExpenseFormData(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var coaRes = await zohoBankingFetch(zohoAuth, "GET", "chartofaccounts?filter_by=AccountType.Expense&per_page=200");
+        if (!coaRes.ok) {
+            return jsonErr("Zoho chart of accounts error: " + (coaRes.data.message || JSON.stringify(coaRes.data)), 502);
+        }
+        var coa = coaRes.data.chartofaccounts || [];
+        var categories = [];
+        for (var i = 0; i < coa.length; i++) {
+            if (coa[i].is_active && coa[i].account_type === "expense") {
+                categories.push({ account_id: coa[i].account_id, account_name: coa[i].account_name });
+            }
+        }
+
+        var acctRes = await zohoBankingFetch(zohoAuth, "GET", "bankaccounts");
+        if (!acctRes.ok) {
+            return jsonErr("Zoho bank accounts error: " + (acctRes.data.message || JSON.stringify(acctRes.data)), 502);
+        }
+        var accts = acctRes.data.bankaccounts || [];
+        var paidThrough = [];
+        for (var j = 0; j < accts.length; j++) {
+            if (accts[j].is_active) {
+                paidThrough.push({
+                    account_id:   accts[j].account_id,
+                    account_name: accts[j].account_name,
+                    account_type: accts[j].account_type
+                });
+            }
+        }
+
+        return jsonOk({ categories: categories, paid_through: paidThrough });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching expense form data: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/expenses
+// Lists recent expenses from Zoho Books. Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceExpenses(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var res = await zohoBankingFetch(zohoAuth, "GET", "expenses?per_page=25&sort_column=created_time&sort_order=D");
+        if (!res.ok) {
+            return jsonErr("Zoho expenses error: " + (res.data.message || JSON.stringify(res.data)), 502);
+        }
+
+        var raw = res.data.expenses || [];
+        var expenses = [];
+        for (var i = 0; i < raw.length; i++) {
+            expenses.push({
+                expense_id:                raw[i].expense_id,
+                date:                      raw[i].date,
+                description:               raw[i].description || "",
+                account_name:              raw[i].account_name || "",
+                paid_through_account_name: raw[i].paid_through_account_name || "",
+                total:                     raw[i].total
+            });
+        }
+
+        return jsonOk({ expenses: expenses });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching expenses: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance/expenses
+// Body: { description, amount, date, account_id, paid_through_account_id }
+// Creates a real expense in Zoho Books. account_id is the expense-category
+// account; paid_through_account_id is REQUIRED by Zoho (confirmed live
+// 2026-07-06: create succeeds only with all of date/amount/account_id/
+// paid_through_account_id). Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceExpense(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var amount = parseFloat(body.amount);
+        if (!amount || amount <= 0) { return jsonErr("amount must be a positive number", 400); }
+        if (!body.date || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)) { return jsonErr("date is required (YYYY-MM-DD)", 400); }
+        if (!body.account_id) { return jsonErr("account_id (expense category) is required", 400); }
+        if (!body.paid_through_account_id) { return jsonErr("paid_through_account_id is required", 400); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var res = await zohoBankingFetch(zohoAuth, "POST", "expenses", {
+            date:                    body.date,
+            amount:                  amount,
+            account_id:              String(body.account_id),
+            paid_through_account_id: String(body.paid_through_account_id),
+            description:             (body.description || "").slice(0, 100)
+        });
+        if (!res.ok) {
+            return jsonErr("Zoho expense creation failed: " + (res.data.message || JSON.stringify(res.data)), 502);
+        }
+
+        var exp = res.data.expense || {};
+        return jsonOk({
+            expense_id:   exp.expense_id,
+            date:         exp.date,
+            total:        exp.total,
+            account_name: exp.account_name,
+            description:  exp.description
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error creating expense: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Routes: GET/PUT /api/clients/:id/zoho-contact
+// GET returns the client's Zoho contact details (email/phone live on the
+// primary contact person; billing address on the contact itself).
+// PUT updates them. Zoho's update replaces the contact_persons list, so the
+// handler re-sends every existing person and only edits the primary one
+// (confirmed live 2026-07-06: top-level email in the PUT body is silently
+// ignored; only contact_persons carries email/phone).
+// Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientZohoContact(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var clientRow = await env.DB.prepare(
+            "SELECT id, name, zoho_customer_id FROM clients WHERE id = ?"
+        ).bind(clientId).first();
+        if (!clientRow) { return jsonErr("Client not found", 404); }
+        if (!clientRow.zoho_customer_id) {
+            return jsonErr("This client has no Zoho contact yet. Use the re-sync tool first.", 400);
+        }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var res = await zohoBankingFetch(zohoAuth, "GET", "contacts/" + encodeURIComponent(clientRow.zoho_customer_id));
+        if (!res.ok) {
+            return jsonErr("Zoho contact fetch failed: " + (res.data.message || JSON.stringify(res.data)), 502);
+        }
+
+        var c = res.data.contact || {};
+        var ba = c.billing_address || {};
+        return jsonOk({
+            client_id:    clientId,
+            contact_id:   c.contact_id,
+            contact_name: c.contact_name,
+            email:        c.email || "",
+            phone:        c.phone || "",
+            billing_address: {
+                address: ba.address || "",
+                street2: ba.street2 || "",
+                city:    ba.city    || "",
+                state:   ba.state   || "",
+                zip:     ba.zip     || "",
+                country: ba.country || ""
+            }
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching Zoho contact: " + e.message, 500);
+    }
+}
+
+async function handlePutClientZohoContact(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+
+        var clientRow = await env.DB.prepare(
+            "SELECT id, name, zoho_customer_id FROM clients WHERE id = ?"
+        ).bind(clientId).first();
+        if (!clientRow) { return jsonErr("Client not found", 404); }
+        if (!clientRow.zoho_customer_id) {
+            return jsonErr("This client has no Zoho contact yet. Use the re-sync tool first.", 400);
+        }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var zohoId = encodeURIComponent(clientRow.zoho_customer_id);
+
+        // Fetch current contact first: the PUT replaces contact_persons wholesale,
+        // so every existing person must be re-sent to avoid deleting them.
+        var curRes = await zohoBankingFetch(zohoAuth, "GET", "contacts/" + zohoId);
+        if (!curRes.ok) {
+            return jsonErr("Zoho contact fetch failed: " + (curRes.data.message || JSON.stringify(curRes.data)), 502);
+        }
+        var cur = curRes.data.contact || {};
+
+        var persons = [];
+        var existing = cur.contact_persons || [];
+        var primaryFound = false;
+        for (var i = 0; i < existing.length; i++) {
+            var p = existing[i];
+            var entry = {
+                contact_person_id:  p.contact_person_id,
+                first_name:         p.first_name || "",
+                last_name:          p.last_name  || "",
+                email:              p.email      || "",
+                phone:              p.phone      || "",
+                mobile:             p.mobile     || "",
+                is_primary_contact: !!p.is_primary_contact
+            };
+            if (p.is_primary_contact) {
+                primaryFound = true;
+                if (body.hasOwnProperty("email")) { entry.email = body.email || ""; }
+                if (body.hasOwnProperty("phone")) { entry.phone = body.phone || ""; }
+            }
+            persons.push(entry);
+        }
+        if (!primaryFound && (body.email || body.phone)) {
+            persons.push({
+                first_name:         cur.contact_name || clientRow.name,
+                email:              body.email || "",
+                phone:              body.phone || "",
+                is_primary_contact: true
+            });
+        }
+
+        var updateBody = {
+            contact_name:    cur.contact_name,
+            contact_persons: persons
+        };
+        if (body.billing_address) {
+            var ba = body.billing_address;
+            updateBody.billing_address = {
+                address: ba.address || "",
+                street2: ba.street2 || "",
+                city:    ba.city    || "",
+                state:   ba.state   || "",
+                zip:     ba.zip     || "",
+                country: ba.country || ""
+            };
+        }
+
+        var res = await zohoBankingFetch(zohoAuth, "PUT", "contacts/" + zohoId, updateBody);
+        if (!res.ok) {
+            return jsonErr("Zoho contact update failed: " + (res.data.message || JSON.stringify(res.data)), 502);
+        }
+
+        var c = res.data.contact || {};
+        var nba = c.billing_address || {};
+        return jsonOk({
+            client_id:    clientId,
+            contact_id:   c.contact_id,
+            contact_name: c.contact_name,
+            email:        c.email || "",
+            phone:        c.phone || "",
+            billing_address: {
+                address: nba.address || "",
+                street2: nba.street2 || "",
+                city:    nba.city    || "",
+                state:   nba.state   || "",
+                zip:     nba.zip     || "",
+                country: nba.country || ""
+            }
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error updating Zoho contact: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Routes: GET /api/zoho/contacts/resync-status, POST /api/zoho/contacts/resync
+// Status: counts clients with no zoho_customer_id. Resync: attempts to create
+// a Zoho contact for each such client (same call as handlePostClients'
+// auto-create) and writes the new id back to D1. Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetZohoContactsResyncStatus(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, name FROM clients WHERE zoho_customer_id IS NULL OR zoho_customer_id = '' ORDER BY name ASC"
+        ).all();
+        var rows = res.results || [];
+        return jsonOk({ missing: rows.length, clients: rows });
+    } catch (e) {
+        return jsonErr("Error checking resync status: " + e.message, 500);
+    }
+}
+
+async function handlePostZohoContactsResync(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, name FROM clients WHERE zoho_customer_id IS NULL OR zoho_customer_id = '' ORDER BY name ASC"
+        ).all();
+        var rows = res.results || [];
+        if (rows.length === 0) {
+            return jsonOk({ attempted: 0, succeeded: 0, failed: 0, results: [] });
+        }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var results = [];
+        var succeeded = 0;
+        var failed = 0;
+        for (var i = 0; i < rows.length; i++) {
+            try {
+                var contactRes = await zohoBankingFetch(zohoAuth, "POST", "contacts", {
+                    contact_name: rows[i].name
+                });
+                if (contactRes.ok && contactRes.data.contact && contactRes.data.contact.contact_id) {
+                    var zohoCustomerId = String(contactRes.data.contact.contact_id);
+                    await env.DB.prepare("UPDATE clients SET zoho_customer_id = ? WHERE id = ?")
+                        .bind(zohoCustomerId, rows[i].id).run();
+                    succeeded++;
+                    results.push({ client_id: rows[i].id, name: rows[i].name, ok: true, zoho_customer_id: zohoCustomerId });
+                } else {
+                    failed++;
+                    results.push({
+                        client_id: rows[i].id, name: rows[i].name, ok: false,
+                        error: (contactRes.data && (contactRes.data.message || JSON.stringify(contactRes.data))) || "Unknown Zoho error"
+                    });
+                }
+            } catch (zohoErr) {
+                failed++;
+                results.push({ client_id: rows[i].id, name: rows[i].name, ok: false, error: zohoErr.message });
+            }
+        }
+
+        return jsonOk({ attempted: rows.length, succeeded: succeeded, failed: failed, results: results });
+    } catch (e) {
+        return jsonErr("Error re-syncing Zoho contacts: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
@@ -3765,6 +4206,12 @@ export default {
         if (path === "/api/finance/subscriptions"    && method === "GET")  { return handleGetFinanceSubscriptions(request, env); }
         if (path === "/api/finance/subscriptions"    && method === "POST") { return handlePostFinanceSubscriptions(request, env); }
         if (path === "/api/finance/reconciliation"   && method === "GET")  { return handleGetFinanceReconciliation(request, env); }
+        if (path === "/api/finance/bank-status"       && method === "GET")  { return handleGetFinanceBankStatus(request, env); }
+        if (path === "/api/finance/expense-form-data" && method === "GET")  { return handleGetFinanceExpenseFormData(request, env); }
+        if (path === "/api/finance/expenses"          && method === "GET")  { return handleGetFinanceExpenses(request, env); }
+        if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
+        if (path === "/api/zoho/contacts/resync-status" && method === "GET")  { return handleGetZohoContactsResyncStatus(request, env); }
+        if (path === "/api/zoho/contacts/resync"        && method === "POST") { return handlePostZohoContactsResync(request, env); }
 
         // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client, /api/sessions/:id/whatsapp
         var segs = path.replace(/^\//, "").split("/");
@@ -3840,6 +4287,10 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "invoices" && method === "GET") {
                 return handleGetClientInvoices(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "zoho-contact") {
+                if (method === "GET") { return handleGetClientZohoContact(cid, request, env); }
+                if (method === "PUT") { return handlePutClientZohoContact(cid, request, env); }
             }
         }
 

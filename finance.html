@@ -887,6 +887,54 @@
       flex-direction: column;
       gap: 14px;
     }
+
+    /* ─── Invoice item editor modal (native, draft-only) ────────────────── */
+    #invoiceEditorOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      background: rgba(20, 18, 16, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #invoiceEditorOverlay[hidden] { display: none !important; }
+
+    #invoiceEditorModal {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(26,26,29,0.22);
+      padding: 28px 28px 22px;
+      max-width: 640px;
+      width: 92%;
+      max-height: 85vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #invoiceEditorNumber {
+      display: block;
+      font-size: 12px;
+      font-weight: 400;
+      color: #6b6660;
+      margin-top: 2px;
+    }
+
+    .item-editor-row {
+      display: grid;
+      grid-template-columns: 3fr 2fr 70px 90px;
+      gap: 8px;
+      align-items: center;
+    }
+    .item-editor-row + .item-editor-row { margin-top: 8px; }
+    .item-editor-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: #6b6660;
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body class="lang-pt">
@@ -1029,6 +1077,28 @@
         <button type="button" class="btn-pricing-go" id="reconMatchConfirmBtn" onclick="confirmReconMatch()" disabled>
           <span class="show-pt">Vincular</span>
           <span class="show-en">Match</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ INVOICE ITEM EDITOR MODAL (draft invoices) ══════════ -->
+  <div id="invoiceEditorOverlay" hidden>
+    <div id="invoiceEditorModal" role="dialog" aria-modal="true">
+      <div class="pricing-modal-title">
+        <span class="show-pt">Editar Fatura</span>
+        <span class="show-en">Edit Invoice</span>
+        <span id="invoiceEditorNumber"></span>
+      </div>
+      <div id="invoiceEditorBody"></div>
+      <div class="pricing-modal-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="closeInvoiceEditor()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <button type="button" class="btn-pricing-go" id="invoiceEditorSaveBtn" onclick="saveInvoiceEditor()">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
         </button>
       </div>
     </div>
@@ -2192,7 +2262,8 @@
         listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma fatura encontrada</span><span class="show-en">No invoices found</span></div>';
         return;
       }
-      var isDraft = (tab === "draft");
+      var isDraft  = (tab === "draft");
+      var isUnpaid = (tab === "unpaid");
       var html = '<table class="inv-table"><thead><tr>';
       html += '<th>#</th>';
       html += '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>';
@@ -2200,7 +2271,8 @@
       html += '<th><span class="show-pt">Vencimento</span><span class="show-en">Due Date</span></th>';
       html += '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>';
       html += '<th></th>';
-      if (isDraft) { html += '<th></th>'; html += '<th></th>'; }
+      if (isDraft)  { html += '<th></th>'; html += '<th></th>'; }
+      if (isUnpaid) { html += '<th></th>'; }
       html += '</tr></thead><tbody>';
       for (var i = 0; i < invoices.length; i++) {
         var inv = invoices[i];
@@ -2221,10 +2293,14 @@
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';
         if (isDraft) {
-          var zohoEditPath = "https://books.zoho.com/app/929994947#/invoices/" + encodeURIComponent(inv.invoice_id);
-          html += '<td><a class="btn-inv-view" href="' + escHtml(zohoEditPath) + '" target="_blank" rel="noopener">';
+          html += '<td><button class="btn-inv-view" onclick="openInvoiceEditor(\'' + escHtml(inv.invoice_id) + '\')">';
           html += '<span class="show-pt">Editar</span><span class="show-en">Edit</span>';
-          html += '</a></td>';
+          html += '</button></td>';
+          html += '<td><button class="btn-inv-whatsapp" id="finalizeBtn' + escHtml(inv.invoice_id) + '" onclick="finalizeInvoice(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += '<span class="show-pt">Finalizar</span><span class="show-en">Finalize</span>';
+          html += '</button></td>';
+        }
+        if (isUnpaid) {
           html += '<td><button class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
           html += '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>';
           html += '</button></td>';
@@ -2247,11 +2323,33 @@
 
     var pendingSend = null;
 
-    function sendInvoiceWhatsApp(invoiceId, invoiceLink) {
-      var btn = document.getElementById("waBtn" + invoiceId);
+    // Finalizar (draft tab): marks the invoice as sent in Zoho only.
+    // Does NOT open WhatsApp or any window. Moves the invoice from
+    // Rascunho to Nao Pagas via the existing tab-filtering logic.
+    function finalizeInvoice(invoiceId) {
+      var btn = document.getElementById("finalizeBtn" + invoiceId);
       if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
 
+      apiFetch("/api/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          showToast("Fatura marcada como enviada / Invoice marked as sent");
+          setTimeout(function() { switchInvoiceTab("unpaid"); }, 1200);
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+          showToast("Erro: " + (e.message || "Falha ao enviar"));
+        });
+    }
+
+    // Enviar via WhatsApp (unpaid tab): opens WhatsApp with the invoice link.
+    // window.open() is called synchronously as the first line, before any
+    // await, so browsers do not treat it as a blocked popup.
+    function sendInvoiceWhatsApp(invoiceId, invoiceLink) {
+      var btn = document.getElementById("waBtn" + invoiceId);
       var waWindow = window.open("", "_blank");
+      if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
 
       apiFetch("/api/invoices/" + invoiceId + "/package-check")
         .then(function(res) { return res.json(); })
@@ -2286,25 +2384,14 @@
     }
 
     function doSendInvoiceWhatsApp(invoiceId, invoiceLink, btn, waWindow) {
-      return apiFetch("/api/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          var message = "Ola! Segue a fatura para sua aprovacao:\n" + invoiceLink;
-          var waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
-          if (waWindow) {
-            waWindow.location.href = waUrl;
-          } else {
-            window.open(waUrl, "_blank");
-          }
-          showToast("Fatura marcada como enviada / Invoice marked as sent");
-          setTimeout(function() { switchInvoiceTab("unpaid"); }, 1200);
-        })
-        .catch(function(e) {
-          if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
-          if (waWindow) { waWindow.close(); }
-          showToast("Erro: " + (e.message || "Falha ao enviar"));
-        });
+      var message = "Ola! Segue a fatura para sua aprovacao:\n" + invoiceLink;
+      var waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
+      if (waWindow) {
+        waWindow.location.href = waUrl;
+      } else {
+        window.open(waUrl, "_blank");
+      }
+      if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
     }
 
     function openPaymentWarnConfirm() {
@@ -2332,6 +2419,99 @@
       if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
       var waWindow = window.open("", "_blank");
       doSendInvoiceWhatsApp(invoiceId, invoiceLink, btn, waWindow);
+    }
+
+    // ── Native invoice item editor (draft-only, in-app, never Zoho-hosted) ──
+
+    var invoiceEditorInvoiceId = null;
+    var invoiceEditorItems = null;
+
+    function openInvoiceEditor(invoiceId) {
+      invoiceEditorInvoiceId = invoiceId;
+      invoiceEditorItems = null;
+      var overlay = document.getElementById("invoiceEditorOverlay");
+      var body = document.getElementById("invoiceEditorBody");
+      var numberEl = document.getElementById("invoiceEditorNumber");
+      if (numberEl) { numberEl.textContent = ""; }
+      if (body) { body.innerHTML = '<div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto;"></div></div>'; }
+      if (overlay) { overlay.hidden = false; }
+
+      apiFetch("/api/invoices/" + invoiceId + "/items")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          invoiceEditorItems = data.line_items || [];
+          if (numberEl) { numberEl.textContent = data.invoice_number ? ("#" + data.invoice_number) : ""; }
+          renderInvoiceEditorRows();
+        })
+        .catch(function(e) {
+          if (body) {
+            body.innerHTML = '<div class="empty-state">' + escHtml(e.message || "Erro ao carregar fatura / Error loading invoice") + '</div>';
+          }
+        });
+    }
+
+    function renderInvoiceEditorRows() {
+      var body = document.getElementById("invoiceEditorBody");
+      if (!body || !invoiceEditorItems) { return; }
+      var html = '<div class="item-editor-row item-editor-header">';
+      html += '<div><span class="show-pt">Descricao</span><span class="show-en">Description</span></div>';
+      html += '<div><span class="show-pt">Detalhes</span><span class="show-en">Details</span></div>';
+      html += '<div><span class="show-pt">Qtd</span><span class="show-en">Qty</span></div>';
+      html += '<div><span class="show-pt">Valor</span><span class="show-en">Rate</span></div>';
+      html += '</div>';
+      for (var i = 0; i < invoiceEditorItems.length; i++) {
+        var li = invoiceEditorItems[i];
+        html += '<div class="item-editor-row">';
+        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="name" value="' + escHtml(li.name) + '" onchange="onInvoiceEditorFieldChange(this)">';
+        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="description" value="' + escHtml(li.description) + '" onchange="onInvoiceEditorFieldChange(this)">';
+        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="quantity" value="' + escHtml(String(li.quantity)) + '" min="0" step="1" onchange="onInvoiceEditorFieldChange(this)">';
+        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="rate" value="' + escHtml(String(li.rate)) + '" min="0" step="0.01" onchange="onInvoiceEditorFieldChange(this)">';
+        html += '</div>';
+      }
+      body.innerHTML = html;
+    }
+
+    function onInvoiceEditorFieldChange(el) {
+      if (!invoiceEditorItems) { return; }
+      var idx = parseInt(el.getAttribute("data-idx"), 10);
+      var field = el.getAttribute("data-field");
+      if (isNaN(idx) || !invoiceEditorItems[idx]) { return; }
+      if (field === "quantity" || field === "rate") {
+        invoiceEditorItems[idx][field] = parseFloat(el.value) || 0;
+      } else {
+        invoiceEditorItems[idx][field] = el.value;
+      }
+    }
+
+    function closeInvoiceEditor() {
+      var overlay = document.getElementById("invoiceEditorOverlay");
+      if (overlay) { overlay.hidden = true; }
+      invoiceEditorInvoiceId = null;
+      invoiceEditorItems = null;
+    }
+
+    function saveInvoiceEditor() {
+      if (!invoiceEditorInvoiceId || !invoiceEditorItems) { return; }
+      var saveBtn = document.getElementById("invoiceEditorSaveBtn");
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = "0.5"; }
+
+      apiFetch("/api/invoices/" + invoiceEditorInvoiceId + "/items", {
+        method: "PUT",
+        body: { line_items: invoiceEditorItems }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
+          showToast("Fatura atualizada / Invoice updated");
+          closeInvoiceEditor();
+          loadInvoices(currentInvoiceTab);
+        })
+        .catch(function(e) {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
+          showToast("Erro: " + (e.message || "Falha ao salvar"));
+        });
     }
 
     // ── Conciliacao (bank reconciliation) ──────────────────────────────────

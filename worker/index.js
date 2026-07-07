@@ -3038,6 +3038,164 @@ async function handlePostInvoiceMarkSent(zohoInvoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/invoices/:zoho_invoice_id/items
+// Returns the raw editable line items for a draft invoice (native in-app
+// editor). Only allowed while the invoice is still a draft.
+// Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetInvoiceItems(zohoInvoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var invUrl = "https://www.zohoapis.com/books/v3/invoices/" + zohoInvoiceId +
+            "?organization_id=" + zohoAuth.organization_id;
+        var ctrl = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, 15000);
+        var res;
+        try {
+            res = await fetch(invUrl, {
+                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                signal: ctrl.signal
+            });
+        } finally {
+            clearTimeout(timer);
+        }
+        var data = await res.json();
+        if (!res.ok || data.code !== 0) {
+            return jsonErr("Zoho invoice fetch failed: " + (data.message || JSON.stringify(data)), 502);
+        }
+
+        var inv = data.invoice;
+        if (inv.status !== "draft") {
+            return jsonErr("Invoice is not a draft; line items can only be edited while in draft status", 400);
+        }
+
+        var lineItems = (inv.line_items || []).map(function(li) {
+            return {
+                line_item_id: li.line_item_id,
+                name:         li.name || "",
+                description:  li.description || "",
+                quantity:     li.quantity !== undefined ? li.quantity : 1,
+                rate:         li.rate !== undefined ? li.rate : 0
+            };
+        });
+
+        return jsonOk({
+            ok:             true,
+            invoice_id:     inv.invoice_id,
+            invoice_number: inv.invoice_number,
+            status:         inv.status,
+            line_items:     lineItems
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching invoice items: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/invoices/:zoho_invoice_id/items
+// Updates a draft invoice's line items in Zoho Books. Body: { line_items: [...] }
+// Only allowed while the invoice is still a draft (checked server-side).
+// Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handlePutInvoiceItems(zohoInvoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var lineItems = body && body.line_items;
+        if (!Array.isArray(lineItems) || lineItems.length === 0) {
+            return jsonErr("line_items array is required", 400);
+        }
+        for (var i = 0; i < lineItems.length; i++) {
+            if (!lineItems[i].name) { return jsonErr("Each line item requires a name", 400); }
+        }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // Confirm the invoice is still a draft before allowing an edit.
+        var invUrl = "https://www.zohoapis.com/books/v3/invoices/" + zohoInvoiceId +
+            "?organization_id=" + zohoAuth.organization_id;
+        var checkCtrl = new AbortController();
+        var checkTimer = setTimeout(function() { checkCtrl.abort(); }, 15000);
+        var checkRes;
+        try {
+            checkRes = await fetch(invUrl, {
+                headers: { "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token },
+                signal: checkCtrl.signal
+            });
+        } finally {
+            clearTimeout(checkTimer);
+        }
+        var checkData = await checkRes.json();
+        if (!checkRes.ok || checkData.code !== 0) {
+            return jsonErr("Zoho invoice fetch failed: " + (checkData.message || JSON.stringify(checkData)), 502);
+        }
+        if (checkData.invoice.status !== "draft") {
+            return jsonErr("Invoice is not a draft; line items can only be edited while in draft status", 400);
+        }
+
+        var updatePayload = {
+            line_items: lineItems.map(function(li) {
+                var out = {
+                    name:        li.name,
+                    description: li.description || "",
+                    quantity:    li.quantity !== undefined ? li.quantity : 1,
+                    rate:        li.rate !== undefined ? li.rate : 0
+                };
+                if (li.line_item_id) { out.line_item_id = li.line_item_id; }
+                return out;
+            })
+        };
+
+        var updCtrl = new AbortController();
+        var updTimer = setTimeout(function() { updCtrl.abort(); }, 15000);
+        var updRes;
+        try {
+            updRes = await fetch(invUrl, {
+                method:  "PUT",
+                headers: {
+                    "Authorization": "Zoho-oauthtoken " + zohoAuth.access_token,
+                    "Content-Type":  "application/json"
+                },
+                body:    JSON.stringify(updatePayload),
+                signal:  updCtrl.signal
+            });
+        } finally {
+            clearTimeout(updTimer);
+        }
+        var updData = await updRes.json();
+        if (!updRes.ok || updData.code !== 0) {
+            return jsonErr("Zoho invoice update failed: " + (updData.message || JSON.stringify(updData)), 502);
+        }
+
+        return jsonOk({ ok: true, invoice_id: zohoInvoiceId, message: updData.message || "Invoice updated" });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error updating invoice items: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Bank reconciliation — Zoho Books Banking API
 // Shared helper: zohoBankingFetch(zohoAuth, method, pathAndQuery, body)
 // pathAndQuery is relative to https://www.zohoapis.com/books/v3/ and must NOT
@@ -3737,6 +3895,14 @@ export default {
         // /api/invoices/:zoho_invoice_id/render-data  GET
         if (segs[0] === "api" && segs[1] === "invoices" && segs[2] && segs[3] === "render-data" && method === "GET") {
             return handleGetInvoiceRenderData(segs[2], request, env);
+        }
+
+        // /api/invoices/:zoho_invoice_id/items  GET / PUT
+        if (segs[0] === "api" && segs[1] === "invoices" && segs[2] && segs[3] === "items" && method === "GET") {
+            return handleGetInvoiceItems(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "invoices" && segs[2] && segs[3] === "items" && method === "PUT") {
+            return handlePutInvoiceItems(segs[2], request, env);
         }
 
         return jsonErr("Not found", 404);

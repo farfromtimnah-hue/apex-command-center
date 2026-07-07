@@ -2461,11 +2461,19 @@
     }
 
     function reconUnmatch(txnId) {
-      reconAction(txnId, "unmatch", "Transacao desvinculada / Transaction unmatched");
+      var cachedTxn = reconTxCache[txnId];
+      var accountId = cachedTxn ? cachedTxn.account_id : null;
+      var importedId = cachedTxn ? cachedTxn.imported_transaction_id : null;
+      reconAction(txnId, "unmatch", "Transacao desvinculada / Transaction unmatched", accountId, importedId);
     }
 
-    function reconAction(txnId, action, toastMsg) {
-      apiFetch("/api/finance/reconciliation/" + txnId + "/" + action, { method: "POST" })
+    function reconAction(txnId, action, toastMsg, accountId, importedId) {
+      var opts = { method: "POST" };
+      if (accountId) {
+        opts.body = { account_id: accountId };
+        if (importedId) { opts.body.imported_transaction_id = importedId; }
+      }
+      apiFetch("/api/finance/reconciliation/" + txnId + "/" + action, opts)
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }

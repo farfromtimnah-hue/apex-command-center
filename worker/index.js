@@ -3107,16 +3107,17 @@ async function handleGetFinanceReconciliation(request, env) {
             var raw = txRes.data.banktransactions || [];
             for (var t = 0; t < raw.length; t++) {
                 transactions.push({
-                    transaction_id:   raw[t].transaction_id,
-                    date:             raw[t].date,
-                    amount:           raw[t].amount,
-                    description:      raw[t].description || "",
-                    payee:            raw[t].payee || "",
-                    customer_id:      raw[t].customer_id || "",
-                    status:           raw[t].status,
-                    transaction_type: raw[t].transaction_type,
-                    account_id:       raw[t].account_id,
-                    account_name:     raw[t].account_name || ""
+                    transaction_id:          raw[t].transaction_id,
+                    imported_transaction_id: raw[t].imported_transaction_id || "",
+                    date:                    raw[t].date,
+                    amount:                  raw[t].amount,
+                    description:             raw[t].description || "",
+                    payee:                   raw[t].payee || "",
+                    customer_id:             raw[t].customer_id || "",
+                    status:                  raw[t].status,
+                    transaction_type:        raw[t].transaction_type,
+                    account_id:              raw[t].account_id,
+                    account_name:            raw[t].account_name || ""
                 });
             }
         }
@@ -3221,11 +3222,25 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
 // restore — undo an exclude
 // unmatch — undo a categorize/match. Confirmed live 2026-07-06: lines
 // categorized via categorize/customerpayments must be reversed with
-// POST banktransactions/:id/uncategorize?account_id=... (unmatch returns Zoho
-// code 108023 "Only matched statement lines can be unmatched"); true matched
-// lines use POST banktransactions/:id/unmatch?account_id=... — both require
-// account_id as a query param (code 4 without it), so the transaction is
-// fetched first to read its account_id and status.
+// POST banktransactions/:id/uncategorize?account_id=..., and account_id is
+// REQUIRED as a query param (code 4 without it). GET banktransactions/:id is
+// NOT used to resolve account_id — same as the match-invoice fix, it does not
+// reliably resolve transactions originating from statement-import lines
+// ("Transaction does not exist" — confirmed live 2026-07-06). account_id is
+// instead sent by the frontend from its cached transaction record.
+//
+// SECOND bug found + fixed live 2026-07-06: for transactions that originated
+// from an imported bank statement line, uncategorize (and unmatch) must be
+// called with the transaction's imported_transaction_id, NOT its
+// transaction_id -- calling with transaction_id returns Zoho code 108005
+// "The transaction(s) you are looking for does not exist." even though the
+// same transaction_id appears fine in GET banktransactions (list). Confirmed
+// live: transaction_id 455783000000112003 (imported_transaction_id
+// 455783000000116004) failed uncategorize with transaction_id, succeeded
+// immediately with imported_transaction_id. The frontend now sends
+// imported_transaction_id alongside account_id; falls back to the URL
+// transaction_id for transactions with no imported_transaction_id (e.g.
+// manually-added, non-statement-import transactions).
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -3252,14 +3267,12 @@ async function handlePostReconciliationAction(transactionId, action, request, en
         } else if (action === "restore") {
             zohoPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/restore";
         } else {
-            var txRes = await zohoBankingFetch(zohoAuth, "GET", "banktransactions/" + encodeURIComponent(transactionId));
-            if (!txRes.ok) {
-                return jsonErr("Zoho transaction fetch failed: " + (txRes.data.message || JSON.stringify(txRes.data)), 502);
-            }
-            var txn = txRes.data.banktransaction || {};
-            var verb = (txn.status === "matched") ? "unmatch" : "uncategorize";
-            zohoPath = "banktransactions/" + encodeURIComponent(transactionId) + "/" + verb +
-                "?account_id=" + encodeURIComponent(txn.account_id || "");
+            var body = {};
+            try { body = await request.json(); } catch (e) {}
+            if (!body.account_id) { return jsonErr("account_id is required", 400); }
+            var reverseId = body.imported_transaction_id || transactionId;
+            zohoPath = "banktransactions/" + encodeURIComponent(reverseId) + "/uncategorize" +
+                "?account_id=" + encodeURIComponent(body.account_id);
         }
 
         var res = await zohoBankingFetch(zohoAuth, "POST", zohoPath);

@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex — Vendas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --brown:    #7a5c2e;
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Bilingual ───────────────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge {
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .btn-header {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
+      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn {
+      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ── Loading screen ──────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── App main ────────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Hero photo section ──────────────────────────────────────────────── */
+    .hero-section {
+      position: relative;
+      padding: 32px 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    #heroBgImage {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #heroBgImage.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #heroBgScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ── Glass tiles ─────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 20px 24px;
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .glass-tile-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 34px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .glass-tile-value.is-gold { color: var(--gold); }
+
+    .glass-tile-sub {
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Below-hero section ──────────────────────────────────────────────── */
+    .below-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .below-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .month-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .month-picker-wrap input[type="month"] {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--card);
+    }
+    .month-picker-wrap input[type="month"]:focus { outline: none; border-color: var(--gold); }
+
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    /* ── Ranking chart rows ──────────────────────────────────────────────── */
+    .rank-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 13px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .rank-row:last-child { border-bottom: none; }
+
+    .rank-row.is-top3 {
+      background: linear-gradient(90deg, rgba(201,164,58,0.10), rgba(201,164,58,0.02));
+    }
+
+    .rank-badge {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .rank-row.is-top3 .rank-badge {
+      background: var(--gold-dim);
+      border-color: var(--gold);
+      color: var(--brown);
+    }
+    .rank-row.is-rank1 .rank-badge {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #fff;
+    }
+
+    .rank-name-wrap {
+      width: 220px;
+      min-width: 120px;
+      flex-shrink: 0;
+    }
+    .rank-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .rank-name a { color: inherit; text-decoration: none; }
+    .rank-name a:hover { color: var(--brown); }
+
+    .rank-bar-wrap {
+      flex: 1;
+      height: 18px;
+      background: var(--surface);
+      border-radius: 9px;
+      overflow: hidden;
+      position: relative;
+    }
+    .rank-bar {
+      height: 100%;
+      border-radius: 9px;
+      background: #d8d2c8;
+      transition: width 0.4s ease;
+    }
+    .rank-row.is-top3 .rank-bar { background: rgba(201,164,58,0.55); }
+    .rank-row.is-rank1 .rank-bar { background: var(--gold); }
+    .rank-bar.is-negative { background: #d9a5a5; }
+
+    .rank-pct {
+      width: 90px;
+      flex-shrink: 0;
+      text-align: right;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .rank-row.is-top3 .rank-pct { color: var(--brown); }
+    .rank-row.is-rank1 .rank-pct { color: var(--gold); }
+    .rank-pct.is-negative { color: #b44040; }
+    .rank-pct.is-empty { color: var(--muted); font-weight: 500; font-size: 12px; }
+
+    /* ── Empty / error states ────────────────────────────────────────────── */
+    .empty-state {
+      padding: 52px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .error-msg {
+      padding: 20px;
+      color: #b44040;
+      font-size: 13px;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .hero-section { padding: 20px 16px; }
+      .below-section { padding: 16px; }
+      .glass-tile { min-width: 100px; }
+      .rank-name-wrap { width: 110px; }
+      .rank-pct { width: 64px; font-size: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #heroBgImage.is-loaded { animation: none; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+      <div id="loadingScreen">
+        <div class="spinner"></div>
+        <span class="show-pt">Carregando...</span>
+        <span class="show-en">Loading...</span>
+      </div>
+      <main id="appMain" hidden>
+
+        <!-- Hero section with background photo and glass tiles -->
+        <div class="hero-section">
+          <div id="heroBgImage" aria-hidden="true"></div>
+          <div id="heroBgScrim" aria-hidden="true"></div>
+          <div class="hero-content">
+            <h1 class="page-heading-hero">
+              <span class="show-pt">Vendas</span>
+              <span class="show-en">Sales</span>
+            </h1>
+            <div class="glass-tile-row">
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Crescimento M&eacute;dio</span>
+                  <span class="show-en">Average Growth</span>
+                </div>
+                <div class="glass-tile-value is-gold" id="statAvg">--</div>
+                <div class="glass-tile-sub" id="statAvgSub">
+                  <span class="show-pt">clientes com registro</span>
+                  <span class="show-en">clients with entries</span>
+                </div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Maior</span>
+                  <span class="show-en">Highest</span>
+                </div>
+                <div class="glass-tile-value" id="statHigh">--</div>
+                <div class="glass-tile-sub" id="statHighName">&nbsp;</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Menor</span>
+                  <span class="show-en">Lowest</span>
+                </div>
+                <div class="glass-tile-value" id="statLow">--</div>
+                <div class="glass-tile-sub" id="statLowName">&nbsp;</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Registrados</span>
+                  <span class="show-en">Entered</span>
+                </div>
+                <div class="glass-tile-value" id="statEntered">--</div>
+                <div class="glass-tile-sub">
+                  <span class="show-pt">clientes ativos com registro no m&ecirc;s</span>
+                  <span class="show-en">active clients entered this month</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ranking chart -->
+        <div class="below-section">
+          <div class="below-header-row">
+            <div class="section-title">
+              <span class="show-pt">Ranking de Crescimento</span>
+              <span class="show-en">Growth Ranking</span>
+            </div>
+            <div class="month-picker-wrap">
+              <span class="show-pt">M&ecirc;s:</span>
+              <span class="show-en">Month:</span>
+              <input type="month" id="monthPicker" onchange="loadRanking()">
+            </div>
+          </div>
+          <div class="content-card">
+            <div id="rankingContainer">
+              <div class="empty-state show-pt">Carregando ranking...</div>
+              <div class="empty-state show-en">Loading ranking...</div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script src="nav.js"></script>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var auth        = null;
+    var currentUser = null;
+
+    function handleSignOut() {
+      auth.signOut().then(function () {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        window.location.href = "index.html";
+      });
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function apiFetch(path) {
+      return getToken().then(function (token) {
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+      });
+    }
+
+    function escHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function () {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function () {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
+    /* ── Growth ranking ───────────────────────────────────────────────────── */
+
+    function currentMonthLabel() {
+      var now = new Date();
+      return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+    }
+
+    function formatGrowthPct(p) {
+      var n = Math.round(p * 10) / 10;
+      return (n > 0 ? "+" : "") + n + "%";
+    }
+
+    function loadRanking() {
+      var month = document.getElementById("monthPicker").value || currentMonthLabel();
+      apiFetch("/api/sales/growth-ranking?month=" + encodeURIComponent(month))
+        .then(function (res) {
+          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          return res.json();
+        })
+        .then(function (data) {
+          renderTiles(data.ranking || []);
+          renderRanking(data.ranking || []);
+        })
+        .catch(function (e) {
+          document.getElementById("rankingContainer").innerHTML =
+            '<div class="error-msg">Erro ao carregar ranking: ' + escHtml(e.message) + '</div>';
+        });
+    }
+
+    function renderTiles(rows) {
+      var entered = [];
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].growth_percent !== null && rows[i].growth_percent !== undefined) { entered.push(rows[i]); }
+      }
+
+      var avgEl  = document.getElementById("statAvg");
+      var highEl = document.getElementById("statHigh");
+      var lowEl  = document.getElementById("statLow");
+
+      if (entered.length === 0) {
+        avgEl.textContent  = "--";
+        highEl.textContent = "--";
+        lowEl.textContent  = "--";
+        document.getElementById("statHighName").innerHTML = "&nbsp;";
+        document.getElementById("statLowName").innerHTML  = "&nbsp;";
+      } else {
+        var sum = 0;
+        for (var j = 0; j < entered.length; j++) { sum += entered[j].growth_percent; }
+        // rows arrive sorted growth DESC with nulls last, so first/last entered = high/low
+        var high = entered[0];
+        var low  = entered[entered.length - 1];
+        avgEl.textContent  = formatGrowthPct(sum / entered.length);
+        highEl.textContent = formatGrowthPct(high.growth_percent);
+        lowEl.textContent  = formatGrowthPct(low.growth_percent);
+        document.getElementById("statHighName").textContent = high.name;
+        document.getElementById("statLowName").textContent  = low.name;
+      }
+
+      document.getElementById("statEntered").textContent = entered.length + "/" + rows.length;
+    }
+
+    function renderRanking(rows) {
+      var container = document.getElementById("rankingContainer");
+
+      if (rows.length === 0) {
+        container.innerHTML =
+          '<div class="empty-state">' +
+          '<span class="show-pt">Nenhum cliente ativo.</span>' +
+          '<span class="show-en">No active clients.</span></div>';
+        return;
+      }
+
+      var maxAbs = 0;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].growth_percent !== null && Math.abs(rows[i].growth_percent) > maxAbs) {
+          maxAbs = Math.abs(rows[i].growth_percent);
+        }
+      }
+
+      var html = "";
+      var rank = 0;
+      for (var j = 0; j < rows.length; j++) {
+        var r        = rows[j];
+        var hasEntry = r.growth_percent !== null && r.growth_percent !== undefined;
+        if (hasEntry) { rank++; }
+
+        var rowCls = "rank-row";
+        if (hasEntry && rank <= 3) { rowCls += " is-top3"; }
+        if (hasEntry && rank === 1) { rowCls += " is-rank1"; }
+
+        var barHtml = "";
+        var pctHtml = "";
+        if (hasEntry) {
+          var neg   = r.growth_percent < 0;
+          var width = maxAbs > 0 ? Math.max(2, Math.abs(r.growth_percent) / maxAbs * 100) : 2;
+          barHtml = '<div class="rank-bar' + (neg ? ' is-negative' : '') + '" style="width:' + width + '%;"></div>';
+          pctHtml = '<div class="rank-pct' + (neg ? ' is-negative' : '') + '">' + formatGrowthPct(r.growth_percent) + '</div>';
+        } else {
+          pctHtml = '<div class="rank-pct is-empty">' +
+            '<span class="show-pt">sem registro</span><span class="show-en">no entry</span></div>';
+        }
+
+        html +=
+          '<div class="' + rowCls + '">' +
+          '<div class="rank-badge">' + (hasEntry ? rank : "&ndash;") + '</div>' +
+          '<div class="rank-name-wrap"><div class="rank-name">' +
+          '<a href="client.html?id=' + encodeURIComponent(r.client_id) + '">' + escHtml(r.name) + '</a>' +
+          '</div></div>' +
+          '<div class="rank-bar-wrap">' + barHtml + '</div>' +
+          pctHtml +
+          '</div>';
+      }
+      container.innerHTML = html;
+    }
+
+    /* ── Page bootstrap ───────────────────────────────────────────────────── */
+
+    function setupPage(role) {
+      var emailEl = document.getElementById("headerEmail");
+      var roleEl  = document.getElementById("headerRole");
+      if (emailEl) { emailEl.textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : ""); }
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden       = false;
+
+      window.initNav && window.initNav();
+      initHeroBg("heroBgImage", "heroBgScrim");
+
+      document.getElementById("monthPicker").value = currentMonthLabel();
+      loadRanking();
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function (user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            setTimeout(function () {
+              if (!auth.currentUser) { window.location.href = "index.html"; }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        } else {
+          user.getIdToken().then(function (token) {
+            return fetch(WORKER_URL + "/api/role", { headers: { "Authorization": "Bearer " + token } });
+          }).then(function (res) { return res.json(); }).then(function (data) {
+            sessionStorage.setItem("apex_role",  data.role);
+            sessionStorage.setItem("apex_email", data.email);
+            setupPage(data.role);
+          }).catch(function () { window.location.href = "index.html"; });
+        }
+      });
+    }
+
+    window.onload = function () { init(); };
+  </script>
+</body>
+</html>

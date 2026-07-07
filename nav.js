@@ -23,6 +23,9 @@
     { key: "finance",   href: "finance.html",   icon: "finance",
       labelPt: "Financeiro",                   labelEn: "Financial",
       tipPt: "Financeiro",                     tipEn: "Financial" },
+    { key: "sales",     href: "sales.html",     icon: "trend",
+      labelPt: "Vendas",                       labelEn: "Sales",
+      tipPt: "Vendas",                         tipEn: "Sales" },
     { key: "settings",  href: "settings.html",  icon: "settings",
       labelPt: "Configura&ccedil;&otilde;es",  labelEn: "Settings",
       tipPt: "Configuracoes",                  tipEn: "Settings" }
@@ -35,6 +38,9 @@
     { key: "clients",   href: "clients.html",   icon: "users",
       labelPt: "Meus Clientes",                labelEn: "My Clients",
       tipPt: "Meus Clientes",                  tipEn: "My Clients" },
+    { key: "sales",     href: "sales.html",     icon: "trend",
+      labelPt: "Vendas",                       labelEn: "Sales",
+      tipPt: "Vendas",                         tipEn: "Sales" },
     { key: "sessions",  href: "sessions.html",  icon: "calendar",
       labelPt: "Sess&otilde;es",               labelEn: "Sessions",
       tipPt: "Sessoes",                        tipEn: "Sessions" },
@@ -66,6 +72,8 @@
       body = '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14" stroke-width="3"/><line x1="12" y1="14" x2="12" y2="14" stroke-width="3"/><line x1="16" y1="14" x2="16" y2="14" stroke-width="3"/><line x1="8" y1="18" x2="8" y2="18" stroke-width="3"/><line x1="12" y1="18" x2="12" y2="18" stroke-width="3"/>';
     } else if (type === "finance") {
       body = '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>';
+    } else if (type === "trend") {
+      body = '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>';
     } else if (type === "chevron-left") {
       body = '<polyline points="15 18 9 12 15 6"/>';
     } else if (type === "chevron-right") {

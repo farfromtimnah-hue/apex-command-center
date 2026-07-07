@@ -2955,6 +2955,36 @@ async function handlePostClientGrowth(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/sales/growth-ranking?month=YYYY-MM
+// All ACTIVE clients with their growth entry for the given month (null when
+// not yet entered), sorted by growth_percent descending — feeds the Sales
+// Dashboard ranking chart. Top-3 is derived from this order, never stored.
+// ---------------------------------------------------------------------------
+
+async function handleGetSalesGrowthRanking(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month") || "";
+        if (!/^\d{4}-\d{2}$/.test(month)) { return jsonErr("month must be YYYY-MM", 400); }
+
+        var rows = await env.DB.prepare(
+            "SELECT c.id AS client_id, c.name, g.growth_percent, g.entered_by, g.entered_at " +
+            "FROM clients c " +
+            "LEFT JOIN client_growth_entries g ON g.client_id = c.id AND g.month_label = ? " +
+            "WHERE c.status = 'active' " +
+            "ORDER BY (g.growth_percent IS NULL) ASC, g.growth_percent DESC, c.name ASC"
+        ).bind(month).all();
+
+        return jsonOk({ month: month, ranking: rows.results });
+    } catch (e) {
+        return jsonErr("Error fetching growth ranking: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance/statement-upload
 // Accepts a CSV or plain-text bank statement, sends to Claude, inserts parsed
 // transactions into bank_transactions with status='pending'.
@@ -4919,6 +4949,7 @@ export default {
         if (path === "/api/finance/expense-form-data" && method === "GET")  { return handleGetFinanceExpenseFormData(request, env); }
         if (path === "/api/finance/expenses"          && method === "GET")  { return handleGetFinanceExpenses(request, env); }
         if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
+        if (path === "/api/sales/growth-ranking"      && method === "GET")  { return handleGetSalesGrowthRanking(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
         if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }

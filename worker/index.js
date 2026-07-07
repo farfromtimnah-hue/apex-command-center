@@ -600,7 +600,29 @@ async function handlePostClients(request, env) {
             body.contacts   || null
         ).run();
 
-        return jsonOk({ client_id: clientId, name: body.name });
+        var result = { client_id: clientId, name: body.name };
+
+        // Auto-create a matching Zoho contact. A Zoho failure must never block
+        // client creation -- surfaced as a warning on the response instead.
+        try {
+            var zohoAuth = await getZohoAccessToken(env);
+            var contactRes = await zohoBankingFetch(zohoAuth, "POST", "contacts", {
+                contact_name: body.name
+            });
+            if (contactRes.ok && contactRes.data.contact && contactRes.data.contact.contact_id) {
+                var zohoCustomerId = String(contactRes.data.contact.contact_id);
+                await env.DB.prepare("UPDATE clients SET zoho_customer_id = ? WHERE id = ?")
+                    .bind(zohoCustomerId, clientId).run();
+                result.zoho_customer_id = zohoCustomerId;
+            } else {
+                result.zoho_warning = "Client created, but Zoho contact creation failed: " +
+                    (contactRes.data && (contactRes.data.message || JSON.stringify(contactRes.data)));
+            }
+        } catch (zohoErr) {
+            result.zoho_warning = "Client created, but Zoho contact creation failed: " + zohoErr.message;
+        }
+
+        return jsonOk(result);
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
     }

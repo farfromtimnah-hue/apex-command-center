@@ -2106,7 +2106,7 @@
       html += '<th><span class="show-pt">Vencimento</span><span class="show-en">Due Date</span></th>';
       html += '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>';
       html += '<th></th>';
-      if (isDraft) { html += '<th></th>'; }
+      if (isDraft) { html += '<th></th>'; html += '<th></th>'; }
       html += '</tr></thead><tbody>';
       for (var i = 0; i < invoices.length; i++) {
         var inv = invoices[i];
@@ -2127,6 +2127,10 @@
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';
         if (isDraft) {
+          var zohoEditPath = "https://books.zoho.com/app/929994947#/invoices/" + encodeURIComponent(inv.invoice_id);
+          html += '<td><a class="btn-inv-view" href="' + escHtml(zohoEditPath) + '" target="_blank" rel="noopener">';
+          html += '<span class="show-pt">Editar</span><span class="show-en">Edit</span>';
+          html += '</a></td>';
           html += '<td><button class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
           html += '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>';
           html += '</button></td>';

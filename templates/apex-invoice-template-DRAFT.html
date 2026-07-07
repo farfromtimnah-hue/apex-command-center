@@ -552,6 +552,10 @@
     /* ---- PRINT STYLES ---- */
     @page { size: letter; margin: 0; }
     @media print {
+      html, body {
+        height: 11in;
+      }
+
       body {
         background-color: #F5F3EE;
         -webkit-print-color-adjust: exact;
@@ -568,6 +572,7 @@
       }
 
       .footer {
+        margin-top: auto;
         page-break-before: avoid;
         break-before: avoid;
       }

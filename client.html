@@ -1501,6 +1501,28 @@
           </div>
         </div>
 
+        <!-- Resources (Resource Hub) — permanent sent-history record -->
+        <div class="content-card" id="sec-resources" data-section-id="resources">
+          <div class="content-card-header">
+            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Recursos</span>
+              <span class="show-en">Resources</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-add" onclick="openAttachResourceModal()">
+                + <span class="show-pt">Anexar Recurso</span><span class="show-en">Attach Resource</span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('resources')" id="collapseResources" title="Recolher / Collapse">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="resourcesBody">
+            <div id="resourcesSection">
+              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Payment method -->
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
@@ -2134,7 +2156,65 @@
       loadTasks("client");
       loadTasks("consultant");
       loadClientInvoices();
+      loadClientResources();
       initCollapseStates();
+    }
+
+    // ── Resources section (Resource Hub sent-history) ──────────────────────
+
+    function loadClientResources() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/resources")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          renderClientResources(data.client_resources || []);
+        })
+        .catch(function(e) {
+          document.getElementById("resourcesSection").innerHTML =
+            '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar recursos: ' + escHtml(e.message) + '</div>';
+        });
+    }
+    window.loadClientResources = loadClientResources;
+
+    function formatResourceDate(iso) {
+      if (!iso) { return "--"; }
+      var d = iso.slice(0, 10).split("-");
+      if (d.length !== 3) { return iso; }
+      return d[2] + "/" + d[1] + "/" + d[0];
+    }
+
+    function renderClientResources(rows) {
+      var container = document.getElementById("resourcesSection");
+      if (!container) { return; }
+
+      if (rows.length === 0) {
+        container.innerHTML =
+          '<div style="padding:20px;color:var(--muted);font-size:13px;">' +
+          '<span class="show-pt">Nenhum recurso compartilhado com este cliente ainda.</span>' +
+          '<span class="show-en">No resources shared with this client yet.</span></div>';
+        return;
+      }
+
+      var html = "";
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var sent = !!r.whatsapp_sent_at;
+        html +=
+          '<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);">' +
+          '<span style="font-size:16px;line-height:1;' + (sent ? 'color:#C9A43A;' : 'color:var(--border);') + '" title="' +
+          (sent ? 'Enviado / Sent' : 'Pendente / Pending') + '">' + (sent ? '&#10004;' : '&#9675;') + '</span>' +
+          '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:600;">' + escHtml(r.title) + '</div>' +
+          '<div style="font-size:12px;color:var(--muted);margin-top:1px;">' +
+          escHtml(r.category) +
+          (sent
+            ? ' · <span class="show-pt">Enviado em ' + formatResourceDate(r.whatsapp_sent_at) + (r.sent_by ? ' por ' + escHtml(r.sent_by) : '') + '</span>' +
+              '<span class="show-en">Sent ' + formatResourceDate(r.whatsapp_sent_at) + (r.sent_by ? ' by ' + escHtml(r.sent_by) : '') + '</span>'
+            : ' · <span class="show-pt">Pendente de envio</span><span class="show-en">Pending send</span>') +
+          '</div></div>' +
+          '</div>';
+      }
+      container.innerHTML = html;
     }
 
     function loadContacts() {
@@ -3468,6 +3548,7 @@
       { key: "clientTasks",    bodyId: "clientTasksBody",    btnId: "collapseClientTasks"    },
       { key: "consultantTasks",bodyId: "consultantTasksBody",btnId: "collapseConsultantTasks"},
       { key: "notes",          bodyId: "notesBody",          btnId: "collapseNotes"          },
+      { key: "resources",      bodyId: "resourcesBody",      btnId: "collapseResources"      },
       { key: "payment",        bodyId: "paymentBody",        btnId: "collapsePayment"        },
       { key: "contacts",       bodyId: "contactsBody",       btnId: "collapseContacts"       },
       { key: "docs",           bodyId: "docsBody",           btnId: "collapseDocs"           },
@@ -3515,7 +3596,7 @@
 
     var DEFAULT_SECTION_ORDER = [
       "overview", "sessions", "dp", "clientTasks", "consultantTasks",
-      "contacts", "notes", "payment", "docs"
+      "contacts", "notes", "resources", "payment", "docs"
     ];
 
     var dragSrcEl = null;

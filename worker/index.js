@@ -3909,6 +3909,248 @@ async function handlePostFinanceExpense(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/invoices
+// Body: { client_id, line_items: [{ name, description?, quantity?, rate? }] }
+// Creates a real DRAFT invoice in Zoho Books for the client's linked Zoho
+// contact. No tax fields anywhere -- confirmed standing decision, invoices
+// never carry sales tax. Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handlePostInvoice(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.client_id) { return jsonErr("client_id is required", 400); }
+        var lineItems = body.line_items;
+        if (!Array.isArray(lineItems) || lineItems.length === 0) {
+            return jsonErr("line_items array is required", 400);
+        }
+        for (var i = 0; i < lineItems.length; i++) {
+            if (!lineItems[i].name) { return jsonErr("Each line item requires a name", 400); }
+        }
+
+        var clientRow = await env.DB.prepare(
+            "SELECT id, name, zoho_customer_id FROM clients WHERE id = ?"
+        ).bind(String(body.client_id)).first();
+        if (!clientRow) { return jsonErr("Client not found", 404); }
+        if (!clientRow.zoho_customer_id) {
+            return jsonErr("Client has no linked Zoho contact yet. Run the contact re-sync in Financial Tools first.", 400);
+        }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var payload = {
+            customer_id: String(clientRow.zoho_customer_id),
+            line_items: lineItems.map(function(li) {
+                return {
+                    name:        String(li.name).slice(0, 100),
+                    description: (li.description || "").slice(0, 2000),
+                    quantity:    (li.quantity !== undefined && li.quantity !== null && li.quantity !== "") ? parseFloat(li.quantity) || 0 : 1,
+                    rate:        (li.rate !== undefined && li.rate !== null && li.rate !== "") ? parseFloat(li.rate) || 0 : 0
+                };
+            })
+        };
+
+        var res = await zohoBankingFetch(zohoAuth, "POST", "invoices", payload);
+        if (!res.ok) {
+            return jsonErr("Zoho invoice creation failed: " + (res.data.message || JSON.stringify(res.data)), 502);
+        }
+
+        var inv = res.data.invoice || {};
+        return jsonOk({
+            ok:             true,
+            invoice_id:     inv.invoice_id,
+            invoice_number: inv.invoice_number,
+            customer_name:  inv.customer_name,
+            total:          inv.total,
+            status:         inv.status
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error creating invoice: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/ar-aging
+// Accounts Receivable aging: every invoice with an outstanding balance > 0,
+// bucketed by days past due (current / 1-30 / 31-60 / 61-90 / 90+), sorted
+// most overdue first. Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+function arAgingBucket(daysOverdue) {
+    if (daysOverdue <= 0)  { return "current"; }
+    if (daysOverdue <= 30) { return "1-30"; }
+    if (daysOverdue <= 60) { return "31-60"; }
+    if (daysOverdue <= 90) { return "61-90"; }
+    return "90+";
+}
+
+async function handleGetFinanceArAging(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // Status.Unpaid covers sent, overdue, viewed and partially-paid invoices.
+        var rows = [];
+        var page = 1;
+        while (page <= 10) {
+            var res = await zohoBankingFetch(zohoAuth, "GET",
+                "invoices?filter_by=Status.Unpaid&per_page=200&page=" + page +
+                "&sort_column=due_date&sort_order=A");
+            if (!res.ok) {
+                return jsonErr("Zoho invoices error: " + (res.data.message || JSON.stringify(res.data)), 502);
+            }
+            var batch = res.data.invoices || [];
+            for (var i = 0; i < batch.length; i++) { rows.push(batch[i]); }
+            if (!res.data.page_context || !res.data.page_context.has_more_page) { break; }
+            page++;
+        }
+
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var today = new Date(todayStr + "T00:00:00Z").getTime();
+        var out = [];
+        for (var j = 0; j < rows.length; j++) {
+            var inv = rows[j];
+            var balance = parseFloat(inv.balance) || 0;
+            if (balance <= 0) { continue; }
+            var daysOverdue = 0;
+            if (inv.due_date) {
+                daysOverdue = Math.round((today - new Date(inv.due_date + "T00:00:00Z").getTime()) / 86400000);
+            }
+            out.push({
+                invoice_id:     inv.invoice_id,
+                invoice_number: inv.invoice_number,
+                customer_name:  inv.customer_name,
+                balance:        balance,
+                due_date:       inv.due_date,
+                days_overdue:   daysOverdue > 0 ? daysOverdue : 0,
+                bucket:         arAgingBucket(daysOverdue)
+            });
+        }
+        out.sort(function(a, b) { return b.days_overdue - a.days_overdue; });
+
+        var totals = { "current": 0, "1-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
+        var grandTotal = 0;
+        for (var k = 0; k < out.length; k++) {
+            totals[out[k].bucket] += out[k].balance;
+            grandTotal += out[k].balance;
+        }
+
+        return jsonOk({ invoices: out, bucket_totals: totals, total_outstanding: grandTotal, as_of: todayStr });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error building AR aging report: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/tax-summary?year=YYYY
+// Annual income vs. expense summary for Rafa/Alice's own tax filing. This is
+// explicitly NOT a sales-tax calculation (no invoice carries sales tax) --
+// just totals: paid-invoice income for the year plus Zoho expenses broken
+// down by category. Auth: alice / rafa / developer.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceTaxSummary(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var year = parseInt(url.searchParams.get("year"), 10);
+        if (!year || year < 2000 || year > 2100) {
+            year = new Date().getFullYear();
+        }
+        var dateStart = year + "-01-01";
+        var dateEnd   = year + "-12-31";
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        // Income: paid invoices dated within the year.
+        var totalIncome = 0;
+        var paidCount = 0;
+        var page = 1;
+        while (page <= 10) {
+            var invRes = await zohoBankingFetch(zohoAuth, "GET",
+                "invoices?filter_by=Status.Paid&date_start=" + dateStart + "&date_end=" + dateEnd +
+                "&per_page=200&page=" + page);
+            if (!invRes.ok) {
+                return jsonErr("Zoho invoices error: " + (invRes.data.message || JSON.stringify(invRes.data)), 502);
+            }
+            var invBatch = invRes.data.invoices || [];
+            for (var i = 0; i < invBatch.length; i++) {
+                totalIncome += parseFloat(invBatch[i].total) || 0;
+                paidCount++;
+            }
+            if (!invRes.data.page_context || !invRes.data.page_context.has_more_page) { break; }
+            page++;
+        }
+
+        // Expenses: everything dated within the year, grouped by category account.
+        var byCategory = {};
+        var totalExpenses = 0;
+        page = 1;
+        while (page <= 10) {
+            var expRes = await zohoBankingFetch(zohoAuth, "GET",
+                "expenses?date_start=" + dateStart + "&date_end=" + dateEnd +
+                "&per_page=200&page=" + page);
+            if (!expRes.ok) {
+                return jsonErr("Zoho expenses error: " + (expRes.data.message || JSON.stringify(expRes.data)), 502);
+            }
+            var expBatch = expRes.data.expenses || [];
+            for (var j = 0; j < expBatch.length; j++) {
+                var amt = parseFloat(expBatch[j].total) || 0;
+                var cat = expBatch[j].account_name || "Sem categoria";
+                byCategory[cat] = (byCategory[cat] || 0) + amt;
+                totalExpenses += amt;
+            }
+            if (!expRes.data.page_context || !expRes.data.page_context.has_more_page) { break; }
+            page++;
+        }
+
+        var categories = Object.keys(byCategory).map(function(name) {
+            return { category: name, total: byCategory[name] };
+        });
+        categories.sort(function(a, b) { return b.total - a.total; });
+
+        return jsonOk({
+            year:                  year,
+            total_income:          totalIncome,
+            paid_invoice_count:    paidCount,
+            expenses_by_category:  categories,
+            total_expenses:        totalExpenses,
+            net_total:             totalIncome - totalExpenses
+        });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error building tax summary: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Routes: GET/PUT /api/clients/:id/zoho-contact
 // GET returns the client's Zoho contact details (email/phone live on the
 // primary contact person; billing address on the contact itself).
@@ -4199,6 +4441,9 @@ export default {
         if (path === "/api/business/qr-image"    && method === "GET")   { return handleGetBusinessQrImage(request, env); }
 
         if (path === "/api/invoices"                 && method === "GET")  { return handleGetInvoices(request, env); }
+        if (path === "/api/invoices"                 && method === "POST") { return handlePostInvoice(request, env); }
+        if (path === "/api/finance/ar-aging"         && method === "GET")  { return handleGetFinanceArAging(request, env); }
+        if (path === "/api/finance/tax-summary"      && method === "GET")  { return handleGetFinanceTaxSummary(request, env); }
         if (path === "/api/finance/statement-upload" && method === "POST") { return handlePostFinanceStatementUpload(request, env); }
         if (path === "/api/finance/transactions"     && method === "GET")  { return handleGetFinanceTransactions(request, env); }
         if (path === "/api/finance/overview"         && method === "GET")  { return handleGetFinanceOverview(request, env); }

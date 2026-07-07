@@ -889,7 +889,8 @@
     }
 
     /* ─── Invoice item editor modal (native, draft-only) ────────────────── */
-    #invoiceEditorOverlay {
+    #invoiceEditorOverlay,
+    #newInvoiceOverlay {
       position: fixed;
       inset: 0;
       z-index: 900;
@@ -898,8 +899,10 @@
       align-items: center;
       justify-content: center;
     }
-    #invoiceEditorOverlay[hidden] { display: none !important; }
+    #invoiceEditorOverlay[hidden],
+    #newInvoiceOverlay[hidden] { display: none !important; }
 
+    #newInvoiceModal,
     #invoiceEditorModal {
       background: #fff;
       border-radius: 12px;
@@ -934,6 +937,74 @@
       font-weight: 700;
       color: #6b6660;
       text-transform: uppercase;
+    }
+
+    /* New-invoice modal rows carry a trailing remove-button column */
+    .item-editor-row.has-remove {
+      grid-template-columns: 3fr 2fr 70px 90px 30px;
+    }
+    .item-row-remove {
+      border: none;
+      background: transparent;
+      color: #991b1b;
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+    }
+
+    /* ─── AR aging bucket chips (reuse existing gold/alert language) ────── */
+    .aging-chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    .aging-current { color: #475569; background: #f1f5f9; }
+    .aging-1-30    { color: #92400e; background: #fef3c7; }
+    .aging-31-60   { color: #92400e; background: #fde68a; }
+    .aging-61-90   { color: #991b1b; background: #fee2e2; }
+    .aging-90plus  { color: #fff;    background: #991b1b; }
+
+    /* ─── Tax summary (Resumo Fiscal) ────────────────────────────────────── */
+    .fiscal-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(107,102,96,0.15);
+      font-size: 14px;
+    }
+    .fiscal-summary-row .fiscal-amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .fiscal-summary-row.is-total { border-bottom: none; font-size: 16px; font-weight: 700; }
+    .fiscal-cat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0 6px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      border-bottom: 1px dashed rgba(107,102,96,0.12);
+    }
+
+    /* Print: only the fiscal report prints (standing @page pattern removes
+       the browser-injected header/footer). */
+    #fiscalPrintArea { display: none; }
+    @media print {
+      @page { size: letter; margin: 0; }
+      body * { visibility: hidden; }
+      #fiscalPrintArea, #fiscalPrintArea * { visibility: visible; }
+      #fiscalPrintArea {
+        display: block;
+        position: absolute;
+        left: 0; top: 0;
+        width: 100%;
+        padding: 56px 64px;
+        background: #fff;
+        color: #1a1a1d;
+        font-family: Georgia, 'Times New Roman', serif;
+      }
+      #fiscalPrintArea h1 { font-size: 22px; margin-bottom: 2px; }
+      #fiscalPrintArea .print-sub { font-size: 12px; color: #6b6660; margin-bottom: 24px; }
+      #fiscalPrintArea table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      #fiscalPrintArea th, #fiscalPrintArea td { text-align: left; padding: 7px 4px; border-bottom: 1px solid #d1d5db; }
+      #fiscalPrintArea td.num, #fiscalPrintArea th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      #fiscalPrintArea .print-total-row td { font-weight: 700; border-top: 2px solid #1a1a1d; border-bottom: none; }
+      #fiscalPrintArea .print-gold-rule { height: 3px; background: #C9A43A; width: 64px; margin: 8px 0 20px; }
     }
   </style>
 </head>
@@ -1104,6 +1175,54 @@
     </div>
   </div>
 
+  <!-- ═══════════════ NEW INVOICE MODAL (Nova Fatura) ═════════════════════ -->
+  <div id="newInvoiceOverlay" hidden>
+    <div id="newInvoiceModal" role="dialog" aria-modal="true">
+      <div class="pricing-modal-title">
+        <span class="show-pt">Nova Fatura</span>
+        <span class="show-en">New Invoice</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="niClientSelect">
+          <span class="show-pt">Cliente</span>
+          <span class="show-en">Client</span>
+        </label>
+        <select id="niClientSelect" class="form-input">
+          <option value="">--</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="niPackageSelect">
+          <span class="show-pt">Pacote (preenche a primeira linha)</span>
+          <span class="show-en">Package (fills the first line)</span>
+        </label>
+        <select id="niPackageSelect" class="form-input" onchange="onNewInvoicePackageChange()">
+          <option value="">--</option>
+        </select>
+      </div>
+      <div id="newInvoiceItems"></div>
+      <div>
+        <button type="button" class="btn-secondary btn-sm" onclick="addNewInvoiceItemRow()">
+          <span class="show-pt">+ Item</span>
+          <span class="show-en">+ Line Item</span>
+        </button>
+      </div>
+      <div class="pricing-modal-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="closeNewInvoiceModal()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <button type="button" class="btn-pricing-go" id="newInvoiceSaveBtn" onclick="saveNewInvoice()">
+          <span class="show-pt">Salvar Rascunho</span>
+          <span class="show-en">Save as Draft</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ FISCAL REPORT PRINT AREA (print-only) ═══════════════ -->
+  <div id="fiscalPrintArea"></div>
+
   <div id="pageWrapper">
     <div id="navSidebar"></div>
     <div id="contentArea">
@@ -1172,9 +1291,19 @@
             <span class="show-en">Reconciliation</span>
             <span class="fin-tab-badge" id="finBadgeConciliacao" hidden>0</span>
           </button>
+          <button class="fin-tab-pill" id="finTabBtnAging" onclick="switchFinanceTab('aging')">
+            <span class="show-pt">Contas a Receber</span>
+            <span class="show-en">AR Aging</span>
+            <span class="fin-tab-badge" id="finBadgeAging" hidden>0</span>
+          </button>
+          <button class="fin-tab-pill" id="finTabBtnFiscal" onclick="switchFinanceTab('fiscal')">
+            <span class="show-pt">Resumo Fiscal</span>
+            <span class="show-en">Tax Summary</span>
+            <span class="fin-tab-badge" id="finBadgeFiscal" hidden>0</span>
+          </button>
           <button class="fin-tab-pill" id="finTabBtnFerramentas" onclick="switchFinanceTab('ferramentas')">
-            <span class="show-pt">Ferramentas Zoho</span>
-            <span class="show-en">Zoho Tools</span>
+            <span class="show-pt">Ferramentas Financeiras</span>
+            <span class="show-en">Financial Tools</span>
             <span class="fin-tab-badge" id="finBadgeFerramentas" hidden>0</span>
           </button>
         </div>
@@ -1355,6 +1484,10 @@
             <span class="show-pt">Faturas</span>
             <span class="show-en">Invoices</span>
           </h2>
+          <button class="btn-primary btn-sm" onclick="openNewInvoiceModal()">
+            <span class="show-pt">+ Nova Fatura</span>
+            <span class="show-en">+ New Invoice</span>
+          </button>
         </div>
         <!-- Sub-tab bar -->
         <div class="inv-subtab-bar">
@@ -1413,7 +1546,62 @@
     </div><!-- /below-hero-section (conciliacao) -->
     </div><!-- /finPanelConciliacao -->
 
-    <!-- ── Panel: Ferramentas Zoho ─────────────────────────────────────── -->
+    <!-- ── Panel: Contas a Receber (AR aging) ──────────────────────────── -->
+    <div id="finPanelAging" class="fin-tab-panel" hidden>
+    <div class="below-hero-section">
+
+      <div class="content-card" id="agingSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Contas a Receber por Atraso</span>
+            <span class="show-en">Accounts Receivable Aging</span>
+          </h2>
+          <span id="agingTotalBadge" style="font-size:13px;font-weight:700;color:var(--gold);"></span>
+        </div>
+        <div class="content-card-body" style="padding-top:0;">
+          <div id="agingBucketSummary" style="display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 16px;font-size:12px;color:var(--muted);"></div>
+        </div>
+        <div id="agingList">
+          <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+        </div>
+      </div>
+
+    </div><!-- /below-hero-section (aging) -->
+    </div><!-- /finPanelAging -->
+
+    <!-- ── Panel: Resumo Fiscal (annual income vs expense summary) ─────── -->
+    <div id="finPanelFiscal" class="fin-tab-panel" hidden>
+    <div class="below-hero-section">
+
+      <div class="content-card" id="fiscalSection">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Resumo Anual para Impostos</span>
+            <span class="show-en">Annual Tax Summary</span>
+          </h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="fiscalYearSelect" class="form-input" style="width:auto;padding:6px 10px;" onchange="loadTaxSummary()"></select>
+            <button class="btn-secondary btn-sm" id="fiscalPrintBtn" onclick="printFiscalReport()" disabled>
+              <span class="show-pt">Imprimir</span>
+              <span class="show-en">Print</span>
+            </button>
+          </div>
+        </div>
+        <div class="content-card-body">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+            <span class="show-pt">Receita de faturas pagas e despesas por categoria no ano — para entregar ao contador. Nao e um calculo de imposto sobre vendas.</span>
+            <span class="show-en">Paid-invoice income and expenses by category for the year — to hand to the accountant. Not a sales-tax calculation.</span>
+          </div>
+          <div id="fiscalBody">
+            <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /below-hero-section (fiscal) -->
+    </div><!-- /finPanelFiscal -->
+
+    <!-- ── Panel: Ferramentas Financeiras ──────────────────────────────── -->
     <div id="finPanelFerramentas" class="fin-tab-panel" hidden>
     <div class="below-hero-section">
 
@@ -2391,7 +2579,7 @@
 
     var currentFinanceTab = "saude";
 
-    var FIN_TABS = ["saude", "faturas", "conciliacao", "ferramentas"];
+    var FIN_TABS = ["saude", "faturas", "conciliacao", "aging", "fiscal", "ferramentas"];
 
     function switchFinanceTab(tab) {
       currentFinanceTab = tab;
@@ -2402,11 +2590,20 @@
         if (btn)   { btn.className   = "fin-tab-pill"  + (t === tab ? " active" : ""); }
         if (panel) { panel.hidden    = (t !== tab); }
       }
-      // Zoho Tools data is loaded lazily on first open (several Zoho calls;
+      // Zoho-backed tabs are loaded lazily on first open (several Zoho calls;
       // avoids burning Zoho rate limit on every page load).
       if (tab === "ferramentas" && !zohoToolsLoaded) {
         zohoToolsLoaded = true;
         loadZohoTools();
+      }
+      if (tab === "aging" && !arAgingLoaded) {
+        arAgingLoaded = true;
+        loadArAging();
+      }
+      if (tab === "fiscal" && !fiscalLoaded) {
+        fiscalLoaded = true;
+        initFiscalYearSelect();
+        loadTaxSummary();
       }
     }
 
@@ -2710,6 +2907,337 @@
           if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
           showToast("Erro: " + (e.message || "Falha ao salvar"));
         });
+    }
+
+    // ── Nova Fatura (new invoice creation, Zoho draft) ─────────────────────
+
+    var newInvoiceClients  = null;
+    var newInvoicePackages = null;
+    var newInvoiceItems    = [];
+
+    function openNewInvoiceModal() {
+      newInvoiceItems = [{ name: "", description: "", quantity: 1, rate: 0 }];
+      var overlay = document.getElementById("newInvoiceOverlay");
+      var pkgSel  = document.getElementById("niPackageSelect");
+      if (pkgSel) { pkgSel.value = ""; }
+      renderNewInvoiceItemRows();
+      if (overlay) { overlay.hidden = false; }
+      loadNewInvoiceFormData();
+    }
+
+    function closeNewInvoiceModal() {
+      var overlay = document.getElementById("newInvoiceOverlay");
+      if (overlay) { overlay.hidden = true; }
+    }
+
+    function loadNewInvoiceFormData() {
+      var clientSel = document.getElementById("niClientSelect");
+      if (clientSel && !newInvoiceClients) {
+        apiFetch("/api/clients")
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            var all = data.clients || [];
+            newInvoiceClients = [];
+            for (var i = 0; i < all.length; i++) {
+              if (all[i].zoho_customer_id) { newInvoiceClients.push(all[i]); }
+            }
+            var html = '<option value="">--</option>';
+            for (var j = 0; j < newInvoiceClients.length; j++) {
+              html += '<option value="' + escHtml(newInvoiceClients[j].id) + '">' + escHtml(newInvoiceClients[j].name) + '</option>';
+            }
+            clientSel.innerHTML = html;
+          })
+          .catch(function() { showToast("Erro ao carregar clientes / Error loading clients"); });
+      }
+      var pkgSel = document.getElementById("niPackageSelect");
+      if (pkgSel && !newInvoicePackages) {
+        apiFetch("/api/settings/packages")
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            newInvoicePackages = data.packages || [];
+            var html = '<option value="">--</option>';
+            for (var i = 0; i < newInvoicePackages.length; i++) {
+              var p = newInvoicePackages[i];
+              var priceLabel = (p.base_price !== null && p.base_price !== undefined) ? (" — " + fmtCurrency(p.base_price)) : "";
+              html += '<option value="' + escHtml(p.short_name) + '">' + escHtml(p.short_name) + priceLabel + '</option>';
+            }
+            pkgSel.innerHTML = html;
+          })
+          .catch(function() { showToast("Erro ao carregar pacotes / Error loading packages"); });
+      }
+    }
+
+    function onNewInvoicePackageChange() {
+      var pkgSel = document.getElementById("niPackageSelect");
+      if (!pkgSel || !pkgSel.value || !newInvoicePackages) { return; }
+      var pkg = null;
+      for (var i = 0; i < newInvoicePackages.length; i++) {
+        if (newInvoicePackages[i].short_name === pkgSel.value) { pkg = newInvoicePackages[i]; break; }
+      }
+      if (!pkg) { return; }
+      var line = {
+        name:        pkg.full_name || pkg.short_name,
+        description: "",
+        quantity:    1,
+        rate:        (pkg.base_price !== null && pkg.base_price !== undefined) ? pkg.base_price : 0
+      };
+      // Fill the first row if it is still empty; otherwise replace it,
+      // keeping any custom rows the user already added below it.
+      if (newInvoiceItems.length === 0) { newInvoiceItems.push(line); }
+      else { newInvoiceItems[0] = line; }
+      renderNewInvoiceItemRows();
+    }
+
+    function addNewInvoiceItemRow() {
+      newInvoiceItems.push({ name: "", description: "", quantity: 1, rate: 0 });
+      renderNewInvoiceItemRows();
+    }
+
+    function removeNewInvoiceItemRow(idx) {
+      if (newInvoiceItems.length <= 1) { return; }
+      newInvoiceItems.splice(idx, 1);
+      renderNewInvoiceItemRows();
+    }
+
+    function renderNewInvoiceItemRows() {
+      var wrap = document.getElementById("newInvoiceItems");
+      if (!wrap) { return; }
+      var html = '<div class="item-editor-row has-remove item-editor-header">';
+      html += '<div><span class="show-pt">Descricao</span><span class="show-en">Description</span></div>';
+      html += '<div><span class="show-pt">Detalhes</span><span class="show-en">Details</span></div>';
+      html += '<div><span class="show-pt">Qtd</span><span class="show-en">Qty</span></div>';
+      html += '<div><span class="show-pt">Valor</span><span class="show-en">Rate</span></div>';
+      html += '<div></div>';
+      html += '</div>';
+      for (var i = 0; i < newInvoiceItems.length; i++) {
+        var li = newInvoiceItems[i];
+        html += '<div class="item-editor-row has-remove">';
+        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="name" value="' + escHtml(li.name) + '" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="description" value="' + escHtml(li.description) + '" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="quantity" value="' + escHtml(String(li.quantity)) + '" min="0" step="1" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="rate" value="' + escHtml(String(li.rate)) + '" min="0" step="0.01" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<button type="button" class="item-row-remove" title="Remover / Remove" onclick="removeNewInvoiceItemRow(' + i + ')">&times;</button>';
+        html += '</div>';
+      }
+      wrap.innerHTML = html;
+    }
+
+    function onNewInvoiceFieldChange(el) {
+      var idx = parseInt(el.getAttribute("data-idx"), 10);
+      var field = el.getAttribute("data-field");
+      if (isNaN(idx) || !newInvoiceItems[idx]) { return; }
+      if (field === "quantity" || field === "rate") {
+        newInvoiceItems[idx][field] = parseFloat(el.value) || 0;
+      } else {
+        newInvoiceItems[idx][field] = el.value;
+      }
+    }
+
+    function saveNewInvoice() {
+      var clientSel = document.getElementById("niClientSelect");
+      var saveBtn   = document.getElementById("newInvoiceSaveBtn");
+      if (!clientSel || !clientSel.value) {
+        showToast("Selecione um cliente / Select a client");
+        return;
+      }
+      var items = [];
+      for (var i = 0; i < newInvoiceItems.length; i++) {
+        var li = newInvoiceItems[i];
+        if (!li.name || !String(li.name).trim()) { continue; }
+        items.push({
+          name:        String(li.name).trim(),
+          description: li.description || "",
+          quantity:    li.quantity,
+          rate:        li.rate
+        });
+      }
+      if (items.length === 0) {
+        showToast("Adicione ao menos um item / Add at least one line item");
+        return;
+      }
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = "0.5"; }
+      apiFetch("/api/invoices", {
+        method: "POST",
+        body: { client_id: clientSel.value, line_items: items }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
+          closeNewInvoiceModal();
+          showToast("Rascunho " + (data.invoice_number ? "#" + data.invoice_number + " " : "") + "criado / Draft created");
+          switchInvoiceTab("draft");
+          updateFinanceBadges();
+        })
+        .catch(function(e) {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
+          showToast("Erro: " + (e.message || "Falha ao criar fatura"));
+        });
+    }
+
+    // ── Contas a Receber (AR aging report) ─────────────────────────────────
+
+    var arAgingLoaded = false;
+
+    var AGING_BUCKET_META = {
+      "current": { cls: "aging-current", pt: "Em dia",     en: "Current" },
+      "1-30":    { cls: "aging-1-30",    pt: "1-30 dias",  en: "1-30 days" },
+      "31-60":   { cls: "aging-31-60",   pt: "31-60 dias", en: "31-60 days" },
+      "61-90":   { cls: "aging-61-90",   pt: "61-90 dias", en: "61-90 days" },
+      "90+":     { cls: "aging-90plus",  pt: "90+ dias",   en: "90+ days" }
+    };
+
+    function agingChip(bucket) {
+      var meta = AGING_BUCKET_META[bucket] || AGING_BUCKET_META["current"];
+      return '<span class="aging-chip ' + meta.cls + '"><span class="show-pt">' + meta.pt + '</span><span class="show-en">' + meta.en + '</span></span>';
+    }
+
+    function loadArAging() {
+      var listEl = document.getElementById("agingList");
+      if (!listEl) { return; }
+      listEl.innerHTML = '<div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>';
+      apiFetch("/api/finance/ar-aging")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          renderArAging(data);
+        })
+        .catch(function(e) {
+          listEl.innerHTML = '<div class="empty-state">' + escHtml(e.message || "") + '<span class="show-pt"> Erro ao carregar relatorio</span><span class="show-en"> Error loading report</span></div>';
+        });
+    }
+
+    function renderArAging(data) {
+      var listEl   = document.getElementById("agingList");
+      var totalEl  = document.getElementById("agingTotalBadge");
+      var bucketEl = document.getElementById("agingBucketSummary");
+      var invoices = data.invoices || [];
+      var badge    = document.getElementById("finBadgeAging");
+      var overdueCount = 0;
+      for (var c = 0; c < invoices.length; c++) { if (invoices[c].days_overdue > 0) { overdueCount++; } }
+      if (badge) {
+        if (overdueCount > 0) { badge.textContent = overdueCount; badge.hidden = false; }
+        else { badge.hidden = true; }
+      }
+      if (totalEl) { totalEl.textContent = fmtCurrency(data.total_outstanding || 0); }
+      if (bucketEl) {
+        var order = ["current", "1-30", "31-60", "61-90", "90+"];
+        var bhtml = "";
+        for (var b = 0; b < order.length; b++) {
+          var amt = (data.bucket_totals || {})[order[b]] || 0;
+          bhtml += '<div>' + agingChip(order[b]) + ' <span style="font-weight:600;color:var(--text);">' + fmtCurrency(amt) + '</span></div>';
+        }
+        bucketEl.innerHTML = bhtml;
+      }
+      if (invoices.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma fatura com saldo em aberto</span><span class="show-en">No invoices with an outstanding balance</span></div>';
+        return;
+      }
+      var html = '<table class="inv-table"><thead><tr>';
+      html += '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>';
+      html += '<th>#</th>';
+      html += '<th><span class="show-pt">Saldo</span><span class="show-en">Balance</span></th>';
+      html += '<th><span class="show-pt">Vencimento</span><span class="show-en">Due Date</span></th>';
+      html += '<th><span class="show-pt">Dias em Atraso</span><span class="show-en">Days Overdue</span></th>';
+      html += '<th><span class="show-pt">Faixa</span><span class="show-en">Bucket</span></th>';
+      html += '</tr></thead><tbody>';
+      for (var i = 0; i < invoices.length; i++) {
+        var inv = invoices[i];
+        html += '<tr>';
+        html += '<td>' + escHtml(inv.customer_name || "--") + '</td>';
+        html += '<td style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
+        html += '<td style="font-weight:600;">' + fmtCurrency(inv.balance) + '</td>';
+        html += '<td>' + escHtml(fmtDate(inv.due_date)) + '</td>';
+        html += '<td>' + (inv.days_overdue > 0 ? inv.days_overdue : "--") + '</td>';
+        html += '<td>' + agingChip(inv.bucket) + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      listEl.innerHTML = html;
+    }
+
+    // ── Resumo Fiscal (annual tax summary) ─────────────────────────────────
+
+    var fiscalLoaded = false;
+    var fiscalData   = null;
+
+    function initFiscalYearSelect() {
+      var sel = document.getElementById("fiscalYearSelect");
+      if (!sel || sel.options.length > 1) { return; }
+      var current = new Date().getFullYear();
+      var html = "";
+      for (var y = current; y >= 2025; y--) {
+        html += '<option value="' + y + '">' + y + '</option>';
+      }
+      sel.innerHTML = html;
+      sel.value = String(current);
+    }
+
+    function loadTaxSummary() {
+      var bodyEl = document.getElementById("fiscalBody");
+      var sel    = document.getElementById("fiscalYearSelect");
+      var printBtn = document.getElementById("fiscalPrintBtn");
+      if (!bodyEl) { return; }
+      var year = sel && sel.value ? sel.value : new Date().getFullYear();
+      fiscalData = null;
+      if (printBtn) { printBtn.disabled = true; }
+      bodyEl.innerHTML = '<div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>';
+      apiFetch("/api/finance/tax-summary?year=" + encodeURIComponent(year))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          fiscalData = data;
+          renderTaxSummary(data);
+          if (printBtn) { printBtn.disabled = false; }
+        })
+        .catch(function(e) {
+          bodyEl.innerHTML = '<div class="empty-state">' + escHtml(e.message || "") + '<span class="show-pt"> Erro ao carregar resumo</span><span class="show-en"> Error loading summary</span></div>';
+        });
+    }
+
+    function renderTaxSummary(data) {
+      var bodyEl = document.getElementById("fiscalBody");
+      if (!bodyEl) { return; }
+      var html = "";
+      html += '<div class="fiscal-summary-row">';
+      html += '<span><span class="show-pt">Receita total (faturas pagas' + (data.paid_invoice_count ? ", " + data.paid_invoice_count : "") + ')</span><span class="show-en">Total income (paid invoices' + (data.paid_invoice_count ? ", " + data.paid_invoice_count : "") + ')</span></span>';
+      html += '<span class="fiscal-amount" style="color:#065f46;">' + fmtCurrency(data.total_income) + '</span>';
+      html += '</div>';
+      html += '<div class="fiscal-summary-row">';
+      html += '<span><span class="show-pt">Despesas totais</span><span class="show-en">Total expenses</span></span>';
+      html += '<span class="fiscal-amount" style="color:#991b1b;">-' + fmtCurrency(data.total_expenses) + '</span>';
+      html += '</div>';
+      var cats = data.expenses_by_category || [];
+      for (var i = 0; i < cats.length; i++) {
+        html += '<div class="fiscal-cat-row"><span>' + escHtml(cats[i].category) + '</span><span>-' + fmtCurrency(cats[i].total) + '</span></div>';
+      }
+      html += '<div class="fiscal-summary-row is-total" style="margin-top:8px;">';
+      html += '<span><span class="show-pt">Resultado liquido ' + data.year + '</span><span class="show-en">Net total ' + data.year + '</span></span>';
+      html += '<span class="fiscal-amount" style="color:' + (data.net_total >= 0 ? "#065f46" : "#991b1b") + ';">' + fmtCurrency(data.net_total) + '</span>';
+      html += '</div>';
+      bodyEl.innerHTML = html;
+    }
+
+    function printFiscalReport() {
+      if (!fiscalData) { return; }
+      var area = document.getElementById("fiscalPrintArea");
+      if (!area) { return; }
+      var d = fiscalData;
+      var html = '<h1>Apex Business &amp; Leadership</h1>';
+      html += '<div class="print-sub">Resumo Anual para Impostos — ' + d.year + ' / Annual Tax Summary — ' + d.year + '<br>Gerado em / Generated: ' + new Date().toISOString().slice(0, 10) + ' &middot; Valores em USD. Sem imposto sobre vendas. / Amounts in USD. No sales tax.</div>';
+      html += '<div class="print-gold-rule"></div>';
+      html += '<table>';
+      html += '<tr><th>Descricao / Description</th><th class="num">Valor / Amount</th></tr>';
+      html += '<tr><td>Receita total — faturas pagas / Total income — paid invoices (' + (d.paid_invoice_count || 0) + ')</td><td class="num">' + fmtCurrency(d.total_income) + '</td></tr>';
+      var cats = d.expenses_by_category || [];
+      for (var i = 0; i < cats.length; i++) {
+        html += '<tr><td style="padding-left:24px;">Despesa / Expense — ' + escHtml(cats[i].category) + '</td><td class="num">-' + fmtCurrency(cats[i].total) + '</td></tr>';
+      }
+      html += '<tr><td>Despesas totais / Total expenses</td><td class="num">-' + fmtCurrency(d.total_expenses) + '</td></tr>';
+      html += '<tr class="print-total-row"><td>Resultado liquido / Net total</td><td class="num">' + fmtCurrency(d.net_total) + '</td></tr>';
+      html += '</table>';
+      area.innerHTML = html;
+      window.print();
     }
 
     // ── Conciliacao (bank reconciliation) ──────────────────────────────────

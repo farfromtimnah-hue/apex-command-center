@@ -1526,3 +1526,10 @@ Open-to-all-auth endpoints (sessions/schedule, sessions/calendar, sessions/whats
 - progress.md — created this file
 
 ---
+
+## Session 2026-07-07 — Financial Health completion: invoice creation + reports
+- Built POST /api/invoices (Nova Fatura → real Zoho draft, client picker + package prefill + custom line items, no tax fields by standing decision)
+- Built GET /api/finance/ar-aging (Contas a Receber tab — outstanding-balance invoices bucketed Current/1-30/31-60/61-90/90+, sorted most overdue first)
+- Built GET /api/finance/tax-summary?year= (Resumo Fiscal tab — paid-invoice income + expenses by category, net total, window.print() layout)
+- Renamed "Ferramentas Zoho / Zoho Tools" tab label to "Ferramentas Financeiras / Financial Tools" (per apex-status.md note for this prompt)
+- Zoho payload shapes verified live via real API: ad-hoc line-item draft created (INV-000003) then deleted; Status.Unpaid / Status.Paid+date range / expenses date range all confirmed against real org data

@@ -100,6 +100,17 @@ INSERT OR IGNORE INTO users (email, role) VALUES ('abnerprata@gmail.com', 'alice
 -- NOTE: packages table and message_templates were added via migrations/ files.
 -- NOTE: Resource Hub tables (resources, client_resources, resource_categories)
 -- were added via migrations/resources.sql.
+-- NOTE: client_growth_entries (Sales Dashboard / monthly client growth tracking)
+-- was added via migrations/client_growth_entries.sql:
+-- CREATE TABLE IF NOT EXISTS client_growth_entries (
+--   id             TEXT PRIMARY KEY,
+--   client_id      TEXT NOT NULL,
+--   month_label    TEXT NOT NULL,           -- 'YYYY-MM'
+--   growth_percent REAL NOT NULL,
+--   entered_by     TEXT,
+--   entered_at     TEXT NOT NULL DEFAULT (datetime('now')),
+--   UNIQUE (client_id, month_label)
+-- );
 -- packages table (with pricing fields added via migrations/package_pricing.sql):
 -- CREATE TABLE IF NOT EXISTS packages (
 --   id                  TEXT PRIMARY KEY,

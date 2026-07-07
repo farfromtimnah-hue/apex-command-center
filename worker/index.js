@@ -1586,15 +1586,17 @@ async function handleZohoOAuthStatus(request, env) {
 
 // ---------------------------------------------------------------------------
 // Helper: getZohoAccessToken(env)
-// Reads stored refresh_token and organization_id for id='zoho_books', then
-// exchanges the refresh_token for a fresh access_token (Zoho tokens expire
-// after 1 hour; no caching is done here -- that can be added later).
+// Reads stored refresh_token and organization_id for id='zoho_books'. If a
+// cached access_token is present and still has more than 120 seconds of
+// validity left (Zoho access tokens last 3600 seconds), returns it directly
+// with no network call. Otherwise exchanges the refresh_token for a fresh
+// access_token and caches it (with its expiry) back onto the same row.
 // Returns { access_token, organization_id } or throws on failure.
 // ---------------------------------------------------------------------------
 
 async function getZohoAccessToken(env) {
     var row = await env.DB.prepare(
-        "SELECT refresh_token, organization_id FROM oauth_tokens WHERE id = 'zoho_books'"
+        "SELECT refresh_token, organization_id, access_token, access_token_expires_at FROM oauth_tokens WHERE id = 'zoho_books'"
     ).first();
 
     if (!row || !row.refresh_token) {
@@ -1602,6 +1604,11 @@ async function getZohoAccessToken(env) {
     }
     if (!row.organization_id) {
         throw new Error("Zoho organization_id not stored -- reconnect via OAuth flow");
+    }
+
+    var nowSeconds = Math.floor(Date.now() / 1000);
+    if (row.access_token && row.access_token_expires_at && (row.access_token_expires_at - nowSeconds) > 120) {
+        return { access_token: row.access_token, organization_id: row.organization_id };
     }
 
     var controller = new AbortController();
@@ -1633,6 +1640,13 @@ async function getZohoAccessToken(env) {
     if (!accessToken) {
         throw new Error("Zoho refresh response did not include access_token");
     }
+
+    var expiresIn = refreshData.expires_in || 3600;
+    var expiresAt = nowSeconds + expiresIn;
+
+    await env.DB.prepare(
+        "UPDATE oauth_tokens SET access_token = ?, access_token_expires_at = ? WHERE id = 'zoho_books'"
+    ).bind(accessToken, expiresAt).run();
 
     return { access_token: accessToken, organization_id: row.organization_id };
 }
@@ -3141,6 +3155,9 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
         var body = await request.json();
         if (!body.customer_id) { return jsonErr("customer_id is required", 400); }
         if (!body.invoice_id)  { return jsonErr("invoice_id is required", 400); }
+        if (!body.amount)      { return jsonErr("amount is required", 400); }
+        if (!body.date)        { return jsonErr("date is required", 400); }
+        if (!body.account_id)  { return jsonErr("account_id is required", 400); }
 
         var zohoAuth;
         try {
@@ -3149,15 +3166,9 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
             return jsonErr("Zoho auth error: " + e.message, 502);
         }
 
-        // 1. Fetch the transaction for its amount and date
-        var txRes = await zohoBankingFetch(zohoAuth, "GET", "banktransactions/" + encodeURIComponent(transactionId));
-        if (!txRes.ok) {
-            return jsonErr("Zoho transaction fetch failed: " + (txRes.data.message || JSON.stringify(txRes.data)), 502);
-        }
-        var txn = txRes.data.banktransaction || {};
-        var txnAmount = parseFloat(txn.amount) || 0;
+        var txnAmount = parseFloat(body.amount) || 0;
 
-        // 2. Fetch the invoice for its outstanding balance
+        // 1. Fetch the invoice for its outstanding balance
         var invUrl = "https://www.zohoapis.com/books/v3/invoices/" + encodeURIComponent(body.invoice_id) +
             "?organization_id=" + zohoAuth.organization_id;
         var ctrl  = new AbortController();
@@ -3179,13 +3190,13 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
         var amountApplied = Math.min(txnAmount, invBalance);
         if (amountApplied <= 0) { return jsonErr("Nothing to apply: transaction amount is " + txnAmount + ", invoice balance is " + invBalance, 400); }
 
-        // 3. Categorize the transaction as a customer payment applied to the invoice
+        // 2. Categorize the transaction as a customer payment applied to the invoice
         var catBody = {
             customer_id:  body.customer_id,
             payment_mode: "banktransfer",
             amount:       txnAmount,
-            date:         txn.date,
-            account_id:   txn.account_id,
+            date:         body.date,
+            account_id:   body.account_id,
             invoices: [
                 { invoice_id: body.invoice_id, amount_applied: amountApplied }
             ]
@@ -3313,7 +3324,10 @@ async function handleGetClientInvoices(clientId, request, env) {
                 clearTimeout(timer);
             }
 
-            if (!res.ok) { return []; }
+            if (!res.ok) {
+                var errBody = await res.text();
+                throw new Error("Zoho invoices lookup failed (status=" + zohoStatus + "): HTTP " + res.status + " " + errBody);
+            }
             var data = await res.json();
             var list = data.invoices || [];
             var result = [];

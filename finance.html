@@ -2375,7 +2375,10 @@
       invSel.innerHTML = '<option value="">Carregando... / Loading...</option>';
       invSel.disabled = true;
       apiFetch("/api/clients/" + clientId + "/invoices")
-        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          if (!res.ok) { throw new Error("invoices fetch failed: " + res.status); }
+          return res.json();
+        })
         .then(function(data) {
           var unpaid = data.unpaid || [];
           if (unpaid.length === 0) {
@@ -2415,10 +2418,19 @@
       }
       if (!zohoCustomerId) { showToast("Cliente sem Zoho ID / Client missing Zoho ID"); return; }
 
+      var cachedTxn = reconTxCache[reconMatchTxnId];
+      if (!cachedTxn) { showToast("Erro: transacao nao encontrada / Transaction not found"); return; }
+
       if (confirmBtn) { confirmBtn.disabled = true; }
       apiFetch("/api/finance/reconciliation/" + reconMatchTxnId + "/match-invoice", {
         method: "POST",
-        body: { customer_id: zohoCustomerId, invoice_id: invoiceId }
+        body: {
+          customer_id: zohoCustomerId,
+          invoice_id:  invoiceId,
+          amount:      cachedTxn.amount,
+          date:        cachedTxn.date,
+          account_id:  cachedTxn.account_id
+        }
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {

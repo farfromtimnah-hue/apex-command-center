@@ -827,6 +827,43 @@
     .btn-pricing-go:hover { opacity: 0.88; }
     .btn-pricing-go:disabled { opacity: 0.45; cursor: default; }
 
+    /* ─── Payment-method-missing warning modal ──────────────────────────── */
+    #paymentWarnOverlay, #paymentWarnConfirmOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      background: rgba(20, 18, 16, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #paymentWarnOverlay[hidden], #paymentWarnConfirmOverlay[hidden] { display: none !important; }
+
+    #paymentWarnModal, #paymentWarnConfirmModal {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(26,26,29,0.22);
+      padding: 28px 28px 22px;
+      max-width: 400px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .payment-warn-link {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 4px;
+      opacity: 0.7;
+    }
+    .payment-warn-link:hover { opacity: 1; }
+
     /* ─── Match-invoice modal (Conciliacao) ─────────────────────────────── */
     #reconMatchOverlay {
       position: fixed;
@@ -897,6 +934,63 @@
           <span class="show-pt">Adicionar Pre&#231;o</span>
           <span class="show-en">Add Price</span>
         </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PAYMENT-METHOD-MISSING WARNING MODAL ════════════════ -->
+  <div id="paymentWarnOverlay" hidden>
+    <div id="paymentWarnModal" role="dialog" aria-modal="true">
+      <div class="pricing-modal-icon">&#9888;&#65039;</div>
+      <div class="pricing-modal-title">
+        <span class="show-pt">M&#233;todos de pagamento incompletos</span>
+        <span class="show-en">Payment methods incomplete</span>
+      </div>
+      <div class="pricing-modal-body">
+        <span class="show-pt">
+          O QR Code Zelle e/ou o link Stripe da empresa ainda n&#227;o foram preenchidos.
+          O cliente pode n&#227;o ter como pagar esta fatura.
+        </span>
+        <span class="show-en">
+          The Zelle QR code and/or Stripe link have not been fully filled in yet.
+          The client may not have a way to pay this invoice.
+        </span>
+      </div>
+      <div class="pricing-modal-actions">
+        <a class="btn-primary" href="settings.html#paymentDetailsSection" style="text-decoration:none;">
+          <span class="show-pt">Ir para Configura&#231;&#245;es</span>
+          <span class="show-en">Go to Settings</span>
+        </a>
+      </div>
+      <div style="text-align:center;">
+        <button type="button" class="payment-warn-link" onclick="openPaymentWarnConfirm()">
+          <span class="show-pt">Enviar Assim Mesmo</span>
+          <span class="show-en">Send Anyway</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PAYMENT-METHOD-MISSING SECOND CONFIRM MODAL ═════════ -->
+  <div id="paymentWarnConfirmOverlay" hidden>
+    <div id="paymentWarnConfirmModal" role="dialog" aria-modal="true">
+      <div class="pricing-modal-title">
+        <span class="show-pt">Tem certeza?</span>
+        <span class="show-en">Are you sure?</span>
+      </div>
+      <div class="pricing-modal-body">
+        <span class="show-pt">O cliente pode n&#227;o ter como pagar esta fatura sem um m&#233;todo de pagamento completo.</span>
+        <span class="show-en">The client may not be able to pay this invoice without a complete payment method.</span>
+      </div>
+      <div class="pricing-modal-actions">
+        <button type="button" class="btn-secondary" onclick="closePaymentWarnConfirm()">
+          <span class="show-pt">Voltar</span>
+          <span class="show-en">Go Back</span>
+        </button>
+        <button type="button" class="btn-pricing-go" onclick="confirmSendAnyway()">
+          <span class="show-pt">Sim, Enviar</span>
+          <span class="show-en">Yes, Send</span>
+        </button>
       </div>
     </div>
   </div>
@@ -2151,6 +2245,8 @@
       if (overlay)  { overlay.hidden = false; }
     }
 
+    var pendingSend = null;
+
     function sendInvoiceWhatsApp(invoiceId, invoiceLink) {
       var btn = document.getElementById("waBtn" + invoiceId);
       if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
@@ -2166,19 +2262,20 @@
             showPricingMissingModal(checkData.package_name);
             return;
           }
-          return apiFetch("/api/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
+          return apiFetch("/api/business/settings")
             .then(function(res) { return res.json(); })
-            .then(function(data) {
-              if (data.error) { throw new Error(data.error); }
-              var message = "Ola! Segue a fatura para sua aprovacao:\n" + invoiceLink;
-              var waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
-              if (waWindow) {
-                waWindow.location.href = waUrl;
-              } else {
-                window.open(waUrl, "_blank");
+            .then(function(bizData) {
+              var s = (bizData && bizData.settings) || {};
+              var paymentMethodsComplete = !!(s.zelle_qr_r2_key && s.stripe_payment_link);
+              if (!paymentMethodsComplete) {
+                if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+                if (waWindow) { waWindow.close(); }
+                pendingSend = { invoiceId: invoiceId, invoiceLink: invoiceLink };
+                var overlay = document.getElementById("paymentWarnOverlay");
+                if (overlay) { overlay.hidden = false; }
+                return;
               }
-              showToast("Fatura marcada como enviada / Invoice marked as sent");
-              setTimeout(function() { switchInvoiceTab("unpaid"); }, 1200);
+              return doSendInvoiceWhatsApp(invoiceId, invoiceLink, btn, waWindow);
             });
         })
         .catch(function(e) {
@@ -2186,6 +2283,55 @@
           if (waWindow) { waWindow.close(); }
           showToast("Erro: " + (e.message || "Falha ao enviar"));
         });
+    }
+
+    function doSendInvoiceWhatsApp(invoiceId, invoiceLink, btn, waWindow) {
+      return apiFetch("/api/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var message = "Ola! Segue a fatura para sua aprovacao:\n" + invoiceLink;
+          var waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
+          if (waWindow) {
+            waWindow.location.href = waUrl;
+          } else {
+            window.open(waUrl, "_blank");
+          }
+          showToast("Fatura marcada como enviada / Invoice marked as sent");
+          setTimeout(function() { switchInvoiceTab("unpaid"); }, 1200);
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+          if (waWindow) { waWindow.close(); }
+          showToast("Erro: " + (e.message || "Falha ao enviar"));
+        });
+    }
+
+    function openPaymentWarnConfirm() {
+      var warnOverlay = document.getElementById("paymentWarnOverlay");
+      var confirmOverlay = document.getElementById("paymentWarnConfirmOverlay");
+      if (warnOverlay) { warnOverlay.hidden = true; }
+      if (confirmOverlay) { confirmOverlay.hidden = false; }
+    }
+
+    function closePaymentWarnConfirm() {
+      var warnOverlay = document.getElementById("paymentWarnOverlay");
+      var confirmOverlay = document.getElementById("paymentWarnConfirmOverlay");
+      if (confirmOverlay) { confirmOverlay.hidden = true; }
+      if (warnOverlay) { warnOverlay.hidden = false; }
+    }
+
+    function confirmSendAnyway() {
+      var confirmOverlay = document.getElementById("paymentWarnConfirmOverlay");
+      if (confirmOverlay) { confirmOverlay.hidden = true; }
+      if (!pendingSend) { return; }
+      var invoiceId = pendingSend.invoiceId;
+      var invoiceLink = pendingSend.invoiceLink;
+      pendingSend = null;
+      var btn = document.getElementById("waBtn" + invoiceId);
+      if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+      var waWindow = window.open("", "_blank");
+      doSendInvoiceWhatsApp(invoiceId, invoiceLink, btn, waWindow);
     }
 
     // ── Conciliacao (bank reconciliation) ──────────────────────────────────

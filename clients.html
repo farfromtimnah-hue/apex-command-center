@@ -180,6 +180,70 @@
     .glass-tile-value.is-gold { color: var(--gold); }
     .glass-tile-value.is-red  { color: #f87171; }
 
+    /* ── Pending resource sends strip (glass, above the stat tiles) ──────── */
+    .pending-strip {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(201,164,58,0.4);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pending-strip[hidden] { display: none !important; }
+
+    .pending-strip-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .pending-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .pending-row-info { flex: 1; min-width: 0; }
+    .pending-row-client { font-size: 13px; font-weight: 600; color: #fff; }
+    .pending-row-resource { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 1px; }
+
+    .pending-category {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.5);
+      color: var(--gold);
+      white-space: nowrap;
+    }
+
+    .btn-whatsapp-send {
+      background: #1fa855;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .btn-whatsapp-send:hover    { opacity: 0.88; }
+    .btn-whatsapp-send:disabled { opacity: 0.45; cursor: not-allowed; }
+
     /* ── Below-hero section ──────────────────────────────────────────────── */
     .below-section {
       padding: 28px 32px;
@@ -458,6 +522,14 @@
               <span class="show-pt">Clientes</span>
               <span class="show-en">Clients</span>
             </h1>
+            <!-- Pending resource sends (Resource Hub) — hidden when queue is empty -->
+            <div class="pending-strip" id="pendingStrip" hidden>
+              <div class="pending-strip-title">
+                <span class="show-pt">Recursos Pendentes de Envio</span>
+                <span class="show-en">Pending Resource Sends</span>
+              </div>
+              <div id="pendingStripRows"></div>
+            </div>
             <div class="glass-tile-row">
               <div class="glass-tile">
                 <div class="glass-tile-label">
@@ -693,6 +765,105 @@
       window.initNav && window.initNav();
       initHeroBg("heroBgImage", "heroBgScrim");
       loadClients();
+      loadPendingResources();
+    }
+
+    // ── Pending resource sends strip (Resource Hub) ────────────────────────
+
+    var pendingResources = [];
+
+    function loadPendingResources() {
+      apiFetch("/api/client-resources/pending")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          pendingResources = data.pending || [];
+          renderPendingStrip();
+        })
+        .catch(function () {
+          // Strip is supplementary — a load failure must not break the Clients page.
+          document.getElementById("pendingStrip").hidden = true;
+        });
+    }
+
+    function renderPendingStrip() {
+      var strip = document.getElementById("pendingStrip");
+      var rows  = document.getElementById("pendingStripRows");
+      if (!strip || !rows) { return; }
+
+      if (pendingResources.length === 0) {
+        strip.hidden = true;
+        return;
+      }
+
+      var html = "";
+      for (var i = 0; i < pendingResources.length; i++) {
+        var p = pendingResources[i];
+        html +=
+          '<div class="pending-row">' +
+          '<div class="pending-row-info">' +
+          '<div class="pending-row-client">' + escHtml(p.client_name) + '</div>' +
+          '<div class="pending-row-resource">' + escHtml(p.title) + '</div>' +
+          '</div>' +
+          '<span class="pending-category">' + escHtml(p.category) + '</span>' +
+          '<button class="btn-whatsapp-send" onclick="handleSendResource(' + i + ', this)">' +
+          '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>' +
+          '</button>' +
+          '</div>';
+      }
+      rows.innerHTML = html;
+      strip.hidden   = false;
+    }
+
+    // Client-facing WhatsApp message is PT-only (standing project decision).
+    function buildResourceMessage(p) {
+      var lines = ["Olá! Segue uma recomendação da Apex Business & Leadership:", "", p.title];
+      if (p.description) { lines.push(p.description); }
+      if (p.resource_type === "contact") {
+        var parts = [];
+        if (p.contact_name)  { parts.push(p.contact_name); }
+        if (p.contact_phone) { parts.push("Tel: " + p.contact_phone); }
+        if (p.contact_email) { parts.push("Email: " + p.contact_email); }
+        if (parts.length) { lines.push("Contato: " + parts.join(" — ")); }
+      } else if (p.resource_type === "link" && p.url) {
+        lines.push(p.url);
+      } else if (p.resource_type === "file" && p.file_url) {
+        lines.push(WORKER_URL + "/api/resources/" + p.resource_id + "/file");
+      }
+      return lines.join("\n");
+    }
+
+    function handleSendResource(index, btn) {
+      var p = pendingResources[index];
+      if (!p) { return; }
+
+      // window.open must run synchronously in the click handler — any await gap
+      // before it lets the popup blocker fire (confirmed project lesson).
+      var digits = (p.client_whatsapp || p.client_phone || "").replace(/\D/g, "");
+      var waUrl  = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+                   "?text=" + encodeURIComponent(buildResourceMessage(p));
+      var waTab = window.open(waUrl, "_blank");
+      if (!waTab) {
+        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        return;
+      }
+
+      btn.disabled = true;
+      getToken().then(function (token) {
+        return fetch(WORKER_URL + "/api/client-resources/" + encodeURIComponent(p.id) + "/mark-sent", {
+          method:  "POST",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          loadPendingResources();
+        })
+        .catch(function (e) {
+          btn.disabled = false;
+          window.alert("WhatsApp aberto, mas houve erro ao registrar o envio: " + e.message +
+                       " / WhatsApp opened, but recording the send failed: " + e.message);
+        });
     }
 
     function loadClients() {

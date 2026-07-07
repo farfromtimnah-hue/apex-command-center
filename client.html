@@ -1306,6 +1306,10 @@
               <span class="show-pt">Agendar Sess&#227;o</span>
               <span class="show-en">Schedule Session</span>
             </button>
+            <button class="btn-action" id="btnAttachResource" onclick="openAttachResourceModal()">
+              <span class="show-pt">Anexar Recurso</span>
+              <span class="show-en">Attach Resource</span>
+            </button>
             <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
               <span class="show-pt">Gerar PDF</span>
               <span class="show-en">Generate PDF</span>
@@ -1727,6 +1731,92 @@
     </div>
   </div>
 
+  <!-- ═══════════════ MODAL: Anexar Recurso ═══════════════════════════════ -->
+  <div id="modalAttachResource" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Anexar Recurso</span>
+          <span class="show-en">Attach Resource</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalAttachResource')">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn-primary" id="arModeExistingBtn" onclick="setAttachMode('existing')" style="flex:1;">
+            <span class="show-pt">Da Biblioteca</span>
+            <span class="show-en">From Library</span>
+          </button>
+          <button type="button" class="btn-primary" id="arModeNewBtn" onclick="setAttachMode('new')" style="flex:1;opacity:0.55;">
+            <span class="show-pt">Criar Novo</span>
+            <span class="show-en">Create New</span>
+          </button>
+        </div>
+
+        <!-- Mode: pick existing -->
+        <div id="arExistingWrap">
+          <div class="field-group">
+            <select id="arResourceSelect"></select>
+          </div>
+        </div>
+
+        <!-- Mode: create new inline -->
+        <div id="arNewWrap" style="display:none;">
+          <div class="field-group" style="margin-bottom:12px;">
+            <input type="text" id="arTitle" placeholder="Título / Title *">
+          </div>
+          <div style="display:flex;gap:12px;margin-bottom:12px;">
+            <div class="field-group" style="flex:1;">
+              <select id="arCategory" onchange="onArCategoryChange()"></select>
+            </div>
+            <div class="field-group" style="flex:1;">
+              <select id="arType" onchange="onArTypeChange()">
+                <option value="contact">Contato / Contact</option>
+                <option value="file">Arquivo / File</option>
+                <option value="link">Link</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group" id="arOtherWrap" style="display:none;margin-bottom:12px;">
+            <input type="text" id="arOtherCategory" placeholder="Nova categoria / New category *">
+          </div>
+          <div class="field-group" style="margin-bottom:12px;">
+            <textarea id="arDescription" style="min-height:56px;" placeholder="Descrição / Description"></textarea>
+          </div>
+          <div id="arContactFields">
+            <div class="field-group" style="margin-bottom:12px;">
+              <input type="text" id="arContactName" placeholder="Nome do contato / Contact name">
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:12px;">
+              <div class="field-group" style="flex:1;">
+                <input type="text" id="arContactPhone" placeholder="Tel / WhatsApp">
+              </div>
+              <div class="field-group" style="flex:1;">
+                <input type="email" id="arContactEmail" placeholder="Email">
+              </div>
+            </div>
+          </div>
+          <div id="arFileFields" style="display:none;">
+            <div class="field-group" style="margin-bottom:12px;">
+              <input type="file" id="arFile" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv">
+            </div>
+          </div>
+          <div id="arLinkFields" style="display:none;">
+            <div class="field-group" style="margin-bottom:12px;">
+              <input type="url" id="arUrl" placeholder="https://...">
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="btnAttachSubmit" onclick="handleAttachResource()">
+          <span class="show-pt">Anexar ao Cliente</span>
+          <span class="show-en">Attach to Client</span>
+        </button>
+        <div class="pull-status" id="attachStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ MODAL: Agendar Sessão ══════════════════════════════ -->
   <div id="modalScheduleSession" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
@@ -1922,7 +2012,7 @@
 
     // Close modal on overlay click
     document.addEventListener("click", function(e) {
-      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession"];
+      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
         if (el && !el.hidden && e.target === el) {
@@ -2900,6 +2990,204 @@
         clearTimeout(fallbackId);
         sendData();
       });
+    }
+
+    // ── Attach Resource modal (Resource Hub) ───────────────────────────────
+
+    var arResources  = [];
+    var arCategories = [];
+    var arMode       = "existing";
+    var AR_OTHER     = "__other__";
+
+    function openAttachResourceModal() {
+      var statusEl = document.getElementById("attachStatus");
+      statusEl.textContent = "";
+      statusEl.className   = "pull-status";
+      document.getElementById("btnAttachSubmit").disabled = false;
+      var fields = ["arTitle","arDescription","arContactName","arContactPhone","arContactEmail","arUrl","arOtherCategory","arFile"];
+      for (var i = 0; i < fields.length; i++) {
+        var el = document.getElementById(fields[i]);
+        if (el) { el.value = ""; }
+      }
+      setAttachMode("existing");
+      document.getElementById("modalAttachResource").hidden = false;
+
+      apiFetch("/api/resources")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          arResources  = data.resources  || [];
+          arCategories = data.categories || [];
+          fillArResourceSelect();
+          fillArCategorySelect();
+        })
+        .catch(function (e) {
+          statusEl.textContent = "Erro ao carregar recursos: " + e.message;
+          statusEl.className   = "pull-status is-error";
+        });
+    }
+
+    function fillArResourceSelect() {
+      var sel  = document.getElementById("arResourceSelect");
+      var html = "";
+      if (arResources.length === 0) {
+        html = '<option value="">-- Nenhum recurso na biblioteca / No resources yet --</option>';
+      } else {
+        html = '<option value="">-- Escolher recurso / Pick a resource --</option>';
+        for (var i = 0; i < arResources.length; i++) {
+          var r = arResources[i];
+          html += '<option value="' + escHtml(r.id) + '">' + escHtml(r.title) + ' (' + escHtml(r.category) + ')</option>';
+        }
+      }
+      sel.innerHTML = html;
+    }
+
+    function fillArCategorySelect() {
+      var sel  = document.getElementById("arCategory");
+      var html = "";
+      for (var i = 0; i < arCategories.length; i++) {
+        html += '<option value="' + escHtml(arCategories[i]) + '">' + escHtml(arCategories[i]) + '</option>';
+      }
+      html += '<option value="' + AR_OTHER + '">Outro / Other...</option>';
+      sel.innerHTML = html;
+      onArCategoryChange();
+    }
+
+    function setAttachMode(mode) {
+      arMode = mode;
+      document.getElementById("arExistingWrap").style.display = (mode === "existing") ? "" : "none";
+      document.getElementById("arNewWrap").style.display      = (mode === "new")      ? "" : "none";
+      document.getElementById("arModeExistingBtn").style.opacity = (mode === "existing") ? "1" : "0.55";
+      document.getElementById("arModeNewBtn").style.opacity      = (mode === "new")      ? "1" : "0.55";
+      if (mode === "new") { onArTypeChange(); }
+    }
+
+    function onArCategoryChange() {
+      var isOther = document.getElementById("arCategory").value === AR_OTHER;
+      document.getElementById("arOtherWrap").style.display = isOther ? "" : "none";
+    }
+
+    function onArTypeChange() {
+      var type = document.getElementById("arType").value;
+      document.getElementById("arContactFields").style.display = (type === "contact") ? "" : "none";
+      document.getElementById("arFileFields").style.display    = (type === "file")    ? "" : "none";
+      document.getElementById("arLinkFields").style.display    = (type === "link")    ? "" : "none";
+    }
+
+    function attachResourceToClient(resourceId) {
+      return apiFetch("/api/clients/" + CLIENT_ID + "/resources", {
+        method: "POST",
+        body:   { resource_id: resourceId }
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          return data;
+        });
+    }
+
+    function handleAttachResource() {
+      var statusEl = document.getElementById("attachStatus");
+      var btn      = document.getElementById("btnAttachSubmit");
+
+      if (arMode === "existing") {
+        var resourceId = document.getElementById("arResourceSelect").value;
+        if (!resourceId) {
+          statusEl.textContent = "Escolha um recurso. / Pick a resource.";
+          statusEl.className   = "pull-status is-error";
+          return;
+        }
+        btn.disabled         = true;
+        statusEl.textContent = "Anexando... / Attaching...";
+        statusEl.className   = "pull-status";
+        attachResourceToClient(resourceId)
+          .then(function () {
+            statusEl.textContent = "Recurso anexado — pendente de envio. / Attached — pending send.";
+            statusEl.className   = "pull-status is-ok";
+            window.loadClientResources && window.loadClientResources();
+            setTimeout(function () { closeModalById("modalAttachResource"); }, 1000);
+          })
+          .catch(function (e) {
+            btn.disabled         = false;
+            statusEl.textContent = "Erro: " + e.message;
+            statusEl.className   = "pull-status is-error";
+          });
+        return;
+      }
+
+      // Create-and-attach in one step
+      var title = document.getElementById("arTitle").value.trim();
+      var type  = document.getElementById("arType").value;
+      var category = document.getElementById("arCategory").value;
+      if (category === AR_OTHER) { category = document.getElementById("arOtherCategory").value.trim(); }
+      var url = document.getElementById("arUrl").value.trim();
+      var fileInput = document.getElementById("arFile");
+      var file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+
+      if (!title || !category) {
+        statusEl.textContent = "Título e categoria são obrigatórios. / Title and category are required.";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+      if (type === "link" && !url) {
+        statusEl.textContent = "URL é obrigatória para links. / URL is required for links.";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+      if (type === "file" && !file) {
+        statusEl.textContent = "Selecione um arquivo. / Choose a file.";
+        statusEl.className   = "pull-status is-error";
+        return;
+      }
+
+      btn.disabled         = true;
+      statusEl.textContent = "Criando e anexando... / Creating and attaching...";
+      statusEl.className   = "pull-status";
+
+      var fields = {
+        title:         title,
+        category:      category,
+        resource_type: type,
+        description:   document.getElementById("arDescription").value.trim()  || null,
+        contact_name:  document.getElementById("arContactName").value.trim()  || null,
+        contact_phone: document.getElementById("arContactPhone").value.trim() || null,
+        contact_email: document.getElementById("arContactEmail").value.trim() || null,
+        url:           url || null
+      };
+
+      getToken().then(function (token) {
+        if (file) {
+          var form = new FormData();
+          for (var k in fields) {
+            if (fields.hasOwnProperty(k) && fields[k] !== null) { form.append(k, fields[k]); }
+          }
+          form.append("file", file);
+          return fetch(WORKER_URL + "/api/resources", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token },
+            body: form
+          });
+        }
+        return fetch(WORKER_URL + "/api/resources", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(fields)
+        });
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          return attachResourceToClient(data.resource.id);
+        })
+        .then(function () {
+          statusEl.textContent = "Recurso criado e anexado — pendente de envio. / Created and attached — pending send.";
+          statusEl.className   = "pull-status is-ok";
+          window.loadClientResources && window.loadClientResources();
+          setTimeout(function () { closeModalById("modalAttachResource"); }, 1000);
+        })
+        .catch(function (e) {
+          btn.disabled         = false;
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className   = "pull-status is-error";
+        });
     }
 
     // ── Note modal ─────────────────────────────────────────────────────────

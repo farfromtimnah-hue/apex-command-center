@@ -2736,6 +2736,130 @@ async function handleGetResourceFile(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/resources
+// All resources attached to a client (pending + sent), newest assignment first.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientResources(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var rows = await env.DB.prepare(
+            "SELECT cr.id, cr.client_id, cr.resource_id, cr.assigned_at, cr.assigned_by, " +
+            "cr.whatsapp_sent_at, cr.sent_by, " +
+            "r.category, r.resource_type, r.title, r.description, " +
+            "r.contact_name, r.contact_phone, r.contact_email, r.file_url, r.file_name, r.url " +
+            "FROM client_resources cr " +
+            "JOIN resources r ON r.id = cr.resource_id " +
+            "WHERE cr.client_id = ? " +
+            "ORDER BY cr.assigned_at DESC"
+        ).bind(id).all();
+
+        return jsonOk({ client_resources: rows.results });
+    } catch (e) {
+        return jsonErr("Error fetching client resources: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/resources
+// Body: { resource_id }
+// Attaches an existing hub resource to a client (creates a pending
+// client_resources row). alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientResource(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.resource_id) { return jsonErr("resource_id is required", 400); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        var resource = await env.DB.prepare("SELECT id FROM resources WHERE id = ?").bind(body.resource_id).first();
+        if (!resource) { return jsonErr("Resource not found", 404); }
+
+        var dup = await env.DB.prepare(
+            "SELECT id FROM client_resources WHERE client_id = ? AND resource_id = ? AND whatsapp_sent_at IS NULL"
+        ).bind(id, body.resource_id).first();
+        if (dup) { return jsonErr("This resource is already pending for this client", 409); }
+
+        var crId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_resources (id, client_id, resource_id, assigned_by) VALUES (?, ?, ?, ?)"
+        ).bind(crId, id, body.resource_id, user.display_name || user.role).run();
+
+        var row = await env.DB.prepare("SELECT * FROM client_resources WHERE id = ?").bind(crId).first();
+        return jsonOk({ client_resource: row });
+    } catch (e) {
+        return jsonErr("Error attaching resource: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/client-resources/pending
+// All unsent assignments across all clients, joined with resource details and
+// the client's name/WhatsApp — feeds the pending strip on the Clients page.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientResourcesPending(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var rows = await env.DB.prepare(
+            "SELECT cr.id, cr.client_id, cr.resource_id, cr.assigned_at, cr.assigned_by, " +
+            "c.name AS client_name, c.whatsapp AS client_whatsapp, c.phone AS client_phone, " +
+            "r.category, r.resource_type, r.title, r.description, " +
+            "r.contact_name, r.contact_phone, r.contact_email, r.file_url, r.file_name, r.url " +
+            "FROM client_resources cr " +
+            "JOIN resources r ON r.id = cr.resource_id " +
+            "JOIN clients c ON c.id = cr.client_id " +
+            "WHERE cr.whatsapp_sent_at IS NULL " +
+            "ORDER BY cr.assigned_at ASC"
+        ).all();
+
+        return jsonOk({ pending: rows.results });
+    } catch (e) {
+        return jsonErr("Error fetching pending resource sends: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/client-resources/:id/mark-sent
+// Records the WhatsApp send: sets whatsapp_sent_at + sent_by (the permanent
+// checkmark). The frontend opens wa.me synchronously BEFORE calling this, so
+// window.open is never separated from the click (popup-block lesson).
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientResourceMarkSent(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare("SELECT id, whatsapp_sent_at FROM client_resources WHERE id = ?")
+            .bind(id).first();
+        if (!row) { return jsonErr("Assignment not found", 404); }
+        if (row.whatsapp_sent_at) { return jsonErr("Already marked as sent", 409); }
+
+        var sentAt = new Date().toISOString();
+        await env.DB.prepare(
+            "UPDATE client_resources SET whatsapp_sent_at = ?, sent_by = ? WHERE id = ?"
+        ).bind(sentAt, user.display_name || user.role, id).run();
+
+        return jsonOk({ id: id, whatsapp_sent_at: sentAt, sent_by: user.display_name || user.role });
+    } catch (e) {
+        return jsonErr("Error marking resource as sent: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance/statement-upload
 // Accepts a CSV or plain-text bank statement, sends to Claude, inserts parsed
 // transactions into bank_transactions with status='pending'.
@@ -4702,6 +4826,7 @@ export default {
         if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
+        if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }
         if (path === "/api/zoho/contacts/resync-status" && method === "GET")  { return handleGetZohoContactsResyncStatus(request, env); }
         if (path === "/api/zoho/contacts/resync"        && method === "POST") { return handlePostZohoContactsResync(request, env); }
 
@@ -4718,6 +4843,11 @@ export default {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "whatsapp" && method === "POST") {
             return handlePostSessionWhatsapp(segs[2], request, env);
+        }
+
+        // /api/client-resources/:id/mark-sent  POST
+        if (segs[0] === "api" && segs[1] === "client-resources" && segs[2] && segs[3] === "mark-sent" && method === "POST") {
+            return handlePostClientResourceMarkSent(segs[2], request, env);
         }
 
         // /api/resources/:id  PUT | /api/resources/:id/file  GET
@@ -4787,6 +4917,10 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "invoices" && method === "GET") {
                 return handleGetClientInvoices(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "resources") {
+                if (method === "GET")  { return handleGetClientResources(cid, request, env); }
+                if (method === "POST") { return handlePostClientResource(cid, request, env); }
             }
             if (segs.length === 4 && segs[3] === "zoho-contact") {
                 if (method === "GET") { return handleGetClientZohoContact(cid, request, env); }

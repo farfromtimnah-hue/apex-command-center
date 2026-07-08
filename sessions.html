@@ -82,6 +82,37 @@
     body.lang-en .section-title[data-key="next_session_focus"]::before     { content: "Next Session Focus"; }
     body.lang-en .section-title[data-key="client_profile_updates"]::before { content: "Client Profile Updates"; }
 
+    body.lang-pt .section-title[data-key="business_diagnosis"]::before { content: "Radiografia Atual"; }
+    body.lang-pt .section-title[data-key="swot_synthesis"]::before     { content: "Leitura Cruzada da SWOT"; }
+    body.lang-pt .section-title[data-key="thirty_day_goals"]::before   { content: "Meta dos 30 Dias"; }
+
+    body.lang-en .section-title[data-key="business_diagnosis"]::before { content: "Current Business X-Ray"; }
+    body.lang-en .section-title[data-key="swot_synthesis"]::before     { content: "SWOT Cross-Analysis"; }
+    body.lang-en .section-title[data-key="thirty_day_goals"]::before   { content: "30-Day Goals"; }
+
+    /* ─── Structured summary sections (radiografia / leitura cruzada / metas) ─ */
+    .struct-table { width: 100%; border-collapse: collapse; }
+    .struct-table td { padding: 5px 8px 5px 0; vertical-align: top; border-bottom: 1px solid var(--border); }
+    .struct-table tr:last-child td { border-bottom: none; }
+    .struct-dim { font-size: 11.5px; font-weight: 600; color: var(--brown); padding-top: 11px; white-space: nowrap; }
+    .struct-input, .struct-select {
+      width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-family: inherit; font-size: 12px; background: var(--card); color: var(--text);
+    }
+    .struct-select { appearance: none; -webkit-appearance: none; }
+    .struct-textarea {
+      width: 100%; min-height: 90px; resize: vertical; padding: 8px 10px; margin-bottom: 10px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-family: inherit; font-size: 12px; line-height: 1.5; background: var(--card); color: var(--text);
+    }
+    .struct-text { font-size: 12.5px; line-height: 1.55; color: var(--text); margin: 4px 0 12px; }
+    .synth-label { font-size: 11px; font-weight: 700; color: var(--brown); letter-spacing: 0.4px; text-transform: uppercase; margin: 10px 0 4px; }
+    .level-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; white-space: nowrap; }
+    .level-badge[data-level="FORTE"]   { background: #ddfaec; color: #1a6640; }
+    .level-badge[data-level="MÉDIO"],
+    .level-badge[data-level="FRACO"]   { background: #fdf3dc; color: #8a6200; }
+    .level-badge[data-level="CRÍTICO"] { background: #fbe0da; color: #a33a25; }
+
     /* ─── Header ────────────────────────────────────────────────────────── */
     #appHeader {
       background: var(--header);
@@ -1319,6 +1350,20 @@
       "client_profile_updates"
     ];
 
+    // Structured report sections (fixed row order — must match the Worker extraction prompt)
+    var DIAG_DIMENSIONS = [
+      "Produto/Serviço", "Fundadores", "Experiência do Cliente", "Time Operacional",
+      "Time Comercial", "Marketing & Presença Digital", "Infraestrutura",
+      "Documentação Legal", "Sistemas de Gestão", "Parcerias"
+    ];
+    var DIAG_LEVELS = ["FORTE", "MÉDIO", "FRACO", "CRÍTICO"];
+    var GOAL_AREAS  = ["Operacional", "Comercial", "Marketing", "Parcerias", "Infraestrutura", "Legal", "Sistemas"];
+    var SYNTH_FIELDS = [
+      { key: "forca_oportunidade", pt: "Força × Oportunidade", en: "Strength × Opportunity" },
+      { key: "fraqueza_ameaca",    pt: "Fraqueza × Ameaça",    en: "Weakness × Threat" },
+      { key: "forca_ameaca",       pt: "Força × Ameaça",       en: "Strength × Threat" }
+    ];
+
     // ── State ──────────────────────────────────────────────────────────────
     var auth            = null;
     var currentUser     = null;
@@ -2311,6 +2356,173 @@
         card.appendChild(enWrap);
         container.appendChild(card);
       }
+
+      container.appendChild(makeStructCard("business_diagnosis", summary.business_diagnosis, editable, renderDiagnosisLang));
+      container.appendChild(makeStructCard("swot_synthesis", summary.swot_synthesis, editable, renderSynthesisLang));
+      container.appendChild(makeStructCard("thirty_day_goals", summary.thirty_day_goals, editable, renderGoalsLang));
+    }
+
+    // ── Structured section cards (radiografia / leitura cruzada / metas) ───
+
+    function makeStructCard(key, section, editable, renderLang) {
+      var card = document.createElement("div");
+      card.className = "summary-card";
+
+      var titleEl = document.createElement("h3");
+      titleEl.className = "section-title";
+      titleEl.setAttribute("data-key", key);
+      card.appendChild(titleEl);
+
+      var langs = ["pt", "en"];
+      for (var i = 0; i < langs.length; i++) {
+        var wrap = document.createElement("div");
+        wrap.className = "show-" + langs[i];
+        renderLang(wrap, (section && section[langs[i]]) || null, langs[i], editable);
+        card.appendChild(wrap);
+      }
+      return card;
+    }
+
+    function structField(tag, section, lang, row, col) {
+      var el = document.createElement(tag === "select" ? "select" : "input");
+      el.className = tag === "select" ? "struct-select struct-cell" : "struct-input struct-cell";
+      el.setAttribute("data-section", section);
+      el.setAttribute("data-lang", lang);
+      el.setAttribute("data-row", row);
+      el.setAttribute("data-col", col);
+      return el;
+    }
+
+    function renderDiagnosisLang(wrap, rows, lang, editable) {
+      rows = Array.isArray(rows) ? rows : [];
+      var table = document.createElement("table");
+      table.className = "struct-table";
+      for (var i = 0; i < DIAG_DIMENSIONS.length; i++) {
+        var row = rows[i] || {};
+        var tr  = document.createElement("tr");
+
+        var tdDim = document.createElement("td");
+        tdDim.className = "struct-dim";
+        tdDim.textContent = DIAG_DIMENSIONS[i];
+        tr.appendChild(tdDim);
+
+        var tdSit = document.createElement("td");
+        var tdLvl = document.createElement("td");
+        if (editable) {
+          var input = structField("input", "business_diagnosis", lang, i, "situation");
+          input.value = row.situation || "";
+          tdSit.appendChild(input);
+
+          var sel = structField("select", "business_diagnosis", lang, i, "level");
+          for (var l = 0; l < DIAG_LEVELS.length; l++) {
+            var opt = document.createElement("option");
+            opt.value = DIAG_LEVELS[l];
+            opt.textContent = DIAG_LEVELS[l];
+            sel.appendChild(opt);
+          }
+          sel.value = DIAG_LEVELS.indexOf(row.level) >= 0 ? row.level : "MÉDIO";
+          tdLvl.appendChild(sel);
+        } else {
+          tdSit.className = "struct-text";
+          tdSit.textContent = row.situation || "";
+          var badge = document.createElement("span");
+          badge.className = "level-badge";
+          badge.setAttribute("data-level", row.level || "");
+          badge.textContent = row.level || "";
+          tdLvl.appendChild(badge);
+        }
+        tr.appendChild(tdSit);
+        tr.appendChild(tdLvl);
+        table.appendChild(tr);
+      }
+      wrap.appendChild(table);
+    }
+
+    function renderSynthesisLang(wrap, obj, lang, editable) {
+      obj = obj || {};
+      for (var i = 0; i < SYNTH_FIELDS.length; i++) {
+        var f = SYNTH_FIELDS[i];
+        var label = document.createElement("div");
+        label.className = "synth-label";
+        label.textContent = lang === "pt" ? f.pt : f.en;
+        wrap.appendChild(label);
+
+        if (editable) {
+          var area = document.createElement("textarea");
+          area.className = "struct-textarea struct-cell";
+          area.setAttribute("data-section", "swot_synthesis");
+          area.setAttribute("data-lang", lang);
+          area.setAttribute("data-row", "0");
+          area.setAttribute("data-col", f.key);
+          area.value = obj[f.key] || "";
+          wrap.appendChild(area);
+        } else {
+          var p = document.createElement("p");
+          p.className = "struct-text";
+          p.textContent = obj[f.key] || "";
+          wrap.appendChild(p);
+        }
+      }
+    }
+
+    function renderGoalsLang(wrap, rows, lang, editable) {
+      rows = Array.isArray(rows) ? rows : [];
+      var table = document.createElement("table");
+      table.className = "struct-table";
+      for (var i = 0; i < GOAL_AREAS.length; i++) {
+        var row = rows[i] || {};
+        var tr  = document.createElement("tr");
+
+        var tdArea = document.createElement("td");
+        tdArea.className = "struct-dim";
+        tdArea.textContent = GOAL_AREAS[i];
+        tr.appendChild(tdArea);
+
+        var cols = ["meta", "indicador"];
+        for (var c = 0; c < cols.length; c++) {
+          var td = document.createElement("td");
+          if (editable) {
+            var input = structField("input", "thirty_day_goals", lang, i, cols[c]);
+            input.value = row[cols[c]] || "";
+            input.placeholder = cols[c] === "meta"
+              ? (lang === "pt" ? "Meta" : "Goal")
+              : (lang === "pt" ? "Indicador de sucesso" : "Success indicator");
+            td.appendChild(input);
+          } else {
+            td.className = "struct-text";
+            td.textContent = row[cols[c]] || "";
+          }
+          tr.appendChild(td);
+        }
+        table.appendChild(tr);
+      }
+      wrap.appendChild(table);
+    }
+
+    function collectStructuredSections(result) {
+      var cells = document.querySelectorAll("#summaryCards .struct-cell");
+      for (var i = 0; i < cells.length; i++) {
+        var el      = cells[i];
+        var section = el.getAttribute("data-section");
+        var lang    = el.getAttribute("data-lang");
+        var rowIdx  = parseInt(el.getAttribute("data-row"), 10);
+        var col     = el.getAttribute("data-col");
+
+        if (!result[section]) { result[section] = { pt: null, en: null }; }
+
+        if (section === "swot_synthesis") {
+          if (!result[section][lang]) { result[section][lang] = {}; }
+          result[section][lang][col] = el.value;
+        } else {
+          if (!result[section][lang]) { result[section][lang] = []; }
+          if (!result[section][lang][rowIdx]) {
+            result[section][lang][rowIdx] = section === "business_diagnosis"
+              ? { dimension: DIAG_DIMENSIONS[rowIdx] }
+              : { area: GOAL_AREAS[rowIdx] };
+          }
+          result[section][lang][rowIdx][col] = el.value;
+        }
+      }
     }
 
     function collectEditedSummary() {
@@ -2323,6 +2535,7 @@
         if (!result[key]) { result[key] = {}; }
         result[key][lang] = field.value;
       }
+      collectStructuredSections(result);
       return result;
     }
 
@@ -2423,6 +2636,13 @@
           var orig = JSON.parse(existing.summary_json);
           if (orig.pdf_data) { edited.pdf_data = orig.pdf_data; }
         } catch(e) { /* ignore */ }
+      }
+
+      // Sync edited structured sections (PT side) into pdf_data so edits reach the report
+      if (edited.pdf_data) {
+        if (edited.business_diagnosis && edited.business_diagnosis.pt) { edited.pdf_data.business_diagnosis = edited.business_diagnosis.pt; }
+        if (edited.swot_synthesis && edited.swot_synthesis.pt)         { edited.pdf_data.swot_synthesis = edited.swot_synthesis.pt; }
+        if (edited.thirty_day_goals && edited.thirty_day_goals.pt)     { edited.pdf_data.thirty_day_goals = edited.thirty_day_goals.pt; }
       }
 
       if (btn) { btn.disabled = true; }

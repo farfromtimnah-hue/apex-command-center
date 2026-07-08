@@ -23,11 +23,18 @@
   @media print {
     html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     html, body { margin: 0; padding: 0; background: #fff; }
-    .app-bg { background: #fff !important; padding: 0 !important; gap: 0 !important; }
+    /* Block layout in print: print engines (WebKit especially) do not honor
+       forced page breaks on flex items, so as flex children the pages flow as
+       one continuous column and every sheet cut lands a little lower — the
+       compounding top-gap drift. As block boxes each .page hard-resets to the
+       top of its own sheet regardless of how tall previous pages were. */
+    .app-bg { display: block !important; background: #fff !important; padding: 0 !important; gap: 0 !important; }
     .screen-only { display: none !important; }
-    .page { box-shadow: none !important; margin: 0 !important; break-after: page; break-before: page; }
-    .page[data-screen-label="Cover"] { break-before: auto; }
-    .page:last-child { break-after: auto; }
+    /* One break direction only: break-before on every page except the cover.
+       No break-after anywhere, so no engine can mint a blank trailing sheet
+       after the last page. */
+    .page { box-shadow: none !important; margin: 0 auto !important; break-before: page; page-break-before: always; }
+    .page[data-screen-label="Cover"] { break-before: auto; page-break-before: auto; }
     /* Overflowing content spills onto its own extra sheet as whole cards/rows,
        never bleeding into the next section's page. */
     .page tr { break-inside: avoid; page-break-inside: avoid; }

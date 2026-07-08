@@ -131,6 +131,35 @@
     ]
   },
 
+  "business_diagnosis": [
+    { "dimension": "Produto/Serviço", "situation": "Portfólio sólido, mas sem diferenciação clara entre linhas de entrada e premium.", "level": "MÉDIO" },
+    { "dimension": "Fundadores", "situation": "Liderança experiente, porém concentrando decisões críticas em duas pessoas.", "level": "FORTE" },
+    { "dimension": "Experiência do Cliente", "situation": "Alto índice de fidelidade, sem processo formal de escuta e NPS.", "level": "MÉDIO" },
+    { "dimension": "Time Operacional", "situation": "Equipe técnica sênior sobrecarregada com tarefas administrativas.", "level": "MÉDIO" },
+    { "dimension": "Time Comercial", "situation": "Processos comerciais informais e sem metas de recorrência.", "level": "FRACO" },
+    { "dimension": "Marketing & Presença Digital", "situation": "Custo de aquisição crescente e presença digital desatualizada.", "level": "CRÍTICO" },
+    { "dimension": "Infraestrutura", "situation": "Estrutura física adequada ao porte atual da operação.", "level": "FORTE" },
+    { "dimension": "Documentação Legal", "situation": "Contratos de fornecedores sem revisão há mais de dois anos.", "level": "FRACO" },
+    { "dimension": "Sistemas de Gestão", "situation": "Indicadores dispersos em planilhas, sem painel consolidado.", "level": "FRACO" },
+    { "dimension": "Parcerias", "situation": "Nenhuma parceria de canal ativa apesar do potencial identificado.", "level": "CRÍTICO" }
+  ],
+
+  "swot_synthesis": {
+    "forca_oportunidade": "A marca consolidada e a base de clientes fiéis criam as condições ideais para a premiumização do portfólio: os clientes-âncora já confiam na entrega e sustentam um ticket médio superior.",
+    "fraqueza_ameaca": "O maior risco combinado está na dependência de poucos decisores somada ao aumento do custo de aquisição — sem processos comerciais formais, a pressão de preço corrói a margem antes que a empresa consiga reagir.",
+    "forca_ameaca": "A posição de caixa saudável e a equipe técnica sênior funcionam como defesa direta contra novos entrantes digitais, permitindo investir em automação sem comprometer a operação."
+  },
+
+  "thirty_day_goals": [
+    { "area": "Operacional", "meta": "Liberar a equipe técnica de tarefas administrativas.", "indicador": "20% de horas técnicas realocadas para entrega." },
+    { "area": "Comercial", "meta": "Formalizar o funil comercial com metas de recorrência.", "indicador": "Funil documentado e metas trimestrais aprovadas." },
+    { "area": "Marketing", "meta": "Reduzir o custo de aquisição das campanhas ativas.", "indicador": "CAC 15% menor na média móvel de 30 dias." },
+    { "area": "Parcerias", "meta": "Ativar a primeira parceria estratégica de canal.", "indicador": "Contrato de parceria assinado." },
+    { "area": "Infraestrutura", "meta": "Mapear a capacidade para o cenário de expansão.", "indicador": "Plano de capacidade validado pelo comitê." },
+    { "area": "Legal", "meta": "Revisar os contratos de fornecedores de mídia.", "indicador": "100% dos contratos críticos revisados." },
+    { "area": "Sistemas", "meta": "Consolidar os indicadores em um painel único.", "indicador": "Painel no ar com margem, CAC e churn." }
+  ],
+
   "thirty_day_plan": [
     {
       "week_label": "Semana 01",

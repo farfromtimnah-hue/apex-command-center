@@ -31,8 +31,19 @@ CREATE TABLE IF NOT EXISTS session_summaries (
     next_session_focus_en     TEXT,
     client_profile_updates_pt TEXT,
     client_profile_updates_en TEXT,
+    business_diagnosis_pt     TEXT,
+    business_diagnosis_en     TEXT,
+    swot_synthesis_pt         TEXT,
+    swot_synthesis_en         TEXT,
+    thirty_day_goals_pt       TEXT,
+    thirty_day_goals_en       TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- NOTE: business_diagnosis_*, swot_synthesis_*, thirty_day_goals_* were added to the
+-- live D1 database via migrations/session_summaries_report_sections.sql.
+-- business_diagnosis_pt/en: JSON array of 10 {dimension, situation, level} rows.
+-- swot_synthesis_pt/en: JSON object {forca_oportunidade, fraqueza_ameaca, forca_ameaca}.
+-- thirty_day_goals_pt/en: JSON array of 7 {area, meta, indicador} rows.
 
 CREATE TABLE IF NOT EXISTS documents (
     id          TEXT PRIMARY KEY,

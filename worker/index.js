@@ -386,11 +386,30 @@ var SUMMARY_SYSTEM = "You are a documentation assistant for Apex Business & Lead
     "Respond ONLY with a valid JSON object — no markdown fences, no commentary.";
 
 var SUMMARY_PROMPT = "Generate a session summary for the transcript below.\n\n" +
-    "Respond with a JSON object containing exactly 7 top-level keys.\n\n" +
+    "Respond with a JSON object containing exactly 10 top-level keys.\n\n" +
     "Keys 1-6 are for internal review only. Each must be an object with 'pt' and 'en' string fields:\n" +
     "  discussion_overview, recommendations, client_action_items, rafa_followups,\n" +
     "  next_session_focus, client_profile_updates\n\n" +
-    "Key 7 is 'pdf_data' — a client-facing deliverable written entirely in Brazilian Portuguese.\n" +
+    "Keys 7-9 are structured sections. Each must be an object with 'pt' and 'en' fields, where pt and en\n" +
+    "hold the SAME structure (pt in Brazilian Portuguese, en in English — translate descriptions; keep\n" +
+    "dimension/area names and level values EXACTLY as specified, in Portuguese, in BOTH languages):\n" +
+    "  business_diagnosis: pt/en are each an array of exactly 10 rows, one per business dimension,\n" +
+    "    in exactly this order: \"Produto/Serviço\", \"Fundadores\", \"Experiência do Cliente\",\n" +
+    "    \"Time Operacional\", \"Time Comercial\", \"Marketing & Presença Digital\", \"Infraestrutura\",\n" +
+    "    \"Documentação Legal\", \"Sistemas de Gestão\", \"Parcerias\".\n" +
+    "    Each row: {\"dimension\": \"<fixed name above>\", \"situation\": \"1 short sentence describing the\n" +
+    "    client's current situation in that dimension, extracted from the transcript\", \"level\": one of\n" +
+    "    exactly \"FORTE\", \"MÉDIO\", \"FRACO\", \"CRÍTICO\" — your assessment from the transcript content}\n" +
+    "  swot_synthesis: pt/en are each an object with exactly 3 string fields, each a short analytical\n" +
+    "    paragraph (2-3 sentences) cross-referencing the SWOT quadrants you produced:\n" +
+    "    {\"forca_oportunidade\": \"how the strengths enable capturing the opportunities\",\n" +
+    "     \"fraqueza_ameaca\": \"the biggest combined risk where weaknesses meet threats\",\n" +
+    "     \"forca_ameaca\": \"how the strengths defend against the threats\"}\n" +
+    "  thirty_day_goals: pt/en are each an array of exactly 7 rows, one per area, in exactly this order:\n" +
+    "    \"Operacional\", \"Comercial\", \"Marketing\", \"Parcerias\", \"Infraestrutura\", \"Legal\", \"Sistemas\".\n" +
+    "    Each row: {\"area\": \"<fixed name above>\", \"meta\": \"a concrete 30-day goal for that area derived\n" +
+    "    from the transcript\", \"indicador\": \"a measurable success indicator for that goal\"}\n\n" +
+    "Key 10 is 'pdf_data' — a client-facing deliverable written entirely in Brazilian Portuguese.\n" +
     "pdf_data must be an object with exactly these fields:\n" +
     "  document_title: always the exact string \"Relatorio\\nEstrategico\" (use \\n between the two words)\n" +
     "  executive_summary: string, 2-4 sentences summarizing the session\n" +
@@ -402,8 +421,12 @@ var SUMMARY_PROMPT = "Generate a session summary for the transcript below.\n\n" 
     "  swot: {\"strengths\": [2-4 strings], \"weaknesses\": [2-4 strings], \"opportunities\": [2-4 strings], \"threats\": [2-4 strings]}\n" +
     "  thirty_day_plan: array of exactly 4 week objects:\n" +
     "    [{\"week_label\": \"SEMANA 1\", \"week_title\": \"short theme\", \"items\": [{\"text\": \"...\", \"owner\": \"CLIENTE\"}]}]\n" +
-    "    owner must be exactly 'CLIENTE' or 'CONSULTOR' (uppercase, no other values)\n\n" +
+    "    owner must be exactly 'CLIENTE' or 'CONSULTOR' (uppercase, no other values)\n" +
+    "  business_diagnosis: identical structure and content to the 'pt' side of top-level business_diagnosis\n" +
+    "  swot_synthesis: identical structure and content to the 'pt' side of top-level swot_synthesis\n" +
+    "  thirty_day_goals: identical structure and content to the 'pt' side of top-level thirty_day_goals\n\n" +
     "Rules: 2-4 items per array unless stated otherwise. Exactly 4 week entries in thirty_day_plan.\n" +
+    "Exactly 10 rows in business_diagnosis and exactly 7 rows in thirty_day_goals, in the fixed order given.\n" +
     "If the transcript lacks enough detail for a field, infer a reasonable conservative entry — do not leave arrays empty.\n\n" +
     "Transcript:\n";
 
@@ -455,27 +478,50 @@ async function handlePostSummarize(request, env) {
 
         var pdfData = summaryJson.pdf_data || null;
 
+        // Safety net: if the model put the three structured sections only at the top level,
+        // copy their PT side into pdf_data so the report template always receives them.
+        if (pdfData) {
+            if (!pdfData.business_diagnosis && summaryJson.business_diagnosis) {
+                pdfData.business_diagnosis = summaryJson.business_diagnosis.pt || null;
+            }
+            if (!pdfData.swot_synthesis && summaryJson.swot_synthesis) {
+                pdfData.swot_synthesis = summaryJson.swot_synthesis.pt || null;
+            }
+            if (!pdfData.thirty_day_goals && summaryJson.thirty_day_goals) {
+                pdfData.thirty_day_goals = summaryJson.thirty_day_goals.pt || null;
+            }
+        }
+
         // Update sessions: keep full summary_json for dashboard compat, write pdf_data to its own column
         await env.DB.prepare(
             "UPDATE sessions SET summary_json = ?, pdf_data = ?, status = 'summarized' WHERE id = ?"
         ).bind(JSON.stringify(summaryJson), pdfData ? JSON.stringify(pdfData) : null, body.session_id).run();
 
-        // Write 6 structured keys to session_summaries
+        // Write 6 text keys + 3 structured sections to session_summaries
         var ss = summaryJson;
+        // Structured sections are stored as JSON strings per language
+        var sectionJson = function (sec, lang) {
+            return sec && sec[lang] !== undefined && sec[lang] !== null ? JSON.stringify(sec[lang]) : null;
+        };
         var summaryId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO session_summaries " +
             "(id, session_id, summary_pt, summary_en, recommendations_pt, recommendations_en, " +
             "client_action_items_pt, client_action_items_en, rafa_followups_pt, rafa_followups_en, " +
-            "next_session_focus_pt, next_session_focus_en, client_profile_updates_pt, client_profile_updates_en) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+            "next_session_focus_pt, next_session_focus_en, client_profile_updates_pt, client_profile_updates_en, " +
+            "business_diagnosis_pt, business_diagnosis_en, swot_synthesis_pt, swot_synthesis_en, " +
+            "thirty_day_goals_pt, thirty_day_goals_en) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
             "ON CONFLICT(session_id) DO UPDATE SET " +
             "summary_pt = excluded.summary_pt, summary_en = excluded.summary_en, " +
             "recommendations_pt = excluded.recommendations_pt, recommendations_en = excluded.recommendations_en, " +
             "client_action_items_pt = excluded.client_action_items_pt, client_action_items_en = excluded.client_action_items_en, " +
             "rafa_followups_pt = excluded.rafa_followups_pt, rafa_followups_en = excluded.rafa_followups_en, " +
             "next_session_focus_pt = excluded.next_session_focus_pt, next_session_focus_en = excluded.next_session_focus_en, " +
-            "client_profile_updates_pt = excluded.client_profile_updates_pt, client_profile_updates_en = excluded.client_profile_updates_en"
+            "client_profile_updates_pt = excluded.client_profile_updates_pt, client_profile_updates_en = excluded.client_profile_updates_en, " +
+            "business_diagnosis_pt = excluded.business_diagnosis_pt, business_diagnosis_en = excluded.business_diagnosis_en, " +
+            "swot_synthesis_pt = excluded.swot_synthesis_pt, swot_synthesis_en = excluded.swot_synthesis_en, " +
+            "thirty_day_goals_pt = excluded.thirty_day_goals_pt, thirty_day_goals_en = excluded.thirty_day_goals_en"
         ).bind(
             summaryId, body.session_id,
             ss.discussion_overview   ? ss.discussion_overview.pt   : null,
@@ -489,7 +535,13 @@ async function handlePostSummarize(request, env) {
             ss.next_session_focus    ? ss.next_session_focus.pt    : null,
             ss.next_session_focus    ? ss.next_session_focus.en    : null,
             ss.client_profile_updates ? ss.client_profile_updates.pt : null,
-            ss.client_profile_updates ? ss.client_profile_updates.en : null
+            ss.client_profile_updates ? ss.client_profile_updates.en : null,
+            sectionJson(ss.business_diagnosis, "pt"),
+            sectionJson(ss.business_diagnosis, "en"),
+            sectionJson(ss.swot_synthesis, "pt"),
+            sectionJson(ss.swot_synthesis, "en"),
+            sectionJson(ss.thirty_day_goals, "pt"),
+            sectionJson(ss.thirty_day_goals, "en")
         ).run();
 
         // Write pdf_data to documents table (verbatim, no transformation)

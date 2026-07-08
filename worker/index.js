@@ -582,9 +582,40 @@ async function handlePostApprove(request, env) {
             : session.summary_json;
         var approvedAt = new Date().toISOString();
 
-        await env.DB.prepare(
-            "UPDATE sessions SET status = 'approved', approved_at = ?, summary_json = ? WHERE id = ?"
-        ).bind(approvedAt, summaryToStore, body.session_id).run();
+        // Rebuild the template-facing pdf_data from the approved summary so review edits
+        // (including business_diagnosis, swot_synthesis, thirty_day_goals) reach the PDF.
+        var approvedPdfData = null;
+        try {
+            var approvedSummary = summaryToStore ? JSON.parse(summaryToStore) : null;
+            if (approvedSummary && approvedSummary.pdf_data) {
+                approvedPdfData = approvedSummary.pdf_data;
+                if (!approvedPdfData.business_diagnosis && approvedSummary.business_diagnosis) {
+                    approvedPdfData.business_diagnosis = approvedSummary.business_diagnosis.pt || null;
+                }
+                if (!approvedPdfData.swot_synthesis && approvedSummary.swot_synthesis) {
+                    approvedPdfData.swot_synthesis = approvedSummary.swot_synthesis.pt || null;
+                }
+                if (!approvedPdfData.thirty_day_goals && approvedSummary.thirty_day_goals) {
+                    approvedPdfData.thirty_day_goals = approvedSummary.thirty_day_goals.pt || null;
+                }
+            }
+        } catch (pdfErr) { approvedPdfData = null; }
+
+        if (approvedPdfData) {
+            await env.DB.prepare(
+                "UPDATE sessions SET status = 'approved', approved_at = ?, summary_json = ?, pdf_data = ? WHERE id = ?"
+            ).bind(approvedAt, summaryToStore, JSON.stringify(approvedPdfData), body.session_id).run();
+
+            var approvedDocId = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO documents (id, session_id, pdf_data) VALUES (?, ?, ?) " +
+                "ON CONFLICT(session_id) DO UPDATE SET pdf_data = excluded.pdf_data"
+            ).bind(approvedDocId, body.session_id, JSON.stringify(approvedPdfData)).run();
+        } else {
+            await env.DB.prepare(
+                "UPDATE sessions SET status = 'approved', approved_at = ?, summary_json = ? WHERE id = ?"
+            ).bind(approvedAt, summaryToStore, body.session_id).run();
+        }
 
         // TODO: generate branded PDF from summary_json and deliver to client
         // Integration point: call a PDF-generation service or email provider here.

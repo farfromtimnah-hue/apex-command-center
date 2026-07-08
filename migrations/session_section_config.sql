@@ -1,0 +1,29 @@
+-- Adds per-session strategic-report section configuration.
+--
+-- section_config : JSON (nullable — null means "default: all nine standard
+-- sections enabled, no custom sections"; the Worker synthesizes the default
+-- at read time, so existing sessions need no backfill).
+--
+-- Shape:
+-- {
+--   "sections": [
+--     {"key": "business_diagnosis",   "enabled": true, "order": 1},
+--     {"key": "recommendations",      "enabled": true, "order": 2},
+--     {"key": "client_actions",       "enabled": true, "order": 3},
+--     {"key": "consultant_followups", "enabled": true, "order": 4},
+--     {"key": "next_session_focus",   "enabled": true, "order": 5},
+--     {"key": "swot",                 "enabled": true, "order": 6},
+--     {"key": "swot_synthesis",       "enabled": true, "order": 7},
+--     {"key": "thirty_day_plan",      "enabled": true, "order": 8},
+--     {"key": "thirty_day_goals",     "enabled": true, "order": 9}
+--   ],
+--   "custom_sections": [
+--     {"id": "custom_<timestamp>", "title_pt": "...", "title_en": "...",
+--      "description": "...", "enabled": true, "order": <int > 9>}
+--   ]
+-- }
+--
+-- Cover and Executive Summary are mandatory and never appear in this config —
+-- they always render first, unconditionally, in every report.
+
+ALTER TABLE sessions ADD COLUMN section_config TEXT;

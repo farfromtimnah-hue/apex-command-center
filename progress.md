@@ -1533,3 +1533,13 @@ Open-to-all-auth endpoints (sessions/schedule, sessions/calendar, sessions/whats
 - Built GET /api/finance/tax-summary?year= (Resumo Fiscal tab — paid-invoice income + expenses by category, net total, window.print() layout)
 - Renamed "Ferramentas Zoho / Zoho Tools" tab label to "Ferramentas Financeiras / Financial Tools" (per apex-status.md note for this prompt)
 - Zoho payload shapes verified live via real API: ad-hoc line-item draft created (INV-000003) then deleted; Status.Unpaid / Status.Paid+date range / expenses date range all confirmed against real org data
+
+---
+
+## Session 2026-07-08 — Configurable report sections + pagination fix
+- migrations/session_section_config.sql + schema.sql: sessions.section_config TEXT (JSON: 9 standard sections w/ enabled+order, custom_sections array); applied to remote D1; null = default all-enabled (zero migration for existing sessions)
+- worker/index.js: GET/PUT /api/sessions/:id/section-config (PUT validates types + non-empty title_pt/description, and refreshes pdf_data.active_sections/custom_sections in sessions+documents so post-summary toggles reach the template without AI re-run); handlePostSummarize appends custom-section instruction blocks (top-level custom_section_content keyed by id, pt/en {title,body,bullets}) and stamps pdf_data.active_sections (ordered enabled keys, source of truth for the template) + pdf_data.custom_sections; handlePostApprove recomputes both from current section_config
+- sessions.html: "Seções do Relatório" panel in Alice detail view — checkbox per standard section (PT display names), "+ Nova Seção" inline form (Título PT/EN, Descrição = AI guidance), every change PUTs immediately; stays editable after summarize/approve
+- templates/apex-strategic-report-wired.html: 9 static content pages replaced by dynamic builder from data.active_sections (Cover + Executive Summary always first, unconditional); page numbers/eyebrows computed from position (Exec Summary = 01, sections count from 02, removal renumbers); fillCustomSection renderer (Playfair title, exec-summary-style body, SWOT-style bullets); PAGINATION FIX: break-before:page on every page wrapper + break-inside:avoid on every card/row/tr; 30-Day Sprint redesigned to compact single-column pill rows; Exec Summary spacing tightened
+- Verified via Playwright print-media rendering with Elevate's real approved pdf_data: Executive Summary 1252px→1056px, 30-Day Sprint 1953px→1056px, all 11 pages exactly at the 1056px budget; PDF exports 11 clean pages; section-removal renumbering and custom-section page verified with modified data
+- NOT yet verified (needs Nicole's Google login): authenticated in-browser click-through of the new panel + a real Gerar Resumo run with a custom section defined

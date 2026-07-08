@@ -335,6 +335,184 @@ async function handlePatchSessionTaskCompletions(sessionId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Strategic-report section configuration
+// sessions.section_config (JSON, nullable). Null = default config below.
+// Cover and Executive Summary are mandatory and never appear in this config.
+// ---------------------------------------------------------------------------
+
+var STANDARD_SECTION_KEYS = [
+    "business_diagnosis", "recommendations", "client_actions",
+    "consultant_followups", "next_session_focus", "swot",
+    "swot_synthesis", "thirty_day_plan", "thirty_day_goals"
+];
+
+function defaultSectionConfig() {
+    var sections = [];
+    for (var i = 0; i < STANDARD_SECTION_KEYS.length; i++) {
+        sections.push({ key: STANDARD_SECTION_KEYS[i], enabled: true, order: i + 1 });
+    }
+    return { sections: sections, custom_sections: [] };
+}
+
+function parseSectionConfig(raw) {
+    if (!raw) { return defaultSectionConfig(); }
+    try {
+        var cfg = JSON.parse(raw);
+        if (!cfg || !Array.isArray(cfg.sections)) { return defaultSectionConfig(); }
+        if (!Array.isArray(cfg.custom_sections)) { cfg.custom_sections = []; }
+        return cfg;
+    } catch (e) {
+        return defaultSectionConfig();
+    }
+}
+
+// Ordered array of section keys to render (enabled standard keys + enabled
+// custom section ids, sorted by order). The template reads this as the one
+// source of truth for what pages to build and in what order.
+function computeActiveSections(cfg) {
+    var entries = [];
+    var i;
+    for (i = 0; i < cfg.sections.length; i++) {
+        if (cfg.sections[i].enabled) {
+            entries.push({ key: cfg.sections[i].key, order: cfg.sections[i].order });
+        }
+    }
+    for (i = 0; i < cfg.custom_sections.length; i++) {
+        if (cfg.custom_sections[i].enabled) {
+            entries.push({ key: cfg.custom_sections[i].id, order: cfg.custom_sections[i].order });
+        }
+    }
+    entries.sort(function (a, b) { return a.order - b.order; });
+    return entries.map(function (e) { return e.key; });
+}
+
+// Enabled custom sections as [{id, title, body, bullets}] (PT), pulling content
+// from summary_json.custom_section_content keyed by custom section id.
+function computeCustomSectionsForPdf(cfg, customContent) {
+    var out = [];
+    for (var i = 0; i < cfg.custom_sections.length; i++) {
+        var cs = cfg.custom_sections[i];
+        if (!cs.enabled) { continue; }
+        var content = customContent && customContent[cs.id] ? customContent[cs.id] : null;
+        var pt = content && content.pt ? content.pt : null;
+        out.push({
+            id:      cs.id,
+            title:   (pt && pt.title)  ? pt.title  : (cs.title_pt || ""),
+            body:    (pt && pt.body)   ? pt.body   : "",
+            bullets: (pt && Array.isArray(pt.bullets)) ? pt.bullets : []
+        });
+    }
+    return out;
+}
+
+// Recompute active_sections + custom_sections inside a pdf_data object from the
+// current section_config, so config changes made after summarize reach the
+// template (which renders straight from sessions.pdf_data).
+function applySectionConfigToPdfData(pdfData, cfg, customContent) {
+    pdfData.active_sections = computeActiveSections(cfg);
+    pdfData.custom_sections = computeCustomSectionsForPdf(cfg, customContent);
+    return pdfData;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/sessions/:id/section-config
+// Returns the stored config, or the default all-enabled config if null.
+// ---------------------------------------------------------------------------
+
+async function handleGetSessionSectionConfig(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare(
+            "SELECT section_config FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!row) { return jsonErr("Session not found", 404); }
+
+        return jsonOk({ section_config: parseSectionConfig(row.section_config) });
+    } catch (e) {
+        return jsonErr("Error fetching section config: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/sessions/:id/section-config
+// Body: { section_config: { sections: [...], custom_sections: [...] } }
+// Also refreshes active_sections/custom_sections inside any existing pdf_data
+// so the report template picks up the change without re-running the AI.
+// ---------------------------------------------------------------------------
+
+async function handlePutSessionSectionConfig(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var cfg = body && body.section_config ? body.section_config : null;
+        if (!cfg || !Array.isArray(cfg.sections)) {
+            return jsonErr("section_config with a sections array is required", 400);
+        }
+        if (!Array.isArray(cfg.custom_sections)) { cfg.custom_sections = []; }
+
+        var i;
+        for (i = 0; i < cfg.sections.length; i++) {
+            var s = cfg.sections[i];
+            if (!s || typeof s.key !== "string" || !s.key) { return jsonErr("Each section needs a key", 400); }
+            if (typeof s.enabled !== "boolean")            { return jsonErr("Section '" + s.key + "': enabled must be a boolean", 400); }
+            if (typeof s.order !== "number")               { return jsonErr("Section '" + s.key + "': order must be a number", 400); }
+        }
+        for (i = 0; i < cfg.custom_sections.length; i++) {
+            var cs = cfg.custom_sections[i];
+            if (!cs || typeof cs.id !== "string" || !cs.id)                    { return jsonErr("Each custom section needs an id", 400); }
+            if (typeof cs.title_pt !== "string" || !cs.title_pt.trim())        { return jsonErr("Custom section '" + cs.id + "': title_pt is required", 400); }
+            if (typeof cs.description !== "string" || !cs.description.trim()) { return jsonErr("Custom section '" + cs.id + "': description is required", 400); }
+            if (typeof cs.enabled !== "boolean")                               { return jsonErr("Custom section '" + cs.id + "': enabled must be a boolean", 400); }
+            if (typeof cs.order !== "number")                                  { return jsonErr("Custom section '" + cs.id + "': order must be a number", 400); }
+        }
+
+        var session = await env.DB.prepare(
+            "SELECT pdf_data, summary_json FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        // Refresh the rendered-section keys inside existing pdf_data, if any.
+        var newPdfDataStr = null;
+        if (session.pdf_data) {
+            try {
+                var pdfData = JSON.parse(session.pdf_data);
+                var customContent = null;
+                try {
+                    var summary = session.summary_json ? JSON.parse(session.summary_json) : null;
+                    customContent = summary ? summary.custom_section_content : null;
+                } catch (se) { customContent = null; }
+                applySectionConfigToPdfData(pdfData, cfg, customContent);
+                newPdfDataStr = JSON.stringify(pdfData);
+            } catch (pe) { newPdfDataStr = null; }
+        }
+
+        if (newPdfDataStr) {
+            await env.DB.prepare(
+                "UPDATE sessions SET section_config = ?, pdf_data = ? WHERE id = ?"
+            ).bind(JSON.stringify(cfg), newPdfDataStr, sessionId).run();
+            var cfgDocId = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO documents (id, session_id, pdf_data) VALUES (?, ?, ?) " +
+                "ON CONFLICT(session_id) DO UPDATE SET pdf_data = excluded.pdf_data"
+            ).bind(cfgDocId, sessionId, newPdfDataStr).run();
+        } else {
+            await env.DB.prepare(
+                "UPDATE sessions SET section_config = ? WHERE id = ?"
+            ).bind(JSON.stringify(cfg), sessionId).run();
+        }
+
+        return jsonOk({ ok: true, section_config: cfg });
+    } catch (e) {
+        return jsonErr("Error saving section config: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/transcript
 // Body: { client_id: string, client_name?: string, transcript: string, date?: string (YYYY-MM-DD) }
 // client_id is the real relationship; client_name is display fallback (resolved from clients table if omitted).
@@ -427,8 +605,27 @@ var SUMMARY_PROMPT = "Generate a session summary for the transcript below.\n\n" 
     "  thirty_day_goals: identical structure and content to the 'pt' side of top-level thirty_day_goals\n\n" +
     "Rules: 2-4 items per array unless stated otherwise. Exactly 4 week entries in thirty_day_plan.\n" +
     "Exactly 10 rows in business_diagnosis and exactly 7 rows in thirty_day_goals, in the fixed order given.\n" +
-    "If the transcript lacks enough detail for a field, infer a reasonable conservative entry — do not leave arrays empty.\n\n" +
-    "Transcript:\n";
+    "If the transcript lacks enough detail for a field, infer a reasonable conservative entry — do not leave arrays empty.\n";
+
+// Instruction block appended to SUMMARY_PROMPT when the session's section_config
+// defines custom sections. Asks for one more top-level key, custom_section_content,
+// keyed by custom section id.
+function buildCustomSectionsPrompt(customSections) {
+    if (!customSections || customSections.length === 0) { return ""; }
+    var block = "\nAdditionally, include one more top-level key: 'custom_section_content'.\n" +
+        "It must be an object with exactly " + customSections.length + " key(s), one per custom section id below.\n" +
+        "Each value must be an object with 'pt' and 'en' fields; each of those is an object shaped as\n" +
+        "{\"title\": \"<the exact title given>\", \"body\": \"1-3 sentence paragraph grounded in the transcript\",\n" +
+        " \"bullets\": [2-5 short strings]}. Write pt in Brazilian Portuguese and en in English.\n";
+    for (var i = 0; i < customSections.length; i++) {
+        var cs = customSections[i];
+        var titleEn = cs.title_en && cs.title_en.trim() ? cs.title_en : cs.title_pt;
+        block += "\nCustom section id \"" + cs.id + "\":\n" +
+            "  pt title must be exactly \"" + cs.title_pt + "\"; en title must be exactly \"" + titleEn + "\".\n" +
+            "  What this section should cover: " + cs.description + "\n";
+    }
+    return block;
+}
 
 async function handlePostSummarize(request, env) {
     try {
@@ -444,6 +641,14 @@ async function handlePostSummarize(request, env) {
         if (!session)              { return jsonErr("Session not found", 404); }
         if (!session.raw_transcript) { return jsonErr("No transcript for this session", 400); }
 
+        // All nine standard sections are always generated regardless of enabled/
+        // disabled state — section_config only controls what the template renders.
+        // Custom sections, however, need their own instruction block.
+        var sectionCfg = parseSectionConfig(session.section_config);
+        var promptText = SUMMARY_PROMPT +
+            buildCustomSectionsPrompt(sectionCfg.custom_sections) +
+            "\nTranscript:\n" + session.raw_transcript;
+
         var claudeRes = await fetch(CLAUDE_API_URL, {
             method: "POST",
             headers: {
@@ -455,7 +660,7 @@ async function handlePostSummarize(request, env) {
                 model:      CLAUDE_MODEL,
                 max_tokens: 8192,
                 system:     SUMMARY_SYSTEM,
-                messages:   [{ role: "user", content: SUMMARY_PROMPT + session.raw_transcript }]
+                messages:   [{ role: "user", content: promptText }]
             })
         });
 
@@ -490,6 +695,9 @@ async function handlePostSummarize(request, env) {
             if (!pdfData.thirty_day_goals && summaryJson.thirty_day_goals) {
                 pdfData.thirty_day_goals = summaryJson.thirty_day_goals.pt || null;
             }
+            // Section ordering/visibility + custom-section pages, computed
+            // server-side so the template renders straight from pdf_data.
+            applySectionConfigToPdfData(pdfData, sectionCfg, summaryJson.custom_section_content || null);
         }
 
         // Update sessions: keep full summary_json for dashboard compat, write pdf_data to its own column
@@ -598,6 +806,13 @@ async function handlePostApprove(request, env) {
                 if (!approvedPdfData.thirty_day_goals && approvedSummary.thirty_day_goals) {
                     approvedPdfData.thirty_day_goals = approvedSummary.thirty_day_goals.pt || null;
                 }
+                // Preserve section ordering/visibility + custom-section pages,
+                // recomputed from the session's current section_config.
+                applySectionConfigToPdfData(
+                    approvedPdfData,
+                    parseSectionConfig(session.section_config),
+                    approvedSummary.custom_section_content || null
+                );
             }
         } catch (pdfErr) { approvedPdfData = null; }
 
@@ -5042,6 +5257,10 @@ export default {
 
         // Parameterized routes: /api/sessions/:id/task-completions, /api/sessions/:id/assign-client, /api/sessions/:id/whatsapp
         var segs = path.replace(/^\//, "").split("/");
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "section-config") {
+            if (method === "GET") { return handleGetSessionSectionConfig(segs[2], request, env); }
+            if (method === "PUT") { return handlePutSessionSectionConfig(segs[2], request, env); }
+        }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "task-completions" && method === "PATCH") {
             return handlePatchSessionTaskCompletions(segs[2], request, env);
         }

@@ -13,8 +13,14 @@ CREATE TABLE IF NOT EXISTS sessions (
     approved_at       TEXT,
     google_meet_link  TEXT,
     whatsapp_sent_at  TEXT,
+    section_config    TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- NOTE: section_config was added to the live sessions table via
+-- migrations/session_section_config.sql. JSON: {"sections":[{key,enabled,order}x9],
+-- "custom_sections":[{id,title_pt,title_en,description,enabled,order}]}.
+-- Null = default (all nine standard sections enabled, no custom sections).
+-- Cover and Executive Summary never appear here — always rendered.
 
 CREATE TABLE IF NOT EXISTS session_summaries (
     id                        TEXT PRIMARY KEY,

@@ -465,6 +465,50 @@
       white-space: pre-wrap;
     }
 
+    /* ─── Report section config panel ────────────────────────────────────── */
+    .section-config-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .section-config-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    #sectionConfigList {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 6px 18px;
+    }
+    .section-config-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    .section-config-item input[type="checkbox"] {
+      accent-color: var(--gold);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+    .section-config-item .custom-tag {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+    #newSectionForm { margin-top: 12px; }
+    .new-section-input { min-height: 0; margin-bottom: 8px; }
+    #newSectionDescription { min-height: 70px; }
+
     /* ─── Approved indicator ─────────────────────────────────────────────── */
     .approved-note {
       font-size: 12px;
@@ -1148,6 +1192,37 @@
               </div>
               <div class="detail-actions" id="detailActions">
                 <!-- Populated by renderDetail() -->
+              </div>
+              <div class="summary-card" id="sectionConfigPanel" hidden>
+                <h3 class="section-config-title">
+                  <span class="show-pt">Se&ccedil;&otilde;es do Relat&oacute;rio</span>
+                  <span class="show-en">Report Sections</span>
+                </h3>
+                <p class="section-config-hint">
+                  <span class="show-pt">Capa e Sum&aacute;rio Executivo s&atilde;o sempre inclu&iacute;dos. Desmarque uma se&ccedil;&atilde;o para exclu&iacute;-la do relat&oacute;rio desta sess&atilde;o.</span>
+                  <span class="show-en">Cover and Executive Summary are always included. Uncheck a section to exclude it from this session's report.</span>
+                </p>
+                <div id="sectionConfigList"><!-- checkboxes rendered by JS --></div>
+                <button type="button" class="btn-secondary" id="btnNewSection" style="margin-top:12px;">
+                  <span class="show-pt">+ Nova Se&ccedil;&atilde;o</span>
+                  <span class="show-en">+ New Section</span>
+                </button>
+                <div id="newSectionForm" hidden>
+                  <input type="text" class="summary-field new-section-input" id="newSectionTitlePt" placeholder="T&iacute;tulo PT">
+                  <input type="text" class="summary-field new-section-input" id="newSectionTitleEn" placeholder="T&iacute;tulo EN">
+                  <textarea class="summary-field" id="newSectionDescription" placeholder="Descreva o que deve aparecer nesta se&ccedil;&atilde;o &mdash; a IA usa esta descri&ccedil;&atilde;o para extrair o conte&uacute;do da transcri&ccedil;&atilde;o. / Describe what the AI should write about in this section."></textarea>
+                  <div style="display:flex; gap:10px; margin-top:8px;">
+                    <button type="button" class="btn-action" id="btnSaveNewSection" style="padding:8px 16px; font-size:13px;">
+                      <span class="show-pt">Salvar Se&ccedil;&atilde;o</span>
+                      <span class="show-en">Save Section</span>
+                    </button>
+                    <button type="button" class="btn-secondary" id="btnCancelNewSection" style="padding:8px 16px; font-size:13px;">
+                      <span class="show-pt">Cancelar</span>
+                      <span class="show-en">Cancel</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="action-status" id="sectionConfigStatus"></div>
               </div>
               <div id="summaryCards">
                 <!-- Summary cards rendered here -->
@@ -2256,6 +2331,7 @@
       }
 
       renderAliceActions(session);
+      loadSectionConfigPanel(session.id);
       renderSummaryCards(
         document.getElementById("summaryCards"),
         session.summary_json ? JSON.parse(session.summary_json) : null,
@@ -2302,6 +2378,197 @@
 
     function makeProcessHandler(id) { return function() { handleProcess(id); }; }
     function makeApproveHandler(id) { return function() { handleApprove(id); }; }
+
+    // ── Report section config panel (Secoes do Relatorio) ─────────────────
+    // Every change (checkbox toggle or new custom section) is saved to the
+    // backend immediately via PUT /api/sessions/:id/section-config, so the
+    // config is already stored when Gerar Resumo runs. The checklist stays
+    // editable after summarize/approve too — the worker refreshes
+    // pdf_data.active_sections on save, no AI re-run needed.
+
+    var STANDARD_REPORT_SECTIONS = [
+      { key: "business_diagnosis",   pt: "Radiografia Atual",           en: "Current Business X-Ray" },
+      { key: "recommendations",      pt: "Recomendações",     en: "Recommendations" },
+      { key: "client_actions",       pt: "Ações do Cliente",  en: "Client Action Items" },
+      { key: "consultant_followups", pt: "Acompanhamento do Consultor", en: "Consultant Follow-up" },
+      { key: "next_session_focus",   pt: "Foco da Próxima Sessão", en: "Next Session Focus" },
+      { key: "swot",                 pt: "Matriz SWOT",                 en: "SWOT Matrix" },
+      { key: "swot_synthesis",       pt: "Leitura Cruzada da SWOT",     en: "SWOT Cross-Analysis" },
+      { key: "thirty_day_plan",      pt: "Plano de 30 Dias",            en: "30-Day Plan" },
+      { key: "thirty_day_goals",     pt: "Meta dos 30 Dias",            en: "30-Day Goals" }
+    ];
+
+    var sectionConfigState   = null;  // config object for the selected session
+    var sectionConfigSession = null;  // session id the state belongs to
+
+    function loadSectionConfigPanel(sessionId) {
+      var panel = document.getElementById("sectionConfigPanel");
+      panel.hidden = true;
+      sectionConfigState   = null;
+      sectionConfigSession = sessionId;
+      document.getElementById("newSectionForm").hidden = true;
+      document.getElementById("sectionConfigStatus").textContent = "";
+
+      apiFetch("/api/sessions/" + sessionId + "/section-config")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (sectionConfigSession !== sessionId) { return; } // stale response
+          if (!data || !data.section_config) { return; }
+          sectionConfigState = data.section_config;
+          renderSectionConfigList();
+          panel.hidden = false;
+        })
+        .catch(function() { /* panel simply stays hidden on error */ });
+    }
+
+    function renderSectionConfigList() {
+      var list = document.getElementById("sectionConfigList");
+      list.innerHTML = "";
+      if (!sectionConfigState) { return; }
+
+      var byKey = {};
+      var i;
+      for (i = 0; i < sectionConfigState.sections.length; i++) {
+        byKey[sectionConfigState.sections[i].key] = sectionConfigState.sections[i];
+      }
+
+      for (i = 0; i < STANDARD_REPORT_SECTIONS.length; i++) {
+        var def   = STANDARD_REPORT_SECTIONS[i];
+        var entry = byKey[def.key];
+        list.appendChild(makeSectionConfigItem(
+          def.key, def.pt, def.en, entry ? entry.enabled !== false : true, false
+        ));
+      }
+      for (i = 0; i < sectionConfigState.custom_sections.length; i++) {
+        var cs = sectionConfigState.custom_sections[i];
+        list.appendChild(makeSectionConfigItem(
+          cs.id, cs.title_pt, cs.title_en || cs.title_pt, cs.enabled !== false, true
+        ));
+      }
+    }
+
+    function makeSectionConfigItem(key, labelPt, labelEn, enabled, isCustom) {
+      var label = document.createElement("label");
+      label.className = "section-config-item";
+
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = enabled;
+      cb.onchange = function() { handleSectionToggle(key, cb.checked); };
+      label.appendChild(cb);
+
+      var pt = document.createElement("span");
+      pt.className = "show-pt";
+      pt.textContent = labelPt;
+      var en = document.createElement("span");
+      en.className = "show-en";
+      en.textContent = labelEn;
+      label.appendChild(pt);
+      label.appendChild(en);
+
+      if (isCustom) {
+        var tag = document.createElement("span");
+        tag.className = "custom-tag";
+        tag.textContent = "CUSTOM";
+        label.appendChild(tag);
+      }
+      return label;
+    }
+
+    function handleSectionToggle(key, enabled) {
+      if (!sectionConfigState) { return; }
+      var i, found = false;
+      for (i = 0; i < sectionConfigState.sections.length; i++) {
+        if (sectionConfigState.sections[i].key === key) {
+          sectionConfigState.sections[i].enabled = enabled;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        for (i = 0; i < sectionConfigState.custom_sections.length; i++) {
+          if (sectionConfigState.custom_sections[i].id === key) {
+            sectionConfigState.custom_sections[i].enabled = enabled;
+            break;
+          }
+        }
+      }
+      saveSectionConfig();
+    }
+
+    function saveSectionConfig() {
+      var statusEl = document.getElementById("sectionConfigStatus");
+      statusEl.className = "action-status";
+      statusEl.textContent = "Salvando... / Saving...";
+
+      var sessionId = sectionConfigSession;
+      apiFetch("/api/sessions/" + sessionId + "/section-config", {
+        method: "PUT",
+        body: { section_config: sectionConfigState }
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (sectionConfigSession !== sessionId) { return; }
+          if (r.ok) {
+            statusEl.className = "action-status is-ok";
+            statusEl.textContent = "Seções salvas. / Sections saved.";
+          } else {
+            statusEl.className = "action-status is-error";
+            statusEl.textContent = "Erro ao salvar: " + ((r.data && r.data.error) || "") ;
+          }
+        })
+        .catch(function(err) {
+          statusEl.className = "action-status is-error";
+          statusEl.textContent = "Erro ao salvar seções. / Error saving sections.";
+        });
+    }
+
+    function handleSaveNewSection() {
+      if (!sectionConfigState) { return; }
+      var titlePt = document.getElementById("newSectionTitlePt").value.trim();
+      var titleEn = document.getElementById("newSectionTitleEn").value.trim();
+      var desc    = document.getElementById("newSectionDescription").value.trim();
+      var statusEl = document.getElementById("sectionConfigStatus");
+
+      if (!titlePt || !desc) {
+        statusEl.className = "action-status is-error";
+        statusEl.textContent = "Título PT e Descrição são obrigatórios. / Title PT and Description are required.";
+        return;
+      }
+
+      var maxOrder = 9;
+      for (var i = 0; i < sectionConfigState.custom_sections.length; i++) {
+        if (sectionConfigState.custom_sections[i].order > maxOrder) {
+          maxOrder = sectionConfigState.custom_sections[i].order;
+        }
+      }
+
+      sectionConfigState.custom_sections.push({
+        id: "custom_" + Date.now(),
+        title_pt: titlePt,
+        title_en: titleEn || titlePt,
+        description: desc,
+        enabled: true,
+        order: maxOrder + 1
+      });
+
+      document.getElementById("newSectionTitlePt").value = "";
+      document.getElementById("newSectionTitleEn").value = "";
+      document.getElementById("newSectionDescription").value = "";
+      document.getElementById("newSectionForm").hidden = true;
+      renderSectionConfigList();
+      saveSectionConfig();
+    }
+
+    document.getElementById("btnNewSection").onclick = function() {
+      var form = document.getElementById("newSectionForm");
+      form.hidden = !form.hidden;
+      if (!form.hidden) { document.getElementById("newSectionTitlePt").focus(); }
+    };
+    document.getElementById("btnCancelNewSection").onclick = function() {
+      document.getElementById("newSectionForm").hidden = true;
+    };
+    document.getElementById("btnSaveNewSection").onclick = handleSaveNewSection;
 
     // ── Summary cards ──────────────────────────────────────────────────────
 

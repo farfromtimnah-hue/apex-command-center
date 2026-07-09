@@ -257,6 +257,28 @@
     }
     .btn-new-session:hover { opacity: 0.88; }
 
+    /* ─── Header action group + Sync Now button ──────────────────────────── */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn-sync-now {
+      background: transparent;
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .btn-sync-now:hover:not(:disabled) { background: var(--gold-dim); }
+    .btn-sync-now:disabled { opacity: 0.5; cursor: not-allowed; }
+
     /* ─── Calendar toolbar ────────────────────────────────────────────────── */
     .cal-toolbar {
       display: flex;
@@ -959,10 +981,16 @@
             <span class="show-pt">Calendario</span>
             <span class="show-en">Calendar</span>
           </h1>
-          <button class="btn-new-session" onclick="openNewSessionModal()">
-            + <span class="show-pt">Nova Sessao</span>
-            <span class="show-en">New Session</span>
-          </button>
+          <div class="header-actions">
+            <button class="btn-sync-now" id="btnSyncNow" onclick="handleSyncNow()">
+              <span class="show-pt">Sincronizar</span>
+              <span class="show-en">Sync Now</span>
+            </button>
+            <button class="btn-new-session" onclick="openNewSessionModal()">
+              + <span class="show-pt">Nova Sessao</span>
+              <span class="show-en">New Session</span>
+            </button>
+          </div>
         </div>
 
         <!-- Calendar toolbar -->
@@ -1515,6 +1543,52 @@
             });
         })
         .catch(function(e) { /* sync trigger failed silently -- calSessions already rendered from the initial load */ });
+    }
+
+    // Manual "Sync Now" trigger. Hits the same endpoint as the automatic
+    // page-load fetch (which persists / reconciles Rafa's Google Calendar
+    // events into D1), then reloads the visible month so any edits made on
+    // the Google side show up immediately. The button is disabled while a
+    // sync is in flight to prevent double clicks.
+    var syncInProgress = false;
+
+    function handleSyncNow() {
+      if (syncInProgress) { return; }
+      syncInProgress = true;
+
+      var btn = document.getElementById("btnSyncNow");
+      var prevHtml = btn ? btn.innerHTML : null;
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = isEn() ? "Syncing…" : "Sincronizando…";
+      }
+
+      apiFetch("/api/google/calendar/events")
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function() {
+          var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
+          return apiFetch("/api/sessions/calendar?month=" + monthStr)
+            .then(function(res) { return res.json(); })
+            .then(function(calData) {
+              calSessions = calData.sessions || [];
+              renderCalendar();
+              updateCalendarHeroTiles();
+              showToast(isEn() ? "Calendar synced" : "Calendario sincronizado");
+            });
+        })
+        .catch(function(e) {
+          showToast(isEn() ? "Sync failed — try again" : "Falha na sincronizacao");
+        })
+        .then(function() {
+          syncInProgress = false;
+          if (btn) {
+            btn.disabled = false;
+            if (prevHtml !== null) { btn.innerHTML = prevHtml; }
+          }
+        });
     }
 
     function updateCalendarHeroTiles() {

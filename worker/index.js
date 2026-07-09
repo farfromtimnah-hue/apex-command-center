@@ -212,7 +212,7 @@ async function firefliesGraphQL(env, query, variables) {
 async function fetchFirefliesTranscript(env, transcriptId) {
     var data = await firefliesGraphQL(env,
         "query Transcript($id: String!) { transcript(id: $id) { " +
-        "id title date duration organizer_email " +
+        "id title date duration organizer_email meeting_link " +
         "sentences { speaker_name text } " +
         "summary { overview action_items } } }",
         { id: transcriptId }
@@ -232,10 +232,89 @@ async function fetchFirefliesTranscript(env, transcriptId) {
         id: t.id,
         title: t.title || "Fireflies Meeting",
         date: t.date || null,           // epoch milliseconds
-        duration: t.duration || null,
+        duration: t.duration || null,   // minutes
         organizer_email: t.organizer_email || null,
+        meeting_link: t.meeting_link || null,
         transcript_text: text
     };
+}
+
+// Ad-hoc Meet calls with no named calendar event come back from Fireflies
+// with a title that's either the raw Meet URL or just its code fragment
+// (e.g. "khn-tuwk-dye") -- both unusable for display. Detects that shape.
+function isUglyFirefliesTitle(title) {
+    if (!title) { return true; }
+    var t = String(title).trim();
+    if (/meet\.google\.com/i.test(t)) { return true; }
+    if (/^[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}$/i.test(t)) { return true; }
+    return false;
+}
+
+// Tries to find a better title for a Fireflies transcript by matching it
+// against a real calendar event: first Apex-created sessions already in D1
+// (matched by google_event_id), then a live lookup of Rafa's Google Calendar
+// for events outside Apex's own tracking (matched by time-window overlap,
+// and Meet link when available). Returns the matched title, or null.
+async function findCalendarTitleForFireflies(env, meta) {
+    if (!meta.date) { return null; }
+    var startMs = Number(meta.date);
+    if (isNaN(startMs)) { return null; }
+    var durationMs = (meta.duration ? Number(meta.duration) : 30) * 60000;
+    var endMs = startMs + durationMs;
+    // 10-minute tolerance on each side to absorb clock drift / late starts.
+    var windowStart = startMs - 10 * 60000;
+    var windowEnd   = endMs   + 10 * 60000;
+
+    // 1) Apex-created sessions already in D1, same day, overlapping time.
+    var dayStr = firefliesDateToYMD(meta.date);
+    var dayRows = await env.DB.prepare(
+        "SELECT client_name, time, google_meet_link FROM sessions " +
+        "WHERE date = ? AND client_name IS NOT NULL AND client_name != '' AND status != 'discarded'"
+    ).bind(dayStr).all();
+
+    for (var i = 0; i < dayRows.results.length; i++) {
+        var row = dayRows.results[i];
+        if (isUglyFirefliesTitle(row.client_name)) { continue; }
+        if (meta.meeting_link && row.google_meet_link && row.google_meet_link === meta.meeting_link) {
+            return row.client_name;
+        }
+        if (row.time) {
+            var rowStartMs = new Date(dayStr + "T" + row.time.slice(0,5) + ":00").getTime();
+            if (!isNaN(rowStartMs) && rowStartMs >= windowStart && rowStartMs <= windowEnd) {
+                return row.client_name;
+            }
+        }
+    }
+
+    // 2) Live Google Calendar lookup for named events Apex never created.
+    try {
+        var items = await listGoogleCalendarEvents(
+            env,
+            new Date(windowStart).toISOString(),
+            new Date(windowEnd).toISOString()
+        );
+        for (var j = 0; j < items.length; j++) {
+            var ev = items[j];
+            if (!ev.summary || ev.status === "cancelled") { continue; }
+            var evStart = ev.start && ev.start.dateTime;
+            if (!evStart) { continue; }
+            var evStartMs = new Date(evStart).getTime();
+            if (isNaN(evStartMs)) { continue; }
+
+            var evMeetLink = extractGoogleEventMeetLink(ev);
+            if (meta.meeting_link && evMeetLink && evMeetLink === meta.meeting_link) {
+                return ev.summary;
+            }
+            if (evStartMs >= windowStart && evStartMs <= windowEnd) {
+                return ev.summary;
+            }
+        }
+    } catch (e) {
+        // Google not connected, or the call failed -- fall back to no match.
+        // Never let this block ingestion of the transcript itself.
+    }
+
+    return null;
 }
 
 function firefliesDateToYMD(dateVal) {
@@ -259,12 +338,18 @@ async function ingestFirefliesTranscript(env, meta) {
     ).bind('%"fireflies_id":"' + meta.id + '"%').first();
     if (existing) { return { session_id: existing.id, duplicate: true }; }
 
+    var displayTitle = meta.title;
+    if (isUglyFirefliesTitle(displayTitle)) {
+        var matchedTitle = await findCalendarTitleForFireflies(env, meta);
+        if (matchedTitle) { displayTitle = matchedTitle; }
+    }
+
     var sessionId = crypto.randomUUID();
     var fireflyMeta = JSON.stringify({ fireflies_id: meta.id });
     await env.DB.prepare(
         "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at) " +
         "VALUES (?, ?, ?, 'inbox', ?, ?, datetime('now'))"
-    ).bind(sessionId, meta.title, firefliesDateToYMD(meta.date), meta.transcript_text, fireflyMeta).run();
+    ).bind(sessionId, displayTitle, firefliesDateToYMD(meta.date), meta.transcript_text, fireflyMeta).run();
     return { session_id: sessionId, duplicate: false };
 }
 
@@ -1778,6 +1863,46 @@ async function handleGoogleOAuthStatus(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared helper: exchanges the stored google_calendar refresh token for a
+// fresh access token. Used by every handler that calls the Calendar API.
+// Access tokens are never cached/stored -- only the refresh token persists.
+// Returns the access token string, or throws with a descriptive message.
+// ---------------------------------------------------------------------------
+
+async function getGoogleAccessToken(env) {
+    var tokenRow = await env.DB.prepare(
+        "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_calendar'"
+    ).first();
+    if (!tokenRow) { throw new Error("Google Calendar not connected"); }
+
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 15000);
+
+    var refreshRes;
+    try {
+        refreshRes = await fetch("https://oauth2.googleapis.com/token", {
+            method:  "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body:    new URLSearchParams({
+                client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
+                client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                refresh_token: tokenRow.refresh_token,
+                grant_type:    "refresh_token"
+            }).toString(),
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+
+    var refreshData = await refreshRes.json();
+    if (!refreshRes.ok) {
+        throw new Error("Failed to refresh access token: " + (refreshData.error_description || refreshData.error || "unknown"));
+    }
+    return refreshData.access_token;
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/google/calendar/event
 // Auth: any role. Creates a Google Calendar event using stored refresh token.
 // Access token is used in memory only and never stored or returned.
@@ -1793,38 +1918,13 @@ async function handlePostGoogleCalendarEvent(request, env) {
         if (!body.start_datetime) { return jsonErr("start_datetime is required", 400); }
         if (!body.end_datetime)   { return jsonErr("end_datetime is required", 400); }
 
-        var tokenRow = await env.DB.prepare(
-            "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_calendar'"
-        ).first();
-        if (!tokenRow) { return jsonErr("Google Calendar not connected", 400); }
-
-        // Exchange refresh token for access token
-        var refreshController = new AbortController();
-        var refreshTimer = setTimeout(function() { refreshController.abort(); }, 15000);
-
-        var refreshRes;
+        var accessToken;
         try {
-            refreshRes = await fetch("https://oauth2.googleapis.com/token", {
-                method:  "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body:    new URLSearchParams({
-                    client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
-                    client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
-                    refresh_token: tokenRow.refresh_token,
-                    grant_type:    "refresh_token"
-                }).toString(),
-                signal: refreshController.signal
-            });
-        } finally {
-            clearTimeout(refreshTimer);
+            accessToken = await getGoogleAccessToken(env);
+        } catch (tokenErr) {
+            var code = tokenErr.message === "Google Calendar not connected" ? 400 : 502;
+            return jsonErr(tokenErr.message, code);
         }
-
-        var refreshData = await refreshRes.json();
-        if (!refreshRes.ok) {
-            return jsonErr("Failed to refresh access token: " + (refreshData.error_description || refreshData.error || "unknown"), 502);
-        }
-
-        var accessToken = refreshData.access_token;
 
         // Build event body
         var eventBody = {
@@ -1889,6 +1989,51 @@ async function handlePostGoogleCalendarEvent(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared helper: fetches raw events from Rafa's primary Google Calendar for
+// a given [timeMin, timeMax] ISO window. Returns Google's raw event objects
+// (not filtered against D1) -- callers decide what to do with them. Used by
+// both the calendar sync-back route and the Fireflies title-matcher.
+// ---------------------------------------------------------------------------
+
+async function listGoogleCalendarEvents(env, timeMinISO, timeMaxISO) {
+    var accessToken = await getGoogleAccessToken(env);
+
+    var params = new URLSearchParams();
+    params.set("timeMin", timeMinISO);
+    params.set("timeMax", timeMaxISO);
+    params.set("singleEvents", "true");
+    params.set("orderBy", "startTime");
+    params.set("maxResults", "250");
+
+    var listController = new AbortController();
+    var listTimer = setTimeout(function() { listController.abort(); }, 15000);
+
+    var listRes;
+    try {
+        listRes = await fetch(
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events?" + params.toString(),
+            { headers: { "Authorization": "Bearer " + accessToken }, signal: listController.signal }
+        );
+    } finally {
+        clearTimeout(listTimer);
+    }
+
+    var listData = await listRes.json();
+    if (!listRes.ok) {
+        throw new Error("Google Calendar API error: " + (listData.error && listData.error.message ? listData.error.message : JSON.stringify(listData)));
+    }
+    return listData.items || [];
+}
+
+function extractGoogleEventMeetLink(ev) {
+    if (ev.conferenceData && ev.conferenceData.entryPoints && ev.conferenceData.entryPoints[0]) {
+        return ev.conferenceData.entryPoints[0].uri || null;
+    }
+    if (ev.hangoutLink) { return ev.hangoutLink; }
+    return null;
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/google/calendar/events
 // Auth: any role. Lists events from Rafa's primary Google Calendar (-7d to
 // +30d from today) using the stored refresh token, and filters out events
@@ -1901,69 +2046,17 @@ async function handleGetGoogleCalendarEvents(request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
-        var tokenRow = await env.DB.prepare(
-            "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_calendar'"
-        ).first();
-        if (!tokenRow) { return jsonErr("Google Calendar not connected", 400); }
+        var now     = Date.now();
+        var timeMin = new Date(now - 7  * 86400000).toISOString();
+        var timeMax = new Date(now + 30 * 86400000).toISOString();
 
-        var controller = new AbortController();
-        var timer = setTimeout(function() { controller.abort(); }, 15000);
-
-        var refreshRes;
+        var items;
         try {
-            refreshRes = await fetch("https://oauth2.googleapis.com/token", {
-                method:  "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body:    new URLSearchParams({
-                    client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
-                    client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
-                    refresh_token: tokenRow.refresh_token,
-                    grant_type:    "refresh_token"
-                }).toString(),
-                signal: controller.signal
-            });
-        } finally {
-            clearTimeout(timer);
+            items = await listGoogleCalendarEvents(env, timeMin, timeMax);
+        } catch (listErr) {
+            var code = listErr.message === "Google Calendar not connected" ? 400 : 502;
+            return jsonErr(listErr.message, code);
         }
-
-        var refreshData = await refreshRes.json();
-        if (!refreshRes.ok) {
-            return jsonErr("Failed to refresh access token: " + (refreshData.error_description || refreshData.error || "unknown"), 502);
-        }
-        var accessToken = refreshData.access_token;
-
-        var now      = Date.now();
-        var timeMin  = new Date(now - 7  * 86400000).toISOString();
-        var timeMax  = new Date(now + 30 * 86400000).toISOString();
-
-        var params = new URLSearchParams();
-        params.set("timeMin", timeMin);
-        params.set("timeMax", timeMax);
-        params.set("singleEvents", "true");
-        params.set("orderBy", "startTime");
-        params.set("maxResults", "250");
-
-        var listController = new AbortController();
-        var listTimer = setTimeout(function() { listController.abort(); }, 15000);
-
-        var listRes;
-        try {
-            listRes = await fetch(
-                "https://www.googleapis.com/calendar/v3/calendars/primary/events?" + params.toString(),
-                { headers: { "Authorization": "Bearer " + accessToken }, signal: listController.signal }
-            );
-        } finally {
-            clearTimeout(listTimer);
-        }
-
-        accessToken = null;
-
-        var listData = await listRes.json();
-        if (!listRes.ok) {
-            return jsonErr("Google Calendar API error: " + (listData.error && listData.error.message ? listData.error.message : JSON.stringify(listData)), listRes.status);
-        }
-
-        var items = listData.items || [];
 
         // Pull every google_event_id already known to D1 so we can exclude
         // events Apex itself created (or has already ingested) from the result.
@@ -1985,13 +2078,6 @@ async function handleGetGoogleCalendarEvents(request, env) {
             var endVal   = (ev.end   && (ev.end.dateTime   || ev.end.date))   || null;
             if (!startVal) { continue; }
 
-            var meetLink = null;
-            if (ev.conferenceData && ev.conferenceData.entryPoints && ev.conferenceData.entryPoints[0]) {
-                meetLink = ev.conferenceData.entryPoints[0].uri || null;
-            } else if (ev.hangoutLink) {
-                meetLink = ev.hangoutLink;
-            }
-
             var isAllDay = !(ev.start && ev.start.dateTime);
             var datePart = isAllDay ? startVal : startVal.slice(0, 10);
             var timePart = isAllDay ? null     : startVal.slice(11, 16);
@@ -2003,7 +2089,7 @@ async function handleGetGoogleCalendarEvents(request, env) {
                 time:             timePart,
                 start:            startVal,
                 end:              endVal,
-                google_meet_link: meetLink,
+                google_meet_link: extractGoogleEventMeetLink(ev),
                 html_link:        ev.htmlLink || null,
                 source:           "external"
             });

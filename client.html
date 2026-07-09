@@ -3137,6 +3137,18 @@
         return;
       }
 
+      // Open the tab synchronously, in direct response to the click, before any
+      // async work — Safari (and other strict popup blockers) only allow
+      // window.open when it's a direct result of the user gesture. The file
+      // itself needs an authenticated fetch, so we navigate this already-open
+      // tab to the blob URL once that resolves. Same reasoning as
+      // handleGeneratePdf's window.open-then-postMessage pattern above.
+      var newTab = window.open("", "_blank");
+      if (!newTab) {
+        console.error("Open document error: popup blocked");
+        return;
+      }
+
       getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/file", {
           headers: { "Authorization": "Bearer " + token }
@@ -3146,10 +3158,11 @@
         return res.blob();
       }).then(function(blob) {
         var url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
+        newTab.location.href = url;
         setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
       }).catch(function(e) {
         console.error("Open document error:", e.message);
+        newTab.close();
       });
     }
 

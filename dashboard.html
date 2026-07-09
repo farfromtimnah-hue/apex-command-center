@@ -468,6 +468,25 @@
     }
     .btn-join:hover { opacity: 0.85; }
 
+    .btn-join-wa {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #25D366;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-join-wa:hover { opacity: 0.85; }
+
     /* Task checkbox */
     .task-check {
       flex-shrink: 0;
@@ -1595,6 +1614,20 @@
             joinA.className = "btn-join";
             joinA.innerHTML = '<span class="show-pt">Entrar</span><span class="show-en">Join</span>';
             row.appendChild(joinA);
+
+            // Send Link via WhatsApp — same wa.me/?text= pattern used elsewhere
+            // in the app, deliberately with no recipient locked in so Rafa can
+            // pick whoever is asking for the link at that moment.
+            var waBtn = document.createElement("button");
+            waBtn.type = "button";
+            waBtn.className = "btn-join-wa";
+            waBtn.innerHTML = '<span class="show-pt">Enviar Link</span><span class="show-en">Send Link</span>';
+            waBtn.onclick = (function(link) {
+              return function() {
+                window.open("https://wa.me/?text=" + encodeURIComponent(link), "_blank");
+              };
+            })(meetLink);
+            row.appendChild(waBtn);
           }
 
           container.appendChild(row);

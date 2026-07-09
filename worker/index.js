@@ -1319,6 +1319,159 @@ async function handleGetClientLatestDocument(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/documents
+// Combined Documents list for the client profile: auto-generated session
+// reports (rendered client-side from sessions.pdf_data, same as the existing
+// per-session "Gerar PDF" button — no R2 file behind these) plus manually
+// uploaded files (client_documents, R2-backed). Merged and sorted newest
+// first so both kinds show in one list, tagged by `kind`.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientDocuments(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var generatedRows = await env.DB.prepare(
+            "SELECT id, client_name, date, pdf_data, approved_at, created_at " +
+            "FROM sessions WHERE client_id = ? AND pdf_data IS NOT NULL " +
+            "ORDER BY date DESC"
+        ).bind(id).all();
+
+        var uploadedRows = await env.DB.prepare(
+            "SELECT id, title, file_name, content_type, uploaded_by, created_at " +
+            "FROM client_documents WHERE client_id = ? ORDER BY created_at DESC"
+        ).bind(id).all();
+
+        var generated = (generatedRows.results || []).map(function(s) {
+            return {
+                kind: "generated",
+                id: s.id,
+                session_id: s.id,
+                title: s.client_name + " — " + s.date,
+                date: s.approved_at || s.created_at,
+                pdf_data: s.pdf_data
+            };
+        });
+
+        var uploaded = (uploadedRows.results || []).map(function(d) {
+            return {
+                kind: "uploaded",
+                id: d.id,
+                title: d.title,
+                file_name: d.file_name,
+                content_type: d.content_type,
+                uploaded_by: d.uploaded_by,
+                date: d.created_at
+            };
+        });
+
+        var combined = generated.concat(uploaded).sort(function(a, b) {
+            return (b.date || "").localeCompare(a.date || "");
+        });
+
+        return jsonOk({ documents: combined });
+    } catch (e) {
+        return jsonErr("Error fetching documents: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/documents
+// Manual upload of an existing file (old proposal, meeting summary, etc.)
+// into the client's Documents section. Body: multipart/form-data with a
+// 'file' field and optional 'title' field. Stored in R2 under
+// client-documents/<clientId>/<uuid>.<ext>, same hardening pattern as
+// resource file uploads (storeResourceFile / RESOURCE_FILE_TYPES).
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientDocument(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("file");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
+
+        var ext = RESOURCE_FILE_TYPES[file.type];
+        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file.", 400); }
+
+        var MAX_BYTES = 20 * 1024 * 1024;
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 20 MB.", 400);
+        }
+
+        var titleField = form.get("title");
+        var title = (typeof titleField === "string" && titleField.trim()) ? titleField.trim() : (file.name || ("document." + ext));
+
+        var docId = crypto.randomUUID();
+        var key = "client-documents/" + id + "/" + docId + "." + ext;
+
+        await env.ASSETS.put(key, buf, {
+            httpMetadata: { contentType: file.type }
+        });
+
+        await env.DB.prepare(
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            docId, id, title, file.name || ("document." + ext), key, file.type,
+            user.display_name || user.role
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM client_documents WHERE id = ?").bind(docId).first();
+        return jsonOk({ document: row });
+    } catch (e) {
+        return jsonErr("Error uploading document: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/documents/:docId/file
+// Serves an uploaded client document from R2 — no raw R2 paths exposed to
+// the frontend. Same safe-serving pattern as GET /api/resources/:id/file.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientDocumentFile(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare(
+            "SELECT file_url, file_name, content_type FROM client_documents WHERE id = ? AND client_id = ?"
+        ).bind(docId, id).first();
+        if (!row) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+
+        if (!/^client-documents\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.file_url)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(row.file_url);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ct = RESOURCE_FILE_TYPES[stored] ? stored : "application/octet-stream";
+        var safeName = String(row.file_name || "document").replace(/[^\w. -]/g, "_");
+        var fileHeaders = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": ct,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=\"" + safeName + "\"",
+            "Cache-Control": "private, max-age=3600"
+        });
+        return new Response(obj.body, { status: 200, headers: fileHeaders });
+    } catch (e) {
+        return jsonErr("Error fetching document file: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/clients/:id/logo
 // Body: multipart/form-data with 'logo' file field (JPG, PNG, GIF, WebP only)
 // alice / developer only; stores in R2; updates clients.logo_url with the key
@@ -5884,6 +6037,13 @@ export default {
             }
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
                 return handleGetClientLatestDocument(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "documents") {
+                if (method === "GET")  { return handleGetClientDocuments(cid, request, env); }
+                if (method === "POST") { return handlePostClientDocument(cid, request, env); }
+            }
+            if (segs.length === 6 && segs[3] === "documents" && segs[5] === "file" && method === "GET") {
+                return handleGetClientDocumentFile(cid, segs[4], request, env);
             }
             if (segs.length === 4 && segs[3] === "digital-presence") {
                 if (method === "GET")   { return handleGetDigitalPresence(cid, request, env); }

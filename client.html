@@ -1576,9 +1576,15 @@
               <span class="show-pt">Documentos</span>
               <span class="show-en">Documents</span>
             </h2>
+            <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv" style="display:none;" onchange="handleDocFileSelected(this)">
+            <button class="btn-sm" id="btnUploadDoc" onclick="document.getElementById('docFileInput').click()" style="display:none;">
+              <span class="show-pt">Enviar Arquivo</span>
+              <span class="show-en">Upload File</span>
+            </button>
             <button class="collapse-btn" onclick="toggleSection('docs')" id="collapseDocs" title="Recolher / Collapse">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="docsBody">
+            <div class="pull-status" id="docUploadStatus" style="padding:0 20px;"></div>
             <div id="documentCardInner">
               <div class="coming-soon"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>
             </div>
@@ -2211,7 +2217,7 @@
       loadClient();
       loadSessions();
       loadNotes();
-      loadLatestDocument();
+      loadDocuments();
       loadDigitalPresence();
       loadTasks("client");
       loadTasks("consultant");
@@ -2498,15 +2504,21 @@
         });
     }
 
-    function loadLatestDocument() {
-      apiFetch("/api/clients/" + CLIENT_ID + "/documents/latest")
+    function loadDocuments() {
+      var role = sessionStorage.getItem("apex_role") || "";
+      var canUpload = role === "alice" || role === "rafa" || role === "developer";
+      var uploadBtn = document.getElementById("btnUploadDoc");
+      if (uploadBtn) { uploadBtn.style.display = canUpload ? "" : "none"; }
+
+      apiFetch("/api/clients/" + CLIENT_ID + "/documents")
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          renderDocumentCard(data.document);
+          if (data.error) { throw new Error(data.error); }
+          renderDocumentsList(data.documents || []);
         })
         .catch(function(e) {
-          renderDocumentCard(null);
-          console.error("Load document error:", e.message);
+          renderDocumentsList([]);
+          console.error("Load documents error:", e.message);
         });
     }
 
@@ -3034,14 +3046,14 @@
       container.appendChild(list);
     }
 
-    // ── Render: document card ──────────────────────────────────────────────
+    // ── Render: documents list ──────────────────────────────────────────────
 
-    function renderDocumentCard(doc) {
+    function renderDocumentsList(docs) {
       var inner = document.getElementById("documentCardInner");
       if (!inner) { return; }
       inner.innerHTML = "";
 
-      if (!doc) {
+      if (!docs || docs.length === 0) {
         var emptyEl = document.createElement("div");
         emptyEl.style.cssText = "font-size:13px;color:var(--muted);padding:16px 20px;";
         emptyEl.innerHTML =
@@ -3051,34 +3063,134 @@
         return;
       }
 
-      var rowEl = document.createElement("div");
-      rowEl.className = "info-row";
-      rowEl.style.cssText = "flex-direction:column;gap:4px;padding:16px 20px;";
+      var list = document.createElement("div");
+      list.className = "notes-list";
 
-      var labelEl = document.createElement("div");
-      labelEl.className = "info-label";
-      labelEl.innerHTML =
-        '<span class="show-pt">Ultimo relatorio</span>' +
-        '<span class="show-en">Latest report</span>';
+      for (var i = 0; i < docs.length; i++) {
+        (function(doc) {
+          var item = document.createElement("div");
+          item.className = "note-item";
+          item.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;";
 
-      var valEl = document.createElement("div");
-      valEl.className = "info-value";
-      valEl.style.display = "flex";
-      valEl.style.alignItems = "center";
-      valEl.style.gap = "8px";
+          var leftEl = document.createElement("div");
 
-      var dateSpan = document.createElement("span");
-      dateSpan.textContent = formatDateTime(doc.created_at);
+          var titleEl = document.createElement("div");
+          titleEl.className = "note-content";
+          titleEl.style.marginBottom = "4px";
+          titleEl.textContent = doc.title || (doc.kind === "generated" ? "Report" : "Document");
 
-      var badgeEl = document.createElement("span");
-      badgeEl.className = "status-badge";
-      badgeEl.setAttribute("data-status", "approved");
+          var metaEl = document.createElement("div");
+          metaEl.className = "note-meta";
+          metaEl.style.display = "flex";
+          metaEl.style.alignItems = "center";
+          metaEl.style.gap = "8px";
 
-      valEl.appendChild(dateSpan);
-      valEl.appendChild(badgeEl);
-      rowEl.appendChild(labelEl);
-      rowEl.appendChild(valEl);
-      inner.appendChild(rowEl);
+          var badgeEl = document.createElement("span");
+          badgeEl.className = "status-badge";
+          badgeEl.style.cssText = doc.kind === "generated"
+            ? "background:#dce8fd;color:#1a4a8a;"
+            : "background:#ddfaec;color:#1a6640;";
+          badgeEl.innerHTML = doc.kind === "generated"
+            ? '<span class="show-pt">Gerado</span><span class="show-en">Generated</span>'
+            : '<span class="show-pt">Enviado</span><span class="show-en">Uploaded</span>';
+
+          var dateSpan = document.createElement("span");
+          dateSpan.textContent = formatDateTime(doc.date);
+
+          metaEl.appendChild(badgeEl);
+          metaEl.appendChild(dateSpan);
+          if (doc.kind === "uploaded" && doc.uploaded_by) {
+            var byEl = document.createElement("span");
+            byEl.textContent = "· " + doc.uploaded_by;
+            metaEl.appendChild(byEl);
+          }
+
+          leftEl.appendChild(titleEl);
+          leftEl.appendChild(metaEl);
+
+          var actionBtn = document.createElement("button");
+          actionBtn.className = "btn-sm";
+          actionBtn.innerHTML =
+            '<span class="show-pt">Ver</span><span class="show-en">View</span>';
+          actionBtn.onclick = function() { openDocument(doc); };
+
+          item.appendChild(leftEl);
+          item.appendChild(actionBtn);
+          list.appendChild(item);
+        })(docs[i]);
+      }
+
+      inner.appendChild(list);
+    }
+
+    function openDocument(doc) {
+      if (doc.kind === "generated") {
+        var pdfData;
+        try { pdfData = doc.pdf_data ? JSON.parse(doc.pdf_data) : null; } catch (e) { pdfData = null; }
+        if (!pdfData) { return; }
+        var titleParts = (doc.title || "").split(" — ");
+        handleGeneratePdf({
+          client_name: titleParts[0] || clientData.name,
+          date: titleParts[1] || "",
+          pdf_data: doc.pdf_data
+        }, null, null);
+        return;
+      }
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/file", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("Erro ao abrir arquivo."); }
+        return res.blob();
+      }).then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+      }).catch(function(e) {
+        console.error("Open document error:", e.message);
+      });
+    }
+
+    function handleDocFileSelected(input) {
+      if (!input.files || !input.files[0]) { return; }
+      var file = input.files[0];
+      var statusEl = document.getElementById("docUploadStatus");
+
+      if (statusEl) {
+        statusEl.textContent = "Enviando... / Uploading...";
+        statusEl.className = "pull-status";
+      }
+
+      var formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", file.name);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          input.value = "";
+          if (statusEl) {
+            statusEl.textContent = "Documento enviado. / Document uploaded.";
+            statusEl.className = "pull-status is-ok";
+            setTimeout(function() { statusEl.textContent = ""; statusEl.className = "pull-status"; }, 2500);
+          }
+          loadDocuments();
+        })
+        .catch(function(e) {
+          input.value = "";
+          if (statusEl) {
+            statusEl.textContent = "Erro: " + e.message;
+            statusEl.className = "pull-status is-error";
+          }
+        });
     }
 
     // ── Summary modal ──────────────────────────────────────────────────────

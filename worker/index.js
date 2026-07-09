@@ -1548,9 +1548,9 @@ async function handlePostSessionsSchedule(request, env) {
         }
 
         await env.DB.prepare(
-            "INSERT INTO sessions (id, client_id, client_name, date, time, session_type, google_meet_link, status, raw_transcript) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?)"
-        ).bind(sessionId, body.client_id, client.name, body.date, body.time, body.session_type, meetLink, body.notes || null).run();
+            "INSERT INTO sessions (id, client_id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?)"
+        ).bind(sessionId, body.client_id, client.name, body.date, body.time, body.session_type, meetLink, body.google_event_id || null, body.notes || null).run();
 
         var session = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status, whatsapp_sent_at, created_at " +
@@ -1885,6 +1885,134 @@ async function handlePostGoogleCalendarEvent(request, env) {
     } catch (e) {
         if (e.name === "AbortError") { return jsonErr("Google API request timed out", 504); }
         return jsonErr("Error creating calendar event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google/calendar/events
+// Auth: any role. Lists events from Rafa's primary Google Calendar (-7d to
+// +30d from today) using the stored refresh token, and filters out events
+// that already exist in D1 (matched by google_event_id) so Apex-created
+// sessions are not duplicated. Returns only the externally-sourced events.
+// ---------------------------------------------------------------------------
+
+async function handleGetGoogleCalendarEvents(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var tokenRow = await env.DB.prepare(
+            "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_calendar'"
+        ).first();
+        if (!tokenRow) { return jsonErr("Google Calendar not connected", 400); }
+
+        var controller = new AbortController();
+        var timer = setTimeout(function() { controller.abort(); }, 15000);
+
+        var refreshRes;
+        try {
+            refreshRes = await fetch("https://oauth2.googleapis.com/token", {
+                method:  "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body:    new URLSearchParams({
+                    client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
+                    client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                    refresh_token: tokenRow.refresh_token,
+                    grant_type:    "refresh_token"
+                }).toString(),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timer);
+        }
+
+        var refreshData = await refreshRes.json();
+        if (!refreshRes.ok) {
+            return jsonErr("Failed to refresh access token: " + (refreshData.error_description || refreshData.error || "unknown"), 502);
+        }
+        var accessToken = refreshData.access_token;
+
+        var now      = Date.now();
+        var timeMin  = new Date(now - 7  * 86400000).toISOString();
+        var timeMax  = new Date(now + 30 * 86400000).toISOString();
+
+        var params = new URLSearchParams();
+        params.set("timeMin", timeMin);
+        params.set("timeMax", timeMax);
+        params.set("singleEvents", "true");
+        params.set("orderBy", "startTime");
+        params.set("maxResults", "250");
+
+        var listController = new AbortController();
+        var listTimer = setTimeout(function() { listController.abort(); }, 15000);
+
+        var listRes;
+        try {
+            listRes = await fetch(
+                "https://www.googleapis.com/calendar/v3/calendars/primary/events?" + params.toString(),
+                { headers: { "Authorization": "Bearer " + accessToken }, signal: listController.signal }
+            );
+        } finally {
+            clearTimeout(listTimer);
+        }
+
+        accessToken = null;
+
+        var listData = await listRes.json();
+        if (!listRes.ok) {
+            return jsonErr("Google Calendar API error: " + (listData.error && listData.error.message ? listData.error.message : JSON.stringify(listData)), listRes.status);
+        }
+
+        var items = listData.items || [];
+
+        // Pull every google_event_id already known to D1 so we can exclude
+        // events Apex itself created (or has already ingested) from the result.
+        var knownRows = await env.DB.prepare(
+            "SELECT google_event_id FROM sessions WHERE google_event_id IS NOT NULL AND google_event_id != ''"
+        ).all();
+        var known = {};
+        for (var k = 0; k < knownRows.results.length; k++) {
+            known[knownRows.results[k].google_event_id] = true;
+        }
+
+        var externalEvents = [];
+        for (var i = 0; i < items.length; i++) {
+            var ev = items[i];
+            if (!ev.id || known[ev.id]) { continue; }
+            if (ev.status === "cancelled") { continue; }
+
+            var startVal = (ev.start && (ev.start.dateTime || ev.start.date)) || null;
+            var endVal   = (ev.end   && (ev.end.dateTime   || ev.end.date))   || null;
+            if (!startVal) { continue; }
+
+            var meetLink = null;
+            if (ev.conferenceData && ev.conferenceData.entryPoints && ev.conferenceData.entryPoints[0]) {
+                meetLink = ev.conferenceData.entryPoints[0].uri || null;
+            } else if (ev.hangoutLink) {
+                meetLink = ev.hangoutLink;
+            }
+
+            var isAllDay = !(ev.start && ev.start.dateTime);
+            var datePart = isAllDay ? startVal : startVal.slice(0, 10);
+            var timePart = isAllDay ? null     : startVal.slice(11, 16);
+
+            externalEvents.push({
+                google_event_id:  ev.id,
+                title:            ev.summary || "(No title)",
+                date:             datePart,
+                time:             timePart,
+                start:            startVal,
+                end:              endVal,
+                google_meet_link: meetLink,
+                html_link:        ev.htmlLink || null,
+                source:           "external"
+            });
+        }
+
+        return jsonOk({ events: externalEvents });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Google API request timed out", 504); }
+        return jsonErr("Error listing calendar events: " + e.message, 500);
     }
 }
 
@@ -5351,6 +5479,7 @@ export default {
         if (path === "/api/google/oauth/callback"     && method === "GET")  { return handleGoogleOAuthCallback(request, env); }
         if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
         if (path === "/api/google/calendar/event"     && method === "POST") { return handlePostGoogleCalendarEvent(request, env); }
+        if (path === "/api/google/calendar/events"    && method === "GET")  { return handleGetGoogleCalendarEvents(request, env); }
         if (path === "/api/zoho/oauth/start"          && method === "GET")  { return handleZohoOAuthStart(request, env); }
         if (path === "/api/zoho/oauth/callback"       && method === "GET")  { return handleZohoOAuthCallback(request, env); }
         if (path === "/api/zoho/oauth/status"         && method === "GET")  { return handleZohoOAuthStatus(request, env); }

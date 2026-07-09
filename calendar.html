@@ -30,6 +30,9 @@
       --cal-online-text    : #ffffff;
       --cal-inperson       : #C9A84C;
       --cal-inperson-text  : #000000;
+      --cal-external       : #e8e2d9;
+      --cal-external-text  : #6b6660;
+      --cal-external-border: #b9b2a6;
     }
 
     body {
@@ -410,7 +413,21 @@
     }
     .cal-chip.online    { background: var(--cal-online);   color: var(--cal-online-text); }
     .cal-chip.inperson  { background: var(--cal-inperson); color: var(--cal-inperson-text); }
+    .cal-chip.external  { background: var(--cal-external); color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-chip:hover { opacity: 0.88; }
+    .cal-chip-badge {
+      display: inline-block;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--cal-external-border);
+      color: #fff;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
 
     .cal-chip-name { font-weight: 600; }
     .cal-chip-time { font-weight: 400; font-size: 10px; }
@@ -483,6 +500,7 @@
     }
     .cal-week-chip.online   { background: var(--cal-online);   color: var(--cal-online-text); }
     .cal-week-chip.inperson { background: var(--cal-inperson); color: var(--cal-inperson-text); }
+    .cal-week-chip.external { background: var(--cal-external); color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-week-chip:hover { opacity: 0.88; }
 
     /* ─── Day view ───────────────────────────────────────────────────────── */
@@ -544,6 +562,7 @@
     }
     .cal-day-chip.online   { background: var(--cal-online);   color: var(--cal-online-text); }
     .cal-day-chip.inperson { background: var(--cal-inperson); color: var(--cal-inperson-text); }
+    .cal-day-chip.external { background: var(--cal-external); color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-day-chip:hover { opacity: 0.88; }
 
     /* ─── Empty state ────────────────────────────────────────────────────── */
@@ -1139,14 +1158,36 @@
           <span id="detailTypePill"></span>
         </div>
 
-        <div class="detail-row">
+        <div class="detail-row" id="detailStatusRow">
           <span class="detail-row-label">Status</span>
           <span class="status-badge" id="detailStatus" data-status="scheduled"></span>
+        </div>
+
+        <div id="detailExternalRow" class="detail-row" hidden>
+          <span class="detail-row-label">
+            <span class="show-pt">Origem</span>
+            <span class="show-en">Source</span>
+          </span>
+          <span class="detail-row-val">
+            <span class="show-pt">Evento externo do Google Calendar (nao rastreado pelo Apex)</span>
+            <span class="show-en">External Google Calendar event (not tracked by Apex)</span>
+          </span>
         </div>
 
         <div id="detailMeetRow" class="detail-row" hidden>
           <span class="detail-row-label">Meet</span>
           <a class="detail-meet-link" id="detailMeetLink" href="#" target="_blank" rel="noopener"></a>
+        </div>
+
+        <div id="detailHtmlLinkRow" class="detail-row" hidden>
+          <span class="detail-row-label">
+            <span class="show-pt">Google Calendar</span>
+            <span class="show-en">Google Calendar</span>
+          </span>
+          <a class="detail-meet-link" id="detailHtmlLink" href="#" target="_blank" rel="noopener">
+            <span class="show-pt">Abrir evento</span>
+            <span class="show-en">Open event</span>
+          </a>
         </div>
 
         <div id="detailNotesRow" hidden>
@@ -1202,6 +1243,7 @@
     var calView     = "month";      // "month" | "week" | "day"
     var curDate     = new Date();   // anchor date for current view
     var calSessions = [];           // sessions from API
+    var calExternal = [];           // external Google Calendar events (not created by Apex)
     var clients     = [];           // all clients for dropdown
     var activeDetailSession = null; // currently open detail session
 
@@ -1420,6 +1462,20 @@
           renderCalendar();
           updateCalendarHeroTiles();
         });
+      loadExternalEvents();
+    }
+
+    function loadExternalEvents() {
+      apiFetch("/api/google/calendar/events")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          calExternal = data.events || [];
+          renderCalendar();
+        })
+        .catch(function(e) {
+          calExternal = [];
+          renderCalendar();
+        });
     }
 
     function updateCalendarHeroTiles() {
@@ -1560,6 +1616,22 @@
         if (!map[k]) { map[k] = []; }
         map[k].push(s);
       }
+      for (var j = 0; j < calExternal.length; j++) {
+        var ev = calExternal[j];
+        var ek = ev.date || "";
+        if (!map[ek]) { map[ek] = []; }
+        map[ek].push({
+          client_name:      ev.title,
+          date:              ev.date,
+          time:              ev.time,
+          session_type:      ev.google_meet_link ? "online_meet" : "in_person",
+          google_meet_link:  ev.google_meet_link,
+          google_event_id:   ev.google_event_id,
+          html_link:         ev.html_link,
+          source:            "external",
+          status:            "scheduled"
+        });
+      }
       return map;
     }
 
@@ -1626,12 +1698,18 @@
 
     function makeMonthChip(session) {
       var chip = document.createElement("div");
-      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
+      var typeCls = session.source === "external" ? "external" : (session.session_type === "in_person") ? "inperson" : "online";
       chip.className = "cal-chip " + typeCls;
 
       var nameSpan = document.createElement("span");
       nameSpan.className = "cal-chip-name";
-      nameSpan.textContent = session.client_name || "—";
+      if (session.source === "external") {
+        var badge = document.createElement("span");
+        badge.className = "cal-chip-badge";
+        badge.textContent = isEn() ? "EXT" : "EXT";
+        nameSpan.appendChild(badge);
+      }
+      nameSpan.appendChild(document.createTextNode(session.client_name || "—"));
       chip.appendChild(nameSpan);
 
       if (session.time) {
@@ -1744,9 +1822,10 @@
 
     function makeWeekChip(session) {
       var chip = document.createElement("div");
-      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
+      var typeCls = session.source === "external" ? "external" : (session.session_type === "in_person") ? "inperson" : "online";
       chip.className = "cal-week-chip " + typeCls;
-      chip.innerHTML = '<strong>' + escHtml(session.client_name || "—") + '</strong>';
+      var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
+      chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       if (session.time) { chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + session.time.slice(0,5) + '</span>'; }
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
@@ -1834,9 +1913,10 @@
 
     function makeDayChip(session) {
       var chip = document.createElement("div");
-      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
+      var typeCls = session.source === "external" ? "external" : (session.session_type === "in_person") ? "inperson" : "online";
       chip.className = "cal-day-chip " + typeCls;
-      chip.innerHTML = '<strong>' + escHtml(session.client_name || "—") + '</strong>';
+      var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
+      chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       if (session.time) { chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + session.time.slice(0,5) + '</span>'; }
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
@@ -1883,11 +1963,12 @@
 
       btn.disabled = true;
 
-      function scheduleSession(meetLink) {
+      function scheduleSession(meetLink, googleEventId) {
         statusEl.textContent = en ? "Scheduling session..." : "Agendando sessao...";
         statusEl.className = "pull-status";
         var body = { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null };
         if (meetLink) { body.google_meet_link = meetLink; }
+        if (googleEventId) { body.google_event_id = googleEventId; }
         apiFetch("/api/sessions/schedule", { method: "POST", body: body })
           .then(function(res) { return res.json(); })
           .then(function(data) {
@@ -1928,13 +2009,14 @@
           .then(function(res) { return res.json(); })
           .then(function(calData) {
             var meetLink = (calData && calData.google_meet_link) ? calData.google_meet_link : null;
-            scheduleSession(meetLink);
+            var eventId  = (calData && calData.google_event_id)  ? calData.google_event_id  : null;
+            scheduleSession(meetLink, eventId);
           })
           .catch(function() {
-            scheduleSession(null);
+            scheduleSession(null, null);
           });
       } else {
-        scheduleSession(null);
+        scheduleSession(null, null);
       }
     }
 
@@ -1943,6 +2025,7 @@
     function openDetail(session) {
       activeDetailSession = session;
       var en = isEn();
+      var isExternal = session.source === "external";
 
       document.getElementById("detailTitle").textContent     = session.client_name || "—";
       document.getElementById("detailClientName").textContent = session.client_name || "—";
@@ -1959,6 +2042,9 @@
       }
       typePillEl.innerHTML = '<span class="type-pill ' + typeCls + '">' + escHtml(typeLabel) + '</span>';
 
+      document.getElementById("detailStatusRow").hidden = isExternal;
+      document.getElementById("detailExternalRow").hidden = !isExternal;
+
       var statusEl = document.getElementById("detailStatus");
       statusEl.setAttribute("data-status", session.status || "scheduled");
 
@@ -1973,6 +2059,14 @@
         meetRow.hidden = true;
       }
 
+      var htmlLinkRow = document.getElementById("detailHtmlLinkRow");
+      if (isExternal && session.html_link) {
+        htmlLinkRow.hidden = false;
+        document.getElementById("detailHtmlLink").href = safeUrl(session.html_link);
+      } else {
+        htmlLinkRow.hidden = true;
+      }
+
       var notesRow = document.getElementById("detailNotesRow");
       if (session.notes) {
         notesRow.hidden = false;
@@ -1981,8 +2075,9 @@
         notesRow.hidden = true;
       }
 
-      // Reset WhatsApp button
+      // Reset WhatsApp button — hidden entirely for external (non-Apex) events
       var waBtn = document.getElementById("btnWhatsApp");
+      waBtn.hidden = isExternal;
       waBtn.disabled = false;
       waBtn.innerHTML = '<span class="show-pt">Enviar WhatsApp</span><span class="show-en">Send WhatsApp</span>';
 

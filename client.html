@@ -4440,10 +4440,11 @@
       }
       if (btn) { btn.disabled = true; }
 
-      function finishSchedule(meetLink) {
+      function finishSchedule(meetLink, googleEventId) {
         if (statusEl) { statusEl.textContent = "Agendando... / Scheduling..."; statusEl.className = "pull-status"; }
         var body = { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null };
         if (meetLink) { body.google_meet_link = meetLink; }
+        if (googleEventId) { body.google_event_id = googleEventId; }
         apiFetch("/api/sessions/schedule", { method: "POST", body: body })
           .then(function(res) { return res.json(); })
           .then(function(data) {
@@ -4482,13 +4483,14 @@
           .then(function(res) { return res.json(); })
           .then(function(calData) {
             var meetLink = (calData && calData.google_meet_link) ? calData.google_meet_link : null;
-            finishSchedule(meetLink);
+            var eventId  = (calData && calData.google_event_id)  ? calData.google_event_id  : null;
+            finishSchedule(meetLink, eventId);
           })
           .catch(function() {
-            finishSchedule(null);
+            finishSchedule(null, null);
           });
       } else {
-        finishSchedule(null);
+        finishSchedule(null, null);
       }
     }
 

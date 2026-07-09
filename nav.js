@@ -47,9 +47,18 @@
     { key: "calendar",  href: "calendar.html",  icon: "cal-grid",
       labelPt: "Calend&aacute;rio",            labelEn: "Calendar",
       tipPt: "Calendario",                     tipEn: "Calendar" },
+    { key: "documents", href: "documents.html", icon: "file",
+      labelPt: "Documentos",                   labelEn: "Documents",
+      tipPt: "Documentos",                     tipEn: "Documents" },
     { key: "tasks",     href: "tasks.html",     icon: "check-square",
       labelPt: "Tarefas",                      labelEn: "Tasks",
-      tipPt: "Tarefas",                        tipEn: "Tasks" }
+      tipPt: "Tarefas",                        tipEn: "Tasks" },
+    { key: "finance",   href: "finance.html",   icon: "finance",
+      labelPt: "Financeiro",                   labelEn: "Financial",
+      tipPt: "Financeiro",                     tipEn: "Financial" },
+    { key: "settings",  href: "settings.html",  icon: "settings",
+      labelPt: "Configura&ccedil;&otilde;es",  labelEn: "Settings",
+      tipPt: "Configuracoes",                  tipEn: "Settings" }
   ];
 
   // ── SVG icon builder ────────────────────────────────────────────────────

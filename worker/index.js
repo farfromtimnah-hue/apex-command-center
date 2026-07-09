@@ -5177,11 +5177,25 @@ async function handleGetInvoiceRenderData(zohoInvoiceId, request, env) {
         }
 
         var clientRow = await env.DB.prepare(
-            "SELECT id, name, email, payment_method FROM clients WHERE zoho_customer_id = ?"
+            "SELECT id, name, email, payment_method, package FROM clients WHERE zoho_customer_id = ?"
         ).bind(String(zohoCustomerId)).first();
 
         if (!clientRow) {
             return jsonErr("No local client found with zoho_customer_id " + zohoCustomerId, 404);
+        }
+
+        // Assunto defaults to the invoice's own subject when Zoho has one set.
+        // Otherwise fall back to the client's package full name, since invoices
+        // are always billing a defined package (Start/Sprint/Elite). If the
+        // client has no package on record, leave it blank (existing fallback).
+        var assunto = inv.subject || "";
+        if (!assunto && clientRow.package) {
+            var pkgRow = await env.DB.prepare(
+                "SELECT full_name FROM packages WHERE short_name = ?"
+            ).bind(clientRow.package).first();
+            if (pkgRow && pkgRow.full_name) {
+                assunto = pkgRow.full_name;
+            }
         }
 
         // 4. Build the client logo URL using our internal UUID.
@@ -5216,8 +5230,7 @@ async function handleGetInvoiceRenderData(zohoInvoiceId, request, env) {
                 data_fatura:                formatZohoDate(inv.date),
                 data_vencimento:            formatZohoDate(inv.due_date),
                 termos_condicoes_pagamento: inv.payment_terms_label || "",
-                numero_pedido:              inv.reference_number || "",
-                assunto:                    inv.subject || "",
+                assunto:                    assunto,
                 descricao:                  inv.notes || ""
             },
             empresa: {
@@ -5243,13 +5256,14 @@ async function handleGetInvoiceRenderData(zohoInvoiceId, request, env) {
             },
             itens: itens,
             totais: {
-                subtotal:       inv.sub_total !== undefined    ? formatCurrency(inv.sub_total)    : "---",
-                desconto_total: inv.discount_total !== undefined ? formatCurrency(inv.discount_total) : "---",
-                valor_total:    inv.total !== undefined         ? formatCurrency(inv.total)        : "---"
+                subtotal:       inv.sub_total !== undefined ? formatCurrency(inv.sub_total) : "---",
+                desconto_total: (inv.discount_total !== undefined && parseFloat(inv.discount_total) > 0)
+                    ? formatCurrency(inv.discount_total)
+                    : null,
+                valor_total:    inv.total !== undefined      ? formatCurrency(inv.total)     : "---"
             },
-            observacoes:        inv.notes || "",
-            formas_pagamento:   paymentMethod,
-            termos_e_condicoes: inv.terms || ""
+            observacoes:      inv.notes || "",
+            formas_pagamento: paymentMethod
         };
 
         return jsonOk(renderData);

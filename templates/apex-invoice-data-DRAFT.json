@@ -4,7 +4,6 @@
     "data_fatura": "01/07/2025",
     "data_vencimento": "15/07/2025",
     "termos_condicoes_pagamento": "15 dias",
-    "numero_pedido": "PED-2025-001",
     "assunto": "Consultoria Estrategica - Pacote Sprint",
     "descricao": "Servicos de consultoria empresarial e lideranca conforme pacote contratado."
   },
@@ -74,10 +73,9 @@
   ],
   "totais": {
     "subtotal": "---",
-    "desconto_total": "---",
+    "desconto_total": null,
     "valor_total": "---"
   },
   "observacoes": "Pagamento a ser realizado conforme termos acordados em contrato.",
-  "formas_pagamento": "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente.",
-  "termos_e_condicoes": "Os servicos descritos nesta fatura sao regidos pelo contrato assinado entre as partes. O nao pagamento no prazo estipulado podera incorrer em juros de mora."
+  "formas_pagamento": "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente."
 }

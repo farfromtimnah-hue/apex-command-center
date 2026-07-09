@@ -445,13 +445,6 @@
       line-height: 1.5;
     }
 
-    /* Termos full-width block below both columns */
-    .termos-row {
-      padding: 0 36px 8px 36px;
-      break-before: avoid;
-      page-break-before: avoid;
-    }
-
     /* ---- PAYMENT TILES ---- */
     .payment-tiles {
       display: flex;
@@ -650,10 +643,6 @@
             <td class="field-label">Termos e Condições de Pagamento</td>
             <td class="field-value" id="inv-termos-pagamento">--</td>
           </tr>
-          <tr>
-            <td class="field-label">Nº do Pedido</td>
-            <td class="field-value" id="inv-numero-pedido">--</td>
-          </tr>
         </tbody>
       </table>
     </div>
@@ -745,7 +734,7 @@
             <td class="tot-label">Sub Total</td>
             <td class="tot-value" id="tot-subtotal">---</td>
           </tr>
-          <tr>
+          <tr id="tot-desconto-row">
             <td class="tot-label">Desconto Total</td>
             <td class="tot-value" id="tot-desconto">---</td>
           </tr>
@@ -758,16 +747,6 @@
     </div>
 
   </div><!-- end post-table-row -->
-
-  <!-- =====================================================================
-       TERMOS E CONDICOES — full width, below both columns
-       ===================================================================== -->
-  <div class="termos-row">
-    <div class="bottom-field-block">
-      <div class="bf-label">Termos e Condições</div>
-      <div class="bf-value" id="termos-value">--</div>
-    </div>
-  </div>
 
 </div><!-- /page-content -->
 
@@ -965,7 +944,6 @@
       setText('inv-data-fatura', inv.data_fatura);
       setText('inv-data-vencimento', inv.data_vencimento);
       setText('inv-termos-pagamento', inv.termos_condicoes_pagamento);
-      setText('inv-numero-pedido', inv.numero_pedido);
       setText('inv-assunto', inv.assunto);
       setText('inv-descricao', inv.descricao);
 
@@ -994,12 +972,21 @@
 
       // Totals
       setText('tot-subtotal', totais.subtotal);
-      setText('tot-desconto', totais.desconto_total);
       setText('adt-valor', totais.valor_total);
 
-      // Notes / terms (payment section is now static visual tiles)
+      // Discount row only renders when a real discount amount is present.
+      var descontoRow = document.getElementById('tot-desconto-row');
+      if (descontoRow) {
+        if (totais.desconto_total) {
+          setText('tot-desconto', totais.desconto_total);
+          descontoRow.style.display = '';
+        } else {
+          descontoRow.style.display = 'none';
+        }
+      }
+
+      // Notes (payment section is now static visual tiles)
       setText('obs-value', data.observacoes);
-      setText('termos-value', data.termos_e_condicoes);
 
       // Footer
       var footerWebsite = document.getElementById('footer-website');

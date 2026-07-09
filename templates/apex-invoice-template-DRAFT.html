@@ -675,7 +675,7 @@
           <th>Descrição</th>
           <th class="col-qty">Qtd.</th>
           <th class="col-unit">Valor Unitário</th>
-          <th class="col-disc">Desconto</th>
+          <th class="col-disc" id="col-disc-header">Desconto</th>
           <th class="col-sub">Sub Total</th>
         </tr>
       </thead>
@@ -954,10 +954,12 @@
 
       // Line items
       var tbody = document.getElementById('line-items-body');
+      var anyItemDiscount = false;
       if (tbody && data.itens && data.itens.length) {
         var html = '';
         for (var i = 0; i < data.itens.length; i++) {
           var item = data.itens[i];
+          if (item.desconto && item.desconto !== '---') { anyItemDiscount = true; }
           html += '<tr>';
           html += '<td class="col-num">' + (i + 1) + '</td>';
           html += '<td>' + escapeHtml(item.descricao || '') + '</td>';
@@ -968,6 +970,16 @@
           html += '</tr>';
         }
         tbody.innerHTML = html;
+      }
+
+      // Desconto column (header + every row's cell) only shows when at least
+      // one line item has a real discount; otherwise hide it entirely rather
+      // than rendering "---" in every row.
+      var discHeader = document.getElementById('col-disc-header');
+      if (discHeader) { discHeader.style.display = anyItemDiscount ? '' : 'none'; }
+      var discCells = tbody ? tbody.querySelectorAll('.col-disc') : [];
+      for (var d = 0; d < discCells.length; d++) {
+        discCells[d].style.display = anyItemDiscount ? '' : 'none';
       }
 
       // Totals

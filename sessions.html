@@ -1786,18 +1786,30 @@
           }
           items.forEach(function(t) {
             var row = document.createElement("div");
+            row.id = "ffRow_" + t.id;
             row.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;";
             var label = document.createElement("span");
             label.style.cssText = "font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
             label.textContent = (t.date || "") + " — " + t.title + (t.duration_min ? " (" + t.duration_min + " min)" : "");
+            var btnGroup = document.createElement("span");
+            btnGroup.style.cssText = "display:flex; gap:6px; flex-shrink:0;";
             var btn = document.createElement("button");
             btn.type = "button";
             btn.className = "btn btn-secondary";
             btn.style.cssText = "flex-shrink:0; font-size:12px; padding:4px 10px;";
             btn.textContent = document.body.classList.contains("lang-pt") ? "Importar" : "Import";
             btn.onclick = function() { ffImport(t.id, btn); };
+            var dismissBtn = document.createElement("button");
+            dismissBtn.type = "button";
+            dismissBtn.className = "btn btn-secondary";
+            dismissBtn.title = document.body.classList.contains("lang-pt") ? "Ocultar (nao afeta o Fireflies)" : "Hide (does not affect Fireflies)";
+            dismissBtn.style.cssText = "flex-shrink:0; font-size:12px; padding:4px 8px; color:#9ca3af;";
+            dismissBtn.textContent = "✕";
+            dismissBtn.onclick = function() { ffDismiss(t.id, row); };
+            btnGroup.appendChild(btn);
+            btnGroup.appendChild(dismissBtn);
             row.appendChild(label);
-            row.appendChild(btn);
+            row.appendChild(btnGroup);
             listEl.appendChild(row);
           });
         })
@@ -1822,6 +1834,19 @@
           btn.disabled = false;
           btn.textContent = isPt ? "Importar" : "Import";
           ffSetStatus("Erro ao importar: " + e.message, "Import error: " + e.message);
+        });
+    }
+
+    function ffDismiss(transcriptId, rowEl) {
+      var isPt = document.body.classList.contains("lang-pt");
+      apiFetch("/api/fireflies/dismiss", { method: "POST", body: { transcript_id: transcriptId } })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          if (rowEl && rowEl.parentNode) { rowEl.parentNode.removeChild(rowEl); }
+        })
+        .catch(function(e) {
+          ffSetStatus("Erro ao ocultar: " + e.message, "Error hiding: " + e.message);
         });
     }
 

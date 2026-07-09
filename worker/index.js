@@ -443,18 +443,55 @@ async function handleGetFirefliesTranscripts(request, env) {
             "id title date duration organizer_email } }",
             { limit: 15 }
         );
-        var list = (data && data.transcripts || []).map(function(t) {
-            return {
-                id: t.id,
-                title: t.title || "Untitled meeting",
-                date: firefliesDateToYMD(t.date),
-                duration_min: t.duration ? Math.round(t.duration) : null,
-                organizer_email: t.organizer_email || null
-            };
-        });
+
+        var dismissedRows = await env.DB.prepare(
+            "SELECT transcript_id FROM fireflies_dismissed_transcripts"
+        ).all();
+        var dismissed = {};
+        for (var d = 0; d < dismissedRows.results.length; d++) {
+            dismissed[dismissedRows.results[d].transcript_id] = true;
+        }
+
+        var list = (data && data.transcripts || [])
+            .filter(function(t) { return !dismissed[t.id]; })
+            .map(function(t) {
+                return {
+                    id: t.id,
+                    title: t.title || "Untitled meeting",
+                    date: firefliesDateToYMD(t.date),
+                    duration_min: t.duration ? Math.round(t.duration) : null,
+                    organizer_email: t.organizer_email || null
+                };
+            });
         return jsonOk({ transcripts: list });
     } catch (e) {
         return jsonErr("Error listing Fireflies transcripts: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/fireflies/dismiss
+// Body: { transcript_id }. Hides a transcript from future
+// GET /api/fireflies/transcripts results. Does not touch Fireflies' own
+// data or delete anything already imported into D1 -- purely a local filter.
+// ---------------------------------------------------------------------------
+
+async function handlePostFirefliesDismiss(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json().catch(function() { return null; });
+        var transcriptId = body && (body.transcript_id || body.id);
+        if (!transcriptId) { return jsonErr("Missing transcript_id", 400); }
+
+        await env.DB.prepare(
+            "INSERT OR IGNORE INTO fireflies_dismissed_transcripts (transcript_id, dismissed_by) VALUES (?, ?)"
+        ).bind(transcriptId, user.email).run();
+
+        return jsonOk({ ok: true, transcript_id: transcriptId });
+    } catch (e) {
+        return jsonErr("Error dismissing transcript: " + e.message, 500);
     }
 }
 
@@ -5576,6 +5613,7 @@ export default {
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
         if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }
         if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }
+        if (path === "/api/fireflies/dismiss"     && method === "POST") { return handlePostFirefliesDismiss(request, env); }
         if (path === "/api/clients"              && method === "GET")  { return handleGetClients(request, env); }
         if (path === "/api/clients"              && method === "POST") { return handlePostClients(request, env); }
         if (path === "/api/transcript"           && method === "POST") { return handlePostTranscript(request, env); }

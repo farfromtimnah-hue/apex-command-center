@@ -187,6 +187,87 @@ async function handlePostSessionAssignClient(sessionId, request, env) {
 // Verifies HMAC if FIREFLIES_WEBHOOK_SECRET is set; accepts all if empty.
 // ---------------------------------------------------------------------------
 
+// Call the Fireflies GraphQL API using the FIREFLIES_API_KEY worker secret.
+async function firefliesGraphQL(env, query, variables) {
+    var apiKey = (env.FIREFLIES_API_KEY || "").trim();
+    if (!apiKey) { throw new Error("FIREFLIES_API_KEY secret is not set"); }
+    var res = await fetch("https://api.fireflies.ai/graphql", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey
+        },
+        body: JSON.stringify({ query: query, variables: variables || {} })
+    });
+    var body = await res.json().catch(function() { return null; });
+    if (!res.ok || !body || body.errors) {
+        var msg = body && body.errors ? body.errors.map(function(e){ return e.message; }).join("; ")
+                                      : "HTTP " + res.status;
+        throw new Error("Fireflies API error: " + msg);
+    }
+    return body.data;
+}
+
+// Fetch one transcript by ID and flatten it to the fields the sessions table needs.
+async function fetchFirefliesTranscript(env, transcriptId) {
+    var data = await firefliesGraphQL(env,
+        "query Transcript($id: String!) { transcript(id: $id) { " +
+        "id title date duration organizer_email " +
+        "sentences { speaker_name text } " +
+        "summary { overview action_items } } }",
+        { id: transcriptId }
+    );
+    var t = data && data.transcript;
+    if (!t) { return null; }
+
+    var text = "";
+    if (Array.isArray(t.sentences)) {
+        text = t.sentences.map(function(s) {
+            return (s.speaker_name ? s.speaker_name + ": " : "") + (s.text || "");
+        }).join("\n");
+    }
+    if (!text && t.summary && t.summary.overview) { text = t.summary.overview; }
+
+    return {
+        id: t.id,
+        title: t.title || "Fireflies Meeting",
+        date: t.date || null,           // epoch milliseconds
+        duration: t.duration || null,
+        organizer_email: t.organizer_email || null,
+        transcript_text: text
+    };
+}
+
+function firefliesDateToYMD(dateVal) {
+    var dateStr = new Date().toISOString().split("T")[0];
+    if (dateVal !== null && dateVal !== undefined && dateVal !== "") {
+        try {
+            var n = typeof dateVal === "number" ? dateVal : Number(dateVal);
+            // Fireflies returns epoch ms; also accept epoch seconds and ISO strings
+            var d = isNaN(n) ? new Date(dateVal) : new Date(n < 1e12 ? n * 1000 : n);
+            if (!isNaN(d.getTime())) { dateStr = d.toISOString().split("T")[0]; }
+        } catch(e) { /* use today */ }
+    }
+    return dateStr;
+}
+
+// Insert a Fireflies transcript into the sessions inbox (deduped by fireflies_id).
+// Returns { session_id, duplicate }.
+async function ingestFirefliesTranscript(env, meta) {
+    var existing = await env.DB.prepare(
+        "SELECT id FROM sessions WHERE task_completions LIKE ? LIMIT 1"
+    ).bind('%"fireflies_id":"' + meta.id + '"%').first();
+    if (existing) { return { session_id: existing.id, duplicate: true }; }
+
+    var sessionId = crypto.randomUUID();
+    var fireflyMeta = JSON.stringify({ fireflies_id: meta.id });
+    await env.DB.prepare(
+        "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at) " +
+        "VALUES (?, ?, ?, 'inbox', ?, ?, datetime('now'))"
+    ).bind(sessionId, meta.title, firefliesDateToYMD(meta.date), meta.transcript_text, fireflyMeta).run();
+    return { session_id: sessionId, duplicate: false };
+}
+
 async function handleFirefliesWebhook(request, env) {
     try {
         var rawBody = await request.text();
@@ -217,45 +298,111 @@ async function handleFirefliesWebhook(request, env) {
         var payload;
         try { payload = JSON.parse(rawBody); } catch(e) { return jsonErr("Invalid JSON", 400); }
 
-        // Extract fields from Fireflies payload format
-        var meetingId    = payload.meetingId || payload.id || null;
-        var title        = payload.title     || payload.meeting_title || "Fireflies Meeting";
-        var meetingDate  = payload.date      || payload.start_time    || null;
-        var transcript   = payload.transcript || payload.summary || null;
-
-        if (!meetingId) { return jsonOk({ ok: true, note: "No meetingId — skipped" }); }
-        if (!transcript) { return jsonOk({ ok: true, note: "No transcript content — skipped" }); }
-
-        // Normalize date to YYYY-MM-DD
-        var dateStr = new Date().toISOString().split("T")[0];
-        if (meetingDate) {
-            try {
-                var d = new Date(typeof meetingDate === "number" ? meetingDate * 1000 : meetingDate);
-                if (!isNaN(d.getTime())) { dateStr = d.toISOString().split("T")[0]; }
-            } catch(e) { /* use today */ }
+        // Fireflies "Transcription completed" webhooks carry only
+        // { meetingId, eventType, clientReferenceId } — never the transcript itself.
+        var meetingId  = payload.meetingId || payload.id || null;
+        var eventType  = payload.eventType || payload.event || "";
+        if (!meetingId) {
+            console.log("Fireflies webhook: no meetingId in payload — skipped. Payload keys: " + Object.keys(payload).join(","));
+            return jsonOk({ ok: true, note: "No meetingId — skipped" });
+        }
+        if (eventType && eventType.toLowerCase().indexOf("transcription") === -1) {
+            console.log("Fireflies webhook: ignoring eventType '" + eventType + "' for " + meetingId);
+            return jsonOk({ ok: true, note: "Ignored eventType: " + eventType });
         }
 
-        // Prevent duplicates by checking fireflies_id stored in task_completions field
-        // We store {"fireflies_id": "<meetingId>"} so we can check without a schema change
-        var existing = await env.DB.prepare(
-            "SELECT id FROM sessions WHERE task_completions LIKE ? LIMIT 1"
-        ).bind('%"fireflies_id":"' + meetingId + '"%').first();
-
-        if (existing) {
-            return jsonOk({ ok: true, note: "Duplicate meetingId — skipped", session_id: existing.id });
+        var meta;
+        var inlineTranscript = payload.transcript || payload.summary || null;
+        if (inlineTranscript) {
+            // Back-compat / test path: payload carried the transcript inline
+            meta = {
+                id: meetingId,
+                title: payload.title || payload.meeting_title || "Fireflies Meeting",
+                date: payload.date || payload.start_time || null,
+                transcript_text: inlineTranscript
+            };
+        } else {
+            console.log("Fireflies webhook: fetching transcript " + meetingId + " from Fireflies API");
+            meta = await fetchFirefliesTranscript(env, meetingId);
+            if (!meta) {
+                console.log("Fireflies webhook: transcript " + meetingId + " not found via API");
+                return jsonErr("Transcript not found in Fireflies: " + meetingId, 404);
+            }
+            if (!meta.transcript_text) {
+                console.log("Fireflies webhook: transcript " + meetingId + " has no sentences yet");
+                return jsonErr("Transcript " + meetingId + " has no content yet", 422);
+            }
         }
 
-        var sessionId = crypto.randomUUID();
-        var fireflyMeta = JSON.stringify({ fireflies_id: meetingId });
-
-        await env.DB.prepare(
-            "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at) " +
-            "VALUES (?, ?, ?, 'inbox', ?, ?, datetime('now'))"
-        ).bind(sessionId, title, dateStr, transcript, fireflyMeta).run();
-
-        return jsonOk({ ok: true, session_id: sessionId });
+        var result = await ingestFirefliesTranscript(env, meta);
+        console.log("Fireflies webhook: " + (result.duplicate ? "duplicate" : "ingested") +
+                    " meeting " + meetingId + " -> session " + result.session_id);
+        return jsonOk({ ok: true, session_id: result.session_id, duplicate: result.duplicate });
     } catch (e) {
+        console.log("Fireflies webhook error: " + e.message);
         return jsonErr("Webhook error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/fireflies/transcripts
+// Lists the API-key owner's recent Fireflies transcripts (manual-pull picker).
+// ---------------------------------------------------------------------------
+
+async function handleGetFirefliesTranscripts(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var data = await firefliesGraphQL(env,
+            "query Transcripts($limit: Int) { transcripts(limit: $limit) { " +
+            "id title date duration organizer_email } }",
+            { limit: 15 }
+        );
+        var list = (data && data.transcripts || []).map(function(t) {
+            return {
+                id: t.id,
+                title: t.title || "Untitled meeting",
+                date: firefliesDateToYMD(t.date),
+                duration_min: t.duration ? Math.round(t.duration) : null,
+                organizer_email: t.organizer_email || null
+            };
+        });
+        return jsonOk({ transcripts: list });
+    } catch (e) {
+        return jsonErr("Error listing Fireflies transcripts: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/fireflies/pull
+// Body: { transcript_id }. Fetches the transcript from the Fireflies API and
+// ingests it into the sessions inbox — same pipeline as the webhook.
+// ---------------------------------------------------------------------------
+
+async function handlePostFirefliesPull(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json().catch(function() { return null; });
+        var transcriptId = body && (body.transcript_id || body.id);
+        if (!transcriptId) { return jsonErr("Missing transcript_id", 400); }
+
+        var meta = await fetchFirefliesTranscript(env, transcriptId);
+        if (!meta) { return jsonErr("Transcript not found in Fireflies: " + transcriptId, 404); }
+        if (!meta.transcript_text) { return jsonErr("Transcript has no content yet — Fireflies may still be processing it", 422); }
+
+        var result = await ingestFirefliesTranscript(env, meta);
+        return jsonOk({
+            ok: true,
+            session_id: result.session_id,
+            duplicate: result.duplicate,
+            title: meta.title,
+            date: firefliesDateToYMD(meta.date)
+        });
+    } catch (e) {
+        return jsonErr("Error pulling Fireflies transcript: " + e.message, 500);
     }
 }
 
@@ -5213,6 +5360,8 @@ export default {
         if (path === "/api/sessions/calendar"     && method === "GET")  { return handleGetSessionsCalendar(request, env); }
         if (path === "/api/sessions/schedule"     && method === "POST") { return handlePostSessionsSchedule(request, env); }
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
+        if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }
+        if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }
         if (path === "/api/clients"              && method === "GET")  { return handleGetClients(request, env); }
         if (path === "/api/clients"              && method === "POST") { return handlePostClients(request, env); }
         if (path === "/api/transcript"           && method === "POST") { return handlePostTranscript(request, env); }

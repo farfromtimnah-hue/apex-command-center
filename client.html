@@ -737,6 +737,41 @@
       color: #fff;
     }
 
+    /* Prev/next client navigation (hero header) */
+    .client-nav-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .client-nav-row .client-name {
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+    .btn-client-nav {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(26, 22, 18, 0.55);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .btn-client-nav:hover:not(:disabled) {
+      border-color: rgba(255, 255, 255, 0.5);
+      color: #fff;
+    }
+    .btn-client-nav:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
     .profile-header-meta .client-badges {
       flex-wrap: wrap;
     }
@@ -1289,7 +1324,11 @@
             <div class="pull-status" id="logoStatus" style="color:rgba(255,255,255,0.7);font-size:11px;min-height:0;"></div>
           </div>
           <div class="profile-header-meta">
-            <h1 class="client-name" id="clientName">&#8212;</h1>
+            <div class="client-nav-row">
+              <button class="btn-client-nav" id="btnPrevClient" hidden onclick="navNeighborClient(-1)" title="Cliente anterior / Previous client">&#8249;</button>
+              <h1 class="client-name" id="clientName">&#8212;</h1>
+              <button class="btn-client-nav" id="btnNextClient" hidden onclick="navNeighborClient(1)" title="Pr&oacute;ximo cliente / Next client">&#8250;</button>
+            </div>
             <div class="client-badges" id="clientBadges">
               <!-- package + status lozenges rendered by JS -->
               <span class="next-meeting-lozenge" id="nextMeetingLozenge" style="display:none;">
@@ -2266,7 +2305,48 @@
       loadClientInvoices();
       loadClientResources();
       loadClientGrowth();
+      loadClientNeighbors();
       initCollapseStates();
+    }
+
+    // ── Prev/next client navigation (hero header) ──────────────────────────
+    // Reuses GET /api/clients — the same list clients.html renders, in the
+    // same order (the API's ORDER BY name ASC) — so shuffling here matches
+    // walking the client list page top to bottom.
+
+    var NEIGHBOR_CLIENTS = { prev: null, next: null };
+
+    function loadClientNeighbors() {
+      apiFetch("/api/clients")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var list = data.clients || [];
+          var idx = -1;
+          for (var i = 0; i < list.length; i++) {
+            if (list[i].id === CLIENT_ID) { idx = i; break; }
+          }
+          if (idx === -1) { return; }   // unknown id — leave nav hidden
+
+          var prev = idx > 0 ? list[idx - 1] : null;
+          var next = idx < list.length - 1 ? list[idx + 1] : null;
+          NEIGHBOR_CLIENTS.prev = prev ? prev.id : null;
+          NEIGHBOR_CLIENTS.next = next ? next.id : null;
+
+          var prevBtn = document.getElementById("btnPrevClient");
+          var nextBtn = document.getElementById("btnNextClient");
+          prevBtn.hidden   = false;
+          nextBtn.hidden   = false;
+          prevBtn.disabled = !prev;
+          nextBtn.disabled = !next;
+          if (prev) { prevBtn.title = prev.name; }
+          if (next) { nextBtn.title = next.name; }
+        })
+        .catch(function() { /* nav simply stays hidden */ });
+    }
+
+    function navNeighborClient(dir) {
+      var id = dir < 0 ? NEIGHBOR_CLIENTS.prev : NEIGHBOR_CLIENTS.next;
+      if (id) { window.location.href = "client.html?id=" + encodeURIComponent(id); }
     }
 
     // ── Resources section (Resource Hub sent-history) ──────────────────────

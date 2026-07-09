@@ -184,7 +184,7 @@ async function handlePostSessionAssignClient(sessionId, request, env) {
 // ---------------------------------------------------------------------------
 // Route: POST /api/fireflies/webhook
 // No Firebase auth — called directly by Fireflies.
-// Verifies HMAC if FIREFLIES_WEBHOOK_SECRET is set; accepts all if empty.
+// Verifies HMAC-SHA256 of the raw body against X-Hub-Signature using FIREFLIES_WEBHOOK_SECRET.
 // ---------------------------------------------------------------------------
 
 // Call the Fireflies GraphQL API using the FIREFLIES_API_KEY worker secret.
@@ -272,27 +272,26 @@ async function handleFirefliesWebhook(request, env) {
     try {
         var rawBody = await request.text();
 
-        // HMAC verification — skip if secret not configured yet
+        // HMAC verification against Fireflies' X-Hub-Signature header (sha256=<hex>).
         var secret = (env.FIREFLIES_WEBHOOK_SECRET || "").trim();
-        if (secret) {
-            var sigHeader = request.headers.get("X-Hub-Signature-256") ||
-                            request.headers.get("X-Fireflies-Signature") || "";
-            var key = await crypto.subtle.importKey(
-                "raw",
-                new TextEncoder().encode(secret),
-                { name: "HMAC", hash: "SHA-256" },
-                false,
-                ["sign"]
-            );
-            var sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-            var sigHex = "sha256=" + Array.from(new Uint8Array(sig))
-                .map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
-            if (sigHex !== sigHeader) {
-                console.log("Fireflies webhook signature mismatch");
-                return jsonErr("Signature mismatch", 401);
-            }
-        } else {
-            console.log("FIREFLIES_WEBHOOK_SECRET not set — accepting webhook without verification");
+        if (!secret) {
+            console.log("Fireflies webhook rejected: FIREFLIES_WEBHOOK_SECRET not set");
+            return jsonErr("Webhook secret not configured", 401);
+        }
+        var sigHeader = request.headers.get("X-Hub-Signature") || "";
+        var key = await crypto.subtle.importKey(
+            "raw",
+            new TextEncoder().encode(secret),
+            { name: "HMAC", hash: "SHA-256" },
+            false,
+            ["sign"]
+        );
+        var sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+        var sigHex = "sha256=" + Array.from(new Uint8Array(sig))
+            .map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+        if (sigHex !== sigHeader) {
+            console.log("Fireflies webhook signature mismatch — expected " + sigHex + " got " + sigHeader);
+            return jsonErr("Signature mismatch", 401);
         }
 
         var payload;

@@ -378,9 +378,20 @@
     .chip-confirmed { background: #d1fae5; color: #065f46; }
     .chip-ignored   { background: #f1f5f9; color: #64748b; }
 
+    /* ─── Horizontal scroll wrapper for wide tables ───────────────────────
+       Mirrors the .cal-week-wrap / .cal-day-wrap pattern in calendar.html:
+       the container scrolls only when its table is wider than the viewport
+       (e.g. on mobile), so all columns incl. action buttons stay reachable.
+       On desktop the table fits, so no scrollbar shows. */
+    .fin-table-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
     /* ─── Transaction table ──────────────────────────────────────────────── */
     .tx-table {
       width: 100%;
+      min-width: 640px;
       border-collapse: collapse;
       font-size: 13px;
     }
@@ -626,6 +637,7 @@
     /* ─── Invoice table ──────────────────────────────────────────────────── */
     .inv-table {
       width: 100%;
+      min-width: 640px;
       border-collapse: collapse;
       font-size: 13px;
     }
@@ -1462,7 +1474,7 @@
           </h2>
           <span id="pendingBadge" style="background:var(--gold-dim);color:var(--gold);font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;display:none;">0</span>
         </div>
-        <div id="pendingList">
+        <div id="pendingList" class="fin-table-scroll">
           <div class="empty-state">
             <span class="show-pt">Nenhuma transacao pendente</span>
             <span class="show-en">No pending transactions</span>
@@ -1504,7 +1516,7 @@
             <span class="show-en">Archive</span>
           </button>
         </div>
-        <div id="invoicesList">
+        <div id="invoicesList" class="fin-table-scroll">
           <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
         </div>
       </div>
@@ -1538,7 +1550,7 @@
             <span class="show-en">Excluded</span>
           </button>
         </div>
-        <div id="reconList">
+        <div id="reconList" class="fin-table-scroll">
           <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
         </div>
       </div>
@@ -1561,7 +1573,7 @@
         <div class="content-card-body" style="padding-top:0;">
           <div id="agingBucketSummary" style="display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 16px;font-size:12px;color:var(--muted);"></div>
         </div>
-        <div id="agingList">
+        <div id="agingList" class="fin-table-scroll">
           <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
         </div>
       </div>

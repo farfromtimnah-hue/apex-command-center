@@ -2356,20 +2356,25 @@ async function handleGetGoogleCalendarEvents(request, env) {
             return jsonErr(listErr.message, code);
         }
 
-        // Pull every google_event_id already known to D1 so we don't insert
-        // duplicates of Apex-created sessions or previously-persisted
-        // external events.
+        // Pull every google_event_id already known to D1 -- along with the
+        // synced fields and calendar_provider -- so we can (a) avoid inserting
+        // duplicates, (b) refresh externally-sourced rows when Rafa edits the
+        // event on the Google Calendar side, and (c) never overwrite
+        // Apex-created sessions (any calendar_provider other than
+        // 'google_external').
         var knownRows = await env.DB.prepare(
-            "SELECT google_event_id FROM sessions WHERE google_event_id IS NOT NULL AND google_event_id != ''"
+            "SELECT id, google_event_id, calendar_provider, client_name, date, time, session_type, " +
+            "google_meet_link, html_link, end_time, attendees " +
+            "FROM sessions WHERE google_event_id IS NOT NULL AND google_event_id != ''"
         ).all();
         var known = {};
         for (var k = 0; k < knownRows.results.length; k++) {
-            known[knownRows.results[k].google_event_id] = true;
+            known[knownRows.results[k].google_event_id] = knownRows.results[k];
         }
 
         for (var i = 0; i < items.length; i++) {
             var ev = items[i];
-            if (!ev.id || known[ev.id]) { continue; }
+            if (!ev.id) { continue; }
             if (ev.status === "cancelled") { continue; }
 
             var startVal = (ev.start && (ev.start.dateTime || ev.start.date)) || null;
@@ -2379,7 +2384,10 @@ async function handleGetGoogleCalendarEvents(request, env) {
             var isAllDay = !(ev.start && ev.start.dateTime);
             var datePart = isAllDay ? startVal : startVal.slice(0, 10);
             var timePart = isAllDay ? null     : startVal.slice(11, 16);
-            var sessionType = extractGoogleEventMeetLink(ev) ? "online_meet" : "in_person";
+            var meetLink = extractGoogleEventMeetLink(ev);
+            var sessionType = meetLink ? "online_meet" : "in_person";
+            var title = ev.summary || "(No title)";
+            var htmlLink = ev.htmlLink || null;
             var attendeesJson = null;
             if (ev.attendees && ev.attendees.length) {
                 attendeesJson = JSON.stringify(ev.attendees.map(function(a) {
@@ -2387,22 +2395,61 @@ async function handleGetGoogleCalendarEvents(request, env) {
                 }));
             }
 
+            var existing = known[ev.id];
+            if (existing) {
+                // Only reconcile events we originally synced from Google. Apex-created
+                // sessions that happen to carry a google_event_id are left untouched.
+                if (existing.calendar_provider !== "google_external") { continue; }
+
+                var changed =
+                    (existing.client_name      || null) !== (title         || null) ||
+                    (existing.date             || null) !== (datePart      || null) ||
+                    (existing.time             || null) !== (timePart      || null) ||
+                    (existing.session_type     || null) !== (sessionType   || null) ||
+                    (existing.google_meet_link || null) !== (meetLink      || null) ||
+                    (existing.html_link        || null) !== (htmlLink      || null) ||
+                    (existing.end_time         || null) !== (endVal        || null) ||
+                    (existing.attendees        || null) !== (attendeesJson || null);
+
+                if (changed) {
+                    await env.DB.prepare(
+                        "UPDATE sessions SET client_name = ?, date = ?, time = ?, session_type = ?, " +
+                        "google_meet_link = ?, html_link = ?, end_time = ?, attendees = ? " +
+                        "WHERE id = ?"
+                    ).bind(
+                        title,
+                        datePart,
+                        timePart,
+                        sessionType,
+                        meetLink,
+                        htmlLink,
+                        endVal,
+                        attendeesJson,
+                        existing.id
+                    ).run();
+                }
+                continue;
+            }
+
             await env.DB.prepare(
                 "INSERT INTO sessions (id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, html_link, end_time, attendees) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, 'google_external', 'scheduled', ?, ?, ?)"
             ).bind(
                 crypto.randomUUID(),
-                ev.summary || "(No title)",
+                title,
                 datePart,
                 timePart,
                 sessionType,
-                extractGoogleEventMeetLink(ev),
+                meetLink,
                 ev.id,
-                ev.htmlLink || null,
+                htmlLink,
                 endVal,
                 attendeesJson
             ).run();
-            known[ev.id] = true; // guard against dupes within the same Google page of results
+            // Guard against dupes within the same Google page of results. Mark it
+            // as an external row so a repeated id in this batch is treated as an
+            // already-synced event, not re-inserted.
+            known[ev.id] = { id: null, calendar_provider: "google_external" };
         }
 
         // Return every externally-sourced row currently in D1 for this window,

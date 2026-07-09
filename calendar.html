@@ -1190,6 +1190,39 @@
           </a>
         </div>
 
+        <div id="detailAttendeesRow" hidden>
+          <div class="field-label" style="margin-bottom:6px;">
+            <span class="show-pt">Participantes</span>
+            <span class="show-en">Attendees</span>
+          </div>
+          <div class="detail-notes-text" id="detailAttendees"></div>
+        </div>
+
+        <div id="detailRecordSection" hidden>
+          <div class="field-label" style="margin-bottom:6px;">
+            <span class="show-pt">Registro da Reuniao</span>
+            <span class="show-en">Meeting Record</span>
+          </div>
+          <div id="detailRecordLoading" class="pull-status">
+            <span class="show-pt">Verificando...</span>
+            <span class="show-en">Checking...</span>
+          </div>
+          <div id="detailRecordContent" hidden style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a class="detail-meet-link" id="detailTranscriptLink" href="sessions.html" hidden>
+              <span class="show-pt">Ver Transcricao</span>
+              <span class="show-en">View Transcript</span>
+            </a>
+            <a class="detail-meet-link" id="detailPdfLink" href="#" hidden>
+              <span class="show-pt">Ver Relatorio PDF</span>
+              <span class="show-en">View PDF Report</span>
+            </a>
+            <span id="detailRecordEmpty" class="detail-row-val" hidden>
+              <span class="show-pt">Nada capturado para esta reuniao ainda.</span>
+              <span class="show-en">Nothing captured for this meeting yet.</span>
+            </span>
+          </div>
+        </div>
+
         <div id="detailNotesRow" hidden>
           <div class="field-label" style="margin-bottom:6px;">
             <span class="show-pt">Notas</span>
@@ -1242,8 +1275,7 @@
     var currentUser = null;
     var calView     = "month";      // "month" | "week" | "day"
     var curDate     = new Date();   // anchor date for current view
-    var calSessions = [];           // sessions from API
-    var calExternal = [];           // external Google Calendar events (not created by Apex)
+    var calSessions = [];           // sessions from API (includes persisted externally-sourced events, marked via calendar_provider)
     var clients     = [];           // all clients for dropdown
     var activeDetailSession = null; // currently open detail session
 
@@ -1462,6 +1494,11 @@
           renderCalendar();
           updateCalendarHeroTiles();
         });
+      // Sync-back trigger: fetches Rafa's external Google Calendar events and
+      // persists any new ones into D1 as real `sessions` rows (this is the
+      // page-load-triggered sync, there is no background cron). Reload the
+      // month once persistence finishes so newly-synced rows appear without
+      // requiring a second manual refresh.
       loadExternalEvents();
     }
 
@@ -1469,13 +1506,15 @@
       apiFetch("/api/google/calendar/events")
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          calExternal = data.events || [];
-          renderCalendar();
+          var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
+          return apiFetch("/api/sessions/calendar?month=" + monthStr)
+            .then(function(res) { return res.json(); })
+            .then(function(calData) {
+              calSessions = calData.sessions || [];
+              renderCalendar();
+            });
         })
-        .catch(function(e) {
-          calExternal = [];
-          renderCalendar();
-        });
+        .catch(function(e) { /* sync trigger failed silently -- calSessions already rendered from the initial load */ });
     }
 
     function updateCalendarHeroTiles() {
@@ -1612,25 +1651,17 @@
       var map = {};
       for (var i = 0; i < calSessions.length; i++) {
         var s = calSessions[i];
+        // Externally-sourced events are now real `sessions` rows (persisted
+        // by loadExternalEvents()); mark them the same way the old
+        // client-side-only calExternal array did, so all downstream
+        // rendering (badges, WhatsApp-button hiding, detail modal) keeps
+        // working unchanged.
+        if (s.calendar_provider === "google_external" && !s.source) {
+          s.source = "external";
+        }
         var k = s.date || "";
         if (!map[k]) { map[k] = []; }
         map[k].push(s);
-      }
-      for (var j = 0; j < calExternal.length; j++) {
-        var ev = calExternal[j];
-        var ek = ev.date || "";
-        if (!map[ek]) { map[ek] = []; }
-        map[ek].push({
-          client_name:      ev.title,
-          date:              ev.date,
-          time:              ev.time,
-          session_type:      ev.google_meet_link ? "online_meet" : "in_person",
-          google_meet_link:  ev.google_meet_link,
-          google_event_id:   ev.google_event_id,
-          html_link:         ev.html_link,
-          source:            "external",
-          status:            "scheduled"
-        });
       }
       return map;
     }
@@ -2067,6 +2098,16 @@
         htmlLinkRow.hidden = true;
       }
 
+      var attendeesRow = document.getElementById("detailAttendeesRow");
+      if (session.attendees && session.attendees.length) {
+        attendeesRow.hidden = false;
+        document.getElementById("detailAttendees").textContent = session.attendees.map(function(a) {
+          return a.name || a.email || "—";
+        }).join(", ");
+      } else {
+        attendeesRow.hidden = true;
+      }
+
       var notesRow = document.getElementById("detailNotesRow");
       if (session.notes) {
         notesRow.hidden = false;
@@ -2074,6 +2115,8 @@
       } else {
         notesRow.hidden = true;
       }
+
+      loadMeetingRecord(session);
 
       // Reset WhatsApp button — hidden entirely for external (non-Apex) events
       var waBtn = document.getElementById("btnWhatsApp");
@@ -2085,6 +2128,86 @@
       if (st2) { st2.textContent = ""; st2.className = "pull-status"; }
 
       document.getElementById("modalDetail").hidden = false;
+    }
+
+    // Only past events can have a captured transcript/PDF -- skip the lookup
+    // entirely for upcoming meetings so the modal doesn't show a pointless
+    // "nothing captured yet" for something that hasn't happened.
+    function isPastEvent(session) {
+      if (!session.date) { return false; }
+      var todayStr = new Date().toISOString().slice(0, 10);
+      if (session.date < todayStr) { return true; }
+      if (session.date > todayStr) { return false; }
+      if (!session.time) { return true; } // today, all-day / no time -> treat as past once the day itself has data
+      var now = new Date();
+      var nowHM = (now.getHours() < 10 ? "0" : "") + now.getHours() + ":" + (now.getMinutes() < 10 ? "0" : "") + now.getMinutes();
+      return session.time.slice(0,5) <= nowHM;
+    }
+
+    function loadMeetingRecord(session) {
+      var section     = document.getElementById("detailRecordSection");
+      var loadingEl   = document.getElementById("detailRecordLoading");
+      var contentEl   = document.getElementById("detailRecordContent");
+      var transcriptA = document.getElementById("detailTranscriptLink");
+      var pdfA        = document.getElementById("detailPdfLink");
+      var emptyEl     = document.getElementById("detailRecordEmpty");
+
+      transcriptA.hidden = true;
+      pdfA.hidden = true;
+      emptyEl.hidden = true;
+      contentEl.hidden = true;
+
+      if (!isPastEvent(session)) {
+        section.hidden = true;
+        return;
+      }
+      section.hidden = false;
+      loadingEl.hidden = false;
+
+      function showRecord(sessionId, hasTranscript, hasPdf) {
+        loadingEl.hidden = true;
+        contentEl.hidden = false;
+        if (hasTranscript) {
+          transcriptA.href = "sessions.html?open=" + encodeURIComponent(sessionId);
+          transcriptA.hidden = false;
+        }
+        if (hasPdf) {
+          pdfA.href = "sessions.html?open=" + encodeURIComponent(sessionId);
+          pdfA.hidden = false;
+        }
+        emptyEl.hidden = !!(hasTranscript || hasPdf);
+      }
+
+      // 1) The event's own row may already carry a transcript/PDF directly
+      // (an Apex-created session that Fireflies ingestion updated in place).
+      if (session.has_transcript || session.has_pdf) {
+        showRecord(session.id, !!session.has_transcript, !!session.has_pdf);
+        return;
+      }
+
+      // 2) Otherwise, Fireflies may have ingested the transcript as its own
+      // separate inbox row -- ask the backend to match it by time-window /
+      // Meet-link overlap, same logic used for Fireflies title-matching.
+      var params = new URLSearchParams();
+      params.set("date", session.date);
+      if (session.time) { params.set("time", session.time); }
+      if (session.google_meet_link && session.google_meet_link !== "[PENDING_GOOGLE_API]") {
+        params.set("meet_link", session.google_meet_link);
+      }
+      if (session.id) { params.set("exclude_id", session.id); }
+
+      apiFetch("/api/sessions/match-for-event?" + params.toString())
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.match) {
+            showRecord(data.match.session_id, data.match.has_transcript, data.match.has_pdf);
+          } else {
+            showRecord(null, false, false);
+          }
+        })
+        .catch(function() {
+          showRecord(null, false, false);
+        });
     }
 
     function handleWhatsApp() {

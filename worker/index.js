@@ -1703,13 +1703,116 @@ async function handleGetSessionsCalendar(request, env) {
         }
 
         var res = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at " +
+            "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, " +
+            "google_event_id, calendar_provider, html_link, end_time, attendees, raw_transcript, pdf_data " +
             "FROM sessions WHERE date LIKE ? AND status != 'discarded' ORDER BY date ASC, time ASC"
         ).bind(month + "-%").all();
 
-        return jsonOk({ sessions: res.results });
+        var sessions = res.results.map(function(row) {
+            return {
+                id:                 row.id,
+                client_id:          row.client_id,
+                client_name:        row.client_name,
+                date:               row.date,
+                time:               row.time,
+                session_type:       row.session_type,
+                status:             row.status,
+                google_meet_link:   row.google_meet_link,
+                whatsapp_sent_at:   row.whatsapp_sent_at,
+                google_event_id:    row.google_event_id,
+                calendar_provider:  row.calendar_provider,
+                html_link:          row.html_link,
+                end_time:           row.end_time,
+                attendees:          row.attendees ? JSON.parse(row.attendees) : null,
+                has_transcript:     !!row.raw_transcript,
+                has_pdf:            !!row.pdf_data
+            };
+        });
+
+        return jsonOk({ sessions: sessions });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/sessions/match-for-event
+// Query: date (YYYY-MM-DD, required), time (HH:MM, optional), meet_link
+//        (optional), exclude_id (optional -- the calendar event's own
+//        session row id, if any, so a row never matches itself).
+//
+// Finds a session row elsewhere in D1 that captured a transcript/PDF for a
+// given calendar event but isn't the same row -- this happens whenever
+// Fireflies ingests a transcript as its own inbox row (see
+// ingestFirefliesTranscript) rather than attaching it to the calendar
+// event's row directly. Uses the same time-window + Meet-link overlap
+// matching as findCalendarTitleForFireflies (Fireflies title-matching,
+// calendar-events sync-back phase 2), just walked in the opposite
+// direction: from a known calendar event to a candidate session row.
+// Returns the best-matching row's transcript/PDF availability, or
+// { match: null } if nothing was captured for this event.
+// ---------------------------------------------------------------------------
+
+async function handleGetSessionsMatchForEvent(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var url       = new URL(request.url);
+        var dateStr   = url.searchParams.get("date");
+        var timeStr   = url.searchParams.get("time");
+        var meetLink  = url.searchParams.get("meet_link");
+        var excludeId = url.searchParams.get("exclude_id");
+        if (!dateStr) { return jsonErr("date query param required (format: YYYY-MM-DD)", 400); }
+
+        // 10-minute tolerance on each side, same as the Fireflies matcher.
+        var windowStartMs = null;
+        var windowEndMs   = null;
+        if (timeStr) {
+            var baseMs = new Date(dateStr + "T" + timeStr.slice(0,5) + ":00").getTime();
+            if (!isNaN(baseMs)) {
+                windowStartMs = baseMs - 10 * 60000;
+                windowEndMs   = baseMs + 40 * 60000; // default 30-min meeting + 10-min tolerance
+            }
+        }
+
+        var dayRows = await env.DB.prepare(
+            "SELECT id, client_name, time, google_meet_link, raw_transcript, pdf_data, status " +
+            "FROM sessions WHERE date = ? AND status != 'discarded'"
+        ).bind(dateStr).all();
+
+        var best = null;
+        for (var i = 0; i < dayRows.results.length; i++) {
+            var row = dayRows.results[i];
+            if (excludeId && row.id === excludeId) { continue; }
+            if (!row.raw_transcript && !row.pdf_data) { continue; } // only candidates that captured something
+
+            if (meetLink && row.google_meet_link && row.google_meet_link === meetLink) {
+                best = row;
+                break;
+            }
+            if (windowStartMs !== null && row.time) {
+                var rowMs = new Date(dateStr + "T" + row.time.slice(0,5) + ":00").getTime();
+                if (!isNaN(rowMs) && rowMs >= windowStartMs && rowMs <= windowEndMs) {
+                    best = row;
+                    break;
+                }
+            }
+        }
+
+        if (!best) { return jsonOk({ match: null }); }
+
+        return jsonOk({
+            match: {
+                session_id:     best.id,
+                client_name:    best.client_name,
+                has_transcript: !!best.raw_transcript,
+                has_pdf:        !!best.pdf_data,
+                status:         best.status
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error matching session for event: " + e.message, 500);
     }
 }
 
@@ -2073,9 +2176,14 @@ function extractGoogleEventMeetLink(ev) {
 // ---------------------------------------------------------------------------
 // Route: GET /api/google/calendar/events
 // Auth: any role. Lists events from Rafa's primary Google Calendar (-7d to
-// +30d from today) using the stored refresh token, and filters out events
-// that already exist in D1 (matched by google_event_id) so Apex-created
-// sessions are not duplicated. Returns only the externally-sourced events.
+// +30d from today) using the stored refresh token, persists any event not
+// already known to D1 (matched by google_event_id) as a real `sessions` row
+// with calendar_provider='google_external', and returns the full set of
+// externally-sourced rows currently in that window (from D1, not the live
+// Google response) so the rest of the app can query them uniformly via the
+// normal sessions table instead of calendar.html being a special case.
+// Persistence happens on every call (i.e. every calendar.html page load) --
+// there is no background sync; this route is the sync trigger.
 // ---------------------------------------------------------------------------
 
 async function handleGetGoogleCalendarEvents(request, env) {
@@ -2095,8 +2203,9 @@ async function handleGetGoogleCalendarEvents(request, env) {
             return jsonErr(listErr.message, code);
         }
 
-        // Pull every google_event_id already known to D1 so we can exclude
-        // events Apex itself created (or has already ingested) from the result.
+        // Pull every google_event_id already known to D1 so we don't insert
+        // duplicates of Apex-created sessions or previously-persisted
+        // external events.
         var knownRows = await env.DB.prepare(
             "SELECT google_event_id FROM sessions WHERE google_event_id IS NOT NULL AND google_event_id != ''"
         ).all();
@@ -2105,7 +2214,6 @@ async function handleGetGoogleCalendarEvents(request, env) {
             known[knownRows.results[k].google_event_id] = true;
         }
 
-        var externalEvents = [];
         for (var i = 0; i < items.length; i++) {
             var ev = items[i];
             if (!ev.id || known[ev.id]) { continue; }
@@ -2118,19 +2226,58 @@ async function handleGetGoogleCalendarEvents(request, env) {
             var isAllDay = !(ev.start && ev.start.dateTime);
             var datePart = isAllDay ? startVal : startVal.slice(0, 10);
             var timePart = isAllDay ? null     : startVal.slice(11, 16);
+            var sessionType = extractGoogleEventMeetLink(ev) ? "online_meet" : "in_person";
+            var attendeesJson = null;
+            if (ev.attendees && ev.attendees.length) {
+                attendeesJson = JSON.stringify(ev.attendees.map(function(a) {
+                    return { email: a.email || null, name: a.displayName || null, response_status: a.responseStatus || null };
+                }));
+            }
 
-            externalEvents.push({
-                google_event_id:  ev.id,
-                title:            ev.summary || "(No title)",
-                date:             datePart,
-                time:             timePart,
-                start:            startVal,
-                end:              endVal,
-                google_meet_link: extractGoogleEventMeetLink(ev),
-                html_link:        ev.htmlLink || null,
-                source:           "external"
-            });
+            await env.DB.prepare(
+                "INSERT INTO sessions (id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, html_link, end_time, attendees) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 'google_external', 'scheduled', ?, ?, ?)"
+            ).bind(
+                crypto.randomUUID(),
+                ev.summary || "(No title)",
+                datePart,
+                timePart,
+                sessionType,
+                extractGoogleEventMeetLink(ev),
+                ev.id,
+                ev.htmlLink || null,
+                endVal,
+                attendeesJson
+            ).run();
+            known[ev.id] = true; // guard against dupes within the same Google page of results
         }
+
+        // Return every externally-sourced row currently in D1 for this window,
+        // read back from the table (not the live fetch) so this endpoint
+        // reflects persisted state.
+        var minDate = timeMin.slice(0, 10);
+        var maxDate = timeMax.slice(0, 10);
+        var extRows = await env.DB.prepare(
+            "SELECT id, client_name, date, time, session_type, google_meet_link, google_event_id, html_link, end_time, status, attendees " +
+            "FROM sessions WHERE calendar_provider = 'google_external' AND date >= ? AND date <= ? " +
+            "ORDER BY date ASC, time ASC"
+        ).bind(minDate, maxDate).all();
+
+        var externalEvents = extRows.results.map(function(row) {
+            return {
+                id:               row.id,
+                google_event_id:  row.google_event_id,
+                title:            row.client_name,
+                date:             row.date,
+                time:             row.time,
+                end:              row.end_time,
+                google_meet_link: row.google_meet_link,
+                html_link:        row.html_link,
+                status:           row.status,
+                attendees:        row.attendees ? JSON.parse(row.attendees) : null,
+                source:           "external"
+            };
+        });
 
         return jsonOk({ events: externalEvents });
     } catch (e) {
@@ -5609,6 +5756,7 @@ export default {
         if (path === "/api/sessions"              && method === "GET")  { return handleGetSessions(request, env); }
         if (path === "/api/sessions/inbox"        && method === "GET")  { return handleGetSessionsInbox(request, env); }
         if (path === "/api/sessions/calendar"     && method === "GET")  { return handleGetSessionsCalendar(request, env); }
+        if (path === "/api/sessions/match-for-event" && method === "GET") { return handleGetSessionsMatchForEvent(request, env); }
         if (path === "/api/sessions/schedule"     && method === "POST") { return handlePostSessionsSchedule(request, env); }
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
         if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }

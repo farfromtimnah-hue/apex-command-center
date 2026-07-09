@@ -1742,8 +1742,28 @@
           sessions = data.sessions || [];
           renderSessionList();
           updateSessionStats();
+          openSessionFromQueryParam();
         })
         .catch(function(e) { console.error("Load sessions error:", e.message); });
+    }
+
+    // Deep-link support: calendar.html's past-event detail view links here
+    // with ?open=<session_id> so clicking "View PDF Report" / "View
+    // Transcript" jumps straight to that session's existing detail panel
+    // instead of duplicating the PDF/transcript UI in a second file.
+    var openedFromQueryParam = false;
+    function openSessionFromQueryParam() {
+      if (openedFromQueryParam) { return; }
+      var id = new URLSearchParams(window.location.search).get("open");
+      if (!id) { return; }
+      var found = false;
+      for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].id === id) { found = true; break; }
+      }
+      if (!found) { return; }
+      openedFromQueryParam = true;
+      switchTab("sessions");
+      selectSession(id);
     }
 
     function loadInbox() {

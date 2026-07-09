@@ -128,6 +128,8 @@ INSERT OR IGNORE INTO users (email, role) VALUES ('abnerprata@gmail.com', 'alice
 --   entered_at     TEXT NOT NULL DEFAULT (datetime('now')),
 --   UNIQUE (client_id, month_label)
 -- );
+-- raw_json TEXT added via migrations/client_growth_entries_raw_json.sql
+-- (baseline/current line items behind growth_percent; NULL = percent-only entry).
 -- packages table (with pricing fields added via migrations/package_pricing.sql):
 -- CREATE TABLE IF NOT EXISTS packages (
 --   id                  TEXT PRIMARY KEY,

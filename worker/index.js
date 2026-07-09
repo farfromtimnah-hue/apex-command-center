@@ -3896,7 +3896,7 @@ async function handleGetClientGrowth(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
 
         var rows = await env.DB.prepare(
-            "SELECT id, client_id, month_label, growth_percent, entered_by, entered_at " +
+            "SELECT id, client_id, month_label, growth_percent, entered_by, entered_at, raw_json " +
             "FROM client_growth_entries WHERE client_id = ? ORDER BY month_label ASC"
         ).bind(id).all();
 
@@ -3908,7 +3908,10 @@ async function handleGetClientGrowth(id, request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/clients/:id/growth
-// Body: { month_label: 'YYYY-MM', growth_percent: number }
+// Body: { month_label: 'YYYY-MM', growth_percent: number, raw_json?: object|null }
+// raw_json carries the baseline/current revenue line items the percentage was
+// derived from (see migrations/client_growth_entries_raw_json.sql for shape);
+// omitted or null means a percent-only entry and clears any stored raw data.
 // Upserts the client's growth entry for that month (one per client per month;
 // re-submitting a month corrects it). alice / rafa / developer only.
 // ---------------------------------------------------------------------------
@@ -3927,20 +3930,29 @@ async function handlePostClientGrowth(id, request, env) {
             return jsonErr("growth_percent must be a number", 400);
         }
 
+        var rawJson = null;
+        if (body.raw_json !== null && body.raw_json !== undefined) {
+            if (typeof body.raw_json !== "object" || Array.isArray(body.raw_json)) {
+                return jsonErr("raw_json must be an object", 400);
+            }
+            rawJson = JSON.stringify(body.raw_json);
+            if (rawJson.length > 20000) { return jsonErr("raw_json too large", 400); }
+        }
+
         var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
 
         var enteredBy = user.display_name || user.role;
         await env.DB.prepare(
-            "INSERT INTO client_growth_entries (id, client_id, month_label, growth_percent, entered_by) " +
-            "VALUES (?, ?, ?, ?, ?) " +
+            "INSERT INTO client_growth_entries (id, client_id, month_label, growth_percent, entered_by, raw_json) " +
+            "VALUES (?, ?, ?, ?, ?, ?) " +
             "ON CONFLICT (client_id, month_label) DO UPDATE SET " +
             "growth_percent = excluded.growth_percent, entered_by = excluded.entered_by, " +
-            "entered_at = datetime('now')"
-        ).bind(crypto.randomUUID(), id, monthLabel, pct, enteredBy).run();
+            "raw_json = excluded.raw_json, entered_at = datetime('now')"
+        ).bind(crypto.randomUUID(), id, monthLabel, pct, enteredBy, rawJson).run();
 
         var row = await env.DB.prepare(
-            "SELECT id, client_id, month_label, growth_percent, entered_by, entered_at " +
+            "SELECT id, client_id, month_label, growth_percent, entered_by, entered_at, raw_json " +
             "FROM client_growth_entries WHERE client_id = ? AND month_label = ?"
         ).bind(id, monthLabel).first();
         return jsonOk({ growth_entry: row });

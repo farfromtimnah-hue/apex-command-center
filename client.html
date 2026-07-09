@@ -1731,21 +1731,63 @@
       <div class="modal-body">
         <div class="field-group">
           <label>
-            <span class="show-pt">M&ecirc;s</span>
-            <span class="show-en">Month</span>
+            <span class="show-pt">M&ecirc;s atual</span>
+            <span class="show-en">Current month</span>
           </label>
           <input type="month" id="growthMonth">
         </div>
-        <div class="field-group">
-          <label>
-            <span class="show-pt">Crescimento (%)</span>
-            <span class="show-en">Growth (%)</span>
-          </label>
-          <input type="number" id="growthPercent" step="any" placeholder="ex: 345 / e.g. 345">
+
+        <!-- Raw-data mode: baseline vs. current revenue line items -->
+        <div id="growthRawBlock">
+          <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);flex:1;">
+                <span class="show-pt">M&ecirc;s base</span>
+                <span class="show-en">Baseline month</span>
+              </div>
+              <input type="month" id="growthBaseMonth" style="width:auto;margin:0;">
+            </div>
+            <div id="growthBaseItems"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+              <button type="button" class="btn-add" style="flex:none;" onclick="addGrowthItem('base')">
+                <span class="show-pt">+ receita</span><span class="show-en">+ revenue</span>
+              </button>
+              <div style="flex:1;text-align:right;font-size:13px;font-weight:700;" id="growthBaseTotal">$0</div>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
+              <span class="show-pt">M&ecirc;s atual — receitas</span>
+              <span class="show-en">Current month — revenue</span>
+            </div>
+            <div id="growthCurItems"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+              <button type="button" class="btn-add" style="flex:none;" onclick="addGrowthItem('cur')">
+                <span class="show-pt">+ receita</span><span class="show-en">+ revenue</span>
+              </button>
+              <div style="flex:1;text-align:right;font-size:13px;font-weight:700;" id="growthCurTotal">$0</div>
+            </div>
+          </div>
+
+          <div id="growthCalcResults" style="display:flex;gap:8px;margin-bottom:12px;"></div>
         </div>
+
+        <!-- Direct-% mode (legacy fallback for percent-only corrections) -->
+        <div id="growthDirectBlock" hidden>
+          <div class="field-group">
+            <label>
+              <span class="show-pt">Crescimento (%)</span>
+              <span class="show-en">Growth (%)</span>
+            </label>
+            <input type="number" id="growthPercent" step="any" placeholder="ex: 345 / e.g. 345">
+          </div>
+        </div>
+
         <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
           <span class="show-pt">Uma entrada por m&ecirc;s — salvar o mesmo m&ecirc;s novamente corrige o valor.</span>
           <span class="show-en">One entry per month — saving the same month again corrects the value.</span>
+          <a href="#" id="growthModeToggle" onclick="toggleGrowthMode(); return false;" style="display:block;margin-top:4px;color:#C9A43A;"></a>
         </div>
         <button class="btn-primary" id="btnSaveGrowth" onclick="handleSaveGrowth()">
           <span class="show-pt">Salvar</span>
@@ -2317,7 +2359,41 @@
       return (n > 0 ? "+" : "") + n + "%";
     }
 
+    var GROWTH_ENTRIES = [];   // last-loaded entries, for edit prefill
+
+    // Raw-data math — the single source of truth for the growth calculation.
+    // $14,285 baseline → $64,000 current must give +$49,715 / +348% / 4.48x.
+    function computeGrowthFromTotals(baseTotal, curTotal) {
+      return {
+        abs:  curTotal - baseTotal,
+        pct:  ((curTotal - baseTotal) / baseTotal) * 100,
+        mult: curTotal / baseTotal
+      };
+    }
+
+    function fmtMoney(n) {
+      var neg = n < 0;
+      var s = "$" + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
+      return neg ? "-" + s : s;
+    }
+
+    function parseGrowthRawJson(raw) {
+      if (!raw) { return null; }
+      try {
+        var o = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (!o || !o.baseline || !o.baseline.items || !o.current || !o.current.items) { return null; }
+        return o;
+      } catch (e) { return null; }
+    }
+
+    function sumGrowthItems(items) {
+      var t = 0;
+      for (var i = 0; i < items.length; i++) { t += Number(items[i].value) || 0; }
+      return t;
+    }
+
     function renderClientGrowth(entries) {
+      GROWTH_ENTRIES = entries;
       var container = document.getElementById("growthSection");
       if (!container) { return; }
 
@@ -2360,48 +2436,192 @@
       for (var j = entries.length - 1; j >= 0; j--) {
         var en  = entries[j];
         var neg = en.growth_percent < 0;
+
+        // raw-data breakdown line (only for entries saved with line items)
+        var rawLine = "";
+        var raw = parseGrowthRawJson(en.raw_json);
+        if (raw) {
+          var baseT = sumGrowthItems(raw.baseline.items);
+          var curT  = sumGrowthItems(raw.current.items);
+          var calc  = computeGrowthFromTotals(baseT, curT);
+          rawLine =
+            '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+            fmtMoney(baseT) + ' (' + formatMonthLabel(raw.baseline.month_label) + ') &rarr; ' + fmtMoney(curT) +
+            ' &middot; ' + (calc.abs >= 0 ? '+' : '') + fmtMoney(calc.abs) +
+            ' &middot; ' + (Math.round(calc.mult * 100) / 100) + 'x</div>';
+        }
+
         html +=
           '<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);">' +
           '<div style="flex:1;min-width:0;">' +
           '<div style="font-size:13px;font-weight:600;">' + formatMonthLabel(en.month_label) + '</div>' +
+          rawLine +
           '<div style="font-size:12px;color:var(--muted);margin-top:1px;">' +
           '<span class="show-pt">Registrado em ' + formatResourceDate(en.entered_at) + (en.entered_by ? ' por ' + escHtml(en.entered_by) : '') + '</span>' +
           '<span class="show-en">Entered ' + formatResourceDate(en.entered_at) + (en.entered_by ? ' by ' + escHtml(en.entered_by) : '') + '</span>' +
           '</div></div>' +
           '<div style="font-size:15px;font-weight:700;' + (neg ? 'color:#b44040;' : 'color:#C9A43A;') + '">' +
           formatGrowthPct(en.growth_percent) + '</div>' +
+          '<button class="btn-add" style="flex:none;" onclick="editGrowthEntry(\'' + escHtml(en.month_label) + '\')" title="Editar / Edit">&#9998;</button>' +
           '</div>';
       }
       container.innerHTML = html;
     }
 
-    function openGrowthModal() {
+    var growthMode = "raw";    // 'raw' (line items) | 'direct' (% only)
+
+    function growthItemRowHtml(label, value) {
+      return '<div class="growth-item-row" style="display:flex;gap:8px;margin-bottom:6px;">' +
+        '<input type="text" class="growth-item-label" placeholder="Trabalho / Job" value="' + escHtml(label || "") + '" style="flex:1;min-width:0;margin:0;">' +
+        '<input type="number" class="growth-item-value" inputmode="decimal" step="any" min="0" placeholder="$" value="' + (value === 0 || value ? escHtml(String(value)) : "") + '" oninput="recalcGrowth()" style="width:110px;flex:none;margin:0;">' +
+        '<button type="button" class="modal-close" style="flex:none;" onclick="this.parentNode.parentNode.removeChild(this.parentNode); recalcGrowth();" title="Remover / Remove">&times;</button>' +
+        '</div>';
+    }
+
+    function addGrowthItem(which, label, value) {
+      var box = document.getElementById(which === "base" ? "growthBaseItems" : "growthCurItems");
+      box.insertAdjacentHTML("beforeend", growthItemRowHtml(label, value));
+      recalcGrowth();
+    }
+
+    function readGrowthItems(which) {
+      var box  = document.getElementById(which === "base" ? "growthBaseItems" : "growthCurItems");
+      var rows = box.querySelectorAll(".growth-item-row");
+      var items = [];
+      for (var i = 0; i < rows.length; i++) {
+        var v = rows[i].querySelector(".growth-item-value").value;
+        if (v === "" || isNaN(Number(v))) { continue; }   // skip blank rows
+        items.push({ label: rows[i].querySelector(".growth-item-label").value.trim(), value: Number(v) });
+      }
+      return items;
+    }
+
+    function recalcGrowth() {
+      var baseT = sumGrowthItems(readGrowthItems("base"));
+      var curT  = sumGrowthItems(readGrowthItems("cur"));
+      document.getElementById("growthBaseTotal").textContent = fmtMoney(baseT);
+      document.getElementById("growthCurTotal").textContent  = fmtMoney(curT);
+
+      var out = document.getElementById("growthCalcResults");
+      if (baseT <= 0) { out.innerHTML = ""; return; }
+      var c = computeGrowthFromTotals(baseT, curT);
+      function cell(labelPt, labelEn, val) {
+        return '<div style="flex:1;background:rgba(201,164,58,0.08);border:1px solid rgba(201,164,58,0.25);border-radius:8px;padding:8px 10px;text-align:center;">' +
+          '<div style="font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);">' +
+          '<span class="show-pt">' + labelPt + '</span><span class="show-en">' + labelEn + '</span></div>' +
+          '<div style="font-size:15px;font-weight:700;color:#C9A43A;margin-top:2px;">' + val + '</div></div>';
+      }
+      out.innerHTML =
+        cell("Crescimento $", "Growth $", (c.abs >= 0 ? "+" : "") + fmtMoney(c.abs)) +
+        cell("Crescimento %", "Growth %", formatGrowthPct(c.pct)) +
+        cell("Multiplicador", "Multiplier", (Math.round(c.mult * 100) / 100) + "x");
+    }
+
+    function setGrowthMode(mode) {
+      growthMode = mode;
+      document.getElementById("growthRawBlock").hidden    = (mode !== "raw");
+      document.getElementById("growthDirectBlock").hidden = (mode === "raw");
+      document.getElementById("growthModeToggle").innerHTML = (mode === "raw")
+        ? '<span class="show-pt">Inserir % diretamente</span><span class="show-en">Enter % directly</span>'
+        : '<span class="show-pt">Calcular a partir das receitas</span><span class="show-en">Calculate from revenue</span>';
+    }
+
+    function toggleGrowthMode() {
+      setGrowthMode(growthMode === "raw" ? "direct" : "raw");
+    }
+
+    function openGrowthModal(entry) {
       var statusEl = document.getElementById("growthStatus");
       statusEl.textContent = "";
       statusEl.className   = "pull-status";
       document.getElementById("btnSaveGrowth").disabled = false;
       document.getElementById("growthPercent").value    = "";
+      document.getElementById("growthBaseItems").innerHTML = "";
+      document.getElementById("growthCurItems").innerHTML  = "";
+
       var now = new Date();
-      document.getElementById("growthMonth").value =
-        now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+      var thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+      var prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      var prevLabel = prevMonth.getFullYear() + "-" + String(prevMonth.getMonth() + 1).padStart(2, "0");
+
+      var raw = entry ? parseGrowthRawJson(entry.raw_json) : null;
+      document.getElementById("growthMonth").value = entry ? entry.month_label : thisMonth;
+
+      if (entry && !raw) {
+        // legacy percent-only entry — open in direct mode with the stored value
+        setGrowthMode("direct");
+        document.getElementById("growthPercent").value = entry.growth_percent;
+        document.getElementById("growthBaseMonth").value = prevLabel;
+        addGrowthItem("base"); addGrowthItem("cur");
+      } else {
+        setGrowthMode("raw");
+        document.getElementById("growthBaseMonth").value =
+          raw && raw.baseline.month_label ? raw.baseline.month_label : prevLabel;
+        var baseItems = raw ? raw.baseline.items : [null];
+        var curItems  = raw ? raw.current.items  : [null];
+        for (var i = 0; i < baseItems.length; i++) {
+          addGrowthItem("base", baseItems[i] ? baseItems[i].label : "", baseItems[i] ? baseItems[i].value : "");
+        }
+        for (var k = 0; k < curItems.length; k++) {
+          addGrowthItem("cur", curItems[k] ? curItems[k].label : "", curItems[k] ? curItems[k].value : "");
+        }
+      }
+      recalcGrowth();
       document.getElementById("modalGrowth").hidden = false;
+    }
+
+    function editGrowthEntry(monthLabel) {
+      for (var i = 0; i < GROWTH_ENTRIES.length; i++) {
+        if (GROWTH_ENTRIES[i].month_label === monthLabel) { openGrowthModal(GROWTH_ENTRIES[i]); return; }
+      }
     }
 
     function handleSaveGrowth() {
       var statusEl = document.getElementById("growthStatus");
       var btn      = document.getElementById("btnSaveGrowth");
       var month    = document.getElementById("growthMonth").value;
-      var pctRaw   = document.getElementById("growthPercent").value;
 
       if (!/^\d{4}-\d{2}$/.test(month)) {
         statusEl.textContent = "Selecione o mês. / Pick a month.";
         statusEl.className   = "pull-status is-error";
         return;
       }
-      if (pctRaw === "" || isNaN(Number(pctRaw))) {
-        statusEl.textContent = "Informe o percentual. / Enter the percentage.";
-        statusEl.className   = "pull-status is-error";
-        return;
+
+      var pct, rawJson = null;
+      if (growthMode === "raw") {
+        var baseMonth = document.getElementById("growthBaseMonth").value;
+        var baseItems = readGrowthItems("base");
+        var curItems  = readGrowthItems("cur");
+        var baseT = sumGrowthItems(baseItems);
+        var curT  = sumGrowthItems(curItems);
+        if (!/^\d{4}-\d{2}$/.test(baseMonth)) {
+          statusEl.textContent = "Selecione o mês base. / Pick the baseline month.";
+          statusEl.className   = "pull-status is-error";
+          return;
+        }
+        if (baseItems.length === 0 || baseT <= 0) {
+          statusEl.textContent = "Informe as receitas do mês base. / Enter the baseline month revenue.";
+          statusEl.className   = "pull-status is-error";
+          return;
+        }
+        if (curItems.length === 0) {
+          statusEl.textContent = "Informe as receitas do mês atual. / Enter the current month revenue.";
+          statusEl.className   = "pull-status is-error";
+          return;
+        }
+        pct = computeGrowthFromTotals(baseT, curT).pct;
+        rawJson = {
+          baseline: { month_label: baseMonth, items: baseItems },
+          current:  { items: curItems }
+        };
+      } else {
+        var pctRaw = document.getElementById("growthPercent").value;
+        if (pctRaw === "" || isNaN(Number(pctRaw))) {
+          statusEl.textContent = "Informe o percentual. / Enter the percentage.";
+          statusEl.className   = "pull-status is-error";
+          return;
+        }
+        pct = Number(pctRaw);
       }
 
       btn.disabled         = true;
@@ -2410,7 +2630,7 @@
 
       apiFetch("/api/clients/" + CLIENT_ID + "/growth", {
         method: "POST",
-        body:   { month_label: month, growth_percent: Number(pctRaw) }
+        body:   { month_label: month, growth_percent: pct, raw_json: rawJson }
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {

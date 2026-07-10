@@ -478,6 +478,8 @@
       auth.signOut().then(function () {
         sessionStorage.removeItem("apex_role");
         sessionStorage.removeItem("apex_email");
+        sessionStorage.removeItem("apex_display_name");
+        sessionStorage.removeItem("apex_avatar_url");
         window.location.href = "index.html";
       });
     }
@@ -495,6 +497,29 @@
 
     function escHtml(str) {
       return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
     }
 
     function initHeroBg(imgElId, scrimElId) {
@@ -640,9 +665,11 @@
     /* ── Page bootstrap ───────────────────────────────────────────────────── */
 
     function setupPage(role) {
-      var emailEl = document.getElementById("headerEmail");
       var roleEl  = document.getElementById("headerRole");
-      if (emailEl) { emailEl.textContent = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : ""); }
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
       if (roleEl)  { roleEl.textContent  = role; }
 
       document.getElementById("loadingScreen").hidden = true;
@@ -653,6 +680,27 @@
 
       document.getElementById("monthPicker").value = currentMonthLabel();
       loadRanking();
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
     }
 
     function init() {
@@ -674,14 +722,20 @@
         var cached = sessionStorage.getItem("apex_role");
         if (cached) {
           setupPage(cached);
-        } else {
-          user.getIdToken().then(function (token) {
-            return fetch(WORKER_URL + "/api/role", { headers: { "Authorization": "Bearer " + token } });
-          }).then(function (res) { return res.json(); }).then(function (data) {
-            sessionStorage.setItem("apex_role",  data.role);
-            sessionStorage.setItem("apex_email", data.email);
+        }
+
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
             setupPage(data.role);
-          }).catch(function () { window.location.href = "index.html"; });
+          }
+        }).catch(function () {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
         }
       });
     }

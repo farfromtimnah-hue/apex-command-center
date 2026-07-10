@@ -382,15 +382,19 @@ async function handleFirefliesWebhook(request, env) {
         var payload;
         try { payload = JSON.parse(rawBody); } catch(e) { return jsonErr("Invalid JSON", 400); }
 
+        console.log("Fireflies webhook raw payload: " + JSON.stringify(payload));
+
         // Fireflies "Transcription completed" webhooks carry only
         // { meetingId, eventType, clientReferenceId } — never the transcript itself.
-        var meetingId  = payload.meetingId || payload.id || null;
+        // V2 (Developer Settings) payloads use snake_case meeting_id and event: "meeting.transcribed" instead.
+        var meetingId  = payload.meetingId || payload.meeting_id || payload.id || null;
         var eventType  = payload.eventType || payload.event || "";
         if (!meetingId) {
             console.log("Fireflies webhook: no meetingId in payload — skipped. Payload keys: " + Object.keys(payload).join(","));
             return jsonOk({ ok: true, note: "No meetingId — skipped" });
         }
-        if (eventType && eventType.toLowerCase().indexOf("transcription") === -1) {
+        var eventTypeLower = eventType.toLowerCase();
+        if (eventType && eventTypeLower.indexOf("transcription") === -1 && eventTypeLower.indexOf("transcribed") === -1) {
             console.log("Fireflies webhook: ignoring eventType '" + eventType + "' for " + meetingId);
             return jsonOk({ ok: true, note: "Ignored eventType: " + eventType });
         }

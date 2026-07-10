@@ -345,6 +345,35 @@
       .rank-pct { width: 64px; font-size: 12px; }
     }
 
+    /* Mobile: two tiles per row, centered content (same treatment as the
+       finance.html hero tiles). The sub line carries client names on the
+       Maior/Menor tiles — let it wrap to extra lines instead of truncating
+       to "TEST CLI...". */
+    @media (max-width: 768px) {
+      .glass-tile {
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 14px 10px;
+        flex: 1 1 calc(50% - 14px);
+        min-width: calc(50% - 14px);
+      }
+      .glass-tile-value {
+        font-size: 22px;
+        max-width: 100%;
+      }
+      .glass-tile-label { text-align: center; }
+      .glass-tile-sub {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       #heroBgImage.is-loaded { animation: none; }
     }

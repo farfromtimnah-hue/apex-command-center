@@ -395,7 +395,7 @@
       }
 
       var table = document.createElement("table");
-      table.className = "users-table";
+      table.className = "users-table mc-table";
 
       var thead = document.createElement("thead");
       thead.innerHTML =
@@ -411,12 +411,16 @@
           var tr = document.createElement("tr");
 
           var tdEmail = document.createElement("td");
+          tdEmail.className = "mc-head";
           tdEmail.textContent = u.email;
           tdEmail.style.fontFamily = "monospace";
           tdEmail.style.fontSize   = "13px";
           tr.appendChild(tdEmail);
 
           var tdRole = document.createElement("td");
+          tdRole.className = "mc-field";
+          tdRole.setAttribute("data-label-pt", "Perfil");
+          tdRole.setAttribute("data-label-en", "Role");
           var pill   = document.createElement("span");
           pill.className = "role-pill " + (u.role || "");
           pill.textContent = u.role || "—";

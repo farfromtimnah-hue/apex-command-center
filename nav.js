@@ -115,6 +115,8 @@
       body = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
     } else if (type === "restore") {
       body = '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>';
+    } else if (type === "download") {
+      body = '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
     }
     return '<span class="mc-ico" aria-hidden="true">' + open + body + '</svg></span>';
   };
@@ -378,6 +380,30 @@
       menuHtml += '</a>';
     }
     menuHtml += '</nav>';
+
+    // Dev view switcher (developer role only) — same three buttons and the
+    // same apexNavSetView calls as the desktop sidebar switcher. Checks the
+    // REAL role, not navRole: a developer previewing Alice/Rafa still needs
+    // the switcher visible to get back to the Dev view.
+    var realRole = sessionStorage.getItem("apex_role") || "alice";
+    if (realRole === "developer") {
+      var mmDevView = sessionStorage.getItem("apex_dev_view") || "dev";
+      var mmButtons = [
+        { id: "mmBtnAlice", v: "alice", label: "Alice" },
+        { id: "mmBtnRafa",  v: "rafa",  label: "Rafa"  },
+        { id: "mmBtnDev",   v: "dev",   label: "Dev"   }
+      ];
+      menuHtml += '<div class="mm-switcher">';
+      menuHtml += '<div class="mm-switcher-label">DEV</div>';
+      menuHtml += '<div class="mm-switcher-btns">';
+      for (var k = 0; k < mmButtons.length; k++) {
+        var mb = mmButtons[k];
+        var mac = (mmDevView === mb.v) ? " mm-view-active" : "";
+        menuHtml += '<button type="button" id="' + mb.id + '" class="mm-view-btn' + mac + '" onclick="apexNavSetView(\'' + mb.v + '\')">' + mb.label + '</button>';
+      }
+      menuHtml += '</div></div>';
+    }
+
     menu.innerHTML = menuHtml;
   }
 

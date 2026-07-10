@@ -2529,7 +2529,7 @@
         catOptsHtml += '<option value="' + escHtml(CATEGORY_OPTIONS[c]) + '">' + escHtml(CATEGORY_OPTIONS[c]) + '</option>';
       }
 
-      var html = '<table class="tx-table"><thead><tr>';
+      var html = '<table class="tx-table mc-table"><thead><tr>';
       html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
       html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
       html += '<th><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>';
@@ -2538,6 +2538,8 @@
       html += '<th><span class="show-pt">Conf.</span><span class="show-en">Conf.</span></th>';
       html += '<th><span class="show-pt">Acoes</span><span class="show-en">Actions</span></th>';
       html += '</tr></thead><tbody>';
+
+      var mcIcon = window.apexMcIcon || function () { return ""; };
 
       for (var i = 0; i < txs.length; i++) {
         var t = txs[i];
@@ -2564,17 +2566,19 @@
         catHtml += '</select>';
 
         html += '<tr>';
-        html += '<td>' + escHtml(fmtDate(t.transaction_date)) + '</td>';
-        html += '<td><div class="tx-desc" title="' + escHtml(t.description) + '">' + escHtml(t.description) + '</div></td>';
-        html += '<td class="' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</td>';
-        html += '<td>' + typeChip + '</td>';
-        html += '<td>' + catHtml + '</td>';
-        html += '<td>' + confChip + '</td>';
-        html += '<td><div class="tx-actions">';
+        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(t.transaction_date)) + '</td>';
+        html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(t.description) + '">' + escHtml(t.description) + '</div></td>';
+        html += '<td class="mc-field ' + amtClass + '" data-label-pt="Valor" data-label-en="Amount">' + sign + fmtCurrency(t.amount) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Tipo" data-label-en="Type">' + typeChip + '</td>';
+        html += '<td class="mc-field" data-label-pt="Categoria" data-label-en="Category">' + catHtml + '</td>';
+        html += '<td class="mc-field" data-label-pt="Conf." data-label-en="Conf.">' + confChip + '</td>';
+        html += '<td class="mc-action"><div class="tx-actions">';
         html += '<button class="btn-primary btn-sm" onclick="confirmTx(\'' + escHtml(t.id) + '\')">';
+        html += mcIcon("check");
         html += '<span class="show-pt">Confirmar</span><span class="show-en">Confirm</span>';
         html += '</button>';
         html += '<button class="btn-ghost btn-sm" onclick="ignoreTx(\'' + escHtml(t.id) + '\')">';
+        html += mcIcon("x");
         html += '<span class="show-pt">Ignorar</span><span class="show-en">Ignore</span>';
         html += '</button>';
         html += '</div></td>';
@@ -3686,7 +3690,7 @@
         listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma despesa registrada</span><span class="show-en">No expenses recorded</span></div>';
         return;
       }
-      var html = '<table class="tx-table"><thead><tr>';
+      var html = '<table class="tx-table mc-table"><thead><tr>';
       html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
       html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
       html += '<th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>';
@@ -3696,11 +3700,11 @@
       for (var i = 0; i < expenses.length; i++) {
         var e = expenses[i];
         html += '<tr>';
-        html += '<td>' + escHtml(fmtDate(e.date)) + '</td>';
-        html += '<td><div class="tx-desc" title="' + escHtml(e.description) + '">' + escHtml(e.description || "--") + '</div></td>';
-        html += '<td>' + escHtml(e.account_name || "--") + '</td>';
-        html += '<td>' + escHtml(e.paid_through_account_name || "--") + '</td>';
-        html += '<td class="tx-amount-expense">-' + fmtCurrency(e.total) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(e.date)) + '</td>';
+        html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(e.description) + '">' + escHtml(e.description || "--") + '</div></td>';
+        html += '<td class="mc-field" data-label-pt="Categoria" data-label-en="Category">' + escHtml(e.account_name || "--") + '</td>';
+        html += '<td class="mc-field" data-label-pt="Pago Atraves De" data-label-en="Paid Through">' + escHtml(e.paid_through_account_name || "--") + '</td>';
+        html += '<td class="mc-field tx-amount-expense" data-label-pt="Valor" data-label-en="Amount">-' + fmtCurrency(e.total) + '</td>';
         html += '</tr>';
       }
       html += '</tbody></table>';

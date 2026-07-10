@@ -3284,7 +3284,8 @@
       }
 
       var table = document.createElement("table");
-      table.className = "sessions-table";
+      table.className = "sessions-table mc-table";
+      var mcIcon = window.apexMcIcon || function () { return ""; };
 
       var thead = document.createElement("thead");
       thead.innerHTML =
@@ -3302,20 +3303,28 @@
           var tr = document.createElement("tr");
 
           var tdDate = document.createElement("td");
+          tdDate.className = "mc-head";
           tdDate.textContent = formatDate(s.date);
           tdDate.style.fontWeight = "500";
 
           var tdTipo = document.createElement("td");
+          tdTipo.className = "mc-field";
+          tdTipo.setAttribute("data-label-pt", "Tipo");
+          tdTipo.setAttribute("data-label-en", "Type");
           tdTipo.innerHTML = '<span class="show-pt">Sessão</span><span class="show-en">Session</span>';
           tdTipo.style.color = "var(--muted)";
 
           var tdStatus = document.createElement("td");
+          tdStatus.className = "mc-field";
+          tdStatus.setAttribute("data-label-pt", "Status");
+          tdStatus.setAttribute("data-label-en", "Status");
           var badge = document.createElement("span");
           badge.className = "status-badge";
           badge.setAttribute("data-status", s.status);
           tdStatus.appendChild(badge);
 
           var tdAcoes = document.createElement("td");
+          tdAcoes.className = "mc-action";
           var actDiv  = document.createElement("div");
           actDiv.className = "session-row-actions";
 
@@ -3323,7 +3332,7 @@
           if (s.summary_json) {
             var verBtn = document.createElement("button");
             verBtn.className = "btn-sm";
-            verBtn.innerHTML = '<span class="show-pt">Ver</span><span class="show-en">View</span>';
+            verBtn.innerHTML = mcIcon("view") + '<span class="show-pt">Ver</span><span class="show-en">View</span>';
             verBtn.onclick = function() { openSummaryModal(s); };
             actDiv.appendChild(verBtn);
           }
@@ -3332,7 +3341,7 @@
           if (s.status === "approved" && s.pdf_data) {
             var pdfBtn = document.createElement("button");
             pdfBtn.className = "btn-sm";
-            pdfBtn.innerHTML = '<span class="show-pt">Gerar PDF</span><span class="show-en">Generate PDF</span>';
+            pdfBtn.innerHTML = mcIcon("download") + '<span class="show-pt">Gerar PDF</span><span class="show-en">Generate PDF</span>';
             var pdfStatusEl = document.createElement("span");
             pdfStatusEl.className = "pdf-status";
             pdfBtn.onclick = function() { handleGeneratePdf(s, pdfStatusEl, pdfBtn); };
@@ -5055,13 +5064,14 @@
         listEl.innerHTML = '<div class="coming-soon" style="padding:20px;"><span style="color:var(--muted);font-size:13px;"><span class="show-pt">Nenhuma fatura</span><span class="show-en">No invoices</span></span></div>';
         return;
       }
-      var html = '<table class="inv-table"><thead><tr>';
+      var html = '<table class="inv-table mc-table"><thead><tr>';
       html += '<th>#</th>';
       html += '<th><span class="show-pt">Total</span><span class="show-en">Total</span></th>';
       html += '<th><span class="show-pt">Vencimento</span><span class="show-en">Due Date</span></th>';
       html += '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>';
       html += '<th></th>';
       html += '</tr></thead><tbody>';
+      var mcIcon = window.apexMcIcon || function () { return ""; };
       for (var i = 0; i < invoices.length; i++) {
         var inv = invoices[i];
         var statusClass = inv.status === "paid" ? "inv-status-paid"
@@ -5071,11 +5081,12 @@
         var statusLabel = inv.status === "paid" ? "Paga" : inv.status === "overdue" ? "Vencida" : inv.status === "draft" ? "Rascunho" : "A Pagar";
         var invPath = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
         html += '<tr>';
-        html += '<td style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
-        html += '<td style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
-        html += '<td>' + escHtml(formatDate(inv.due_date)) + '</td>';
-        html += '<td><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
-        html += '<td><a class="btn-inv-view" href="' + escHtml(invPath) + '" target="_blank" rel="noopener">';
+        html += '<td class="mc-head" style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_date)) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status"><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
+        html += '<td class="mc-action"><a class="btn-inv-view" href="' + escHtml(invPath) + '" target="_blank" rel="noopener">';
+        html += mcIcon("view");
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';
         html += '</tr>';

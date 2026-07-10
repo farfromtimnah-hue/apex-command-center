@@ -699,18 +699,17 @@
         <div class="bf-value" id="obs-value">--</div>
       </div>
 
-      <!-- ITEM 4: Visual payment tiles — Zelle (QR placeholder) + Stripe (brand text) -->
-      <!-- NOTE: Both payment tiles below are PLACEHOLDER / DUMMY visuals for layout review.
-           They are not real payment integrations. The Zelle QR is a CSS-generated grid pattern
-           and does not scan. The Stripe button is styled text only — no real link. -->
+      <!-- ITEM 4: Visual payment tiles — Zelle (real uploaded QR) + Stripe (brand text) -->
+      <!-- NOTE: The Zelle tile renders the real QR code uploaded via Settings, served by
+           GET /api/business/qr-image. The Stripe button below is styled text only — no real link. -->
       <div class="bottom-field-block">
         <div class="bf-label">Formas de Pagamento</div>
         <div class="payment-tiles">
 
-          <!-- Zelle tile with CSS QR placeholder -->
+          <!-- Zelle tile with the real uploaded QR code -->
           <div class="payment-tile">
             <div class="qr-placeholder" id="zelle-qr">
-              <!-- 7x7 = 49 cells; black cells simulate QR finder pattern corners + random data -->
+              <!-- Populated at load with an <img> pointing at GET /api/business/qr-image -->
             </div>
             <div class="pt-label">Zelle</div>
           </div>
@@ -809,7 +808,7 @@
     };
 
     window.onload = function() {
-      buildQrPlaceholder();
+      loadZelleQrImage();
 
       /* ------------------------------------------------------------------
          Detect mode: use ?invoice_id= param when served over https.
@@ -879,26 +878,18 @@
       if (desc) { desc.textContent = msg; }
     }
 
-    /* Build a simple black-and-white grid to simulate a QR code placeholder */
-    function buildQrPlaceholder() {
+    /* Render the real Zelle QR code uploaded via Settings. The image is served by the
+       backend at GET /api/business/qr-image; we reuse APEX_API_BASE (the same base URL
+       used for the other backend calls in this file) to build the URL. */
+    function loadZelleQrImage() {
       var container = document.getElementById('zelle-qr');
       if (!container) { return; }
-      /* 7x7 pattern — 1=black, 0=white. Outer corners mimic QR finder squares. */
-      var pattern = [
-        1,1,1,1,1,1,1,
-        1,0,0,0,0,0,1,
-        1,0,1,0,1,0,1,
-        1,0,0,1,0,0,1,
-        1,0,1,0,1,0,1,
-        1,0,0,0,0,0,1,
-        1,1,1,1,1,1,1
-      ];
-      var html = '';
-      for (var i = 0; i < pattern.length; i++) {
-        var color = pattern[i] ? '#111111' : '#ffffff';
-        html += '<span style="background:' + color + ';"></span>';
-      }
-      container.innerHTML = html;
+      /* The .qr-placeholder class lays out a 7x7 CSS grid; switch to block so the
+         image fills the tile instead of landing in a single grid cell. */
+      container.style.display = 'block';
+      container.innerHTML =
+        '<img src="' + APEX_API_BASE + '/api/business/qr-image" alt="Zelle QR code" ' +
+        'style="width:100%;height:100%;object-fit:contain;display:block;border-radius:3px;">';
     }
 
     function setText(id, value) {

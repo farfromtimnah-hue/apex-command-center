@@ -1274,6 +1274,45 @@
       .overview-field:nth-last-child(2) { border-bottom: 1px solid var(--border); }
       .overview-field:last-child { border-bottom: none; }
     }
+
+    /* Mobile: prev/next arrows sit clearly to either side of the name */
+    @media (max-width: 768px) {
+      /* The name row needs the shell's full width: the logo column beside
+         it squeezed the name to a few characters per line at 390px */
+      .profile-header-shell { padding: 18px 16px; }
+      .profile-header-meta { flex: 1 1 100%; }
+      .client-nav-row {
+        width: 100%;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .client-nav-row .client-name {
+        flex: 1 1 0;
+        min-width: 0;
+        font-size: 22px;
+        line-height: 1.25;
+        margin-bottom: 0;
+        overflow-wrap: anywhere;
+        text-align: center;
+      }
+      .btn-client-nav {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+      }
+      /* Action buttons (each performs a distinct action, NOT view tabs):
+         wrap naturally, two per row, comfortable tap targets */
+      .profile-header-actions {
+        width: 100%;
+        gap: 8px;
+      }
+      .profile-header-actions .btn-action,
+      .profile-header-actions .btn-secondary {
+        flex: 1 1 calc(50% - 8px);
+        min-height: 44px;
+      }
+    }
   </style>
 </head>
 <body class="lang-pt">
@@ -1652,7 +1691,7 @@
             </h2>
           </div>
           <!-- Sub-tab bar -->
-          <div class="inv-subtab-bar">
+          <div class="inv-subtab-bar m-scroll-tabs">
             <button class="inv-subtab active" id="clientSubtabUnpaid" onclick="switchClientInvoiceTab('unpaid')">
               <span class="show-pt">Nao Pagas</span>
               <span class="show-en">Unpaid</span>

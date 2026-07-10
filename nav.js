@@ -381,6 +381,47 @@
     menu.innerHTML = menuHtml;
   }
 
+  // ── Scrollable view-switch tab strips (.m-scroll-tabs) ──────────────────
+  // mobile.css makes these one-row horizontal scrollers at 768px and below;
+  // this only maintains the mst-fade-left/right hint classes and brings the
+  // active tab into view. Inert on desktop: the classes have no CSS effect
+  // outside the mobile media query.
+  function setupTabStrips() {
+    var strips = document.querySelectorAll(".m-scroll-tabs");
+    var i;
+    for (i = 0; i < strips.length; i++) {
+      (function (el) {
+        if (el.getAttribute("data-mst-wired") === "1") { return; }
+        el.setAttribute("data-mst-wired", "1");
+        function updateFade() {
+          var maxScroll = el.scrollWidth - el.clientWidth;
+          if (maxScroll <= 1) {
+            el.classList.remove("mst-fade-left");
+            el.classList.remove("mst-fade-right");
+            return;
+          }
+          if (el.scrollLeft > 1) { el.classList.add("mst-fade-left"); }
+          else { el.classList.remove("mst-fade-left"); }
+          if (el.scrollLeft < maxScroll - 1) { el.classList.add("mst-fade-right"); }
+          else { el.classList.remove("mst-fade-right"); }
+        }
+        el.addEventListener("scroll", updateFade);
+        window.addEventListener("resize", updateFade);
+        // Web fonts change pill widths after first layout
+        if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+          document.fonts.ready.then(updateFade);
+        }
+        setTimeout(updateFade, 600);
+        var active = el.querySelector(".active");
+        if (active && el.scrollWidth > el.clientWidth) {
+          el.scrollLeft = Math.max(0, active.offsetLeft - el.offsetLeft - 16);
+        }
+        updateFade();
+      })(strips[i]);
+    }
+  }
+  window.apexSetupTabStrips = setupTabStrips;
+
   // ── Public: toggle the full-screen "Mais" menu ───────────────────────────
   window.apexMoreToggle = function () {
     var menu = document.getElementById("mobile-more-menu");
@@ -436,6 +477,8 @@
     refreshToggleIcon();
 
     populateMobileNav(navRole);
+
+    setupTabStrips();
   };
 
 })();

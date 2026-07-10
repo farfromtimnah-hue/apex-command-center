@@ -945,6 +945,19 @@
       for (var i = 0; i < clients.length; i++) {
         (function (c) {
           var tr = document.createElement("tr");
+          var profileUrl = "client.html?id=" + encodeURIComponent(c.id);
+          // Mobile: the whole card is one tap target for the profile.
+          // Taps on links/buttons inside the card keep their own behavior.
+          tr.setAttribute("data-mc-href", profileUrl);
+          tr.addEventListener("click", function (ev) {
+            if (!window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) { return; }
+            var t = ev.target;
+            while (t && t !== tr) {
+              if (t.tagName === "A" || t.tagName === "BUTTON") { return; }
+              t = t.parentNode;
+            }
+            window.location.href = profileUrl;
+          });
 
           var tdName = document.createElement("td");
           tdName.className = "mc-head";

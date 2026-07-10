@@ -174,10 +174,15 @@
     }
     #forbiddenScreen[hidden] { display: none !important; }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       #appMain { padding: 16px; }
-      .form-row { flex-direction: column; }
-      .form-group { min-width: 0; }
+      /* Single stacked column: label above input, everything full width.
+         align-items must be stretch here — the base row's flex-end would
+         otherwise push the stacked fields to the right edge. */
+      .form-row { flex-direction: column; align-items: stretch; }
+      .form-group { min-width: 0; width: 100%; max-width: none !important; }
+      .form-input, .form-select { min-height: 44px; }
+      .btn-submit { width: 100%; min-height: 44px; }
     }
   </style>
 </head>

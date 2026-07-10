@@ -31,8 +31,12 @@
   /* ── Hide the desktop sidebar rail ──────────────────────────────────── */
   #navSidebar { display: none !important; }
 
-  /* Room for the fixed tab bar under the scrolling content */
-  #appMain { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+  /* Room for the fixed tab bar under the scrolling content.
+     !important: pages declare their own #appMain padding shorthand in
+     inline <style> blocks that come AFTER this stylesheet in the cascade
+     (equal specificity, later wins), which silently zeroed this reserve
+     and let the tab bar cover the last content on the page. */
+  #appMain { padding-bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
 
   /* ── Bottom tab bar ─────────────────────────────────────────────────── */
   #mobile-tab-bar {
@@ -173,6 +177,55 @@
   /* Lock background scroll while the menu is open (class toggle only) */
   body.mm-menu-lock { overflow: hidden; }
 
+  /* ── View-switching tab strips (.m-scroll-tabs) ─────────────────────── */
+  /* True tabs never wrap to a second row: they scroll horizontally with
+     snap, and JS (nav.js) toggles mst-fade-* classes so a fade hints at
+     off-screen tabs. Action-button groups must NOT get this class. */
+  .m-scroll-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 4px;
+    scrollbar-width: none;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .m-scroll-tabs::-webkit-scrollbar { display: none; }
+  .m-scroll-tabs > * {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+  /* Hero pill strips bleed to the screen edge so the next tab shows a
+     partial peek instead of being cut cleanly at the content padding.
+     Card-contained subtab bars (.inv-subtab-bar) are excluded: their few
+     short tabs fit, and negative margins would spill out of the card. */
+  .fin-tab-bar.m-scroll-tabs,
+  .tab-bar.m-scroll-tabs,
+  .tab-row.m-scroll-tabs {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    scroll-padding: 0 16px;
+  }
+
+  /* Edge fade hints (mask fades the tabs themselves, so this works over
+     photo heroes and flat cards alike) */
+  .m-scroll-tabs.mst-fade-right {
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 36px), transparent 100%);
+  }
+  .m-scroll-tabs.mst-fade-left {
+    -webkit-mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 36px), transparent 100%);
+  }
+  .m-scroll-tabs.mst-fade-left.mst-fade-right {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+  }
+
   /* ── Card view for opted-in tables (.mc-table) ──────────────────────── */
   .mc-table {
     display: block;
@@ -197,6 +250,13 @@
     padding: 12px 14px;
   }
   .mc-table tr:hover td { background: transparent; }
+  /* Rows that navigate as one big tap target (data-mc-href set by the page) */
+  .mc-table tr[data-mc-href] {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: rgba(201, 164, 58, 0.12);
+  }
   .mc-table td {
     display: block;
     border-bottom: none !important;

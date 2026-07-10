@@ -534,7 +534,7 @@
                 <div class="glass-tile-value" id="statPending">--</div>
               </div>
             </div>
-            <div class="tab-row">
+            <div class="tab-row m-scroll-tabs">
               <button class="tab-pill active" id="tabBtnHub" onclick="switchTab('hub')">
                 <span class="show-pt">Central de Recursos</span>
                 <span class="show-en">Resource Hub</span>
@@ -836,7 +836,7 @@
       }
 
       var html =
-        '<table class="list-table"><thead><tr>' +
+        '<table class="list-table mc-table"><thead><tr>' +
         '<th><span class="show-pt">Título</span><span class="show-en">Title</span></th>' +
         '<th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>' +
         '<th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>' +
@@ -848,14 +848,15 @@
         var r = allResources[i];
         html +=
           '<tr>' +
-          '<td><div class="resource-title">' + escHtml(r.title) + '</div>' +
+          '<td class="mc-head"><div class="resource-title">' + escHtml(r.title) + '</div>' +
           (r.description ? '<div class="resource-desc">' + escHtml(r.description) + '</div>' : '') + '</td>' +
-          '<td><span class="category-lozenge">' + escHtml(r.category) + '</span></td>' +
-          '<td><span class="type-lozenge" data-type="' + escHtml(r.resource_type) + '"></span></td>' +
-          '<td class="detail-text">' + resourceDetailHtml(r) + '</td>' +
-          '<td style="text-align:right;">' +
+          '<td class="mc-field" data-label-pt="Categoria" data-label-en="Category"><span class="category-lozenge">' + escHtml(r.category) + '</span></td>' +
+          '<td class="mc-action"><span class="type-lozenge" data-type="' + escHtml(r.resource_type) + '"></span></td>' +
+          '<td class="mc-field detail-text" data-label-pt="Detalhes" data-label-en="Details">' + resourceDetailHtml(r) + '</td>' +
+          '<td class="mc-action" style="text-align:right;">' +
           '<button class="btn-row-action" onclick="openResourceModal(\'' + escHtml(r.id) + '\')">' +
-          '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button></td>' +
+          '<span class="show-pt">Editar</span><span class="show-en">Edit</span>' +
+          (window.apexMcIcon ? window.apexMcIcon("edit") : "") + '</button></td>' +
           '</tr>';
       }
       html += '</tbody></table>';
@@ -1061,7 +1062,7 @@
       }
 
       var html =
-        '<table class="list-table"><thead><tr>' +
+        '<table class="list-table mc-table"><thead><tr>' +
         '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>' +
         '<th><span class="show-pt">Data da Sessão</span><span class="show-en">Session Date</span></th>' +
         '<th></th>' +
@@ -1071,11 +1072,12 @@
         var s = sessions[i];
         html +=
           '<tr>' +
-          '<td><div class="resource-title">' + escHtml(s.client_name || "--") + '</div></td>' +
-          '<td class="detail-text">' + escHtml(formatDate(s.date)) + '</td>' +
-          '<td style="text-align:right;">' +
+          '<td class="mc-head"><div class="resource-title">' + escHtml(s.client_name || "--") + '</div></td>' +
+          '<td class="mc-field detail-text" data-label-pt="Data da Sessao" data-label-en="Session Date">' + escHtml(formatDate(s.date)) + '</td>' +
+          '<td class="mc-action" style="text-align:right;">' +
           '<button class="btn-row-action" onclick="openSessionPdf(' + i + ')">' +
-          '<span class="show-pt">Abrir PDF</span><span class="show-en">Open PDF</span></button></td>' +
+          '<span class="show-pt">Abrir PDF</span><span class="show-en">Open PDF</span>' +
+          (window.apexMcIcon ? window.apexMcIcon("view") : "") + '</button></td>' +
           '</tr>';
       }
       html += '</tbody></table>';

@@ -775,6 +775,24 @@
       .add-sub-form { grid-template-columns: 1fr; }
     }
 
+    /* Mobile: center the dollar figures inside the hero stat tiles.
+       Two tiles per row so a full "$12,345.67" never breaks mid-number. */
+    @media (max-width: 768px) {
+      .glass-tile {
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 14px 10px;
+        flex: 1 1 calc(50% - 14px);
+        min-width: calc(50% - 14px);
+      }
+      .glass-tile-value {
+        font-size: 22px;
+        max-width: 100%;
+      }
+      .glass-tile-label { text-align: center; }
+    }
+
     /* ─── Pricing-missing modal ──────────────────────────────────────────── */
     #pricingMissingOverlay {
       position: fixed;
@@ -1294,7 +1312,7 @@
         </div>
 
         <!-- Pill tabs -->
-        <div class="fin-tab-bar" id="finTabBar">
+        <div class="fin-tab-bar m-scroll-tabs" id="finTabBar">
           <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
             <span class="show-pt">Saude Financeira</span>
             <span class="show-en">Financial Health</span>
@@ -1509,7 +1527,7 @@
           </button>
         </div>
         <!-- Sub-tab bar -->
-        <div class="inv-subtab-bar">
+        <div class="inv-subtab-bar m-scroll-tabs">
           <button class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
             <span class="show-pt">Rascunho</span>
             <span class="show-en">Draft</span>
@@ -1543,7 +1561,7 @@
           </h2>
         </div>
         <!-- Sub-tab bar -->
-        <div class="inv-subtab-bar">
+        <div class="inv-subtab-bar m-scroll-tabs">
           <button class="inv-subtab active" id="reconSubtabUncategorized" onclick="switchReconTab('uncategorized')">
             <span class="show-pt">Nao Categorizadas</span>
             <span class="show-en">Uncategorized</span>

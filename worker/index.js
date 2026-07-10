@@ -318,13 +318,14 @@ async function findCalendarTitleForFireflies(env, meta) {
 }
 
 function firefliesDateToYMD(dateVal) {
-    var dateStr = new Date().toISOString().split("T")[0];
+    var etFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
+    var dateStr = etFormatter.format(new Date());
     if (dateVal !== null && dateVal !== undefined && dateVal !== "") {
         try {
             var n = typeof dateVal === "number" ? dateVal : Number(dateVal);
             // Fireflies returns epoch ms; also accept epoch seconds and ISO strings
             var d = isNaN(n) ? new Date(dateVal) : new Date(n < 1e12 ? n * 1000 : n);
-            if (!isNaN(d.getTime())) { dateStr = d.toISOString().split("T")[0]; }
+            if (!isNaN(d.getTime())) { dateStr = etFormatter.format(d); }
         } catch(e) { /* use today */ }
     }
     return dateStr;

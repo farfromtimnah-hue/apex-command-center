@@ -1,0 +1,345 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Apex Command Center — mobile + PWA stylesheet (static, shared).
+
+   HARD RULES (learned from a prior desktop-breaking regression):
+   - The #mobile-tab-bar and #mobile-more-menu containers exist as static
+     HTML in every page. They are NEVER created or appended by JavaScript.
+   - position: fixed is declared here, in the stylesheet, ONLY inside the
+     max-width media query. JavaScript never sets positioning inline.
+   - Visibility of the mobile nav is controlled purely by the media query
+     below. Above 768px everything in this file's media block is inert.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Defaults at ALL widths: mobile chrome hidden, desktop untouched ───── */
+#mobile-tab-bar { display: none; }
+#mobile-more-menu { display: none; }
+.mc-ico { display: none; }
+
+@keyframes apexSheetUp {
+  from { transform: translateY(48px); opacity: 0.55; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes apexMenuIn {
+  from { opacity: 0.4; }
+  to   { opacity: 1; }
+}
+
+/* ═══════════════ MOBILE (at or below 768px) ═══════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Hide the desktop sidebar rail ──────────────────────────────────── */
+  #navSidebar { display: none !important; }
+
+  /* Room for the fixed tab bar under the scrolling content */
+  #appMain { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+
+  /* ── Bottom tab bar ─────────────────────────────────────────────────── */
+  #mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 950;
+    background: #1a1a1d;
+    border-top: 1px solid #2a2a2e;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Pages without a populated bar (e.g. login) show nothing */
+  #mobile-tab-bar:empty { display: none; }
+
+  #mobile-tab-bar .m-tab {
+    flex: 1 1 0;
+    min-width: 44px;
+    min-height: 58px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 2px 6px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.55);
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mobile-tab-bar .m-tab-ico {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #mobile-tab-bar .m-tab-ico svg { width: 22px; height: 22px; }
+  #mobile-tab-bar .m-tab-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.1;
+  }
+  #mobile-tab-bar .m-tab.m-tab-active { color: #C9A43A; }
+  #mobile-tab-bar .m-tab.m-tab-active .m-tab-ico { color: #C9A43A; }
+
+  /* ── "Mais" full-screen menu ────────────────────────────────────────── */
+  #mobile-more-menu.mm-open {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: 0;
+    z-index: 960;
+    background: rgba(20, 18, 16, 0.97);
+    padding: calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    animation: apexMenuIn 0.18s ease;
+  }
+  #mobile-more-menu .mm-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  #mobile-more-menu .mm-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: #f9f7f4;
+    letter-spacing: 0.4px;
+  }
+  #mobile-more-menu .mm-close {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+    color: #f9f7f4;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  #mobile-more-menu .mm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #mobile-more-menu .mm-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 56px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.06);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+    color: rgba(255,255,255,0.85);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mobile-more-menu .mm-item .mm-item-ico {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #C9A43A;
+    flex-shrink: 0;
+  }
+  #mobile-more-menu .mm-item .mm-item-chevron {
+    margin-left: auto;
+    color: rgba(255,255,255,0.35);
+    display: flex;
+    align-items: center;
+  }
+  #mobile-more-menu .mm-item.mm-item-active {
+    border-color: #C9A43A;
+    color: #C9A43A;
+  }
+
+  /* Lock background scroll while the menu is open (class toggle only) */
+  body.mm-menu-lock { overflow: hidden; }
+
+  /* ── Card view for opted-in tables (.mc-table) ──────────────────────── */
+  .mc-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+  }
+  .mc-table thead { display: none; }
+  .mc-table tbody { display: block; }
+  .mc-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 2px;
+    background: rgba(255, 255, 255, 0.72);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border, #e8e2d9);
+    border-radius: 12px;
+    box-shadow: var(--shadow, 0 2px 16px rgba(26,26,29,0.08));
+    margin: 0 0 12px;
+    padding: 12px 14px;
+  }
+  .mc-table tr:hover td { background: transparent; }
+  .mc-table td {
+    display: block;
+    border-bottom: none !important;
+    padding: 3px 0;
+  }
+  .mc-table td.mc-head {
+    order: -3;
+    /* basis 0 keeps the header on the first line next to the action
+       icons even when its text is long; min-width stops it collapsing */
+    flex: 999 1 0px;
+    min-width: 50%;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 2px 0 6px;
+    overflow-wrap: anywhere;
+  }
+  .mc-table td.mc-action {
+    order: -2;
+    flex: 0 0 auto;
+    padding: 0 0 4px 6px;
+  }
+  .mc-table td.mc-field {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 5px 0;
+    border-bottom: none;
+  }
+  .mc-table td.mc-field::before {
+    content: attr(data-label-pt);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted, #6b6660);
+    flex-shrink: 0;
+  }
+  body.lang-en .mc-table td.mc-field::before { content: attr(data-label-en); }
+  .mc-table td.mc-field .tx-desc {
+    max-width: none;
+    white-space: normal;
+    text-align: right;
+  }
+  .mc-table td.mc-head .tx-desc {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Action buttons collapse to 44x44 icon buttons inside cards */
+  .mc-table td.mc-action .tx-actions { gap: 8px; }
+  .mc-table td.mc-action button,
+  .mc-table td.mc-action a {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+  }
+  .mc-table td.mc-action .show-pt,
+  .mc-table td.mc-action .show-en { display: none; }
+  .mc-table td.mc-action .mc-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mc-table td.mc-action .mc-ico svg { width: 20px; height: 20px; }
+
+  /* ── Full-screen sheet modals ───────────────────────────────────────── */
+  /* Shared .modal-overlay pattern (clients, client, documents, calendar) */
+  #modalNewClient,
+  #modalAttachResource,
+  #modalScheduleSession,
+  #modalResource,
+  #modalNewSession,
+  #newInvoiceOverlay,
+  #invoiceEditorOverlay {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+  #modalNewClient .modal-box,
+  #modalAttachResource .modal-box,
+  #modalScheduleSession .modal-box,
+  #modalResource .modal-box,
+  #modalNewSession .modal-box,
+  #newInvoiceModal,
+  #invoiceEditorModal {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100%;
+    max-height: none !important;
+    border-radius: 0 !important;
+    margin: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: calc(18px + env(safe-area-inset-top));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    animation: apexSheetUp 0.26s ease;
+  }
+
+  /* Invoice line-item grid: stack instead of overflowing sideways.
+     The header caption row is hidden; the inputs carry placeholders. */
+  /* !important: mobile.css is linked before each page's inline styles,
+     so equal-specificity page rules would otherwise win the cascade. */
+  .item-editor-row,
+  .item-editor-row.has-remove {
+    grid-template-columns: 1fr 1fr 34px !important;
+  }
+  .item-editor-row.item-editor-header { display: none !important; }
+  /* min-width: 0 lets the fr tracks shrink below the inputs' intrinsic
+     min-content width (number inputs otherwise force the grid to overflow) */
+  .item-editor-row .form-input { min-width: 0; }
+  .item-editor-row input[data-field="name"],
+  .item-editor-row input[data-field="description"] {
+    grid-column: 1 / -1;
+  }
+  .item-row-remove {
+    min-width: 34px;
+    min-height: 44px;
+  }
+
+  /* ── Touch targets: 44px minimum in mobile forms and nav ────────────── */
+  .modal-box button,
+  .modal-box input,
+  .modal-box select,
+  .modal-box textarea,
+  #newInvoiceModal button,
+  #newInvoiceModal input,
+  #newInvoiceModal select,
+  #newInvoiceModal textarea,
+  #invoiceEditorModal button,
+  #invoiceEditorModal input,
+  #invoiceEditorModal select,
+  #invoiceEditorModal textarea {
+    min-height: 44px;
+  }
+  .modal-box .modal-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

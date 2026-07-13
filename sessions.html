@@ -1635,7 +1635,7 @@
         if (s.status === 'pending')  { countPending++; }
         if (s.whatsapp_sent_at)      { countWhatsapp++; }
         if (s.status !== 'discarded') { countTotal++; }
-        if (s.raw_transcript)        { countTranscripts++; }
+        if (s.has_transcript)        { countTranscripts++; }
       }
 
       var elInbox       = document.getElementById('statInbox');
@@ -2482,7 +2482,7 @@
       var isEn = document.body.classList.contains("lang-en");
 
       var filtered = sessions.filter(function(s) {
-        if (!s.raw_transcript) { return false; }
+        if (!s.has_transcript) { return false; }
         if (clientFilter && clientFilter.value && s.client_id !== clientFilter.value) { return false; }
         if (dateFrom && dateFrom.value && s.date < dateFrom.value) { return false; }
         if (dateTo && dateTo.value && s.date > dateTo.value) { return false; }
@@ -2533,20 +2533,33 @@
 
       var preview = document.createElement("div");
       preview.className = "transcript-card-preview";
-      preview.textContent = session.raw_transcript.slice(0, 200) + (session.raw_transcript.length > 200 ? "..." : "");
+      preview.innerHTML = '<span class="show-pt">Clique para ver a transcrição</span><span class="show-en">Click to view transcript</span>';
       card.appendChild(preview);
 
       var fullDiv = document.createElement("div");
       fullDiv.className = "transcript-card-full";
-      fullDiv.textContent = session.raw_transcript;
       fullDiv.style.display = "none";
       card.appendChild(fullDiv);
 
       var expanded = false;
+      var loaded   = false;
       card.onclick = function() {
         expanded = !expanded;
-        fullDiv.style.display = expanded ? "block" : "none";
         preview.style.display = expanded ? "none" : "block";
+        fullDiv.style.display = expanded ? "block" : "none";
+
+        if (expanded && !loaded) {
+          fullDiv.textContent = "...";
+          apiFetch("/api/sessions/" + session.id + "/transcript")
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              fullDiv.textContent = data.raw_transcript || "";
+              loaded = true;
+            })
+            .catch(function(e) {
+              fullDiv.textContent = "Error: " + e.message;
+            });
+        }
       };
 
       return card;

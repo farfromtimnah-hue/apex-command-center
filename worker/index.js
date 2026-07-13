@@ -547,12 +547,14 @@ async function handleGetSessions(request, env) {
         var stmt;
         if (clientIdFilter) {
             stmt = env.DB.prepare(
-                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at " +
+                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at, " +
+                "raw_transcript IS NOT NULL as has_transcript " +
                 "FROM sessions WHERE status != 'archived' AND client_id = ? ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
-                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at " +
+                "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at, " +
+                "raw_transcript IS NOT NULL as has_transcript " +
                 "FROM sessions WHERE status != 'archived' ORDER BY created_at DESC"
             );
         }
@@ -561,6 +563,28 @@ async function handleGetSessions(request, env) {
         return jsonOk({ sessions: res.results });
     } catch (e) {
         return jsonErr("Error fetching sessions: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/sessions/:id/transcript
+// Returns just the raw_transcript text for one session (kept off the list
+// endpoint since transcripts can run tens of thousands of characters).
+// ---------------------------------------------------------------------------
+
+async function handleGetSessionTranscript(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare(
+            "SELECT raw_transcript FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!row) { return jsonErr("Session not found", 404); }
+
+        return jsonOk({ raw_transcript: row.raw_transcript || null });
+    } catch (e) {
+        return jsonErr("Error fetching transcript: " + e.message, 500);
     }
 }
 
@@ -6136,6 +6160,9 @@ export default {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "task-completions" && method === "PATCH") {
             return handlePatchSessionTaskCompletions(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "transcript" && method === "GET") {
+            return handleGetSessionTranscript(segs[2], request, env);
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "assign-client" && method === "POST") {
             return handlePostSessionAssignClient(segs[2], request, env);

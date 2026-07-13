@@ -53,16 +53,22 @@
     body.lang-pt .status-badge[data-status="summarized"]::before { content: "Resumido"; }
     body.lang-pt .status-badge[data-status="approved"]::before   { content: "Aprovado"; }
     body.lang-pt .status-badge[data-status="inbox"]::before      { content: "Caixa de Entrada"; }
+    body.lang-pt .status-badge[data-status="discarded"]::before  { content: "Descartado"; }
+    body.lang-pt .status-badge[data-status="scheduled"]::before  { content: "Agendado"; }
 
     body.lang-en .status-badge[data-status="pending"]::before    { content: "Pending"; }
     body.lang-en .status-badge[data-status="summarized"]::before { content: "Summarized"; }
     body.lang-en .status-badge[data-status="approved"]::before   { content: "Approved"; }
     body.lang-en .status-badge[data-status="inbox"]::before      { content: "Inbox"; }
+    body.lang-en .status-badge[data-status="discarded"]::before  { content: "Discarded"; }
+    body.lang-en .status-badge[data-status="scheduled"]::before  { content: "Scheduled"; }
 
     .status-badge[data-status="pending"]    { background: #fdf3dc; color: #8a6200; }
     .status-badge[data-status="summarized"] { background: #dce8fd; color: #1a4a8a; }
     .status-badge[data-status="approved"]   { background: #ddfaec; color: #1a6640; }
     .status-badge[data-status="inbox"]      { background: #f3e8ff; color: #6b21a8; }
+    .status-badge[data-status="discarded"]  { background: #f1f5f9; color: #475569; }
+    .status-badge[data-status="scheduled"]  { background: #dce8fd; color: #1a4a8a; }
 
     .status-badge {
       display: inline-block;
@@ -224,6 +230,10 @@
       display: none;
     }
     .tab-panel.active { display: flex; flex-direction: column; }
+
+    /* ─── Inbox sub-tab panels (New Meeting / Processing / Summarized / Archive / Upcoming) ─── */
+    .inbox-subtab-panel[hidden] { display: none !important; }
+    .inbox-subtab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
     /* ─── Alice outer wrap (tab bar + panels) ─────────────────────────────── */
     #aliceView {
@@ -989,6 +999,50 @@
     }
     .tab-badge[hidden] { display: none !important; }
 
+    /* ─── Inbox sub-tabs (copied from finance.html .inv-subtab-bar) ───────── */
+    .inv-subtab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 6px;
+      margin-bottom: 16px;
+    }
+
+    .inv-subtab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 10px 14px 9px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .inv-subtab:hover { color: var(--text); }
+    .inv-subtab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    .inv-subtab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--gold-dim);
+      color: var(--gold);
+    }
+    .inv-subtab-badge[hidden] { display: none !important; }
+
     /* ─── Print styles ───────────────────────────────────────────────────── */
     @media print {
       @page { margin: 0; }
@@ -1129,10 +1183,6 @@
           <span class="show-en">Inbox</span>
           <span class="tab-badge" id="inboxBadge" hidden>0</span>
         </button>
-        <button class="tab-pill" id="tabBtnSessions" onclick="switchTab('sessions')">
-          <span class="show-pt">Sessoes</span>
-          <span class="show-en">Sessions</span>
-        </button>
         <button class="tab-pill" id="tabBtnNewSession" onclick="switchTab('newSession')">
           <span class="show-pt">Nova Sessao</span>
           <span class="show-en">New Session</span>
@@ -1151,41 +1201,71 @@
     <!-- ── ALICE / DEVELOPER VIEW ─────────────────────────────────────── -->
     <div id="aliceView">
 
-      <!-- ── TAB 1: INBOX ──────────────────────────────────────────── -->
+      <!-- ── TAB 1: INBOX (unified) ──────────────────────────────────── -->
       <div class="tab-panel active" id="tabInbox">
-        <div class="ff-pull-bar" style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-          <button type="button" class="btn btn-secondary" id="ffPullBtn" onclick="ffTogglePicker()">
-            <span class="show-pt">Puxar do Fireflies</span>
-            <span class="show-en">Pull from Fireflies</span>
-          </button>
-          <span id="ffPullStatus" style="font-size:13px; color:#6b7280;"></span>
-        </div>
-        <div id="ffPickerBox" hidden style="border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; margin-bottom:16px; background:#fafafa;">
-          <div style="font-weight:600; font-size:13px; margin-bottom:8px;">
-            <span class="show-pt">Transcrições recentes no Fireflies</span>
-            <span class="show-en">Recent Fireflies transcripts</span>
-          </div>
-          <div id="ffPickerList" style="display:flex; flex-direction:column; gap:6px;"></div>
-        </div>
-        <div class="inbox-empty" id="inboxEmpty" hidden>
-          <span class="show-pt">Nenhuma sessão na caixa de entrada.</span>
-          <span class="show-en">No sessions in inbox.</span>
-        </div>
-        <div id="inboxList">
-          <!-- Rendered by JS -->
-        </div>
-      </div>
 
-      <!-- ── TAB 2: SESSIONS ───────────────────────────────────────── -->
-      <div class="tab-panel" id="tabSessions">
+        <!-- Inbox sub-tabs: New Meeting / Processing / Summarized / Archive / Upcoming -->
+        <div class="inv-subtab-bar m-scroll-tabs" id="inboxSubtabBar">
+          <button class="inv-subtab active" id="inboxSubtabNewMeeting" onclick="switchInboxSubtab('newMeeting')">
+            <span class="show-pt">Nova Reuni&atilde;o</span>
+            <span class="show-en">New Meeting</span>
+            <span class="inv-subtab-badge" id="inboxSubtabBadgeNewMeeting" hidden>0</span>
+          </button>
+          <button class="inv-subtab" id="inboxSubtabProcessing" onclick="switchInboxSubtab('processing')">
+            <span class="show-pt">Processando</span>
+            <span class="show-en">Processing</span>
+            <span class="inv-subtab-badge" id="inboxSubtabBadgeProcessing" hidden>0</span>
+          </button>
+          <button class="inv-subtab" id="inboxSubtabSummarized" onclick="switchInboxSubtab('summarized')">
+            <span class="show-pt">Resumido</span>
+            <span class="show-en">Summarized</span>
+            <span class="inv-subtab-badge" id="inboxSubtabBadgeSummarized" hidden>0</span>
+          </button>
+          <button class="inv-subtab" id="inboxSubtabArchive" onclick="switchInboxSubtab('archive')">
+            <span class="show-pt">Arquivo</span>
+            <span class="show-en">Archive</span>
+          </button>
+          <button class="inv-subtab" id="inboxSubtabUpcoming" onclick="switchInboxSubtab('upcoming')">
+            <span class="show-pt">Pr&oacute;ximas</span>
+            <span class="show-en">Upcoming</span>
+          </button>
+        </div>
+
+        <!-- Sub-panel 1: New Meeting (status = inbox) — unchanged inbox-card UI -->
+        <div class="inbox-subtab-panel active" id="inboxSubpanelNewMeeting">
+          <div class="ff-pull-bar" style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+            <button type="button" class="btn btn-secondary" id="ffPullBtn" onclick="ffTogglePicker()">
+              <span class="show-pt">Puxar do Fireflies</span>
+              <span class="show-en">Pull from Fireflies</span>
+            </button>
+            <span id="ffPullStatus" style="font-size:13px; color:#6b7280;"></span>
+          </div>
+          <div id="ffPickerBox" hidden style="border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; margin-bottom:16px; background:#fafafa;">
+            <div style="font-weight:600; font-size:13px; margin-bottom:8px;">
+              <span class="show-pt">Transcrições recentes no Fireflies</span>
+              <span class="show-en">Recent Fireflies transcripts</span>
+            </div>
+            <div id="ffPickerList" style="display:flex; flex-direction:column; gap:6px;"></div>
+          </div>
+          <div class="inbox-empty" id="inboxEmpty" hidden>
+            <span class="show-pt">Nenhuma sessão na caixa de entrada.</span>
+            <span class="show-en">No sessions in inbox.</span>
+          </div>
+          <div id="inboxList">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Sub-panels 2-5: Processing / Summarized / Archive / Upcoming — shared sessions-layout, filtered by status -->
+        <div class="inbox-subtab-panel" id="inboxSubpanelSessions" hidden>
         <div class="sessions-layout">
 
           <!-- Sidebar: session list -->
           <aside class="sidebar">
             <div class="sidebar-section" style="border-bottom:none; padding-bottom:6px;">
-              <div class="sidebar-label">
-                <span class="show-pt">Sessões</span>
-                <span class="show-en">Sessions</span>
+              <div class="sidebar-label" id="aliceSessionListLabel">
+                <span class="show-pt">Processando</span>
+                <span class="show-en">Processing</span>
               </div>
             </div>
             <div class="session-scroll" id="aliceSessionList">
@@ -1256,7 +1336,9 @@
           </section>
 
         </div>
-      </div>
+        </div><!-- /inboxSubpanelSessions -->
+
+      </div><!-- /tabInbox -->
 
       <!-- ── TAB 3: NEW SESSION ────────────────────────────────────── -->
       <div class="tab-panel" id="tabNewSession">
@@ -1711,7 +1793,7 @@
     function switchTab(tab) {
       activeTab = tab;
 
-      var tabs = ["inbox", "sessions", "newSession", "transcripts"];
+      var tabs = ["inbox", "newSession", "transcripts"];
       for (var i = 0; i < tabs.length; i++) {
         var t = tabs[i];
         var panel = document.getElementById("tab" + t.charAt(0).toUpperCase() + t.slice(1));
@@ -1721,6 +1803,87 @@
       }
 
       if (tab === "transcripts") { renderTranscriptList(); }
+    }
+
+    // ── Inbox sub-tabs: New Meeting / Processing / Summarized / Archive / Upcoming ──
+
+    var activeInboxSubtab = "newMeeting";
+
+    // Each sub-tab maps to the session.status values it shows.
+    var INBOX_SUBTAB_STATUSES = {
+      newMeeting: ["inbox"],
+      processing: ["pending"],
+      summarized: ["summarized"],
+      archive:    ["approved", "discarded"],
+      upcoming:   ["scheduled"]
+    };
+
+    var INBOX_SUBTAB_LABELS = {
+      processing: { pt: "Processando", en: "Processing" },
+      summarized: { pt: "Resumido",    en: "Summarized" },
+      archive:    { pt: "Arquivo",     en: "Archive" },
+      upcoming:   { pt: "Próximas", en: "Upcoming" }
+    };
+
+    function switchInboxSubtab(subtab) {
+      activeInboxSubtab = subtab;
+
+      var subtabs = ["newMeeting", "processing", "summarized", "archive", "upcoming"];
+      for (var i = 0; i < subtabs.length; i++) {
+        var s = subtabs[i];
+        var btn = document.getElementById("inboxSubtab" + s.charAt(0).toUpperCase() + s.slice(1));
+        if (btn) { btn.classList.toggle("active", s === subtab); }
+      }
+
+      var newMeetingPanel = document.getElementById("inboxSubpanelNewMeeting");
+      var sessionsPanel   = document.getElementById("inboxSubpanelSessions");
+
+      if (subtab === "newMeeting") {
+        if (newMeetingPanel) { newMeetingPanel.hidden = false; newMeetingPanel.classList.add("active"); }
+        if (sessionsPanel)   { sessionsPanel.hidden = true; sessionsPanel.classList.remove("active"); }
+      } else {
+        if (newMeetingPanel) { newMeetingPanel.hidden = true; newMeetingPanel.classList.remove("active"); }
+        if (sessionsPanel)   { sessionsPanel.hidden = false; sessionsPanel.classList.add("active"); }
+
+        var labelEl = document.getElementById("aliceSessionListLabel");
+        var labels = INBOX_SUBTAB_LABELS[subtab];
+        if (labelEl && labels) {
+          labelEl.innerHTML =
+            '<span class="show-pt">' + labels.pt + '</span>' +
+            '<span class="show-en">' + labels.en + '</span>';
+        }
+
+        renderAliceList();
+        // Selecting a different sub-tab shows a different status bucket; the
+        // previously selected detail (if any) may no longer be in this
+        // bucket, so clear the detail panel rather than show a stale/wrong session.
+        activeSessionId = null;
+        var detailEmpty   = document.getElementById("detailEmpty");
+        var detailContent = document.getElementById("detailContent");
+        if (detailEmpty)   { detailEmpty.hidden = false; }
+        if (detailContent) { detailContent.hidden = true; }
+      }
+    }
+
+    function updateInboxSubtabBadges() {
+      var countProcessing = 0;
+      var countSummarized = 0;
+      for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].status === "pending")    { countProcessing++; }
+        if (sessions[i].status === "summarized") { countSummarized++; }
+      }
+
+      var procBadge = document.getElementById("inboxSubtabBadgeProcessing");
+      if (procBadge) {
+        if (countProcessing > 0) { procBadge.textContent = countProcessing; procBadge.hidden = false; }
+        else { procBadge.hidden = true; }
+      }
+
+      var summBadge = document.getElementById("inboxSubtabBadgeSummarized");
+      if (summBadge) {
+        if (countSummarized > 0) { summBadge.textContent = countSummarized; summBadge.hidden = false; }
+        else { summBadge.hidden = true; }
+      }
     }
 
     // ── View switching (developer role toggle) ─────────────────────────────
@@ -1753,6 +1916,7 @@
           sessions = data.sessions || [];
           renderSessionList();
           updateSessionStats();
+          updateInboxSubtabBadges();
           openSessionFromQueryParam();
         })
         .catch(function(e) { console.error("Load sessions error:", e.message); });
@@ -1767,14 +1931,23 @@
       if (openedFromQueryParam) { return; }
       var id = new URLSearchParams(window.location.search).get("open");
       if (!id) { return; }
-      var found = false;
+      var target = null;
       for (var i = 0; i < sessions.length; i++) {
-        if (sessions[i].id === id) { found = true; break; }
+        if (sessions[i].id === id) { target = sessions[i]; break; }
       }
-      if (!found) { return; }
+      if (!target) { return; }
       openedFromQueryParam = true;
-      switchTab("sessions");
+      switchTab("inbox");
+      switchInboxSubtab(subtabForStatus(target.status));
       selectSession(id);
+    }
+
+    // Maps a session's status to the Inbox sub-tab that owns it.
+    function subtabForStatus(status) {
+      for (var key in INBOX_SUBTAB_STATUSES) {
+        if (INBOX_SUBTAB_STATUSES[key].indexOf(status) !== -1) { return key; }
+      }
+      return "processing";
     }
 
     function loadInbox() {
@@ -2031,9 +2204,10 @@
     // ── Inbox rendering ────────────────────────────────────────────────────
 
     function renderInbox() {
-      var badge   = document.getElementById("inboxBadge");
-      var emptyEl = document.getElementById("inboxEmpty");
-      var listEl  = document.getElementById("inboxList");
+      var badge      = document.getElementById("inboxBadge");
+      var subtabBadge = document.getElementById("inboxSubtabBadgeNewMeeting");
+      var emptyEl    = document.getElementById("inboxEmpty");
+      var listEl     = document.getElementById("inboxList");
       if (!listEl) { return; }
 
       var count = inboxSessions.length;
@@ -2045,11 +2219,13 @@
       if (count > 0) {
         badge.textContent = count;
         badge.hidden = false;
+        if (subtabBadge) { subtabBadge.textContent = count; subtabBadge.hidden = false; }
         for (var i = 0; i < inboxSessions.length; i++) {
           listEl.appendChild(makeInboxCard(inboxSessions[i]));
         }
       } else {
         badge.hidden = true;
+        if (subtabBadge) { subtabBadge.hidden = true; }
         emptyEl.hidden = false;
       }
     }
@@ -2386,17 +2562,20 @@
       var container = document.getElementById("aliceSessionList");
       if (!container) { return; }
 
-      // Filter out inbox sessions from the sessions tab list
-      var nonInbox = sessions.filter(function(s) { return s.status !== "inbox"; });
+      // Filter to the statuses owned by the active Inbox sub-tab (Processing /
+      // Summarized / Archive / Upcoming). "New Meeting" (status=inbox) has its
+      // own separate panel/list (#inboxList) and never reaches this filter.
+      var statuses = INBOX_SUBTAB_STATUSES[activeInboxSubtab] || [];
+      var filtered = sessions.filter(function(s) { return statuses.indexOf(s.status) !== -1; });
 
-      if (nonInbox.length === 0) {
+      if (filtered.length === 0) {
         container.innerHTML = '<div class="empty-list"><span class="show-pt">Nenhuma sessao encontrada.</span><span class="show-en">No sessions found.</span></div>';
         return;
       }
 
       container.innerHTML = "";
-      for (var i = 0; i < nonInbox.length; i++) {
-        container.appendChild(makeSessionRow(nonInbox[i], activeSessionId, "alice"));
+      for (var i = 0; i < filtered.length; i++) {
+        container.appendChild(makeSessionRow(filtered[i], activeSessionId, "alice"));
       }
     }
 
@@ -3024,8 +3203,9 @@
           };
           sessions.unshift(newSession);
           renderAliceList();
-          // Switch to Sessions tab and select the new session
-          switchTab("sessions");
+          // Switch to the Inbox tab's Processing sub-tab and select the new session
+          switchTab("inbox");
+          switchInboxSubtab("processing");
           selectSession(newSession.id);
         })
         .catch(function(e) {
@@ -3057,8 +3237,10 @@
             session.status = "summarized";
             session.summary_json = JSON.stringify(data.summary);
           }
-          renderAliceList();
+          updateInboxSubtabBadges();
           setActionStatus("");
+          // Follow the session to its new sub-tab (Processing -> Summarized)
+          switchInboxSubtab("summarized");
           selectSession(sessionId);
         })
         .catch(function(e) {
@@ -3109,8 +3291,10 @@
             session.approved_at = data.approved_at;
             session.summary_json = JSON.stringify(edited);
           }
-          renderAliceList();
+          updateInboxSubtabBadges();
           setActionStatus("Approved.", "is-ok");
+          // Follow the session to its new sub-tab (Summarized -> Archive)
+          switchInboxSubtab("archive");
           selectSession(sessionId);
         })
         .catch(function(e) {

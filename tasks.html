@@ -1033,6 +1033,7 @@
 
       for (var i = 0; i < sessions.length; i++) {
         var s = sessions[i];
+        if (s.status === "discarded") { continue; }
         if (!s.summary_json && !s.pdf_data) { continue; }
 
         var clientName  = s.client_name || "—";

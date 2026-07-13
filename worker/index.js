@@ -548,12 +548,12 @@ async function handleGetSessions(request, env) {
         if (clientIdFilter) {
             stmt = env.DB.prepare(
                 "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at " +
-                "FROM sessions WHERE status NOT IN ('archived','discarded') AND client_id = ? ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND client_id = ? ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
                 "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at " +
-                "FROM sessions WHERE status NOT IN ('archived','discarded') ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' ORDER BY created_at DESC"
             );
         }
 

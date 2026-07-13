@@ -2816,7 +2816,7 @@
       apiFetch("/api/sessions?client_id=" + CLIENT_ID)
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          sessions = data.sessions || [];
+          sessions = (data.sessions || []).filter(function(s) { return s.status !== "discarded"; });
           // Track most recent approved session with pdf_data for header button
           latestApprovedSession = null;
           for (var i = 0; i < sessions.length; i++) {

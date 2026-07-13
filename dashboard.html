@@ -1276,7 +1276,7 @@
       apiFetch("/api/sessions")
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          var sessions = data.sessions || [];
+          var sessions = (data.sessions || []).filter(function(s) { return s.status !== "discarded"; });
           var pending    = 0;
           var summarized = 0;
           var approved   = 0;
@@ -1755,7 +1755,7 @@
       apiFetch("/api/sessions")
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          var sessions = data.sessions || [];
+          var sessions = (data.sessions || []).filter(function(s) { return s.status !== "discarded"; });
           var pending = 0, summarized = 0, approved = 0;
           for (var i = 0; i < sessions.length; i++) {
             var s = sessions[i].status;

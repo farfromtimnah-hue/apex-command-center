@@ -2735,7 +2735,8 @@
 
       for (var i = 0; i < SECTION_KEYS.length; i++) {
         var key  = SECTION_KEYS[i];
-        var sec  = summary[key] || {};
+        if (!summary[key]) { continue; }
+        var sec  = summary[key];
         var card = document.createElement("div");
         card.className = "summary-card";
 
@@ -2781,9 +2782,9 @@
         container.appendChild(card);
       }
 
-      container.appendChild(makeStructCard("business_diagnosis", summary.business_diagnosis, editable, renderDiagnosisLang));
-      container.appendChild(makeStructCard("swot_synthesis", summary.swot_synthesis, editable, renderSynthesisLang));
-      container.appendChild(makeStructCard("thirty_day_goals", summary.thirty_day_goals, editable, renderGoalsLang));
+      if (summary.business_diagnosis) { container.appendChild(makeStructCard("business_diagnosis", summary.business_diagnosis, editable, renderDiagnosisLang)); }
+      if (summary.swot_synthesis)     { container.appendChild(makeStructCard("swot_synthesis", summary.swot_synthesis, editable, renderSynthesisLang)); }
+      if (summary.thirty_day_goals)   { container.appendChild(makeStructCard("thirty_day_goals", summary.thirty_day_goals, editable, renderGoalsLang)); }
     }
 
     // ── Structured section cards (radiografia / leitura cruzada / metas) ───

@@ -839,118 +839,134 @@ var SUMMARY_SYSTEM = "You are a documentation assistant for Apex Business & Lead
     "Produce bilingual (Portuguese and English) structured session summaries. " +
     "Respond ONLY with a valid JSON object — no markdown fences, no commentary.";
 
-// Maps each configurable standard section key to the SUMMARY_PROMPT paragraph(s)
-// that describe how to produce it, so disabled sections can be dropped from the
-// prompt sent to Claude instead of always generating all nine.
-var SECTION_PROMPT_BLOCKS = {
-    business_diagnosis: "  business_diagnosis: pt/en are each an array of exactly 10 rows, one per business dimension,\n" +
-        "    in exactly this order: \"Produto/Serviço\", \"Fundadores\", \"Experiência do Cliente\",\n" +
-        "    \"Time Operacional\", \"Time Comercial\", \"Marketing & Presença Digital\", \"Infraestrutura\",\n" +
-        "    \"Documentação Legal\", \"Sistemas de Gestão\", \"Parcerias\".\n" +
-        "    Each row: {\"dimension\": \"<fixed name above>\", \"situation\": \"1 short sentence describing the\n" +
-        "    client's current situation in that dimension, extracted from the transcript\", \"level\": one of\n" +
-        "    exactly \"FORTE\", \"MÉDIO\", \"FRACO\", \"CRÍTICO\" — your assessment from the transcript content}\n",
-    swot_synthesis: "  swot_synthesis: pt/en are each an object with exactly 3 string fields, each a short analytical\n" +
-        "    paragraph (2-3 sentences) cross-referencing the SWOT quadrants you produced:\n" +
-        "    {\"forca_oportunidade\": \"how the strengths enable capturing the opportunities\",\n" +
-        "     \"fraqueza_ameaca\": \"the biggest combined risk where weaknesses meet threats\",\n" +
-        "     \"forca_ameaca\": \"how the strengths defend against the threats\"}\n",
-    thirty_day_goals: "  thirty_day_goals: pt/en are each an array of exactly 7 rows, one per area, in exactly this order:\n" +
-        "    \"Operacional\", \"Comercial\", \"Marketing\", \"Parcerias\", \"Infraestrutura\", \"Legal\", \"Sistemas\".\n" +
-        "    Each row: {\"area\": \"<fixed name above>\", \"meta\": \"a concrete 30-day goal for that area derived\n" +
-        "    from the transcript\", \"indicador\": \"a measurable success indicator for that goal\"}\n"
+// Maps each of the 4 gateable internal-review keys (summary_json) to the
+// checkbox (section_config) key that must be enabled for it to be generated.
+// discussion_overview and client_profile_updates have no checkbox and are
+// always generated, alongside the mandatory Cover/Executive Summary.
+var REVIEW_KEY_TO_SECTION_KEY = {
+    recommendations:      "recommendations",
+    client_action_items:  "client_actions",
+    rafa_followups:       "consultant_followups",
+    next_session_focus:   "next_session_focus"
 };
 
-// Maps each configurable standard section key to the pdf_data field(s) it controls.
-// recommendations/client_actions/consultant_followups/next_session_focus/swot/
-// thirty_day_plan live only inside pdf_data; business_diagnosis/swot_synthesis/
-// thirty_day_goals exist both top-level (internal, pt/en) and inside pdf_data.
-var PDF_DATA_FIELDS_BY_SECTION = {
-    business_diagnosis:    ["business_diagnosis"],
-    recommendations:       ["recommendations"],
-    client_actions:        ["client_actions"],
-    consultant_followups:  ["consultant_followups"],
-    next_session_focus:    ["next_session_focus_points"],
-    swot:                  ["swot"],
-    swot_synthesis:        ["swot_synthesis"],
-    thirty_day_plan:       ["thirty_day_plan"],
-    thirty_day_goals:      ["thirty_day_goals"]
-};
-
-function enabledSectionKeySet(sectionCfg) {
-    var enabled = {};
-    for (var i = 0; i < sectionCfg.sections.length; i++) {
-        var s = sectionCfg.sections[i];
-        if (s.enabled) { enabled[s.key] = true; }
+function isSectionEnabled(cfg, key) {
+    for (var i = 0; i < cfg.sections.length; i++) {
+        if (cfg.sections[i].key === key) { return !!cfg.sections[i].enabled; }
     }
-    return enabled;
+    return false;
 }
 
-// Builds the pdf_data-shaped portion of key 10's instructions, keeping only the
-// fields for enabled sections (recommendations/client_actions/consultant_followups/
-// next_session_focus_points/swot/thirty_day_plan are pdf_data-only; the other three
-// are also requested at the top level via SECTION_PROMPT_BLOCKS).
-var PDF_DATA_FIELD_PROMPT = {
-    recommendations:            "  recommendations: array of 2-4 objects: [{\"number\": \"01\", \"title\": \"...\", \"body\": \"1-2 sentences\"}]\n",
-    client_actions:             "  client_actions: array of 2-4 objects: [{\"text\": \"...\", \"due\": \"DD Mon\"}] (abbreviated Portuguese month, e.g. '20 Jun')\n",
-    consultant_followups:       "  consultant_followups: array of 2-4 objects: [{\"text\": \"...\", \"due\": \"DD Mon\"}]\n",
-    next_session_focus:         "  next_session_focus_points: array of 2-4 objects: [{\"number\": \"01\", \"text\": \"...\"}]\n",
-    swot:                       "  swot: {\"strengths\": [2-4 strings], \"weaknesses\": [2-4 strings], \"opportunities\": [2-4 strings], \"threats\": [2-4 strings]}\n",
-    thirty_day_plan:            "  thirty_day_plan: array of exactly 4 week objects:\n" +
-        "    [{\"week_label\": \"SEMANA 1\", \"week_title\": \"short theme\", \"items\": [{\"text\": \"...\", \"owner\": \"CLIENTE\"}]}]\n" +
-        "    owner must be exactly 'CLIENTE' or 'CONSULTOR' (uppercase, no other values)\n",
-    business_diagnosis:         "  business_diagnosis: identical structure and content to the 'pt' side of top-level business_diagnosis\n",
-    swot_synthesis:             "  swot_synthesis: identical structure and content to the 'pt' side of top-level swot_synthesis\n",
-    thirty_day_goals:           "  thirty_day_goals: identical structure and content to the 'pt' side of top-level thirty_day_goals\n"
-};
+// Builds SUMMARY_PROMPT dynamically so that a key is only requested — for
+// both the internal-review object and pdf_data — when its section_config
+// checkbox is enabled. Cover/Executive Summary equivalents (discussion_overview,
+// client_profile_updates, executive_summary, headline_insights, document_title)
+// have no checkbox and are always requested.
+function buildSummaryPrompt(cfg) {
+    var reviewKeys = ["discussion_overview", "client_profile_updates"];
+    var reviewKeyOrder = ["discussion_overview", "recommendations", "client_action_items",
+        "rafa_followups", "next_session_focus", "client_profile_updates"];
+    for (var i = 0; i < reviewKeyOrder.length; i++) {
+        var k = reviewKeyOrder[i];
+        if (reviewKeys.indexOf(k) !== -1) { continue; }
+        var sectionKey = REVIEW_KEY_TO_SECTION_KEY[k];
+        if (sectionKey && isSectionEnabled(cfg, sectionKey)) { reviewKeys.push(k); }
+    }
+    // Restore canonical order
+    reviewKeys = reviewKeyOrder.filter(function (k) { return reviewKeys.indexOf(k) !== -1; });
 
-// Builds SUMMARY_PROMPT dynamically: keys 1-6 (internal review fields) are always
-// required; keys 7-9 (business_diagnosis/swot_synthesis/thirty_day_goals) and the
-// pdf_data fields are included only for sections enabled in sectionCfg.
-function buildSummaryPrompt(sectionCfg) {
-    var enabled = enabledSectionKeySet(sectionCfg);
+    var wantBusinessDiagnosis = isSectionEnabled(cfg, "business_diagnosis");
+    var wantSwotSynthesis     = isSectionEnabled(cfg, "swot_synthesis");
+    var wantThirtyDayGoals    = isSectionEnabled(cfg, "thirty_day_goals");
+    var wantRecommendations   = isSectionEnabled(cfg, "recommendations");
+    var wantClientActions     = isSectionEnabled(cfg, "client_actions");
+    var wantConsultantFollowups = isSectionEnabled(cfg, "consultant_followups");
+    var wantNextSessionFocus  = isSectionEnabled(cfg, "next_session_focus");
+    var wantSwot              = isSectionEnabled(cfg, "swot");
+    var wantThirtyDayPlan     = isSectionEnabled(cfg, "thirty_day_plan");
 
     var structuredKeys = [];
-    var structuredBlocks = "";
-    ["business_diagnosis", "swot_synthesis", "thirty_day_goals"].forEach(function (key) {
-        if (enabled[key]) {
-            structuredKeys.push(key);
-            structuredBlocks += SECTION_PROMPT_BLOCKS[key];
-        }
-    });
+    if (wantBusinessDiagnosis) { structuredKeys.push("business_diagnosis"); }
+    if (wantSwotSynthesis)     { structuredKeys.push("swot_synthesis"); }
+    if (wantThirtyDayGoals)    { structuredKeys.push("thirty_day_goals"); }
 
-    var pdfDataKeys = [];
-    var pdfDataBlocks = "";
-    Object.keys(PDF_DATA_FIELD_PROMPT).forEach(function (key) {
-        if (enabled[key]) {
-            pdfDataKeys.push(PDF_DATA_FIELDS_BY_SECTION[key][0]);
-            pdfDataBlocks += PDF_DATA_FIELD_PROMPT[key];
-        }
-    });
+    var totalKeys = reviewKeys.length + structuredKeys.length + 1; // +1 for pdf_data
 
     var prompt = "Generate a session summary for the transcript below.\n\n" +
-        "Respond with a JSON object containing exactly " + (7 + (structuredKeys.length ? 1 : 0)) + " top-level keys.\n\n" +
-        "Keys 1-6 are for internal review only. Each must be an object with 'pt' and 'en' string fields:\n" +
-        "  discussion_overview, recommendations, client_action_items, rafa_followups,\n" +
-        "  next_session_focus, client_profile_updates\n\n";
+        "Respond with a JSON object containing exactly " + totalKeys + " top-level keys.\n\n";
 
-    if (structuredKeys.length) {
-        prompt += "Keys 7-" + (6 + structuredKeys.length) + " are structured sections. Each must be an object with 'pt' and 'en' fields, where pt and en\n" +
+    prompt += "The following keys are for internal review only. Each must be an object with 'pt' and 'en' string fields:\n" +
+        "  " + reviewKeys.join(", ") + "\n\n";
+
+    if (structuredKeys.length > 0) {
+        prompt += "The following are structured sections. Each must be an object with 'pt' and 'en' fields, where pt and en\n" +
             "hold the SAME structure (pt in Brazilian Portuguese, en in English — translate descriptions; keep\n" +
-            "dimension/area names and level values EXACTLY as specified, in Portuguese, in BOTH languages):\n" +
-            structuredBlocks + "\n";
+            "dimension/area names and level values EXACTLY as specified, in Portuguese, in BOTH languages):\n";
+        if (wantBusinessDiagnosis) {
+            prompt += "  business_diagnosis: pt/en are each an array of exactly 10 rows, one per business dimension,\n" +
+                "    in exactly this order: \"Produto/Serviço\", \"Fundadores\", \"Experiência do Cliente\",\n" +
+                "    \"Time Operacional\", \"Time Comercial\", \"Marketing & Presença Digital\", \"Infraestrutura\",\n" +
+                "    \"Documentação Legal\", \"Sistemas de Gestão\", \"Parcerias\".\n" +
+                "    Each row: {\"dimension\": \"<fixed name above>\", \"situation\": \"1 short sentence describing the\n" +
+                "    client's current situation in that dimension, extracted from the transcript\", \"level\": one of\n" +
+                "    exactly \"FORTE\", \"MÉDIO\", \"FRACO\", \"CRÍTICO\" — your assessment from the transcript content}\n";
+        }
+        if (wantSwotSynthesis) {
+            prompt += "  swot_synthesis: pt/en are each an object with exactly 3 string fields, each a short analytical\n" +
+                "    paragraph (2-3 sentences) cross-referencing the SWOT quadrants you produced:\n" +
+                "    {\"forca_oportunidade\": \"how the strengths enable capturing the opportunities\",\n" +
+                "     \"fraqueza_ameaca\": \"the biggest combined risk where weaknesses meet threats\",\n" +
+                "     \"forca_ameaca\": \"how the strengths defend against the threats\"}\n";
+        }
+        if (wantThirtyDayGoals) {
+            prompt += "  thirty_day_goals: pt/en are each an array of exactly 7 rows, one per area, in exactly this order:\n" +
+                "    \"Operacional\", \"Comercial\", \"Marketing\", \"Parcerias\", \"Infraestrutura\", \"Legal\", \"Sistemas\".\n" +
+                "    Each row: {\"area\": \"<fixed name above>\", \"meta\": \"a concrete 30-day goal for that area derived\n" +
+                "    from the transcript\", \"indicador\": \"a measurable success indicator for that goal\"}\n";
+        }
+        prompt += "\n";
     }
 
     prompt += "The final key is 'pdf_data' — a client-facing deliverable written entirely in Brazilian Portuguese.\n" +
-        "pdf_data must be an object with these fields:\n" +
+        "pdf_data must be an object with exactly these fields:\n" +
         "  document_title: always the exact string \"Relatorio\\nEstrategico\" (use \\n between the two words)\n" +
         "  executive_summary: string, 2-4 sentences summarizing the session\n" +
-        "  headline_insights: array of 2-4 objects: [{\"title\": \"...\", \"body\": \"1-2 sentences\"}]\n" +
-        pdfDataBlocks +
-        "\nRules: 2-4 items per array unless stated otherwise. Exactly 4 week entries in thirty_day_plan if included.\n" +
-        "Exactly 10 rows in business_diagnosis and exactly 7 rows in thirty_day_goals if included, in the fixed order given.\n" +
-        "If the transcript lacks enough detail for a field, infer a reasonable conservative entry — do not leave arrays empty.\n" +
-        "Only include the fields listed above — do not add fields for sections not requested here.\n";
+        "  headline_insights: array of 2-4 objects: [{\"title\": \"...\", \"body\": \"1-2 sentences\"}]\n";
+    if (wantRecommendations) {
+        prompt += "  recommendations: array of 2-4 objects: [{\"number\": \"01\", \"title\": \"...\", \"body\": \"1-2 sentences\"}]\n";
+    }
+    if (wantClientActions) {
+        prompt += "  client_actions: array of 2-4 objects: [{\"text\": \"...\", \"due\": \"DD Mon\"}] (abbreviated Portuguese month, e.g. '20 Jun')\n";
+    }
+    if (wantConsultantFollowups) {
+        prompt += "  consultant_followups: array of 2-4 objects: [{\"text\": \"...\", \"due\": \"DD Mon\"}]\n";
+    }
+    if (wantNextSessionFocus) {
+        prompt += "  next_session_focus_points: array of 2-4 objects: [{\"number\": \"01\", \"text\": \"...\"}]\n";
+    }
+    if (wantSwot) {
+        prompt += "  swot: {\"strengths\": [2-4 strings], \"weaknesses\": [2-4 strings], \"opportunities\": [2-4 strings], \"threats\": [2-4 strings]}\n";
+    }
+    if (wantThirtyDayPlan) {
+        prompt += "  thirty_day_plan: array of exactly 4 week objects:\n" +
+            "    [{\"week_label\": \"SEMANA 1\", \"week_title\": \"short theme\", \"items\": [{\"text\": \"...\", \"owner\": \"CLIENTE\"}]}]\n" +
+            "    owner must be exactly 'CLIENTE' or 'CONSULTOR' (uppercase, no other values)\n";
+    }
+    if (wantBusinessDiagnosis) {
+        prompt += "  business_diagnosis: identical structure and content to the 'pt' side of top-level business_diagnosis\n";
+    }
+    if (wantSwotSynthesis) {
+        prompt += "  swot_synthesis: identical structure and content to the 'pt' side of top-level swot_synthesis\n";
+    }
+    if (wantThirtyDayGoals) {
+        prompt += "  thirty_day_goals: identical structure and content to the 'pt' side of top-level thirty_day_goals\n";
+    }
+    prompt += "\nRules: 2-4 items per array unless stated otherwise.";
+    if (wantThirtyDayPlan) { prompt += " Exactly 4 week entries in thirty_day_plan."; }
+    if (wantBusinessDiagnosis) { prompt += " Exactly 10 rows in business_diagnosis, in the fixed order given."; }
+    if (wantThirtyDayGoals) { prompt += " Exactly 7 rows in thirty_day_goals, in the fixed order given."; }
+    prompt += "\nIf the transcript lacks enough detail for a field, infer a reasonable conservative entry — do not leave arrays empty.\n" +
+        "Do not include any keys other than the ones listed above.\n";
 
     return prompt;
 }
@@ -959,14 +975,15 @@ function buildSummaryPrompt(sectionCfg) {
 // defines custom sections. Asks for one more top-level key, custom_section_content,
 // keyed by custom section id.
 function buildCustomSectionsPrompt(customSections) {
-    if (!customSections || customSections.length === 0) { return ""; }
+    var enabled = (customSections || []).filter(function (cs) { return cs && cs.enabled; });
+    if (enabled.length === 0) { return ""; }
     var block = "\nAdditionally, include one more top-level key: 'custom_section_content'.\n" +
-        "It must be an object with exactly " + customSections.length + " key(s), one per custom section id below.\n" +
+        "It must be an object with exactly " + enabled.length + " key(s), one per custom section id below.\n" +
         "Each value must be an object with 'pt' and 'en' fields; each of those is an object shaped as\n" +
         "{\"title\": \"<the exact title given>\", \"body\": \"1-3 sentence paragraph grounded in the transcript\",\n" +
         " \"bullets\": [2-5 short strings]}. Write pt in Brazilian Portuguese and en in English.\n";
-    for (var i = 0; i < customSections.length; i++) {
-        var cs = customSections[i];
+    for (var i = 0; i < enabled.length; i++) {
+        var cs = enabled[i];
         var titleEn = cs.title_en && cs.title_en.trim() ? cs.title_en : cs.title_pt;
         block += "\nCustom section id \"" + cs.id + "\":\n" +
             "  pt title must be exactly \"" + cs.title_pt + "\"; en title must be exactly \"" + titleEn + "\".\n" +
@@ -989,9 +1006,10 @@ async function handlePostSummarize(request, env) {
         if (!session)              { return jsonErr("Session not found", 404); }
         if (!session.raw_transcript) { return jsonErr("No transcript for this session", 400); }
 
-        // Only sections enabled in section_config are requested from Claude —
-        // the section-selection screen persists the user's choice via PUT
-        // /api/sessions/:id/section-config before Generate calls this endpoint.
+        // Only sections whose checkbox is enabled are requested from the model —
+        // this drives both the internal-review keys and pdf_data in one pass.
+        // Custom sections get their own instruction block, gated on their own
+        // enabled flag the same way.
         var sectionCfg = parseSectionConfig(session.section_config);
         var promptText = buildSummaryPrompt(sectionCfg) +
             buildCustomSectionsPrompt(sectionCfg.custom_sections) +

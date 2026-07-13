@@ -3589,7 +3589,8 @@
 
       for (var i = 0; i < SECTION_KEYS.length; i++) {
         var key  = SECTION_KEYS[i];
-        var sec  = summary[key] || {};
+        if (!summary[key]) { continue; }
+        var sec  = summary[key];
         var card = document.createElement("div");
         card.className = "summary-card";
 

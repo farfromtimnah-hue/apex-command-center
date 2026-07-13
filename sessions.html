@@ -1219,11 +1219,15 @@
                   <span class="show-pt">Se&ccedil;&otilde;es do Relat&oacute;rio</span>
                   <span class="show-en">Report Sections</span>
                 </h3>
-                <p class="section-config-hint">
+                <p class="section-config-hint" id="sectionConfigHint">
                   <span class="show-pt">Capa e Sum&aacute;rio Executivo s&atilde;o sempre inclu&iacute;dos. Desmarque uma se&ccedil;&atilde;o para exclu&iacute;-la do relat&oacute;rio desta sess&atilde;o.</span>
                   <span class="show-en">Cover and Executive Summary are always included. Uncheck a section to exclude it from this session's report.</span>
                 </p>
                 <div id="sectionConfigList"><!-- checkboxes rendered by JS --></div>
+                <button type="button" class="btn-action" id="btnGenerateSummary" style="margin-top:12px; display:none;">
+                  <span class="show-pt">Gerar Resumo</span>
+                  <span class="show-en">Generate Summary</span>
+                </button>
                 <button type="button" class="btn-secondary" id="btnNewSection" style="margin-top:12px;">
                   <span class="show-pt">+ Nova Se&ccedil;&atilde;o</span>
                   <span class="show-en">+ New Section</span>
@@ -2212,6 +2216,9 @@
       return card;
     }
 
+    // Assigns the client, then hands off to the Sessions tab's section-selection
+    // screen (sectionConfigPanel + Gerar Resumo) instead of calling /api/summarize
+    // directly — the Claude call only fires once the user picks sections there.
     function handleInboxSummarize(session, clientSel, btn) {
       var clientId = clientSel.value;
       if (!clientId) { return; }
@@ -2221,19 +2228,13 @@
 
       btn.disabled = true;
       btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.75s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
-        (isEn ? "Summarizing..." : "Resumindo...");
+        (isEn ? "Loading..." : "Carregando...");
       if (statusEl) { statusEl.textContent = ""; statusEl.className = "inbox-card-status"; }
 
-      // First assign the client to the session, then summarize
       apiFetch("/api/sessions/" + session.id + "/assign-client", {
         method: "POST",
         body: { client_id: clientId }
       })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          return apiFetch("/api/summarize", { method: "POST", body: { session_id: session.id } });
-        })
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
@@ -2242,8 +2243,17 @@
           var cardEl = document.getElementById("inbox-card-" + session.id);
           if (cardEl) { cardEl.remove(); }
           renderInbox();
-          // Reload sessions so it shows up in Sessions tab
-          loadSessions();
+          // Reload sessions, then jump straight to this session's detail view
+          // so the user lands on the section-selection screen before Gerar Resumo.
+          apiFetch("/api/sessions")
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              sessions = d.sessions || [];
+              renderSessionList();
+              updateSessionStats();
+              switchTab("sessions");
+              selectSession(session.id);
+            });
         })
         .catch(function(e) {
           btn.disabled = false;
@@ -2466,7 +2476,7 @@
       }
 
       renderAliceActions(session);
-      loadSectionConfigPanel(session.id);
+      loadSectionConfigPanel(session.id, session.status);
       renderSummaryCards(
         document.getElementById("summaryCards"),
         session.summary_json ? JSON.parse(session.summary_json) : null,
@@ -2483,14 +2493,9 @@
       statusDiv.id = "actionStatus";
       actionsEl.appendChild(statusDiv);
 
-      if (session.status === "pending") {
-        var btn = document.createElement("button");
-        btn.className = "btn-action";
-        btn.id = "btnProcess";
-        btn.innerHTML = '<span class="show-pt">Gerar Resumo</span><span class="show-en">Generate Summary</span>';
-        btn.onclick = makeProcessHandler(session.id);
-        actionsEl.appendChild(btn);
-      }
+      // For "pending" sessions, Generate Summary lives inside sectionConfigPanel
+      // below (see loadSectionConfigPanel / btnGenerateSummary) — the user must
+      // review/select report sections there before the Claude call is made.
 
       if (session.status === "summarized") {
         var appBtn = document.createElement("button");
@@ -2511,15 +2516,17 @@
       }
     }
 
-    function makeProcessHandler(id) { return function() { handleProcess(id); }; }
     function makeApproveHandler(id) { return function() { handleApprove(id); }; }
 
     // ── Report section config panel (Secoes do Relatorio) ─────────────────
-    // Every change (checkbox toggle or new custom section) is saved to the
-    // backend immediately via PUT /api/sessions/:id/section-config, so the
-    // config is already stored when Gerar Resumo runs. The checklist stays
-    // editable after summarize/approve too — the worker refreshes
-    // pdf_data.active_sections on save, no AI re-run needed.
+    // For a "pending" session this panel doubles as the Step 2 screen: the
+    // Claude summarize call only fires when the user clicks Gerar Resumo here
+    // (see handleGenerateSummary), after reviewing/selecting sections. Every
+    // checkbox/custom-section change is saved immediately via PUT
+    // /api/sessions/:id/section-config, so section_config is already stored
+    // by the time Gerar Resumo runs. The checklist stays editable after
+    // summarize/approve too — the worker refreshes pdf_data.active_sections
+    // on save, no AI re-run needed.
 
     var STANDARD_REPORT_SECTIONS = [
       { key: "business_diagnosis",   pt: "Radiografia Atual",           en: "Current Business X-Ray" },
@@ -2536,13 +2543,28 @@
     var sectionConfigState   = null;  // config object for the selected session
     var sectionConfigSession = null;  // session id the state belongs to
 
-    function loadSectionConfigPanel(sessionId) {
+    function loadSectionConfigPanel(sessionId, sessionStatus) {
       var panel = document.getElementById("sectionConfigPanel");
+      var genBtn = document.getElementById("btnGenerateSummary");
       panel.hidden = true;
       sectionConfigState   = null;
       sectionConfigSession = sessionId;
       document.getElementById("newSectionForm").hidden = true;
       document.getElementById("sectionConfigStatus").textContent = "";
+      genBtn.style.display = sessionStatus === "pending" ? "" : "none";
+      genBtn.disabled = false;
+      genBtn.innerHTML = '<span class="show-pt">Gerar Resumo</span><span class="show-en">Generate Summary</span>';
+
+      var hintEl = document.getElementById("sectionConfigHint");
+      if (sessionStatus === "pending") {
+        hintEl.innerHTML =
+          '<span class="show-pt">Capa e Sumário Executivo são sempre incluídos. Selecione as seções que a IA deve gerar, depois clique em Gerar Resumo.</span>' +
+          '<span class="show-en">Cover and Executive Summary are always included. Select which sections the AI should generate, then click Generate Summary.</span>';
+      } else {
+        hintEl.innerHTML =
+          '<span class="show-pt">Capa e Sumário Executivo são sempre incluídos. Desmarque uma seção para excluí-la do relatório desta sessão.</span>' +
+          '<span class="show-en">Cover and Executive Summary are always included. Uncheck a section to exclude it from this session\'s report.</span>';
+      }
 
       apiFetch("/api/sessions/" + sessionId + "/section-config")
         .then(function(res) { return res.json(); })
@@ -3012,10 +3034,18 @@
         });
     }
 
-    function handleProcess(sessionId) {
-      var btn = document.getElementById("btnProcess");
-      if (btn) { btn.disabled = true; }
-      setActionStatus("Generating summary...");
+    // Gated behind the section-selection screen (sectionConfigPanel): the user
+    // must review/select report sections here first — this is the only path
+    // that actually triggers the Claude summarize call for a pending session.
+    function handleGenerateSummary(sessionId) {
+      var btn = document.getElementById("btnGenerateSummary");
+      var isEn = document.body.classList.contains("lang-en");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.75s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
+          (isEn ? "Generating..." : "Gerando...");
+      }
+      setActionStatus(isEn ? "Generating summary..." : "Gerando resumo...");
 
       apiFetch("/api/summarize", { method: "POST", body: { session_id: sessionId } })
         .then(function(res) { return res.json(); })
@@ -3031,10 +3061,16 @@
           selectSession(sessionId);
         })
         .catch(function(e) {
-          if (btn) { btn.disabled = false; }
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="show-pt">Gerar Resumo</span><span class="show-en">Generate Summary</span>';
+          }
           setActionStatus("Error: " + e.message, "is-error");
         });
     }
+    document.getElementById("btnGenerateSummary").onclick = function() {
+      if (sectionConfigSession) { handleGenerateSummary(sectionConfigSession); }
+    };
 
     function handleApprove(sessionId) {
       var btn    = document.getElementById("btnApprove");

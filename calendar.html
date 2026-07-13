@@ -3,7 +3,14 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
   <title>Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -894,6 +901,89 @@
     @media (prefers-reduced-motion: reduce) {
       #calendarHeroBg.is-loaded { animation: none; }
     }
+
+    /* ─── Mobile Month/Week: mini calendar + agenda list ─────────────────── */
+    /* Only the mobile renderMobileCal() path emits these classes, and it
+       only runs at 768px and below; desktop Month/Week keep the grid. */
+    @media (max-width: 768px) {
+      .cal-mini-wrap {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        padding: 12px 8px 8px;
+        touch-action: pan-y;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      .cal-mini-dow-row,
+      .cal-mini-row {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+      }
+      .cal-mini-dow {
+        text-align: center;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding-bottom: 6px;
+      }
+      .cal-mini-cell {
+        min-height: 44px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        background: none;
+        border: none;
+        padding: 2px 0;
+        font-family: 'Inter', sans-serif;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .cal-mini-num {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+      }
+      .cal-mini-cell.is-today .cal-mini-num {
+        border: 1.5px solid var(--gold);
+        font-weight: 700;
+      }
+      .cal-mini-cell.is-selected .cal-mini-num {
+        background: var(--gold);
+        color: #1a1a1d;
+        font-weight: 700;
+      }
+      .cal-mini-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--gold);
+      }
+      .cal-mini-dot.is-empty { background: transparent; }
+      .cal-agenda-head {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        margin: 16px 2px 8px;
+      }
+      .cal-agenda-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .cal-agenda-list .cal-day-chip { margin: 0; }
+    }
   </style>
 </head>
 <body class="lang-pt">
@@ -1678,9 +1768,13 @@
 
     function renderCalendar() {
       updateNavLabel();
-      if (calView === "month") { renderMonth(); }
-      else if (calView === "week") { renderWeek(); }
-      else { renderDay(); }
+      // Month and Week switch to the mini-calendar + agenda pattern at
+      // mobile widths; Day view already works on mobile and is untouched.
+      if (calView === "month") {
+        if (isMobileCalWidth()) { renderMobileCal(); } else { renderMonth(); }
+      } else if (calView === "week") {
+        if (isMobileCalWidth()) { renderMobileCal(); } else { renderWeek(); }
+      } else { renderDay(); }
     }
 
     function updateNavLabel() {
@@ -2027,6 +2121,170 @@
       return chip;
     }
 
+    // ── Mobile Month/Week: mini calendar strip + agenda list ──────────────
+    // Standard mobile calendar pattern: a compact grid of bare dates with a
+    // dot under any date that has events, and the selected date's agenda
+    // below it, rendered with the same makeDayChip renderer Day view uses.
+    // Desktop Month/Week rendering above is completely untouched.
+
+    var calMobileSelDate = null; // YYYY-MM-DD selected in the mini calendar
+
+    function isMobileCalWidth() {
+      return !!(window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
+    }
+
+    var calMobileWasMobile = isMobileCalWidth();
+
+    // Dates covered by the mini calendar for the current view/anchor
+    function getMobileRangeDates() {
+      if (calView === "week") { return getWeekDateStrings(curDate); }
+      var last = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0).getDate();
+      var result = [];
+      for (var d = 1; d <= last; d++) {
+        result.push(curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1) + "-" + padZ(d));
+      }
+      return result;
+    }
+
+    function makeMiniCell(dateStr, map, todayStr) {
+      var cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cal-mini-cell" +
+        (dateStr === todayStr ? " is-today" : "") +
+        (dateStr === calMobileSelDate ? " is-selected" : "");
+      var num = document.createElement("span");
+      num.className = "cal-mini-num";
+      num.textContent = parseInt(dateStr.slice(8), 10);
+      cell.appendChild(num);
+      var dot = document.createElement("span");
+      dot.className = "cal-mini-dot" + ((map[dateStr] || []).length ? "" : " is-empty");
+      cell.appendChild(dot);
+      (function (ds) {
+        cell.onclick = function () {
+          calMobileSelDate = ds;
+          renderMobileCal();
+        };
+      })(dateStr);
+      return cell;
+    }
+
+    // Swipe left/right on the mini calendar moves to the next/prev month
+    // (month view) or week (week view) via the existing nav functions.
+    function attachMiniSwipe(el) {
+      var startX = null;
+      var startY = null;
+      el.addEventListener("touchstart", function (ev) {
+        if (ev.touches && ev.touches.length === 1) {
+          startX = ev.touches[0].clientX;
+          startY = ev.touches[0].clientY;
+        }
+      }, { passive: true });
+      el.addEventListener("touchend", function (ev) {
+        if (startX === null || !ev.changedTouches || ev.changedTouches.length === 0) { return; }
+        var dx = ev.changedTouches[0].clientX - startX;
+        var dy = ev.changedTouches[0].clientY - startY;
+        startX = null;
+        startY = null;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) { return; }
+        if (dx < 0) { navNext(); } else { navPrev(); }
+      }, { passive: true });
+    }
+
+    function renderMobileCal() {
+      var content = document.getElementById("calendarContent");
+      if (!content) { return; }
+      var map = buildSessionMap();
+      var en = isEn();
+      var days = en ? DAYS_EN : DAYS_PT;
+      var range = getMobileRangeDates();
+      var todayStr = dateKey(new Date());
+
+      // Keep the selection while it stays in range; else today; else day 1
+      if (range.indexOf(calMobileSelDate) === -1) {
+        calMobileSelDate = (range.indexOf(todayStr) !== -1) ? todayStr : range[0];
+      }
+
+      var wrap = document.createElement("div");
+      wrap.className = "cal-mini-wrap";
+
+      var dowRow = document.createElement("div");
+      dowRow.className = "cal-mini-dow-row";
+      for (var d = 0; d < 7; d++) {
+        var dow = document.createElement("div");
+        dow.className = "cal-mini-dow";
+        dow.textContent = days[d];
+        dowRow.appendChild(dow);
+      }
+      wrap.appendChild(dowRow);
+
+      var row = document.createElement("div");
+      row.className = "cal-mini-row";
+      if (calView === "month") {
+        // Pad so day 1 lands on its weekday column, same as the grid view
+        var firstDow = new Date(curDate.getFullYear(), curDate.getMonth(), 1).getDay();
+        for (var p = 0; p < firstDow; p++) {
+          row.appendChild(document.createElement("div"));
+        }
+      }
+      for (var i = 0; i < range.length; i++) {
+        row.appendChild(makeMiniCell(range[i], map, todayStr));
+      }
+      wrap.appendChild(row);
+
+      attachMiniSwipe(wrap);
+
+      content.innerHTML = "";
+      content.appendChild(wrap);
+      renderMobileAgenda(content, map);
+    }
+
+    function renderMobileAgenda(content, map) {
+      var en = isEn();
+      var months = en ? MONTHS_EN : MONTHS_PT;
+      var days = en ? DAYS_EN : DAYS_PT;
+      var parts = calMobileSelDate.split("-");
+      var selDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+
+      var head = document.createElement("div");
+      head.className = "cal-agenda-head";
+      head.textContent = days[selDate.getDay()] + ", " + padZ(selDate.getDate()) + " " + months[selDate.getMonth()] + " " + selDate.getFullYear();
+      content.appendChild(head);
+
+      var list = document.createElement("div");
+      list.className = "cal-agenda-list";
+      var sessions = (map[calMobileSelDate] || []).slice();
+      sessions.sort(function (a, b) {
+        var ta = a.time || "";
+        var tb = b.time || "";
+        if (ta === tb) { return 0; }
+        if (!ta) { return -1; }
+        if (!tb) { return 1; }
+        return ta < tb ? -1 : 1;
+      });
+      if (sessions.length === 0) {
+        var empty = document.createElement("div");
+        empty.className = "cal-empty";
+        empty.innerHTML =
+          '<span class="show-pt">Nenhuma sess\u00e3o agendada.</span>' +
+          '<span class="show-en">No sessions scheduled.</span>';
+        list.appendChild(empty);
+      } else {
+        for (var si = 0; si < sessions.length; si++) {
+          list.appendChild(makeDayChip(sessions[si]));
+        }
+      }
+      content.appendChild(list);
+    }
+
+    // Re-render when a resize crosses the mobile/desktop breakpoint, so a
+    // rotated phone or resized window always shows the right pattern.
+    window.addEventListener("resize", function () {
+      var m = isMobileCalWidth();
+      if (m === calMobileWasMobile) { return; }
+      calMobileWasMobile = m;
+      if (calView === "month" || calView === "week") { renderCalendar(); }
+    });
+
     // ── New Session modal ──────────────────────────────────────────────────
 
     function openNewSessionModal() {
@@ -2356,5 +2614,11 @@
     window.onload = function() { init(); };
   </script>
 
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
 </body>
 </html>

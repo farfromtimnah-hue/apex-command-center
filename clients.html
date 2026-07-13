@@ -2,7 +2,14 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
   <title>Apex — Clientes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -950,7 +957,7 @@
       }
 
       var table = document.createElement("table");
-      table.className = "clients-table";
+      table.className = "clients-table mc-table";
 
       var thead = document.createElement("thead");
       thead.innerHTML =
@@ -965,8 +972,22 @@
       for (var i = 0; i < clients.length; i++) {
         (function (c) {
           var tr = document.createElement("tr");
+          var profileUrl = "client.html?id=" + encodeURIComponent(c.id);
+          // Mobile: the whole card is one tap target for the profile.
+          // Taps on links/buttons inside the card keep their own behavior.
+          tr.setAttribute("data-mc-href", profileUrl);
+          tr.addEventListener("click", function (ev) {
+            if (!window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) { return; }
+            var t = ev.target;
+            while (t && t !== tr) {
+              if (t.tagName === "A" || t.tagName === "BUTTON") { return; }
+              t = t.parentNode;
+            }
+            window.location.href = profileUrl;
+          });
 
           var tdName = document.createElement("td");
+          tdName.className = "mc-head";
           var link   = document.createElement("a");
           link.className   = "client-name-link";
           link.href        = "client.html?id=" + encodeURIComponent(c.id);
@@ -975,6 +996,9 @@
           tr.appendChild(tdName);
 
           var tdPkg = document.createElement("td");
+          tdPkg.className = "mc-field";
+          tdPkg.setAttribute("data-label-pt", "Pacote");
+          tdPkg.setAttribute("data-label-en", "Package");
           if (c.package) {
             var pkgEl = document.createElement("span");
             pkgEl.className   = "package-lozenge";
@@ -987,6 +1011,9 @@
           tr.appendChild(tdPkg);
 
           var tdStatus = document.createElement("td");
+          tdStatus.className = "mc-field";
+          tdStatus.setAttribute("data-label-pt", "Status");
+          tdStatus.setAttribute("data-label-en", "Status");
           var statusEl = document.createElement("span");
           statusEl.className = "status-lozenge";
           statusEl.setAttribute("data-status", (c.status || "active").toLowerCase());
@@ -1178,5 +1205,11 @@
 
     window.onload = function () { init(); };
   </script>
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
 </body>
 </html>

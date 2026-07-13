@@ -89,9 +89,37 @@
       body = '<polyline points="9 18 15 12 9 6"/>';
     } else if (type === "user-plus") {
       body = '<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/>';
+    } else if (type === "more") {
+      body = '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>';
     }
     return open + body + '</svg>';
   }
+
+  // ── Public: icon badge for mobile card action buttons ───────────────────
+  // Pages embed these inside row action buttons; mobile.css hides the text
+  // label and shows this icon at 768px and below. Hidden on desktop.
+  window.apexMcIcon = function (type) {
+    var open = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+    var body = "";
+    if (type === "view") {
+      body = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    } else if (type === "edit") {
+      body = '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>';
+    } else if (type === "check") {
+      body = '<polyline points="20 6 9 17 4 12"/>';
+    } else if (type === "send") {
+      body = '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>';
+    } else if (type === "link") {
+      body = '<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>';
+    } else if (type === "x") {
+      body = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+    } else if (type === "restore") {
+      body = '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>';
+    } else if (type === "download") {
+      body = '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
+    }
+    return '<span class="mc-ico" aria-hidden="true">' + open + body + '</svg></span>';
+  };
 
   // ── CSS injection ────────────────────────────────────────────────────────
   function injectStyles() {
@@ -262,6 +290,177 @@
     window.initNav && window.initNav();
   };
 
+  // ── Mobile bottom tab bar + "Mais" overflow menu ─────────────────────────
+  // The #mobile-tab-bar and #mobile-more-menu containers are STATIC HTML in
+  // every page (never created here); this code only fills them in. All of
+  // their positioning and visibility lives in mobile.css behind a max-width
+  // media query.
+
+  function mobileTabDef(key, href, icon, labelPt, labelEn) {
+    return { key: key, href: href, icon: icon, labelPt: labelPt, labelEn: labelEn };
+  }
+
+  var MTAB_INICIO     = mobileTabDef("dashboard", "dashboard.html", "home",         "In&iacute;cio",                "Home");
+  var MTAB_CLIENTES   = mobileTabDef("clients",   "clients.html",   "users",        "Clientes",                     "Clients");
+  var MTAB_SESSOES    = mobileTabDef("sessions",  "sessions.html",  "calendar",     "Sess&otilde;es",               "Sessions");
+  var MTAB_VENDAS     = mobileTabDef("sales",     "sales.html",     "trend",        "Vendas",                       "Sales");
+  var MTAB_TAREFAS    = mobileTabDef("tasks",     "tasks.html",     "check-square", "Tarefas",                      "Tasks");
+  var MTAB_FINANCEIRO = mobileTabDef("finance",   "finance.html",   "finance",      "Financeiro",                   "Financial");
+  var MTAB_CALENDARIO = mobileTabDef("calendar",  "calendar.html",  "cal-grid",     "Calend&aacute;rio",            "Calendar");
+  var MTAB_DOCUMENTOS = mobileTabDef("documents", "documents.html", "file",         "Documentos",                   "Documents");
+  var MTAB_CONFIG     = mobileTabDef("settings",  "settings.html",  "settings",     "Configura&ccedil;&otilde;es",  "Settings");
+  var MTAB_ADDUSER    = mobileTabDef("adduser",   "add-user.html",  "user-plus",    "Adicionar Usu&aacute;rio",     "Add User");
+
+  function getMobileNavConfig(navRole) {
+    if (navRole === "rafa") {
+      return {
+        tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_VENDAS, MTAB_TAREFAS],
+        more: [MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG]
+      };
+    }
+    if (navRole === "developer") {
+      return {
+        tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES],
+        more: [MTAB_VENDAS, MTAB_TAREFAS, MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG, MTAB_ADDUSER]
+      };
+    }
+    // alice (default)
+    return {
+      tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_FINANCEIRO, MTAB_CALENDARIO],
+      more: [MTAB_VENDAS, MTAB_TAREFAS, MTAB_DOCUMENTOS, MTAB_CONFIG]
+    };
+  }
+
+  function buildMobileLabelSpan(item) {
+    return '<span class="show-pt">' + item.labelPt + '</span>' +
+           '<span class="show-en">' + item.labelEn + '</span>';
+  }
+
+  function populateMobileNav(navRole) {
+    var bar  = document.getElementById("mobile-tab-bar");
+    var menu = document.getElementById("mobile-more-menu");
+    if (!bar || !menu) { return; }
+
+    var cfg = getMobileNavConfig(navRole);
+    var activePage = getActivePage();
+    var moreIsActive = false;
+    var i;
+
+    for (i = 0; i < cfg.more.length; i++) {
+      if (cfg.more[i].href === activePage) { moreIsActive = true; }
+    }
+
+    var barHtml = "";
+    for (i = 0; i < cfg.tabs.length; i++) {
+      var t = cfg.tabs[i];
+      var activeCls = (activePage === t.href) ? " m-tab-active" : "";
+      barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '">';
+      barHtml += '<span class="m-tab-ico">' + navSvg(t.icon) + '</span>';
+      barHtml += '<span class="m-tab-label">' + buildMobileLabelSpan(t) + '</span>';
+      barHtml += '</a>';
+    }
+    barHtml += '<button type="button" class="m-tab' + (moreIsActive ? " m-tab-active" : "") + '" id="mTabMais" onclick="apexMoreToggle()">';
+    barHtml += '<span class="m-tab-ico">' + navSvg("more") + '</span>';
+    barHtml += '<span class="m-tab-label"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
+    barHtml += '</button>';
+    bar.innerHTML = barHtml;
+
+    var menuHtml = '<div class="mm-head">';
+    menuHtml += '<span class="mm-title"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
+    menuHtml += '<button type="button" class="mm-close" onclick="apexMoreToggle()" aria-label="Fechar">&times;</button>';
+    menuHtml += '</div>';
+    menuHtml += '<nav class="mm-list">';
+    for (i = 0; i < cfg.more.length; i++) {
+      var m = cfg.more[i];
+      var itemActive = (activePage === m.href) ? " mm-item-active" : "";
+      menuHtml += '<a class="mm-item' + itemActive + '" href="' + m.href + '">';
+      menuHtml += '<span class="mm-item-ico">' + navSvg(m.icon) + '</span>';
+      menuHtml += buildMobileLabelSpan(m);
+      menuHtml += '<span class="mm-item-chevron">' + navSvg("chevron-right") + '</span>';
+      menuHtml += '</a>';
+    }
+    menuHtml += '</nav>';
+
+    // Dev view switcher (developer role only) — same three buttons and the
+    // same apexNavSetView calls as the desktop sidebar switcher. Checks the
+    // REAL role, not navRole: a developer previewing Alice/Rafa still needs
+    // the switcher visible to get back to the Dev view.
+    var realRole = sessionStorage.getItem("apex_role") || "alice";
+    if (realRole === "developer") {
+      var mmDevView = sessionStorage.getItem("apex_dev_view") || "dev";
+      var mmButtons = [
+        { id: "mmBtnAlice", v: "alice", label: "Alice" },
+        { id: "mmBtnRafa",  v: "rafa",  label: "Rafa"  },
+        { id: "mmBtnDev",   v: "dev",   label: "Dev"   }
+      ];
+      menuHtml += '<div class="mm-switcher">';
+      menuHtml += '<div class="mm-switcher-label">DEV</div>';
+      menuHtml += '<div class="mm-switcher-btns">';
+      for (var k = 0; k < mmButtons.length; k++) {
+        var mb = mmButtons[k];
+        var mac = (mmDevView === mb.v) ? " mm-view-active" : "";
+        menuHtml += '<button type="button" id="' + mb.id + '" class="mm-view-btn' + mac + '" onclick="apexNavSetView(\'' + mb.v + '\')">' + mb.label + '</button>';
+      }
+      menuHtml += '</div></div>';
+    }
+
+    menu.innerHTML = menuHtml;
+  }
+
+  // ── Scrollable view-switch tab strips (.m-scroll-tabs) ──────────────────
+  // mobile.css makes these one-row horizontal scrollers at 768px and below;
+  // this only maintains the mst-fade-left/right hint classes and brings the
+  // active tab into view. Inert on desktop: the classes have no CSS effect
+  // outside the mobile media query.
+  function setupTabStrips() {
+    var strips = document.querySelectorAll(".m-scroll-tabs");
+    var i;
+    for (i = 0; i < strips.length; i++) {
+      (function (el) {
+        if (el.getAttribute("data-mst-wired") === "1") { return; }
+        el.setAttribute("data-mst-wired", "1");
+        function updateFade() {
+          var maxScroll = el.scrollWidth - el.clientWidth;
+          if (maxScroll <= 1) {
+            el.classList.remove("mst-fade-left");
+            el.classList.remove("mst-fade-right");
+            return;
+          }
+          if (el.scrollLeft > 1) { el.classList.add("mst-fade-left"); }
+          else { el.classList.remove("mst-fade-left"); }
+          if (el.scrollLeft < maxScroll - 1) { el.classList.add("mst-fade-right"); }
+          else { el.classList.remove("mst-fade-right"); }
+        }
+        el.addEventListener("scroll", updateFade);
+        window.addEventListener("resize", updateFade);
+        // Web fonts change pill widths after first layout
+        if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+          document.fonts.ready.then(updateFade);
+        }
+        setTimeout(updateFade, 600);
+        var active = el.querySelector(".active");
+        if (active && el.scrollWidth > el.clientWidth) {
+          el.scrollLeft = Math.max(0, active.offsetLeft - el.offsetLeft - 16);
+        }
+        updateFade();
+      })(strips[i]);
+    }
+  }
+  window.apexSetupTabStrips = setupTabStrips;
+
+  // ── Public: toggle the full-screen "Mais" menu ───────────────────────────
+  window.apexMoreToggle = function () {
+    var menu = document.getElementById("mobile-more-menu");
+    if (!menu) { return; }
+    if (menu.classList.contains("mm-open")) {
+      menu.classList.remove("mm-open");
+      document.body.classList.remove("mm-menu-lock");
+    } else {
+      menu.classList.add("mm-open");
+      document.body.classList.add("mm-menu-lock");
+    }
+  };
+
   // ── Public: init ─────────────────────────────────────────────────────────
   // Called by each page after auth + role are confirmed.
   window.initNav = function () {
@@ -302,6 +501,10 @@
     }
 
     refreshToggleIcon();
+
+    populateMobileNav(navRole);
+
+    setupTabStrips();
   };
 
 })();

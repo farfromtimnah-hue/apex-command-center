@@ -2,7 +2,14 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
   <title>Apex &#8212; Financeiro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -768,6 +775,24 @@
       .add-sub-form { grid-template-columns: 1fr; }
     }
 
+    /* Mobile: center the dollar figures inside the hero stat tiles.
+       Two tiles per row so a full "$12,345.67" never breaks mid-number. */
+    @media (max-width: 768px) {
+      .glass-tile {
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 14px 10px;
+        flex: 1 1 calc(50% - 14px);
+        min-width: calc(50% - 14px);
+      }
+      .glass-tile-value {
+        font-size: 22px;
+        max-width: 100%;
+      }
+      .glass-tile-label { text-align: center; }
+    }
+
     /* ─── Pricing-missing modal ──────────────────────────────────────────── */
     #pricingMissingOverlay {
       position: fixed;
@@ -1287,7 +1312,7 @@
         </div>
 
         <!-- Pill tabs -->
-        <div class="fin-tab-bar" id="finTabBar">
+        <div class="fin-tab-bar m-scroll-tabs" id="finTabBar">
           <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
             <span class="show-pt">Saude Financeira</span>
             <span class="show-en">Financial Health</span>
@@ -1502,7 +1527,7 @@
           </button>
         </div>
         <!-- Sub-tab bar -->
-        <div class="inv-subtab-bar">
+        <div class="inv-subtab-bar m-scroll-tabs">
           <button class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
             <span class="show-pt">Rascunho</span>
             <span class="show-en">Draft</span>
@@ -1536,7 +1561,7 @@
           </h2>
         </div>
         <!-- Sub-tab bar -->
-        <div class="inv-subtab-bar">
+        <div class="inv-subtab-bar m-scroll-tabs">
           <button class="inv-subtab active" id="reconSubtabUncategorized" onclick="switchReconTab('uncategorized')">
             <span class="show-pt">Nao Categorizadas</span>
             <span class="show-en">Uncategorized</span>
@@ -2504,7 +2529,7 @@
         catOptsHtml += '<option value="' + escHtml(CATEGORY_OPTIONS[c]) + '">' + escHtml(CATEGORY_OPTIONS[c]) + '</option>';
       }
 
-      var html = '<table class="tx-table"><thead><tr>';
+      var html = '<table class="tx-table mc-table"><thead><tr>';
       html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
       html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
       html += '<th><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>';
@@ -2513,6 +2538,8 @@
       html += '<th><span class="show-pt">Conf.</span><span class="show-en">Conf.</span></th>';
       html += '<th><span class="show-pt">Acoes</span><span class="show-en">Actions</span></th>';
       html += '</tr></thead><tbody>';
+
+      var mcIcon = window.apexMcIcon || function () { return ""; };
 
       for (var i = 0; i < txs.length; i++) {
         var t = txs[i];
@@ -2539,17 +2566,19 @@
         catHtml += '</select>';
 
         html += '<tr>';
-        html += '<td>' + escHtml(fmtDate(t.transaction_date)) + '</td>';
-        html += '<td><div class="tx-desc" title="' + escHtml(t.description) + '">' + escHtml(t.description) + '</div></td>';
-        html += '<td class="' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</td>';
-        html += '<td>' + typeChip + '</td>';
-        html += '<td>' + catHtml + '</td>';
-        html += '<td>' + confChip + '</td>';
-        html += '<td><div class="tx-actions">';
+        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(t.transaction_date)) + '</td>';
+        html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(t.description) + '">' + escHtml(t.description) + '</div></td>';
+        html += '<td class="mc-field ' + amtClass + '" data-label-pt="Valor" data-label-en="Amount">' + sign + fmtCurrency(t.amount) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Tipo" data-label-en="Type">' + typeChip + '</td>';
+        html += '<td class="mc-field" data-label-pt="Categoria" data-label-en="Category">' + catHtml + '</td>';
+        html += '<td class="mc-field" data-label-pt="Conf." data-label-en="Conf.">' + confChip + '</td>';
+        html += '<td class="mc-action"><div class="tx-actions">';
         html += '<button class="btn-primary btn-sm" onclick="confirmTx(\'' + escHtml(t.id) + '\')">';
+        html += mcIcon("check");
         html += '<span class="show-pt">Confirmar</span><span class="show-en">Confirm</span>';
         html += '</button>';
         html += '<button class="btn-ghost btn-sm" onclick="ignoreTx(\'' + escHtml(t.id) + '\')">';
+        html += mcIcon("x");
         html += '<span class="show-pt">Ignorar</span><span class="show-en">Ignore</span>';
         html += '</button>';
         html += '</div></td>';
@@ -2671,7 +2700,7 @@
       }
       var isDraft  = (tab === "draft");
       var isUnpaid = (tab === "unpaid");
-      var html = '<table class="inv-table"><thead><tr>';
+      var html = '<table class="inv-table mc-table"><thead><tr>';
       html += '<th>#</th>';
       html += '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>';
       html += '<th><span class="show-pt">Total</span><span class="show-en">Total</span></th>';
@@ -2690,25 +2719,30 @@
         var statusLabel = inv.status === "paid" ? "Paga" : inv.status === "overdue" ? "Vencida" : inv.status === "draft" ? "Rascunho" : "A Pagar";
         var invPath = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
         var invPathLocal = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
+        var mcIcon = window.apexMcIcon || function () { return ""; };
         html += '<tr>';
-        html += '<td style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
-        html += '<td>' + escHtml(inv.customer_name || "--") + '</td>';
-        html += '<td style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
-        html += '<td>' + escHtml(fmtDate(inv.due_date)) + '</td>';
-        html += '<td><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
-        html += '<td><a class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
+        html += '<td class="mc-head" style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Cliente" data-label-en="Client">' + escHtml(inv.customer_name || "--") + '</td>';
+        html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(fmtDate(inv.due_date)) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status"><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
+        html += '<td class="mc-action"><a class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
+        html += mcIcon("view");
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';
         if (isDraft) {
-          html += '<td><button class="btn-inv-view" onclick="openInvoiceEditor(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += '<td class="mc-action"><button class="btn-inv-view" onclick="openInvoiceEditor(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += mcIcon("edit");
           html += '<span class="show-pt">Editar</span><span class="show-en">Edit</span>';
           html += '</button></td>';
-          html += '<td><button class="btn-inv-whatsapp" id="finalizeBtn' + escHtml(inv.invoice_id) + '" onclick="finalizeInvoice(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += '<td class="mc-action"><button class="btn-inv-whatsapp" id="finalizeBtn' + escHtml(inv.invoice_id) + '" onclick="finalizeInvoice(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += mcIcon("check");
           html += '<span class="show-pt">Finalizar</span><span class="show-en">Finalize</span>';
           html += '</button></td>';
         }
         if (isUnpaid) {
-          html += '<td><button class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
+          html += '<td class="mc-action"><button class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
+          html += mcIcon("send");
           html += '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>';
           html += '</button></td>';
         }
@@ -3024,10 +3058,10 @@
       for (var i = 0; i < newInvoiceItems.length; i++) {
         var li = newInvoiceItems[i];
         html += '<div class="item-editor-row has-remove">';
-        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="name" value="' + escHtml(li.name) + '" onchange="onNewInvoiceFieldChange(this)">';
-        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="description" value="' + escHtml(li.description) + '" onchange="onNewInvoiceFieldChange(this)">';
-        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="quantity" value="' + escHtml(String(li.quantity)) + '" min="0" step="1" onchange="onNewInvoiceFieldChange(this)">';
-        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="rate" value="' + escHtml(String(li.rate)) + '" min="0" step="0.01" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="name" placeholder="Descricao / Description" value="' + escHtml(li.name) + '" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<input type="text" class="form-input" data-idx="' + i + '" data-field="description" placeholder="Detalhes / Details" value="' + escHtml(li.description) + '" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="quantity" placeholder="Qtd / Qty" value="' + escHtml(String(li.quantity)) + '" min="0" step="1" onchange="onNewInvoiceFieldChange(this)">';
+        html += '<input type="number" class="form-input" data-idx="' + i + '" data-field="rate" placeholder="Valor / Rate" value="' + escHtml(String(li.rate)) + '" min="0" step="0.01" onchange="onNewInvoiceFieldChange(this)">';
         html += '<button type="button" class="item-row-remove" title="Remover / Remove" onclick="removeNewInvoiceItemRow(' + i + ')">&times;</button>';
         html += '</div>';
       }
@@ -3145,7 +3179,7 @@
         listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma fatura com saldo em aberto</span><span class="show-en">No invoices with an outstanding balance</span></div>';
         return;
       }
-      var html = '<table class="inv-table"><thead><tr>';
+      var html = '<table class="inv-table mc-table"><thead><tr>';
       html += '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>';
       html += '<th>#</th>';
       html += '<th><span class="show-pt">Saldo</span><span class="show-en">Balance</span></th>';
@@ -3156,12 +3190,12 @@
       for (var i = 0; i < invoices.length; i++) {
         var inv = invoices[i];
         html += '<tr>';
-        html += '<td>' + escHtml(inv.customer_name || "--") + '</td>';
-        html += '<td style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
-        html += '<td style="font-weight:600;">' + fmtCurrency(inv.balance) + '</td>';
-        html += '<td>' + escHtml(fmtDate(inv.due_date)) + '</td>';
-        html += '<td>' + (inv.days_overdue > 0 ? inv.days_overdue : "--") + '</td>';
-        html += '<td>' + agingChip(inv.bucket) + '</td>';
+        html += '<td class="mc-head">' + escHtml(inv.customer_name || "--") + '</td>';
+        html += '<td class="mc-field" data-label-pt="Fatura #" data-label-en="Invoice #" style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Saldo" data-label-en="Balance" style="font-weight:600;">' + fmtCurrency(inv.balance) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(fmtDate(inv.due_date)) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Dias em Atraso" data-label-en="Days Overdue">' + (inv.days_overdue > 0 ? inv.days_overdue : "--") + '</td>';
+        html += '<td class="mc-field" data-label-pt="Faixa" data-label-en="Bucket">' + agingChip(inv.bucket) + '</td>';
         html += '</tr>';
       }
       html += '</tbody></table>';
@@ -3328,7 +3362,7 @@
         return;
       }
 
-      var html = '<table class="tx-table"><thead><tr>';
+      var html = '<table class="tx-table mc-table"><thead><tr>';
       html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
       html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
       html += '<th><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>';
@@ -3337,6 +3371,7 @@
       html += '<th><span class="show-pt">Acoes</span><span class="show-en">Actions</span></th>';
       html += '</tr></thead><tbody>';
 
+      var mcIcon = window.apexMcIcon || function () { return ""; };
       for (var i = 0; i < txs.length; i++) {
         var t = txs[i];
         var desc = t.description || t.payee || "--";
@@ -3345,25 +3380,29 @@
         var sign     = isDeposit ? "+" : "-";
 
         html += '<tr>';
-        html += '<td>' + escHtml(fmtDate(t.date)) + '</td>';
-        html += '<td><div class="tx-desc" title="' + escHtml(desc) + '">' + escHtml(desc) + '</div></td>';
-        html += '<td class="' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</td>';
-        html += '<td>' + escHtml(t.account_name || "--") + '</td>';
-        html += '<td>' + reconStatusChip(t.status) + '</td>';
-        html += '<td><div class="tx-actions">';
+        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(t.date)) + '</td>';
+        html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(desc) + '">' + escHtml(desc) + '</div></td>';
+        html += '<td class="mc-field ' + amtClass + '" data-label-pt="Valor" data-label-en="Amount">' + sign + fmtCurrency(t.amount) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Conta" data-label-en="Account">' + escHtml(t.account_name || "--") + '</td>';
+        html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status">' + reconStatusChip(t.status) + '</td>';
+        html += '<td class="mc-action"><div class="tx-actions">';
         if (tab === "uncategorized") {
           html += '<button class="btn-primary btn-sm" onclick="openReconMatchModal(\'' + escHtml(t.transaction_id) + '\')">';
+          html += mcIcon("link");
           html += '<span class="show-pt">Vincular a Fatura</span><span class="show-en">Match to Invoice</span>';
           html += '</button>';
           html += '<button class="btn-ghost btn-sm" onclick="reconExclude(\'' + escHtml(t.transaction_id) + '\')">';
+          html += mcIcon("x");
           html += '<span class="show-pt">Ignorar este pagamento</span><span class="show-en">Ignore this payment</span>';
           html += '</button>';
         } else if (tab === "categorized") {
           html += '<button class="btn-ghost btn-sm" onclick="reconUnmatch(\'' + escHtml(t.transaction_id) + '\')">';
+          html += mcIcon("x");
           html += '<span class="show-pt">Desvincular</span><span class="show-en">Unmatch</span>';
           html += '</button>';
         } else if (tab === "excluded") {
           html += '<button class="btn-secondary btn-sm" onclick="reconRestore(\'' + escHtml(t.transaction_id) + '\')">';
+          html += mcIcon("restore");
           html += '<span class="show-pt">Restaurar</span><span class="show-en">Restore</span>';
           html += '</button>';
         }
@@ -3651,7 +3690,7 @@
         listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma despesa registrada</span><span class="show-en">No expenses recorded</span></div>';
         return;
       }
-      var html = '<table class="tx-table"><thead><tr>';
+      var html = '<table class="tx-table mc-table"><thead><tr>';
       html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
       html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
       html += '<th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>';
@@ -3661,11 +3700,11 @@
       for (var i = 0; i < expenses.length; i++) {
         var e = expenses[i];
         html += '<tr>';
-        html += '<td>' + escHtml(fmtDate(e.date)) + '</td>';
-        html += '<td><div class="tx-desc" title="' + escHtml(e.description) + '">' + escHtml(e.description || "--") + '</div></td>';
-        html += '<td>' + escHtml(e.account_name || "--") + '</td>';
-        html += '<td>' + escHtml(e.paid_through_account_name || "--") + '</td>';
-        html += '<td class="tx-amount-expense">-' + fmtCurrency(e.total) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(e.date)) + '</td>';
+        html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(e.description) + '">' + escHtml(e.description || "--") + '</div></td>';
+        html += '<td class="mc-field" data-label-pt="Categoria" data-label-en="Category">' + escHtml(e.account_name || "--") + '</td>';
+        html += '<td class="mc-field" data-label-pt="Pago Atraves De" data-label-en="Paid Through">' + escHtml(e.paid_through_account_name || "--") + '</td>';
+        html += '<td class="mc-field tx-amount-expense" data-label-pt="Valor" data-label-en="Amount">-' + fmtCurrency(e.total) + '</td>';
         html += '</tr>';
       }
       html += '</tbody></table>';
@@ -3865,5 +3904,11 @@
 
     window.onload = function() { init(); };
   </script>
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
 </body>
 </html>

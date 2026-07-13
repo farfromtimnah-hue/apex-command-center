@@ -2,7 +2,14 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1325,7 +1332,7 @@
       }
 
       var table = document.createElement("table");
-      table.className = "sessions-table";
+      table.className = "sessions-table mc-table";
 
       var thead = document.createElement("thead");
       thead.innerHTML =
@@ -1343,6 +1350,7 @@
           var tr = document.createElement("tr");
 
           var tdClient = document.createElement("td");
+          tdClient.className = "mc-head";
           if (s.client_id) {
             var link = document.createElement("a");
             link.href = "client.html?id=" + s.client_id;
@@ -1356,11 +1364,15 @@
           tr.appendChild(tdClient);
 
           var tdDate = document.createElement("td");
+          tdDate.className = "mc-field";
+          tdDate.setAttribute("data-label-pt", "Data");
+          tdDate.setAttribute("data-label-en", "Date");
           tdDate.textContent = formatDate(s.date);
           tdDate.style.color = "var(--muted)";
           tr.appendChild(tdDate);
 
           var tdStatus = document.createElement("td");
+          tdStatus.className = "mc-action";
           var badge = document.createElement("span");
           badge.className = "status-badge";
           badge.setAttribute("data-status", s.status || "pending");
@@ -1368,11 +1380,12 @@
           tr.appendChild(tdStatus);
 
           var tdAction = document.createElement("td");
+          tdAction.className = "mc-action";
           tdAction.style.textAlign = "right";
           var actionLink = document.createElement("a");
           actionLink.href = "sessions.html";
           actionLink.style.cssText = "font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;";
-          actionLink.innerHTML = '<span class="show-pt">Abrir &rarr;</span><span class="show-en">Open &rarr;</span>';
+          actionLink.innerHTML = '<span class="show-pt">Abrir &rarr;</span><span class="show-en">Open &rarr;</span>' + (window.apexMcIcon ? window.apexMcIcon("view") : "");
           tdAction.appendChild(actionLink);
           tr.appendChild(tdAction);
 
@@ -1781,7 +1794,7 @@
       }
 
       var table = document.createElement("table");
-      table.className = "sessions-table";
+      table.className = "sessions-table mc-table";
 
       var thead = document.createElement("thead");
       thead.innerHTML =
@@ -1799,6 +1812,7 @@
           var tr = document.createElement("tr");
 
           var tdClient = document.createElement("td");
+          tdClient.className = "mc-head";
           if (s.client_id) {
             var link = document.createElement("a");
             link.href = "client.html?id=" + s.client_id;
@@ -1812,11 +1826,15 @@
           tr.appendChild(tdClient);
 
           var tdDate = document.createElement("td");
+          tdDate.className = "mc-field";
+          tdDate.setAttribute("data-label-pt", "Data");
+          tdDate.setAttribute("data-label-en", "Date");
           tdDate.textContent = formatDate(s.date);
           tdDate.style.color = "var(--muted)";
           tr.appendChild(tdDate);
 
           var tdStatus = document.createElement("td");
+          tdStatus.className = "mc-action";
           var badge = document.createElement("span");
           badge.className = "status-badge";
           badge.setAttribute("data-status", s.status || "pending");
@@ -1824,11 +1842,12 @@
           tr.appendChild(tdStatus);
 
           var tdAction = document.createElement("td");
+          tdAction.className = "mc-action";
           tdAction.style.textAlign = "right";
           var actionLink = document.createElement("a");
           actionLink.href = "sessions.html";
           actionLink.style.cssText = "font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;";
-          actionLink.innerHTML = '<span class="show-pt">Abrir &rarr;</span><span class="show-en">Open &rarr;</span>';
+          actionLink.innerHTML = '<span class="show-pt">Abrir &rarr;</span><span class="show-en">Open &rarr;</span>' + (window.apexMcIcon ? window.apexMcIcon("view") : "");
           tdAction.appendChild(actionLink);
           tr.appendChild(tdAction);
 
@@ -1868,5 +1887,11 @@
     window.onload = function() { init(); };
   </script>
 
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
 </body>
 </html>

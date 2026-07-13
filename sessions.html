@@ -2,7 +2,14 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
   <title>Apex — Sessões</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1116,7 +1123,7 @@
         </div>
       </div>
       <!-- Tab bar (relocated here from inside #aliceView) -->
-      <div class="tab-bar" id="aliceTabBar">
+      <div class="tab-bar m-scroll-tabs" id="aliceTabBar">
         <button class="tab-pill active" id="tabBtnInbox" onclick="switchTab('inbox')">
           <span class="show-pt">Caixa de Entrada</span>
           <span class="show-en">Inbox</span>
@@ -2791,18 +2798,24 @@
     function renderDiagnosisLang(wrap, rows, lang, editable) {
       rows = Array.isArray(rows) ? rows : [];
       var table = document.createElement("table");
-      table.className = "struct-table";
+      table.className = "struct-table mc-table";
       for (var i = 0; i < DIAG_DIMENSIONS.length; i++) {
         var row = rows[i] || {};
         var tr  = document.createElement("tr");
 
         var tdDim = document.createElement("td");
-        tdDim.className = "struct-dim";
+        tdDim.className = "struct-dim mc-head";
         tdDim.textContent = DIAG_DIMENSIONS[i];
         tr.appendChild(tdDim);
 
         var tdSit = document.createElement("td");
+        tdSit.className = "mc-field";
+        tdSit.setAttribute("data-label-pt", "Situacao");
+        tdSit.setAttribute("data-label-en", "Situation");
         var tdLvl = document.createElement("td");
+        tdLvl.className = "mc-field";
+        tdLvl.setAttribute("data-label-pt", "Nivel");
+        tdLvl.setAttribute("data-label-en", "Level");
         if (editable) {
           var input = structField("input", "business_diagnosis", lang, i, "situation");
           input.value = row.situation || "";
@@ -2818,7 +2831,7 @@
           sel.value = DIAG_LEVELS.indexOf(row.level) >= 0 ? row.level : "MÉDIO";
           tdLvl.appendChild(sel);
         } else {
-          tdSit.className = "struct-text";
+          tdSit.className = "struct-text mc-field";
           tdSit.textContent = row.situation || "";
           var badge = document.createElement("span");
           badge.className = "level-badge";
@@ -2863,19 +2876,22 @@
     function renderGoalsLang(wrap, rows, lang, editable) {
       rows = Array.isArray(rows) ? rows : [];
       var table = document.createElement("table");
-      table.className = "struct-table";
+      table.className = "struct-table mc-table";
       for (var i = 0; i < GOAL_AREAS.length; i++) {
         var row = rows[i] || {};
         var tr  = document.createElement("tr");
 
         var tdArea = document.createElement("td");
-        tdArea.className = "struct-dim";
+        tdArea.className = "struct-dim mc-head";
         tdArea.textContent = GOAL_AREAS[i];
         tr.appendChild(tdArea);
 
         var cols = ["meta", "indicador"];
         for (var c = 0; c < cols.length; c++) {
           var td = document.createElement("td");
+          td.className = "mc-field";
+          td.setAttribute("data-label-pt", cols[c] === "meta" ? "Meta" : "Indicador");
+          td.setAttribute("data-label-en", cols[c] === "meta" ? "Goal" : "Indicator");
           if (editable) {
             var input = structField("input", "thirty_day_goals", lang, i, cols[c]);
             input.value = row[cols[c]] || "";
@@ -2884,7 +2900,7 @@
               : (lang === "pt" ? "Indicador de sucesso" : "Success indicator");
             td.appendChild(input);
           } else {
-            td.className = "struct-text";
+            td.className = "struct-text mc-field";
             td.textContent = row[cols[c]] || "";
           }
           tr.appendChild(td);
@@ -3212,5 +3228,11 @@
     init();
   </script>
 
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
 </body>
 </html>

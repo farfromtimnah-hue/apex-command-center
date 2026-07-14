@@ -955,8 +955,8 @@
 
     function filterClientsForTab(tab) {
       return allClients.filter(function (c) {
-        var isConsolidated = !!c.consolidated;
-        return tab === "consolidados" ? isConsolidated : !isConsolidated;
+        var isClosed = (c.status || "").toLowerCase() === "closed";
+        return tab === "consolidados" ? isClosed : !isClosed;
       });
     }
 

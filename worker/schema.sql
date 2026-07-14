@@ -84,6 +84,11 @@ CREATE TABLE IF NOT EXISTS clients (
 -- contacts stores a JSON array of {name, role, phone, whatsapp, email} objects.
 -- digital_presence stores a JSON object keyed by platform name → {url, notes:[{date,working,needs_improvement}]}
 
+-- NOTE: consolidated was added to the live D1 database via migrations/client_consolidated.sql:
+--   ALTER TABLE clients ADD COLUMN consolidated INTEGER NOT NULL DEFAULT 0;
+-- Manual-only flag (never automatic) toggled on the client profile page to move a
+-- client from the "Active" tab to the "Consolidados" tab on clients.html.
+
 -- NOTE: task_completions was added to the live sessions table via:
 --   ALTER TABLE sessions ADD COLUMN task_completions TEXT;
 -- Stores a JSON object keyed by task key (e.g. "rafa_0", "client_1") → boolean.

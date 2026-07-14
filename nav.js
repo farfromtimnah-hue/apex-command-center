@@ -95,6 +95,12 @@
     return open + body + '</svg>';
   }
 
+  // ── Public: same icon set used by the admin nav rail/dock, for pages that
+  // build their own dock markup instead of calling initNav() (e.g. the
+  // client-role portal, which has no #navSidebar and navigates in-page
+  // instead of across pages) ────────────────────────────────────────────
+  window.apexNavSvg = navSvg;
+
   // ── Public: icon badge for mobile card action buttons ───────────────────
   // Pages embed these inside row action buttons; mobile.css hides the text
   // label and shows this icon at 768px and below. Hidden on desktop.

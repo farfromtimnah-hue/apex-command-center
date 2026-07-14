@@ -12,6 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="mobile.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -197,6 +198,9 @@
 
     /* ---------- Forced password change ---------- */
     #viewPassword { max-width: 440px; margin: 40px auto; }
+
+    /* ---------- Optional Google account link (always skippable) ---------- */
+    #viewLinkGoogle { max-width: 440px; margin: 40px auto; }
 
     /* ---------- Entry backlog list ---------- */
     .pending-day-row {
@@ -448,6 +452,29 @@
         <button class="btn-gold" style="width:100%;margin-top:8px;" onclick="submitPasswordChange()">
           <span class="show-pt">Salvar nova senha</span>
           <span class="show-en">Save new password</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ Optional Google account linking (always skippable) ══ -->
+    <section id="viewLinkGoogle" hidden>
+      <div class="content-card">
+        <div class="card-title">
+          <span class="show-pt">Vincular conta Google (opcional)</span>
+          <span class="show-en">Link Google account (optional)</span>
+        </div>
+        <p class="muted" style="margin-bottom:16px;">
+          <span class="show-pt">Vincule sua conta Google para poder entrar tamb&eacute;m com um clique, al&eacute;m de usu&aacute;rio e senha. Voc&ecirc; pode pular esta etapa a qualquer momento.</span>
+          <span class="show-en">Link your Google account to also sign in with one click, in addition to username and password. You can skip this step at any time.</span>
+        </p>
+        <div class="err-msg" id="linkGoogleErr"></div>
+        <button class="btn-gold" style="width:100%;margin-top:8px;" onclick="handleLinkGoogleAccount()">
+          <span class="show-pt">Vincular conta Google</span>
+          <span class="show-en">Link Google account</span>
+        </button>
+        <button class="btn-outline" style="width:100%;margin-top:10px;" onclick="skipLinkGoogle()">
+          <span class="show-pt">Pular por enquanto</span>
+          <span class="show-en">Skip for now</span>
         </button>
       </div>
     </section>
@@ -782,7 +809,7 @@
 
     // ── Views ───────────────────────────────────────────────────────────────
     function showView(id) {
-      ["viewPassword", "viewEntryHome", "viewEntryForm", "viewPortal"].forEach(function(v) {
+      ["viewPassword", "viewLinkGoogle", "viewEntryHome", "viewEntryForm", "viewPortal"].forEach(function(v) {
         document.getElementById(v).hidden = (v !== id);
       });
       window.scrollTo(0, 0);
@@ -817,6 +844,33 @@
         return;
       }
       apiFetch("/api/auth/client-change-password", { method: "POST", body: { new_password: p1 } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          document.getElementById("linkGoogleErr").textContent = "";
+          showView("viewLinkGoogle");
+        })
+        .catch(function(e) { err.textContent = e.message; });
+    }
+
+    // ── Optional Google account linking (after password change, always skippable) ──
+    function skipLinkGoogle() {
+      bootAfterAuth();
+    }
+
+    function handleLinkGoogleAccount() {
+      var err = document.getElementById("linkGoogleErr");
+      err.textContent = "";
+      // Password-login clients never call firebase.initializeApp() elsewhere
+      // (only the Google sign-in path does) — init on first use here.
+      if (!firebase.apps.length) { firebase.initializeApp(FIREBASE_CONFIG); }
+      if (!auth) { auth = firebase.auth(); }
+      var provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(function(result) { return result.user.getIdToken(); })
+        .then(function(idToken) {
+          return apiFetch("/api/auth/client-link-google", { method: "POST", body: { google_id_token: idToken } });
+        })
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) {
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
@@ -1115,14 +1169,54 @@
       document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
       loadPortalLogo();
       loadNextMeeting();
+      populateMobileDock();
       switchTab("analytics", true);
       showView("viewPortal");
+    }
+
+    // ── Mobile bottom dock (client-role equivalent of nav.js's admin dock) ──
+    // nav.js's initNav()/populateMobileNav() assume a multi-page app with a
+    // #navSidebar and Firebase admin roles (alice/rafa/developer) navigating
+    // via page hrefs; the portal is a single page that switches sections
+    // in-place via switchTab(), and the client role doesn't exist in nav.js's
+    // role model. So this reuses nav.js only for its icon set (apexNavSvg)
+    // and the #mobile-tab-bar container + mobile.css's .m-tab styling — the
+    // exact same static-HTML-only container pattern nav.js itself uses — but
+    // wires taps to switchTab() instead of a page navigation.
+    var PORTAL_DOCK_TABS = [
+      { tab: "analytics", icon: "home",         labelPt: "Analytics",   labelEn: "Analytics" },
+      { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",     labelEn: "Tasks" },
+      { tab: "documents",  icon: "file",         labelPt: "Documentos",  labelEn: "Documents" },
+      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",     labelEn: "Invoices" }
+    ];
+
+    function populateMobileDock() {
+      var bar = document.getElementById("mobile-tab-bar");
+      if (!bar || !window.apexNavSvg) { return; }
+      var html = "";
+      PORTAL_DOCK_TABS.forEach(function(t) {
+        html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
+        html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) + '</span>';
+        html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
+        html += '</button>';
+      });
+      bar.innerHTML = html;
+      updateMobileDockActive("analytics");
+    }
+
+    function updateMobileDockActive(tab) {
+      var bar = document.getElementById("mobile-tab-bar");
+      if (!bar) { return; }
+      bar.querySelectorAll(".m-tab").forEach(function(b) {
+        b.classList.toggle("m-tab-active", b.getAttribute("data-dock-tab") === tab);
+      });
     }
 
     function switchTab(tab, force) {
       document.querySelectorAll(".portal-tab").forEach(function(b) {
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
+      updateMobileDockActive(tab);
       ["Analytics", "Tasks", "Documents", "Invoices"].forEach(function(t) {
         document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
       });
@@ -1514,5 +1608,13 @@
 
     init();
   </script>
+  <script src="nav.js"></script>
+  <!-- Mobile dock container: static HTML on purpose, same reasoning as the
+       admin pages (see finance.html) — a runtime-injected fixed-position nav
+       previously broke desktop layout. mobile.css alone controls visibility/
+       positioning; populateMobileDock() above only fills it in. No "Mais"
+       overflow menu: the portal only has 4 sections, so they all fit in the
+       bar directly (unlike the admin dock's longer nav list). -->
+  <div id="mobile-tab-bar"></div>
 </body>
 </html>

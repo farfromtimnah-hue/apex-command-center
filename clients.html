@@ -346,6 +346,30 @@
     body.lang-en .status-lozenge[data-status="lead"]::before     { content: "Lead"; }
     body.lang-en .status-lozenge[data-status="closed"]::before   { content: "Closed"; }
 
+    /* ── Client status sub-tabs (copied from finance.html .inv-subtab-bar) ── */
+    .inv-subtab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 6px;
+    }
+    .inv-subtab {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 10px 14px 9px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .inv-subtab:hover { color: var(--text); }
+    .inv-subtab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
     /* ── Empty state ─────────────────────────────────────────────────────── */
     .empty-state {
       padding: 52px 24px;
@@ -574,6 +598,16 @@
             </button>
           </div>
           <div class="content-card">
+            <div class="inv-subtab-bar m-scroll-tabs">
+              <button class="inv-subtab active" id="subtabClientsActive" onclick="switchClientsTab('active')">
+                <span class="show-pt">Ativos</span>
+                <span class="show-en">Active</span>
+              </button>
+              <button class="inv-subtab" id="subtabClientsConsolidados" onclick="switchClientsTab('consolidados')">
+                <span class="show-pt">Consolidados</span>
+                <span class="show-en">Consolidados</span>
+              </button>
+            </div>
             <div id="clientsListContainer">
               <div class="empty-state show-pt">Carregando clientes...</div>
               <div class="empty-state show-en">Loading clients...</div>
@@ -900,13 +934,16 @@
         });
     }
 
+    var allClients = [];
+    var currentClientsTab = "active";
+
     function loadClients() {
       apiFetch("/api/clients")
         .then(function (res) { return res.json(); })
         .then(function (data) {
-          var clients = data.clients || [];
-          renderTiles(clients);
-          renderClients(clients);
+          allClients = data.clients || [];
+          renderTiles(allClients);
+          renderClients(filterClientsForTab(currentClientsTab));
         })
         .catch(function (e) {
           var el = document.getElementById("clientsListContainer");
@@ -914,6 +951,22 @@
             el.innerHTML = '<div class="error-msg">Erro ao carregar clientes: ' + escHtml(e.message) + '</div>';
           }
         });
+    }
+
+    function filterClientsForTab(tab) {
+      return allClients.filter(function (c) {
+        var isConsolidated = !!c.consolidated;
+        return tab === "consolidados" ? isConsolidated : !isConsolidated;
+      });
+    }
+
+    function switchClientsTab(tab) {
+      currentClientsTab = tab;
+      var btnActive       = document.getElementById("subtabClientsActive");
+      var btnConsolidados = document.getElementById("subtabClientsConsolidados");
+      if (btnActive)       { btnActive.classList.toggle("active", tab === "active"); }
+      if (btnConsolidados) { btnConsolidados.classList.toggle("active", tab === "consolidados"); }
+      renderClients(filterClientsForTab(tab));
     }
 
     function renderTiles(clients) {

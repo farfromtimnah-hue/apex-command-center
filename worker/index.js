@@ -1311,7 +1311,7 @@ async function handleGetClients(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, created_at " +
+            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, created_at " +
             "FROM clients ORDER BY name ASC"
         ).all();
 
@@ -1396,7 +1396,7 @@ async function handleGetClient(id, request, env) {
 
         var client = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, " +
+            "package, status, phone, email, whatsapp, payment_method, contacts, consolidated, " +
             "created_at FROM clients WHERE id = ?"
         ).bind(id).first();
 
@@ -1813,6 +1813,11 @@ async function handlePatchClient(id, request, env) {
         if (body.hasOwnProperty("status")) {
             await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
                 .bind(body.status || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("consolidated")) {
+            await env.DB.prepare("UPDATE clients SET consolidated = ? WHERE id = ?")
+                .bind(body.consolidated ? 1 : 0, id).run();
             updated = true;
         }
         return jsonOk({ updated: updated });
@@ -6335,6 +6340,7 @@ function usernameFromBusinessName(name) {
 function clientRequestAllowed(path, method, clientId) {
     if (path === "/api/role" && method === "GET") { return true; }
     if (path === "/api/auth/client-change-password" && method === "POST") { return true; }
+    if (path === "/api/auth/client-link-google" && method === "POST") { return true; }
     if (path === "/api/auth/client-logout" && method === "POST") { return true; }
     if (path === "/api/portal/me" && method === "GET") { return true; }
     if (path === "/api/portal/next-meeting" && method === "GET") { return true; }
@@ -6543,6 +6549,56 @@ async function handlePostClientChangePassword(request, env) {
         return jsonOk({ changed: true });
     } catch (e) {
         return jsonErr("Error changing password: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/auth/client-link-google — { google_id_token }
+// Optional, skippable step offered right after a client finishes the forced
+// first-login password change. Links the verified Google account's email to
+// this client's users row so future logins can use either method. Requires
+// the client's own password-session bearer token (not the Google token) —
+// the Google ID token travels in the body purely to be verified and read.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientLinkGoogle(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user || user.role !== "client" || !user.client_id) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json();
+        var idToken = body.google_id_token || "";
+        if (!idToken) { return jsonErr("Missing google_id_token", 400); }
+
+        var payload;
+        try {
+            payload = await verifyFirebaseToken(idToken, env.FIREBASE_PROJECT_ID);
+        } catch (e) {
+            return jsonErr("Invalid Google token: " + e.message, 401);
+        }
+        if (!payload.email) { return jsonErr("Google account has no email", 400); }
+        var emailNorm = payload.email.trim();
+
+        var existing = await env.DB.prepare("SELECT email, role, client_id FROM users WHERE email = ?")
+            .bind(emailNorm).first();
+        if (existing && existing.role !== "client") {
+            return jsonErr("This Google account is already an admin account", 409);
+        }
+        if (existing && existing.role === "client" && existing.client_id && existing.client_id !== user.client_id) {
+            return jsonErr("This Google account is already linked to a different client", 409);
+        }
+
+        if (existing) {
+            await env.DB.prepare("UPDATE users SET client_id = ? WHERE email = ?")
+                .bind(user.client_id, emailNorm).run();
+        } else {
+            await env.DB.prepare("INSERT INTO users (email, role, client_id) VALUES (?, 'client', ?)")
+                .bind(emailNorm, user.client_id).run();
+        }
+
+        return jsonOk({ linked: true, email: emailNorm });
+    } catch (e) {
+        return jsonErr("Error linking Google account: " + e.message, 500);
     }
 }
 
@@ -7145,6 +7201,7 @@ export default {
 
         if (path === "/api/auth/client-login"           && method === "POST") { return handlePostClientLogin(request, env); }
         if (path === "/api/auth/client-change-password" && method === "POST") { return handlePostClientChangePassword(request, env); }
+        if (path === "/api/auth/client-link-google"     && method === "POST") { return handlePostClientLinkGoogle(request, env); }
         if (path === "/api/auth/client-logout"          && method === "POST") { return handlePostClientLogout(request, env); }
         if (path === "/api/portal/me"                   && method === "GET")  { return handleGetPortalMe(request, env); }
         if (path === "/api/portal/next-meeting"         && method === "GET")  { return handleGetPortalNextMeeting(request, env); }

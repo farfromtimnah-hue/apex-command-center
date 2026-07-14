@@ -1059,7 +1059,8 @@
     function updateComputedTiles() {
       var lucroEl  = document.getElementById("computed_lucro_liquido");
       var margemEl = document.getElementById("computed_margem_lucro");
-      if (!lucroEl && !margemEl) { return; }
+      var taxaEl   = document.getElementById("computed_taxa_conversao");
+      if (!lucroEl && !margemEl && !taxaEl) { return; }
       var rEl = document.getElementById("field_receita");
       var sEl = document.getElementById("field_saida");
       var receita = rEl && rEl.value !== "" ? Number(rEl.value) : null;
@@ -1067,12 +1068,25 @@
       if (receita === null || saida === null || !isFinite(receita) || !isFinite(saida)) {
         if (lucroEl)  { lucroEl.textContent = "--"; }
         if (margemEl) { margemEl.textContent = "--"; }
-        return;
+      } else {
+        var lucro = receita - saida;
+        var margem = receita !== 0 ? ((receita - saida) / receita) * 100 : 0;
+        if (lucroEl)  { lucroEl.textContent = fmtNum(lucro, "currency"); }
+        if (margemEl) { margemEl.textContent = fmtNum(Math.round(margem * 100) / 100, "percent"); }
       }
-      var lucro = receita - saida;
-      var margem = receita !== 0 ? ((receita - saida) / receita) * 100 : 0;
-      if (lucroEl)  { lucroEl.textContent = fmtNum(lucro, "currency"); }
-      if (margemEl) { margemEl.textContent = fmtNum(Math.round(margem * 100) / 100, "percent"); }
+      if (taxaEl) {
+        var vEl = document.getElementById("field_vendas_fechadas");
+        var vendas = vEl && vEl.value !== "" ? Number(vEl.value) : null;
+        var cliBlock = savedSections["clientes_mercado"];
+        var cliValues = cliBlock ? (cliBlock.values || cliBlock.draft_values) : null;
+        var leads = cliValues && cliValues.leads_gerados !== undefined ? Number(cliValues.leads_gerados) : null;
+        if (vendas === null || leads === null || !isFinite(vendas) || !isFinite(leads)) {
+          taxaEl.textContent = "--";
+        } else {
+          var taxa = leads > 0 ? (vendas / leads) * 100 : 0;
+          taxaEl.textContent = fmtNum(Math.round(taxa * 100) / 100, "percent");
+        }
+      }
     }
 
     // Autosave: debounce drafts so nothing typed is ever lost.
@@ -1322,12 +1336,13 @@
               if (ind.meta_mensal && ind.realizado !== null && !ind.inverse) {
                 pct = Math.min(100, Math.round((ind.realizado / ind.meta_mensal) * 100));
               }
+              var pctType = (ind.key === "margem_lucro" || ind.key === "taxa_conversao" || ind.key === "metas_batidas") ? "percent" : ind.type;
               html += '<div class="kpi-card">' +
                 '<div class="kpi-name">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</div>' +
-                '<div class="kpi-value">' + fmtNum(ind.realizado, ind.type === "computed" && ind.key === "margem_lucro" ? "percent" : ind.type) + '</div>';
+                '<div class="kpi-value">' + fmtNum(ind.realizado, pctType) + '</div>';
               if (ind.meta_mensal !== null && ind.meta_mensal !== undefined) {
-                html += '<div class="kpi-meta-row"><span>Meta: ' + fmtNum(ind.meta_mensal, ind.type) + '</span>' +
-                  '<span>Falta: ' + fmtNum(ind.falta, ind.type) + '</span></div>';
+                html += '<div class="kpi-meta-row"><span>Meta: ' + fmtNum(ind.meta_mensal, pctType) + '</span>' +
+                  '<span>Falta: ' + fmtNum(ind.falta, pctType) + '</span></div>';
                 if (pct !== null) {
                   html += '<div class="kpi-bar"><div class="kpi-bar-fill' + (pct >= 100 ? " done" : "") + '" style="width:' + pct + '%"></div></div>';
                 }

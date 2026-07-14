@@ -6185,7 +6185,7 @@ var INDICATORS = [
     { key: "lucro_liquido",          section: "financeiro",       type: "computed", labelPt: "Lucro Líquido",         labelEn: "Net Profit" },
     { key: "margem_lucro",           section: "financeiro",       type: "computed", labelPt: "Margem de Lucro %",          labelEn: "Profit Margin %" },
     { key: "vendas_fechadas",        section: "financeiro",       type: "count",    labelPt: "Vendas Fechadas",            labelEn: "Closed Sales" },
-    { key: "taxa_conversao",         section: "financeiro",       type: "percent",  labelPt: "Taxa de Conversão %",   labelEn: "Conversion Rate %" },
+    { key: "taxa_conversao",         section: "financeiro",       type: "computed", labelPt: "Taxa de Conversão %",   labelEn: "Conversion Rate %" },
     { key: "pipeline_ativo",         section: "financeiro",       type: "currency", labelPt: "Pipeline Ativo",             labelEn: "Active Pipeline" },
     { key: "leads_gerados",          section: "clientes_mercado", type: "count",    labelPt: "Leads Gerados",              labelEn: "Leads Generated" },
     { key: "visitas_estrategicas",   section: "clientes_mercado", type: "count",    labelPt: "Visitas Estratégicas",  labelEn: "Strategic Visits" },
@@ -6206,7 +6206,7 @@ var INDICATORS = [
     { key: "treinamentos_realizados",section: "crescimento",      type: "count",    labelPt: "Treinamentos Realizados",    labelEn: "Trainings Completed" },
     { key: "acoes_estrategicas",     section: "crescimento",      type: "count",    labelPt: "Ações Estratégicas Feitas", labelEn: "Strategic Actions Done" },
     { key: "dias_rotina_completos",  section: "crescimento",      type: "computed_month", labelPt: "Dias de Rotina Completos", labelEn: "Complete Routine Days" },
-    { key: "metas_batidas",          section: "crescimento",      type: "percent",  labelPt: "Metas Batidas %",            labelEn: "Goals Hit %" },
+    { key: "metas_batidas",          section: "crescimento",      type: "computed_month", labelPt: "Metas Batidas %",            labelEn: "Goals Hit %" },
     { key: "rotina_completa",        section: "rotina",           type: "toggle",   labelPt: "Rotina Completa Hoje",       labelEn: "Routine Complete Today" }
 ];
 
@@ -6741,6 +6741,16 @@ function computeFinanceiroDerived(values) {
     values.margem_lucro  = receita !== 0 ? Math.round(((receita - saida) / receita) * 10000) / 100 : 0;
 }
 
+function recomputeTaxaConversao(sections) {
+    var fin = sections.financeiro;
+    var cli = sections.clientes_mercado;
+    if (!fin || !fin.submitted_at || !fin.values) { return; }
+    if (!cli || !cli.submitted_at || !cli.values) { return; }
+    var vendas = Number(fin.values.vendas_fechadas) || 0;
+    var leads = Number(cli.values.leads_gerados) || 0;
+    fin.values.taxa_conversao = leads > 0 ? Math.round((vendas / leads) * 10000) / 100 : 0;
+}
+
 // ---------------------------------------------------------------------------
 // Route: PUT /api/clients/:id/entries/:date/sections/:sectionKey
 // Body: { values: {key: number}, draft: bool, today: 'YYYY-MM-DD' }
@@ -6800,6 +6810,10 @@ async function handlePutEntrySection(id, dateStr, sectionKey, request, env) {
             sections[sectionKey] = { draft_values: Object.assign({}, prev.draft_values || {}, values) };
         } else {
             sections[sectionKey] = { values: values, submitted_at: new Date().toISOString() };
+        }
+
+        if (!isDraft && (sectionKey === "financeiro" || sectionKey === "clientes_mercado")) {
+            recomputeTaxaConversao(sections);
         }
 
         var required = applicableSections(config);
@@ -7009,7 +7023,14 @@ async function computeMonthlySummary(env, clientId, month) {
             var recSum = sums.receita || 0;
             realizado = recSum !== 0 ? Math.round(((recSum - (sums.saida || 0)) / recSum) * 10000) / 100
                                      : (rows.length ? 0 : null);
-        } else if (ind.type === "computed_month") {
+        } else if (ind.key === "taxa_conversao") {
+            // Monthly conversion rate derives from monthly totals, same pattern as margem_lucro.
+            var leadsSum = sums.leads_gerados || 0;
+            realizado = leadsSum !== 0 ? Math.round(((sums.vendas_fechadas || 0) / leadsSum) * 10000) / 100
+                                       : (rows.length ? 0 : null);
+        } else if (ind.key === "metas_batidas") {
+            realizado = null; // filled in below, once every other indicator's realizado/meta is known
+        } else if (ind.key === "dias_rotina_completos") {
             realizado = diasRotina;
         } else if (ind.type === "percent" || ind.type === "hours") {
             realizado = counts[ind.key] ? Math.round((sums[ind.key] / counts[ind.key]) * 100) / 100 : null;
@@ -7030,6 +7051,25 @@ async function computeMonthlySummary(env, clientId, month) {
             meta_mensal: (meta === undefined) ? null : meta,
             realizado: realizado, falta: falta
         });
+    });
+
+    var metasBatidasEligible = indicators.filter(function(x) {
+        return x.key !== "metas_batidas" && x.key !== "dias_rotina_completos" &&
+               x.type !== "toggle" &&
+               x.meta_mensal !== null && x.meta_mensal !== undefined && x.meta_mensal !== 0 &&
+               x.realizado !== null;
+    });
+    var metasBatidasHits = metasBatidasEligible.filter(function(x) {
+        return x.inverse ? x.realizado <= x.meta_mensal : x.realizado >= x.meta_mensal;
+    }).length;
+    var metasBatidasPct = metasBatidasEligible.length
+        ? Math.round((metasBatidasHits / metasBatidasEligible.length) * 10000) / 100
+        : null;
+    indicators.forEach(function(x) {
+        if (x.key !== "metas_batidas") { return; }
+        x.realizado = metasBatidasPct;
+        x.meta_mensal = 100;
+        x.falta = metasBatidasPct !== null ? Math.round(Math.max(0, 100 - metasBatidasPct) * 100) / 100 : null;
     });
 
     return {

@@ -221,7 +221,78 @@
       color: var(--muted);
       text-align: center;
     }
-    .status-msg.is-error { color: #b44040; }
+    .status-msg.is-error { color: #e08585; }
+
+    /* ---------- Client username/password login ---------- */
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: rgba(255,255,255,0.55);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .auth-divider::before,
+    .auth-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.22);
+    }
+
+    .client-login-panel {
+      background: rgba(26, 26, 24, 0.62);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      padding: 22px 24px;
+    }
+    .client-login-panel .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.65);
+      margin: 0 0 5px 2px;
+      text-align: left;
+    }
+    .client-login-panel input {
+      width: 100%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      padding: 11px 14px;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    .client-login-panel input:focus { border-color: var(--gold); }
+    .client-login-panel input::placeholder { color: rgba(255,255,255,0.35); }
+
+    .btn-client-login {
+      display: block;
+      width: 100%;
+      background: transparent;
+      color: var(--gold);
+      border: 1.5px solid var(--gold);
+      border-radius: var(--radius);
+      padding: 12px 24px;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-client-login:hover  { background: rgba(201,164,58,0.14); }
+    .btn-client-login:active { transform: scale(0.98); }
+    .btn-client-login:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
 
     /* ---------- Footer ---------- */
     footer {
@@ -330,6 +401,26 @@
         <span class="show-pt">Entrar com Google</span>
         <span class="show-en">Sign in with Google</span>
       </button>
+      <div class="auth-divider">
+        <span class="show-pt">ou</span>
+        <span class="show-en">or</span>
+      </div>
+      <form class="client-login-panel" id="clientLoginForm" onsubmit="handleClientLogin(event)">
+        <label class="field-label" for="clientUsername">
+          <span class="show-pt">Usu&aacute;rio</span>
+          <span class="show-en">Username</span>
+        </label>
+        <input type="text" id="clientUsername" autocomplete="username" autocapitalize="none" spellcheck="false">
+        <label class="field-label" for="clientPassword">
+          <span class="show-pt">Senha</span>
+          <span class="show-en">Password</span>
+        </label>
+        <input type="password" id="clientPassword" autocomplete="current-password">
+        <button type="submit" class="btn-client-login" id="clientLoginBtn">
+          <span class="show-pt">Entrar</span>
+          <span class="show-en">Sign in</span>
+        </button>
+      </form>
     </div>
     <div class="status-msg" id="statusMsg"></div>
   </main>
@@ -406,7 +497,9 @@
         .then(function(data) {
           sessionStorage.setItem("apex_role",  data.role);
           sessionStorage.setItem("apex_email", data.email);
-          window.location.href = "dashboard.html";
+          // Client-role Google accounts land in the Client Portal;
+          // alice/rafa/developer keep going to the dashboard exactly as before.
+          window.location.href = data.role === "client" ? "portal.html" : "dashboard.html";
         })
         .catch(function(e) {
           btn.disabled = false;
@@ -414,10 +507,48 @@
         });
     }
 
-    // Skip sign-in if already authenticated and role cached
+    // ── Client username/password login ─────────────────────────────────────
+    function handleClientLogin(evt) {
+      evt.preventDefault();
+      var btn = document.getElementById("clientLoginBtn");
+      var username = (document.getElementById("clientUsername").value || "").trim();
+      var password = document.getElementById("clientPassword").value || "";
+      if (!username || !password) {
+        setStatus(document.body.classList.contains("lang-en")
+          ? "Enter your username and password." : "Informe usuário e senha.", true);
+        return;
+      }
+      btn.disabled = true;
+      setStatus("...");
+      fetch(WORKER_URL + "/api/auth/client-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username, password: password })
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Login failed"); }
+          localStorage.setItem("apex_client_token", r.data.token);
+          localStorage.setItem("apex_client_id",    r.data.client_id);
+          localStorage.setItem("apex_client_name",  r.data.client_name || "");
+          window.location.href = "portal.html";
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          setStatus(e.message, true);
+        });
+    }
+
+    // Skip sign-in if already authenticated
+    if (localStorage.getItem("apex_client_token")) {
+      // Existing client password session — portal.html validates the token
+      // and sends the user back here if it has expired.
+      window.location.href = "portal.html";
+    }
     auth.onAuthStateChanged(function(user) {
       if (user && sessionStorage.getItem("apex_role")) {
-        window.location.href = "dashboard.html";
+        var cached = sessionStorage.getItem("apex_role");
+        window.location.href = cached === "client" ? "portal.html" : "dashboard.html";
       }
     });
   </script>

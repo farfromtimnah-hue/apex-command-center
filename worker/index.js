@@ -82,14 +82,78 @@ async function verifyFirebaseToken(token, projectId) {
 // Auth middleware
 // ---------------------------------------------------------------------------
 
+// Resolved once per request (the client-role gate in fetch() authenticates
+// before the handler does; without the cache every admin request would verify
+// the Firebase signature twice).
+var AUTH_CACHE = new WeakMap();
+
 async function authenticate(request, env) {
+    if (AUTH_CACHE.has(request)) { return AUTH_CACHE.get(request); }
+    var user = await authenticateInner(request, env);
+    AUTH_CACHE.set(request, user);
+    return user;
+}
+
+async function authenticateInner(request, env) {
     var auth = request.headers.get("Authorization") || "";
     if (!auth.startsWith("Bearer ")) { return null; }
-    var payload = await verifyFirebaseToken(auth.slice(7), env.FIREBASE_PROJECT_ID);
-    var row = await env.DB.prepare("SELECT role, display_name, avatar_url FROM users WHERE email = ?")
+    var token = auth.slice(7);
+    // Opaque client-portal tokens (username/password logins) — Firebase JWTs
+    // never start with this prefix, so the existing flow is untouched.
+    if (token.indexOf("capt_") === 0) {
+        return authenticateClientToken(token, env);
+    }
+    var payload = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
+    var row = await env.DB.prepare("SELECT role, display_name, avatar_url, client_id FROM users WHERE email = ?")
         .bind(payload.email).first();
     if (!row) { return null; }
-    return { email: payload.email, role: row.role, display_name: row.display_name ?? null, avatar_url: row.avatar_url ?? null };
+    return {
+        email: payload.email, role: row.role,
+        display_name: row.display_name ?? null, avatar_url: row.avatar_url ?? null,
+        client_id: row.client_id ?? null,
+        // Google-linked client accounts never go through the forced change
+        must_change_password: false,
+        auth_method: "google"
+    };
+}
+
+async function sha256Hex(str) {
+    var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    var bytes = new Uint8Array(buf);
+    var out = "";
+    for (var i = 0; i < bytes.length; i++) { out += bytes[i].toString(16).padStart(2, "0"); }
+    return out;
+}
+
+async function authenticateClientToken(token, env) {
+    var tokenHash = await sha256Hex(token);
+    var row = await env.DB.prepare(
+        "SELECT t.client_id, t.username, t.expires_at, l.must_change_password, c.name AS client_name " +
+        "FROM client_auth_tokens t " +
+        "JOIN client_logins l ON l.client_id = t.client_id " +
+        "LEFT JOIN clients c ON c.id = t.client_id " +
+        "WHERE t.token_hash = ?"
+    ).bind(tokenHash).first();
+    if (!row) { return null; }
+    if (!row.expires_at || row.expires_at <= new Date().toISOString()) { return null; }
+    return {
+        email: null, role: "client",
+        display_name: row.client_name || row.username, avatar_url: null,
+        client_id: row.client_id, username: row.username,
+        must_change_password: !!row.must_change_password,
+        auth_method: "password", token_hash: tokenHash
+    };
+}
+
+// Admin roles pass for any client; a client-role user only for their own.
+function requireClientAccess(user, clientId) {
+    if (!user) { return false; }
+    if (user.role === "alice" || user.role === "rafa" || user.role === "developer") { return true; }
+    return user.role === "client" && !!user.client_id && user.client_id === clientId;
+}
+
+function isAdminRole(user) {
+    return !!user && (user.role === "alice" || user.role === "rafa" || user.role === "developer");
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +164,12 @@ async function handleGetRole(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        return jsonOk({ role: user.role, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url });
+        return jsonOk({
+            role: user.role, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url,
+            client_id: user.client_id || null,
+            must_change_password: !!user.must_change_password,
+            auth_method: user.auth_method || "google"
+        });
     } catch (e) {
         return jsonErr("Auth failed: " + e.message, 401);
     }
@@ -1603,7 +1672,10 @@ async function handlePostClientLogo(id, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        // Admin roles for any client; a client-role user may update their own
+        // logo from the portal (same record the admin side shows — stays in sync).
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (user.role === "client" && user.client_id !== id) { return jsonErr("Forbidden", 403); }
 
         var form = await request.formData();
         var file = form.get("logo");
@@ -6082,6 +6154,979 @@ async function handlePostZohoContactsResync(request, env) {
 // Main fetch handler
 // ---------------------------------------------------------------------------
 
+// ===========================================================================
+// CLIENT PORTAL — daily-entry log, client logins, portal endpoints
+// Everything below is additive: the 'client' role is a genuinely new role.
+// alice / rafa / developer checks elsewhere in this file are untouched.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Indicator catalog. type drives input rendering and monthly aggregation:
+//   currency/count  → monthly Realizado = SUM over completed days
+//   percent/hours   → monthly Realizado = AVG over completed days
+//   toggle          → yes/no (rotina)
+//   computed        → derived server-side, never an input (lucro, margem)
+//   computed_month  → dias_rotina_completos: REAL count of completed days
+//                     with rotina_completa = yes this month (bug fix #3 —
+//                     never a mirror of today's toggle)
+// inverse: lower is better (erros_retrabalho) — leaderboard scores invert it.
+// ---------------------------------------------------------------------------
+
+var ENTRY_SECTIONS = ["financeiro", "clientes_mercado", "processos", "crescimento", "rotina"];
+
+var INDICATORS = [
+    { key: "receita",                section: "financeiro",       type: "currency", labelPt: "Receita do Dia",             labelEn: "Revenue Today" },
+    { key: "saida",                  section: "financeiro",       type: "currency", labelPt: "Saída do Dia",          labelEn: "Expenses Today" },
+    { key: "lucro_liquido",          section: "financeiro",       type: "computed", labelPt: "Lucro Líquido",         labelEn: "Net Profit" },
+    { key: "margem_lucro",           section: "financeiro",       type: "computed", labelPt: "Margem de Lucro %",          labelEn: "Profit Margin %" },
+    { key: "vendas_fechadas",        section: "financeiro",       type: "count",    labelPt: "Vendas Fechadas",            labelEn: "Closed Sales" },
+    { key: "taxa_conversao",         section: "financeiro",       type: "percent",  labelPt: "Taxa de Conversão %",   labelEn: "Conversion Rate %" },
+    { key: "pipeline_ativo",         section: "financeiro",       type: "currency", labelPt: "Pipeline Ativo",             labelEn: "Active Pipeline" },
+    { key: "leads_gerados",          section: "clientes_mercado", type: "count",    labelPt: "Leads Gerados",              labelEn: "Leads Generated" },
+    { key: "visitas_estrategicas",   section: "clientes_mercado", type: "count",    labelPt: "Visitas Estratégicas",  labelEn: "Strategic Visits" },
+    { key: "contatos_estrategicos",  section: "clientes_mercado", type: "count",    labelPt: "Contatos Estratégicos", labelEn: "Strategic Contacts" },
+    { key: "retomadas_cliente",      section: "clientes_mercado", type: "count",    labelPt: "Retomadas com Cliente",      labelEn: "Client Follow-ups" },
+    { key: "interacoes_estrategicas",section: "clientes_mercado", type: "count",    labelPt: "Interações Estratégicas", labelEn: "Strategic Interactions" },
+    { key: "google_review",          section: "clientes_mercado", type: "count",    labelPt: "Google Review",              labelEn: "Google Reviews" },
+    { key: "post_publicado",         section: "clientes_mercado", type: "count",    labelPt: "Post Publicado",             labelEn: "Posts Published" },
+    { key: "story",                  section: "clientes_mercado", type: "count",    labelPt: "Story",                      labelEn: "Stories" },
+    { key: "video_curto",            section: "clientes_mercado", type: "count",    labelPt: "Vídeo Curto (Reels)",   labelEn: "Short Video (Reels)" },
+    { key: "novos_clientes",         section: "clientes_mercado", type: "count",    labelPt: "Novos Clientes",             labelEn: "New Clients" },
+    { key: "entregas_realizadas",    section: "processos",        type: "count",    labelPt: "Entregas Realizadas",        labelEn: "Deliveries Completed" },
+    { key: "envio_propostas",        section: "processos",        type: "count",    labelPt: "Envio de Propostas",         labelEn: "Proposals Sent" },
+    { key: "velocidade_resposta",    section: "processos",        type: "hours",    labelPt: "Velocidade de Resposta (h)", labelEn: "Response Speed (h)" },
+    { key: "erros_retrabalho",       section: "processos",        type: "count",    labelPt: "Erros/Retrabalho",           labelEn: "Errors/Rework", inverse: true },
+    { key: "processos_documentados", section: "processos",        type: "count",    labelPt: "Processos Documentados",     labelEn: "Processes Documented" },
+    { key: "melhorias_internas",     section: "crescimento",      type: "count",    labelPt: "Melhorias Internas",         labelEn: "Internal Improvements" },
+    { key: "treinamentos_realizados",section: "crescimento",      type: "count",    labelPt: "Treinamentos Realizados",    labelEn: "Trainings Completed" },
+    { key: "acoes_estrategicas",     section: "crescimento",      type: "count",    labelPt: "Ações Estratégicas Feitas", labelEn: "Strategic Actions Done" },
+    { key: "dias_rotina_completos",  section: "crescimento",      type: "computed_month", labelPt: "Dias de Rotina Completos", labelEn: "Complete Routine Days" },
+    { key: "metas_batidas",          section: "crescimento",      type: "percent",  labelPt: "Metas Batidas %",            labelEn: "Goals Hit %" },
+    { key: "rotina_completa",        section: "rotina",           type: "toggle",   labelPt: "Rotina Completa Hoje",       labelEn: "Routine Complete Today" }
+];
+
+function indicatorByKey(key) {
+    for (var i = 0; i < INDICATORS.length; i++) {
+        if (INDICATORS[i].key === key) { return INDICATORS[i]; }
+    }
+    return null;
+}
+
+// Enabled + meta map for a client. Missing rows default to enabled, no meta.
+async function getFieldConfig(env, clientId) {
+    var rows = await env.DB.prepare(
+        "SELECT indicator_key, enabled, meta_mensal FROM client_field_config WHERE client_id = ?"
+    ).bind(clientId).all();
+    var byKey = {};
+    (rows.results || []).forEach(function(r) {
+        byKey[r.indicator_key] = { enabled: !!r.enabled, meta_mensal: r.meta_mensal };
+    });
+    var config = {};
+    INDICATORS.forEach(function(ind) {
+        var row = byKey[ind.key];
+        config[ind.key] = {
+            enabled: row ? row.enabled : true,
+            meta_mensal: row ? row.meta_mensal : null
+        };
+    });
+    return config;
+}
+
+// Input indicators (what the form actually asks for) for a section.
+function sectionInputKeys(sectionKey, config) {
+    return INDICATORS.filter(function(ind) {
+        return ind.section === sectionKey &&
+               ind.type !== "computed" && ind.type !== "computed_month" &&
+               config[ind.key] && config[ind.key].enabled;
+    }).map(function(ind) { return ind.key; });
+}
+
+// Sections this client must submit for a day to count as complete.
+function applicableSections(config) {
+    return ENTRY_SECTIONS.filter(function(s) { return sectionInputKeys(s, config).length > 0; });
+}
+
+function isValidDateStr(s) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s || "")) { return false; }
+    var d = new Date(s + "T12:00:00Z");
+    return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+function isValidMonthStr(s) { return /^\d{4}-\d{2}$/.test(s || ""); }
+
+// ---------------------------------------------------------------------------
+// Password hashing (PBKDF2-SHA256) + token helpers
+// ---------------------------------------------------------------------------
+
+var PBKDF2_ITERATIONS = 100000;
+
+async function pbkdf2Hash(password, saltBytes, iterations) {
+    var keyMaterial = await crypto.subtle.importKey(
+        "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    var bits = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations: iterations },
+        keyMaterial, 256);
+    return new Uint8Array(bits);
+}
+
+function bytesToB64(bytes) {
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) { bin += String.fromCharCode(bytes[i]); }
+    return btoa(bin);
+}
+
+function b64ToBytes(b64) {
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i); }
+    return out;
+}
+
+async function hashPassword(password) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var hash = await pbkdf2Hash(password, salt, PBKDF2_ITERATIONS);
+    return "pbkdf2$" + PBKDF2_ITERATIONS + "$" + bytesToB64(salt) + "$" + bytesToB64(hash);
+}
+
+async function verifyPassword(password, stored) {
+    var parts = (stored || "").split("$");
+    if (parts.length !== 4 || parts[0] !== "pbkdf2") { return false; }
+    var iterations = parseInt(parts[1], 10);
+    if (!iterations || iterations < 1000 || iterations > 1000000) { return false; }
+    var expected = b64ToBytes(parts[3]);
+    var actual = await pbkdf2Hash(password, b64ToBytes(parts[2]), iterations);
+    if (actual.length !== expected.length) { return false; }
+    var diff = 0;
+    for (var i = 0; i < actual.length; i++) { diff |= actual[i] ^ expected[i]; }
+    return diff === 0;
+}
+
+// Unambiguous alphabet (no 0/O/1/l/I) — sent over WhatsApp, typed on phones.
+function generateTempPassword() {
+    var alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    var bytes = crypto.getRandomValues(new Uint8Array(12));
+    var out = "";
+    for (var i = 0; i < bytes.length; i++) { out += alphabet[bytes[i] % alphabet.length]; }
+    return out;
+}
+
+function generateClientToken() {
+    var bytes = crypto.getRandomValues(new Uint8Array(32));
+    var out = "capt_";
+    for (var i = 0; i < bytes.length; i++) { out += bytes[i].toString(16).padStart(2, "0"); }
+    return out;
+}
+
+// Username from business name: lowercased, diacritics stripped, only [a-z0-9].
+function usernameFromBusinessName(name) {
+    var base = (name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]/g, "");
+    return base || "cliente";
+}
+
+// ---------------------------------------------------------------------------
+// Central client-role gate — runs in fetch() before any route dispatch.
+// A client-role user can ONLY reach the whitelist below, and parameterized
+// paths are matched against THEIR OWN client_id, so ID manipulation in any
+// request is rejected at the API level regardless of handler behavior.
+// Returns a Response to short-circuit with, or null to continue.
+// ---------------------------------------------------------------------------
+
+function clientRequestAllowed(path, method, clientId) {
+    if (path === "/api/role" && method === "GET") { return true; }
+    if (path === "/api/auth/client-change-password" && method === "POST") { return true; }
+    if (path === "/api/auth/client-logout" && method === "POST") { return true; }
+    if (path === "/api/portal/me" && method === "GET") { return true; }
+    if (path === "/api/portal/next-meeting" && method === "GET") { return true; }
+    var base = "/api/clients/" + clientId;
+    if (path === base && method === "GET") { return true; }
+    if (path.indexOf(base + "/") === 0) {
+        var rest = path.slice(base.length + 1);
+        if (method === "GET") {
+            if (rest === "tasks" || rest === "invoices" || rest === "documents" ||
+                rest === "documents/latest" || rest === "logo-image" ||
+                rest === "field-config" || rest === "entry-state" ||
+                rest === "entries" || rest === "entries-summary") { return true; }
+            if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+        }
+        if (method === "POST") {
+            if (rest === "logo") { return true; }
+            if (/^entries\/\d{4}-\d{2}-\d{2}\/day-off$/.test(rest)) { return true; }
+        }
+        if (method === "PUT" && /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/.test(rest)) { return true; }
+    }
+    return false;
+}
+
+async function enforceClientRoleGate(request, env, path, method) {
+    var auth = request.headers.get("Authorization") || "";
+    if (!auth.startsWith("Bearer ")) { return null; }   // unauthenticated flows unchanged
+    var user = null;
+    try { user = await authenticate(request, env); } catch (e) { return null; }
+    if (!user || user.role !== "client") { return null; } // admin/unknown → existing behavior
+    // Forced first-login password change: until completed, a password-token
+    // session can reach nothing but the change-password flow. Not bypassable.
+    if (user.must_change_password) {
+        if (path === "/api/role" || path === "/api/auth/client-change-password" ||
+            path === "/api/auth/client-logout") { return null; }
+        return jsonErr("Password change required", 403);
+    }
+    if (!user.client_id) { return jsonErr("Forbidden", 403); }
+    if (!clientRequestAllowed(path, method, user.client_id)) { return jsonErr("Forbidden", 403); }
+    return null;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/login  — admin: login status for profile card
+// ---------------------------------------------------------------------------
+
+async function handleGetClientLoginStatus(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        var row = await env.DB.prepare(
+            "SELECT username, must_change_password, tracking_start, last_login_at, password_changed_at, created_at " +
+            "FROM client_logins WHERE client_id = ?"
+        ).bind(id).first();
+        if (!row) { return jsonOk({ exists: false }); }
+        return jsonOk({
+            exists: true, username: row.username,
+            must_change_password: !!row.must_change_password,
+            tracking_start: row.tracking_start,
+            last_login_at: row.last_login_at,
+            password_changed_at: row.password_changed_at,
+            created_at: row.created_at
+        });
+    } catch (e) {
+        return jsonErr("Error fetching login status: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/login — admin: create login (or reset password)
+// Username derived from business name, numeric suffix on collision.
+// Returns the temp password ONCE (only a hash is stored).
+// ---------------------------------------------------------------------------
+
+async function handlePostClientLoginCreate(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id, name, email FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var tempPassword = generateTempPassword();
+        var passwordHash = await hashPassword(tempPassword);
+        var existing = await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ?").bind(id).first();
+        var username;
+
+        if (existing) {
+            // Reset: keep the username, issue a new temp password, re-force change,
+            // and revoke any live sessions.
+            username = existing.username;
+            await env.DB.prepare(
+                "UPDATE client_logins SET password_hash = ?, must_change_password = 1 WHERE client_id = ?"
+            ).bind(passwordHash, id).run();
+            await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ?").bind(id).run();
+        } else {
+            var base = usernameFromBusinessName(client.name);
+            username = base;
+            for (var n = 2; n < 100; n++) {
+                var taken = await env.DB.prepare("SELECT username FROM client_logins WHERE username = ?").bind(username).first();
+                if (!taken) { break; }
+                username = base + n;
+            }
+            await env.DB.prepare(
+                "INSERT INTO client_logins (username, client_id, password_hash, must_change_password, tracking_start) " +
+                "VALUES (?, ?, ?, 1, date('now'))"
+            ).bind(username, id, passwordHash).run();
+        }
+
+        // Google sign-in link: if the client has an email on file and it isn't
+        // already a user (never overwrite an existing admin row), register it
+        // as a client-role user tied to this client_id.
+        var linkedEmail = null;
+        if (client.email && /@/.test(client.email)) {
+            var emailNorm = client.email.trim();
+            var userRow = await env.DB.prepare("SELECT email, role FROM users WHERE email = ?").bind(emailNorm).first();
+            if (!userRow) {
+                await env.DB.prepare(
+                    "INSERT INTO users (email, role, client_id) VALUES (?, 'client', ?)"
+                ).bind(emailNorm, id).run();
+                linkedEmail = emailNorm;
+            } else if (userRow.role === "client") {
+                await env.DB.prepare("UPDATE users SET client_id = ? WHERE email = ? AND role = 'client'")
+                    .bind(id, emailNorm).run();
+                linkedEmail = emailNorm;
+            }
+        }
+
+        return jsonOk({
+            username: username,
+            temp_password: tempPassword,
+            reset: !!existing,
+            linked_google_email: linkedEmail
+        });
+    } catch (e) {
+        return jsonErr("Error creating login: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/auth/client-login  (no auth) — { username, password }
+// ---------------------------------------------------------------------------
+
+async function handlePostClientLogin(request, env) {
+    try {
+        var body = await request.json();
+        var username = (body.username || "").trim().toLowerCase();
+        var password = body.password || "";
+        if (!username || !password) { return jsonErr("Usuário e senha são obrigatórios", 400); }
+
+        var row = await env.DB.prepare(
+            "SELECT l.username, l.client_id, l.password_hash, l.must_change_password, c.name AS client_name " +
+            "FROM client_logins l LEFT JOIN clients c ON c.id = l.client_id WHERE l.username = ?"
+        ).bind(username).first();
+
+        var ok = row ? await verifyPassword(password, row.password_hash) : false;
+        if (!ok) { return jsonErr("Usuário ou senha inválidos", 401); }
+
+        // Lazy purge of expired tokens, then mint a 30-day session token.
+        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE expires_at <= datetime('now')").run();
+        var token = generateClientToken();
+        var tokenHash = await sha256Hex(token);
+        var expires = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+        await env.DB.prepare(
+            "INSERT INTO client_auth_tokens (token_hash, client_id, username, expires_at) VALUES (?, ?, ?, ?)"
+        ).bind(tokenHash, row.client_id, row.username, expires).run();
+        await env.DB.prepare("UPDATE client_logins SET last_login_at = datetime('now') WHERE username = ?")
+            .bind(row.username).run();
+
+        return jsonOk({
+            token: token,
+            client_id: row.client_id,
+            client_name: row.client_name,
+            must_change_password: !!row.must_change_password
+        });
+    } catch (e) {
+        return jsonErr("Error logging in: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/auth/client-change-password — { new_password }
+// Only reachable with a password-session token. Clears the forced-change flag
+// and revokes every other session for this client.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientChangePassword(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user || user.role !== "client") { return jsonErr("Unauthorized", 401); }
+        if (user.auth_method !== "password") { return jsonErr("Password change applies to username/password logins only", 400); }
+
+        var body = await request.json();
+        var newPassword = body.new_password || "";
+        if (newPassword.length < 8) { return jsonErr("A nova senha deve ter pelo menos 8 caracteres", 400); }
+
+        var passwordHash = await hashPassword(newPassword);
+        await env.DB.prepare(
+            "UPDATE client_logins SET password_hash = ?, must_change_password = 0, password_changed_at = datetime('now') " +
+            "WHERE username = ?"
+        ).bind(passwordHash, user.username).run();
+        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ? AND token_hash != ?")
+            .bind(user.client_id, user.token_hash).run();
+
+        return jsonOk({ changed: true });
+    } catch (e) {
+        return jsonErr("Error changing password: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/auth/client-logout
+// ---------------------------------------------------------------------------
+
+async function handlePostClientLogout(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user || user.role !== "client") { return jsonErr("Unauthorized", 401); }
+        if (user.token_hash) {
+            await env.DB.prepare("DELETE FROM client_auth_tokens WHERE token_hash = ?").bind(user.token_hash).run();
+        }
+        return jsonOk({ logged_out: true });
+    } catch (e) {
+        return jsonErr("Error logging out: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/portal/me — client's own identity + client record basics
+// ---------------------------------------------------------------------------
+
+async function handleGetPortalMe(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user || user.role !== "client" || !user.client_id) { return jsonErr("Unauthorized", 401); }
+        var client = await env.DB.prepare(
+            "SELECT id, name, logo_url, industry, location FROM clients WHERE id = ?"
+        ).bind(user.client_id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        return jsonOk({
+            client_id: client.id, name: client.name,
+            has_logo: !!client.logo_url,
+            industry: client.industry, location: client.location,
+            username: user.username || null,
+            auth_method: user.auth_method,
+            must_change_password: !!user.must_change_password
+        });
+    } catch (e) {
+        return jsonErr("Error fetching portal profile: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/portal/next-meeting — next scheduled session for this
+// client. Sessions are already synced with Google Calendar (calendar.html /
+// sessions_calendar_sync), so this reads the same integration's data and
+// carries the Meet join link.
+// ---------------------------------------------------------------------------
+
+async function handleGetPortalNextMeeting(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user || user.role !== "client" || !user.client_id) { return jsonErr("Unauthorized", 401); }
+        var row = await env.DB.prepare(
+            "SELECT date, time, session_type, google_meet_link FROM sessions " +
+            "WHERE client_id = ? AND status != 'discarded' AND date >= date('now', '-1 day') " +
+            "ORDER BY date ASC, COALESCE(time,'99:99') ASC LIMIT 1"
+        ).bind(user.client_id).first();
+        return jsonOk({ meeting: row || null });
+    } catch (e) {
+        return jsonErr("Error fetching next meeting: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/field-config — full catalog with enabled/meta
+// Route: PUT /api/clients/:id/field-config — admin only; body:
+//   { indicators: [{ key, enabled, meta_mensal }] }
+// ---------------------------------------------------------------------------
+
+async function handleGetClientFieldConfig(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var config = await getFieldConfig(env, id);
+        var out = INDICATORS.map(function(ind) {
+            return {
+                key: ind.key, section: ind.section, type: ind.type,
+                label_pt: ind.labelPt, label_en: ind.labelEn,
+                inverse: !!ind.inverse,
+                enabled: config[ind.key].enabled,
+                meta_mensal: config[ind.key].meta_mensal
+            };
+        });
+        return jsonOk({ indicators: out, sections: ENTRY_SECTIONS });
+    } catch (e) {
+        return jsonErr("Error fetching field config: " + e.message, 500);
+    }
+}
+
+async function handlePutClientFieldConfig(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json();
+        var list = Array.isArray(body.indicators) ? body.indicators : [];
+        var stmts = [];
+        for (var i = 0; i < list.length; i++) {
+            var item = list[i];
+            if (!indicatorByKey(item.key)) { continue; }
+            var meta = (item.meta_mensal === null || item.meta_mensal === undefined || item.meta_mensal === "")
+                ? null : Number(item.meta_mensal);
+            if (meta !== null && !isFinite(meta)) { meta = null; }
+            stmts.push(env.DB.prepare(
+                "INSERT INTO client_field_config (client_id, indicator_key, enabled, meta_mensal, updated_at) " +
+                "VALUES (?, ?, ?, ?, datetime('now')) " +
+                "ON CONFLICT (client_id, indicator_key) DO UPDATE SET " +
+                "enabled = excluded.enabled, meta_mensal = excluded.meta_mensal, updated_at = excluded.updated_at"
+            ).bind(id, item.key, item.enabled ? 1 : 0, meta));
+        }
+        if (stmts.length) { await env.DB.batch(stmts); }
+        return jsonOk({ saved: stmts.length });
+    } catch (e) {
+        return jsonErr("Error saving field config: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Daily-entry helpers
+// ---------------------------------------------------------------------------
+
+function parseSectionsJson(raw) {
+    try { var v = JSON.parse(raw || "{}"); return (v && typeof v === "object") ? v : {}; }
+    catch (e) { return {}; }
+}
+
+function computeFinanceiroDerived(values) {
+    var receita = Number(values.receita) || 0;
+    var saida   = Number(values.saida) || 0;
+    values.lucro_liquido = Math.round((receita - saida) * 100) / 100;
+    values.margem_lucro  = receita !== 0 ? Math.round(((receita - saida) / receita) * 10000) / 100 : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/entries/:date/sections/:sectionKey
+// Body: { values: {key: number}, draft: bool, today: 'YYYY-MM-DD' }
+// draft=true  → autosave: store partial values, no validation, no submit stamp
+// draft=false → submit: every enabled field required; lucro/margem recomputed
+//               server-side; marks the day completed when all sections are in.
+// ---------------------------------------------------------------------------
+
+async function handlePutEntrySection(id, dateStr, sectionKey, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!isValidDateStr(dateStr)) { return jsonErr("Invalid date", 400); }
+        if (ENTRY_SECTIONS.indexOf(sectionKey) === -1) { return jsonErr("Invalid section", 400); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json();
+        var isDraft = !!body.draft;
+        var today = isValidDateStr(body.today) ? body.today : new Date().toISOString().slice(0, 10);
+        if (dateStr > today) { return jsonErr("Cannot fill a future day", 400); }
+
+        var config = await getFieldConfig(env, id);
+        var inputKeys = sectionInputKeys(sectionKey, config);
+        if (inputKeys.length === 0) { return jsonErr("Section has no enabled fields for this client", 400); }
+
+        var rawValues = (body.values && typeof body.values === "object") ? body.values : {};
+        var values = {};
+        for (var i = 0; i < inputKeys.length; i++) {
+            var k = inputKeys[i];
+            var v = rawValues[k];
+            if (v === null || v === undefined || v === "") {
+                if (!isDraft) { return jsonErr("Campo obrigatório ausente: " + k, 400); }
+                continue;
+            }
+            var num = Number(v);
+            if (!isFinite(num)) { return jsonErr("Valor inválido para " + k, 400); }
+            var ind = indicatorByKey(k);
+            if (ind.type === "toggle") { num = num ? 1 : 0; }
+            values[k] = num;
+        }
+        if (sectionKey === "financeiro" && !isDraft) { computeFinanceiroDerived(values); }
+
+        var row = await env.DB.prepare(
+            "SELECT id, sections_json, completed FROM client_daily_entries WHERE client_id = ? AND entry_date = ?"
+        ).bind(id, dateStr).first();
+
+        var sections = row ? parseSectionsJson(row.sections_json) : {};
+        if (isDraft) {
+            var prev = sections[sectionKey] || {};
+            if (prev.submitted_at) {
+                // Already submitted — a draft never downgrades a submitted section.
+                return jsonOk({ saved: true, already_submitted: true, completed: !!(row && row.completed) });
+            }
+            sections[sectionKey] = { draft_values: Object.assign({}, prev.draft_values || {}, values) };
+        } else {
+            sections[sectionKey] = { values: values, submitted_at: new Date().toISOString() };
+        }
+
+        var required = applicableSections(config);
+        var completed = required.every(function(s) { return sections[s] && sections[s].submitted_at; });
+        var wasCompleted = !!(row && row.completed);
+        var sectionsStr = JSON.stringify(sections);
+
+        if (row) {
+            await env.DB.prepare(
+                "UPDATE client_daily_entries SET sections_json = ?, completed = ?, " +
+                "completed_at = CASE WHEN ? = 1 AND completed_at IS NULL THEN datetime('now') WHEN ? = 0 THEN NULL ELSE completed_at END, " +
+                "updated_at = datetime('now') WHERE id = ?"
+            ).bind(sectionsStr, completed ? 1 : 0, completed ? 1 : 0, completed ? 1 : 0, row.id).run();
+        } else {
+            await env.DB.prepare(
+                "INSERT INTO client_daily_entries (id, client_id, entry_date, sections_json, completed, completed_at) " +
+                "VALUES (?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN datetime('now') ELSE NULL END)"
+            ).bind(crypto.randomUUID(), id, dateStr, sectionsStr, completed ? 1 : 0, completed ? 1 : 0).run();
+        }
+
+        // A backlogged day completed after the fact is recorded as filled-late
+        // (upgrades an earlier day-off mark, keeping any reason text).
+        if (completed && !wasCompleted && dateStr < today) {
+            await env.DB.prepare(
+                "INSERT INTO client_missed_days (id, client_id, missed_date, status) VALUES (?, ?, ?, 'filled_late') " +
+                "ON CONFLICT (client_id, missed_date) DO UPDATE SET status = 'filled_late'"
+            ).bind(crypto.randomUUID(), id, dateStr).run();
+        }
+
+        return jsonOk({ saved: true, draft: isDraft, completed: completed, sections: sections });
+    } catch (e) {
+        return jsonErr("Error saving entry: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/entries/:date/day-off — { reason? }
+// ---------------------------------------------------------------------------
+
+async function handlePostEntryDayOff(id, dateStr, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!isValidDateStr(dateStr)) { return jsonErr("Invalid date", 400); }
+
+        var entry = await env.DB.prepare(
+            "SELECT completed FROM client_daily_entries WHERE client_id = ? AND entry_date = ?"
+        ).bind(id, dateStr).first();
+        if (entry && entry.completed) { return jsonErr("This day is already completed", 400); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var reason = (typeof body.reason === "string" && body.reason.trim()) ? body.reason.trim().slice(0, 300) : null;
+
+        await env.DB.prepare(
+            "INSERT INTO client_missed_days (id, client_id, missed_date, status, reason) VALUES (?, ?, ?, 'day_off', ?) " +
+            "ON CONFLICT (client_id, missed_date) DO UPDATE SET status = 'day_off', reason = excluded.reason"
+        ).bind(crypto.randomUUID(), id, dateStr, reason).run();
+
+        return jsonOk({ marked: true, date: dateStr });
+    } catch (e) {
+        return jsonErr("Error marking day off: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/entry-state?today=YYYY-MM-DD
+// Login/entry flow driver: every backlogged day (not completed, not a day
+// off) from tracking_start (capped at 14 days back) through today, each with
+// its saved sections so the client resumes exactly where they left off.
+// ---------------------------------------------------------------------------
+
+async function handleGetEntryState(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var today = url.searchParams.get("today");
+        if (!isValidDateStr(today)) { today = new Date().toISOString().slice(0, 10); }
+
+        var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ?").bind(id).first();
+        var start = (login && login.tracking_start && isValidDateStr(login.tracking_start)) ? login.tracking_start : today;
+        var cap = new Date(new Date(today + "T12:00:00Z").getTime() - 13 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+        if (start < cap) { start = cap; }
+        if (start > today) { start = today; }
+
+        var entries = await env.DB.prepare(
+            "SELECT entry_date, sections_json, completed FROM client_daily_entries " +
+            "WHERE client_id = ? AND entry_date >= ? AND entry_date <= ?"
+        ).bind(id, start, today).all();
+        var missed = await env.DB.prepare(
+            "SELECT missed_date, status FROM client_missed_days WHERE client_id = ? AND missed_date >= ? AND missed_date <= ?"
+        ).bind(id, start, today).all();
+
+        var entryByDate = {};
+        (entries.results || []).forEach(function(r) { entryByDate[r.entry_date] = r; });
+        var dayOff = {};
+        (missed.results || []).forEach(function(r) { if (r.status === "day_off") { dayOff[r.missed_date] = true; } });
+
+        var config = await getFieldConfig(env, id);
+        var required = applicableSections(config);
+
+        var pending = [];
+        var d = new Date(start + "T12:00:00Z");
+        var end = new Date(today + "T12:00:00Z");
+        while (d <= end) {
+            var ds = d.toISOString().slice(0, 10);
+            var entry = entryByDate[ds];
+            if (!(entry && entry.completed) && !dayOff[ds]) {
+                pending.push({
+                    date: ds,
+                    is_today: ds === today,
+                    sections: entry ? parseSectionsJson(entry.sections_json) : {}
+                });
+            }
+            d = new Date(d.getTime() + 24 * 3600 * 1000);
+        }
+
+        return jsonOk({ today: today, tracking_start: start, required_sections: required, pending: pending });
+    } catch (e) {
+        return jsonErr("Error fetching entry state: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/entries?month=YYYY-MM
+// Historical view (the retired grid's data) + missed-day info for the month.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientEntries(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+
+        var entries = await env.DB.prepare(
+            "SELECT entry_date, sections_json, completed, completed_at FROM client_daily_entries " +
+            "WHERE client_id = ? AND entry_date LIKE ? ORDER BY entry_date DESC"
+        ).bind(id, month + "-%").all();
+        var missed = await env.DB.prepare(
+            "SELECT missed_date, status, reason FROM client_missed_days WHERE client_id = ? AND missed_date LIKE ?"
+        ).bind(id, month + "-%").all();
+
+        var out = (entries.results || []).map(function(r) {
+            return {
+                date: r.entry_date, completed: !!r.completed, completed_at: r.completed_at,
+                sections: parseSectionsJson(r.sections_json)
+            };
+        });
+        return jsonOk({ month: month, entries: out, missed_days: missed.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching entries: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Monthly aggregation. ONLY fully-completed days contribute (partial days add
+// nothing to sums or Falta). Falta is computed fresh on every call — never
+// cached — so it reacts immediately to new entries and target changes (bug
+// fix #2). Realizado comes straight from the same rows the entry form writes,
+// so the entry and the dashboard can never disagree (bug fix #1).
+// ---------------------------------------------------------------------------
+
+async function computeMonthlySummary(env, clientId, month) {
+    var config = await getFieldConfig(env, clientId);
+    var entries = await env.DB.prepare(
+        "SELECT entry_date, sections_json FROM client_daily_entries " +
+        "WHERE client_id = ? AND entry_date LIKE ? AND completed = 1"
+    ).bind(clientId, month + "-%").all();
+
+    var rows = (entries.results || []).map(function(r) {
+        return { date: r.entry_date, sections: parseSectionsJson(r.sections_json) };
+    });
+
+    var sums = {}, counts = {};
+    rows.forEach(function(r) {
+        ENTRY_SECTIONS.forEach(function(sec) {
+            var block = r.sections[sec];
+            if (!block || !block.submitted_at || !block.values) { return; }
+            Object.keys(block.values).forEach(function(k) {
+                var v = Number(block.values[k]);
+                if (!isFinite(v)) { return; }
+                sums[k] = (sums[k] || 0) + v;
+                counts[k] = (counts[k] || 0) + 1;
+            });
+        });
+    });
+
+    var diasRotina = rows.filter(function(r) {
+        var rot = r.sections.rotina;
+        return rot && rot.submitted_at && rot.values && Number(rot.values.rotina_completa) === 1;
+    }).length;
+
+    var indicators = [];
+    INDICATORS.forEach(function(ind) {
+        if (!config[ind.key].enabled) { return; }
+        var realizado = null;
+        if (ind.key === "margem_lucro") {
+            // Monthly margin derives from monthly totals, not a sum/avg of dailies.
+            var recSum = sums.receita || 0;
+            realizado = recSum !== 0 ? Math.round(((recSum - (sums.saida || 0)) / recSum) * 10000) / 100
+                                     : (rows.length ? 0 : null);
+        } else if (ind.type === "computed_month") {
+            realizado = diasRotina;
+        } else if (ind.type === "percent" || ind.type === "hours") {
+            realizado = counts[ind.key] ? Math.round((sums[ind.key] / counts[ind.key]) * 100) / 100 : null;
+        } else if (ind.type === "toggle") {
+            realizado = diasRotina;
+        } else {
+            realizado = (ind.key in sums) ? Math.round(sums[ind.key] * 100) / 100 : (rows.length ? 0 : null);
+        }
+        var meta = config[ind.key].meta_mensal;
+        var falta = null;
+        if (meta !== null && meta !== undefined && realizado !== null) {
+            falta = ind.inverse ? Math.max(0, realizado - meta) : Math.max(0, meta - realizado);
+            falta = Math.round(falta * 100) / 100;
+        }
+        indicators.push({
+            key: ind.key, section: ind.section, type: ind.type,
+            label_pt: ind.labelPt, label_en: ind.labelEn, inverse: !!ind.inverse,
+            meta_mensal: (meta === undefined) ? null : meta,
+            realizado: realizado, falta: falta
+        });
+    });
+
+    return {
+        month: month,
+        completed_days: rows.length,
+        dias_rotina_completos: diasRotina,
+        indicators: indicators
+    };
+}
+
+async function handleGetEntriesSummary(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+        var summary = await computeMonthlySummary(env, id, month);
+        return jsonOk(summary);
+    } catch (e) {
+        return jsonErr("Error computing summary: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/leaderboard?month=YYYY-MM — alice/rafa/developer ONLY.
+// Ranks active clients by composite score and per category. Attainment per
+// indicator (needs a meta): realizado/meta*100 capped at 150; inverse
+// indicators score 100 when within target, meta/realizado*100 when over.
+// ---------------------------------------------------------------------------
+
+async function handleGetLeaderboard(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+
+        var clients = await env.DB.prepare(
+            "SELECT id, name FROM clients WHERE status = 'active' OR status IS NULL ORDER BY name"
+        ).all();
+
+        var CATEGORIES = ["financeiro", "clientes_mercado", "processos", "crescimento"];
+        var results = [];
+        var list = clients.results || [];
+        for (var i = 0; i < list.length; i++) {
+            var c = list[i];
+            var summary = await computeMonthlySummary(env, c.id, month);
+            var catScores = {};
+            CATEGORIES.forEach(function(cat) {
+                var pcts = [];
+                summary.indicators.forEach(function(ind) {
+                    if (ind.section !== cat) { return; }
+                    var meta = ind.meta_mensal;
+                    if (meta === null || meta === undefined || meta === 0 || ind.realizado === null) { return; }
+                    var pct;
+                    if (ind.inverse) {
+                        pct = ind.realizado <= meta ? 100 : Math.round((meta / ind.realizado) * 10000) / 100;
+                    } else {
+                        pct = Math.min(150, Math.round((ind.realizado / meta) * 10000) / 100);
+                    }
+                    pcts.push(pct);
+                });
+                catScores[cat] = pcts.length
+                    ? Math.round((pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length) * 10) / 10
+                    : null;
+            });
+            var present = CATEGORIES.map(function(cat) { return catScores[cat]; })
+                .filter(function(v) { return v !== null; });
+            var composite = present.length
+                ? Math.round((present.reduce(function(a, b) { return a + b; }, 0) / present.length) * 10) / 10
+                : null;
+            results.push({
+                client_id: c.id, name: c.name,
+                completed_days: summary.completed_days,
+                composite: composite, categories: catScores
+            });
+        }
+
+        results.sort(function(a, b) {
+            if (a.composite === null && b.composite === null) { return 0; }
+            if (a.composite === null) { return 1; }
+            if (b.composite === null) { return -1; }
+            return b.composite - a.composite;
+        });
+
+        return jsonOk({ month: month, ranking: results });
+    } catch (e) {
+        return jsonErr("Error computing leaderboard: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/weekly-summary?start=YYYY-MM-DD (Monday) —
+// alice/rafa/developer ONLY. Current-week day-by-day status for the profile.
+// ---------------------------------------------------------------------------
+
+async function handleGetWeeklySummary(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var start = url.searchParams.get("start");
+        if (!isValidDateStr(start)) {
+            // default: Monday of the current week (UTC)
+            var now = new Date();
+            var dow = (now.getUTCDay() + 6) % 7;
+            start = new Date(now.getTime() - dow * 24 * 3600 * 1000).toISOString().slice(0, 10);
+        }
+        var endDate = new Date(new Date(start + "T12:00:00Z").getTime() + 6 * 24 * 3600 * 1000)
+            .toISOString().slice(0, 10);
+        var today = new Date().toISOString().slice(0, 10);
+
+        var entries = await env.DB.prepare(
+            "SELECT entry_date, completed FROM client_daily_entries WHERE client_id = ? AND entry_date >= ? AND entry_date <= ?"
+        ).bind(id, start, endDate).all();
+        var missed = await env.DB.prepare(
+            "SELECT missed_date, status, reason FROM client_missed_days WHERE client_id = ? AND missed_date >= ? AND missed_date <= ?"
+        ).bind(id, start, endDate).all();
+        var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ?").bind(id).first();
+        var trackingStart = login ? login.tracking_start : null;
+
+        var entryByDate = {}, missedByDate = {};
+        (entries.results || []).forEach(function(r) { entryByDate[r.entry_date] = r; });
+        (missed.results || []).forEach(function(r) { missedByDate[r.missed_date] = r; });
+
+        var days = [];
+        for (var i = 0; i < 7; i++) {
+            var ds = new Date(new Date(start + "T12:00:00Z").getTime() + i * 24 * 3600 * 1000)
+                .toISOString().slice(0, 10);
+            var e = entryByDate[ds];
+            var m = missedByDate[ds];
+            var status;
+            if (e && e.completed) { status = (m && m.status === "filled_late") ? "filled_late" : "completed"; }
+            else if (m && m.status === "day_off") { status = "day_off"; }
+            else if (ds > today) { status = "future"; }
+            else if (trackingStart && ds < trackingStart) { status = "not_tracked"; }
+            else if (e) { status = "partial"; }
+            else { status = "missing"; }
+            days.push({ date: ds, status: status, reason: m ? (m.reason || null) : null });
+        }
+        return jsonOk({ week_start: start, days: days });
+    } catch (e) {
+        return jsonErr("Error fetching weekly summary: " + e.message, 500);
+    }
+}
+
 export default {
     fetch: async function(request, env) {
         var url    = new URL(request.url);
@@ -6091,6 +7136,19 @@ export default {
         if (method === "OPTIONS") {
             return new Response(null, { status: 204, headers: CORS_HEADERS });
         }
+
+        // Client-role isolation gate: a 'client' user can only reach the
+        // portal whitelist, always scoped to their own client_id. Admin and
+        // unauthenticated requests pass through untouched.
+        var gateResponse = await enforceClientRoleGate(request, env, path, method);
+        if (gateResponse) { return gateResponse; }
+
+        if (path === "/api/auth/client-login"           && method === "POST") { return handlePostClientLogin(request, env); }
+        if (path === "/api/auth/client-change-password" && method === "POST") { return handlePostClientChangePassword(request, env); }
+        if (path === "/api/auth/client-logout"          && method === "POST") { return handlePostClientLogout(request, env); }
+        if (path === "/api/portal/me"                   && method === "GET")  { return handleGetPortalMe(request, env); }
+        if (path === "/api/portal/next-meeting"         && method === "GET")  { return handleGetPortalNextMeeting(request, env); }
+        if (path === "/api/leaderboard"                 && method === "GET")  { return handleGetLeaderboard(request, env); }
 
         if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
         if (path === "/api/google/oauth/start"        && method === "GET")  { return handleGoogleOAuthStart(request, env); }
@@ -6265,6 +7323,33 @@ export default {
             if (segs.length === 4 && segs[3] === "zoho-contact") {
                 if (method === "GET") { return handleGetClientZohoContact(cid, request, env); }
                 if (method === "PUT") { return handlePutClientZohoContact(cid, request, env); }
+            }
+            // Client Portal routes
+            if (segs.length === 4 && segs[3] === "login") {
+                if (method === "GET")  { return handleGetClientLoginStatus(cid, request, env); }
+                if (method === "POST") { return handlePostClientLoginCreate(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "field-config") {
+                if (method === "GET") { return handleGetClientFieldConfig(cid, request, env); }
+                if (method === "PUT") { return handlePutClientFieldConfig(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "entry-state" && method === "GET") {
+                return handleGetEntryState(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "entries" && method === "GET") {
+                return handleGetClientEntries(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "entries-summary" && method === "GET") {
+                return handleGetEntriesSummary(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "weekly-summary" && method === "GET") {
+                return handleGetWeeklySummary(cid, request, env);
+            }
+            if (segs.length === 7 && segs[3] === "entries" && segs[5] === "sections" && method === "PUT") {
+                return handlePutEntrySection(cid, segs[4], segs[6], request, env);
+            }
+            if (segs.length === 6 && segs[3] === "entries" && segs[5] === "day-off" && method === "POST") {
+                return handlePostEntryDayOff(cid, segs[4], request, env);
             }
         }
 

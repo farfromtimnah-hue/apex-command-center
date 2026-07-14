@@ -1706,6 +1706,32 @@
           </div>
         </div>
 
+        <!-- Client Portal access (login + daily-entry field config) -->
+        <div class="content-card" id="sec-portalAccess">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Portal do Cliente</span>
+              <span class="show-en">Client Portal</span>
+            </h2>
+          </div>
+          <div id="portalAccessBody" style="padding:16px 20px;">
+            <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+          </div>
+        </div>
+
+        <!-- Weekly daily-entry summary -->
+        <div class="content-card" id="sec-weeklySummary">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Semana de Registros</span>
+              <span class="show-en">Entry Week</span>
+            </h2>
+          </div>
+          <div id="weeklySummaryBody" style="padding:16px 20px;">
+            <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+          </div>
+        </div>
+
         <!-- Activity timeline: placeholder -->
         <div class="info-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
@@ -2129,6 +2155,64 @@
     </div>
   </div>
 
+  <!-- ═══════════════ MODAL: Login do Cliente ═════════════════════════════ -->
+  <div id="modalClientLogin" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Login do Cliente</span>
+          <span class="show-en">Client Login</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalClientLogin')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+          <span class="show-pt">Anote ou envie estas credenciais agora — a senha tempor&aacute;ria n&atilde;o poder&aacute; ser vista novamente. No primeiro acesso o cliente ser&aacute; obrigado a criar uma senha nova.</span>
+          <span class="show-en">Save or send these credentials now — the temporary password cannot be viewed again. On first login the client must create a new password.</span>
+        </p>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;font-size:14px;">
+          <div style="margin-bottom:8px;"><strong><span class="show-pt">Usu&aacute;rio:</span><span class="show-en">Username:</span></strong> <code id="clLoginUsername" style="font-size:14px;"></code></div>
+          <div><strong><span class="show-pt">Senha tempor&aacute;ria:</span><span class="show-en">Temp password:</span></strong> <code id="clLoginPassword" style="font-size:14px;"></code></div>
+        </div>
+        <button class="btn-primary" id="btnSendLoginWhatsapp" onclick="sendLoginViaWhatsapp()" style="width:100%;">
+          <span class="show-pt">Enviar via WhatsApp</span>
+          <span class="show-en">Send via WhatsApp</span>
+        </button>
+        <div style="text-align:center;margin-top:8px;">
+          <button onclick="closeModalById('modalClientLogin')" style="background:none;border:none;color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;cursor:pointer;text-decoration:underline;">
+            <span class="show-pt">Fechar</span>
+            <span class="show-en">Close</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Campos do Registro Diário ════════════════════ -->
+  <div id="modalFieldConfig" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:640px;">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Editar Campos do Registro Di&aacute;rio</span>
+          <span class="show-en">Edit Daily-Entry Fields</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalFieldConfig')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          <span class="show-pt">Marque os indicadores que se aplicam a este cliente e defina a Meta Mensal de cada um.</span>
+          <span class="show-en">Check the indicators that apply to this client and set each one's Monthly Target.</span>
+        </p>
+        <div id="fieldConfigList" style="max-height:55vh;overflow-y:auto;"></div>
+        <button class="btn-primary" id="btnSaveFieldConfig" onclick="saveFieldConfig()" style="width:100%;margin-top:12px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div class="pull-status" id="fieldConfigStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
   <script src="nav.js"></script>
   <script
@@ -2227,7 +2311,7 @@
 
     // Close modal on overlay click
     document.addEventListener("click", function(e) {
-      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource", "modalGrowth"];
+      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource", "modalGrowth", "modalClientLogin", "modalFieldConfig"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
         if (el && !el.hidden && e.target === el) {
@@ -2352,7 +2436,230 @@
       loadClientResources();
       loadClientGrowth();
       loadClientNeighbors();
+      loadPortalAccess();
+      loadWeeklySummary();
       initCollapseStates();
+    }
+
+    // ── Client Portal access (login + field config) ────────────────────────
+
+    var portalLoginStatus = null;
+    var generatedCredentials = null;   // { username, temp_password } — shown once
+
+    function loadPortalAccess() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/login")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          portalLoginStatus = data;
+          renderPortalAccess();
+        })
+        .catch(function() {
+          var el = document.getElementById("portalAccessBody");
+          if (el) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">--</div>'; }
+        });
+    }
+
+    function renderPortalAccess() {
+      var el = document.getElementById("portalAccessBody");
+      if (!el) { return; }
+      var s = portalLoginStatus || { exists: false };
+      var html = "";
+      if (s.exists) {
+        html += '<div style="font-size:13px;margin-bottom:10px;">' +
+          '<span class="show-pt">Login criado:</span><span class="show-en">Login created:</span> ' +
+          '<strong>' + escHtml(s.username) + '</strong>' +
+          (s.must_change_password
+            ? ' · <span style="color:var(--muted);"><span class="show-pt">senha tempor&aacute;ria pendente</span><span class="show-en">temp password pending</span></span>'
+            : ' · <span style="color:#3f7d4e;"><span class="show-pt">senha definida</span><span class="show-en">password set</span></span>') +
+          (s.last_login_at
+            ? '<div style="color:var(--muted);font-size:12px;margin-top:3px;"><span class="show-pt">&Uacute;ltimo acesso:</span><span class="show-en">Last login:</span> ' + formatDateTime(s.last_login_at) + '</div>'
+            : '') +
+          '</div>';
+      } else {
+        html += '<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">' +
+          '<span class="show-pt">Este cliente ainda n&atilde;o tem login no portal.</span>' +
+          '<span class="show-en">This client has no portal login yet.</span></div>';
+      }
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button class="btn-add" onclick="createClientLogin()">' +
+        (s.exists
+          ? '<span class="show-pt">Redefinir Senha</span><span class="show-en">Reset Password</span>'
+          : '<span class="show-pt">Criar Login</span><span class="show-en">Create Login</span>') +
+        '</button>' +
+        '<button class="btn-add" onclick="openFieldConfigModal()">' +
+        '<span class="show-pt">Editar Campos</span><span class="show-en">Edit Fields</span>' +
+        '</button></div>';
+      el.innerHTML = html;
+    }
+
+    function createClientLogin() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/login", { method: "POST" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          generatedCredentials = data;
+          document.getElementById("clLoginUsername").textContent = data.username;
+          document.getElementById("clLoginPassword").textContent = data.temp_password;
+          document.getElementById("modalClientLogin").hidden = false;
+          loadPortalAccess();
+        })
+        .catch(function(e) { window.alert("Erro: " + e.message); });
+    }
+
+    function sendLoginViaWhatsapp() {
+      if (!generatedCredentials) { return; }
+      // window.open must run synchronously in the click handler — any await gap
+      // before it lets the popup blocker fire (confirmed project lesson).
+      var loginUrl = "https://farfromtimnah-hue.github.io/apex-command-center/index.html";
+      var msg = "Olá! Seu acesso ao Portal do Cliente Apex está pronto.\n\n" +
+        "Link: " + loginUrl + "\n" +
+        "Usuário: " + generatedCredentials.username + "\n" +
+        "Senha temporária: " + generatedCredentials.temp_password + "\n\n" +
+        "No primeiro acesso você vai criar uma senha nova.";
+      var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+                  "?text=" + encodeURIComponent(msg);
+      var waTab = window.open(waUrl, "_blank");
+      if (!waTab) {
+        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+      }
+    }
+
+    // ── Daily-entry field config ───────────────────────────────────────────
+
+    var fieldConfigData = null;
+    var FC_SECTION_LABELS = {
+      financeiro:       { pt: "Financeiro",         en: "Financial" },
+      clientes_mercado: { pt: "Clientes & Mercado", en: "Clients & Market" },
+      processos:        { pt: "Processos",          en: "Processes" },
+      crescimento:      { pt: "Crescimento",        en: "Growth" },
+      rotina:           { pt: "Rotina",             en: "Routine" }
+    };
+
+    function openFieldConfigModal() {
+      document.getElementById("fieldConfigList").innerHTML =
+        '<div style="color:var(--muted);font-size:13px;padding:10px;">Carregando...</div>';
+      document.getElementById("fieldConfigStatus").textContent = "";
+      document.getElementById("modalFieldConfig").hidden = false;
+      apiFetch("/api/clients/" + CLIENT_ID + "/field-config")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          fieldConfigData = data;
+          renderFieldConfigList();
+        })
+        .catch(function(e) {
+          document.getElementById("fieldConfigList").innerHTML =
+            '<div style="color:#b44040;font-size:13px;padding:10px;">' + escHtml(e.message) + '</div>';
+        });
+    }
+
+    function renderFieldConfigList() {
+      var isEnLang = document.body.classList.contains("lang-en");
+      var bySection = {};
+      fieldConfigData.indicators.forEach(function(ind) {
+        (bySection[ind.section] = bySection[ind.section] || []).push(ind);
+      });
+      var html = "";
+      (fieldConfigData.sections || []).forEach(function(sec) {
+        var list = bySection[sec];
+        if (!list) { return; }
+        var secLabel = FC_SECTION_LABELS[sec] || { pt: sec, en: sec };
+        html += '<div style="font-size:11px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--gold);margin:14px 0 6px;">' +
+          escHtml(isEnLang ? secLabel.en : secLabel.pt) + '</div>';
+        list.forEach(function(ind) {
+          var isComputed = ind.type === "computed";
+          html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border);">' +
+            '<input type="checkbox" id="fc_en_' + ind.key + '" ' + (ind.enabled ? "checked" : "") +
+            (isComputed ? " disabled" : "") + ' style="width:17px;height:17px;flex-shrink:0;">' +
+            '<label for="fc_en_' + ind.key + '" style="flex:1;font-size:13px;cursor:pointer;">' +
+            escHtml(isEnLang ? ind.label_en : ind.label_pt) +
+            (isComputed ? ' <span style="color:var(--muted);font-size:11px;">(autom&aacute;tico)</span>' : '') +
+            '</label>' +
+            '<input type="number" step="any" id="fc_meta_' + ind.key + '" placeholder="Meta" ' +
+            'value="' + (ind.meta_mensal === null || ind.meta_mensal === undefined ? "" : ind.meta_mensal) + '" ' +
+            'style="width:90px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-family:\'Inter\',sans-serif;font-size:13px;">' +
+            '</div>';
+        });
+      });
+      document.getElementById("fieldConfigList").innerHTML = html;
+    }
+
+    function saveFieldConfig() {
+      if (!fieldConfigData) { return; }
+      var payload = [];
+      fieldConfigData.indicators.forEach(function(ind) {
+        var enEl = document.getElementById("fc_en_" + ind.key);
+        var metaEl = document.getElementById("fc_meta_" + ind.key);
+        if (!enEl || !metaEl) { return; }
+        var enabled = ind.type === "computed" ? true : enEl.checked;
+        payload.push({
+          key: ind.key,
+          enabled: enabled,
+          meta_mensal: metaEl.value === "" ? null : Number(metaEl.value)
+        });
+      });
+      var btn = document.getElementById("btnSaveFieldConfig");
+      btn.disabled = true;
+      apiFetch("/api/clients/" + CLIENT_ID + "/field-config", { method: "PUT", body: { indicators: payload } })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          btn.disabled = false;
+          if (data.error) { throw new Error(data.error); }
+          closeModalById("modalFieldConfig");
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          document.getElementById("fieldConfigStatus").textContent = "Erro: " + e.message;
+        });
+    }
+
+    // ── Weekly entry summary ───────────────────────────────────────────────
+
+    function loadWeeklySummary() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/weekly-summary")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var el = document.getElementById("weeklySummaryBody");
+          if (!el) { return; }
+          var isEnLang = document.body.classList.contains("lang-en");
+          var dayNames = isEnLang
+            ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            : ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+          var statusMeta = {
+            completed:   { color: "#3f7d4e", bg: "rgba(63,125,78,0.12)",  pt: "Completo",           en: "Completed" },
+            filled_late: { color: "#8a6d1d", bg: "rgba(201,164,58,0.18)", pt: "Preenchido depois",  en: "Filled late" },
+            day_off:     { color: "#6b6660", bg: "rgba(107,102,96,0.12)", pt: "Folga",              en: "Day off" },
+            partial:     { color: "#8a6d1d", bg: "rgba(201,164,58,0.18)", pt: "Parcial",            en: "Partial" },
+            missing:     { color: "#b44040", bg: "rgba(180,64,64,0.1)",   pt: "Sem registro",       en: "Missing" },
+            future:      { color: "#b8b2a8", bg: "transparent",           pt: "—",             en: "—" },
+            not_tracked: { color: "#b8b2a8", bg: "transparent",           pt: "—",             en: "—" }
+          };
+          var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">';
+          (data.days || []).forEach(function(d, i) {
+            var m = statusMeta[d.status] || statusMeta.missing;
+            var dayNum = d.date.split("-")[2];
+            html += '<div style="text-align:center;border:1px solid var(--border);border-radius:8px;padding:8px 2px;background:' + m.bg + ';"' +
+              (d.reason ? ' title="' + escHtml(d.reason) + '"' : '') + '>' +
+              '<div style="font-size:10px;color:var(--muted);font-weight:700;">' + dayNames[i] + '</div>' +
+              '<div style="font-size:14px;font-weight:700;margin:2px 0;">' + dayNum + '</div>' +
+              '<div style="font-size:9px;font-weight:700;color:' + m.color + ';line-height:1.2;">' + (isEnLang ? m.en : m.pt) + '</div>' +
+              '</div>';
+          });
+          html += '</div>';
+          var reasons = (data.days || []).filter(function(d) { return d.reason; });
+          if (reasons.length) {
+            html += '<div style="margin-top:10px;font-size:12px;color:var(--muted);">';
+            reasons.forEach(function(d) {
+              html += '<div>' + formatDate(d.date) + ': ' + escHtml(d.reason) + '</div>';
+            });
+            html += '</div>';
+          }
+          el.innerHTML = html;
+        })
+        .catch(function() {
+          var el = document.getElementById("weeklySummaryBody");
+          if (el) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">--</div>'; }
+        });
     }
 
     // ── Prev/next client navigation (hero header) ──────────────────────────

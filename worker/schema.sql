@@ -110,6 +110,12 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT PRIMARY KEY,
     role  TEXT NOT NULL
 );
+-- NOTE: client_id TEXT was added to the live users table via
+-- migrations/client_portal.sql. Set only for role='client' rows (links a
+-- Google sign-in to a clients.id). NULL for alice/rafa/developer.
+-- NOTE: Client Portal tables (client_daily_entries, client_field_config,
+-- client_missed_days, client_logins, client_auth_tokens) were added via
+-- migrations/client_portal.sql — see that file for shapes and JSON formats.
 
 -- Seed: operational account for Pra. Alice
 INSERT OR IGNORE INTO users (email, role) VALUES ('abnerprata@gmail.com', 'alice');

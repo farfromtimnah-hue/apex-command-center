@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <title>Portal do Cliente — Apex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface : #f9f7f4;
+      --header  : #1a1a1d;
+      --gold    : #C9A43A;
+      --text    : #1a1a1d;
+      --muted   : #6b6660;
+      --border  : #e8e2d9;
+      --card    : #ffffff;
+      --green   : #3f7d4e;
+      --red     : #b44040;
+      --radius  : 10px;
+      --shadow  : 0 2px 20px rgba(26,26,29,0.09);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ---------- Header ---------- */
+    header {
+      background: var(--header);
+      height: 64px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .logo-img { height: 30px; width: auto; display: block; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-client-name {
+      color: rgba(255,255,255,0.85);
+      font-size: 13px;
+      font-weight: 600;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lang-btn, .signout-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    .lang-btn:hover, .signout-btn:hover { background: rgba(201,164,58,0.14); }
+
+    /* ---------- Loading ---------- */
+    #loadingScreen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 64px);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 80px; }
+
+    /* ---------- Hero (shared visual language) ---------- */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 14px;
+      padding: 26px 24px;
+      margin-bottom: 20px;
+    }
+    .hero-bg {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+    }
+    .hero-scrim {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+    .hero-content { position: relative; z-index: 2; }
+    .hero-shell {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .hero-logo {
+      flex-shrink: 0;
+      width: 58px; height: 58px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.7);
+      font-size: 24px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+    }
+    .hero-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .hero-logo .logo-edit-hint {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.55);
+      color: #fff; font-size: 8px; text-align: center; padding: 1px 0;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .hero-logo:hover .logo-edit-hint { opacity: 1; }
+    .hero-title { color: #fff; font-size: 20px; font-weight: 700; }
+    .hero-sub { color: rgba(255,255,255,0.65); font-size: 12px; margin-top: 3px; }
+    .hero-eyebrow {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+      text-transform: uppercase; color: var(--gold); margin-bottom: 4px;
+    }
+
+    /* ---------- Cards ---------- */
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .btn-gold {
+      background: var(--gold); color: #fff; border: none;
+      border-radius: 8px; padding: 11px 20px;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-gold:hover { opacity: 0.88; }
+    .btn-gold:disabled { opacity: 0.42; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 18px; font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+
+    input[type="number"], input[type="password"], input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      padding: 11px 12px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+    input:focus, textarea:focus { border-color: var(--gold); }
+    .field-label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--muted); margin-bottom: 5px;
+    }
+    .err-msg { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 8px; }
+    .ok-msg  { color: var(--green); font-size: 13px; min-height: 18px; margin-top: 8px; }
+
+    /* ---------- Forced password change ---------- */
+    #viewPassword { max-width: 440px; margin: 40px auto; }
+
+    /* ---------- Entry backlog list ---------- */
+    .pending-day-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; margin-bottom: 10px;
+    }
+    .pending-day-date { font-weight: 700; font-size: 15px; }
+    .pending-day-tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.6px; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 10px; margin-left: 8px;
+      background: rgba(201,164,58,0.15); color: #8a6d1d;
+    }
+    .pending-day-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ---------- Entry form ---------- */
+    .progress-wrap { margin-bottom: 18px; }
+    .progress-track {
+      height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--gold); border-radius: 4px;
+      transition: width 0.3s ease; width: 0;
+    }
+    .progress-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    .section-hero {
+      position: relative; overflow: hidden;
+      border-radius: 14px; padding: 20px 18px 18px;
+      background: #211d18;
+      margin-bottom: 14px;
+    }
+    .section-hero .hero-bg { opacity: 0.5; }
+    .section-hero-title {
+      position: relative; z-index: 2;
+      color: #fff; font-size: 17px; font-weight: 700;
+    }
+    .section-hero-sub { position: relative; z-index: 2; color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 3px; }
+
+    .tile-grid {
+      position: relative; z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .field-tile {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .field-tile .tile-label {
+      font-size: 12px; font-weight: 700; color: var(--text);
+      margin-bottom: 8px; display: block;
+    }
+    .field-tile.computed { background: rgba(244, 240, 231, 0.94); }
+    .field-tile .computed-value { font-size: 20px; font-weight: 800; color: var(--gold); }
+    .field-tile .tile-unit { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    /* toggle */
+    .toggle-row { display: flex; align-items: center; gap: 12px; }
+    .toggle-switch {
+      position: relative; width: 52px; height: 30px; flex-shrink: 0;
+      border-radius: 15px; background: #d8d2c8; cursor: pointer;
+      border: none; transition: background 0.15s;
+    }
+    .toggle-switch::after {
+      content: ""; position: absolute; top: 3px; left: 3px;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #fff; transition: left 0.15s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    }
+    .toggle-switch.on { background: var(--green); }
+    .toggle-switch.on::after { left: 25px; }
+    .toggle-state { font-size: 14px; font-weight: 700; }
+
+    .form-nav {
+      display: flex; justify-content: space-between; gap: 10px; margin-top: 16px;
+    }
+    .autosave-note { font-size: 11px; color: var(--muted); text-align: right; min-height: 16px; margin-top: 6px; }
+
+    /* ---------- Portal tabs ---------- */
+    .portal-tabs {
+      display: flex; gap: 6px; margin-bottom: 16px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
+    .portal-tab {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 20px; padding: 9px 18px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--muted); cursor: pointer; white-space: nowrap;
+      min-height: 40px;
+    }
+    .portal-tab.active { background: var(--header); color: var(--gold); border-color: var(--header); }
+
+    /* Next meeting */
+    .meeting-card {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .meeting-when { font-size: 15px; font-weight: 700; }
+
+    /* Analytics */
+    .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .month-nav button {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border); background: #fff; cursor: pointer;
+      font-size: 16px; color: var(--text);
+    }
+    .month-nav .month-label { font-size: 15px; font-weight: 700; min-width: 150px; text-align: center; }
+
+    .kpi-section-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--gold);
+      margin: 18px 0 10px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+    }
+    .kpi-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px;
+    }
+    .kpi-card .kpi-name { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+    .kpi-card .kpi-value { font-size: 22px; font-weight: 800; }
+    .kpi-meta-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .kpi-bar { height: 6px; border-radius: 3px; background: var(--border); margin-top: 6px; overflow: hidden; }
+    .kpi-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
+    .kpi-bar-fill.done { background: var(--green); }
+
+    /* history table */
+    table.hist { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.hist th {
+      text-align: left; font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--muted);
+      padding: 8px 10px; border-bottom: 1px solid var(--border);
+    }
+    table.hist td { padding: 10px; border-bottom: 1px solid var(--border); }
+    .hist-status { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; display: inline-block; }
+    .hist-status.completed { background: rgba(63,125,78,0.12); color: var(--green); }
+    .hist-status.day_off   { background: rgba(107,102,96,0.12); color: var(--muted); }
+    .hist-status.partial   { background: rgba(201,164,58,0.15);  color: #8a6d1d; }
+    .hist-detail td { background: #faf8f4; }
+    .hist-detail-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 6px 16px; font-size: 12px; padding: 4px 0;
+    }
+    .btn-expand {
+      background: none; border: none; cursor: pointer;
+      color: var(--gold); font-weight: 700; font-size: 12px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Tasks / documents / invoices lists */
+    .list-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-main { flex: 1; min-width: 200px; }
+    .list-title { font-size: 14px; font-weight: 600; }
+    .list-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .badge {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 10px;
+    }
+    .badge.done, .badge.paid { background: rgba(63,125,78,0.12); color: var(--green); }
+    .badge.pending, .badge.unpaid { background: rgba(180,64,64,0.1); color: var(--red); }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(20,18,16,0.55); z-index: 100;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-overlay[hidden] { display: none; }
+    .modal-box {
+      background: #fff; border-radius: 14px; padding: 22px;
+      width: 100%; max-width: 420px; box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+    @media (max-width: 600px) {
+      main { padding: 14px 10px 60px; }
+      .tile-grid { grid-template-columns: 1fr 1fr; }
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
+      .header-client-name { display: none; }
+    }
+    @media (max-width: 380px) {
+      .tile-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header>
+    <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex" class="logo-img">
+    <div class="header-right">
+      <span class="header-client-name" id="headerClientName"></span>
+      <button class="lang-btn" onclick="toggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="signout-btn" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="loadingScreen">
+    <span class="show-pt">Carregando…</span>
+    <span class="show-en">Loading…</span>
+  </div>
+
+  <main id="appMain" hidden>
+
+    <!-- ══ Forced password change (cannot be skipped) ══ -->
+    <section id="viewPassword" hidden>
+      <div class="content-card">
+        <div class="card-title">
+          <span class="show-pt">Defina sua nova senha</span>
+          <span class="show-en">Set your new password</span>
+        </div>
+        <p class="muted" style="margin-bottom:16px;">
+          <span class="show-pt">Por seguran&ccedil;a, voc&ecirc; precisa criar uma senha pessoal antes de continuar.</span>
+          <span class="show-en">For security, you must create a personal password before continuing.</span>
+        </p>
+        <label class="field-label">
+          <span class="show-pt">Nova senha (m&iacute;nimo 8 caracteres)</span>
+          <span class="show-en">New password (minimum 8 characters)</span>
+        </label>
+        <input type="password" id="newPassword" autocomplete="new-password" style="margin-bottom:12px;">
+        <label class="field-label">
+          <span class="show-pt">Confirmar nova senha</span>
+          <span class="show-en">Confirm new password</span>
+        </label>
+        <input type="password" id="newPassword2" autocomplete="new-password">
+        <div class="err-msg" id="pwErr"></div>
+        <button class="btn-gold" style="width:100%;margin-top:8px;" onclick="submitPasswordChange()">
+          <span class="show-pt">Salvar nova senha</span>
+          <span class="show-en">Save new password</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ Entry backlog: every missed day listed individually ══ -->
+    <section id="viewEntryHome" hidden>
+      <div class="hero">
+        <div class="hero-bg" data-hero-bg></div>
+        <div class="hero-scrim"></div>
+        <div class="hero-content">
+          <div class="hero-shell">
+            <div class="hero-logo" id="homeLogo">&#127956;</div>
+            <div>
+              <div class="hero-eyebrow">
+                <span class="show-pt">Registro Di&aacute;rio</span>
+                <span class="show-en">Daily Log</span>
+              </div>
+              <div class="hero-title" id="homeClientName"></div>
+              <div class="hero-sub">
+                <span class="show-pt">Preencha os dias pendentes para manter seus indicadores em dia.</span>
+                <span class="show-en">Fill in the pending days to keep your indicators up to date.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="card-title">
+          <span class="show-pt">Dias pendentes</span>
+          <span class="show-en">Pending days</span>
+        </div>
+        <div id="pendingDaysList"></div>
+        <div style="margin-top:12px;">
+          <button class="btn-outline" onclick="showPortal()">
+            <span class="show-pt">Ir para o Portal &rarr;</span>
+            <span class="show-en">Go to Portal &rarr;</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ Multi-step daily-entry form ══ -->
+    <section id="viewEntryForm" hidden>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-label" id="progressLabel"></div>
+      </div>
+      <div class="section-hero">
+        <div class="hero-bg" data-hero-bg></div>
+        <div class="hero-scrim" style="background:rgba(20,18,16,0.55);"></div>
+        <div class="section-hero-title" id="formSectionTitle"></div>
+        <div class="section-hero-sub" id="formSectionDate"></div>
+        <div class="tile-grid" id="formTiles"></div>
+      </div>
+      <div class="err-msg" id="formErr"></div>
+      <div class="form-nav">
+        <button class="btn-outline" id="btnPrevSection" onclick="prevSection()">
+          <span class="show-pt">&larr; Anterior</span>
+          <span class="show-en">&larr; Back</span>
+        </button>
+        <button class="btn-gold" id="btnNextSection" onclick="nextSection()">
+          <span class="show-pt">Continuar &rarr;</span>
+          <span class="show-en">Continue &rarr;</span>
+        </button>
+      </div>
+      <div class="autosave-note" id="autosaveNote"></div>
+    </section>
+
+    <!-- ══ Client Portal ══ -->
+    <section id="viewPortal" hidden>
+      <div class="hero">
+        <div class="hero-bg" data-hero-bg></div>
+        <div class="hero-scrim"></div>
+        <div class="hero-content">
+          <div class="hero-shell">
+            <div class="hero-logo" id="portalLogo" onclick="triggerLogoUpload()" title="Alterar logo">
+              <span id="portalLogoFallback">&#127956;</span>
+              <div class="logo-edit-hint">
+                <span class="show-pt">alterar</span>
+                <span class="show-en">change</span>
+              </div>
+            </div>
+            <input type="file" id="logoFileInput" accept="image/*" hidden onchange="uploadLogo(this)">
+            <div style="flex:1;min-width:0;">
+              <div class="hero-eyebrow">
+                <span class="show-pt">Portal do Cliente</span>
+                <span class="show-en">Client Portal</span>
+              </div>
+              <div class="hero-title" id="portalClientName"></div>
+              <div class="hero-sub" id="portalMeetingLine"></div>
+            </div>
+            <div id="portalMeetingJoin"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="portal-tabs">
+        <button class="portal-tab active" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+        <button class="portal-tab" data-tab="tasks" onclick="switchTab('tasks')">
+          <span class="show-pt">Tarefas</span><span class="show-en">Tasks</span>
+        </button>
+        <button class="portal-tab" data-tab="documents" onclick="switchTab('documents')">
+          <span class="show-pt">Documentos</span><span class="show-en">Documents</span>
+        </button>
+        <button class="portal-tab" data-tab="invoices" onclick="switchTab('invoices')">
+          <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
+        </button>
+      </div>
+
+      <div id="tabAnalytics">
+        <div class="content-card" id="pendingBanner" hidden>
+          <div class="meeting-card">
+            <div>
+              <div class="list-title">
+                <span class="show-pt">Voc&ecirc; tem dias pendentes de registro.</span>
+                <span class="show-en">You have pending daily entries.</span>
+              </div>
+            </div>
+            <button class="btn-gold" onclick="showEntryHome()">
+              <span class="show-pt">Preencher agora</span>
+              <span class="show-en">Fill in now</span>
+            </button>
+          </div>
+        </div>
+        <div class="content-card">
+          <div class="month-nav">
+            <button onclick="changeMonth(-1)">&lsaquo;</button>
+            <div class="month-label" id="monthLabel"></div>
+            <button onclick="changeMonth(1)">&rsaquo;</button>
+          </div>
+          <div class="muted" id="analyticsMeta"></div>
+          <div id="analyticsBody"></div>
+        </div>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Hist&oacute;rico de registros</span>
+            <span class="show-en">Entry history</span>
+          </div>
+          <div id="historyBody"></div>
+        </div>
+      </div>
+
+      <div id="tabTasks" hidden>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Suas tarefas</span>
+            <span class="show-en">Your tasks</span>
+          </div>
+          <div id="tasksBody"></div>
+        </div>
+      </div>
+
+      <div id="tabDocuments" hidden>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Seus documentos</span>
+            <span class="show-en">Your documents</span>
+          </div>
+          <div id="documentsBody"></div>
+        </div>
+      </div>
+
+      <div id="tabInvoices" hidden>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Em aberto</span>
+            <span class="show-en">Unpaid</span>
+          </div>
+          <div id="invoicesUnpaidBody"></div>
+        </div>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Pagas</span>
+            <span class="show-en">Paid</span>
+          </div>
+          <div id="invoicesPaidBody"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Day-off modal -->
+  <div class="modal-overlay" id="modalDayOff" hidden>
+    <div class="modal-box">
+      <div class="modal-title">
+        <span class="show-pt">Marcar como folga/feriado</span>
+        <span class="show-en">Mark as day off/holiday</span>
+      </div>
+      <p class="muted" id="dayOffDateLabel" style="margin-bottom:12px;"></p>
+      <label class="field-label">
+        <span class="show-pt">Motivo (opcional)</span>
+        <span class="show-en">Reason (optional)</span>
+      </label>
+      <textarea id="dayOffReason" rows="2" maxlength="300"></textarea>
+      <div class="modal-actions">
+        <button class="btn-outline" onclick="closeDayOffModal()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <button class="btn-gold" onclick="confirmDayOff()">
+          <span class="show-pt">Confirmar</span>
+          <span class="show-en">Confirm</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // Mirror of the worker's INDICATORS catalog (keys must match).
+    var SECTION_ORDER = ["financeiro", "clientes_mercado", "processos", "crescimento", "rotina"];
+    var SECTION_LABELS = {
+      financeiro:       { pt: "Financeiro",          en: "Financial" },
+      clientes_mercado: { pt: "Clientes & Mercado",  en: "Clients & Market" },
+      processos:        { pt: "Processos",           en: "Processes" },
+      crescimento:      { pt: "Crescimento",         en: "Growth" },
+      rotina:           { pt: "Rotina",              en: "Routine" }
+    };
+
+    var currentUser = null;       // firebase user (google client) or null
+    var clientToken = null;       // capt_ token (password client) or null
+    var clientId    = null;
+    var clientName  = "";
+    var fieldConfig = null;       // from /field-config (list)
+    var entryState  = null;       // from /entry-state
+    var currentEntryDate = null;
+    var currentSectionIdx = 0;
+    var formSections = [];        // applicable sections for this client
+    var savedSections = {};       // sections state for currentEntryDate
+    var analyticsMonth = new Date().toISOString().slice(0, 7);
+    var dayOffTargetDate = null;
+    var auth = null;
+
+    function escHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function isEn() { return document.body.classList.contains("lang-en"); }
+
+    function toggleLang() {
+      var b = document.body;
+      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
+      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
+      // re-render dynamic bits that embed language-dependent text
+      if (!document.getElementById("viewPortal").hidden) { loadAnalytics(); }
+    }
+
+    function todayStr() {
+      var d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
+    function formatDateBR(ds) {
+      var p = (ds || "").split("-");
+      return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : ds;
+    }
+
+    function weekdayName(ds) {
+      var names = isEn()
+        ? ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+        : ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
+      return names[new Date(ds + "T12:00:00").getDay()];
+    }
+
+    function fmtNum(v, type) {
+      if (v === null || v === undefined) { return "--"; }
+      var n = Number(v);
+      if (type === "currency") {
+        return "$" + n.toLocaleString(isEn() ? "en-US" : "pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      }
+      if (type === "percent") { return n.toLocaleString(isEn() ? "en-US" : "pt-BR", { maximumFractionDigits: 2 }) + "%"; }
+      return n.toLocaleString(isEn() ? "en-US" : "pt-BR", { maximumFractionDigits: 2 });
+    }
+
+    // ── API ─────────────────────────────────────────────────────────────────
+    function getToken() {
+      if (clientToken) { return Promise.resolve(clientToken); }
+      if (currentUser) { return currentUser.getIdToken(); }
+      return Promise.reject(new Error("Not authenticated"));
+    }
+
+    function apiFetch(path, opts) {
+      return getToken().then(function(token) {
+        var method  = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + token };
+        var fetchOpts = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fetchOpts.body = JSON.stringify(opts.body);
+        }
+        if (opts && opts.formData) { fetchOpts.body = opts.formData; }
+        return fetch(WORKER_URL + path, fetchOpts);
+      });
+    }
+
+    function goToLogin() {
+      localStorage.removeItem("apex_client_token");
+      localStorage.removeItem("apex_client_id");
+      localStorage.removeItem("apex_client_name");
+      window.location.href = "index.html";
+    }
+
+    function handleSignOut() {
+      var done = function() { goToLogin(); };
+      if (clientToken) {
+        apiFetch("/api/auth/client-logout", { method: "POST" }).then(done).catch(done);
+      } else if (auth) {
+        sessionStorage.clear();
+        auth.signOut().then(done).catch(done);
+      } else { done(); }
+    }
+
+    // ── Views ───────────────────────────────────────────────────────────────
+    function showView(id) {
+      ["viewPassword", "viewEntryHome", "viewEntryForm", "viewPortal"].forEach(function(v) {
+        document.getElementById(v).hidden = (v !== id);
+      });
+      window.scrollTo(0, 0);
+    }
+
+    // Hero background images — same set the login screen uses.
+    function loadHeroBgs() {
+      var imgs = ["picture1.jpg", "picture2.jpg", "Picture3.jpg", "Picture4.jpg", "Picture5.jpg"];
+      var pick = imgs[Math.floor(Math.random() * imgs.length)];
+      var url = "assets/login/" + pick;
+      var img = new Image();
+      img.onload = function() {
+        document.querySelectorAll("[data-hero-bg]").forEach(function(el) {
+          el.style.backgroundImage = "url(" + url + ")";
+        });
+      };
+      img.src = url;
+    }
+
+    // ── Forced password change ──────────────────────────────────────────────
+    function submitPasswordChange() {
+      var p1 = document.getElementById("newPassword").value;
+      var p2 = document.getElementById("newPassword2").value;
+      var err = document.getElementById("pwErr");
+      err.textContent = "";
+      if (p1.length < 8) {
+        err.textContent = isEn() ? "Password must be at least 8 characters." : "A senha deve ter pelo menos 8 caracteres.";
+        return;
+      }
+      if (p1 !== p2) {
+        err.textContent = isEn() ? "Passwords do not match." : "As senhas não coincidem.";
+        return;
+      }
+      apiFetch("/api/auth/client-change-password", { method: "POST", body: { new_password: p1 } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          bootAfterAuth();
+        })
+        .catch(function(e) { err.textContent = e.message; });
+    }
+
+    // ── Entry backlog ───────────────────────────────────────────────────────
+    function loadEntryState() {
+      return apiFetch("/api/clients/" + clientId + "/entry-state?today=" + todayStr())
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(data) { entryState = data; return data; });
+    }
+
+    function showEntryHome() {
+      var list = document.getElementById("pendingDaysList");
+      document.getElementById("homeClientName").textContent = clientName;
+      var pending = (entryState && entryState.pending) || [];
+      if (!pending.length) {
+        list.innerHTML = '<p class="muted">' +
+          (isEn() ? "All caught up! No pending days. ✔" : "Tudo em dia! Nenhum dia pendente. ✔") + "</p>";
+        showView("viewEntryHome");
+        return;
+      }
+      var html = "";
+      pending.forEach(function(p, i) {
+        var started = p.sections && Object.keys(p.sections).length > 0;
+        html += '<div class="pending-day-row">' +
+          '<div><span class="pending-day-date">' + weekdayName(p.date) + ", " + formatDateBR(p.date) + '</span>' +
+          (p.is_today
+            ? '<span class="pending-day-tag">' + (isEn() ? "Today" : "Hoje") + '</span>'
+            : '<span class="pending-day-tag">' + (isEn() ? "Missed" : "Pendente") + '</span>') +
+          (started ? '<span class="pending-day-tag">' + (isEn() ? "In progress" : "Em andamento") + '</span>' : "") +
+          '</div>' +
+          '<div class="pending-day-actions">' +
+          '<button class="btn-gold" onclick="startEntry(' + i + ')">' +
+            (started ? (isEn() ? "Resume" : "Continuar") : (isEn() ? "Fill in" : "Preencher")) + '</button>' +
+          (!p.is_today
+            ? '<button class="btn-outline" onclick="openDayOffModal(\'' + p.date + '\')">' + (isEn() ? "Day off" : "Folga/Feriado") + '</button>'
+            : "") +
+          '</div></div>';
+      });
+      list.innerHTML = html;
+      showView("viewEntryHome");
+    }
+
+    function openDayOffModal(date) {
+      dayOffTargetDate = date;
+      document.getElementById("dayOffDateLabel").textContent = weekdayName(date) + ", " + formatDateBR(date);
+      document.getElementById("dayOffReason").value = "";
+      document.getElementById("modalDayOff").hidden = false;
+    }
+    function closeDayOffModal() { document.getElementById("modalDayOff").hidden = true; }
+    function confirmDayOff() {
+      var reason = document.getElementById("dayOffReason").value.trim();
+      apiFetch("/api/clients/" + clientId + "/entries/" + dayOffTargetDate + "/day-off",
+               { method: "POST", body: { reason: reason || null } })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          closeDayOffModal();
+          return loadEntryState();
+        })
+        .then(function() { showEntryHome(); })
+        .catch(function() { closeDayOffModal(); });
+    }
+
+    // ── Multi-step entry form ───────────────────────────────────────────────
+    function indicatorsForSection(sec) {
+      return fieldConfig.indicators.filter(function(ind) {
+        return ind.section === sec && ind.enabled &&
+               ind.type !== "computed" && ind.type !== "computed_month";
+      });
+    }
+    function computedForSection(sec) {
+      return fieldConfig.indicators.filter(function(ind) {
+        return ind.section === sec && ind.enabled && ind.type === "computed";
+      });
+    }
+
+    function startEntry(pendingIdx) {
+      var p = entryState.pending[pendingIdx];
+      if (!p) { return; }
+      currentEntryDate = p.date;
+      savedSections = p.sections || {};
+      formSections = entryState.required_sections.slice();
+      // resume at the first section not yet submitted
+      currentSectionIdx = 0;
+      for (var i = 0; i < formSections.length; i++) {
+        if (savedSections[formSections[i]] && savedSections[formSections[i]].submitted_at) { currentSectionIdx = i + 1; }
+        else { break; }
+      }
+      if (currentSectionIdx >= formSections.length) { currentSectionIdx = formSections.length - 1; }
+      renderFormSection();
+      showView("viewEntryForm");
+    }
+
+    function sectionValues(sec) {
+      var block = savedSections[sec] || {};
+      return block.values || block.draft_values || {};
+    }
+
+    function renderFormSection() {
+      var sec = formSections[currentSectionIdx];
+      var label = SECTION_LABELS[sec];
+      document.getElementById("formSectionTitle").textContent =
+        (currentSectionIdx + 1) + ". " + (isEn() ? label.en : label.pt);
+      document.getElementById("formSectionDate").textContent =
+        weekdayName(currentEntryDate) + ", " + formatDateBR(currentEntryDate);
+      document.getElementById("formErr").textContent = "";
+      document.getElementById("autosaveNote").textContent = "";
+
+      var submittedCount = 0;
+      formSections.forEach(function(s) {
+        if (savedSections[s] && savedSections[s].submitted_at) { submittedCount++; }
+      });
+      var pct = Math.round((submittedCount / formSections.length) * 100);
+      document.getElementById("progressFill").style.width = pct + "%";
+      document.getElementById("progressLabel").textContent = (isEn()
+        ? "Section " + (currentSectionIdx + 1) + " of " + formSections.length + " • " + pct + "% complete"
+        : "Seção " + (currentSectionIdx + 1) + " de " + formSections.length + " • " + pct + "% concluído");
+
+      var values = sectionValues(sec);
+      var inds = indicatorsForSection(sec);
+      var html = "";
+      inds.forEach(function(ind) {
+        var v = (values[ind.key] !== undefined && values[ind.key] !== null) ? values[ind.key] : "";
+        if (ind.type === "toggle") {
+          var on = Number(v) === 1;
+          html += '<div class="field-tile"><span class="tile-label">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</span>' +
+            '<div class="toggle-row">' +
+            '<button type="button" class="toggle-switch' + (on ? " on" : "") + '" id="toggle_' + ind.key + '" onclick="toggleField(\'' + ind.key + '\')"></button>' +
+            '<span class="toggle-state" id="toggleState_' + ind.key + '">' + toggleStateLabel(on) + '</span>' +
+            '</div>' +
+            '<input type="hidden" id="field_' + ind.key + '" value="' + (v === "" ? "" : (on ? 1 : 0)) + '">' +
+            '</div>';
+        } else {
+          var unit = ind.type === "currency" ? "$" : ind.type === "percent" ? "%" : ind.type === "hours" ? (isEn() ? "hours" : "horas") : "";
+          html += '<div class="field-tile"><label class="tile-label" for="field_' + ind.key + '">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</label>' +
+            '<input type="number" inputmode="decimal" step="any" min="0" id="field_' + ind.key + '" value="' + escHtml(String(v)) + '" oninput="onFieldInput(\'' + sec + '\')">' +
+            (unit ? '<div class="tile-unit">' + unit + '</div>' : "") +
+            '</div>';
+        }
+      });
+      // Computed tiles (Lucro Líquido / Margem) — read-only, live
+      computedForSection(sec).forEach(function(ind) {
+        html += '<div class="field-tile computed"><span class="tile-label">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</span>' +
+          '<div class="computed-value" id="computed_' + ind.key + '">--</div>' +
+          '<div class="tile-unit"><span class="show-pt">calculado automaticamente</span><span class="show-en">calculated automatically</span></div>' +
+          '</div>';
+      });
+      document.getElementById("formTiles").innerHTML = html;
+      updateComputedTiles();
+
+      document.getElementById("btnPrevSection").style.visibility = currentSectionIdx === 0 ? "hidden" : "visible";
+      var nextBtn = document.getElementById("btnNextSection");
+      nextBtn.innerHTML = currentSectionIdx === formSections.length - 1
+        ? '<span class="show-pt">Concluir dia ✔</span><span class="show-en">Finish day ✔</span>'
+        : '<span class="show-pt">Continuar →</span><span class="show-en">Continue →</span>';
+    }
+
+    function toggleStateLabel(on) {
+      if (isEn()) { return on ? "Yes" : "No"; }
+      return on ? "Sim" : "Não";
+    }
+
+    function toggleField(key) {
+      var btn = document.getElementById("toggle_" + key);
+      var input = document.getElementById("field_" + key);
+      var on = !btn.classList.contains("on");
+      btn.classList.toggle("on", on);
+      input.value = on ? 1 : 0;
+      document.getElementById("toggleState_" + key).textContent = toggleStateLabel(on);
+      onFieldInput(formSections[currentSectionIdx]);
+    }
+
+    function collectSectionValues(sec) {
+      var out = {};
+      indicatorsForSection(sec).forEach(function(ind) {
+        var el = document.getElementById("field_" + ind.key);
+        if (el && el.value !== "") { out[ind.key] = Number(el.value); }
+      });
+      return out;
+    }
+
+    function updateComputedTiles() {
+      var lucroEl  = document.getElementById("computed_lucro_liquido");
+      var margemEl = document.getElementById("computed_margem_lucro");
+      if (!lucroEl && !margemEl) { return; }
+      var rEl = document.getElementById("field_receita");
+      var sEl = document.getElementById("field_saida");
+      var receita = rEl && rEl.value !== "" ? Number(rEl.value) : null;
+      var saida   = sEl && sEl.value !== "" ? Number(sEl.value) : null;
+      if (receita === null || saida === null || !isFinite(receita) || !isFinite(saida)) {
+        if (lucroEl)  { lucroEl.textContent = "--"; }
+        if (margemEl) { margemEl.textContent = "--"; }
+        return;
+      }
+      var lucro = receita - saida;
+      var margem = receita !== 0 ? ((receita - saida) / receita) * 100 : 0;
+      if (lucroEl)  { lucroEl.textContent = fmtNum(lucro, "currency"); }
+      if (margemEl) { margemEl.textContent = fmtNum(Math.round(margem * 100) / 100, "percent"); }
+    }
+
+    // Autosave: debounce drafts so nothing typed is ever lost.
+    var autosaveTimer = null;
+    function onFieldInput(sec) {
+      updateComputedTiles();
+      if (autosaveTimer) { clearTimeout(autosaveTimer); }
+      autosaveTimer = setTimeout(function() { saveDraft(sec); }, 900);
+    }
+
+    function saveDraft(sec) {
+      var values = collectSectionValues(sec);
+      if (!Object.keys(values).length) { return Promise.resolve(); }
+      return apiFetch("/api/clients/" + clientId + "/entries/" + currentEntryDate + "/sections/" + sec,
+        { method: "PUT", body: { draft: true, today: todayStr(), values: values } })
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.saved) {
+            var block = savedSections[sec] || {};
+            if (!block.submitted_at) { savedSections[sec] = { draft_values: values }; }
+            var note = document.getElementById("autosaveNote");
+            note.textContent = isEn() ? "Draft saved automatically" : "Rascunho salvo automaticamente";
+            setTimeout(function() { note.textContent = ""; }, 2500);
+          }
+        })
+        .catch(function() {});
+    }
+
+    function prevSection() {
+      if (autosaveTimer) { clearTimeout(autosaveTimer); }
+      saveDraft(formSections[currentSectionIdx]);
+      if (currentSectionIdx > 0) { currentSectionIdx--; renderFormSection(); }
+    }
+
+    function nextSection() {
+      var sec = formSections[currentSectionIdx];
+      var errEl = document.getElementById("formErr");
+      errEl.textContent = "";
+      var inds = indicatorsForSection(sec);
+      var values = {};
+      for (var i = 0; i < inds.length; i++) {
+        var el = document.getElementById("field_" + inds[i].key);
+        if (!el || el.value === "") {
+          errEl.textContent = (isEn() ? "All fields are required: " : "Todos os campos são obrigatórios: ") +
+            (isEn() ? inds[i].label_en : inds[i].label_pt);
+          return;
+        }
+        var num = Number(el.value);
+        if (!isFinite(num)) {
+          errEl.textContent = (isEn() ? "Invalid value in " : "Valor inválido em ") + (isEn() ? inds[i].label_en : inds[i].label_pt);
+          return;
+        }
+        values[inds[i].key] = num;
+      }
+      if (autosaveTimer) { clearTimeout(autosaveTimer); }
+      var btn = document.getElementById("btnNextSection");
+      btn.disabled = true;
+      apiFetch("/api/clients/" + clientId + "/entries/" + currentEntryDate + "/sections/" + sec,
+        { method: "PUT", body: { draft: false, today: todayStr(), values: values } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          btn.disabled = false;
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          savedSections = r.data.sections || savedSections;
+          if (r.data.completed) {
+            // Day complete → straight into the Client Portal.
+            return loadEntryState().then(function() { showPortal(); });
+          }
+          if (currentSectionIdx < formSections.length - 1) {
+            currentSectionIdx++;
+            renderFormSection();
+          } else {
+            // last section submitted but some earlier one missing — jump to it
+            for (var i = 0; i < formSections.length; i++) {
+              if (!(savedSections[formSections[i]] && savedSections[formSections[i]].submitted_at)) {
+                currentSectionIdx = i;
+                break;
+              }
+            }
+            renderFormSection();
+          }
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          errEl.textContent = e.message;
+        });
+    }
+
+    // ── Portal ──────────────────────────────────────────────────────────────
+    var tabsLoaded = {};
+
+    function showPortal() {
+      document.getElementById("portalClientName").textContent = clientName;
+      document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
+      loadPortalLogo();
+      loadNextMeeting();
+      switchTab("analytics", true);
+      showView("viewPortal");
+    }
+
+    function switchTab(tab, force) {
+      document.querySelectorAll(".portal-tab").forEach(function(b) {
+        b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+      });
+      ["Analytics", "Tasks", "Documents", "Invoices"].forEach(function(t) {
+        document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
+      });
+      if (force || !tabsLoaded[tab]) {
+        tabsLoaded[tab] = true;
+        if (tab === "analytics") { loadAnalytics(); loadHistory(); }
+        if (tab === "tasks") { loadTasks(); }
+        if (tab === "documents") { loadDocuments(); }
+        if (tab === "invoices") { loadInvoices(); }
+      }
+    }
+
+    function loadPortalLogo() {
+      var img = new Image();
+      img.onload = function() {
+        var box = document.getElementById("portalLogo");
+        var fb = document.getElementById("portalLogoFallback");
+        if (fb) { fb.remove(); }
+        var old = box.querySelector("img");
+        if (old) { old.remove(); }
+        box.insertBefore(img, box.firstChild);
+      };
+      img.src = WORKER_URL + "/api/clients/" + clientId + "/logo-image?ts=" + Date.now();
+    }
+
+    function triggerLogoUpload() { document.getElementById("logoFileInput").click(); }
+
+    function uploadLogo(input) {
+      var file = input.files && input.files[0];
+      if (!file) { return; }
+      var fd = new FormData();
+      fd.append("logo", file);
+      apiFetch("/api/clients/" + clientId + "/logo", { method: "POST", formData: fd })
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          input.value = "";
+          if (d.logo_key) { loadPortalLogo(); }
+          else if (d.error) { window.alert(d.error); }
+        })
+        .catch(function(e) { window.alert(e.message); });
+    }
+
+    function loadNextMeeting() {
+      apiFetch("/api/portal/next-meeting")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          var line = document.getElementById("portalMeetingLine");
+          var join = document.getElementById("portalMeetingJoin");
+          if (!d.meeting) {
+            line.textContent = isEn() ? "No upcoming meeting scheduled." : "Nenhuma reunião agendada.";
+            join.innerHTML = "";
+            return;
+          }
+          var when = weekdayName(d.meeting.date) + ", " + formatDateBR(d.meeting.date) +
+                     (d.meeting.time ? " · " + d.meeting.time : "");
+          line.textContent = (isEn() ? "Next meeting: " : "Próxima reunião: ") + when;
+          join.innerHTML = d.meeting.google_meet_link
+            ? '<a class="btn-gold" style="text-decoration:none;display:inline-block;" href="' + escHtml(d.meeting.google_meet_link) + '" target="_blank" rel="noopener">' +
+              (isEn() ? "Join" : "Entrar") + '</a>'
+            : "";
+        })
+        .catch(function() {});
+    }
+
+    // Analytics — Realizado/Falta computed fresh on the Worker per request, so
+    // a Receita entered a moment ago is already reflected here.
+    function changeMonth(delta) {
+      var p = analyticsMonth.split("-");
+      var d = new Date(Number(p[0]), Number(p[1]) - 1 + delta, 1);
+      analyticsMonth = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      loadAnalytics();
+      loadHistory();
+    }
+
+    function monthLabelText(month) {
+      var p = month.split("-");
+      var names = isEn()
+        ? ["January","February","March","April","May","June","July","August","September","October","November","December"]
+        : ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+      return names[Number(p[1]) - 1] + " " + p[0];
+    }
+
+    function loadAnalytics() {
+      document.getElementById("monthLabel").textContent = monthLabelText(analyticsMonth);
+      apiFetch("/api/clients/" + clientId + "/entries-summary?month=" + analyticsMonth)
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          document.getElementById("analyticsMeta").textContent = (isEn()
+            ? d.completed_days + " completed day(s) this month"
+            : d.completed_days + " dia(s) completo(s) neste mês");
+          var bySection = {};
+          d.indicators.forEach(function(ind) {
+            (bySection[ind.section] = bySection[ind.section] || []).push(ind);
+          });
+          var html = "";
+          SECTION_ORDER.forEach(function(sec) {
+            var list = bySection[sec];
+            if (!list || !list.length) { return; }
+            html += '<div class="kpi-section-title">' + escHtml(isEn() ? SECTION_LABELS[sec].en : SECTION_LABELS[sec].pt) + '</div>';
+            html += '<div class="kpi-grid">';
+            list.forEach(function(ind) {
+              var pct = null;
+              if (ind.meta_mensal && ind.realizado !== null && !ind.inverse) {
+                pct = Math.min(100, Math.round((ind.realizado / ind.meta_mensal) * 100));
+              }
+              html += '<div class="kpi-card">' +
+                '<div class="kpi-name">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</div>' +
+                '<div class="kpi-value">' + fmtNum(ind.realizado, ind.type === "computed" && ind.key === "margem_lucro" ? "percent" : ind.type) + '</div>';
+              if (ind.meta_mensal !== null && ind.meta_mensal !== undefined) {
+                html += '<div class="kpi-meta-row"><span>Meta: ' + fmtNum(ind.meta_mensal, ind.type) + '</span>' +
+                  '<span>Falta: ' + fmtNum(ind.falta, ind.type) + '</span></div>';
+                if (pct !== null) {
+                  html += '<div class="kpi-bar"><div class="kpi-bar-fill' + (pct >= 100 ? " done" : "") + '" style="width:' + pct + '%"></div></div>';
+                }
+              }
+              html += '</div>';
+            });
+            html += '</div>';
+          });
+          document.getElementById("analyticsBody").innerHTML = html ||
+            '<p class="muted">' + (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
+        })
+        .catch(function() {});
+    }
+
+    // Entry history — the retired grid's historical past-entries view.
+    var historyEntries = [];
+    function loadHistory() {
+      apiFetch("/api/clients/" + clientId + "/entries?month=" + analyticsMonth)
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          historyEntries = d.entries || [];
+          var missedByDate = {};
+          (d.missed_days || []).forEach(function(m) { missedByDate[m.missed_date] = m; });
+          if (!historyEntries.length && !(d.missed_days || []).length) {
+            document.getElementById("historyBody").innerHTML =
+              '<p class="muted">' + (isEn() ? "No entries this month yet." : "Nenhum registro neste mês ainda.") + '</p>';
+            return;
+          }
+          var rows = "";
+          var covered = {};
+          historyEntries.forEach(function(e, i) {
+            covered[e.date] = true;
+            var m = missedByDate[e.date];
+            var st = e.completed ? (m && m.status === "filled_late" ? "filled_late" : "completed") : "partial";
+            var stLabel = st === "completed" ? (isEn() ? "Completed" : "Completo")
+              : st === "filled_late" ? (isEn() ? "Filled late" : "Preenchido depois")
+              : (isEn() ? "Partial" : "Parcial");
+            rows += '<tr><td>' + formatDateBR(e.date) + '</td>' +
+              '<td><span class="hist-status ' + (st === "filled_late" ? "completed" : st) + '">' + stLabel + '</span></td>' +
+              '<td style="text-align:right;"><button class="btn-expand" onclick="toggleHistDetail(' + i + ')">' +
+              (isEn() ? "details" : "detalhes") + '</button></td></tr>' +
+              '<tr class="hist-detail" id="histDetail' + i + '" hidden><td colspan="3">' + histDetailHtml(e) + '</td></tr>';
+          });
+          (d.missed_days || []).forEach(function(m) {
+            if (covered[m.missed_date] || m.status !== "day_off") { return; }
+            rows += '<tr><td>' + formatDateBR(m.missed_date) + '</td>' +
+              '<td><span class="hist-status day_off">' + (isEn() ? "Day off" : "Folga") +
+              (m.reason ? " · " + escHtml(m.reason) : "") + '</span></td><td></td></tr>';
+          });
+          document.getElementById("historyBody").innerHTML =
+            '<div style="overflow-x:auto;"><table class="hist"><thead><tr>' +
+            '<th>' + (isEn() ? "Date" : "Data") + '</th><th>Status</th><th></th>' +
+            '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+        })
+        .catch(function() {});
+    }
+
+    function histDetailHtml(e) {
+      var parts = [];
+      SECTION_ORDER.forEach(function(sec) {
+        var block = e.sections[sec];
+        if (!block || !block.values) { return; }
+        Object.keys(block.values).forEach(function(k) {
+          var ind = null;
+          fieldConfig.indicators.forEach(function(x) { if (x.key === k) { ind = x; } });
+          var label = ind ? (isEn() ? ind.label_en : ind.label_pt) : k;
+          var type = ind ? ind.type : "count";
+          var val = (k === "rotina_completa")
+            ? (Number(block.values[k]) === 1 ? (isEn() ? "Yes" : "Sim") : (isEn() ? "No" : "Não"))
+            : fmtNum(block.values[k], type === "computed" ? (k === "margem_lucro" ? "percent" : "currency") : type);
+          parts.push('<div><strong>' + escHtml(label) + ':</strong> ' + val + '</div>');
+        });
+      });
+      return '<div class="hist-detail-grid">' + parts.join("") + '</div>';
+    }
+
+    function toggleHistDetail(i) {
+      var el = document.getElementById("histDetail" + i);
+      if (el) { el.hidden = !el.hidden; }
+    }
+
+    // Tasks — reuses the existing tasks feature, scoped to this client.
+    function loadTasks() {
+      apiFetch("/api/clients/" + clientId + "/tasks")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          var tasks = (d.tasks || []).filter(function(t) { return t.type === "client"; });
+          if (!tasks.length) {
+            document.getElementById("tasksBody").innerHTML =
+              '<p class="muted">' + (isEn() ? "No tasks yet." : "Nenhuma tarefa ainda.") + '</p>';
+            return;
+          }
+          var html = "";
+          tasks.forEach(function(t) {
+            html += '<div class="list-row"><div class="list-main">' +
+              '<div class="list-title">' + escHtml(t.description) + '</div>' +
+              (t.due_date ? '<div class="list-sub">' + (isEn() ? "Due " : "Prazo ") + formatDateBR(t.due_date) + '</div>' : "") +
+              '</div>' +
+              '<span class="badge ' + (t.status === "done" ? "done" : "pending") + '">' +
+              (t.status === "done" ? (isEn() ? "Done" : "Concluída") : (isEn() ? "Pending" : "Pendente")) + '</span>' +
+              '</div>';
+          });
+          document.getElementById("tasksBody").innerHTML = html;
+        })
+        .catch(function() {});
+    }
+
+    // Documents — reuses the existing documents feature, scoped to this client.
+    var documentsCache = [];
+    function loadDocuments() {
+      apiFetch("/api/clients/" + clientId + "/documents")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          documentsCache = d.documents || [];
+          if (!documentsCache.length) {
+            document.getElementById("documentsBody").innerHTML =
+              '<p class="muted">' + (isEn() ? "No documents yet." : "Nenhum documento ainda.") + '</p>';
+            return;
+          }
+          var html = "";
+          documentsCache.forEach(function(doc, i) {
+            html += '<div class="list-row"><div class="list-main">' +
+              '<div class="list-title">' + escHtml(doc.title) + '</div>' +
+              '<div class="list-sub">' + formatDateBR((doc.date || "").slice(0, 10)) +
+              (doc.kind === "generated"
+                ? ' · <span class="show-pt">Relatório</span><span class="show-en">Report</span>'
+                : ' · <span class="show-pt">Arquivo</span><span class="show-en">File</span>') + '</div>' +
+              '</div>' +
+              '<button class="btn-outline" onclick="openDocument(' + i + ')">' +
+              (isEn() ? "View" : "Ver") + '</button></div>';
+          });
+          document.getElementById("documentsBody").innerHTML = html;
+        })
+        .catch(function() {});
+    }
+
+    function openDocument(i) {
+      var doc = documentsCache[i];
+      if (!doc) { return; }
+      if (doc.kind === "uploaded") {
+        // window.open must be synchronous in the click; fetch with auth then
+        // hand the blob to the tab (same Safari-safe pattern as client.html).
+        var newTab = window.open("", "_blank");
+        if (!newTab) { window.alert("Popup bloqueado / Popup blocked"); return; }
+        apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + "/file")
+          .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); })
+          .then(function(blob) { newTab.location.href = URL.createObjectURL(blob); })
+          .catch(function(e) { newTab.close(); window.alert(e.message); });
+        return;
+      }
+      // generated report → same template + postMessage handoff as documents.html
+      var pdfData;
+      try { pdfData = doc.pdf_data ? JSON.parse(doc.pdf_data) : null; } catch (e) { pdfData = null; }
+      if (!pdfData) { window.alert(isEn() ? "Report data missing." : "Dados do relatório ausentes."); return; }
+      var data = {};
+      for (var k in pdfData) { if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; } }
+      data.client_name = clientName;
+      data.consultant_name = "Rafael Prata";
+      var TEMPLATE_URL = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
+      var tab = window.open(TEMPLATE_URL, "_blank");
+      if (!tab) { window.alert("Popup bloqueado / Popup blocked"); return; }
+      var sent = false;
+      function sendData() {
+        if (sent) { return; }
+        sent = true;
+        tab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
+      }
+      setTimeout(sendData, 1500);
+    }
+
+    // Invoices — read-only paid/unpaid split.
+    function loadInvoices() {
+      var loadingHtml = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
+      document.getElementById("invoicesUnpaidBody").innerHTML = loadingHtml;
+      document.getElementById("invoicesPaidBody").innerHTML = loadingHtml;
+      apiFetch("/api/clients/" + clientId + "/invoices")
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          renderInvoiceList("invoicesUnpaidBody", r.data.unpaid || [], "unpaid");
+          renderInvoiceList("invoicesPaidBody", r.data.paid || [], "paid");
+        })
+        .catch(function(e) {
+          var msg = '<p class="muted">' + (isEn() ? "Invoices unavailable." : "Faturas indisponíveis.") + '</p>';
+          document.getElementById("invoicesUnpaidBody").innerHTML = msg;
+          document.getElementById("invoicesPaidBody").innerHTML = msg;
+        });
+    }
+
+    function renderInvoiceList(elId, list, kind) {
+      if (!list.length) {
+        document.getElementById(elId).innerHTML = '<p class="muted">' +
+          (kind === "unpaid"
+            ? (isEn() ? "No open invoices. ✔" : "Nenhuma fatura em aberto. ✔")
+            : (isEn() ? "No paid invoices yet." : "Nenhuma fatura paga ainda.")) + '</p>';
+        return;
+      }
+      var html = "";
+      list.forEach(function(inv) {
+        html += '<div class="list-row"><div class="list-main">' +
+          '<div class="list-title">#' + escHtml(inv.invoice_number) + ' · ' + fmtNum(inv.total, "currency") + '</div>' +
+          '<div class="list-sub">' + (inv.due_date ? (isEn() ? "Due " : "Vencimento ") + formatDateBR(inv.due_date) : "") + '</div>' +
+          '</div>' +
+          '<span class="badge ' + (kind === "paid" ? "paid" : "unpaid") + '">' +
+          (kind === "paid" ? (isEn() ? "Paid" : "Paga") : (isEn() ? "Open" : "Em aberto")) + '</span>' +
+          '</div>';
+      });
+      document.getElementById(elId).innerHTML = html;
+    }
+
+    // ── Bootstrap ───────────────────────────────────────────────────────────
+    function bootAfterAuth() {
+      return apiFetch("/api/role")
+        .then(function(res) { if (!res.ok) { throw new Error("auth"); } return res.json(); })
+        .then(function(role) {
+          if (role.role !== "client") {
+            // Admins never land here — send them to their own dashboard.
+            window.location.href = "dashboard.html";
+            throw new Error("redirect");
+          }
+          if (role.must_change_password) {
+            document.getElementById("loadingScreen").hidden = true;
+            document.getElementById("appMain").hidden = false;
+            showView("viewPassword");
+            throw new Error("halt");
+          }
+          return apiFetch("/api/portal/me").then(function(res) { return res.json(); });
+        })
+        .then(function(me) {
+          clientId = me.client_id;
+          clientName = me.name || "";
+          document.getElementById("headerClientName").textContent = clientName;
+          return Promise.all([
+            apiFetch("/api/clients/" + clientId + "/field-config").then(function(r) { return r.json(); }),
+            loadEntryState()
+          ]);
+        })
+        .then(function(results) {
+          fieldConfig = results[0];
+          document.getElementById("loadingScreen").hidden = true;
+          document.getElementById("appMain").hidden = false;
+          var pending = entryState.pending || [];
+          if (pending.length === 1) {
+            // exactly one day needing an entry → straight into the form
+            entryStartFromBoot();
+          } else if (pending.length > 1) {
+            showEntryHome();
+          } else {
+            showPortal();
+          }
+        })
+        .catch(function(e) {
+          if (e && (e.message === "redirect" || e.message === "halt")) { return; }
+          goToLogin();
+        });
+    }
+
+    function entryStartFromBoot() {
+      document.getElementById("homeClientName").textContent = clientName;
+      startEntry(0);
+    }
+
+    function init() {
+      loadHeroBgs();
+      clientToken = localStorage.getItem("apex_client_token");
+      if (clientToken) {
+        bootAfterAuth();
+        return;
+      }
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function(user) {
+        if (!user) { goToLogin(); return; }
+        currentUser = user;
+        bootAfterAuth();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

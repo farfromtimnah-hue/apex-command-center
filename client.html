@@ -4599,13 +4599,28 @@
     }
 
     function loadSectionOrder() {
+      var order;
       var stored = localStorage.getItem(sectionOrderKey());
-      if (!stored) { return DEFAULT_SECTION_ORDER.slice(); }
-      try {
-        var arr = JSON.parse(stored);
-        if (!Array.isArray(arr) || arr.length === 0) { return DEFAULT_SECTION_ORDER.slice(); }
-        return arr;
-      } catch(e) { return DEFAULT_SECTION_ORDER.slice(); }
+      if (!stored) {
+        order = DEFAULT_SECTION_ORDER.slice();
+      } else {
+        try {
+          var arr = JSON.parse(stored);
+          order = (Array.isArray(arr) && arr.length > 0) ? arr : DEFAULT_SECTION_ORDER.slice();
+        } catch(e) { order = DEFAULT_SECTION_ORDER.slice(); }
+      }
+      // Any section in the DOM but missing from the order (added after the
+      // user saved a custom order, or missing from the default) is appended
+      // so a new section can never be silently pinned out of order.
+      var list = document.getElementById("sectionsList");
+      if (list) {
+        var cards = list.querySelectorAll("[data-section-id]");
+        for (var i = 0; i < cards.length; i++) {
+          var id = cards[i].getAttribute("data-section-id");
+          if (order.indexOf(id) === -1) { order.push(id); }
+        }
+      }
+      return order;
     }
 
     function applySectionOrder(order) {

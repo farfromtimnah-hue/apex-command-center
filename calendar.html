@@ -1145,7 +1145,7 @@
             <span class="show-pt">Cliente</span>
             <span class="show-en">Client</span>
           </div>
-          <select id="nsClient">
+          <select id="nsClient" onchange="onNsClientChange()">
             <option value="">
               <span class="show-pt">— selecionar —</span>
               <span class="show-en">— select —</span>
@@ -1238,6 +1238,51 @@
           <span class="show-en">Cancel</span>
         </button>
         <div class="pull-status" id="nsStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Quick Add Client ═══════════════════════════════ -->
+  <div id="modalQuickAddClient" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Novo Cliente</span>
+          <span class="show-en">New Client</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalQuickAddClient')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Nome</span>
+            <span class="show-en">Name</span>
+          </div>
+          <input type="text" id="qacName" placeholder="">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">E-mail (opcional)</span>
+            <span class="show-en">Email (optional)</span>
+          </div>
+          <input type="email" id="qacEmail" placeholder="">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Telefone (opcional)</span>
+            <span class="show-en">Phone (optional)</span>
+          </div>
+          <input type="text" id="qacPhone" placeholder="">
+        </div>
+        <button class="btn-submit" onclick="handleQuickAddClient()">
+          <span class="show-pt">Salvar Cliente</span>
+          <span class="show-en">Save Client</span>
+        </button>
+        <button class="btn-cancel-link" onclick="closeModal('modalQuickAddClient')">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <div class="pull-status" id="qacStatus"></div>
       </div>
     </div>
   </div>
@@ -1451,7 +1496,7 @@
 
     // ── Close modals on overlay click ──────────────────────────────────────
     document.addEventListener("click", function(e) {
-      var modals = ["modalNewSession", "modalDetail"];
+      var modals = ["modalNewSession", "modalDetail", "modalQuickAddClient"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
         if (el && !el.hidden && e.target === el) { el.hidden = true; }
@@ -1589,13 +1634,86 @@
       var sel = document.getElementById("nsClient");
       if (!sel) { return; }
       var en = isEn();
-      sel.innerHTML = '<option value="">' + (en ? "— select client —" : "— selecionar cliente —") + '</option>';
+      sel.innerHTML = "";
+
+      var addOpt = document.createElement("option");
+      addOpt.value = "__add_new__";
+      addOpt.textContent = (en ? "+ Add New Client" : "+ Adicionar Novo Cliente");
+      sel.appendChild(addOpt);
+
+      var sep = document.createElement("option");
+      sep.disabled = true;
+      sep.textContent = "──────────────";
+      sel.appendChild(sep);
+
+      var placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = en ? "— select client —" : "— selecionar cliente —";
+      sel.appendChild(placeholder);
+
       for (var i = 0; i < clients.length; i++) {
         var opt = document.createElement("option");
         opt.value = clients[i].id;
         opt.textContent = clients[i].name;
         sel.appendChild(opt);
       }
+
+      sel.value = "";
+    }
+
+    function onNsClientChange() {
+      var sel = document.getElementById("nsClient");
+      if (sel.value === "__add_new__") {
+        sel.value = "";
+        openModal("modalQuickAddClient");
+      }
+    }
+
+    function openModal(id) {
+      var el = document.getElementById(id);
+      if (el) { el.hidden = false; }
+    }
+
+    function handleQuickAddClient() {
+      var nameEl    = document.getElementById("qacName");
+      var emailEl   = document.getElementById("qacEmail");
+      var phoneEl   = document.getElementById("qacPhone");
+      var statusEl  = document.getElementById("qacStatus");
+      var en = isEn();
+
+      var name = (nameEl.value || "").trim();
+      if (!name) {
+        statusEl.textContent = en ? "Name is required." : "Nome é obrigatório.";
+        return;
+      }
+
+      statusEl.textContent = en ? "Saving..." : "Salvando...";
+
+      apiFetch("/api/clients", {
+        method: "POST",
+        body: {
+          name: name,
+          email: emailEl.value.trim() || null,
+          phone: phoneEl.value.trim() || null
+        }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (!data || !data.client_id) {
+            statusEl.textContent = en ? "Error saving client." : "Erro ao salvar cliente.";
+            return;
+          }
+          statusEl.textContent = "";
+          nameEl.value = "";
+          emailEl.value = "";
+          phoneEl.value = "";
+          closeModal("modalQuickAddClient");
+          loadClients();
+          showToast(en ? "Client added." : "Cliente adicionado.");
+        })
+        .catch(function() {
+          statusEl.textContent = en ? "Error saving client." : "Erro ao salvar cliente.";
+        });
     }
 
     function loadCalendar() {

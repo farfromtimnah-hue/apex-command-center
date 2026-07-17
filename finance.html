@@ -503,7 +503,9 @@
     }
     .recon-folder.recon-folder-client-income { border-style: solid; border-color: var(--gold); background: var(--gold-dim); }
     .recon-folder.is-dragover { border-color: var(--gold); background: var(--gold-dim); }
+    .recon-folder-name-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .recon-folder-name { font-weight: 600; font-size: 13px; color: var(--text); }
+    .recon-folder-sub { font-size: 10.5px; color: var(--muted); }
     .recon-folder-totals { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
     .recon-folder-total { font-size: 13px; font-weight: 600; color: var(--text); }
     .recon-folder-count { font-size: 11px; color: var(--muted); }
@@ -559,9 +561,23 @@
       background: var(--card);
       font-size: 13px;
       min-height: 44px;
+      flex-wrap: wrap;
     }
+    .recon-manage-category-row-main { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; cursor: pointer; }
+    .recon-manage-category-row-main span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .recon-manage-category-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
     .recon-manage-category-row.is-hidden { opacity: 0.6; }
+    .recon-manage-category-label-input {
+      flex: 1 1 140px;
+      min-width: 0;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12.5px;
+    }
+    .recon-manage-category-label-input:focus { outline: none; border-color: var(--gold); }
 
     @media (max-width: 860px) {
       .recon-layout { grid-template-columns: 1fr; }
@@ -1395,8 +1411,8 @@
       </div>
       <div class="form-group">
         <p style="font-size:12px;color:var(--muted);margin:0 0 10px;">
-          <span class="show-pt">Desmarque uma categoria para escondê-la das pastas de Conciliação. Ela continua disponível em todo o resto do app.</span>
-          <span class="show-en">Uncheck a category to hide it from the Reconciliation folders. It stays fully usable everywhere else in the app.</span>
+          <span class="show-pt">Desmarque uma categoria para escondê-la das pastas de Conciliação. Ela continua disponível em todo o resto do app. Use o campo de apelido para exibir um nome mais simples em vez do nome contábil do Zoho &mdash; deixe em branco para mostrar o nome real.</span>
+          <span class="show-en">Uncheck a category to hide it from the Reconciliation folders. It stays fully usable everywhere else in the app. Use the label field to display a simpler name instead of the real Zoho accounting name &mdash; leave it blank to show the real name.</span>
         </p>
       </div>
       <div id="reconManageCategoriesList" class="recon-manage-categories-list">
@@ -3632,15 +3648,19 @@
 
       var html = '<div class="recon-folder recon-folder-client-income" data-folder-key="' + CLIENT_INCOME_KEY + '"' +
         ' ondragover="onReconFolderDragOver(event)" ondragleave="onReconFolderDragLeave(event)" ondrop="onReconFolderDrop(event,\'' + CLIENT_INCOME_KEY + '\')">' +
+        '<div class="recon-folder-name-col">' +
         '<div class="recon-folder-name"><span class="show-pt">Renda de Cliente</span><span class="show-en">Client Income</span></div>' +
+        '<div class="recon-folder-sub"><span class="show-pt">associar a uma fatura</span><span class="show-en">match to an invoice</span></div>' +
+        '</div>' +
         reconFolderTotalHtml(CLIENT_INCOME_KEY) +
         '</div>';
 
       for (var i = 0; i < reconCategories.length; i++) {
         var cat = reconCategories[i];
+        var displayName = cat.custom_label || cat.account_name;
         html += '<div class="recon-folder" data-folder-key="' + escHtml(cat.account_id) + '" data-account-id="' + escHtml(cat.account_id) + '"' +
           ' ondragover="onReconFolderDragOver(event)" ondragleave="onReconFolderDragLeave(event)" ondrop="onReconFolderDrop(event,\'' + escHtml(cat.account_id) + '\')">' +
-          '<div class="recon-folder-name">' + escHtml(cat.account_name) + '</div>' +
+          '<div class="recon-folder-name">' + escHtml(displayName) + '</div>' +
           reconFolderTotalHtml(cat.account_id) +
           '</div>';
       }
@@ -3725,11 +3745,11 @@
       }
       if (listEl) {
         var html = '<div class="recon-folder-sheet-item recon-folder-client-income" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + CLIENT_INCOME_KEY + '\')">' +
-          '<span class="show-pt">Renda de Cliente</span><span class="show-en">Client Income</span></div>';
+          '<span class="show-pt">Renda de Cliente &mdash; associar a uma fatura</span><span class="show-en">Client Income &mdash; match to an invoice</span></div>';
         for (var i = 0; i < (reconCategories || []).length; i++) {
           var cat = reconCategories[i];
           html += '<div class="recon-folder-sheet-item" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + escHtml(cat.account_id) + '\')">' +
-            escHtml(cat.account_name) + '</div>';
+            escHtml(cat.custom_label || cat.account_name) + '</div>';
         }
         listEl.innerHTML = html;
       }
@@ -3854,12 +3874,34 @@
       var html = "";
       for (var i = 0; i < categories.length; i++) {
         var cat = categories[i];
-        html += '<label class="recon-manage-category-row' + (cat.hidden ? ' is-hidden' : '') + '" id="reconManageCatRow-' + escHtml(cat.account_id) + '">' +
+        html += '<div class="recon-manage-category-row' + (cat.hidden ? ' is-hidden' : '') + '" id="reconManageCatRow-' + escHtml(cat.account_id) + '">' +
+          '<label class="recon-manage-category-row-main">' +
           '<input type="checkbox" ' + (cat.hidden ? '' : 'checked') + ' onchange="toggleReconCategoryHidden(\'' + escHtml(cat.account_id) + '\', !this.checked)">' +
           '<span>' + escHtml(cat.account_name) + '</span>' +
-          '</label>';
+          '</label>' +
+          '<input type="text" class="recon-manage-category-label-input" placeholder="' +
+          '(apelido / AKA)' + '" value="' + escHtml(cat.custom_label || "") + '" maxlength="80" ' +
+          'onchange="saveReconCategoryLabel(\'' + escHtml(cat.account_id) + '\', this.value)">' +
+          '</div>';
       }
       listEl.innerHTML = html;
+    }
+
+    function saveReconCategoryLabel(accountId, value) {
+      var label = (value || "").trim();
+      var request = label
+        ? apiFetch("/api/finance/categories/" + encodeURIComponent(accountId) + "/label", { method: "PUT", body: { custom_label: label } })
+        : apiFetch("/api/finance/categories/" + encodeURIComponent(accountId) + "/label", { method: "DELETE" });
+
+      request
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          reconCategories = null; // force a fresh fetch so the folder rail reflects the change
+          loadReconFolders();
+          showToast(label ? "Apelido salvo / Label saved" : "Apelido removido / Label cleared");
+        })
+        .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao salvar apelido")); });
     }
 
     function toggleReconCategoryHidden(accountId, hide) {

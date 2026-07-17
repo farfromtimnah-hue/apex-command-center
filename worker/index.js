@@ -5365,6 +5365,13 @@ async function handleGetReconciliationCategoryTotals(request, env) {
             return jsonErr(e.message, 502);
         }
 
+        // Custom labels (AKA) substitute for the real Zoho category_name in
+        // this tally display too -- purely cosmetic, keyed by the same
+        // category_id every categorize action already uses.
+        var labelRows = await env.DB.prepare("SELECT category_account_id, custom_label FROM finance_category_labels").all();
+        var labelSet = {};
+        for (var lr = 0; lr < labelRows.results.length; lr++) { labelSet[labelRows.results[lr].category_account_id] = labelRows.results[lr].custom_label; }
+
         var byCategory = {};
         for (var i = 0; i < txns.length; i++) {
             var t = txns[i];
@@ -5375,7 +5382,7 @@ async function handleGetReconciliationCategoryTotals(request, env) {
                 label = "Client Income";
             } else {
                 key   = t.category_id || t.debit_or_credit_account_id || t.account_id || "uncategorized_other";
-                label = t.category_name || t.debit_or_credit_account_name || t.account_name || "Other";
+                label = labelSet[key] || t.category_name || t.debit_or_credit_account_name || t.account_name || "Other";
             }
             if (!byCategory[key]) { byCategory[key] = { category_id: key, category_name: label, total: 0, count: 0 }; }
             byCategory[key].total += Math.abs(parseFloat(t.amount) || 0);
@@ -5804,6 +5811,18 @@ async function handleGetFinanceCategories(request, env) {
         var hiddenSet = {};
         for (var h = 0; h < hiddenRows.results.length; h++) { hiddenSet[hiddenRows.results[h].category_account_id] = true; }
 
+        // Custom labels (AKA) are a pure display substitution on top of the
+        // real Zoho account_name -- never used for categorization, which
+        // always keys off account_id. Same scope as hidden_finance_categories:
+        // only this Reconciliation-facing endpoint reads this table.
+        var labelRows = await env.DB.prepare("SELECT category_account_id, custom_label FROM finance_category_labels").all();
+        var labelSet = {};
+        for (var l = 0; l < labelRows.results.length; l++) { labelSet[labelRows.results[l].category_account_id] = labelRows.results[l].custom_label; }
+        for (var m = 0; m < categories.length; m++) {
+            categories[m].custom_label = labelSet[categories[m].account_id] || null;
+            categories[m].display_name = labelSet[categories[m].account_id] || categories[m].account_name;
+        }
+
         if (includeHidden) {
             for (var k = 0; k < categories.length; k++) { categories[k].hidden = !!hiddenSet[categories[k].account_id]; }
         } else {
@@ -5854,6 +5873,56 @@ async function handlePostFinanceCategoryUnhide(request, env, accountId) {
         return jsonOk({ ok: true });
     } catch (e) {
         return jsonErr("Error unhiding category: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance/categories/:account_id/label
+// Body: { custom_label: string }
+// Sets a plain-English display label for a category, shown in place of the
+// real Zoho account name everywhere a Reconciliation folder name is shown.
+// Purely a display substitution -- category_account_id (what a transaction
+// actually posts to in Zoho) is completely unaffected.
+// Route: DELETE /api/finance/categories/:account_id/label
+// Clears the custom label, reverting the folder to the real Zoho account name.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceCategoryLabel(request, env, accountId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (!accountId) { return jsonErr("account_id is required", 400); }
+
+        var body = await request.json();
+        var label = (body.custom_label || "").trim();
+        if (!label) { return jsonErr("custom_label is required", 400); }
+        if (label.length > 80) { return jsonErr("custom_label is too long", 400); }
+
+        await env.DB.prepare(
+            "INSERT INTO finance_category_labels (category_account_id, custom_label, updated_at) VALUES (?, ?, datetime('now')) " +
+            "ON CONFLICT(category_account_id) DO UPDATE SET custom_label = excluded.custom_label, updated_at = excluded.updated_at"
+        ).bind(accountId, label).run();
+
+        return jsonOk({ ok: true, custom_label: label });
+    } catch (e) {
+        return jsonErr("Error setting category label: " + e.message, 500);
+    }
+}
+
+async function handleDeleteFinanceCategoryLabel(request, env, accountId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (!accountId) { return jsonErr("account_id is required", 400); }
+
+        await env.DB.prepare("DELETE FROM finance_category_labels WHERE category_account_id = ?").bind(accountId).run();
+
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error clearing category label: " + e.message, 500);
     }
 }
 
@@ -7841,6 +7910,12 @@ export default {
         if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "categories" && segs[3] && segs[4] && method === "POST") {
             if (segs[4] === "hide")   { return handlePostFinanceCategoryHide(request, env, decodeURIComponent(segs[3])); }
             if (segs[4] === "unhide") { return handlePostFinanceCategoryUnhide(request, env, decodeURIComponent(segs[3])); }
+        }
+
+        // /api/finance/categories/:account_id/label  PUT | DELETE
+        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "categories" && segs[3] && segs[4] === "label") {
+            if (method === "PUT")    { return handlePutFinanceCategoryLabel(request, env, decodeURIComponent(segs[3])); }
+            if (method === "DELETE") { return handleDeleteFinanceCategoryLabel(request, env, decodeURIComponent(segs[3])); }
         }
 
         // /api/finance/subscriptions/:id  PUT | DELETE

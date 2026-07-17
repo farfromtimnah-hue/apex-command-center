@@ -3302,6 +3302,32 @@
     var PACKAGE_OPTIONS_FALLBACK = ["Raio-X", "Sprint", "Premium", "Executivo"];
     var PACKAGE_OPTIONS_LIVE = null;
     var PACKAGE_OBJECTS_LIVE = null; // full package objects (id, short_name, sort_order, pricing...) for grouping/divider
+    var packageListLoadPromise = null;
+
+    // Idempotent: safe to call multiple times. Resolves instantly if the
+    // package list is already loaded; otherwise fetches it. Callers that
+    // need the real live list (not the stale hardcoded fallback) should
+    // await this before reading PACKAGE_OBJECTS_LIVE / PACKAGE_OPTIONS_LIVE.
+    function loadLivePackageList() {
+      if (PACKAGE_OBJECTS_LIVE && PACKAGE_OBJECTS_LIVE.length > 0) {
+        return Promise.resolve();
+      }
+      if (packageListLoadPromise) { return packageListLoadPromise; }
+      packageListLoadPromise = apiFetch("/api/settings/packages")
+        .then(function(res) {
+          if (!res.ok) { return; }
+          return res.json().then(function(data) {
+            var list = Array.isArray(data) ? data : (data && Array.isArray(data.packages) ? data.packages : null);
+            if (!list || list.length === 0) { return; }
+            var names = list.map(function(p) { return p.short_name || p; }).filter(Boolean);
+            if (names.length > 0) { PACKAGE_OPTIONS_LIVE = names; }
+            PACKAGE_OBJECTS_LIVE = list;
+          });
+        })
+        .catch(function() {})
+        .then(function() { packageListLoadPromise = null; });
+      return packageListLoadPromise;
+    }
 
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
@@ -3393,6 +3419,22 @@
       pkgWrap.innerHTML = "";
       var sel = document.createElement("select");
       sel.className = "pkg-edit-select";
+      sel.disabled = true;
+
+      var loadingOpt = document.createElement("option");
+      loadingOpt.value = "";
+      loadingOpt.textContent = "…";
+      sel.appendChild(loadingOpt);
+      pkgWrap.appendChild(sel);
+
+      loadLivePackageList().then(function() {
+        renderPackageEditSelect(pkgWrap, sel, current);
+      });
+    }
+
+    function renderPackageEditSelect(pkgWrap, sel, current) {
+      sel.innerHTML = "";
+      sel.disabled = false;
 
       var emptyOpt = document.createElement("option");
       emptyOpt.value = "";
@@ -3489,7 +3531,6 @@
         }, 200);
       };
 
-      pkgWrap.appendChild(sel);
       pkgWrap.appendChild(saveStatus);
       sel.focus();
     }
@@ -3524,11 +3565,18 @@
     }
 
     function openPaymentTermsModal(packageShortName, isNewClient) {
+      loadLivePackageList().then(function() {
+        openPaymentTermsModalResolved(packageShortName, isNewClient);
+      });
+    }
+
+    function openPaymentTermsModalResolved(packageShortName, isNewClient) {
       var pkg = findPackageByShortName(packageShortName);
       if (!pkg) {
-        // Package list hasn't loaded live yet, or this is a legacy-only name
-        // not present in PACKAGE_OBJECTS_LIVE for some reason — fall back to
-        // the old direct-save behavior rather than blocking the user.
+        // Real fetch has completed and the package still isn't in
+        // PACKAGE_OBJECTS_LIVE — a genuinely unknown/removed package, not a
+        // timing race. Fall back to the old direct-save behavior rather than
+        // blocking the user.
         apiFetch("/api/clients/" + CLIENT_ID, {
           method: "PATCH",
           body: { package: packageShortName || null }
@@ -5888,17 +5936,7 @@
       initHeroBg('clientHeroBg', 'clientHeroScrim');
       init();
       // Fetch live package list in the background; fail silently to PACKAGE_OPTIONS_FALLBACK
-      apiFetch("/api/settings/packages")
-        .then(function(res) {
-          if (!res.ok) { return; }
-          return res.json().then(function(data) {
-            var list = Array.isArray(data) ? data : (data && Array.isArray(data.packages) ? data.packages : null);
-            if (!list || list.length === 0) { return; }
-            var names = list.map(function(p) { return p.short_name || p; }).filter(Boolean);
-            if (names.length > 0) { PACKAGE_OPTIONS_LIVE = names; }
-            PACKAGE_OBJECTS_LIVE = list;
-          });
-        })
+      loadLivePackageList()
         .then(maybeAutoOpenPaymentTerms)
         .catch(function() {});
     };

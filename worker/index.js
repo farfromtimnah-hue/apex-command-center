@@ -5021,18 +5021,23 @@ async function handleGetInvoicePackageCheck(zohoInvoiceId, request, env) {
 
         var packageShortName = clientRow.package;
 
-        // Look up the package's base_price
+        // Look up the package's pricing (base_price is the legacy column;
+        // upfront_price / installment_total_price are used by the newer packages)
         var pkgRow = await env.DB.prepare(
-            "SELECT short_name, full_name, base_price FROM packages WHERE short_name = ?"
+            "SELECT short_name, full_name, base_price, upfront_price, installment_total_price FROM packages WHERE short_name = ?"
         ).bind(packageShortName).first();
 
         if (!pkgRow) {
             return jsonOk({ ok: true, has_price: false, package_name: packageShortName });
         }
 
+        var hasPrice = (pkgRow.base_price !== null && pkgRow.base_price !== undefined) ||
+            (pkgRow.upfront_price !== null && pkgRow.upfront_price !== undefined) ||
+            (pkgRow.installment_total_price !== null && pkgRow.installment_total_price !== undefined);
+
         return jsonOk({
             ok:           true,
-            has_price:    pkgRow.base_price !== null && pkgRow.base_price !== undefined,
+            has_price:    hasPrice,
             package_name: pkgRow.short_name
         });
     } catch (e) {

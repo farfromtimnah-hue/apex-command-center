@@ -279,6 +279,7 @@
       transition: border-color 0.15s, color 0.15s;
     }
     .btn-secondary:hover { border-color: var(--text); color: var(--text); }
+    .btn-secondary.active { background: var(--gold, #C9A43A); color: #000; border-color: var(--gold, #C9A43A); }
 
     .btn-primary {
       background: var(--gold);
@@ -1830,6 +1831,127 @@
   </div>
 
   <!-- ═══════════════ MODAL: Registrar Crescimento ═════════════════════════ -->
+  <div id="modalPaymentTerms" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Termos de Pagamento</span>
+          <span class="show-en">Payment Terms</span>
+        </h3>
+        <button class="modal-close" onclick="closePaymentTermsModal()">×</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Pricing option (only shown when the package has both prices) -->
+        <div id="ptPricingOptionBlock" hidden>
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
+            <span class="show-pt">Opção de Preço</span>
+            <span class="show-en">Pricing Option</span>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:14px;">
+            <button type="button" class="btn-secondary" id="ptOptUpfrontBtn" style="flex:1;text-align:left;" onclick="selectPricingOption('upfront')"></button>
+            <button type="button" class="btn-secondary" id="ptOptInstallmentBtn" style="flex:1;text-align:left;" onclick="selectPricingOption('installment')"></button>
+          </div>
+        </div>
+
+        <!-- Optional discount -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
+          <span class="show-pt">Desconto (opcional)</span>
+          <span class="show-en">Discount (optional)</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+          <div class="field-group" style="flex:1;">
+            <select id="ptDiscountType" onchange="onPtDiscountTypeChange()">
+              <option value="">-- Nenhum / None --</option>
+              <option value="flat">$ Flat</option>
+              <option value="percent">% Percent</option>
+            </select>
+          </div>
+          <div class="field-group" style="flex:1;">
+            <input type="number" id="ptDiscountValue" min="0" step="0.01" placeholder="0" disabled oninput="recalcPaymentTerms()">
+          </div>
+        </div>
+        <div class="field-group">
+          <input type="text" id="ptDiscountNote" placeholder="motivo (opcional) / reason (optional)">
+        </div>
+        <div style="font-size:13px;font-weight:700;margin:10px 0 16px;">
+          <span class="show-pt">Total Ajustado: </span>
+          <span class="show-en">Adjusted Total: </span>
+          <span id="ptAdjustedTotal">$0</span>
+        </div>
+
+        <!-- Split / payment schedule -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
+          <span class="show-pt">Divisão / Cronograma de Pagamento</span>
+          <span class="show-en">Split / Payment Schedule</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button type="button" class="btn-secondary btn-sm" id="ptSplitEvenBtn" onclick="setSplitMode('even')">
+            <span class="show-pt">Divisão Igual</span>
+            <span class="show-en">Even Split</span>
+          </button>
+          <button type="button" class="btn-secondary btn-sm" id="ptSplitCustomBtn" onclick="setSplitMode('custom')">
+            <span class="show-pt">Personalizado / Balão</span>
+            <span class="show-en">Custom / Balloon</span>
+          </button>
+        </div>
+
+        <!-- Even split fields -->
+        <div id="ptEvenSplitBlock">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <span class="show-pt">Repetir a cada</span>
+            <span class="show-en">Repeat every</span>
+            <input type="number" id="ptRecurringInterval" class="form-input" style="width:70px;" min="1" step="1" value="3" oninput="recalcPaymentTerms()">
+            <select id="ptRecurringUnit" class="form-input" style="width:auto;" onchange="recalcPaymentTerms()">
+              <option value="days">dias / days</option>
+              <option value="weeks">semanas / weeks</option>
+              <option value="months" selected>meses / months</option>
+              <option value="years">anos / years</option>
+            </select>
+          </div>
+          <div class="field-group" style="display:flex;align-items:center;gap:8px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+              <input type="checkbox" id="ptNeverEnds" checked onchange="onPtNeverEndsToggle()">
+              <span class="show-pt">Nunca expira</span>
+              <span class="show-en">Never expires</span>
+            </label>
+          </div>
+          <div class="field-group" id="ptInstallmentCountWrap" hidden>
+            <label>
+              <span class="show-pt">Após quantas faturas</span>
+              <span class="show-en">After how many invoices</span>
+            </label>
+            <input type="number" id="ptInstallmentCount" min="1" step="1" oninput="recalcPaymentTerms()">
+          </div>
+          <div class="field-group" id="ptInstallmentAmountWrap">
+            <label>
+              <span class="show-pt">Valor da parcela recorrente</span>
+              <span class="show-en">Recurring installment amount</span>
+            </label>
+            <input type="number" id="ptInstallmentAmount" min="0" step="0.01" oninput="recalcPaymentTerms()">
+          </div>
+          <div style="font-size:13px;font-weight:600;margin-top:8px;" id="ptEvenSplitMath"></div>
+        </div>
+
+        <!-- Custom / balloon split fields -->
+        <div id="ptCustomSplitBlock" hidden>
+          <div id="ptCustomRows"></div>
+          <button type="button" class="btn-add" onclick="addPtCustomRow()">
+            <span class="show-pt">+ parcela</span>
+            <span class="show-en">+ installment</span>
+          </button>
+          <div style="font-size:13px;font-weight:600;margin-top:8px;" id="ptCustomSplitSum"></div>
+        </div>
+
+        <button class="btn-primary" id="btnSavePaymentTerms" onclick="handleSavePaymentTerms()" style="margin-top:16px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div class="pull-status" id="ptStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="modalGrowth" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -3179,6 +3301,7 @@
 
     var PACKAGE_OPTIONS_FALLBACK = ["Raio-X", "Sprint", "Premium", "Executivo"];
     var PACKAGE_OPTIONS_LIVE = null;
+    var PACKAGE_OBJECTS_LIVE = null; // full package objects (id, short_name, sort_order, pricing...) for grouping/divider
 
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
@@ -3289,12 +3412,38 @@
         sel.appendChild(missingOpt);
       }
 
-      for (var i = 0; i < activeOptions.length; i++) {
-        var opt = document.createElement("option");
-        opt.value = activeOptions[i];
-        opt.textContent = activeOptions[i];
-        if (activeOptions[i] === current) { opt.selected = true; }
-        sel.appendChild(opt);
+      if (PACKAGE_OBJECTS_LIVE && PACKAGE_OBJECTS_LIVE.length > 0) {
+        var newPkgs = PACKAGE_OBJECTS_LIVE.filter(function(p) { return p.sort_order !== null && p.sort_order !== undefined && p.sort_order < 1; });
+        var legacyPkgs = PACKAGE_OBJECTS_LIVE.filter(function(p) { return !(p.sort_order !== null && p.sort_order !== undefined && p.sort_order < 1); });
+        for (var n = 0; n < newPkgs.length; n++) {
+          var newOpt = document.createElement("option");
+          newOpt.value = newPkgs[n].short_name;
+          newOpt.textContent = newPkgs[n].short_name;
+          if (newPkgs[n].short_name === current) { newOpt.selected = true; }
+          sel.appendChild(newOpt);
+        }
+        if (newPkgs.length > 0 && legacyPkgs.length > 0) {
+          var dividerOpt = document.createElement("option");
+          dividerOpt.value = "";
+          dividerOpt.disabled = true;
+          dividerOpt.textContent = "----- Legacy / Legado -----";
+          sel.appendChild(dividerOpt);
+        }
+        for (var l = 0; l < legacyPkgs.length; l++) {
+          var legOpt = document.createElement("option");
+          legOpt.value = legacyPkgs[l].short_name;
+          legOpt.textContent = legacyPkgs[l].short_name;
+          if (legacyPkgs[l].short_name === current) { legOpt.selected = true; }
+          sel.appendChild(legOpt);
+        }
+      } else {
+        for (var i = 0; i < activeOptions.length; i++) {
+          var opt = document.createElement("option");
+          opt.value = activeOptions[i];
+          opt.textContent = activeOptions[i];
+          if (activeOptions[i] === current) { opt.selected = true; }
+          sel.appendChild(opt);
+        }
       }
 
       var saveStatus = document.createElement("span");
@@ -3302,33 +3451,22 @@
 
       sel.onchange = function() {
         var newPkg = sel.value;
-        saveStatus.textContent = "…";
-        apiFetch("/api/clients/" + CLIENT_ID, {
-          method: "PATCH",
-          body: { package: newPkg || null }
-        }).then(function(res) { return res.json(); })
-          .then(function(data) {
-            if (data.error) { throw new Error(data.error); }
-            if (clientData) { clientData.package = newPkg; }
-            saveStatus.textContent = "";
-            // Swap back to lozenge display
-            pkgWrap.innerHTML = "";
-            var loz = document.createElement("span");
-            loz.className = "package-lozenge";
-            loz.id = "pkgLozenge";
-            loz.textContent = newPkg || "—";
-            var editBtn = document.createElement("button");
-            editBtn.className = "pkg-edit-btn";
-            editBtn.title = "Editar pacote / Edit package";
-            editBtn.textContent = "✎";
-            editBtn.onclick = function() { openPackageEdit(newPkg); };
-            pkgWrap.appendChild(loz);
-            pkgWrap.appendChild(editBtn);
-          })
-          .catch(function(e) {
-            saveStatus.textContent = "Erro";
-            saveStatus.style.color = "#b44040";
-          });
+        // Swap back to lozenge display immediately; the actual save now
+        // happens through the Payment Terms modal, not here.
+        pkgWrap.innerHTML = "";
+        var loz = document.createElement("span");
+        loz.className = "package-lozenge";
+        loz.id = "pkgLozenge";
+        loz.textContent = (clientData && clientData.package) ? clientData.package : "—";
+        var editBtn = document.createElement("button");
+        editBtn.className = "pkg-edit-btn";
+        editBtn.title = "Editar pacote / Edit package";
+        editBtn.textContent = "✎";
+        editBtn.onclick = function() { openPackageEdit(clientData ? clientData.package || "" : ""); };
+        pkgWrap.appendChild(loz);
+        pkgWrap.appendChild(editBtn);
+
+        if (newPkg) { openPaymentTermsModal(newPkg, false); }
       };
 
       // Click elsewhere to cancel
@@ -3354,6 +3492,333 @@
       pkgWrap.appendChild(sel);
       pkgWrap.appendChild(saveStatus);
       sel.focus();
+    }
+
+    // ── Payment Terms modal ──────────────────────────────────────────────
+    // Replaces the old "select a package -> immediately PATCH clients.package"
+    // flow. Selecting/changing a package now opens this modal so Alice can
+    // capture the client's REAL payment terms (which list price was picked,
+    // any discount, and the actual split) as a separate client_package_terms
+    // row — see migrations/client_package_terms.sql.
+
+    function ptFmtCurrency(n) {
+      n = Number(n) || 0;
+      return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    var ptState = {
+      package: null,        // full package object from PACKAGE_OBJECTS_LIVE
+      pricingOption: null,  // 'upfront' | 'installment' | 'legacy'
+      baseTotal: 0,
+      splitMode: 'even',
+      customRows: [],       // [{amount, label}]
+      isNewClient: false
+    };
+
+    function findPackageByShortName(shortName) {
+      if (!PACKAGE_OBJECTS_LIVE) { return null; }
+      for (var i = 0; i < PACKAGE_OBJECTS_LIVE.length; i++) {
+        if (PACKAGE_OBJECTS_LIVE[i].short_name === shortName) { return PACKAGE_OBJECTS_LIVE[i]; }
+      }
+      return null;
+    }
+
+    function openPaymentTermsModal(packageShortName, isNewClient) {
+      var pkg = findPackageByShortName(packageShortName);
+      if (!pkg) {
+        // Package list hasn't loaded live yet, or this is a legacy-only name
+        // not present in PACKAGE_OBJECTS_LIVE for some reason — fall back to
+        // the old direct-save behavior rather than blocking the user.
+        apiFetch("/api/clients/" + CLIENT_ID, {
+          method: "PATCH",
+          body: { package: packageShortName || null }
+        }).then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data.error) { throw new Error(data.error); }
+            if (clientData) { clientData.package = packageShortName; }
+            var lozEl = document.getElementById("pkgLozenge");
+            if (lozEl) { lozEl.textContent = packageShortName || "—"; }
+          })
+          .catch(function() {});
+        return;
+      }
+
+      ptState.package = pkg;
+      ptState.isNewClient = !!isNewClient;
+      ptState.splitMode = 'even';
+      ptState.customRows = [];
+
+      var hasUpfront = pkg.upfront_price !== null && pkg.upfront_price !== undefined;
+      var hasInstallment = pkg.installment_total_price !== null && pkg.installment_total_price !== undefined;
+      var hasBothPrices = hasUpfront && hasInstallment;
+
+      var optBlock = document.getElementById("ptPricingOptionBlock");
+      var upfrontBtn = document.getElementById("ptOptUpfrontBtn");
+      var installmentBtn = document.getElementById("ptOptInstallmentBtn");
+
+      if (hasBothPrices) {
+        optBlock.hidden = false;
+        upfrontBtn.innerHTML =
+          '<span class="show-pt">À vista — ' + ptFmtCurrency(pkg.upfront_price) + '</span>' +
+          '<span class="show-en">Upfront — ' + ptFmtCurrency(pkg.upfront_price) + '</span>';
+        var defCount = pkg.default_installment_count;
+        var defAmt = pkg.default_installment_amount;
+        installmentBtn.innerHTML =
+          '<span class="show-pt">Parcelado — ' + ptFmtCurrency(pkg.installment_total_price) +
+            (defCount && defAmt ? ' (padrão: ' + defCount + 'x' + ptFmtCurrency(defAmt) + ')' : '') + '</span>' +
+          '<span class="show-en">Installments — ' + ptFmtCurrency(pkg.installment_total_price) +
+            (defCount && defAmt ? ' (default: ' + defCount + 'x' + ptFmtCurrency(defAmt) + ')' : '') + '</span>';
+        upfrontBtn.classList.remove("active");
+        installmentBtn.classList.remove("active");
+        // No default selection yet — wait for Alice to pick one.
+        ptState.pricingOption = null;
+        ptState.baseTotal = 0;
+      } else {
+        optBlock.hidden = true;
+        if (hasUpfront) {
+          ptState.pricingOption = 'upfront';
+          ptState.baseTotal = pkg.upfront_price;
+          setSplitMode('even');
+          document.getElementById("ptInstallmentCount").value = 1;
+          document.getElementById("ptNeverEnds").checked = true;
+          onPtNeverEndsToggle();
+        } else if (hasInstallment) {
+          ptState.pricingOption = 'installment';
+          ptState.baseTotal = pkg.installment_total_price;
+          setSplitMode('even');
+          document.getElementById("ptRecurringInterval").value = 3;
+          document.getElementById("ptRecurringUnit").value = "months";
+          document.getElementById("ptInstallmentCount").value = pkg.default_installment_count || "";
+          document.getElementById("ptInstallmentAmount").value = pkg.default_installment_amount || "";
+          document.getElementById("ptNeverEnds").checked = !pkg.default_installment_count;
+          onPtNeverEndsToggle();
+        } else {
+          // Legacy package on plain base_price
+          ptState.pricingOption = 'legacy';
+          ptState.baseTotal = (pkg.base_price !== null && pkg.base_price !== undefined) ? pkg.base_price : 0;
+          setSplitMode('even');
+          document.getElementById("ptInstallmentCount").value = 1;
+          document.getElementById("ptNeverEnds").checked = true;
+          onPtNeverEndsToggle();
+        }
+      }
+
+      document.getElementById("ptDiscountType").value = "";
+      document.getElementById("ptDiscountValue").value = "";
+      document.getElementById("ptDiscountValue").disabled = true;
+      document.getElementById("ptDiscountNote").value = "";
+      document.getElementById("ptStatus").textContent = "";
+      document.getElementById("ptCustomRows").innerHTML = "";
+
+      recalcPaymentTerms();
+
+      var overlay = document.getElementById("modalPaymentTerms");
+      if (overlay) { overlay.hidden = false; }
+    }
+
+    function selectPricingOption(option) {
+      if (!ptState.package) { return; }
+      var pkg = ptState.package;
+      ptState.pricingOption = option;
+
+      document.getElementById("ptOptUpfrontBtn").classList.toggle("active", option === "upfront");
+      document.getElementById("ptOptInstallmentBtn").classList.toggle("active", option === "installment");
+
+      if (option === "upfront") {
+        ptState.baseTotal = pkg.upfront_price;
+        setSplitMode('even');
+        document.getElementById("ptInstallmentCount").value = 1;
+        document.getElementById("ptNeverEnds").checked = true;
+        onPtNeverEndsToggle();
+      } else {
+        ptState.baseTotal = pkg.installment_total_price;
+        setSplitMode('even');
+        document.getElementById("ptRecurringInterval").value = 3;
+        document.getElementById("ptRecurringUnit").value = "months";
+        document.getElementById("ptInstallmentCount").value = pkg.default_installment_count || "";
+        document.getElementById("ptInstallmentAmount").value = pkg.default_installment_amount || "";
+        document.getElementById("ptNeverEnds").checked = !pkg.default_installment_count;
+        onPtNeverEndsToggle();
+      }
+      recalcPaymentTerms();
+    }
+
+    function onPtDiscountTypeChange() {
+      var typeEl = document.getElementById("ptDiscountType");
+      var valEl = document.getElementById("ptDiscountValue");
+      valEl.disabled = !typeEl.value;
+      if (!typeEl.value) { valEl.value = ""; }
+      recalcPaymentTerms();
+    }
+
+    function getAdjustedTotal() {
+      var typeEl = document.getElementById("ptDiscountType");
+      var valEl = document.getElementById("ptDiscountValue");
+      var base = ptState.baseTotal || 0;
+      var type = typeEl.value;
+      var val = parseFloat(valEl.value) || 0;
+      var adjusted = base;
+      if (type === "flat") { adjusted = base - val; }
+      else if (type === "percent") { adjusted = base - (base * val / 100); }
+      if (adjusted < 0) { adjusted = 0; }
+      return adjusted;
+    }
+
+    function onPtNeverEndsToggle() {
+      var neverEl = document.getElementById("ptNeverEnds");
+      var countWrap = document.getElementById("ptInstallmentCountWrap");
+      var amtWrap = document.getElementById("ptInstallmentAmountWrap");
+      var neverEnds = neverEl.checked;
+      countWrap.hidden = neverEnds;
+      // Never-ends mode has no total/count to divide from, so the recurring
+      // amount is entered directly; fixed-count mode still shows the amount
+      // field too (computed live from adjusted total / count, but editable).
+      amtWrap.hidden = false;
+      recalcPaymentTerms();
+    }
+
+    function setSplitMode(mode) {
+      ptState.splitMode = mode;
+      document.getElementById("ptSplitEvenBtn").classList.toggle("active", mode === "even");
+      document.getElementById("ptSplitCustomBtn").classList.toggle("active", mode === "custom");
+      document.getElementById("ptEvenSplitBlock").hidden = (mode !== "even");
+      document.getElementById("ptCustomSplitBlock").hidden = (mode !== "custom");
+      if (mode === "custom" && ptState.customRows.length === 0) {
+        addPtCustomRow();
+      }
+      recalcPaymentTerms();
+    }
+
+    function addPtCustomRow() {
+      ptState.customRows.push({ amount: 0, label: "" });
+      renderPtCustomRows();
+    }
+
+    function removePtCustomRow(idx) {
+      ptState.customRows.splice(idx, 1);
+      renderPtCustomRows();
+    }
+
+    function renderPtCustomRows() {
+      var wrap = document.getElementById("ptCustomRows");
+      var html = "";
+      for (var i = 0; i < ptState.customRows.length; i++) {
+        var row = ptState.customRows[i];
+        html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">';
+        html += '<input type="number" class="form-input" style="width:120px;" min="0" step="0.01" value="' + (row.amount || 0) + '" data-idx="' + i + '" data-field="amount" onchange="onPtCustomRowChange(this)">';
+        html += '<input type="text" class="form-input" placeholder="rótulo (opcional) / label (optional)" value="' + (row.label || "").replace(/"/g, "&quot;") + '" data-idx="' + i + '" data-field="label" onchange="onPtCustomRowChange(this)">';
+        html += '<button type="button" class="item-row-remove" onclick="removePtCustomRow(' + i + ')">&times;</button>';
+        html += '</div>';
+      }
+      wrap.innerHTML = html;
+      recalcPaymentTerms();
+    }
+
+    function onPtCustomRowChange(el) {
+      var idx = parseInt(el.getAttribute("data-idx"), 10);
+      var field = el.getAttribute("data-field");
+      if (isNaN(idx) || !ptState.customRows[idx]) { return; }
+      if (field === "amount") { ptState.customRows[idx].amount = parseFloat(el.value) || 0; }
+      else { ptState.customRows[idx].label = el.value; }
+      recalcPaymentTerms();
+    }
+
+    function recalcPaymentTerms() {
+      var adjusted = getAdjustedTotal();
+      document.getElementById("ptAdjustedTotal").textContent = ptFmtCurrency(adjusted);
+
+      if (ptState.splitMode === "even") {
+        var neverEnds = document.getElementById("ptNeverEnds").checked;
+        var mathEl = document.getElementById("ptEvenSplitMath");
+        if (!neverEnds) {
+          var countVal = parseInt(document.getElementById("ptInstallmentCount").value, 10);
+          if (countVal > 0) {
+            var perAmount = adjusted / countVal;
+            document.getElementById("ptInstallmentAmount").value = perAmount.toFixed(2);
+            mathEl.textContent = ptFmtCurrency(perAmount) + " x " + countVal + " = " + ptFmtCurrency(adjusted);
+          } else {
+            mathEl.textContent = "";
+          }
+        } else {
+          var amt = parseFloat(document.getElementById("ptInstallmentAmount").value) || 0;
+          mathEl.textContent = amt > 0 ? (ptFmtCurrency(amt) + " (recorrente / recurring)") : "";
+        }
+      } else {
+        var sum = 0;
+        for (var i = 0; i < ptState.customRows.length; i++) { sum += (ptState.customRows[i].amount || 0); }
+        var sumEl = document.getElementById("ptCustomSplitSum");
+        sumEl.textContent = ptFmtCurrency(sum) + " / " + ptFmtCurrency(adjusted) +
+          (Math.abs(sum - adjusted) < 0.01 ? " ✓" : "");
+      }
+    }
+
+    function closePaymentTermsModal() {
+      var overlay = document.getElementById("modalPaymentTerms");
+      if (overlay) { overlay.hidden = true; }
+    }
+
+    function handleSavePaymentTerms() {
+      if (!ptState.package) { return; }
+      var statusEl = document.getElementById("ptStatus");
+      var saveBtn = document.getElementById("btnSavePaymentTerms");
+      statusEl.textContent = "";
+      saveBtn.disabled = true;
+
+      var discountType = document.getElementById("ptDiscountType").value || null;
+      var discountValue = discountType ? (parseFloat(document.getElementById("ptDiscountValue").value) || 0) : null;
+      var discountNote = document.getElementById("ptDiscountNote").value.trim() || null;
+
+      var payload = {
+        package_id: ptState.package.id,
+        pricing_option: ptState.pricingOption,
+        base_total: ptState.baseTotal,
+        discount_type: discountType,
+        discount_value: discountValue,
+        discount_note: discountNote,
+        split_mode: ptState.splitMode,
+        is_new_client: !!ptState.isNewClient
+      };
+
+      if (ptState.splitMode === "even") {
+        var neverEnds = document.getElementById("ptNeverEnds").checked;
+        payload.recurrence_unit = document.getElementById("ptRecurringUnit").value;
+        payload.recurrence_interval = parseInt(document.getElementById("ptRecurringInterval").value, 10) || 3;
+        payload.recurrence_never_ends = neverEnds;
+        payload.installment_count = neverEnds ? null : (parseInt(document.getElementById("ptInstallmentCount").value, 10) || null);
+        payload.installment_amount = parseFloat(document.getElementById("ptInstallmentAmount").value) || null;
+      } else {
+        payload.recurrence_unit = null;
+        payload.recurrence_interval = null;
+        payload.recurrence_never_ends = true;
+        payload.custom_installments = ptState.customRows.map(function(r) {
+          return { amount: r.amount, label: r.label || undefined };
+        });
+      }
+
+      apiFetch("/api/clients/" + CLIENT_ID + "/package-terms", {
+        method: "PUT",
+        body: payload
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          // Keep clients.package (plain text) in sync in the UI too.
+          return apiFetch("/api/clients/" + CLIENT_ID, {
+            method: "PATCH",
+            body: { package: ptState.package.short_name }
+          }).then(function(res2) { return res2.json(); });
+        })
+        .then(function() {
+          if (clientData) { clientData.package = ptState.package.short_name; }
+          var lozEl = document.getElementById("pkgLozenge");
+          if (lozEl) { lozEl.textContent = ptState.package.short_name; }
+          saveBtn.disabled = false;
+          closePaymentTermsModal();
+        })
+        .catch(function(e) {
+          saveBtn.disabled = false;
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.style.color = "#b44040";
+        });
     }
 
     var STATUS_OPTIONS = [
@@ -5431,10 +5896,32 @@
             if (!list || list.length === 0) { return; }
             var names = list.map(function(p) { return p.short_name || p; }).filter(Boolean);
             if (names.length > 0) { PACKAGE_OPTIONS_LIVE = names; }
+            PACKAGE_OBJECTS_LIVE = list;
           });
         })
+        .then(maybeAutoOpenPaymentTerms)
         .catch(function() {});
     };
+
+    // If arriving fresh from clients.html's "+ Add New Client" flow with a
+    // package already chosen at creation, auto-open the Payment Terms modal
+    // so the real terms get captured right away, marked is_new_client=1
+    // (full auto-recurring eligible — this is the "new client" flow per the
+    // is_new_client rule, not a mid-contract migration edit).
+    function maybeAutoOpenPaymentTerms() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("newpkg") !== "1") { return; }
+      var attempts = 0;
+      var waitForClient = setInterval(function() {
+        attempts++;
+        if (clientData && clientData.package) {
+          clearInterval(waitForClient);
+          openPaymentTermsModal(clientData.package, true);
+        } else if (attempts > 40) {
+          clearInterval(waitForClient); // ~10s timeout, give up silently
+        }
+      }, 250);
+    }
   </script>
 
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-

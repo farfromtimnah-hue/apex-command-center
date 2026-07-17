@@ -1461,7 +1461,7 @@
           <span class="show-pt">Cliente</span>
           <span class="show-en">Client</span>
         </label>
-        <select id="niClientSelect" class="form-input">
+        <select id="niClientSelect" class="form-input" onchange="onNewInvoiceClientChange()">
           <option value="">--</option>
         </select>
       </div>
@@ -3210,16 +3210,101 @@
           .then(function(res) { return res.json(); })
           .then(function(data) {
             newInvoicePackages = data.packages || [];
-            var html = '<option value="">--</option>';
-            for (var i = 0; i < newInvoicePackages.length; i++) {
-              var p = newInvoicePackages[i];
-              var priceLabel = (p.base_price !== null && p.base_price !== undefined) ? (" — " + fmtCurrency(p.base_price)) : "";
-              html += '<option value="' + escHtml(p.short_name) + '">' + escHtml(p.short_name) + priceLabel + '</option>';
+            var newPkgs = newInvoicePackages.filter(function(p) { return p.sort_order !== null && p.sort_order !== undefined && p.sort_order < 1; });
+            var legacyPkgs = newInvoicePackages.filter(function(p) { return !(p.sort_order !== null && p.sort_order !== undefined && p.sort_order < 1); });
+            function pkgOptionHtml(p) {
+              var priceLabel = (p.base_price !== null && p.base_price !== undefined) ? (" — " + fmtCurrency(p.base_price))
+                : (p.upfront_price !== null && p.upfront_price !== undefined) ? (" — " + fmtCurrency(p.upfront_price))
+                : (p.installment_total_price !== null && p.installment_total_price !== undefined) ? (" — " + fmtCurrency(p.installment_total_price))
+                : "";
+              return '<option value="' + escHtml(p.short_name) + '">' + escHtml(p.short_name) + priceLabel + '</option>';
             }
+            var html = '<option value="">--</option>';
+            for (var i = 0; i < newPkgs.length; i++) { html += pkgOptionHtml(newPkgs[i]); }
+            if (newPkgs.length > 0 && legacyPkgs.length > 0) {
+              html += '<option value="" disabled>----- Legacy / Legado -----</option>';
+            }
+            for (var j = 0; j < legacyPkgs.length; j++) { html += pkgOptionHtml(legacyPkgs[j]); }
             pkgSel.innerHTML = html;
           })
           .catch(function() { showToast("Erro ao carregar pacotes / Error loading packages"); });
       }
+    }
+
+    function onNewInvoiceClientChange() {
+      var clientSel = document.getElementById("niClientSelect");
+      if (!clientSel || !clientSel.value) { return; }
+      var clientId = clientSel.value;
+
+      apiFetch("/api/clients/" + clientId + "/package-terms")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var terms = data.terms;
+          if (!terms) { return; } // No terms saved yet — fall back to today's fully-manual behavior, no-op.
+
+          function applyTerms() {
+            var pkgSel = document.getElementById("niPackageSelect");
+            var pkg = null;
+            if (newInvoicePackages) {
+              for (var i = 0; i < newInvoicePackages.length; i++) {
+                if (newInvoicePackages[i].id === terms.package_id) { pkg = newInvoicePackages[i]; break; }
+              }
+            }
+            if (pkg && pkgSel) { pkgSel.value = pkg.short_name; }
+
+            var rate = 0;
+            if (terms.split_mode === "custom" && terms.custom_installments && terms.custom_installments.length > 0) {
+              rate = terms.custom_installments[0].amount || 0;
+            } else {
+              rate = (terms.installment_amount !== null && terms.installment_amount !== undefined) ? terms.installment_amount : 0;
+            }
+            var line = {
+              name:        (pkg && pkg.full_name) ? pkg.full_name : (pkg ? pkg.short_name : ""),
+              description: "",
+              quantity:    1,
+              rate:        rate
+            };
+            if (newInvoiceItems.length === 0) { newInvoiceItems.push(line); }
+            else { newInvoiceItems[0] = line; }
+            renderNewInvoiceItemRows();
+
+            // Recurrence: only pre-fill for genuinely new clients. Migrated/
+            // existing clients (is_new_client=0) never get auto-recurrence —
+            // we don't know how many installments they've already paid.
+            if (terms.is_new_client) {
+              var recurCb = document.getElementById("niRecurringCheckbox");
+              var intervalEl = document.getElementById("niRecurringInterval");
+              var unitEl = document.getElementById("niRecurringUnit");
+              var neverEndsEl = document.getElementById("niRecurringNeverEnds");
+              var occEl = document.getElementById("niRecurringOccurrences");
+              if (recurCb) { recurCb.checked = true; }
+              if (intervalEl && terms.recurrence_interval) { intervalEl.value = terms.recurrence_interval; }
+              if (unitEl && terms.recurrence_unit) { unitEl.value = terms.recurrence_unit; }
+              if (neverEndsEl) { neverEndsEl.checked = !!terms.recurrence_never_ends; }
+              if (occEl && !terms.recurrence_never_ends && terms.installment_count) { occEl.value = terms.installment_count; }
+              onNiRecurringToggle();
+              onNiRecurringNeverEndsToggle();
+            }
+          }
+
+          // Package list may not have loaded yet if the client select was
+          // changed before it finished — wait for it, bounded retry.
+          if (newInvoicePackages) {
+            applyTerms();
+          } else {
+            var attempts = 0;
+            var waitForPkgs = setInterval(function() {
+              attempts++;
+              if (newInvoicePackages) {
+                clearInterval(waitForPkgs);
+                applyTerms();
+              } else if (attempts > 40) {
+                clearInterval(waitForPkgs);
+              }
+            }, 250);
+          }
+        })
+        .catch(function() { /* no-op — fall back to fully manual entry */ });
     }
 
     function onNewInvoicePackageChange() {

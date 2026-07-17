@@ -646,6 +646,7 @@
               <option value="Premium">Premium</option>
               <option value="Executivo">Executivo</option>
             </select>
+            <!-- Replaced with live /api/settings/packages options (new packages + divider + legacy) by loadNewClientPackageOptions() -->
           </div>
           <div class="field-group">
             <select id="ncStatus">
@@ -1086,7 +1087,36 @@
       return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
+    var newClientPackagesLoaded = false;
+    function loadNewClientPackageOptions() {
+      if (newClientPackagesLoaded) { return; }
+      var sel = document.getElementById("ncPackage");
+      if (!sel) { return; }
+      apiFetch("/api/settings/packages")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var pkgs = data.packages || [];
+          if (pkgs.length === 0) { return; }
+          newClientPackagesLoaded = true;
+          var newPkgs = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
+          var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
+          var html = '<option value="">-- Pacote / Package --</option>';
+          for (var i = 0; i < newPkgs.length; i++) {
+            html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' + escHtml(newPkgs[i].short_name) + '</option>';
+          }
+          if (newPkgs.length > 0 && legacyPkgs.length > 0) {
+            html += '<option value="" disabled>----- Legacy / Legado -----</option>';
+          }
+          for (var j = 0; j < legacyPkgs.length; j++) {
+            html += '<option value="' + escHtml(legacyPkgs[j].short_name) + '">' + escHtml(legacyPkgs[j].short_name) + '</option>';
+          }
+          sel.innerHTML = html;
+        })
+        .catch(function() { /* fail silently to the static fallback options already in the DOM */ });
+    }
+
     function openNewClientModal() {
+      loadNewClientPackageOptions();
       var ids = ["ncName","ncIndustry","ncLocation","nc1Name","nc1Role","nc1Phone","nc1Email","nc2Name","nc2Role","nc2Phone","nc2Email"];
       for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
@@ -1183,7 +1213,8 @@
         .then(function (data) {
           if (data.error) { throw new Error(data.error); }
           if (data.zoho_warning) { window.alert(data.zoho_warning); }
-          window.location.href = "client.html?id=" + encodeURIComponent(data.client_id);
+          var newClientSuffix = payload.package ? "&newpkg=1" : "";
+          window.location.href = "client.html?id=" + encodeURIComponent(data.client_id) + newClientSuffix;
         })
         .catch(function (e) {
           if (ncSaveBtn)   { ncSaveBtn.disabled    = false; }

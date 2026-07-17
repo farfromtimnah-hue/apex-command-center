@@ -643,6 +643,18 @@
 
     .pkg-payment-plan-fields[hidden] { display: none !important; }
 
+    .pkg-new-pricing-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+      padding: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .pkg-new-pricing-fields[hidden] { display: none !important; }
+
     .pkg-input-price {
       width: 160px;
       border: 1px solid var(--border);
@@ -1808,6 +1820,104 @@
       priceRow.appendChild(priceInput);
       card.appendChild(priceRow);
 
+      // ── New list-price fields (upfront_price / installment_total_price / defaults) ──
+      // Only shown (non-hidden) when populated, so legacy cards stay uncluttered;
+      // still fully present/editable so pricing can be set later if needed.
+      var hasNewPricing = (pkg.upfront_price !== null && pkg.upfront_price !== undefined) ||
+                           (pkg.installment_total_price !== null && pkg.installment_total_price !== undefined) ||
+                           (pkg.default_installment_count !== null && pkg.default_installment_count !== undefined) ||
+                           (pkg.default_installment_amount !== null && pkg.default_installment_amount !== undefined);
+
+      var newPricingWrap = document.createElement("div");
+      newPricingWrap.className = "pkg-new-pricing-fields";
+      newPricingWrap.hidden = !hasNewPricing && !isNew;
+
+      var upfrontRow = document.createElement("div");
+      upfrontRow.className = "pkg-field-row";
+      var upfrontLabel = document.createElement("div");
+      upfrontLabel.className = "pkg-field-label";
+      upfrontLabel.innerHTML =
+        '<span class="show-pt">Pre&#231;o &#192; Vista</span>' +
+        '<span class="show-en">Upfront Price</span>';
+      var upfrontInput = document.createElement("input");
+      upfrontInput.type = "number";
+      upfrontInput.min = "0";
+      upfrontInput.step = "0.01";
+      upfrontInput.className = "pkg-input-price";
+      upfrontInput.placeholder = "0.00";
+      upfrontInput.value = (pkg.upfront_price !== null && pkg.upfront_price !== undefined) ? pkg.upfront_price : "";
+      upfrontRow.appendChild(upfrontLabel);
+      upfrontRow.appendChild(upfrontInput);
+      newPricingWrap.appendChild(upfrontRow);
+
+      var instTotalRow = document.createElement("div");
+      instTotalRow.className = "pkg-field-row";
+      var instTotalLabel = document.createElement("div");
+      instTotalLabel.className = "pkg-field-label";
+      instTotalLabel.innerHTML =
+        '<span class="show-pt">Total Parcelado</span>' +
+        '<span class="show-en">Installment Total</span>';
+      var instTotalInput = document.createElement("input");
+      instTotalInput.type = "number";
+      instTotalInput.min = "0";
+      instTotalInput.step = "0.01";
+      instTotalInput.className = "pkg-input-price";
+      instTotalInput.placeholder = "0.00";
+      instTotalInput.value = (pkg.installment_total_price !== null && pkg.installment_total_price !== undefined) ? pkg.installment_total_price : "";
+      instTotalRow.appendChild(instTotalLabel);
+      instTotalRow.appendChild(instTotalInput);
+      newPricingWrap.appendChild(instTotalRow);
+
+      var defCountRow = document.createElement("div");
+      defCountRow.className = "pkg-field-row";
+      var defCountLabel = document.createElement("div");
+      defCountLabel.className = "pkg-field-label";
+      defCountLabel.innerHTML =
+        '<span class="show-pt">Parcelas Padr&#227;o (N&#250;mero)</span>' +
+        '<span class="show-en">Default Installment Count</span>';
+      var defCountInput = document.createElement("input");
+      defCountInput.type = "number";
+      defCountInput.min = "1";
+      defCountInput.step = "1";
+      defCountInput.className = "pkg-input-price";
+      defCountInput.placeholder = "0";
+      defCountInput.value = (pkg.default_installment_count !== null && pkg.default_installment_count !== undefined) ? pkg.default_installment_count : "";
+      defCountRow.appendChild(defCountLabel);
+      defCountRow.appendChild(defCountInput);
+      newPricingWrap.appendChild(defCountRow);
+
+      var defAmtRow = document.createElement("div");
+      defAmtRow.className = "pkg-field-row";
+      var defAmtLabel = document.createElement("div");
+      defAmtLabel.className = "pkg-field-label";
+      defAmtLabel.innerHTML =
+        '<span class="show-pt">Parcelas Padr&#227;o (Valor)</span>' +
+        '<span class="show-en">Default Installment Amount</span>';
+      var defAmtInput = document.createElement("input");
+      defAmtInput.type = "number";
+      defAmtInput.min = "0";
+      defAmtInput.step = "0.01";
+      defAmtInput.className = "pkg-input-price";
+      defAmtInput.placeholder = "0.00";
+      defAmtInput.value = (pkg.default_installment_amount !== null && pkg.default_installment_amount !== undefined) ? pkg.default_installment_amount : "";
+      defAmtRow.appendChild(defAmtLabel);
+      defAmtRow.appendChild(defAmtInput);
+      newPricingWrap.appendChild(defAmtRow);
+
+      var toggleNewPricingBtn = document.createElement("button");
+      toggleNewPricingBtn.type = "button";
+      toggleNewPricingBtn.className = "btn-add-item";
+      toggleNewPricingBtn.innerHTML =
+        '<span class="show-pt">' + (hasNewPricing || isNew ? "Ocultar preços novos" : "+ Preços novos (à vista / parcelado)") + '</span>' +
+        '<span class="show-en">' + (hasNewPricing || isNew ? "Hide new pricing" : "+ New pricing (upfront / installment)") + '</span>';
+      toggleNewPricingBtn.hidden = hasNewPricing || isNew;
+      (function(wrap, btn) {
+        btn.onclick = function() { wrap.hidden = !wrap.hidden; btn.hidden = true; };
+      })(newPricingWrap, toggleNewPricingBtn);
+
+      card.appendChild(toggleNewPricingBtn);
+      card.appendChild(newPricingWrap);
+
       // has_payment_plan toggle
       var toggleId = "ppToggle_" + (pkg.id || "new");
       var toggleRow = document.createElement("div");
@@ -1958,13 +2068,13 @@
       card.appendChild(footer);
 
       if (isNew) {
-        (function(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput) {
-          btn.onclick = function() { createPackage(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput); };
-        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, toggleChk, instCountInput, instAmtInput);
+        (function(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI) {
+          btn.onclick = function() { createPackage(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, toggleChk, instCountInput, instAmtInput, upfrontInput, instTotalInput, defCountInput, defAmtInput);
       } else {
-        (function(c, btn, st, sn, fn, au, il, pc, so, id, bpi, ppChk, icInput, iaInput) {
-          btn.onclick = function() { savePackage(id, c, btn, st, sn, fn, au, il, pc, so, bpi, ppChk, icInput, iaInput); };
-        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, pkg.id, priceInput, toggleChk, instCountInput, instAmtInput);
+        (function(c, btn, st, sn, fn, au, il, pc, so, id, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI) {
+          btn.onclick = function() { savePackage(id, c, btn, st, sn, fn, au, il, pc, so, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, pkg.id, priceInput, toggleChk, instCountInput, instAmtInput, upfrontInput, instTotalInput, defCountInput, defAmtInput);
       }
 
       return card;
@@ -2006,7 +2116,7 @@
     }
 
     // ── Save (PUT) a package ───────────────────────────────────────────────
-    function savePackage(id, card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, priceInput, ppChk, icInput, iaInput) {
+    function savePackage(id, card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, priceInput, ppChk, icInput, iaInput, upfrontInput, instTotalInput, defCountInput, defAmtInput) {
       var shortName = shortInput.value.trim();
       var fullName  = fullInput.value.trim();
 
@@ -2034,7 +2144,11 @@
         base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
         has_payment_plan:   hasPaymentPlan,
         installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
-        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null,
+        upfront_price:              upfrontInput.value  !== "" ? parseFloat(upfrontInput.value)  : null,
+        installment_total_price:    instTotalInput.value !== "" ? parseFloat(instTotalInput.value) : null,
+        default_installment_count:  defCountInput.value !== "" ? parseInt(defCountInput.value, 10) : null,
+        default_installment_amount: defAmtInput.value    !== "" ? parseFloat(defAmtInput.value)    : null
       };
 
       getToken().then(function(token) {
@@ -2073,7 +2187,7 @@
     }
 
     // ── Create (POST) a package ────────────────────────────────────────────
-    function createPackage(card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, ppChk, icInput, iaInput) {
+    function createPackage(card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, ppChk, icInput, iaInput, upfrontInput, instTotalInput, defCountInput, defAmtInput) {
       var shortName = shortInput.value.trim();
       var fullName  = fullInput.value.trim();
 
@@ -2101,7 +2215,11 @@
         base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
         has_payment_plan:   hasPaymentPlan,
         installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
-        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null,
+        upfront_price:              upfrontInput.value  !== "" ? parseFloat(upfrontInput.value)  : null,
+        installment_total_price:    instTotalInput.value !== "" ? parseFloat(instTotalInput.value) : null,
+        default_installment_count:  defCountInput.value !== "" ? parseInt(defCountInput.value, 10) : null,
+        default_installment_amount: defAmtInput.value    !== "" ? parseFloat(defAmtInput.value)    : null
       };
 
       getToken().then(function(token) {
@@ -2194,7 +2312,9 @@
       var blankCard = makePackageCard({
         short_name: "", full_name: "", audience: "",
         included_items: [], is_popular: false, sort_order: null,
-        base_price: null, has_payment_plan: false, installment_count: null, installment_amount: null
+        base_price: null, has_payment_plan: false, installment_count: null, installment_amount: null,
+        upfront_price: null, installment_total_price: null,
+        default_installment_count: null, default_installment_amount: null
       }, true);
       container.appendChild(blankCard);
       blankCard.scrollIntoView({ behavior: "smooth", block: "start" });

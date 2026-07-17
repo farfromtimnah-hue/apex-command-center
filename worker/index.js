@@ -3313,7 +3313,8 @@ async function handleGetSettingsPackages(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order, " +
-            "base_price, has_payment_plan, installment_count, installment_amount " +
+            "base_price, has_payment_plan, installment_count, installment_amount, " +
+            "upfront_price, installment_total_price, default_installment_count, default_installment_amount " +
             "FROM packages ORDER BY sort_order ASC, short_name ASC"
         ).all();
 
@@ -3333,7 +3334,11 @@ async function handleGetSettingsPackages(request, env) {
                 base_price:         row.base_price ?? null,
                 has_payment_plan:   !!row.has_payment_plan,
                 installment_count:  row.installment_count ?? null,
-                installment_amount: row.installment_amount ?? null
+                installment_amount: row.installment_amount ?? null,
+                upfront_price:              row.upfront_price ?? null,
+                installment_total_price:    row.installment_total_price ?? null,
+                default_installment_count:  row.default_installment_count ?? null,
+                default_installment_amount: row.default_installment_amount ?? null
             };
         });
 
@@ -3345,7 +3350,8 @@ async function handleGetSettingsPackages(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/settings/packages
-// Body: { short_name, full_name, audience?, included_items? (array), is_popular? (boolean), sort_order? }
+// Body: { short_name, full_name, audience?, included_items? (array), is_popular? (boolean), sort_order?,
+//         upfront_price?, installment_total_price?, default_installment_count?, default_installment_amount? }
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -3373,13 +3379,19 @@ async function handlePostSettingsPackages(request, env) {
         var hasPaymentPlan = body.has_payment_plan ? 1 : 0;
         var installmentCount  = (hasPaymentPlan && body.installment_count  !== undefined && body.installment_count  !== null) ? parseInt(body.installment_count,  10) : null;
         var installmentAmount = (hasPaymentPlan && body.installment_amount !== undefined && body.installment_amount !== null) ? parseFloat(body.installment_amount) : null;
+        var upfrontPrice           = (body.upfront_price           !== undefined && body.upfront_price           !== null && body.upfront_price           !== "") ? parseFloat(body.upfront_price)           : null;
+        var installmentTotalPrice  = (body.installment_total_price !== undefined && body.installment_total_price !== null && body.installment_total_price !== "") ? parseFloat(body.installment_total_price)  : null;
+        var defaultInstallmentCount  = (body.default_installment_count  !== undefined && body.default_installment_count  !== null && body.default_installment_count  !== "") ? parseInt(body.default_installment_count,  10) : null;
+        var defaultInstallmentAmount = (body.default_installment_amount !== undefined && body.default_installment_amount !== null && body.default_installment_amount !== "") ? parseFloat(body.default_installment_amount) : null;
 
         var pkgId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO packages (id, short_name, full_name, audience, included_items, is_popular, sort_order, base_price, has_payment_plan, installment_count, installment_amount) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO packages (id, name, short_name, full_name, audience, included_items, is_popular, sort_order, base_price, has_payment_plan, installment_count, installment_amount, " +
+            "upfront_price, installment_total_price, default_installment_count, default_installment_amount) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             pkgId,
+            body.short_name.trim(),
             body.short_name.trim(),
             body.full_name.trim(),
             body.audience || null,
@@ -3389,12 +3401,17 @@ async function handlePostSettingsPackages(request, env) {
             basePrice,
             hasPaymentPlan,
             installmentCount,
-            installmentAmount
+            installmentAmount,
+            upfrontPrice,
+            installmentTotalPrice,
+            defaultInstallmentCount,
+            defaultInstallmentAmount
         ).run();
 
         var row = await env.DB.prepare(
             "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order, " +
-            "base_price, has_payment_plan, installment_count, installment_amount FROM packages WHERE id = ?"
+            "base_price, has_payment_plan, installment_count, installment_amount, " +
+            "upfront_price, installment_total_price, default_installment_count, default_installment_amount FROM packages WHERE id = ?"
         ).bind(pkgId).first();
 
         var items = [];
@@ -3413,7 +3430,11 @@ async function handlePostSettingsPackages(request, env) {
             base_price:         row.base_price ?? null,
             has_payment_plan:   !!row.has_payment_plan,
             installment_count:  row.installment_count ?? null,
-            installment_amount: row.installment_amount ?? null
+            installment_amount: row.installment_amount ?? null,
+            upfront_price:              row.upfront_price ?? null,
+            installment_total_price:    row.installment_total_price ?? null,
+            default_installment_count:  row.default_installment_count ?? null,
+            default_installment_amount: row.default_installment_amount ?? null
         }});
     } catch (e) {
         return jsonErr("Error creating package: " + e.message, 500);
@@ -3422,7 +3443,9 @@ async function handlePostSettingsPackages(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: PUT /api/settings/packages/:id
-// Body: any subset of { short_name, full_name, audience, included_items (array), is_popular (boolean), sort_order }
+// Body: any subset of { short_name, full_name, audience, included_items (array), is_popular (boolean), sort_order,
+//         base_price, has_payment_plan, installment_count, installment_amount,
+//         upfront_price, installment_total_price, default_installment_count, default_installment_amount }
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -3446,8 +3469,8 @@ async function handlePutSettingsPackage(id, request, env) {
         }
 
         if (body.hasOwnProperty("short_name")) {
-            await env.DB.prepare("UPDATE packages SET short_name = ? WHERE id = ?")
-                .bind(body.short_name.trim(), id).run();
+            await env.DB.prepare("UPDATE packages SET short_name = ?, name = ? WHERE id = ?")
+                .bind(body.short_name.trim(), body.short_name.trim(), id).run();
         }
         if (body.hasOwnProperty("full_name")) {
             await env.DB.prepare("UPDATE packages SET full_name = ? WHERE id = ?")
@@ -3489,10 +3512,31 @@ async function handlePutSettingsPackage(id, request, env) {
             await env.DB.prepare("UPDATE packages SET installment_amount = ? WHERE id = ?")
                 .bind((ia !== null && !isNaN(ia)) ? ia : null, id).run();
         }
+        if (body.hasOwnProperty("upfront_price")) {
+            var up = (body.upfront_price !== null && body.upfront_price !== "") ? parseFloat(body.upfront_price) : null;
+            await env.DB.prepare("UPDATE packages SET upfront_price = ? WHERE id = ?")
+                .bind((up !== null && !isNaN(up)) ? up : null, id).run();
+        }
+        if (body.hasOwnProperty("installment_total_price")) {
+            var itp = (body.installment_total_price !== null && body.installment_total_price !== "") ? parseFloat(body.installment_total_price) : null;
+            await env.DB.prepare("UPDATE packages SET installment_total_price = ? WHERE id = ?")
+                .bind((itp !== null && !isNaN(itp)) ? itp : null, id).run();
+        }
+        if (body.hasOwnProperty("default_installment_count")) {
+            var dic = (body.default_installment_count !== null && body.default_installment_count !== "") ? parseInt(body.default_installment_count, 10) : null;
+            await env.DB.prepare("UPDATE packages SET default_installment_count = ? WHERE id = ?")
+                .bind((dic !== null && !isNaN(dic)) ? dic : null, id).run();
+        }
+        if (body.hasOwnProperty("default_installment_amount")) {
+            var dia = (body.default_installment_amount !== null && body.default_installment_amount !== "") ? parseFloat(body.default_installment_amount) : null;
+            await env.DB.prepare("UPDATE packages SET default_installment_amount = ? WHERE id = ?")
+                .bind((dia !== null && !isNaN(dia)) ? dia : null, id).run();
+        }
 
         var row = await env.DB.prepare(
             "SELECT id, short_name, full_name, audience, included_items, is_popular, sort_order, " +
-            "base_price, has_payment_plan, installment_count, installment_amount FROM packages WHERE id = ?"
+            "base_price, has_payment_plan, installment_count, installment_amount, " +
+            "upfront_price, installment_total_price, default_installment_count, default_installment_amount FROM packages WHERE id = ?"
         ).bind(id).first();
 
         var updatedItems = [];
@@ -3511,7 +3555,11 @@ async function handlePutSettingsPackage(id, request, env) {
             base_price:         row.base_price ?? null,
             has_payment_plan:   !!row.has_payment_plan,
             installment_count:  row.installment_count ?? null,
-            installment_amount: row.installment_amount ?? null
+            installment_amount: row.installment_amount ?? null,
+            upfront_price:              row.upfront_price ?? null,
+            installment_total_price:    row.installment_total_price ?? null,
+            default_installment_count:  row.default_installment_count ?? null,
+            default_installment_amount: row.default_installment_amount ?? null
         }});
     } catch (e) {
         return jsonErr("Error updating package: " + e.message, 500);
@@ -4204,6 +4252,207 @@ async function handlePostClientGrowth(id, request, env) {
         return jsonOk({ growth_entry: row });
     } catch (e) {
         return jsonErr("Error saving growth entry: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/package-terms
+// Returns the client's real payment-terms record, or terms: null if none set.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientPackageTerms(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT client_id, package_id, pricing_option, base_total, discount_type, discount_value, " +
+            "discount_note, adjusted_total, split_mode, installment_count, installment_amount, " +
+            "custom_installments, recurrence_unit, recurrence_interval, recurrence_never_ends, " +
+            "is_new_client, updated_at FROM client_package_terms WHERE client_id = ?"
+        ).bind(id).first();
+
+        if (!row) { return jsonOk({ terms: null }); }
+
+        var customInstallments = [];
+        if (row.custom_installments) {
+            try { customInstallments = JSON.parse(row.custom_installments); } catch(e) { customInstallments = []; }
+        }
+
+        return jsonOk({ terms: {
+            client_id:              row.client_id,
+            package_id:             row.package_id,
+            pricing_option:         row.pricing_option,
+            base_total:             row.base_total,
+            discount_type:          row.discount_type,
+            discount_value:         row.discount_value,
+            discount_note:          row.discount_note,
+            adjusted_total:         row.adjusted_total,
+            split_mode:             row.split_mode,
+            installment_count:      row.installment_count,
+            installment_amount:     row.installment_amount,
+            custom_installments:    customInstallments,
+            recurrence_unit:        row.recurrence_unit,
+            recurrence_interval:    row.recurrence_interval,
+            recurrence_never_ends:  !!row.recurrence_never_ends,
+            is_new_client:          !!row.is_new_client,
+            updated_at:             row.updated_at
+        }});
+    } catch (e) {
+        return jsonErr("Error fetching package terms: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/package-terms
+// Body: { package_id, pricing_option, base_total, discount_type?, discount_value?,
+//         discount_note?, split_mode, installment_count?, installment_amount?,
+//         custom_installments? (array), recurrence_unit?, recurrence_interval?,
+//         recurrence_never_ends?, is_new_client }
+// adjusted_total is always recomputed server-side from base_total + discount —
+// never trusted from the client, same defensive pattern as other financial
+// computations in this file (e.g. computeRecurringEndDate).
+// Also updates clients.package (plain text field) to keep it in sync.
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePutClientPackageTerms(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json();
+
+        var baseTotal = Number(body.base_total);
+        if (body.base_total === null || body.base_total === undefined || body.base_total === "" || isNaN(baseTotal)) {
+            return jsonErr("base_total must be a number", 400);
+        }
+
+        var discountType = body.discount_type || null;
+        if (discountType !== null && discountType !== "flat" && discountType !== "percent") {
+            return jsonErr("discount_type must be 'flat', 'percent', or null", 400);
+        }
+
+        var discountValue = null;
+        if (discountType) {
+            discountValue = Number(body.discount_value);
+            if (body.discount_value === null || body.discount_value === undefined || body.discount_value === "" || isNaN(discountValue)) {
+                return jsonErr("discount_value must be a number when discount_type is set", 400);
+            }
+            if (discountValue < 0) { return jsonErr("discount_value must be non-negative", 400); }
+            if (discountType === "percent" && discountValue > 100) { return jsonErr("percent discount_value must be between 0 and 100", 400); }
+        }
+
+        // Server-computed — never trust a client-submitted adjusted_total.
+        var adjustedTotal = baseTotal;
+        if (discountType === "flat") { adjustedTotal = baseTotal - discountValue; }
+        else if (discountType === "percent") { adjustedTotal = baseTotal - (baseTotal * discountValue / 100); }
+        if (adjustedTotal < 0) { adjustedTotal = 0; }
+
+        var splitMode = (body.split_mode === "custom") ? "custom" : "even";
+
+        var installmentCount = null;
+        var installmentAmount = null;
+        var customInstallments = null;
+        if (splitMode === "even") {
+            installmentCount = (body.installment_count !== null && body.installment_count !== undefined && body.installment_count !== "")
+                ? parseInt(body.installment_count, 10) : null;
+            installmentAmount = (body.installment_amount !== null && body.installment_amount !== undefined && body.installment_amount !== "")
+                ? parseFloat(body.installment_amount) : null;
+        } else {
+            var custom = Array.isArray(body.custom_installments) ? body.custom_installments : [];
+            customInstallments = JSON.stringify(custom);
+        }
+
+        var recurrenceUnit = body.recurrence_unit || null;
+        var recurrenceInterval = (body.recurrence_interval !== null && body.recurrence_interval !== undefined && body.recurrence_interval !== "")
+            ? parseInt(body.recurrence_interval, 10) : null;
+        var recurrenceNeverEnds = body.recurrence_never_ends ? 1 : 0;
+        var isNewClient = body.is_new_client ? 1 : 0;
+
+        var pkgRow = null;
+        if (body.package_id) {
+            pkgRow = await env.DB.prepare("SELECT id, short_name FROM packages WHERE id = ?").bind(body.package_id).first();
+        }
+
+        await env.DB.prepare(
+            "INSERT INTO client_package_terms (client_id, package_id, pricing_option, base_total, " +
+            "discount_type, discount_value, discount_note, adjusted_total, split_mode, " +
+            "installment_count, installment_amount, custom_installments, recurrence_unit, " +
+            "recurrence_interval, recurrence_never_ends, is_new_client, updated_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET " +
+            "package_id = excluded.package_id, pricing_option = excluded.pricing_option, " +
+            "base_total = excluded.base_total, discount_type = excluded.discount_type, " +
+            "discount_value = excluded.discount_value, discount_note = excluded.discount_note, " +
+            "adjusted_total = excluded.adjusted_total, split_mode = excluded.split_mode, " +
+            "installment_count = excluded.installment_count, installment_amount = excluded.installment_amount, " +
+            "custom_installments = excluded.custom_installments, recurrence_unit = excluded.recurrence_unit, " +
+            "recurrence_interval = excluded.recurrence_interval, recurrence_never_ends = excluded.recurrence_never_ends, " +
+            "is_new_client = excluded.is_new_client, updated_at = datetime('now')"
+        ).bind(
+            id,
+            body.package_id || null,
+            body.pricing_option || null,
+            baseTotal,
+            discountType,
+            discountValue,
+            body.discount_note || null,
+            adjustedTotal,
+            splitMode,
+            installmentCount,
+            installmentAmount,
+            customInstallments,
+            recurrenceUnit,
+            recurrenceInterval,
+            recurrenceNeverEnds,
+            isNewClient
+        ).run();
+
+        // Keep clients.package (plain text) in sync so existing readers don't break.
+        if (pkgRow) {
+            await env.DB.prepare("UPDATE clients SET package = ? WHERE id = ?")
+                .bind(pkgRow.short_name, id).run();
+        }
+
+        var saved = await env.DB.prepare(
+            "SELECT client_id, package_id, pricing_option, base_total, discount_type, discount_value, " +
+            "discount_note, adjusted_total, split_mode, installment_count, installment_amount, " +
+            "custom_installments, recurrence_unit, recurrence_interval, recurrence_never_ends, " +
+            "is_new_client, updated_at FROM client_package_terms WHERE client_id = ?"
+        ).bind(id).first();
+
+        var savedCustom = [];
+        if (saved.custom_installments) {
+            try { savedCustom = JSON.parse(saved.custom_installments); } catch(e) { savedCustom = []; }
+        }
+
+        return jsonOk({ terms: {
+            client_id:              saved.client_id,
+            package_id:             saved.package_id,
+            pricing_option:         saved.pricing_option,
+            base_total:             saved.base_total,
+            discount_type:          saved.discount_type,
+            discount_value:         saved.discount_value,
+            discount_note:          saved.discount_note,
+            adjusted_total:         saved.adjusted_total,
+            split_mode:             saved.split_mode,
+            installment_count:      saved.installment_count,
+            installment_amount:     saved.installment_amount,
+            custom_installments:    savedCustom,
+            recurrence_unit:        saved.recurrence_unit,
+            recurrence_interval:    saved.recurrence_interval,
+            recurrence_never_ends:  !!saved.recurrence_never_ends,
+            is_new_client:          !!saved.is_new_client,
+            updated_at:             saved.updated_at
+        }});
+    } catch (e) {
+        return jsonErr("Error saving package terms: " + e.message, 500);
     }
 }
 
@@ -7933,6 +8182,10 @@ export default {
             if (segs.length === 4 && segs[3] === "growth") {
                 if (method === "GET")  { return handleGetClientGrowth(cid, request, env); }
                 if (method === "POST") { return handlePostClientGrowth(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "package-terms") {
+                if (method === "GET") { return handleGetClientPackageTerms(cid, request, env); }
+                if (method === "PUT") { return handlePutClientPackageTerms(cid, request, env); }
             }
             if (segs.length === 4 && segs[3] === "zoho-contact") {
                 if (method === "GET") { return handleGetClientZohoContact(cid, request, env); }

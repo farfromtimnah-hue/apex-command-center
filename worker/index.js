@@ -6084,16 +6084,24 @@ async function handlePostFinanceExpense(request, env) {
 // ---------------------------------------------------------------------------
 // Route: POST /api/invoices
 // Body: { client_id, line_items: [{ name, description?, quantity?, rate? }],
-//         recurring?: { recurrence_frequency: "weeks"|"months"|"years", start_date } }
+//         recurring?: { recurrence_frequency: "days"|"weeks"|"months"|"years",
+//                        repeat_every: number, start_date,
+//                        never_ends: boolean, occurrences?: number } }
 // Creates a real DRAFT invoice in Zoho Books for the client's linked Zoho
 // contact, OR (if body.recurring is present) a recurring invoice profile via
 // Zoho's separate recurringinvoices endpoint using the same customer/line
 // items. No tax fields anywhere -- confirmed standing decision, invoices
 // never carry sales tax; applies to recurring invoices too.
 //
-// UNVERIFIED (recurring path only): Zoho's exact recurrence_frequency enum
-// values were not confirmed against live docs -- "weeks"/"months"/"years" are
-// used here as the standard Zoho convention, paired with repeat_every: 1.
+// Zoho's recurringinvoices create payload confirmed against live API docs
+// (zoho.com/books/api/v3/recurring-invoices/): recurrence_frequency accepts
+// days/weeks/months/years, paired with repeat_every (integer interval) --
+// e.g. repeat_every:3 + recurrence_frequency:"months" for Apex's quarterly
+// default. Zoho has NO occurrence-count field -- only start_date/end_date --
+// so when the user picks "after N invoices" instead of "never expires", Apex
+// computes end_date itself (start_date + interval * occurrences) and sends
+// that computed date to Zoho; see computeRecurringEndDate below.
+//
 // This also requires "Recurring Invoice" to be manually enabled in Zoho
 // Books under Settings -> Preferences -> General by a human with Zoho admin
 // access (documented precondition, cannot be done via API). If Zoho rejects
@@ -6101,6 +6109,31 @@ async function handlePostFinanceExpense(request, env) {
 // verbatim to the frontend rather than swallowed -- see progress.md.
 // Auth: alice / rafa / developer.
 // ---------------------------------------------------------------------------
+
+// Computes the recurring invoice's end_date so that exactly `occurrences`
+// invoices are generated: the last one fires on start_date + (occurrences-1)
+// intervals, and Zoho's end_date is exclusive of further firings beyond it,
+// so we push a few days past that last firing to guarantee it still fires
+// while never allowing an extra occurrence.
+function computeRecurringEndDate(startDateStr, unit, repeatEvery, occurrences) {
+    var start = new Date(startDateStr + "T00:00:00Z");
+    var totalSteps = repeatEvery * (occurrences - 1);
+    var end = new Date(start.getTime());
+    if (unit === "days") {
+        end.setUTCDate(end.getUTCDate() + totalSteps);
+    } else if (unit === "weeks") {
+        end.setUTCDate(end.getUTCDate() + totalSteps * 7);
+    } else if (unit === "months") {
+        end.setUTCMonth(end.getUTCMonth() + totalSteps);
+    } else if (unit === "years") {
+        end.setUTCFullYear(end.getUTCFullYear() + totalSteps);
+    }
+    // Nudge a few days past the final firing date so Zoho's end_date
+    // (the day recurrence stops) doesn't fall exactly on -- and cut off --
+    // the last intended invoice.
+    end.setUTCDate(end.getUTCDate() + 3);
+    return end.toISOString().slice(0, 10);
+}
 
 async function handlePostInvoice(request, env) {
     try {
@@ -6125,6 +6158,16 @@ async function handlePostInvoice(request, env) {
                 return jsonErr("recurring.recurrence_frequency must be one of: " + validFreqs.join(", "), 400);
             }
             if (!body.recurring.start_date) { return jsonErr("recurring.start_date is required", 400); }
+            var repeatEvery = parseInt(body.recurring.repeat_every, 10);
+            if (!repeatEvery || repeatEvery < 1) {
+                return jsonErr("recurring.repeat_every must be a positive integer", 400);
+            }
+            if (!body.recurring.never_ends) {
+                var occurrences = parseInt(body.recurring.occurrences, 10);
+                if (!occurrences || occurrences < 1) {
+                    return jsonErr("recurring.occurrences must be a positive integer when never_ends is false", 400);
+                }
+            }
         }
 
         var clientRow = await env.DB.prepare(
@@ -6156,22 +6199,34 @@ async function handlePostInvoice(request, env) {
                 recurrence_name:       "Recurring - " + (clientRow.name || clientRow.id) + " - " + body.recurring.start_date,
                 customer_id:           String(clientRow.zoho_customer_id),
                 recurrence_frequency:  body.recurring.recurrence_frequency,
-                repeat_every:          1,
+                repeat_every:          parseInt(body.recurring.repeat_every, 10),
                 start_date:            body.recurring.start_date,
                 line_items:            lineItemsPayload
             };
+            if (!body.recurring.never_ends) {
+                recurPayload.end_date = computeRecurringEndDate(
+                    body.recurring.start_date,
+                    body.recurring.recurrence_frequency,
+                    recurPayload.repeat_every,
+                    parseInt(body.recurring.occurrences, 10)
+                );
+            }
             var recurRes = await zohoBankingFetch(zohoAuth, "POST", "recurringinvoices", recurPayload);
             if (!recurRes.ok) {
                 return jsonErr("Zoho recurring invoice creation failed: " + (recurRes.data.message || JSON.stringify(recurRes.data)), 502);
             }
             var recur = recurRes.data.recurring_invoice || {};
             return jsonOk({
-                ok:                  true,
-                recurring:           true,
-                recurring_invoice_id: recur.recurring_invoice_id,
-                recurrence_name:     recur.recurrence_name,
-                customer_name:       recur.customer_name,
-                status:              recur.status
+                ok:                    true,
+                recurring:             true,
+                recurring_invoice_id:  recur.recurring_invoice_id,
+                recurrence_name:       recur.recurrence_name,
+                customer_name:         recur.customer_name,
+                status:                recur.status,
+                recurrence_frequency:  recur.recurrence_frequency || recurPayload.recurrence_frequency,
+                repeat_every:          recur.repeat_every || recurPayload.repeat_every,
+                start_date:            recur.start_date || recurPayload.start_date,
+                end_date:              recur.end_date || recurPayload.end_date || null
             });
         }
 

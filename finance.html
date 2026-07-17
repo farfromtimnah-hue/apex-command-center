@@ -1490,15 +1490,29 @@
       </div>
       <div id="niRecurringFields" hidden>
         <div class="form-group">
-          <label class="form-label" for="niRecurringFrequency">
-            <span class="show-pt">Frequencia</span>
-            <span class="show-en">Frequency</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="show-pt">Repetir a cada</span>
+            <span class="show-en">Repeat every</span>
+            <input type="number" id="niRecurringInterval" class="form-input" style="width:70px;" min="1" step="1" value="3">
+            <select id="niRecurringUnit" class="form-input" style="width:auto;">
+              <option value="days">dias / days</option>
+              <option value="weeks">semanas / weeks</option>
+              <option value="months" selected>meses / months</option>
+              <option value="years">anos / years</option>
+            </select>
+            <span class="show-pt">, por</span>
+            <span class="show-en">, for</span>
+            <input type="number" id="niRecurringOccurrences" class="form-input" style="width:70px;" min="1" step="1" placeholder="—" disabled>
+            <span class="show-pt">faturas</span>
+            <span class="show-en">invoices</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="niRecurringNeverEnds" checked onchange="onNiRecurringNeverEndsToggle()">
+            <span class="show-pt">Nunca expira</span>
+            <span class="show-en">Never expires</span>
           </label>
-          <select id="niRecurringFrequency" class="form-input">
-            <option value="weeks">Weekly</option>
-            <option value="months" selected>Monthly</option>
-            <option value="years">Yearly</option>
-          </select>
         </div>
         <div class="form-group">
           <label class="form-label" for="niRecurringStartDate">
@@ -3126,6 +3140,16 @@
       if (recurCb) { recurCb.checked = false; }
       var recurFields = document.getElementById("niRecurringFields");
       if (recurFields) { recurFields.hidden = true; }
+      var intervalEl = document.getElementById("niRecurringInterval");
+      if (intervalEl) { intervalEl.value = 3; }
+      var unitEl = document.getElementById("niRecurringUnit");
+      if (unitEl) { unitEl.value = "months"; }
+      var neverEndsEl = document.getElementById("niRecurringNeverEnds");
+      if (neverEndsEl) { neverEndsEl.checked = true; }
+      var occEl = document.getElementById("niRecurringOccurrences");
+      if (occEl) { occEl.value = ""; occEl.disabled = true; }
+      var startDateEl = document.getElementById("niRecurringStartDate");
+      if (startDateEl) { startDateEl.value = ""; }
       renderNewInvoiceItemRows();
       if (overlay) { overlay.hidden = false; }
       loadNewInvoiceFormData();
@@ -3135,10 +3159,25 @@
       var cb = document.getElementById("niRecurringCheckbox");
       var fields = document.getElementById("niRecurringFields");
       var startDateEl = document.getElementById("niRecurringStartDate");
+      var intervalEl = document.getElementById("niRecurringInterval");
+      var unitEl = document.getElementById("niRecurringUnit");
       if (fields) { fields.hidden = !(cb && cb.checked); }
-      if (cb && cb.checked && startDateEl && !startDateEl.value) {
-        startDateEl.value = new Date().toISOString().slice(0, 10);
+      if (cb && cb.checked) {
+        if (startDateEl && !startDateEl.value) {
+          startDateEl.value = new Date().toISOString().slice(0, 10);
+        }
+        // Apex's default billing cadence: every 3 months (quarterly).
+        if (intervalEl && !intervalEl.value) { intervalEl.value = 3; }
+        if (unitEl && !unitEl.value) { unitEl.value = "months"; }
       }
+    }
+
+    function onNiRecurringNeverEndsToggle() {
+      var neverCb = document.getElementById("niRecurringNeverEnds");
+      var occEl = document.getElementById("niRecurringOccurrences");
+      if (!occEl) { return; }
+      occEl.disabled = !!(neverCb && neverCb.checked);
+      if (occEl.disabled) { occEl.value = ""; }
     }
 
     function closeNewInvoiceModal() {
@@ -3276,16 +3315,33 @@
       var isRecurring = !!(recurCb && recurCb.checked);
       var body = { client_id: clientSel.value, line_items: items };
       if (isRecurring) {
-        var freqEl = document.getElementById("niRecurringFrequency");
+        var intervalEl = document.getElementById("niRecurringInterval");
+        var unitEl = document.getElementById("niRecurringUnit");
         var startEl = document.getElementById("niRecurringStartDate");
+        var neverEndsEl = document.getElementById("niRecurringNeverEnds");
+        var occEl = document.getElementById("niRecurringOccurrences");
         if (!startEl || !startEl.value) {
           showToast("Selecione a data de inicio / Select a start date");
           return;
         }
+        var repeatEvery = intervalEl ? parseInt(intervalEl.value, 10) : 0;
+        if (!repeatEvery || repeatEvery < 1) {
+          showToast("Informe um intervalo valido / Enter a valid interval");
+          return;
+        }
+        var neverEnds = !!(neverEndsEl && neverEndsEl.checked);
+        var occurrences = occEl ? parseInt(occEl.value, 10) : 0;
+        if (!neverEnds && (!occurrences || occurrences < 1)) {
+          showToast("Informe o numero de faturas / Enter the number of invoices");
+          return;
+        }
         body.recurring = {
-          recurrence_frequency: freqEl ? freqEl.value : "months",
-          start_date: startEl.value
+          recurrence_frequency: unitEl ? unitEl.value : "months",
+          repeat_every: repeatEvery,
+          start_date: startEl.value,
+          never_ends: neverEnds
         };
+        if (!neverEnds) { body.recurring.occurrences = occurrences; }
       }
 
       if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = "0.5"; }

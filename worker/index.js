@@ -2713,7 +2713,7 @@ async function handleZohoOAuthStart(request, env) {
         params.set("response_type", "code");
         params.set("access_type",   "offline");
         params.set("prompt",        "consent");
-        params.set("scope",         "ZohoBooks.invoices.ALL,ZohoBooks.contacts.ALL,ZohoBooks.expenses.ALL,ZohoBooks.customerpayments.ALL,ZohoBooks.settings.READ,ZohoBooks.banking.ALL");
+        params.set("scope",         "ZohoBooks.invoices.ALL,ZohoBooks.contacts.ALL,ZohoBooks.expenses.ALL,ZohoBooks.customerpayments.ALL,ZohoBooks.settings.READ,ZohoBooks.accountants.ALL,ZohoBooks.banking.ALL");
         params.set("state",         state);
 
         var authUrl = "https://accounts.zoho.com/oauth/v2/auth?" + params.toString();
@@ -5764,6 +5764,9 @@ async function handleGetFinanceCategories(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
+        var url = new URL(request.url);
+        var includeHidden = url.searchParams.get("include_hidden") === "true";
+
         var zohoAuth;
         try {
             zohoAuth = await getZohoAccessToken(env);
@@ -5791,10 +5794,66 @@ async function handleGetFinanceCategories(request, env) {
 
         categories.sort(function(x, y) { return x.account_name.localeCompare(y.account_name); });
 
+        // Hidden-category filtering is scoped to the Reconciliation folder view
+        // only (this endpoint, default mode). include_hidden=true is used by
+        // the Manage Categories checklist, which needs the full list plus each
+        // category's hidden state. Every other chart-of-accounts reader in this
+        // app (expense-form-data, tax-summary) calls Zoho directly and never
+        // touches this table.
+        var hiddenRows = await env.DB.prepare("SELECT category_account_id FROM hidden_finance_categories").all();
+        var hiddenSet = {};
+        for (var h = 0; h < hiddenRows.results.length; h++) { hiddenSet[hiddenRows.results[h].category_account_id] = true; }
+
+        if (includeHidden) {
+            for (var k = 0; k < categories.length; k++) { categories[k].hidden = !!hiddenSet[categories[k].account_id]; }
+        } else {
+            categories = categories.filter(function(c) { return !hiddenSet[c.account_id]; });
+        }
+
         return jsonOk({ categories: categories });
     } catch (e) {
         if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error fetching categories: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance/categories/:account_id/hide
+// Route: POST /api/finance/categories/:account_id/unhide
+// Hides/unhides a category from the Reconcile folder view only -- purely a
+// display preference stored in D1, never touches the real Zoho account.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceCategoryHide(request, env, accountId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (!accountId) { return jsonErr("account_id is required", 400); }
+
+        await env.DB.prepare(
+            "INSERT INTO hidden_finance_categories (category_account_id) VALUES (?) ON CONFLICT(category_account_id) DO NOTHING"
+        ).bind(accountId).run();
+
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error hiding category: " + e.message, 500);
+    }
+}
+
+async function handlePostFinanceCategoryUnhide(request, env, accountId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (!accountId) { return jsonErr("account_id is required", 400); }
+
+        await env.DB.prepare("DELETE FROM hidden_finance_categories WHERE category_account_id = ?").bind(accountId).run();
+
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error unhiding category: " + e.message, 500);
     }
 }
 
@@ -7776,6 +7835,12 @@ export default {
             if (segs[4] === "exclude" || segs[4] === "restore" || segs[4] === "unmatch") {
                 return handlePostReconciliationAction(segs[3], segs[4], request, env);
             }
+        }
+
+        // /api/finance/categories/:account_id/hide|unhide  POST
+        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "categories" && segs[3] && segs[4] && method === "POST") {
+            if (segs[4] === "hide")   { return handlePostFinanceCategoryHide(request, env, decodeURIComponent(segs[3])); }
+            if (segs[4] === "unhide") { return handlePostFinanceCategoryUnhide(request, env, decodeURIComponent(segs[3])); }
         }
 
         // /api/finance/subscriptions/:id  PUT | DELETE

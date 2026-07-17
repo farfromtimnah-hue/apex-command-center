@@ -2305,12 +2305,11 @@
         })
         .catch(function() {});
 
-      // Donut uses confirmed transactions from DB; load and aggregate client-side
-      apiFetch("/api/finance/transactions?status=confirmed")
+      // Donut uses categorized Zoho transactions for the current month
+      apiFetch("/api/finance/reconciliation/category-totals")
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          var txs = data.transactions || [];
-          renderDonutChart(txs);
+          renderDonutChart(data.totals || []);
         })
         .catch(function() {});
     }
@@ -2386,24 +2385,17 @@
       });
     }
 
-    function renderDonutChart(txs) {
-      var catTotals = {};
-      var grandTotal = 0;
-      for (var i = 0; i < txs.length; i++) {
-        var t = txs[i];
-        if (t.transaction_type !== "expense") { continue; }
-        var cat = t.assigned_category || t.suggested_category || "Outro";
-        catTotals[cat] = (catTotals[cat] || 0) + (parseFloat(t.amount) || 0);
-        grandTotal += parseFloat(t.amount) || 0;
-      }
-
+    function renderDonutChart(totals) {
       var sorted = [];
-      for (var k in catTotals) {
-        if (catTotals.hasOwnProperty(k)) {
-          sorted.push({ name: k, total: catTotals[k] });
-        }
+      for (var i = 0; i < totals.length; i++) {
+        var t = totals[i];
+        if (t.category_id === "client_income") { continue; }
+        sorted.push({ name: t.category_name || "Outro", total: parseFloat(t.total) || 0 });
       }
       sorted.sort(function(a, b) { return b.total - a.total; });
+
+      var grandTotal = 0;
+      for (var s = 0; s < sorted.length; s++) { grandTotal += sorted[s].total; }
 
       var canvas = document.getElementById("donutChart");
       var totalEl = document.getElementById("donutTotal");
@@ -3526,8 +3518,21 @@
 
     // ── Folder rail ─────────────────────────────────────────────────────────
 
+    function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+
+    function ensureReconDateRangeDefaults() {
+      var fromEl = document.getElementById("reconTotalsFrom");
+      var toEl   = document.getElementById("reconTotalsTo");
+      var now = new Date();
+      var y = now.getFullYear();
+      var m = now.getMonth();
+      if (fromEl && !fromEl.value) { fromEl.value = y + "-" + pad2(m + 1) + "-01"; }
+      if (toEl && !toEl.value)     { var lastDay = new Date(y, m + 1, 0).getDate(); toEl.value = y + "-" + pad2(m + 1) + "-" + pad2(lastDay); }
+    }
+
     function loadReconFolders() {
       var railEl = document.getElementById("reconFolderRail");
+      ensureReconDateRangeDefaults();
       if (reconCategories !== null) { renderReconFolders(); loadReconCategoryTotals(); return; }
       apiFetch("/api/finance/categories")
         .then(function(res) { return res.json(); })
@@ -3580,11 +3585,9 @@
     }
 
     function loadReconCategoryTotals() {
+      ensureReconDateRangeDefaults();
       var fromEl = document.getElementById("reconTotalsFrom");
       var toEl   = document.getElementById("reconTotalsTo");
-      var now = new Date();
-      if (fromEl && !fromEl.value) { fromEl.value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10); }
-      if (toEl && !toEl.value)     { toEl.value   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10); }
       var from = fromEl ? fromEl.value : "";
       var to   = toEl ? toEl.value : "";
 

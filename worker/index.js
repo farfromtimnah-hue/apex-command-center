@@ -4239,8 +4239,21 @@ async function handleGetSalesGrowthRanking(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/finance/statement-upload
-// Accepts a CSV or plain-text bank statement, sends to Claude, inserts parsed
-// transactions into bank_transactions with status='pending'.
+// Accepts a CSV or plain-text bank statement plus an account_id (which Zoho
+// bank/cash account these lines belong to), sends the file to Claude to
+// parse, then creates each parsed line as a real Zoho Books bank transaction
+// via POST banktransactions -- NOT the local D1 bank_transactions table,
+// which is legacy/orphaned (see handleGetFinanceOverview). Once created in
+// Zoho, these transactions immediately show up in the Reconcile tab's
+// Uncategorized folder like any other live-synced line -- no separate
+// confirm/ignore step, since Reconcile already reads live Zoho data.
+// Zoho transaction_type values used here: "deposit" for income lines (income
+// is the closest analog to a manually-recorded incoming payment) and
+// "card_payment" for expense lines (a generic non-transfer outgoing
+// transaction type) -- confirmed live 2026-07-16 that "deposit" and
+// "card_payment" are both accepted transaction_type values by this Zoho
+// Books org; if the org later rejects either value, this mapping is the
+// first thing to check against Zoho's exact enum.
 // ---------------------------------------------------------------------------
 
 async function handlePostFinanceStatementUpload(request, env) {
@@ -4252,6 +4265,8 @@ async function handlePostFinanceStatementUpload(request, env) {
         var formData = await request.formData();
         var file = formData.get("statement");
         if (!file) { return jsonErr("statement field is required", 400); }
+        var accountId = formData.get("account_id");
+        if (!accountId) { return jsonErr("account_id is required (which Zoho bank account these lines belong to)", 400); }
 
         var text = await file.text();
         if (!text || !text.trim()) { return jsonErr("File is empty", 400); }
@@ -4296,113 +4311,112 @@ async function handlePostFinanceStatementUpload(request, env) {
         }
         if (!Array.isArray(parsed)) { parsed = [parsed]; }
 
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
         var inserted = [];
+        var failures = [];
         for (var i = 0; i < parsed.length; i++) {
             var t = parsed[i];
             if (!t.date || !t.description || t.amount === undefined) { continue; }
-            var txType = (t.transaction_type === "income") ? "income" : "expense";
-            var conf   = (t.confidence === "alta" || t.confidence === "baixa") ? t.confidence : "media";
-            var txId   = crypto.randomUUID();
-            var amt    = Math.abs(parseFloat(t.amount) || 0);
-            var cat    = t.suggested_category || "Outro";
-            await env.DB.prepare(
-                "INSERT INTO bank_transactions (id, transaction_date, description, amount, transaction_type, suggested_category, confidence, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'))"
-            ).bind(txId, t.date, t.description, amt, txType, cat, conf).run();
-            inserted.push({ id: txId, transaction_date: t.date, description: t.description, amount: amt, transaction_type: txType, suggested_category: cat, confidence: conf, status: "pending", assigned_category: null });
+            var isIncome = (t.transaction_type === "income");
+            var amt = Math.abs(parseFloat(t.amount) || 0);
+
+            var createBody = {
+                account_id:       accountId,
+                date:             t.date,
+                transaction_type: isIncome ? "deposit" : "card_payment",
+                amount:           amt,
+                description:      t.description
+            };
+            var createRes = await zohoBankingFetch(zohoAuth, "POST", "banktransactions", createBody);
+            if (!createRes.ok) {
+                failures.push({ description: t.description, date: t.date, error: createRes.data.message || JSON.stringify(createRes.data) });
+                continue;
+            }
+            var createdTxn = createRes.data.banktransaction || {};
+            inserted.push({
+                transaction_id: createdTxn.transaction_id,
+                transaction_date: t.date,
+                description: t.description,
+                amount: amt,
+                transaction_type: isIncome ? "income" : "expense",
+                suggested_category: t.suggested_category || "Outro",
+                confidence: (t.confidence === "alta" || t.confidence === "baixa") ? t.confidence : "media"
+            });
         }
 
-        return jsonOk({ transactions: inserted, count: inserted.length });
+        return jsonOk({ transactions: inserted, count: inserted.length, failures: failures });
     } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error processing statement: " + e.message, 500);
     }
 }
 
 // ---------------------------------------------------------------------------
-// Route: GET /api/finance/transactions?status=pending
-// Lists transactions filtered by status (default: all), most recent first.
+// Shared helper: aggregateZohoTransactions(zohoAuth, fromDate, toDate)
+// Pulls every categorized bank transaction (all active accounts) from Zoho
+// Books for the given date range and sums income vs expense, and per-category
+// (by category/account name Zoho attaches to each categorized line). This is
+// the same live-proven call shape as handleGetFinanceReconciliation
+// (banktransactions?account_id=...&filter_by=Status.Categorized) — reused here
+// instead of a separate P&L report call so the dashboard, chart, and category
+// tallies all agree with what Reconcile itself shows.
+// Zoho's own transaction income/expense sign follows transaction_type
+// (deposit/sales_without_invoices/interest_income/other_income => income;
+// everything else categorized => expense), matching the existing isDeposit
+// convention already used on the frontend.
 // ---------------------------------------------------------------------------
 
-async function handleGetFinanceTransactions(request, env) {
-    try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+var RECON_INCOME_TYPES = ["deposit", "sales_without_invoices", "interest_income", "other_income"];
 
-        var url    = new URL(request.url);
-        var status = url.searchParams.get("status") || "";
-
-        var res;
-        if (status) {
-            res = await env.DB.prepare(
-                "SELECT * FROM bank_transactions WHERE status = ? ORDER BY transaction_date DESC, created_at DESC"
-            ).bind(status).all();
-        } else {
-            res = await env.DB.prepare(
-                "SELECT * FROM bank_transactions ORDER BY transaction_date DESC, created_at DESC"
-            ).all();
-        }
-
-        return jsonOk({ transactions: res.results });
-    } catch (e) {
-        return jsonErr("Error fetching transactions: " + e.message, 500);
+async function aggregateZohoTransactions(zohoAuth, fromDate, toDate) {
+    var acctRes = await zohoBankingFetch(zohoAuth, "GET", "bankaccounts");
+    if (!acctRes.ok) {
+        throw new Error("Zoho bank accounts error: " + (acctRes.data.message || JSON.stringify(acctRes.data)));
     }
+    var accts = acctRes.data.bankaccounts || [];
+    var accountIds = [];
+    for (var a = 0; a < accts.length; a++) {
+        if (accts[a].is_active) { accountIds.push(accts[a].account_id); }
+    }
+
+    // NOTE: filtering by date is done client-side below (not via a Zoho query
+    // param) because Zoho's exact date-range param name for this endpoint
+    // could not be confirmed against live docs -- filtering post-fetch on the
+    // `date` field Zoho already returns is guaranteed correct regardless.
+    var transactions = [];
+    for (var i = 0; i < accountIds.length; i++) {
+        var txRes = await zohoBankingFetch(zohoAuth, "GET",
+            "banktransactions?account_id=" + encodeURIComponent(accountIds[i]) +
+            "&filter_by=Status.Categorized&per_page=200");
+        if (!txRes.ok) {
+            throw new Error("Zoho bank transactions error: " + (txRes.data.message || JSON.stringify(txRes.data)));
+        }
+        var raw = txRes.data.banktransactions || [];
+        for (var t = 0; t < raw.length; t++) {
+            var d = raw[t].date || "";
+            if (d >= fromDate && d <= toDate) { transactions.push(raw[t]); }
+        }
+    }
+    return transactions;
 }
 
-// ---------------------------------------------------------------------------
-// Route: POST /api/finance/transactions/:id/confirm
-// Body: { assigned_category: string }
-// Sets status='confirmed' and assigned_category.
-// ---------------------------------------------------------------------------
-
-async function handlePostFinanceTransactionConfirm(txId, request, env) {
-    try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
-
-        var body = await request.json();
-        if (!body.assigned_category || !body.assigned_category.trim()) {
-            return jsonErr("assigned_category is required", 400);
-        }
-
-        var existing = await env.DB.prepare("SELECT id FROM bank_transactions WHERE id = ?").bind(txId).first();
-        if (!existing) { return jsonErr("Transaction not found", 404); }
-
-        await env.DB.prepare(
-            "UPDATE bank_transactions SET status = 'confirmed', assigned_category = ? WHERE id = ?"
-        ).bind(body.assigned_category.trim(), txId).run();
-
-        return jsonOk({ ok: true, id: txId, status: "confirmed", assigned_category: body.assigned_category.trim() });
-    } catch (e) {
-        return jsonErr("Error confirming transaction: " + e.message, 500);
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Route: POST /api/finance/transactions/:id/ignore
-// Sets status='ignored'.
-// ---------------------------------------------------------------------------
-
-async function handlePostFinanceTransactionIgnore(txId, request, env) {
-    try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
-
-        var existing = await env.DB.prepare("SELECT id FROM bank_transactions WHERE id = ?").bind(txId).first();
-        if (!existing) { return jsonErr("Transaction not found", 404); }
-
-        await env.DB.prepare("UPDATE bank_transactions SET status = 'ignored' WHERE id = ?").bind(txId).run();
-
-        return jsonOk({ ok: true, id: txId, status: "ignored" });
-    } catch (e) {
-        return jsonErr("Error ignoring transaction: " + e.message, 500);
-    }
+function classifyZohoTxnAmount(txn) {
+    var isIncome = RECON_INCOME_TYPES.indexOf(txn.transaction_type) !== -1;
+    var amt = Math.abs(parseFloat(txn.amount) || 0);
+    return { isIncome: isIncome, amount: amt };
 }
 
 // ---------------------------------------------------------------------------
 // Route: GET /api/finance/overview
-// Returns aggregated stats from confirmed transactions in the current calendar month.
+// Returns aggregated stats for the current calendar month, sourced live from
+// Zoho Books categorized bank transactions (source of truth = Zoho, not the
+// legacy local bank_transactions table -- see progress.md for why).
 // ---------------------------------------------------------------------------
 
 async function handleGetFinanceOverview(request, env) {
@@ -4416,28 +4430,42 @@ async function handleGetFinanceOverview(request, env) {
         var month = now.getMonth() + 1;
         var mm    = month < 10 ? "0" + month : "" + month;
         var prefix = year + "-" + mm;
+        var daysInMonth = new Date(year, month, 0).getDate();
+        var fromDate = prefix + "-01";
+        var toDate   = prefix + "-" + (daysInMonth < 10 ? "0" + daysInMonth : "" + daysInMonth);
 
-        var incomeRow = await env.DB.prepare(
-            "SELECT SUM(amount) as total FROM bank_transactions WHERE status = 'confirmed' AND transaction_type = 'income' AND transaction_date LIKE ?"
-        ).bind(prefix + "%").first();
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
 
-        var expenseRow = await env.DB.prepare(
-            "SELECT SUM(amount) as total FROM bank_transactions WHERE status = 'confirmed' AND transaction_type = 'expense' AND transaction_date LIKE ?"
-        ).bind(prefix + "%").first();
+        var txns;
+        try {
+            txns = await aggregateZohoTransactions(zohoAuth, fromDate, toDate);
+        } catch (e) {
+            return jsonErr(e.message, 502);
+        }
 
-        var income   = incomeRow  && incomeRow.total  ? parseFloat(incomeRow.total)  : 0;
-        var expenses = expenseRow && expenseRow.total ? parseFloat(expenseRow.total) : 0;
-        var net      = income - expenses;
+        var income = 0, expenses = 0;
+        for (var i = 0; i < txns.length; i++) {
+            var c = classifyZohoTxnAmount(txns[i]);
+            if (c.isIncome) { income += c.amount; } else { expenses += c.amount; }
+        }
+        var net = income - expenses;
 
         return jsonOk({ income: income, expenses: expenses, net: net, month: prefix });
     } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error fetching overview: " + e.message, 500);
     }
 }
 
 // ---------------------------------------------------------------------------
 // Route: GET /api/finance/chart?months=6
-// Returns confirmed transactions grouped by month and type for the last N months.
+// Returns categorized Zoho bank transactions grouped by month and type for
+// the last N months (source of truth = Zoho, see handleGetFinanceOverview).
 // ---------------------------------------------------------------------------
 
 async function handleGetFinanceChart(request, env) {
@@ -4461,19 +4489,32 @@ async function handleGetFinanceChart(request, env) {
             labels.push(yr + "-" + mm);
         }
 
-        var res = await env.DB.prepare(
-            "SELECT substr(transaction_date, 1, 7) as month, transaction_type, SUM(amount) as total " +
-            "FROM bank_transactions WHERE status = 'confirmed' AND substr(transaction_date, 1, 7) >= ? " +
-            "GROUP BY month, transaction_type ORDER BY month ASC"
-        ).bind(labels[0]).all();
+        var rangeStart = labels[0] + "-01";
+        var lastLabelDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        var rangeEndDay = lastLabelDate.getDate();
+        var rangeEnd = labels[labels.length - 1] + "-" + (rangeEndDay < 10 ? "0" + rangeEndDay : "" + rangeEndDay);
 
-        // Index by month+type
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var txns;
+        try {
+            txns = await aggregateZohoTransactions(zohoAuth, rangeStart, rangeEnd);
+        } catch (e) {
+            return jsonErr(e.message, 502);
+        }
+
         var byMonth = {};
-        for (var j = 0; j < res.results.length; j++) {
-            var row = res.results[j];
-            if (!byMonth[row.month]) { byMonth[row.month] = { income: 0, expenses: 0 }; }
-            if (row.transaction_type === "income") { byMonth[row.month].income = parseFloat(row.total) || 0; }
-            else { byMonth[row.month].expenses = parseFloat(row.total) || 0; }
+        for (var j = 0; j < txns.length; j++) {
+            var txn = txns[j];
+            var txnMonth = (txn.date || "").slice(0, 7);
+            if (!byMonth[txnMonth]) { byMonth[txnMonth] = { income: 0, expenses: 0 }; }
+            var c = classifyZohoTxnAmount(txn);
+            if (c.isIncome) { byMonth[txnMonth].income += c.amount; } else { byMonth[txnMonth].expenses += c.amount; }
         }
 
         var data = [];
@@ -4488,6 +4529,7 @@ async function handleGetFinanceChart(request, env) {
 
         return jsonOk({ data: data });
     } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error fetching chart data: " + e.message, 500);
     }
 }
@@ -5144,6 +5186,65 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/finance/reconciliation/:transaction_id/categorize
+// Body: { account_id, category_account_id, amount, date, description? }
+// Categorizes an uncategorized transaction directly to a plain expense or
+// equity chart-of-accounts entry (e.g. Owner's Draw, Software) -- separate
+// from match-invoice, which categorizes as a customer payment instead. Uses
+// the same "categorize/<sub-resource>" sub-resource convention already
+// proven live for customerpayments (see handlePostReconciliationMatchInvoice
+// above); Zoho's docs list this sibling operation as "Categorize as expense",
+// distinct from the customer-payment categorize path. account_id is required
+// in the body per the live-verified 2026-07-06 gotcha (Zoho code 11086
+// "Invalid account chosen" without it) -- same requirement applies here.
+// UNVERIFIED: this route has not yet been exercised against a real live
+// uncategorized transaction; the exact category field name Zoho expects
+// (category_id vs debit_or_credit_account_id) should be confirmed with a
+// real test call before this is marked done in progress.md.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostReconciliationCategorize(transactionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.account_id)          { return jsonErr("account_id is required", 400); }
+        if (!body.category_account_id) { return jsonErr("category_account_id is required", 400); }
+        if (!body.amount)              { return jsonErr("amount is required", 400); }
+        if (!body.date)                { return jsonErr("date is required", 400); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var catBody = {
+            account_id:  body.account_id,
+            category_id: body.category_account_id,
+            date:        body.date,
+            amount:      parseFloat(body.amount) || 0,
+            description: body.description || ""
+        };
+        var catRes = await zohoBankingFetch(zohoAuth, "POST",
+            "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/expense",
+            catBody);
+        if (!catRes.ok) {
+            return jsonErr("Zoho categorize-as-expense failed: " + (catRes.data.message || JSON.stringify(catRes.data)), 502);
+        }
+
+        return jsonOk({ ok: true, transaction_id: transactionId, category_account_id: body.category_account_id, message: catRes.data.message || "Categorized" });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error categorizing transaction: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Routes: POST /api/finance/reconciliation/:transaction_id/exclude|restore|unmatch
 // exclude — hide a transaction from reconciliation (Alice's non-client deposits)
 // restore — undo an exclude
@@ -5211,6 +5312,83 @@ async function handlePostReconciliationAction(transactionId, action, request, en
     } catch (e) {
         if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error on " + action + ": " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance/reconciliation/category-totals?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Live per-category (and "Client Income") totals for the Reconcile folder
+// rail, sourced fresh from Zoho every call (never from session-only state) so
+// a page reload or a return visit tomorrow shows the same correct totals.
+// Reuses aggregateZohoTransactions (see handleGetFinanceOverview above) --
+// same categorized-transaction fetch, just grouped by category instead of by
+// month. Defaults from/to to the current calendar month when omitted.
+// UNVERIFIED: the exact field Zoho attaches to a categorized bank transaction
+// identifying which chart-of-accounts category it landed in was not
+// confirmed against live docs. This checks several plausible field names
+// (category_id/category_name, debit_or_credit_account_id/_name) and falls
+// back to grouping under the transaction's account_name if none are present
+// -- confirm against a real categorized transaction before relying on this
+// for anything beyond a rough total.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetReconciliationCategoryTotals(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var now = new Date();
+        var year = now.getFullYear();
+        var month = now.getMonth() + 1;
+        var mm = month < 10 ? "0" + month : "" + month;
+        var defaultFrom = year + "-" + mm + "-01";
+        var daysInMonth = new Date(year, month, 0).getDate();
+        var defaultTo = year + "-" + mm + "-" + (daysInMonth < 10 ? "0" + daysInMonth : "" + daysInMonth);
+
+        var fromDate = url.searchParams.get("from") || defaultFrom;
+        var toDate   = url.searchParams.get("to")   || defaultTo;
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var txns;
+        try {
+            txns = await aggregateZohoTransactions(zohoAuth, fromDate, toDate);
+        } catch (e) {
+            return jsonErr(e.message, 502);
+        }
+
+        var byCategory = {};
+        for (var i = 0; i < txns.length; i++) {
+            var t = txns[i];
+            var isClientIncome = !!t.customer_id;
+            var key, label;
+            if (isClientIncome) {
+                key = "client_income";
+                label = "Client Income";
+            } else {
+                key   = t.category_id || t.debit_or_credit_account_id || t.account_id || "uncategorized_other";
+                label = t.category_name || t.debit_or_credit_account_name || t.account_name || "Other";
+            }
+            if (!byCategory[key]) { byCategory[key] = { category_id: key, category_name: label, total: 0, count: 0 }; }
+            byCategory[key].total += Math.abs(parseFloat(t.amount) || 0);
+            byCategory[key].count += 1;
+        }
+
+        var totals = [];
+        for (var k in byCategory) { if (byCategory.hasOwnProperty(k)) { totals.push(byCategory[k]); } }
+
+        return jsonOk({ from: fromDate, to: toDate, totals: totals });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching category totals: " + e.message, 500);
     }
 }
 
@@ -5573,6 +5751,97 @@ async function handleGetFinanceExpenseFormData(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/finance/categories
+// Returns Expense + Equity chart-of-accounts entries for the Reconcile
+// category-folder UI. Self-extending list (see POST below) rather than a
+// hardcoded set, so it always matches whatever accounts exist in Zoho.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceCategories(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var categories = [];
+        var filters = [
+            { filter: "AccountType.Expense", type: "expense" },
+            { filter: "AccountType.Equity",  type: "equity" }
+        ];
+        for (var f = 0; f < filters.length; f++) {
+            var coaRes = await zohoBankingFetch(zohoAuth, "GET", "chartofaccounts?filter_by=" + filters[f].filter + "&per_page=200");
+            if (!coaRes.ok) {
+                return jsonErr("Zoho chart of accounts error: " + (coaRes.data.message || JSON.stringify(coaRes.data)), 502);
+            }
+            var coa = coaRes.data.chartofaccounts || [];
+            for (var i = 0; i < coa.length; i++) {
+                if (coa[i].is_active) {
+                    categories.push({ account_id: coa[i].account_id, account_name: coa[i].account_name, account_type: filters[f].type });
+                }
+            }
+        }
+
+        categories.sort(function(x, y) { return x.account_name.localeCompare(y.account_name); });
+
+        return jsonOk({ categories: categories });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error fetching categories: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance/categories
+// Body: { account_name, account_type ("expense"|"equity") }
+// Creates a new chart-of-accounts entry in Zoho so the Reconcile folder list
+// can self-extend (same convention as this app's other type-to-create
+// fields) without ever sending Alice/Rafa to Zoho's own UI.
+// Auth: alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceCategory(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.account_name || !body.account_name.trim()) { return jsonErr("account_name is required", 400); }
+        var accountType = (body.account_type === "equity") ? "equity" : "expense";
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            return jsonErr("Zoho auth error: " + e.message, 502);
+        }
+
+        var createBody = {
+            account_name: body.account_name.trim(),
+            account_type: accountType
+        };
+        var createRes = await zohoBankingFetch(zohoAuth, "POST", "chartofaccounts", createBody);
+        if (!createRes.ok) {
+            return jsonErr("Zoho create-account failed: " + (createRes.data.message || JSON.stringify(createRes.data)), 502);
+        }
+
+        var acct = createRes.data.chart_of_account || {};
+        return jsonOk({ ok: true, account_id: acct.account_id, account_name: acct.account_name || createBody.account_name, account_type: accountType });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
+        return jsonErr("Error creating category: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/finance/expenses
 // Lists recent expenses from Zoho Books. Auth: alice / rafa / developer.
 // ---------------------------------------------------------------------------
@@ -5671,10 +5940,23 @@ async function handlePostFinanceExpense(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/invoices
-// Body: { client_id, line_items: [{ name, description?, quantity?, rate? }] }
+// Body: { client_id, line_items: [{ name, description?, quantity?, rate? }],
+//         recurring?: { recurrence_frequency: "weeks"|"months"|"years", start_date } }
 // Creates a real DRAFT invoice in Zoho Books for the client's linked Zoho
-// contact. No tax fields anywhere -- confirmed standing decision, invoices
-// never carry sales tax. Auth: alice / rafa / developer.
+// contact, OR (if body.recurring is present) a recurring invoice profile via
+// Zoho's separate recurringinvoices endpoint using the same customer/line
+// items. No tax fields anywhere -- confirmed standing decision, invoices
+// never carry sales tax; applies to recurring invoices too.
+//
+// UNVERIFIED (recurring path only): Zoho's exact recurrence_frequency enum
+// values were not confirmed against live docs -- "weeks"/"months"/"years" are
+// used here as the standard Zoho convention, paired with repeat_every: 1.
+// This also requires "Recurring Invoice" to be manually enabled in Zoho
+// Books under Settings -> Preferences -> General by a human with Zoho admin
+// access (documented precondition, cannot be done via API). If Zoho rejects
+// the call because that setting isn't enabled, the error is surfaced
+// verbatim to the frontend rather than swallowed -- see progress.md.
+// Auth: alice / rafa / developer.
 // ---------------------------------------------------------------------------
 
 async function handlePostInvoice(request, env) {
@@ -5693,6 +5975,15 @@ async function handlePostInvoice(request, env) {
             if (!lineItems[i].name) { return jsonErr("Each line item requires a name", 400); }
         }
 
+        var isRecurring = body.recurring && typeof body.recurring === "object";
+        if (isRecurring) {
+            var validFreqs = ["days", "weeks", "months", "years"];
+            if (validFreqs.indexOf(body.recurring.recurrence_frequency) === -1) {
+                return jsonErr("recurring.recurrence_frequency must be one of: " + validFreqs.join(", "), 400);
+            }
+            if (!body.recurring.start_date) { return jsonErr("recurring.start_date is required", 400); }
+        }
+
         var clientRow = await env.DB.prepare(
             "SELECT id, name, zoho_customer_id FROM clients WHERE id = ?"
         ).bind(String(body.client_id)).first();
@@ -5708,16 +5999,42 @@ async function handlePostInvoice(request, env) {
             return jsonErr("Zoho auth error: " + e.message, 502);
         }
 
+        var lineItemsPayload = lineItems.map(function(li) {
+            return {
+                name:        String(li.name).slice(0, 100),
+                description: (li.description || "").slice(0, 2000),
+                quantity:    (li.quantity !== undefined && li.quantity !== null && li.quantity !== "") ? parseFloat(li.quantity) || 0 : 1,
+                rate:        (li.rate !== undefined && li.rate !== null && li.rate !== "") ? parseFloat(li.rate) || 0 : 0
+            };
+        });
+
+        if (isRecurring) {
+            var recurPayload = {
+                recurrence_name:       "Recurring - " + (clientRow.name || clientRow.id) + " - " + body.recurring.start_date,
+                customer_id:           String(clientRow.zoho_customer_id),
+                recurrence_frequency:  body.recurring.recurrence_frequency,
+                repeat_every:          1,
+                start_date:            body.recurring.start_date,
+                line_items:            lineItemsPayload
+            };
+            var recurRes = await zohoBankingFetch(zohoAuth, "POST", "recurringinvoices", recurPayload);
+            if (!recurRes.ok) {
+                return jsonErr("Zoho recurring invoice creation failed: " + (recurRes.data.message || JSON.stringify(recurRes.data)), 502);
+            }
+            var recur = recurRes.data.recurring_invoice || {};
+            return jsonOk({
+                ok:                  true,
+                recurring:           true,
+                recurring_invoice_id: recur.recurring_invoice_id,
+                recurrence_name:     recur.recurrence_name,
+                customer_name:       recur.customer_name,
+                status:              recur.status
+            });
+        }
+
         var payload = {
             customer_id: String(clientRow.zoho_customer_id),
-            line_items: lineItems.map(function(li) {
-                return {
-                    name:        String(li.name).slice(0, 100),
-                    description: (li.description || "").slice(0, 2000),
-                    quantity:    (li.quantity !== undefined && li.quantity !== null && li.quantity !== "") ? parseFloat(li.quantity) || 0 : 1,
-                    rate:        (li.rate !== undefined && li.rate !== null && li.rate !== "") ? parseFloat(li.rate) || 0 : 0
-                };
-            })
+            line_items:  lineItemsPayload
         };
 
         var res = await zohoBankingFetch(zohoAuth, "POST", "invoices", payload);
@@ -7289,14 +7606,16 @@ export default {
         if (path === "/api/finance/ar-aging"         && method === "GET")  { return handleGetFinanceArAging(request, env); }
         if (path === "/api/finance/tax-summary"      && method === "GET")  { return handleGetFinanceTaxSummary(request, env); }
         if (path === "/api/finance/statement-upload" && method === "POST") { return handlePostFinanceStatementUpload(request, env); }
-        if (path === "/api/finance/transactions"     && method === "GET")  { return handleGetFinanceTransactions(request, env); }
         if (path === "/api/finance/overview"         && method === "GET")  { return handleGetFinanceOverview(request, env); }
         if (path === "/api/finance/chart"            && method === "GET")  { return handleGetFinanceChart(request, env); }
         if (path === "/api/finance/subscriptions"    && method === "GET")  { return handleGetFinanceSubscriptions(request, env); }
         if (path === "/api/finance/subscriptions"    && method === "POST") { return handlePostFinanceSubscriptions(request, env); }
         if (path === "/api/finance/reconciliation"   && method === "GET")  { return handleGetFinanceReconciliation(request, env); }
+        if (path === "/api/finance/reconciliation/category-totals" && method === "GET") { return handleGetReconciliationCategoryTotals(request, env); }
         if (path === "/api/finance/bank-status"       && method === "GET")  { return handleGetFinanceBankStatus(request, env); }
         if (path === "/api/finance/expense-form-data" && method === "GET")  { return handleGetFinanceExpenseFormData(request, env); }
+        if (path === "/api/finance/categories"        && method === "GET")  { return handleGetFinanceCategories(request, env); }
+        if (path === "/api/finance/categories"        && method === "POST") { return handlePostFinanceCategory(request, env); }
         if (path === "/api/finance/expenses"          && method === "GET")  { return handleGetFinanceExpenses(request, env); }
         if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
         if (path === "/api/sales/growth-ranking"      && method === "GET")  { return handleGetSalesGrowthRanking(request, env); }
@@ -7450,20 +7769,13 @@ export default {
             }
         }
 
-        // /api/finance/reconciliation/:transaction_id/match-invoice|exclude|restore|unmatch
+        // /api/finance/reconciliation/:transaction_id/match-invoice|categorize|exclude|restore|unmatch
         if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "reconciliation" && segs[3] && segs[4] && method === "POST") {
             if (segs[4] === "match-invoice") { return handlePostReconciliationMatchInvoice(segs[3], request, env); }
+            if (segs[4] === "categorize") { return handlePostReconciliationCategorize(segs[3], request, env); }
             if (segs[4] === "exclude" || segs[4] === "restore" || segs[4] === "unmatch") {
                 return handlePostReconciliationAction(segs[3], segs[4], request, env);
             }
-        }
-
-        // /api/finance/transactions/:id/confirm|ignore
-        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "transactions" && segs[3] && segs[4] === "confirm" && method === "POST") {
-            return handlePostFinanceTransactionConfirm(segs[3], request, env);
-        }
-        if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "transactions" && segs[3] && segs[4] === "ignore" && method === "POST") {
-            return handlePostFinanceTransactionIgnore(segs[3], request, env);
         }
 
         // /api/finance/subscriptions/:id  PUT | DELETE

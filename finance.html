@@ -427,6 +427,113 @@
     .tx-amount-income  { font-weight: 600; color: #065f46; }
     .tx-amount-expense { font-weight: 600; color: #991b1b; }
 
+    /* ── Reconcile: folder-based categorization layout ─────────────────── */
+    .recon-daterange { display: flex; align-items: center; gap: 8px; }
+    .recon-daterange input[type="date"] { max-width: 150px; }
+    .recon-daterange-sep { color: var(--muted); }
+
+    .recon-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .recon-inbox {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 640px;
+      overflow-y: auto;
+    }
+
+    .recon-tx-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: grab;
+      transition: box-shadow 0.15s, opacity 0.15s;
+    }
+    .recon-tx-card:hover { box-shadow: var(--shadow); }
+    .recon-tx-card.is-dragging { opacity: 0.4; }
+    .recon-tx-card .recon-tx-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .recon-tx-card .tx-desc { max-width: 320px; }
+    .recon-tx-card .recon-tx-date { font-size: 12px; color: var(--muted); }
+    .recon-tx-card .recon-tx-amount { font-size: 15px; white-space: nowrap; }
+    .recon-tx-card .recon-tx-actions { display: flex; gap: 6px; }
+
+    .recon-folder-rail {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 640px;
+      overflow-y: auto;
+      position: sticky;
+      top: 0;
+    }
+
+    .recon-folder {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .recon-folder.recon-folder-client-income { border-style: solid; border-color: var(--gold); background: var(--gold-dim); }
+    .recon-folder.is-dragover { border-color: var(--gold); background: var(--gold-dim); }
+    .recon-folder-name { font-weight: 600; font-size: 13px; color: var(--text); }
+    .recon-folder-totals { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+    .recon-folder-total { font-size: 13px; font-weight: 600; color: var(--text); }
+    .recon-folder-count { font-size: 11px; color: var(--muted); }
+    .recon-folder-new {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 12px;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .recon-folder-new:hover { border-color: var(--gold); color: var(--gold); }
+
+    .recon-folder-sheet-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+    .recon-folder-sheet-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      cursor: pointer;
+      font-size: 14px;
+      min-height: 44px;
+    }
+    .recon-folder-sheet-item:active { background: var(--gold-dim); }
+    .recon-folder-sheet-item.recon-folder-client-income { border-color: var(--gold); background: var(--gold-dim); }
+
+    @media (max-width: 860px) {
+      .recon-layout { grid-template-columns: 1fr; }
+      .recon-folder-rail { position: static; max-height: none; }
+    }
+
     .tx-desc {
       max-width: 220px;
       overflow: hidden;
@@ -1190,6 +1297,61 @@
     </div>
   </div>
 
+  <!-- ═══════════════ RECON CATEGORY BOTTOM SHEET (mobile tap-to-categorize) ═ -->
+  <div id="reconFolderSheetOverlay" hidden>
+    <div id="reconFolderSheetModal" role="dialog" aria-modal="true">
+      <div class="pricing-modal-title">
+        <span class="show-pt">Categorizar Transacao</span>
+        <span class="show-en">Categorize Transaction</span>
+      </div>
+      <div class="pricing-modal-body" id="reconFolderSheetTxnInfo"></div>
+      <div id="reconFolderSheetList" class="recon-folder-sheet-list"></div>
+      <div class="pricing-modal-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="closeReconFolderSheet()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ NEW CATEGORY MODAL (Conciliacao, self-extending) ══════ -->
+  <div id="reconNewCategoryOverlay" hidden>
+    <div id="reconNewCategoryModal" role="dialog" aria-modal="true">
+      <div class="pricing-modal-title">
+        <span class="show-pt">Nova Categoria</span>
+        <span class="show-en">New Category</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="reconNewCategoryName">
+          <span class="show-pt">Nome da Categoria</span>
+          <span class="show-en">Category Name</span>
+        </label>
+        <input type="text" id="reconNewCategoryName" class="form-input" placeholder="e.g. Software, Owner's Draw">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="reconNewCategoryType">
+          <span class="show-pt">Tipo</span>
+          <span class="show-en">Type</span>
+        </label>
+        <select id="reconNewCategoryType" class="form-input">
+          <option value="expense">Expense</option>
+          <option value="equity">Equity</option>
+        </select>
+      </div>
+      <div class="pricing-modal-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="closeReconNewCategoryModal()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <button type="button" class="btn-pricing-go" id="reconNewCategorySaveBtn" onclick="saveReconNewCategory()">
+          <span class="show-pt">Criar</span>
+          <span class="show-en">Create</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ INVOICE ITEM EDITOR MODAL (draft invoices) ══════════ -->
   <div id="invoiceEditorOverlay" hidden>
     <div id="invoiceEditorModal" role="dialog" aria-modal="true">
@@ -1243,6 +1405,33 @@
           <span class="show-pt">+ Item</span>
           <span class="show-en">+ Line Item</span>
         </button>
+      </div>
+      <div class="form-group ni-recurring-toggle">
+        <label class="form-label" for="niRecurringCheckbox" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="niRecurringCheckbox" onchange="onNiRecurringToggle()">
+          <span class="show-pt">Tornar esta uma fatura recorrente</span>
+          <span class="show-en">Make this a recurring invoice</span>
+        </label>
+      </div>
+      <div id="niRecurringFields" hidden>
+        <div class="form-group">
+          <label class="form-label" for="niRecurringFrequency">
+            <span class="show-pt">Frequencia</span>
+            <span class="show-en">Frequency</span>
+          </label>
+          <select id="niRecurringFrequency" class="form-input">
+            <option value="weeks">Weekly</option>
+            <option value="months" selected>Monthly</option>
+            <option value="years">Yearly</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="niRecurringStartDate">
+            <span class="show-pt">Data de Inicio</span>
+            <span class="show-en">Start Date</span>
+          </label>
+          <input type="date" id="niRecurringStartDate" class="form-input">
+        </div>
       </div>
       <div class="pricing-modal-actions">
         <button type="button" class="btn-secondary btn-sm" onclick="closeNewInvoiceModal()">
@@ -1470,6 +1659,15 @@
           </h2>
         </div>
         <div class="content-card-body">
+          <div class="form-group">
+            <label class="form-label" for="uploadAccountSelect">
+              <span class="show-pt">Conta Bancaria</span>
+              <span class="show-en">Bank Account</span>
+            </label>
+            <select id="uploadAccountSelect" class="form-input">
+              <option value="">--</option>
+            </select>
+          </div>
           <div class="upload-zone" id="uploadZone"
                ondragover="onDragOver(event)"
                ondragleave="onDragLeave(event)"
@@ -1481,29 +1679,12 @@
               <span class="show-en">Drag or click to select</span>
             </div>
             <div class="upload-zone-sub">
-              <span class="show-pt">CSV ou texto simples. PDF nao suportado ainda.</span>
-              <span class="show-en">CSV or plain text. PDF not yet supported.</span>
+              <span class="show-pt">CSV ou texto simples. PDF nao suportado ainda. As transacoes aparecerao em "Nao Categorizadas" na Conciliacao.</span>
+              <span class="show-en">CSV or plain text. PDF not yet supported. Transactions will appear in Reconcile's Uncategorized list.</span>
             </div>
           </div>
           <input type="file" id="fileInput" accept=".csv,.txt,text/csv,text/plain" style="display:none;" onchange="onFileSelected(event)">
           <div id="uploadStatus" style="margin-top:12px;font-size:13px;color:var(--muted);"></div>
-        </div>
-      </div>
-
-      <!-- ── Pending transactions ────────────────────────────────────────── -->
-      <div class="content-card" id="pendingSection">
-        <div class="content-card-header">
-          <h2 class="content-card-title">
-            <span class="show-pt">Transacoes Pendentes</span>
-            <span class="show-en">Pending Transactions</span>
-          </h2>
-          <span id="pendingBadge" style="background:var(--gold-dim);color:var(--gold);font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;display:none;">0</span>
-        </div>
-        <div id="pendingList" class="fin-table-scroll">
-          <div class="empty-state">
-            <span class="show-pt">Nenhuma transacao pendente</span>
-            <span class="show-en">No pending transactions</span>
-          </div>
         </div>
       </div>
 
@@ -1559,24 +1740,33 @@
             <span class="show-pt">Conciliacao Bancaria</span>
             <span class="show-en">Bank Reconciliation</span>
           </h2>
+          <div class="recon-daterange">
+            <input type="date" id="reconTotalsFrom" class="form-input" onchange="onReconDateRangeChange()">
+            <span class="recon-daterange-sep">–</span>
+            <input type="date" id="reconTotalsTo" class="form-input" onchange="onReconDateRangeChange()">
+          </div>
         </div>
-        <!-- Sub-tab bar -->
+
+        <!-- Sub-tab bar: switches which status feeds the Uncategorized/Excluded lists.
+             "Categorized" is now shown via the folder rail totals instead of a separate tab. -->
         <div class="inv-subtab-bar m-scroll-tabs">
           <button class="inv-subtab active" id="reconSubtabUncategorized" onclick="switchReconTab('uncategorized')">
             <span class="show-pt">Nao Categorizadas</span>
             <span class="show-en">Uncategorized</span>
-          </button>
-          <button class="inv-subtab" id="reconSubtabCategorized" onclick="switchReconTab('categorized')">
-            <span class="show-pt">Categorizadas</span>
-            <span class="show-en">Categorized</span>
           </button>
           <button class="inv-subtab" id="reconSubtabExcluded" onclick="switchReconTab('excluded')">
             <span class="show-pt">Excluidas</span>
             <span class="show-en">Excluded</span>
           </button>
         </div>
-        <div id="reconList" class="fin-table-scroll">
-          <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+
+        <div class="recon-layout">
+          <div id="reconList" class="recon-inbox">
+            <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+          </div>
+          <div id="reconFolderRail" class="recon-folder-rail">
+            <div class="empty-state"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>
+          </div>
         </div>
       </div>
 
@@ -1862,18 +2052,6 @@
       "#6b6660", "#a8a29e"
     ];
 
-    var CATEGORY_OPTIONS = [
-      "Receita de Cliente",
-      "Assinatura",
-      "Despesa Operacional",
-      "Pessoal",
-      "Marketing",
-      "Imposto",
-      "Aluguel",
-      "Servicos",
-      "Transferencia",
-      "Outro"
-    ];
 
     // ── Utilities ──────────────────────────────────────────────────────────
 
@@ -2049,9 +2227,10 @@
       loadOverview();
       loadChartData();
       loadSubscriptions();
-      loadPendingTransactions();
+      loadUploadAccounts();
       loadInvoices("draft");
       loadReconciliation("uncategorized");
+      loadReconFolders();
       updateFinanceBadges();
     }
 
@@ -2433,9 +2612,42 @@
       }
     }
 
+    // account_id options are populated from Zoho's bank-account list (see
+    // handleGetFinanceCategories neighbor route usage below) -- reusing the
+    // /api/finance/reconciliation call already made elsewhere would be
+    // wasteful, so this loads bank accounts directly via /api/finance/expense-form-data,
+    // which already returns paid_through (all active Zoho bank/cash accounts).
+    var uploadAccountsLoaded = false;
+
+    function loadUploadAccounts() {
+      if (uploadAccountsLoaded) { return; }
+      uploadAccountsLoaded = true;
+      var sel = document.getElementById("uploadAccountSelect");
+      if (!sel) { return; }
+      apiFetch("/api/finance/expense-form-data")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var accounts = data.paid_through || [];
+          var html = '<option value="">--</option>';
+          for (var i = 0; i < accounts.length; i++) {
+            html += '<option value="' + escHtml(accounts[i].account_id) + '">' + escHtml(accounts[i].account_name) + '</option>';
+          }
+          sel.innerHTML = html;
+        })
+        .catch(function() { uploadAccountsLoaded = false; });
+    }
+
     function processFile(file) {
       var statusEl = document.getElementById("uploadStatus");
+      var acctSel  = document.getElementById("uploadAccountSelect");
       if (!file) { return; }
+      var accountId = acctSel ? acctSel.value : "";
+      if (!accountId) {
+        if (statusEl) {
+          statusEl.innerHTML = '<span style="color:#991b1b;"><span class="show-pt">Selecione a conta bancaria primeiro.</span><span class="show-en">Select a bank account first.</span></span>';
+        }
+        return;
+      }
       var name = file.name || "";
       var lname = name.toLowerCase();
       if (lname.indexOf(".pdf") !== -1) {
@@ -2451,6 +2663,7 @@
       getToken().then(function(token) {
         var fd = new FormData();
         fd.append("statement", file);
+        fd.append("account_id", accountId);
         return fetch(WORKER_URL + "/api/finance/statement-upload", {
           method: "POST",
           headers: { "Authorization": "Bearer " + token },
@@ -2466,13 +2679,17 @@
             return;
           }
           var count = (data.transactions || []).length;
+          var failCount = (data.failures || []).length;
           if (statusEl) {
             statusEl.innerHTML = '<span style="color:#065f46;font-weight:600;">' +
-              '<span class="show-pt">' + count + ' transacoes encontradas e adicionadas para revisao.</span>' +
-              '<span class="show-en">' + count + ' transactions found and added for review.</span>' +
+              '<span class="show-pt">' + count + ' transacoes importadas para o Zoho.' + (failCount ? (' ' + failCount + ' falharam.') : '') + '</span>' +
+              '<span class="show-en">' + count + ' transactions imported to Zoho.' + (failCount ? (' ' + failCount + ' failed.') : '') + '</span>' +
               '</span>';
           }
-          loadPendingTransactions();
+          loadReconciliation("uncategorized");
+          loadReconFolders();
+          loadOverview();
+          loadChartData();
           showToast(count + " transacoes importadas / imported");
         })
         .catch(function(err) {
@@ -2480,140 +2697,6 @@
             statusEl.innerHTML = '<span style="color:#991b1b;"><span class="show-pt">Erro ao processar.</span><span class="show-en">Processing error.</span></span>';
           }
         });
-    }
-
-    // ── Pending transactions ───────────────────────────────────────────────
-
-    function loadPendingTransactions() {
-      apiFetch("/api/finance/transactions?status=pending")
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          renderPendingTransactions(data.transactions || []);
-        })
-        .catch(function() {
-          var el = document.getElementById("pendingList");
-          if (el) {
-            el.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao carregar</span><span class="show-en">Load error</span></div>';
-          }
-        });
-    }
-
-    function renderPendingTransactions(txs) {
-      var listEl  = document.getElementById("pendingList");
-      var badgeEl = document.getElementById("pendingBadge");
-      if (!listEl) { return; }
-
-      if (badgeEl) {
-        if (txs.length > 0) {
-          badgeEl.style.display = "inline-block";
-          badgeEl.textContent = txs.length;
-        } else {
-          badgeEl.style.display = "none";
-        }
-      }
-
-      // Update Saude Financeira pill badge with pending count
-      var saudeBadge = document.getElementById("finBadgeSaude");
-      if (saudeBadge) {
-        if (txs.length > 0) { saudeBadge.textContent = txs.length; saudeBadge.hidden = false; }
-        else { saudeBadge.hidden = true; }
-      }
-
-      if (txs.length === 0) {
-        listEl.innerHTML = '<div class="empty-state"><span class="show-pt">Nenhuma transacao pendente</span><span class="show-en">No pending transactions</span></div>';
-        return;
-      }
-
-      var catOptsHtml = "";
-      for (var c = 0; c < CATEGORY_OPTIONS.length; c++) {
-        catOptsHtml += '<option value="' + escHtml(CATEGORY_OPTIONS[c]) + '">' + escHtml(CATEGORY_OPTIONS[c]) + '</option>';
-      }
-
-      var html = '<table class="tx-table mc-table"><thead><tr>';
-      html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
-      html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
-      html += '<th><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>';
-      html += '<th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>';
-      html += '<th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>';
-      html += '<th><span class="show-pt">Conf.</span><span class="show-en">Conf.</span></th>';
-      html += '<th><span class="show-pt">Acoes</span><span class="show-en">Actions</span></th>';
-      html += '</tr></thead><tbody>';
-
-      var mcIcon = window.apexMcIcon || function () { return ""; };
-
-      for (var i = 0; i < txs.length; i++) {
-        var t = txs[i];
-        var amtClass = t.transaction_type === "income" ? "tx-amount-income" : "tx-amount-expense";
-        var sign     = t.transaction_type === "income" ? "+" : "-";
-        var confChip = '<span class="chip chip-' + escHtml(t.confidence || "media") + '">' + escHtml(t.confidence || "media") + '</span>';
-        var typeChip = '<span class="chip chip-' + escHtml(t.transaction_type) + '">' +
-          '<span class="show-pt">' + (t.transaction_type === "income" ? "Entrada" : "Saida") + '</span>' +
-          '<span class="show-en">' + (t.transaction_type === "income" ? "Income" : "Expense") + '</span>' +
-          '</span>';
-
-        // Build category select with suggested category pre-selected
-        var sugCat = t.suggested_category || "Outro";
-        var catHtml = '<select class="tx-cat-select" id="catSel' + escHtml(t.id) + '">';
-        var matched = false;
-        for (var co = 0; co < CATEGORY_OPTIONS.length; co++) {
-          var sel = (CATEGORY_OPTIONS[co] === sugCat) ? " selected" : "";
-          if (CATEGORY_OPTIONS[co] === sugCat) { matched = true; }
-          catHtml += '<option value="' + escHtml(CATEGORY_OPTIONS[co]) + '"' + sel + '>' + escHtml(CATEGORY_OPTIONS[co]) + '</option>';
-        }
-        if (!matched) {
-          catHtml += '<option value="' + escHtml(sugCat) + '" selected>' + escHtml(sugCat) + '</option>';
-        }
-        catHtml += '</select>';
-
-        html += '<tr>';
-        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(t.transaction_date)) + '</td>';
-        html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(t.description) + '">' + escHtml(t.description) + '</div></td>';
-        html += '<td class="mc-field ' + amtClass + '" data-label-pt="Valor" data-label-en="Amount">' + sign + fmtCurrency(t.amount) + '</td>';
-        html += '<td class="mc-field" data-label-pt="Tipo" data-label-en="Type">' + typeChip + '</td>';
-        html += '<td class="mc-field" data-label-pt="Categoria" data-label-en="Category">' + catHtml + '</td>';
-        html += '<td class="mc-field" data-label-pt="Conf." data-label-en="Conf.">' + confChip + '</td>';
-        html += '<td class="mc-action"><div class="tx-actions">';
-        html += '<button class="btn-primary btn-sm" onclick="confirmTx(\'' + escHtml(t.id) + '\')">';
-        html += mcIcon("check");
-        html += '<span class="show-pt">Confirmar</span><span class="show-en">Confirm</span>';
-        html += '</button>';
-        html += '<button class="btn-ghost btn-sm" onclick="ignoreTx(\'' + escHtml(t.id) + '\')">';
-        html += mcIcon("x");
-        html += '<span class="show-pt">Ignorar</span><span class="show-en">Ignore</span>';
-        html += '</button>';
-        html += '</div></td>';
-        html += '</tr>';
-      }
-
-      html += '</tbody></table>';
-      listEl.innerHTML = html;
-    }
-
-    function confirmTx(txId) {
-      var selEl = document.getElementById("catSel" + txId);
-      var cat   = selEl ? selEl.value : "Outro";
-      apiFetch("/api/finance/transactions/" + txId + "/confirm", {
-        method: "POST",
-        body: { assigned_category: cat }
-      })
-        .then(function(res) { return res.json(); })
-        .then(function() {
-          loadPendingTransactions();
-          loadOverview();
-          loadChartData();
-          showToast("Confirmado / Confirmed");
-        })
-        .catch(function() { showToast("Erro / Error"); });
-    }
-
-    function ignoreTx(txId) {
-      apiFetch("/api/finance/transactions/" + txId + "/ignore", { method: "POST" })
-        .then(function(res) { return res.json(); })
-        .then(function() {
-          loadPendingTransactions();
-          showToast("Ignorado / Ignored");
-        })
-        .catch(function() { showToast("Erro / Error"); });
     }
 
     // ── Finance top-level tab switching ───────────────────────────────────
@@ -2649,8 +2732,7 @@
     }
 
     function updateFinanceBadges() {
-      // Badge 1: pending transaction count (already loaded by loadPendingTransactions)
-      // Badge 2: unpaid invoice count
+      // Unpaid invoice count (reconciliation badge is updated separately by loadReconciliation)
       apiFetch("/api/invoices?status=unpaid")
         .then(function(res) { return res.json(); })
         .then(function(data) {
@@ -2966,9 +3048,23 @@
       var overlay = document.getElementById("newInvoiceOverlay");
       var pkgSel  = document.getElementById("niPackageSelect");
       if (pkgSel) { pkgSel.value = ""; }
+      var recurCb = document.getElementById("niRecurringCheckbox");
+      if (recurCb) { recurCb.checked = false; }
+      var recurFields = document.getElementById("niRecurringFields");
+      if (recurFields) { recurFields.hidden = true; }
       renderNewInvoiceItemRows();
       if (overlay) { overlay.hidden = false; }
       loadNewInvoiceFormData();
+    }
+
+    function onNiRecurringToggle() {
+      var cb = document.getElementById("niRecurringCheckbox");
+      var fields = document.getElementById("niRecurringFields");
+      var startDateEl = document.getElementById("niRecurringStartDate");
+      if (fields) { fields.hidden = !(cb && cb.checked); }
+      if (cb && cb.checked && startDateEl && !startDateEl.value) {
+        startDateEl.value = new Date().toISOString().slice(0, 10);
+      }
     }
 
     function closeNewInvoiceModal() {
@@ -3101,18 +3197,36 @@
         showToast("Adicione ao menos um item / Add at least one line item");
         return;
       }
+
+      var recurCb = document.getElementById("niRecurringCheckbox");
+      var isRecurring = !!(recurCb && recurCb.checked);
+      var body = { client_id: clientSel.value, line_items: items };
+      if (isRecurring) {
+        var freqEl = document.getElementById("niRecurringFrequency");
+        var startEl = document.getElementById("niRecurringStartDate");
+        if (!startEl || !startEl.value) {
+          showToast("Selecione a data de inicio / Select a start date");
+          return;
+        }
+        body.recurring = {
+          recurrence_frequency: freqEl ? freqEl.value : "months",
+          start_date: startEl.value
+        };
+      }
+
       if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = "0.5"; }
-      apiFetch("/api/invoices", {
-        method: "POST",
-        body: { client_id: clientSel.value, line_items: items }
-      })
+      apiFetch("/api/invoices", { method: "POST", body: body })
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
           if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
           closeNewInvoiceModal();
-          showToast("Rascunho " + (data.invoice_number ? "#" + data.invoice_number + " " : "") + "criado / Draft created");
-          switchInvoiceTab("draft");
+          if (isRecurring) {
+            showToast("Fatura recorrente criada / Recurring invoice created");
+          } else {
+            showToast("Rascunho " + (data.invoice_number ? "#" + data.invoice_number + " " : "") + "criado / Draft created");
+            switchInvoiceTab("draft");
+          }
           updateFinanceBadges();
         })
         .catch(function(e) {
@@ -3288,14 +3402,22 @@
 
     // ── Conciliacao (bank reconciliation) ──────────────────────────────────
 
-    var currentReconTab   = "uncategorized";
-    var reconTxCache      = {};
-    var reconClients      = null;
-    var reconMatchTxnId   = null;
+    var currentReconTab      = "uncategorized";
+    var reconTxCache         = {};
+    var reconClients         = null;
+    var reconMatchTxnId      = null;
+    var reconCategories      = null;       // [{account_id, account_name, account_type}]
+    var reconCategoryTotals  = {};         // category_id -> {category_name, total, count}
+    var reconSessionFolderCounts = {};     // category_id -> count categorized this session (client-side only)
+    var reconDragTxnId       = null;
+    var reconSheetTxnId      = null;
+    var CLIENT_INCOME_KEY    = "client_income";
+
+    function isMobileWidth() { return window.innerWidth <= 768; }
 
     function switchReconTab(tab) {
       currentReconTab = tab;
-      var tabs = ["uncategorized", "categorized", "excluded"];
+      var tabs = ["uncategorized", "excluded"];
       for (var i = 0; i < tabs.length; i++) {
         var btn = document.getElementById("reconSubtab" + tabs[i].charAt(0).toUpperCase() + tabs[i].slice(1));
         if (btn) { btn.classList.toggle("active", tabs[i] === tab); }
@@ -3350,6 +3472,10 @@
       return '<span class="chip ' + cls + '"><span class="show-pt">' + escHtml(labelPt) + '</span><span class="show-en">' + escHtml(labelEn) + '</span></span>';
     }
 
+    // Renders the inbox as draggable cards (desktop) / tappable cards (mobile),
+    // and the folder rail alongside it. Date-range picker (see
+    // onReconDateRangeChange) only ever affects the folder rail's totals --
+    // this card list always shows every pending transaction, unfiltered.
     function renderReconTransactions(txs, tab) {
       var listEl = document.getElementById("reconList");
       if (!listEl) { return; }
@@ -3362,16 +3488,8 @@
         return;
       }
 
-      var html = '<table class="tx-table mc-table"><thead><tr>';
-      html += '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>';
-      html += '<th><span class="show-pt">Descricao</span><span class="show-en">Description</span></th>';
-      html += '<th><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>';
-      html += '<th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>';
-      html += '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>';
-      html += '<th><span class="show-pt">Acoes</span><span class="show-en">Actions</span></th>';
-      html += '</tr></thead><tbody>';
-
       var mcIcon = window.apexMcIcon || function () { return ""; };
+      var html = "";
       for (var i = 0; i < txs.length; i++) {
         var t = txs[i];
         var desc = t.description || t.payee || "--";
@@ -3379,39 +3497,254 @@
         var amtClass = isDeposit ? "tx-amount-income" : "tx-amount-expense";
         var sign     = isDeposit ? "+" : "-";
 
-        html += '<tr>';
-        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(t.date)) + '</td>';
-        html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(desc) + '">' + escHtml(desc) + '</div></td>';
-        html += '<td class="mc-field ' + amtClass + '" data-label-pt="Valor" data-label-en="Amount">' + sign + fmtCurrency(t.amount) + '</td>';
-        html += '<td class="mc-field" data-label-pt="Conta" data-label-en="Account">' + escHtml(t.account_name || "--") + '</td>';
-        html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status">' + reconStatusChip(t.status) + '</td>';
-        html += '<td class="mc-action"><div class="tx-actions">';
+        html += '<div class="recon-tx-card" draggable="' + (tab === "uncategorized" ? "true" : "false") + '"' +
+          ' data-txn-id="' + escHtml(t.transaction_id) + '"' +
+          (tab === "uncategorized" ? ' ondragstart="onReconCardDragStart(event,\'' + escHtml(t.transaction_id) + '\')" ondragend="onReconCardDragEnd(event)" onclick="onReconCardTap(\'' + escHtml(t.transaction_id) + '\')"' : '') +
+          '>';
+        html += '<div class="recon-tx-main">';
+        html += '<div class="tx-desc" title="' + escHtml(desc) + '">' + escHtml(desc) + '</div>';
+        html += '<div class="recon-tx-date">' + escHtml(fmtDate(t.date)) + ' &middot; ' + escHtml(t.account_name || "--") + ' &middot; ' + reconStatusChip(t.status) + '</div>';
+        html += '</div>';
+        html += '<div class="recon-tx-amount ' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</div>';
         if (tab === "uncategorized") {
-          html += '<button class="btn-primary btn-sm" onclick="openReconMatchModal(\'' + escHtml(t.transaction_id) + '\')">';
-          html += mcIcon("link");
-          html += '<span class="show-pt">Vincular a Fatura</span><span class="show-en">Match to Invoice</span>';
-          html += '</button>';
-          html += '<button class="btn-ghost btn-sm" onclick="reconExclude(\'' + escHtml(t.transaction_id) + '\')">';
+          html += '<div class="recon-tx-actions">';
+          html += '<button class="btn-ghost btn-sm" onclick="event.stopPropagation(); reconExclude(\'' + escHtml(t.transaction_id) + '\')" title="Ignore">';
           html += mcIcon("x");
-          html += '<span class="show-pt">Ignorar este pagamento</span><span class="show-en">Ignore this payment</span>';
-          html += '</button>';
-        } else if (tab === "categorized") {
-          html += '<button class="btn-ghost btn-sm" onclick="reconUnmatch(\'' + escHtml(t.transaction_id) + '\')">';
-          html += mcIcon("x");
-          html += '<span class="show-pt">Desvincular</span><span class="show-en">Unmatch</span>';
-          html += '</button>';
+          html += '</button></div>';
         } else if (tab === "excluded") {
+          html += '<div class="recon-tx-actions">';
           html += '<button class="btn-secondary btn-sm" onclick="reconRestore(\'' + escHtml(t.transaction_id) + '\')">';
           html += mcIcon("restore");
           html += '<span class="show-pt">Restaurar</span><span class="show-en">Restore</span>';
-          html += '</button>';
+          html += '</button></div>';
         }
-        html += '</div></td>';
-        html += '</tr>';
+        html += '</div>';
       }
 
-      html += '</tbody></table>';
       listEl.innerHTML = html;
+    }
+
+    // ── Folder rail ─────────────────────────────────────────────────────────
+
+    function loadReconFolders() {
+      var railEl = document.getElementById("reconFolderRail");
+      if (reconCategories !== null) { renderReconFolders(); loadReconCategoryTotals(); return; }
+      apiFetch("/api/finance/categories")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          reconCategories = data.categories || [];
+          renderReconFolders();
+          loadReconCategoryTotals();
+        })
+        .catch(function() {
+          if (railEl) {
+            railEl.innerHTML = '<div class="empty-state"><span class="show-pt">Erro ao carregar categorias</span><span class="show-en">Error loading categories</span></div>';
+          }
+        });
+    }
+
+    function reconFolderTotalHtml(key) {
+      var t = reconCategoryTotals[key];
+      var sessionCount = reconSessionFolderCounts[key] || 0;
+      var total = t ? t.total : 0;
+      var count = t ? t.count : 0;
+      return '<div class="recon-folder-totals">' +
+        '<div class="recon-folder-total">' + fmtCurrency(total) + '</div>' +
+        '<div class="recon-folder-count">' + count + (sessionCount ? (' (+' + sessionCount + ')') : '') + '</div>' +
+        '</div>';
+    }
+
+    function renderReconFolders() {
+      var railEl = document.getElementById("reconFolderRail");
+      if (!railEl) { return; }
+
+      var html = '<div class="recon-folder recon-folder-client-income" data-folder-key="' + CLIENT_INCOME_KEY + '"' +
+        ' ondragover="onReconFolderDragOver(event)" ondragleave="onReconFolderDragLeave(event)" ondrop="onReconFolderDrop(event,\'' + CLIENT_INCOME_KEY + '\')">' +
+        '<div class="recon-folder-name"><span class="show-pt">Renda de Cliente</span><span class="show-en">Client Income</span></div>' +
+        reconFolderTotalHtml(CLIENT_INCOME_KEY) +
+        '</div>';
+
+      for (var i = 0; i < reconCategories.length; i++) {
+        var cat = reconCategories[i];
+        html += '<div class="recon-folder" data-folder-key="' + escHtml(cat.account_id) + '" data-account-id="' + escHtml(cat.account_id) + '"' +
+          ' ondragover="onReconFolderDragOver(event)" ondragleave="onReconFolderDragLeave(event)" ondrop="onReconFolderDrop(event,\'' + escHtml(cat.account_id) + '\')">' +
+          '<div class="recon-folder-name">' + escHtml(cat.account_name) + '</div>' +
+          reconFolderTotalHtml(cat.account_id) +
+          '</div>';
+      }
+
+      html += '<div class="recon-folder-new" onclick="openReconNewCategoryModal()">+ <span class="show-pt">Nova Categoria</span><span class="show-en">New Category</span></div>';
+
+      railEl.innerHTML = html;
+    }
+
+    function loadReconCategoryTotals() {
+      var fromEl = document.getElementById("reconTotalsFrom");
+      var toEl   = document.getElementById("reconTotalsTo");
+      var now = new Date();
+      if (fromEl && !fromEl.value) { fromEl.value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10); }
+      if (toEl && !toEl.value)     { toEl.value   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10); }
+      var from = fromEl ? fromEl.value : "";
+      var to   = toEl ? toEl.value : "";
+
+      apiFetch("/api/finance/reconciliation/category-totals?from=" + from + "&to=" + to)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          reconCategoryTotals = {};
+          var totals = data.totals || [];
+          for (var i = 0; i < totals.length; i++) { reconCategoryTotals[totals[i].category_id] = totals[i]; }
+          renderReconFolders();
+        })
+        .catch(function() { /* leave folders showing zero totals rather than blocking the UI */ });
+    }
+
+    // Date-range picker only re-fetches folder totals -- the inbox list is
+    // untouched, per this feature's explicit requirement that every pending
+    // transaction always stays visible regardless of the selected range.
+    function onReconDateRangeChange() {
+      loadReconCategoryTotals();
+    }
+
+    // ── Desktop drag-and-drop ────────────────────────────────────────────────
+
+    function onReconCardDragStart(ev, txnId) {
+      reconDragTxnId = txnId;
+      ev.target.classList.add("is-dragging");
+      ev.dataTransfer.effectAllowed = "move";
+      ev.dataTransfer.setData("text/plain", txnId);
+    }
+
+    function onReconCardDragEnd(ev) {
+      ev.target.classList.remove("is-dragging");
+      reconDragTxnId = null;
+    }
+
+    function onReconFolderDragOver(ev) {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("is-dragover");
+    }
+
+    function onReconFolderDragLeave(ev) {
+      ev.currentTarget.classList.remove("is-dragover");
+    }
+
+    function onReconFolderDrop(ev, folderKey) {
+      ev.preventDefault();
+      ev.currentTarget.classList.remove("is-dragover");
+      var txnId = reconDragTxnId || ev.dataTransfer.getData("text/plain");
+      if (!txnId) { return; }
+      categorizeIntoFolder(txnId, folderKey);
+    }
+
+    // ── Mobile tap-to-bottom-sheet ───────────────────────────────────────────
+
+    function onReconCardTap(txnId) {
+      if (!isMobileWidth()) { return; } // desktop uses drag-and-drop instead
+      openReconFolderSheet(txnId);
+    }
+
+    function openReconFolderSheet(txnId) {
+      reconSheetTxnId = txnId;
+      var overlay = document.getElementById("reconFolderSheetOverlay");
+      var infoEl  = document.getElementById("reconFolderSheetTxnInfo");
+      var listEl  = document.getElementById("reconFolderSheetList");
+      var t = reconTxCache[txnId];
+      if (infoEl && t) {
+        infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + escHtml(t.description || t.payee || "--");
+      }
+      if (listEl) {
+        var html = '<div class="recon-folder-sheet-item recon-folder-client-income" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + CLIENT_INCOME_KEY + '\')">' +
+          '<span class="show-pt">Renda de Cliente</span><span class="show-en">Client Income</span></div>';
+        for (var i = 0; i < (reconCategories || []).length; i++) {
+          var cat = reconCategories[i];
+          html += '<div class="recon-folder-sheet-item" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + escHtml(cat.account_id) + '\')">' +
+            escHtml(cat.account_name) + '</div>';
+        }
+        listEl.innerHTML = html;
+      }
+      if (overlay) { overlay.hidden = false; }
+    }
+
+    function closeReconFolderSheet() {
+      reconSheetTxnId = null;
+      var overlay = document.getElementById("reconFolderSheetOverlay");
+      if (overlay) { overlay.hidden = true; }
+    }
+
+    // ── Shared categorize dispatch (desktop drop + mobile sheet tap call the
+    //    same two backend actions) ──────────────────────────────────────────
+
+    function categorizeIntoFolder(txnId, folderKey) {
+      closeReconFolderSheet();
+      if (folderKey === CLIENT_INCOME_KEY) {
+        openReconMatchModal(txnId);
+        return;
+      }
+      var cachedTxn = reconTxCache[txnId];
+      if (!cachedTxn) { showToast("Erro: transacao nao encontrada / Transaction not found"); return; }
+
+      apiFetch("/api/finance/reconciliation/" + txnId + "/categorize", {
+        method: "POST",
+        body: {
+          account_id:          cachedTxn.account_id,
+          category_account_id: folderKey,
+          amount:              cachedTxn.amount,
+          date:                cachedTxn.date
+        }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          reconSessionFolderCounts[folderKey] = (reconSessionFolderCounts[folderKey] || 0) + 1;
+          if (!reconCategoryTotals[folderKey]) { reconCategoryTotals[folderKey] = { category_id: folderKey, category_name: "", total: 0, count: 0 }; }
+          reconCategoryTotals[folderKey].total += Math.abs(parseFloat(cachedTxn.amount) || 0);
+          reconCategoryTotals[folderKey].count += 1;
+          renderReconFolders();
+          loadReconciliation("uncategorized");
+          showToast("Transacao categorizada / Transaction categorized");
+        })
+        .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao categorizar")); });
+    }
+
+    // ── New category (self-extending) ───────────────────────────────────────
+
+    function openReconNewCategoryModal() {
+      var nameEl = document.getElementById("reconNewCategoryName");
+      if (nameEl) { nameEl.value = ""; }
+      var overlay = document.getElementById("reconNewCategoryOverlay");
+      if (overlay) { overlay.hidden = false; }
+    }
+
+    function closeReconNewCategoryModal() {
+      var overlay = document.getElementById("reconNewCategoryOverlay");
+      if (overlay) { overlay.hidden = true; }
+    }
+
+    function saveReconNewCategory() {
+      var nameEl = document.getElementById("reconNewCategoryName");
+      var typeEl = document.getElementById("reconNewCategoryType");
+      var saveBtn = document.getElementById("reconNewCategorySaveBtn");
+      var name = nameEl ? nameEl.value.trim() : "";
+      if (!name) { showToast("Nome obrigatorio / Name required"); return; }
+
+      if (saveBtn) { saveBtn.disabled = true; }
+      apiFetch("/api/finance/categories", {
+        method: "POST",
+        body: { account_name: name, account_type: typeEl ? typeEl.value : "expense" }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          reconCategories = reconCategories || [];
+          reconCategories.push({ account_id: data.account_id, account_name: data.account_name, account_type: data.account_type });
+          closeReconNewCategoryModal();
+          renderReconFolders();
+          showToast("Categoria criada / Category created");
+        })
+        .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao criar categoria")); })
+        .finally(function() { if (saveBtn) { saveBtn.disabled = false; } });
     }
 
     // ── Match-to-invoice modal ─────────────────────────────────────────────
@@ -3543,6 +3876,11 @@
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
           closeReconMatchModal();
+          reconSessionFolderCounts[CLIENT_INCOME_KEY] = (reconSessionFolderCounts[CLIENT_INCOME_KEY] || 0) + 1;
+          if (!reconCategoryTotals[CLIENT_INCOME_KEY]) { reconCategoryTotals[CLIENT_INCOME_KEY] = { category_id: CLIENT_INCOME_KEY, total: 0, count: 0 }; }
+          reconCategoryTotals[CLIENT_INCOME_KEY].total += Math.abs(parseFloat(cachedTxn.amount) || 0);
+          reconCategoryTotals[CLIENT_INCOME_KEY].count += 1;
+          renderReconFolders();
           loadReconciliation(currentReconTab);
           showToast("Transacao vinculada / Transaction matched");
         })

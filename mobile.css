@@ -387,7 +387,10 @@
   #modalResource,
   #modalNewSession,
   #newInvoiceOverlay,
-  #invoiceEditorOverlay {
+  #invoiceEditorOverlay,
+  #reconMatchOverlay,
+  #reconFolderSheetOverlay,
+  #reconNewCategoryOverlay {
     align-items: stretch;
     justify-content: stretch;
     padding: 0;
@@ -398,7 +401,10 @@
   #modalResource .modal-box,
   #modalNewSession .modal-box,
   #newInvoiceModal,
-  #invoiceEditorModal {
+  #invoiceEditorModal,
+  #reconMatchModal,
+  #reconFolderSheetModal,
+  #reconNewCategoryModal {
     width: 100% !important;
     max-width: none !important;
     height: 100%;
@@ -411,6 +417,9 @@
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
     animation: apexSheetUp 0.26s ease;
   }
+
+  /* Reconcile: bottom-sheet categorize flow replaces drag-and-drop on touch */
+  .recon-folder-sheet-item { min-height: 44px; }
 
   /* Invoice line-item grid: stack instead of overflowing sideways.
      The header caption row is hidden; the inputs carry placeholders. */

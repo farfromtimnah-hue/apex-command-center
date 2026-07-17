@@ -4406,8 +4406,21 @@ async function aggregateZohoTransactions(zohoAuth, fromDate, toDate) {
     return transactions;
 }
 
+// Zoho's `debit_or_credit` field is the reliable direction signal on
+// banktransactions regardless of categorization status: "debit" = money
+// coming into this bank account (income), "credit" = money going out
+// (expense). Confirmed against live uncategorized transactions on
+// 2026-07-16 -- e.g. "Zelle payment from AMANDA BRAGA..." => debit,
+// "Zelle payment to Alice Corsino..." => credit. `transaction_type` is
+// only populated with a specific value (deposit/sales_without_invoices/etc)
+// once a transaction has been categorized in Zoho -- for uncategorized
+// transactions it is literally the string "uncategorized", which never
+// matched RECON_INCOME_TYPES and caused every uncategorized transaction
+// to render as an expense regardless of actual direction.
 function classifyZohoTxnAmount(txn) {
-    var isIncome = RECON_INCOME_TYPES.indexOf(txn.transaction_type) !== -1;
+    var isIncome = txn.debit_or_credit
+        ? txn.debit_or_credit === "debit"
+        : RECON_INCOME_TYPES.indexOf(txn.transaction_type) !== -1;
     var amt = Math.abs(parseFloat(txn.amount) || 0);
     return { isIncome: isIncome, amount: amt };
 }
@@ -5085,6 +5098,8 @@ async function handleGetFinanceReconciliation(request, env) {
                     customer_id:             raw[t].customer_id || "",
                     status:                  raw[t].status,
                     transaction_type:        raw[t].transaction_type,
+                    debit_or_credit:         raw[t].debit_or_credit || "",
+                    is_income:               classifyZohoTxnAmount(raw[t]).isIncome,
                     account_id:              raw[t].account_id,
                     account_name:            raw[t].account_name || ""
                 });

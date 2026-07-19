@@ -3377,7 +3377,7 @@
       data.report_code     = reportCode;
       data.client_logo     = null;
 
-      var TEMPLATE_URL = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
+      var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html";
       var newTab = window.open(TEMPLATE_URL, "_blank");
 
       if (!newTab) {
@@ -3398,7 +3398,7 @@
       function sendData() {
         if (sent) { return; }
         sent = true;
-        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
+        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://apex.resonateai.online");
         if (btn) { btn.disabled = false; }
         if (actionStatus) {
           actionStatus.textContent = "Dialogo de impressao aberto na nova aba.";

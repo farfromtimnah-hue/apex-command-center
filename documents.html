@@ -1154,7 +1154,7 @@
       data.report_code     = reportCode;
       data.client_logo     = null;
 
-      var TEMPLATE_URL = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html";
+      var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html";
       var newTab = window.open(TEMPLATE_URL, "_blank");
       if (!newTab) {
         window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
@@ -1165,7 +1165,7 @@
       function sendData() {
         if (sent) { return; }
         sent = true;
-        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
+        newTab.postMessage({ type: "apex-report-data", payload: data }, "https://apex.resonateai.online");
       }
       var fallbackId = setTimeout(sendData, 1500);
       newTab.addEventListener("load", function () {

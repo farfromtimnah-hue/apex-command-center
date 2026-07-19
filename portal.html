@@ -1511,7 +1511,11 @@
         sent = true;
         tab.postMessage({ type: "apex-report-data", payload: data }, "https://farfromtimnah-hue.github.io");
       }
-      setTimeout(sendData, 1500);
+      var fallbackId = setTimeout(sendData, 1500);
+      tab.addEventListener("load", function() {
+        clearTimeout(fallbackId);
+        sendData();
+      });
     }
 
     // Invoices — read-only paid/unpaid split.

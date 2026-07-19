@@ -614,12 +614,13 @@
         return res.json();
       })
       .then(function (data) {
+        if (messageReceived) { return; }
         renderReport(data);
       })
       .catch(function (err) {
         console.error('[Apex Report]', err);
       });
-  }, 150);
+  }, 3000);
 })();
 </script>
 

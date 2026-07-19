@@ -1850,3 +1850,31 @@ Two confirmed bugs from the pricing/payment-terms session (commit `22333b6`, wor
 - Bug 2: no client is currently on START/ADVANCED/GROWTH with a linked `zoho_customer_id` and a real invoice (checked live D1 — zero matching rows), so `GET /api/invoices/:id/package-check` could not be curl-tested end-to-end against a real invoice for a new-package client. The `has_price` computation itself was verified directly against live pricing data (above), but the full request path (Zoho invoice fetch → customer_id → client lookup → has_price) was not exercised live for this specific case.
 
 **Nicole/Alice: please click through (1) a fresh client profile — hard refresh, click the package pencil immediately, confirm all 3 new + legacy packages show with the divider, pick a new package, confirm Payment Terms modal opens; (2) the `newpkg=1` new-client flow the same way; (3) once a client is on START/ADVANCED/GROWTH with a real Zoho invoice, confirm the WhatsApp send button no longer shows "Pricing not set" for them, and confirm a legacy-package client with no `base_price` still correctly shows it.**
+
+---
+
+## Session: Strategic Report PDF handoff showed demo data (Meridian Capital / Rafael Andrade) — 2026-07-19
+
+Real bug, confirmed live by Nicole via the Sessões → Approve & Send → Generate PDF flow: the popup tab always rendered the template's demo/placeholder content instead of real session data, 100% reproducible on every click, zero console errors on either the opener or popup tab.
+
+**Investigation false starts, for the record:** first suspected the same load-listener-vs-timing race that b66e19b fixed for portal.html — but all 4 real callers into `templates/apex-strategic-report-wired.html` (`client.html`, `documents.html`, `sessions.html`, `portal.html`) already had the identical `tab.addEventListener("load", ...)` + fallback-timeout pattern; none was missing the guard. Also considered a render-blocking-stylesheet-delays-listener-registration theory — ruled out once `load` was confirmed (by spec) to always fire after the popup's inline scripts have executed, making that theory backwards. Also considered whether the cross-origin `WindowProxy` even permits `addEventListener("load", ...)` at all pre/post-navigation — inconclusive by reasoning alone, resolved only by an isolated Playwright repro (below).
+
+**Actual root cause:** all 4 callers' `TEMPLATE_URL` and `postMessage` target-origin still pointed at `https://farfromtimnah-hue.github.io/apex-command-center/templates/...`. Since the `CNAME` file (custom domain `apex.resonateai.online`) was added to the repo, GitHub Pages now 301-redirects that `github.io` URL to the custom domain (confirmed via `curl -I`: `301` → `https://apex.resonateai.online/...`). So the popup's real, final origin became `apex.resonateai.online`, but every caller's `postMessage(data, "https://farfromtimnah-hue.github.io")` targeted the stale origin. Per the `postMessage` spec, a target-origin mismatch causes the browser to silently drop the message — no exception, no console output — exactly matching the 100%-reproducible, error-free symptom. The template's own 3000ms JSON-fallback timer then always won and rendered the demo data.
+
+**Fix:** updated `TEMPLATE_URL` and the `postMessage` target-origin string in all 4 callers (`client.html`, `documents.html`, `sessions.html`, `portal.html`) from `https://farfromtimnah-hue.github.io` to `https://apex.resonateai.online`, matching the real post-redirect origin. No changes to `templates/apex-strategic-report-wired.html` itself — its listener logic was already correct. Committed and pushed as `ec9b96c`.
+
+**Verification performed:**
+- Confirmed the redirect directly: `curl -I https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-strategic-report-wired.html` → `301` to `https://apex.resonateai.online/...`.
+- Built a disposable test client (`test-client-racecheck`) + session (`test-session-racecheck`, status `approved`, non-trivial fake `pdf_data`) in live D1 to reproduce with real data through the real `/api/clients/:id/documents` endpoint (confirmed that endpoint derives "documents" straight from `sessions WHERE client_id = ? AND pdf_data IS NOT NULL` — there's no separate `documents` table row required).
+- Wrote an isolated Playwright repro (scratchpad, not committed) driving the exact `window.open` + `postMessage` + `load`-listener pattern against the live, corrected template at `apex.resonateai.online` with fake payload data — confirmed real data rendered into the DOM (`cover-client-name`, `cover-cobrand`, `document.title`) with no demo fallback.
+- Confirmed via `curl -sI` that the deployed `client.html`/`documents.html` served the fix (`last-modified` matched the push time) before Nicole's live retest.
+- **Nicole confirmed live, real browser, hard-refreshed:** "Ver" on the ZZTEST test client's document now shows the real test client name and correct consultant name (Rafael Prata), not Meridian Capital demo data. A hard refresh was required to see the fix — the CDN response has `cache-control: max-age=600`, so a normal reload could still serve a browser-cached pre-fix copy for up to 10 minutes.
+- Test client, test session, and disposable Playwright repro files cleaned up after verification; no test data left in D1 or the repo.
+
+**Confirmed separate bug, deliberately NOT fixed this session (deferred per Nicole's explicit instruction, to avoid masking the real root cause while it was still under investigation):** `templates/apex-strategic-report-wired.html` line 7 has `<script src="./support.js"></script>` in `<head>` — this file does not exist anywhere in the repo and 404s on every load of the template. It did not turn out to be related to this bug (confirmed: the Playwright repro rendered correctly despite the 404), but it's a real, live 404 worth cleaning up in a future session.
+
+**Callers of `templates/apex-strategic-report-wired.html`, confirmed complete list (verified by repo-wide grep) — all 4 now consistent:**
+1. `client.html` — `openDocument()` → `handleGeneratePdf()` (session/document PDF view)
+2. `documents.html` — same handoff pattern
+3. `sessions.html` — `handleGeneratePdf()` (Sessões → Approve & Send → Generate PDF)
+4. `portal.html` — `openDocument()` (client portal report view)

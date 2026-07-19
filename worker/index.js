@@ -950,12 +950,20 @@ function isSectionEnabled(cfg, key) {
     return false;
 }
 
-// Builds SUMMARY_PROMPT dynamically so that a key is only requested — for
-// both the internal-review object and pdf_data — when its section_config
-// checkbox is enabled. Cover/Executive Summary equivalents (discussion_overview,
-// client_profile_updates, executive_summary, headline_insights, document_title)
-// have no checkbox and are always requested.
-function buildSummaryPrompt(cfg) {
+// SUMMARY_PROMPT is split into two independent Claude calls (review keys +
+// pdf_data/structured sections) that run concurrently via Promise.all in
+// handlePostSummarize. A single call requesting all 9 sections plus pdf_data
+// routinely ran past Cloudflare's 120s edge Proxy Read Timeout (524), since
+// wall time — not max_tokens — is the real ceiling for HTTP-triggered Workers.
+// Splitting keeps each call's generation scope small enough to finish well
+// under that ceiling, and running them in parallel keeps total wall time at
+// roughly max(callA, callB) instead of their sum.
+// Each builder only requests a key when its section_config checkbox is enabled.
+// Cover/Executive Summary equivalents (discussion_overview, client_profile_updates,
+// executive_summary, headline_insights, document_title) have no checkbox and
+// are always requested.
+
+function reviewKeysForConfig(cfg) {
     var reviewKeys = ["discussion_overview", "client_profile_updates"];
     var reviewKeyOrder = ["discussion_overview", "recommendations", "client_action_items",
         "rafa_followups", "next_session_focus", "client_profile_updates"];
@@ -966,8 +974,23 @@ function buildSummaryPrompt(cfg) {
         if (sectionKey && isSectionEnabled(cfg, sectionKey)) { reviewKeys.push(k); }
     }
     // Restore canonical order
-    reviewKeys = reviewKeyOrder.filter(function (k) { return reviewKeys.indexOf(k) !== -1; });
+    return reviewKeyOrder.filter(function (k) { return reviewKeys.indexOf(k) !== -1; });
+}
 
+// Call A: internal-review keys only (short bilingual text blobs).
+function buildReviewPrompt(cfg, reviewKeys) {
+    var prompt = "Generate the internal-review portion of a session summary for the transcript below.\n\n" +
+        "Respond with a JSON object containing exactly " + reviewKeys.length + " top-level keys.\n\n";
+    prompt += "Each key is for internal review only, and must be an object with 'pt' and 'en' string fields:\n" +
+        "  " + reviewKeys.join(", ") + "\n\n";
+    prompt += "Rules: be concise but complete — 2-5 sentences per field.\n" +
+        "If the transcript lacks enough detail for a field, infer a reasonable conservative entry — do not leave fields empty.\n" +
+        "Do not include any keys other than the ones listed above.\n";
+    return prompt;
+}
+
+// Call B: pdf_data (client-facing deliverable) + the 3 heavier structured sections.
+function buildPdfPrompt(cfg) {
     var wantBusinessDiagnosis = isSectionEnabled(cfg, "business_diagnosis");
     var wantSwotSynthesis     = isSectionEnabled(cfg, "swot_synthesis");
     var wantThirtyDayGoals    = isSectionEnabled(cfg, "thirty_day_goals");
@@ -983,13 +1006,10 @@ function buildSummaryPrompt(cfg) {
     if (wantSwotSynthesis)     { structuredKeys.push("swot_synthesis"); }
     if (wantThirtyDayGoals)    { structuredKeys.push("thirty_day_goals"); }
 
-    var totalKeys = reviewKeys.length + structuredKeys.length + 1; // +1 for pdf_data
+    var totalKeys = structuredKeys.length + 1; // +1 for pdf_data
 
-    var prompt = "Generate a session summary for the transcript below.\n\n" +
+    var prompt = "Generate the client-facing deliverable portion of a session summary for the transcript below.\n\n" +
         "Respond with a JSON object containing exactly " + totalKeys + " top-level keys.\n\n";
-
-    prompt += "The following keys are for internal review only. Each must be an object with 'pt' and 'en' string fields:\n" +
-        "  " + reviewKeys.join(", ") + "\n\n";
 
     if (structuredKeys.length > 0) {
         prompt += "The following are structured sections. Each must be an object with 'pt' and 'en' fields, where pt and en\n" +
@@ -1099,46 +1119,75 @@ async function handlePostSummarize(request, env) {
         if (!session)              { return jsonErr("Session not found", 404); }
         if (!session.raw_transcript) { return jsonErr("No transcript for this session", 400); }
 
-        // Only sections whose checkbox is enabled are requested from the model —
-        // this drives both the internal-review keys and pdf_data in one pass.
-        // Custom sections get their own instruction block, gated on their own
-        // enabled flag the same way.
+        // Only sections whose checkbox is enabled are requested from the model.
+        // The summary is generated via two concurrent Claude calls instead of one —
+        // internal-review keys in call A, pdf_data + structured sections (+ custom
+        // sections, merged into pdf_data) in call B — so total wall time is roughly
+        // max(A, B) instead of their sum. A single 9-section call routinely exceeded
+        // Cloudflare's 120s edge Proxy Read Timeout and surfaced as a 524.
         var sectionCfg = parseSectionConfig(session.section_config);
-        var promptText = buildSummaryPrompt(sectionCfg) +
+        var reviewKeys = reviewKeysForConfig(sectionCfg);
+        var transcriptBlock = "\nTranscript:\n" + session.raw_transcript;
+        var reviewPromptText = buildReviewPrompt(sectionCfg, reviewKeys) + transcriptBlock;
+        var pdfPromptText = buildPdfPrompt(sectionCfg) +
             buildCustomSectionsPrompt(sectionCfg.custom_sections) +
-            "\nTranscript:\n" + session.raw_transcript;
+            transcriptBlock;
 
-        var claudeRes = await fetch(CLAUDE_API_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type":      "application/json",
-                "x-api-key":         env.CLAUDE_API_KEY,
-                "anthropic-version": "2023-06-01"
-            },
-            body: JSON.stringify({
-                model:      CLAUDE_MODEL,
-                max_tokens: 8192,
-                system:     SUMMARY_SYSTEM,
-                messages:   [{ role: "user", content: promptText }]
-            })
-        });
-
-        if (!claudeRes.ok) {
-            var claudeErr = await claudeRes.text();
-            return jsonErr("Claude API error: " + claudeErr, 502);
+        function callClaude(promptText, maxTokens) {
+            return fetch(CLAUDE_API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type":      "application/json",
+                    "x-api-key":         env.CLAUDE_API_KEY,
+                    "anthropic-version": "2023-06-01"
+                },
+                body: JSON.stringify({
+                    model:      CLAUDE_MODEL,
+                    max_tokens: maxTokens,
+                    system:     SUMMARY_SYSTEM,
+                    messages:   [{ role: "user", content: promptText }]
+                })
+            });
         }
 
-        var claudeData = await claudeRes.json();
-        var rawText    = claudeData.content[0].text.trim();
+        var claudeResults = await Promise.all([
+            callClaude(reviewPromptText, 4096),
+            callClaude(pdfPromptText, 8192)
+        ]);
+        var reviewRes = claudeResults[0];
+        var pdfRes    = claudeResults[1];
 
-        var summaryJson;
+        if (!reviewRes.ok) {
+            var reviewErr = await reviewRes.text();
+            return jsonErr("Claude API error: " + reviewErr, 502);
+        }
+        if (!pdfRes.ok) {
+            var pdfErr = await pdfRes.text();
+            return jsonErr("Claude API error: " + pdfErr, 502);
+        }
+
+        function parseClaudeJson(claudeData) {
+            var rawText = claudeData.content[0].text.trim();
+            try {
+                return JSON.parse(rawText);
+            } catch (parseErr) {
+                var match = rawText.match(/\{[\s\S]*\}/);
+                if (!match) { throw new Error("Could not parse Claude response as JSON"); }
+                return JSON.parse(match[0]);
+            }
+        }
+
+        var reviewData, pdfDataRaw;
         try {
-            summaryJson = JSON.parse(rawText);
+            reviewData = parseClaudeJson(await reviewRes.json());
+            pdfDataRaw = parseClaudeJson(await pdfRes.json());
         } catch (parseErr) {
-            var match = rawText.match(/\{[\s\S]*\}/);
-            if (!match) { return jsonErr("Could not parse Claude response as JSON", 500); }
-            summaryJson = JSON.parse(match[0]);
+            return jsonErr(parseErr.message, 500);
         }
+
+        // Merge both calls' results into the single summaryJson shape the rest
+        // of this handler (and the frontend) already expects.
+        var summaryJson = Object.assign({}, reviewData, pdfDataRaw);
 
         var pdfData = summaryJson.pdf_data || null;
 

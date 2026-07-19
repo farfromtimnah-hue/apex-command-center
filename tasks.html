@@ -773,6 +773,7 @@
     var taskView     = "date";         // "date" | "type"
     var tabRole      = "consultant";   // "consultant" | "client" | "done"
     var clientFilter = "";             // "" = all clients, otherwise clientName string
+    var overdueOnly  = false;          // true when arrived via ?overdue=1 (dashboard tile deep link)
     var allTasks     = [];             // all derived task rows (both tabs)
     var completedMap = {};             // taskKey → true/false; keyed per session
 
@@ -950,8 +951,26 @@
 
       window.initNav && window.initNav();
       initHeroBg('tasksHeroBg', 'tasksHeroScrim');
+      applyOverdueParam();
       loadLocalCompletions();
       loadTasks();
+    }
+
+    // Deep link from the dashboard's overdue-tasks tile (?overdue=1): lands on the
+    // Consultant tab pre-filtered to overdue tasks. Rafa's dashboard tile counts
+    // consultant tasks specifically (/api/tasks/consultant/overdue), so this always
+    // targets that tab regardless of role.
+    function applyOverdueParam() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("overdue") !== "1") { return; }
+      overdueOnly = true;
+      tabRole = "consultant";
+      var btnConsultant = document.getElementById("tabBtnConsultant");
+      var btnClient      = document.getElementById("tabBtnClient");
+      var btnDone        = document.getElementById("tabBtnDone");
+      if (btnConsultant) { btnConsultant.className = "role-tab-btn active"; }
+      if (btnClient)      { btnClient.className      = "role-tab-btn"; }
+      if (btnDone)        { btnDone.className        = "role-tab-btn"; }
     }
 
     function init() {
@@ -1156,6 +1175,7 @@
     function setTabRole(role) {
       tabRole = role;
       clientFilter = "";
+      overdueOnly = false;
       var sel = document.getElementById("clientFilterSelect");
       if (sel) { sel.value = ""; }
       document.getElementById("tabBtnConsultant").className =
@@ -1198,6 +1218,11 @@
       }
       if (clientFilter) {
         base = base.filter(function(t) { return t.clientName === clientFilter; });
+      }
+      if (overdueOnly) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        base = base.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
       }
       return base;
     }

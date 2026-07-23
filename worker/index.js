@@ -6157,11 +6157,35 @@ async function handleGetFinanceCategories(request, env) {
 
         if (includeHidden) {
             for (var k = 0; k < categories.length; k++) { categories[k].hidden = !!hiddenSet[categories[k].account_id]; }
+            // "Client Income" (CLIENT_INCOME_KEY in finance.html) isn't a real
+            // Zoho account -- it's a special folder that opens the
+            // invoice-match flow instead of a normal categorize action, so it
+            // is deliberately NOT added to the plain (non-hidden) list above,
+            // which feeds the actual draggable Reconciliation folder rail.
+            // It's included here (Manage Categories only) purely so its label
+            // is editable in D1 like every real category, per Nicole's
+            // explicit correction 2026-07-23 -- this label must never be a
+            // hardcoded string in the frontend again. Never hideable: unlike
+            // a real expense/equity category, incoming client money always
+            // needs somewhere to go, so no checkbox is rendered for it (see
+            // renderReconManageCategoriesList in finance.html).
+            categories.unshift({
+                account_id:   "client_income",
+                account_name: "Client Income",
+                account_type: "client_income",
+                custom_label: labelSet["client_income"] || null,
+                display_name: labelSet["client_income"] || "Client Income",
+                hidden:       false
+            });
         } else {
             categories = categories.filter(function(c) { return !hiddenSet[c.account_id]; });
         }
 
-        return jsonOk({ categories: categories });
+        // Returned regardless of include_hidden so both the Reconciliation
+        // folder rail (default mode, which never gets the synthetic
+        // client_income row added to `categories`) and Manage Categories can
+        // read the same D1-backed label from one request.
+        return jsonOk({ categories: categories, client_income_label: labelSet["client_income"] || null });
     } catch (e) {
         if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error fetching categories: " + e.message, 500);

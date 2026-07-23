@@ -571,6 +571,7 @@
     .recon-manage-category-row-main { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; cursor: pointer; }
     .recon-manage-category-row-main span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .recon-manage-category-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
+    .recon-manage-category-nocheck { display: inline-block; width: 18px; height: 18px; flex-shrink: 0; }
     .recon-manage-category-row.is-hidden { opacity: 0.6; }
     .recon-manage-category-label-input {
       flex: 1 1 140px;
@@ -3627,6 +3628,7 @@
     var reconClients         = null;
     var reconMatchTxnId      = null;
     var reconCategories      = null;       // [{account_id, account_name, account_type}]
+    var reconClientIncomeLabel = null;     // D1-backed apelido for the Client Income folder (finance_category_labels, key "client_income")
     var reconCategoryTotals  = {};         // category_id -> {category_name, total, count}
     var reconSessionFolderCounts = {};     // category_id -> count categorized this session (client-side only)
     var reconDragTxnId       = null;
@@ -3792,6 +3794,7 @@
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
           reconCategories = data.categories || [];
+          reconClientIncomeLabel = data.client_income_label || null;
           renderReconFolders();
           loadReconCategoryTotals();
         })
@@ -3817,10 +3820,14 @@
       var railEl = document.getElementById("reconFolderRail");
       if (!railEl) { return; }
 
+      // Label editable in Manage Categories (D1 finance_category_labels,
+      // key "client_income") like every real category -- "Renda de Cliente"
+      // is only the fallback shown before Alice/Rafa ever set a custom one.
+      var clientIncomeLabelPt = escHtml(reconClientIncomeLabel || "Renda de Cliente");
       var html = '<div class="recon-folder recon-folder-client-income" data-folder-key="' + CLIENT_INCOME_KEY + '"' +
         ' ondragover="onReconFolderDragOver(event)" ondragleave="onReconFolderDragLeave(event)" ondrop="onReconFolderDrop(event,\'' + CLIENT_INCOME_KEY + '\')">' +
         '<div class="recon-folder-name-col">' +
-        '<div class="recon-folder-name"><span class="show-pt">Renda de Cliente</span><span class="show-en">Client Income</span></div>' +
+        '<div class="recon-folder-name"><span class="show-pt">' + clientIncomeLabelPt + '</span><span class="show-en">Client Income</span></div>' +
         '<div class="recon-folder-sub"><span class="show-pt">associar a uma fatura</span><span class="show-en">match to an invoice</span></div>' +
         '</div>' +
         reconFolderTotalHtml(CLIENT_INCOME_KEY) +
@@ -3915,8 +3922,9 @@
         infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + reconTxLabel(t);
       }
       if (listEl) {
+        var clientIncomeLabelPt = escHtml(reconClientIncomeLabel || "Renda de Cliente");
         var html = '<div class="recon-folder-sheet-item recon-folder-client-income" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + CLIENT_INCOME_KEY + '\')">' +
-          '<span class="show-pt">Renda de Cliente &mdash; associar a uma fatura</span><span class="show-en">Client Income &mdash; match to an invoice</span></div>';
+          '<span class="show-pt">' + clientIncomeLabelPt + ' &mdash; associar a uma fatura</span><span class="show-en">Client Income &mdash; match to an invoice</span></div>';
         for (var i = 0; i < (reconCategories || []).length; i++) {
           var cat = reconCategories[i];
           html += '<div class="recon-folder-sheet-item" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + escHtml(cat.account_id) + '\')">' +
@@ -4045,9 +4053,17 @@
       var html = "";
       for (var i = 0; i < categories.length; i++) {
         var cat = categories[i];
+        // "Client Income" (account_type "client_income") isn't a real Zoho
+        // category -- it always needs somewhere for incoming client money
+        // to go, so it's never hideable and gets no checkbox, just the
+        // editable label input like every real category.
+        var isClientIncome = cat.account_type === "client_income";
+        var checkboxHtml = isClientIncome
+          ? '<span class="recon-manage-category-nocheck"></span>'
+          : '<input type="checkbox" ' + (cat.hidden ? '' : 'checked') + ' onchange="toggleReconCategoryHidden(\'' + escHtml(cat.account_id) + '\', !this.checked)">';
         html += '<div class="recon-manage-category-row' + (cat.hidden ? ' is-hidden' : '') + '" id="reconManageCatRow-' + escHtml(cat.account_id) + '">' +
           '<label class="recon-manage-category-row-main">' +
-          '<input type="checkbox" ' + (cat.hidden ? '' : 'checked') + ' onchange="toggleReconCategoryHidden(\'' + escHtml(cat.account_id) + '\', !this.checked)">' +
+          checkboxHtml +
           '<span>' + escHtml(cat.account_name) + '</span>' +
           '</label>' +
           '<input type="text" class="recon-manage-category-label-input" placeholder="' +

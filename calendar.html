@@ -1289,6 +1289,33 @@
   </div>
 
   <!-- ═══════════════ MODAL: Session Detail ════════════════════════════════ -->
+  <!-- Connect Google Calendar prompt: shown whenever a Calendar-dependent
+       action fails because the connection is missing, instead of a plain
+       error -- so Alice/Rafa can self-serve the fix in the moment instead
+       of finding out only when a client hits a broken WhatsApp message. -->
+  <div id="modalConnectGcal" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Google Calendar Desconectado</span>
+          <span class="show-en">Google Calendar Disconnected</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalConnectGcal')">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0 0 16px;font-size:14px;color:var(--muted);">
+          <span class="show-pt">A conexao com o Google Calendar caiu, entao nao foi possivel criar o link do Meet. Conecte novamente para continuar.</span>
+          <span class="show-en">The Google Calendar connection has dropped, so a Meet link could not be created. Reconnect to continue.</span>
+        </p>
+        <button class="btn-submit" id="btnConnectGcalPrompt" onclick="handleConnectGcalPrompt()" style="width:100%;">
+          <span class="show-pt">Conectar Google Calendar</span>
+          <span class="show-en">Connect Google Calendar</span>
+        </button>
+        <div id="connectGcalStatus" class="pull-status" style="margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="modalDetail" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -1480,6 +1507,60 @@
       t.textContent = msg;
       t.classList.add("visible");
       setTimeout(function() { t.classList.remove("visible"); }, 2800);
+    }
+
+    // ── Google Calendar connect prompt ──────────────────────────────────────
+    // Shown in place of a plain error whenever a Calendar-dependent action
+    // fails because the connection is missing, so whoever hit it (Alice or
+    // Rafa, not just Nicole) can reconnect themselves right there.
+
+    function isGcalNotConnectedError(message) {
+      if (!message) { return false; }
+      return message.indexOf("not connected") !== -1
+          || message.indexOf("no Google Meet link") !== -1
+          || message.indexOf("reconnect Google Calendar") !== -1;
+    }
+
+    function promptConnectGcal() {
+      var statusEl = document.getElementById("connectGcalStatus");
+      if (statusEl) { statusEl.textContent = ""; statusEl.className = "pull-status"; }
+      openModal("modalConnectGcal");
+    }
+
+    function handleConnectGcalPrompt() {
+      var btn = document.getElementById("btnConnectGcalPrompt");
+      var statusEl = document.getElementById("connectGcalStatus");
+      var en = isEn();
+      btn.disabled = true;
+      if (statusEl) { statusEl.textContent = en ? "Opening Google sign-in..." : "Abrindo login do Google..."; statusEl.className = "pull-status"; }
+
+      var popup = window.open('about:blank', '_blank');
+
+      apiFetch("/api/google/oauth/start")
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(result) {
+          btn.disabled = false;
+          if (result.ok && result.data.auth_url) {
+            popup.location.href = result.data.auth_url;
+            if (statusEl) {
+              statusEl.textContent = en
+                ? "Complete sign-in in the new tab, then try your action again."
+                : "Conclua o login na nova aba e tente a acao novamente.";
+              statusEl.className = "pull-status";
+            }
+          } else {
+            if (popup) { popup.close(); }
+            if (statusEl) {
+              statusEl.textContent = (en ? "Error: " : "Erro: ") + (result.data.error || "unknown");
+              statusEl.className = "pull-status is-error";
+            }
+          }
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          if (popup) { popup.close(); }
+          if (statusEl) { statusEl.textContent = (en ? "Error: " : "Erro: ") + e.message; statusEl.className = "pull-status is-error"; }
+        });
     }
 
     function padZ(n) { return n < 10 ? "0" + n : "" + n; }
@@ -2493,11 +2574,17 @@
           })
           .then(function(result) {
             if (!result.ok || !result.calData || !result.calData.google_meet_link) {
-              var errMsg = (result.calData && result.calData.error) ? result.calData.error : (en ? "unknown error" : "erro desconhecido");
+              var errMsg = (result.calData && result.calData.error) ? result.calData.error : "";
               btn.disabled = false;
+              if (isGcalNotConnectedError(errMsg)) {
+                statusEl.textContent = en ? "Session NOT scheduled — Google Calendar needs to be reconnected." : "Sessao NAO agendada — o Google Calendar precisa ser reconectado.";
+                statusEl.className = "pull-status is-error";
+                promptConnectGcal();
+                return;
+              }
               statusEl.textContent = (en
-                ? "Could not create the Google Meet link (" + errMsg + "). Session was NOT scheduled — check the Google Calendar connection (add-user.html) and try again."
-                : "Nao foi possivel criar o link do Google Meet (" + errMsg + "). A sessao NAO foi agendada — verifique a conexao do Google Calendar (add-user.html) e tente novamente.");
+                ? "Could not create the Google Meet link (" + (errMsg || "unknown error") + "). Session was NOT scheduled — try again."
+                : "Nao foi possivel criar o link do Google Meet (" + (errMsg || "erro desconhecido") + "). A sessao NAO foi agendada — tente novamente.");
               statusEl.className = "pull-status is-error";
               return;
             }
@@ -2693,6 +2780,7 @@
         .catch(function(e) {
           btn.disabled = false;
           if (st2) { st2.textContent = (en ? "Error: " : "Erro: ") + e.message; st2.className = "pull-status is-error"; }
+          if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }
         });
     }
 

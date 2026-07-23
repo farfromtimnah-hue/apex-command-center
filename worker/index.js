@@ -2291,7 +2291,7 @@ async function handleGoogleOAuthStart(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         // Generate a cryptographically-random state value and store it server-side
         // (bound to the initiating developer) so the callback can verify it.
@@ -2396,14 +2396,14 @@ async function handleGoogleOAuthCallback(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: GET /api/google/oauth/status
-// Auth: developer or alice. Returns { connected: true/false } — never the token.
+// Auth: developer, alice, or rafa. Returns { connected: true/false } — never the token.
 // ---------------------------------------------------------------------------
 
 async function handleGoogleOAuthStatus(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "developer" && user.role !== "alice") { return jsonErr("Forbidden", 403); }
+        if (user.role !== "developer" && user.role !== "alice" && user.role !== "rafa") { return jsonErr("Forbidden", 403); }
 
         var row = await env.DB.prepare(
             "SELECT id FROM oauth_tokens WHERE id = 'google_calendar'"

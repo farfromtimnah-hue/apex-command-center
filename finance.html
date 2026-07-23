@@ -463,7 +463,11 @@
     .recon-tx-card:hover { box-shadow: var(--shadow); }
     .recon-tx-card.is-dragging { opacity: 0.4; }
     .recon-tx-card .recon-tx-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .recon-tx-card .tx-desc { max-width: 320px; }
+    /* Full text always visible -- wraps instead of truncating. A real bank
+       wire memo cut off with no way to see the rest made it impossible to
+       tell which client a payment was from (2026-07-22 real incident). */
+    .recon-tx-desc { color: var(--text); white-space: normal; overflow-wrap: break-word; }
+    .tx-payee { font-size: 12px; color: var(--muted); white-space: normal; overflow-wrap: break-word; }
     .recon-tx-card .recon-tx-date { font-size: 12px; color: var(--muted); }
     .recon-tx-card .recon-tx-amount { font-size: 15px; white-space: nowrap; }
     .recon-tx-card .recon-tx-actions { display: flex; gap: 6px; }
@@ -3688,6 +3692,18 @@
       return '<span class="chip ' + cls + '"><span class="show-pt">' + escHtml(labelPt) + '</span><span class="show-en">' + escHtml(labelEn) + '</span></span>';
     }
 
+    // Full description + payee (when distinct), never truncated -- used
+    // anywhere a single transaction needs to be identified (e.g. matching
+    // a wire to the right invoice, which is unworkable if the text that
+    // would tell you who sent it is cut off).
+    function reconTxLabel(t) {
+      var label = escHtml(t.description || "--");
+      if (t.payee && t.payee !== t.description) {
+        label += '<br><span class="tx-payee">' + escHtml(t.payee) + '</span>';
+      }
+      return label;
+    }
+
     // Renders the inbox as draggable cards (desktop) / tappable cards (mobile),
     // and the folder rail alongside it. Date-range picker (see
     // onReconDateRangeChange) only ever affects the folder rail's totals --
@@ -3708,7 +3724,17 @@
       var html = "";
       for (var i = 0; i < txs.length; i++) {
         var t = txs[i];
-        var desc = t.description || t.payee || "--";
+        var desc = t.description || "--";
+        // payee is often the actual counterparty name (e.g. who a wire came
+        // from) even when description is just a generic bank memo -- shown
+        // as its own line, not silently dropped whenever description also
+        // has a value, and never truncated (both fully wrap now instead of
+        // ellipsis-cutting -- confirmed real case where a wire's sender was
+        // unreadable because the memo text was cut off with no way to see
+        // the rest).
+        var payeeHtml = (t.payee && t.payee !== t.description)
+          ? '<div class="tx-payee">' + escHtml(t.payee) + '</div>'
+          : "";
         var isDeposit = typeof t.is_income === "boolean"
           ? t.is_income
           : (t.transaction_type === "deposit" || t.transaction_type === "sales_without_invoices" || t.transaction_type === "interest_income" || t.transaction_type === "other_income");
@@ -3720,7 +3746,8 @@
           (tab === "uncategorized" ? ' ondragstart="onReconCardDragStart(event,\'' + escHtml(t.transaction_id) + '\')" ondragend="onReconCardDragEnd(event)" onclick="onReconCardTap(\'' + escHtml(t.transaction_id) + '\')"' : '') +
           '>';
         html += '<div class="recon-tx-main">';
-        html += '<div class="tx-desc" title="' + escHtml(desc) + '">' + escHtml(desc) + '</div>';
+        html += '<div class="recon-tx-desc">' + escHtml(desc) + '</div>';
+        html += payeeHtml;
         html += '<div class="recon-tx-date">' + escHtml(fmtDate(t.date)) + ' &middot; ' + escHtml(t.account_name || "--") + ' &middot; ' + reconStatusChip(t.status) + '</div>';
         html += '</div>';
         html += '<div class="recon-tx-amount ' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</div>';
@@ -3885,7 +3912,7 @@
       var listEl  = document.getElementById("reconFolderSheetList");
       var t = reconTxCache[txnId];
       if (infoEl && t) {
-        infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + escHtml(t.description || t.payee || "--");
+        infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + reconTxLabel(t);
       }
       if (listEl) {
         var html = '<div class="recon-folder-sheet-item recon-folder-client-income" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + CLIENT_INCOME_KEY + '\')">' +
@@ -4074,7 +4101,7 @@
 
       var t = reconTxCache[txnId];
       if (infoEl && t) {
-        infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + escHtml(t.description || t.payee || "--");
+        infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + reconTxLabel(t);
       }
       if (invSel) { invSel.innerHTML = '<option value="">--</option>'; invSel.disabled = true; }
       if (confirmBtn) { confirmBtn.disabled = true; }

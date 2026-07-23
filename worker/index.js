@@ -5711,13 +5711,17 @@ async function handlePostReconciliationAction(transactionId, action, request, en
 // Reuses aggregateZohoTransactions (see handleGetFinanceOverview above) --
 // same categorized-transaction fetch, just grouped by category instead of by
 // month. Defaults from/to to the current calendar month when omitted.
-// UNVERIFIED: the exact field Zoho attaches to a categorized bank transaction
-// identifying which chart-of-accounts category it landed in was not
-// confirmed against live docs. This checks several plausible field names
-// (category_id/category_name, debit_or_credit_account_id/_name) and falls
-// back to grouping under the transaction's account_name if none are present
-// -- confirm against a real categorized transaction before relying on this
-// for anything beyond a rough total.
+// CORRECTED 2026-07-22/23: the prior field-name guesses (category_id,
+// debit_or_credit_account_id) were confirmed wrong by fetching a real
+// categorized banktransaction directly from Zoho -- neither field exists.
+// The real field is `offset_account_name` (present on every categorized
+// transaction, confirmed for both an expense-type and an owner_drawings/
+// equity-type categorization). Zoho does NOT return an offset account ID,
+// only its name, so this builds a name -> account_id map from the chart of
+// accounts (same Expense+Equity fetch handleGetFinanceCategories already
+// does) to resolve back to the real account_id every other part of this
+// app keys folders by. Client Income is still identified via customer_id,
+// confirmed present and correct on a real customer_payment transaction.
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -5753,9 +5757,27 @@ async function handleGetReconciliationCategoryTotals(request, env) {
             return jsonErr(e.message, 502);
         }
 
-        // Custom labels (AKA) substitute for the real Zoho category_name in
+        // Build offset_account_name -> account_id map from the real chart of
+        // accounts (same Expense+Equity filters as handleGetFinanceCategories)
+        // -- Zoho's categorized-transaction list only ever returns the
+        // category's NAME, never its account_id, so this is the only way to
+        // resolve back to the real id every folder/label/hide-state is keyed by.
+        var nameToId = {};
+        var coaFilters = [
+            { filter: "AccountType.Expense" },
+            { filter: "AccountType.Equity" }
+        ];
+        for (var f = 0; f < coaFilters.length; f++) {
+            var coaRes = await zohoBankingFetch(zohoAuth, "GET", "chartofaccounts?filter_by=" + coaFilters[f].filter + "&per_page=200");
+            if (coaRes.ok) {
+                var coa = coaRes.data.chartofaccounts || [];
+                for (var c = 0; c < coa.length; c++) { nameToId[coa[c].account_name] = coa[c].account_id; }
+            }
+        }
+
+        // Custom labels (AKA) substitute for the real Zoho account_name in
         // this tally display too -- purely cosmetic, keyed by the same
-        // category_id every categorize action already uses.
+        // account_id every categorize action already uses.
         var labelRows = await env.DB.prepare("SELECT category_account_id, custom_label FROM finance_category_labels").all();
         var labelSet = {};
         for (var lr = 0; lr < labelRows.results.length; lr++) { labelSet[labelRows.results[lr].category_account_id] = labelRows.results[lr].custom_label; }
@@ -5767,10 +5789,11 @@ async function handleGetReconciliationCategoryTotals(request, env) {
             var key, label;
             if (isClientIncome) {
                 key = "client_income";
-                label = "Client Income";
+                label = labelSet["client_income"] || "Client Income";
             } else {
-                key   = t.category_id || t.debit_or_credit_account_id || t.account_id || "uncategorized_other";
-                label = labelSet[key] || t.category_name || t.debit_or_credit_account_name || t.account_name || "Other";
+                var resolvedId = nameToId[t.offset_account_name];
+                key   = resolvedId || ("unresolved:" + (t.offset_account_name || "unknown"));
+                label = labelSet[key] || t.offset_account_name || "Other";
             }
             if (!byCategory[key]) { byCategory[key] = { category_id: key, category_name: label, total: 0, count: 0 }; }
             byCategory[key].total += Math.abs(parseFloat(t.amount) || 0);

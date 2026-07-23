@@ -2059,6 +2059,7 @@ async function handlePostSessionsSchedule(request, env) {
         if (body.session_type !== "online_meet" && body.session_type !== "in_person") {
             return jsonErr("session_type must be online_meet or in_person", 400);
         }
+        var meetingCategory = body.meeting_category === "prospective" ? "prospective" : "client";
 
         var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
             .bind(body.client_id).first();
@@ -2071,12 +2072,12 @@ async function handlePostSessionsSchedule(request, env) {
         }
 
         await env.DB.prepare(
-            "INSERT INTO sessions (id, client_id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?)"
-        ).bind(sessionId, body.client_id, client.name, body.date, body.time, body.session_type, meetLink, body.google_event_id || null, body.notes || null).run();
+            "INSERT INTO sessions (id, client_id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?)"
+        ).bind(sessionId, body.client_id, client.name, body.date, body.time, body.session_type, meetLink, body.google_event_id || null, body.notes || null, meetingCategory).run();
 
         var session = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status, whatsapp_sent_at, created_at " +
+            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, created_at " +
             "FROM sessions WHERE id = ?"
         ).bind(sessionId).first();
 
@@ -2105,7 +2106,7 @@ async function handleGetSessionsCalendar(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, " +
-            "google_event_id, calendar_provider, html_link, end_time, attendees, raw_transcript, pdf_data " +
+            "google_event_id, calendar_provider, html_link, end_time, attendees, raw_transcript, pdf_data, meeting_category " +
             "FROM sessions WHERE date LIKE ? AND status != 'discarded' ORDER BY date ASC, time ASC"
         ).bind(month + "-%").all();
 
@@ -2126,7 +2127,8 @@ async function handleGetSessionsCalendar(request, env) {
                 end_time:           row.end_time,
                 attendees:          row.attendees ? JSON.parse(row.attendees) : null,
                 has_transcript:     !!row.raw_transcript,
-                has_pdf:            !!row.pdf_data
+                has_pdf:            !!row.pdf_data,
+                meeting_category:   row.meeting_category || "client"
             };
         });
 

@@ -41,6 +41,12 @@
       --cal-external       : #e8e2d9;
       --cal-external-text  : #6b6660;
       --cal-external-border: #b9b2a6;
+      /* Prospective (lead) meetings -- black with gold text, deliberately
+         distinct from navy(online)/gold-solid(in-person)/tan(external) so
+         it stands out at a glance as "not a regular client meeting." */
+      --cal-prospective       : #000000;
+      --cal-prospective-text  : #C9A43A;
+      --cal-prospective-border: #C9A43A;
     }
 
     body {
@@ -441,9 +447,10 @@
       box-sizing: border-box;
       min-width: 0;
     }
-    .cal-chip.online    { background: var(--cal-online);   color: var(--cal-online-text); }
-    .cal-chip.inperson  { background: var(--cal-inperson); color: var(--cal-inperson-text); }
-    .cal-chip.external  { background: var(--cal-external); color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
+    .cal-chip.online      { background: var(--cal-online);      color: var(--cal-online-text); }
+    .cal-chip.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
+    .cal-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
+    .cal-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-chip:hover { opacity: 0.88; }
     .cal-chip-badge {
       display: inline-block;
@@ -528,9 +535,10 @@
       cursor: pointer;
       margin-bottom: 2px;
     }
-    .cal-week-chip.online   { background: var(--cal-online);   color: var(--cal-online-text); }
-    .cal-week-chip.inperson { background: var(--cal-inperson); color: var(--cal-inperson-text); }
-    .cal-week-chip.external { background: var(--cal-external); color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
+    .cal-week-chip.online      { background: var(--cal-online);      color: var(--cal-online-text); }
+    .cal-week-chip.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
+    .cal-week-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
+    .cal-week-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-week-chip:hover { opacity: 0.88; }
 
     /* ─── Day view ───────────────────────────────────────────────────────── */
@@ -590,9 +598,10 @@
       margin-bottom: 3px;
       display: block;
     }
-    .cal-day-chip.online   { background: var(--cal-online);   color: var(--cal-online-text); }
-    .cal-day-chip.inperson { background: var(--cal-inperson); color: var(--cal-inperson-text); }
-    .cal-day-chip.external { background: var(--cal-external); color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
+    .cal-day-chip.online      { background: var(--cal-online);      color: var(--cal-online-text); }
+    .cal-day-chip.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
+    .cal-day-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
+    .cal-day-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-day-chip:hover { opacity: 0.88; }
 
     /* ─── Empty state ────────────────────────────────────────────────────── */
@@ -633,8 +642,9 @@
       font-size: 11px;
       font-weight: 700;
     }
-    .type-pill.online   { background: var(--cal-online);   color: var(--cal-online-text); }
-    .type-pill.inperson { background: var(--cal-inperson); color: var(--cal-inperson-text); }
+    .type-pill.online      { background: var(--cal-online);      color: var(--cal-online-text); }
+    .type-pill.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
+    .type-pill.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
 
     /* ─── Toast ──────────────────────────────────────────────────────────── */
     #calToast {
@@ -1153,6 +1163,27 @@
             </option>
           </select>
         </div>
+        <!-- Meeting category toggle: client (real, paying) vs prospective
+             (a lead who hasn't signed yet). Defaults to Client; auto-flips
+             to Prospective when the selected client's own status is "lead",
+             but can always be overridden manually either direction. -->
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Categoria</span>
+            <span class="show-en">Category</span>
+          </div>
+          <div class="type-toggle">
+            <button class="type-toggle-btn active" id="nsCategoryClient" onclick="setNewSessionCategory('client')">
+              <span class="show-pt">Cliente</span>
+              <span class="show-en">Client</span>
+            </button>
+            <button class="type-toggle-btn" id="nsCategoryProspective" onclick="setNewSessionCategory('prospective')">
+              <span class="show-pt">Cliente Potencial</span>
+              <span class="show-en">Prospective</span>
+            </button>
+          </div>
+          <input type="hidden" id="nsCategoryVal" value="client">
+        </div>
         <!-- Date -->
         <div class="field-group">
           <div class="field-label">
@@ -1347,6 +1378,14 @@
             <span class="show-en">Type</span>
           </span>
           <span id="detailTypePill"></span>
+        </div>
+
+        <div class="detail-row" id="detailCategoryRow">
+          <span class="detail-row-label">
+            <span class="show-pt">Reuniao</span>
+            <span class="show-en">Meeting</span>
+          </span>
+          <span id="detailCategoryPill"></span>
         </div>
 
         <div class="detail-row" id="detailStatusRow">
@@ -1737,6 +1776,7 @@
         var opt = document.createElement("option");
         opt.value = clients[i].id;
         opt.textContent = clients[i].name;
+        opt.dataset.status = clients[i].status || "";
         sel.appendChild(opt);
       }
 
@@ -1748,7 +1788,14 @@
       if (sel.value === "__add_new__") {
         sel.value = "";
         openModal("modalQuickAddClient");
+        return;
       }
+      // Auto-default the category toggle from the selected client's own
+      // status, but this is only a default -- Alice/Rafa can still flip
+      // it manually either direction afterward.
+      var opt = sel.options[sel.selectedIndex];
+      var status = opt ? opt.dataset.status : "";
+      setNewSessionCategory(status === "lead" ? "prospective" : "client");
     }
 
     function openModal(id) {
@@ -2095,9 +2142,15 @@
       }
     }
 
+    function sessionTypeCls(session) {
+      if (session.source === "external") { return "external"; }
+      if (session.meeting_category === "prospective") { return "prospective"; }
+      return (session.session_type === "in_person") ? "inperson" : "online";
+    }
+
     function makeMonthChip(session) {
       var chip = document.createElement("div");
-      var typeCls = session.source === "external" ? "external" : (session.session_type === "in_person") ? "inperson" : "online";
+      var typeCls = sessionTypeCls(session);
       chip.className = "cal-chip " + typeCls;
 
       var nameSpan = document.createElement("span");
@@ -2221,7 +2274,7 @@
 
     function makeWeekChip(session) {
       var chip = document.createElement("div");
-      var typeCls = session.source === "external" ? "external" : (session.session_type === "in_person") ? "inperson" : "online";
+      var typeCls = sessionTypeCls(session);
       chip.className = "cal-week-chip " + typeCls;
       var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
@@ -2312,7 +2365,7 @@
 
     function makeDayChip(session) {
       var chip = document.createElement("div");
-      var typeCls = session.source === "external" ? "external" : (session.session_type === "in_person") ? "inperson" : "online";
+      var typeCls = sessionTypeCls(session);
       chip.className = "cal-day-chip " + typeCls;
       var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
@@ -2494,6 +2547,7 @@
       document.getElementById("nsTime").value   = "";
       document.getElementById("nsNotes").value  = "";
       setNewSessionType("online_meet");
+      setNewSessionCategory("client");
       var st = document.getElementById("nsStatus");
       if (st) { st.textContent = ""; st.className = "pull-status"; }
       document.getElementById("modalNewSession").hidden = false;
@@ -2508,11 +2562,18 @@
       else                 { wrap.classList.add("hidden-field"); }
     }
 
+    function setNewSessionCategory(category) {
+      document.getElementById("nsCategoryClient").className      = "type-toggle-btn" + (category === "client"      ? " active" : "");
+      document.getElementById("nsCategoryProspective").className = "type-toggle-btn" + (category === "prospective" ? " active" : "");
+      document.getElementById("nsCategoryVal").value              = category;
+    }
+
     function handleNewSession() {
       var clientId = document.getElementById("nsClient").value;
       var date     = document.getElementById("nsDate").value;
       var time     = document.getElementById("nsTime").value;
       var type     = document.getElementById("nsTypeVal").value || "online_meet";
+      var category = document.getElementById("nsCategoryVal").value || "client";
       var notes    = document.getElementById("nsNotes").value;
       var statusEl = document.getElementById("nsStatus");
       var btn      = document.getElementById("btnNsSubmit");
@@ -2529,7 +2590,7 @@
       function scheduleSession(meetLink, googleEventId) {
         statusEl.textContent = en ? "Scheduling session..." : "Agendando sessao...";
         statusEl.className = "pull-status";
-        var body = { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null };
+        var body = { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null, meeting_category: category };
         if (meetLink) { body.google_meet_link = meetLink; }
         if (googleEventId) { body.google_event_id = googleEventId; }
         apiFetch("/api/sessions/schedule", { method: "POST", body: body })
@@ -2554,6 +2615,10 @@
 
         var clientSelect = document.getElementById("nsClient");
         var clientName = clientSelect.options[clientSelect.selectedIndex].text || "Consultoria";
+        // Visible to the client -- Google Meet shows this as the waiting-room
+        // title. Real clients get "Name - RDE"; prospective (lead) meetings
+        // stay as just the name, no suffix, per Nicole's explicit instruction.
+        var meetingTitle = category === "prospective" ? clientName : clientName + " - RDE";
 
         var timeParts = time.split(":");
         var endHour = parseInt(timeParts[0], 10) + 1;
@@ -2563,7 +2628,7 @@
         apiFetch("/api/google/calendar/event", {
           method: "POST",
           body: {
-            summary: clientName + " - Consultoria Apex",
+            summary: meetingTitle,
             start_datetime: date + "T" + time + ":00",
             end_datetime: date + "T" + endTime + ":00",
             add_meet_link: true
@@ -2621,6 +2686,16 @@
         typeLabel = "Google Meet";
       }
       typePillEl.innerHTML = '<span class="type-pill ' + typeCls + '">' + escHtml(typeLabel) + '</span>';
+
+      var categoryRowEl = document.getElementById("detailCategoryRow");
+      if (isExternal || session.meeting_category !== "prospective") {
+        categoryRowEl.hidden = true;
+      } else {
+        categoryRowEl.hidden = false;
+        var categoryLabel = en ? "Prospective Client" : "Cliente Potencial";
+        document.getElementById("detailCategoryPill").innerHTML =
+          '<span class="type-pill prospective">' + escHtml(categoryLabel) + '</span>';
+      }
 
       document.getElementById("detailStatusRow").hidden = isExternal;
       document.getElementById("detailExternalRow").hidden = !isExternal;

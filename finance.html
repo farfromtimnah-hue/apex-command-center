@@ -3981,6 +3981,14 @@
           reconCategoryTotals[folderKey].count += 1;
           renderReconFolders();
           loadReconciliation("uncategorized");
+          // Dashboard hero tiles (Monthly Income/Expenses/Net) and the chart
+          // both read live from Zoho via their own endpoints -- they don't
+          // auto-refresh just because a categorization happened elsewhere on
+          // the page, so without this a categorize action looks like it
+          // "didn't count" until a manual page reload (real report
+          // 2026-07-22: Nicole was fooled by this exact gap while testing).
+          loadOverview();
+          loadChartData();
           showToast("Transacao categorizada / Transaction categorized");
         })
         .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao categorizar")); });
@@ -4251,6 +4259,8 @@
           reconCategoryTotals[CLIENT_INCOME_KEY].count += 1;
           renderReconFolders();
           loadReconciliation(currentReconTab);
+          loadOverview();
+          loadChartData();
           showToast("Transacao vinculada / Transaction matched");
         })
         .catch(function(e) {
@@ -4293,6 +4303,16 @@
           if (data.error) { throw new Error(data.error); }
           loadReconciliation(currentReconTab);
           if (action !== "exclude") { loadReconciliation("uncategorized"); }
+          // unmatch (and restore, for an excluded income transaction) can
+          // change real income/expense totals just like categorizing does --
+          // same dashboard-staleness gap as categorizeIntoFolder/confirmReconMatch.
+          // loadReconCategoryTotals() already resets reconCategoryTotals to {}
+          // internally right before repopulating -- no need to null it here,
+          // and doing so would risk a null-dereference in renderReconFolders()
+          // if it runs before this fetch resolves.
+          loadReconCategoryTotals();
+          loadOverview();
+          loadChartData();
           showToast(toastMsg);
         })
         .catch(function(e) { showToast("Erro: " + (e.message || "Falha")); });

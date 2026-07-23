@@ -5529,10 +5529,18 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
 // distinct from the customer-payment categorize path. account_id is required
 // in the body per the live-verified 2026-07-06 gotcha (Zoho code 11086
 // "Invalid account chosen" without it) -- same requirement applies here.
-// UNVERIFIED: this route has not yet been exercised against a real live
-// uncategorized transaction; the exact category field name Zoho expects
-// (category_id vs debit_or_credit_account_id) should be confirmed with a
-// real test call before this is marked done in progress.md.
+// CORRECTED 2026-07-22, real test call: the original guess 404/failed live
+// ("Please enter valid expense account") on both counts confirmed via
+// Zoho's own docs (fetched directly, not search-summarized) --
+// (1) path must be plural "categorize/expenses", not "categorize/expense"
+// (matches the confirmed-working sibling "categorize/customerpayments"
+// convention); (2) "category_id" is not a real Zoho field at all -- the
+// documented attribute for "which account the money is categorized into"
+// is to_account_id (from_account_id/to_account_id pair), not category_id.
+// Still not 100% field-confirmed for this specific sub-operation (Zoho's
+// public docs don't show a worked example body for categorize/expenses
+// specifically) -- if this still fails, that's the next thing to check
+// with a real test call before assuming anything else is wrong.
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -5556,14 +5564,14 @@ async function handlePostReconciliationCategorize(transactionId, request, env) {
         }
 
         var catBody = {
-            account_id:  body.account_id,
-            category_id: body.category_account_id,
-            date:        body.date,
-            amount:      parseFloat(body.amount) || 0,
-            description: body.description || ""
+            from_account_id: body.account_id,
+            to_account_id:   body.category_account_id,
+            date:            body.date,
+            amount:          parseFloat(body.amount) || 0,
+            description:     body.description || ""
         };
         var catRes = await zohoBankingFetch(zohoAuth, "POST",
-            "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/expense",
+            "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/expenses",
             catBody);
         if (!catRes.ok) {
             return jsonErr("Zoho categorize-as-expense failed: " + (catRes.data.message || JSON.stringify(catRes.data)), 502);

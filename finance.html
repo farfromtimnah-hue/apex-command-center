@@ -3820,7 +3820,7 @@
       var html = '<div class="recon-folder recon-folder-client-income" data-folder-key="' + CLIENT_INCOME_KEY + '"' +
         ' ondragover="onReconFolderDragOver(event)" ondragleave="onReconFolderDragLeave(event)" ondrop="onReconFolderDrop(event,\'' + CLIENT_INCOME_KEY + '\')">' +
         '<div class="recon-folder-name-col">' +
-        '<div class="recon-folder-name"><span class="show-pt">Renda de Cliente</span><span class="show-en">Client Income</span></div>' +
+        '<div class="recon-folder-name"><span class="show-pt">Pagamento de Cliente</span><span class="show-en">Client Income</span></div>' +
         '<div class="recon-folder-sub"><span class="show-pt">associar a uma fatura</span><span class="show-en">match to an invoice</span></div>' +
         '</div>' +
         reconFolderTotalHtml(CLIENT_INCOME_KEY) +
@@ -3916,7 +3916,7 @@
       }
       if (listEl) {
         var html = '<div class="recon-folder-sheet-item recon-folder-client-income" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + CLIENT_INCOME_KEY + '\')">' +
-          '<span class="show-pt">Renda de Cliente &mdash; associar a uma fatura</span><span class="show-en">Client Income &mdash; match to an invoice</span></div>';
+          '<span class="show-pt">Pagamento de Cliente &mdash; associar a uma fatura</span><span class="show-en">Client Income &mdash; match to an invoice</span></div>';
         for (var i = 0; i < (reconCategories || []).length; i++) {
           var cat = reconCategories[i];
           html += '<div class="recon-folder-sheet-item" onclick="categorizeIntoFolder(\'' + escHtml(txnId) + '\',\'' + escHtml(cat.account_id) + '\')">' +

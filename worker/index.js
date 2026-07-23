@@ -512,10 +512,15 @@ async function handleGetFirefliesTranscripts(request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
+        // Bumped from 15 -- real incident 2026-07-23: Fireflies kept
+        // recording during a storage-cap outage (see #5 in the 07-18/19
+        // session summary), so more than 15 meetings can realistically be
+        // sitting unpulled when the account gets upgraded and this list is
+        // checked again.
         var data = await firefliesGraphQL(env,
             "query Transcripts($limit: Int) { transcripts(limit: $limit) { " +
             "id title date duration organizer_email } }",
-            { limit: 15 }
+            { limit: 50 }
         );
 
         var dismissedRows = await env.DB.prepare(
@@ -526,6 +531,23 @@ async function handleGetFirefliesTranscripts(request, env) {
             dismissed[dismissedRows.results[d].transcript_id] = true;
         }
 
+        // Flag which transcripts are already imported (fireflies_id stored
+        // inside sessions.task_completions, see ingestFirefliesTranscript)
+        // so the manual-pull picker can show this BEFORE a click, not only
+        // after -- real gap found 2026-07-23: Nicole couldn't tell what was
+        // safe to pull without importing everything and reading each
+        // button's after-the-fact "Already imported" result.
+        var importedRows = await env.DB.prepare(
+            "SELECT task_completions FROM sessions WHERE task_completions LIKE '%fireflies_id%'"
+        ).all();
+        var imported = {};
+        for (var ir = 0; ir < importedRows.results.length; ir++) {
+            try {
+                var tc = JSON.parse(importedRows.results[ir].task_completions);
+                if (tc && tc.fireflies_id) { imported[tc.fireflies_id] = true; }
+            } catch (pe) { /* ignore malformed rows */ }
+        }
+
         var list = (data && data.transcripts || [])
             .filter(function(t) { return !dismissed[t.id]; })
             .map(function(t) {
@@ -534,7 +556,8 @@ async function handleGetFirefliesTranscripts(request, env) {
                     title: t.title || "Untitled meeting",
                     date: firefliesDateToYMD(t.date),
                     duration_min: t.duration ? Math.round(t.duration) : null,
-                    organizer_email: t.organizer_email || null
+                    organizer_email: t.organizer_email || null,
+                    already_imported: !!imported[t.id]
                 };
             });
         return jsonOk({ transcripts: list });

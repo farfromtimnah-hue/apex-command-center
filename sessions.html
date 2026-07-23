@@ -1989,25 +1989,32 @@
             ffSetStatus("Nenhuma transcrição encontrada no Fireflies.", "No transcripts found in Fireflies.");
             return;
           }
+          var isPtLang = document.body.classList.contains("lang-pt");
           items.forEach(function(t) {
             var row = document.createElement("div");
             row.id = "ffRow_" + t.id;
-            row.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;";
+            row.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;" +
+              (t.already_imported ? " opacity:0.55;" : "");
             var label = document.createElement("span");
             label.style.cssText = "font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
-            label.textContent = (t.date || "") + " — " + t.title + (t.duration_min ? " (" + t.duration_min + " min)" : "");
+            // Shown up front, not just after clicking Import -- real gap
+            // 2026-07-23: with Fireflies recording through a storage-cap
+            // outage, Nicole couldn't tell which of the backlog were
+            // already pulled in without importing everything first.
+            var importedTag = t.already_imported ? (isPtLang ? " [já importado]" : " [already imported]") : "";
+            label.textContent = (t.date || "") + " — " + t.title + (t.duration_min ? " (" + t.duration_min + " min)" : "") + importedTag;
             var btnGroup = document.createElement("span");
             btnGroup.style.cssText = "display:flex; gap:6px; flex-shrink:0;";
             var btn = document.createElement("button");
             btn.type = "button";
             btn.className = "btn btn-secondary";
             btn.style.cssText = "flex-shrink:0; font-size:12px; padding:4px 10px;";
-            btn.textContent = document.body.classList.contains("lang-pt") ? "Importar" : "Import";
+            btn.textContent = t.already_imported ? (isPtLang ? "Já importado" : "Already imported") : (isPtLang ? "Importar" : "Import");
             btn.onclick = function() { ffImport(t.id, btn); };
             var dismissBtn = document.createElement("button");
             dismissBtn.type = "button";
             dismissBtn.className = "btn btn-secondary";
-            dismissBtn.title = document.body.classList.contains("lang-pt") ? "Ocultar (nao afeta o Fireflies)" : "Hide (does not affect Fireflies)";
+            dismissBtn.title = isPtLang ? "Ocultar (nao afeta o Fireflies)" : "Hide (does not affect Fireflies)";
             dismissBtn.style.cssText = "flex-shrink:0; font-size:12px; padding:4px 8px; color:#9ca3af;";
             dismissBtn.textContent = "✕";
             dismissBtn.onclick = function() { ffDismiss(t.id, row); };

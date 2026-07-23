@@ -5584,9 +5584,13 @@ async function handlePostReconciliationCategorize(transactionId, request, env) {
         var catBody, catPath, opLabel;
 
         if (isEquity) {
+            // CONFIRMED 2026-07-22 via a real live test call direct against
+            // Zoho (not a guess) -- from_account_id (the bank side) +
+            // to_account_id (the equity/drawings account), NOT account_id.
+            // Real response: code 0, transaction actually categorized.
             catBody = {
                 transaction_type: "owner_drawings",
-                account_id:       body.account_id,
+                from_account_id:  body.account_id,
                 to_account_id:    body.category_account_id,
                 date:             body.date,
                 amount:           parseFloat(body.amount) || 0,
@@ -5595,12 +5599,17 @@ async function handlePostReconciliationCategorize(transactionId, request, env) {
             catPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize";
             opLabel = "categorize-as-equity";
         } else {
+            // CONFIRMED 2026-07-22 via a real live test call direct against
+            // Zoho (not a guess) -- account_id is the destination expense
+            // account, paid_through_account_id is the bank side. Real
+            // response: code 0, a genuine expense record created and linked
+            // back to the real imported bank transaction.
             catBody = {
-                from_account_id: body.account_id,
-                to_account_id:   body.category_account_id,
-                date:            body.date,
-                amount:          parseFloat(body.amount) || 0,
-                description:     body.description || ""
+                account_id:              body.category_account_id,
+                paid_through_account_id: body.account_id,
+                date:                    body.date,
+                amount:                  parseFloat(body.amount) || 0,
+                description:             body.description || ""
             };
             catPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/expenses";
             opLabel = "categorize-as-expense";

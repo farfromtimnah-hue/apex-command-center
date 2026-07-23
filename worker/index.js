@@ -5581,6 +5581,7 @@ async function handlePostReconciliationCategorize(transactionId, request, env) {
         }
 
         var isEquity = body.category_account_type === "equity";
+        var isIncome = body.category_account_type === "income";
         var catBody, catPath, opLabel;
 
         if (isEquity) {
@@ -5598,6 +5599,27 @@ async function handlePostReconciliationCategorize(transactionId, request, env) {
             };
             catPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize";
             opLabel = "categorize-as-equity";
+        } else if (isIncome) {
+            // CONFIRMED 2026-07-22 via a real live test call direct against
+            // Zoho (not a guess) -- generic categorize endpoint,
+            // transaction_type "deposit". Roles are INVERTED from
+            // owner_drawings: from_account_id is the income category (money
+            // conceptually originates from Income), to_account_id is the
+            // bank account (where it lands) -- confirmed by testing the
+            // non-inverted pairing first, which failed with a real Zoho
+            // error (code 108025 "Transaction is not associated to the
+            // specified bank"), then the inverted pairing, which succeeded
+            // (code 0, real transaction categorized against "Event Income").
+            catBody = {
+                transaction_type: "deposit",
+                from_account_id:  body.category_account_id,
+                to_account_id:    body.account_id,
+                date:             body.date,
+                amount:           parseFloat(body.amount) || 0,
+                description:      body.description || ""
+            };
+            catPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize";
+            opLabel = "categorize-as-income";
         } else {
             // CONFIRMED 2026-07-22 via a real live test call direct against
             // Zoho (not a guess) -- account_id is the destination expense
@@ -5765,7 +5787,8 @@ async function handleGetReconciliationCategoryTotals(request, env) {
         var nameToId = {};
         var coaFilters = [
             { filter: "AccountType.Expense" },
-            { filter: "AccountType.Equity" }
+            { filter: "AccountType.Equity" },
+            { filter: "AccountType.Income" }
         ];
         for (var f = 0; f < coaFilters.length; f++) {
             var coaRes = await zohoBankingFetch(zohoAuth, "GET", "chartofaccounts?filter_by=" + coaFilters[f].filter + "&per_page=200");
@@ -6195,7 +6218,8 @@ async function handleGetFinanceCategories(request, env) {
         var categories = [];
         var filters = [
             { filter: "AccountType.Expense", type: "expense" },
-            { filter: "AccountType.Equity",  type: "equity" }
+            { filter: "AccountType.Equity",  type: "equity" },
+            { filter: "AccountType.Income",  type: "income" }
         ];
         for (var f = 0; f < filters.length; f++) {
             var coaRes = await zohoBankingFetch(zohoAuth, "GET", "chartofaccounts?filter_by=" + filters[f].filter + "&per_page=200");
@@ -6378,7 +6402,7 @@ async function handlePostFinanceCategory(request, env) {
 
         var body = await request.json();
         if (!body.account_name || !body.account_name.trim()) { return jsonErr("account_name is required", 400); }
-        var accountType = (body.account_type === "equity") ? "equity" : "expense";
+        var accountType = (body.account_type === "equity") ? "equity" : (body.account_type === "income") ? "income" : "expense";
 
         var zohoAuth;
         try {

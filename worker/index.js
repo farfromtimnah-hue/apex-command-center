@@ -304,7 +304,13 @@ async function fetchFirefliesTranscript(env, transcriptId) {
         duration: t.duration || null,   // minutes
         organizer_email: t.organizer_email || null,
         meeting_link: t.meeting_link || null,
-        transcript_text: text
+        transcript_text: text,
+        // Diagnostic only -- real incident 2026-07-23: every single manual
+        // pull failed with "no content yet" across a real multi-day backlog
+        // (not just the newest meeting), which the generic error message
+        // couldn't distinguish from a real per-meeting processing delay.
+        _debug_sentences_count: Array.isArray(t.sentences) ? t.sentences.length : null,
+        _debug_has_summary: !!(t.summary && t.summary.overview)
     };
 }
 
@@ -609,7 +615,11 @@ async function handlePostFirefliesPull(request, env) {
 
         var meta = await fetchFirefliesTranscript(env, transcriptId);
         if (!meta) { return jsonErr("Transcript not found in Fireflies: " + transcriptId, 404); }
-        if (!meta.transcript_text) { return jsonErr("Transcript has no content yet — Fireflies may still be processing it", 422); }
+        if (!meta.transcript_text) {
+            return jsonErr("Transcript has no content yet (sentences: " + meta._debug_sentences_count +
+                ", has_summary: " + meta._debug_has_summary + ") — Fireflies may still be processing it, " +
+                "or check the Fireflies account/plan state directly if this happens on an older meeting too", 422);
+        }
 
         var result = await ingestFirefliesTranscript(env, meta);
         return jsonOk({

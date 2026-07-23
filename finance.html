@@ -4120,10 +4120,18 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          var rowEl = document.getElementById("reconManageCatRow-" + accountId);
-          if (rowEl) { rowEl.classList.toggle("is-hidden", hide); }
+          // Real bug found 2026-07-23: this only ever patched one row's CSS
+          // class locally and never re-fetched the Manage Categories list
+          // itself, so clicking multiple checkboxes in quick succession
+          // (before each request resolved) could leave the modal's visible
+          // checked/unchecked state out of sync with the real D1 state --
+          // Nicole saw ~6 unrelated categories appear to "turn themselves
+          // on" after toggling just one. Re-fetching the real list after
+          // every toggle guarantees what's on screen always matches the
+          // server, even if several toggles overlap.
           reconCategories = null; // force a fresh fetch so the folder rail reflects the change
           loadReconFolders();
+          loadReconManageCategoriesList();
           showToast(hide ? "Categoria escondida / Category hidden" : "Categoria visivel / Category visible");
         })
         .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao atualizar categoria")); });

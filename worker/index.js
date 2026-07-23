@@ -8342,5 +8342,69 @@ export default {
         }
 
         return jsonErr("Not found", 404);
+    },
+
+    // -------------------------------------------------------------------
+    // Cron: runs on the schedule set by `crons` in wrangler.toml. Proactively
+    // exercises both getZohoAccessToken() and getGoogleAccessToken() -- a
+    // real refresh-token exchange against each provider, not just a DB read
+    // -- so a dead refresh token (revoked, expired from inactivity, or
+    // scope drift) is caught here instead of by a client hitting a broken
+    // button first. Alerts Nicole's own Telegram DM directly via the Bot
+    // API on any failure. Successes are silent (no daily "all good" noise).
+    // -------------------------------------------------------------------
+    scheduled: async function(event, env, ctx) {
+        ctx.waitUntil(checkIntegrationHealth(env));
     }
 };
+
+async function checkIntegrationHealth(env) {
+    var failures = [];
+
+    try {
+        await getZohoAccessToken(env);
+    } catch (e) {
+        failures.push("Zoho Books: " + e.message);
+    }
+
+    try {
+        var googleRow = await env.DB.prepare(
+            "SELECT id FROM oauth_tokens WHERE id = 'google_calendar'"
+        ).first();
+        if (!googleRow) {
+            failures.push("Google Calendar: not connected (no stored token)");
+        } else {
+            await getGoogleAccessToken(env);
+        }
+    } catch (e) {
+        failures.push("Google Calendar: " + e.message);
+    }
+
+    if (failures.length > 0) {
+        await notifyNicoleTelegram(env,
+            "Apex integration check failed:\n\n" + failures.join("\n") +
+            "\n\nReconnect via add-user.html when you're at your desktop."
+        );
+    }
+}
+
+// Sends Nicole a DM via the raw Telegram Bot API. Independent of the
+// separate Claude Code Telegram-bot session/MCP setup -- this call goes
+// straight from the Worker to Telegram, so it still works even if that
+// other bot session is itself down. Best-effort: a failed alert is not
+// retried and does not throw, since this runs inside ctx.waitUntil().
+async function notifyNicoleTelegram(env, message) {
+    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_ALERT_CHAT_ID) { return; }
+    try {
+        await fetch("https://api.telegram.org/bot" + env.TELEGRAM_BOT_TOKEN + "/sendMessage", {
+            method:  "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body:    new URLSearchParams({
+                chat_id: env.TELEGRAM_ALERT_CHAT_ID,
+                text:    message
+            }).toString()
+        });
+    } catch (e) {
+        // Nothing else to do -- no second alert channel exists.
+    }
+}

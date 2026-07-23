@@ -14,8 +14,18 @@ database_id   = "03fdcf49-4a1f-43f3-a0d9-d54772074b74"
 binding     = "ASSETS"
 bucket_name = "apex-command-center"
 
+# Runs the `scheduled` handler (worker/index.js) every 4 hours to proactively
+# exercise the Zoho Books + Google Calendar token refresh and alert Nicole's
+# Telegram DM on failure, instead of finding out when a client hits a broken
+# button. See worker/index.js checkIntegrationHealth().
+[triggers]
+crons = ["0 */4 * * *"]
+
 # These vars are placeholders only.
-# Set CLAUDE_API_KEY, FIREFLIES_API_KEY, and FIREFLIES_WEBHOOK_SECRET as Worker Secrets
-# via `wrangler secret put <NAME>` — never commit real keys here.
+# Required Worker Secrets (set via `wrangler secret put <NAME>`, never commit real keys here):
+#   CLAUDE_API_KEY, FIREFLIES_API_KEY, FIREFLIES_WEBHOOK_SECRET,
+#   GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET,
+#   ZOHO_BOOKS_CLIENT_ID, ZOHO_BOOKS_CLIENT_SECRET,
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_ALERT_CHAT_ID
 [vars]
 FIREBASE_PROJECT_ID          = "apex-command-center-4b038"

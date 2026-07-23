@@ -5785,16 +5785,20 @@ async function handleGetReconciliationCategoryTotals(request, env) {
         // category's NAME, never its account_id, so this is the only way to
         // resolve back to the real id every folder/label/hide-state is keyed by.
         var nameToId = {};
+        var nameToType = {};
         var coaFilters = [
-            { filter: "AccountType.Expense" },
-            { filter: "AccountType.Equity" },
-            { filter: "AccountType.Income" }
+            { filter: "AccountType.Expense", type: "expense" },
+            { filter: "AccountType.Equity",  type: "equity" },
+            { filter: "AccountType.Income",  type: "income" }
         ];
         for (var f = 0; f < coaFilters.length; f++) {
             var coaRes = await zohoBankingFetch(zohoAuth, "GET", "chartofaccounts?filter_by=" + coaFilters[f].filter + "&per_page=200");
             if (coaRes.ok) {
                 var coa = coaRes.data.chartofaccounts || [];
-                for (var c = 0; c < coa.length; c++) { nameToId[coa[c].account_name] = coa[c].account_id; }
+                for (var c = 0; c < coa.length; c++) {
+                    nameToId[coa[c].account_name]   = coa[c].account_id;
+                    nameToType[coa[c].account_name] = coaFilters[f].type;
+                }
             }
         }
 
@@ -5809,16 +5813,18 @@ async function handleGetReconciliationCategoryTotals(request, env) {
         for (var i = 0; i < txns.length; i++) {
             var t = txns[i];
             var isClientIncome = !!t.customer_id;
-            var key, label;
+            var key, label, accountType;
             if (isClientIncome) {
                 key = "client_income";
                 label = labelSet["client_income"] || "Client Income";
+                accountType = "income";
             } else {
                 var resolvedId = nameToId[t.offset_account_name];
                 key   = resolvedId || ("unresolved:" + (t.offset_account_name || "unknown"));
                 label = labelSet[key] || t.offset_account_name || "Other";
+                accountType = nameToType[t.offset_account_name] || "expense";
             }
-            if (!byCategory[key]) { byCategory[key] = { category_id: key, category_name: label, total: 0, count: 0 }; }
+            if (!byCategory[key]) { byCategory[key] = { category_id: key, category_name: label, account_type: accountType, total: 0, count: 0 }; }
             byCategory[key].total += Math.abs(parseFloat(t.amount) || 0);
             byCategory[key].count += 1;
         }

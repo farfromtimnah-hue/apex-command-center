@@ -2489,10 +2489,15 @@
     }
 
     function renderDonutChart(totals) {
+      // "Expenses by Category" -- exclude Client Income and any real Income-
+      // type category (e.g. Apex Club - Receita). Real bug found 2026-07-22:
+      // this only ever excluded client_income, so a genuine Income category
+      // rendered inside the expenses breakdown, and its dollar figure got
+      // summed into the donut's own total, throwing that number off too.
       var sorted = [];
       for (var i = 0; i < totals.length; i++) {
         var t = totals[i];
-        if (t.category_id === "client_income") { continue; }
+        if (t.category_id === "client_income" || t.account_type === "income") { continue; }
         sorted.push({ name: t.category_name || "Outro", total: parseFloat(t.total) || 0 });
       }
       sorted.sort(function(a, b) { return b.total - a.total; });

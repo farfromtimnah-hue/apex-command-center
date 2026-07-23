@@ -802,6 +802,43 @@ async function handleGetSessionSectionConfig(sessionId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/sessions/:id/pdf-data
+// Returns the session's current, live pdf_data -- used by "Gerar PDF" to
+// read fresh data at generate-time instead of trusting an in-memory session
+// object that may have been loaded before a section-config edit. Real bug
+// (2026-07-23): Pra. Alice unchecked a report section right before
+// generating, but the PDF still included it -- root cause was
+// handleGeneratePdf (sessions.html) reading session.pdf_data off a session
+// object captured in a closure when the page's action buttons were first
+// rendered, never refreshed after a later section-config save even though
+// the server-side pdf_data was already correctly updated by then.
+// ---------------------------------------------------------------------------
+
+async function handleGetSessionPdfData(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var row = await env.DB.prepare(
+            "SELECT pdf_data, summary_json FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!row) { return jsonErr("Session not found", 404); }
+
+        var pdfData = row.pdf_data;
+        if (!pdfData && row.summary_json) {
+            try {
+                var summary = JSON.parse(row.summary_json);
+                pdfData = summary && summary.pdf_data ? JSON.stringify(summary.pdf_data) : null;
+            } catch (e) { pdfData = null; }
+        }
+
+        return jsonOk({ pdf_data: pdfData ? JSON.parse(pdfData) : null });
+    } catch (e) {
+        return jsonErr("Error fetching pdf data: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: PUT /api/sessions/:id/section-config
 // Body: { section_config: { sections: [...], custom_sections: [...] } }
 // Also refreshes active_sections/custom_sections inside any existing pdf_data
@@ -8279,6 +8316,9 @@ export default {
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "section-config") {
             if (method === "GET") { return handleGetSessionSectionConfig(segs[2], request, env); }
             if (method === "PUT") { return handlePutSessionSectionConfig(segs[2], request, env); }
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "pdf-data" && method === "GET") {
+            return handleGetSessionPdfData(segs[2], request, env);
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "task-completions" && method === "PATCH") {
             return handlePatchSessionTaskCompletions(segs[2], request, env);

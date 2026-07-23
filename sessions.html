@@ -3321,35 +3321,50 @@
       var actionStatus = document.getElementById("actionStatus");
       var btn          = document.getElementById("btnGeneratePdf");
 
-      var pdfData = null;
-      try {
-        var rawPdfData = session.pdf_data;
-        if (!rawPdfData && session.summary_json) {
-          var parsedSummary = typeof session.summary_json === "string"
-            ? JSON.parse(session.summary_json)
-            : session.summary_json;
-          rawPdfData = parsedSummary && parsedSummary.pdf_data ? parsedSummary.pdf_data : null;
-        }
-        if (rawPdfData) {
-          pdfData = typeof rawPdfData === "string" ? JSON.parse(rawPdfData) : rawPdfData;
-        }
-      } catch(e) {
-        if (actionStatus) {
-          actionStatus.textContent = "Erro: nao foi possivel ler pdf_data. / Error: could not read pdf_data.";
-          actionStatus.className = "action-status is-error";
-        }
-        return;
+      if (btn) { btn.disabled = true; }
+      if (actionStatus) {
+        actionStatus.textContent = "Verificando secoes atuais... / Checking current sections...";
+        actionStatus.className = "action-status";
       }
+
+      // Always fetch pdf_data fresh from the server instead of trusting the
+      // `session` object passed in -- that object is captured once, in a
+      // closure, when this page's action buttons were first rendered (see
+      // the pdfBtn.onclick wiring above). A section-config checkbox change
+      // made afterward correctly updates pdf_data on the server (see
+      // handlePutSessionSectionConfig), but this stale in-memory copy never
+      // picked it up -- real bug reported by Pra. Alice 2026-07-23: she
+      // unchecked a section right before generating, and the PDF still
+      // included it, because this function was still reading the pre-edit
+      // snapshot.
+      apiFetch("/api/sessions/" + session.id + "/pdf-data")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          proceedWithPdfData(session, data.pdf_data);
+        })
+        .catch(function(e) {
+          if (actionStatus) {
+            actionStatus.textContent = "Erro ao verificar secoes atuais: " + (e.message || "") + " / Error checking current sections.";
+            actionStatus.className = "action-status is-error";
+          }
+          if (btn) { btn.disabled = false; }
+        });
+    }
+
+    function proceedWithPdfData(session, pdfData) {
+      var actionStatus = document.getElementById("actionStatus");
+      var btn          = document.getElementById("btnGeneratePdf");
 
       if (!pdfData) {
         if (actionStatus) {
           actionStatus.textContent = "pdf_data ausente — execute Gerar Resumo para gerar o PDF. / pdf_data missing — run Generate Summary first.";
           actionStatus.className = "action-status is-error";
         }
+        if (btn) { btn.disabled = false; }
         return;
       }
 
-      if (btn) { btn.disabled = true; }
       if (actionStatus) {
         actionStatus.textContent = "Gerando PDF...";
         actionStatus.className = "action-status";

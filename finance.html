@@ -3953,11 +3953,20 @@
       var cachedTxn = reconTxCache[txnId];
       if (!cachedTxn) { showToast("Erro: transacao nao encontrada / Transaction not found"); return; }
 
+      // Equity accounts (Owner's Draw, Owner's Equity, Opening Balance,
+      // Retained Earnings) need a different Zoho operation than a real
+      // Expense account -- confirmed via a real test failure 2026-07-22
+      // (Zoho error 1002 "Please enter valid expense account" when
+      // categorizing an Owner's Draw drop through the expense-only path).
+      var targetCat = (reconCategories || []).filter(function(c) { return c.account_id === folderKey; })[0];
+      var accountType = targetCat ? targetCat.account_type : "expense";
+
       apiFetch("/api/finance/reconciliation/" + txnId + "/categorize", {
         method: "POST",
         body: {
           account_id:          cachedTxn.account_id,
           category_account_id: folderKey,
+          category_account_type: accountType,
           amount:              cachedTxn.amount,
           date:                cachedTxn.date
         }

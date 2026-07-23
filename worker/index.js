@@ -5537,10 +5537,27 @@ async function handlePostReconciliationMatchInvoice(transactionId, request, env)
 // convention); (2) "category_id" is not a real Zoho field at all -- the
 // documented attribute for "which account the money is categorized into"
 // is to_account_id (from_account_id/to_account_id pair), not category_id.
-// Still not 100% field-confirmed for this specific sub-operation (Zoho's
-// public docs don't show a worked example body for categorize/expenses
-// specifically) -- if this still fails, that's the next thing to check
-// with a real test call before assuming anything else is wrong.
+//
+// CORRECTED AGAIN 2026-07-22, real test call: the to_account_id fix above
+// hit the same "Please enter valid expense account" message but now with a
+// real Zoho error code (1002) surfaced -- Zoho generically means "this
+// account_id isn't valid for this operation." Root cause confirmed via
+// Zoho's own help docs: Owner's Draw and other Equity-type accounts are
+// NOT valid targets for categorize/expenses at all -- that operation only
+// ever accepts real Expense-type accounts. Equity postings (owner's draw,
+// owner's equity, opening balance, retained earnings -- everything this
+// app's own folder rail already lists alongside real expense categories,
+// see handleGetFinanceCategories' AccountType.Equity filter) need Zoho's
+// generic categorize endpoint instead, with transaction_type set to the
+// matching enum value (owner_drawings confirmed as a real documented
+// value; other equity categories are mapped to it too since Zoho's
+// bank-categorization transaction_type enum doesn't have a distinct value
+// per equity account -- if a specific equity category needs a different
+// transaction_type, that would be the next thing to check against a real
+// test call).
+// STILL NOT FIELD-CONFIRMED for the generic categorize endpoint specifically
+// (same documentation gap as the expenses path) -- if this fails, get the
+// real Zoho error code from the response before guessing further.
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
@@ -5563,24 +5580,39 @@ async function handlePostReconciliationCategorize(transactionId, request, env) {
             return jsonErr("Zoho auth error: " + e.message, 502);
         }
 
-        var catBody = {
-            from_account_id: body.account_id,
-            to_account_id:   body.category_account_id,
-            date:            body.date,
-            amount:          parseFloat(body.amount) || 0,
-            description:     body.description || ""
-        };
-        var catRes = await zohoBankingFetch(zohoAuth, "POST",
-            "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/expenses",
-            catBody);
+        var isEquity = body.category_account_type === "equity";
+        var catBody, catPath, opLabel;
+
+        if (isEquity) {
+            catBody = {
+                transaction_type: "owner_drawings",
+                account_id:       body.account_id,
+                to_account_id:    body.category_account_id,
+                date:             body.date,
+                amount:           parseFloat(body.amount) || 0,
+                description:      body.description || ""
+            };
+            catPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize";
+            opLabel = "categorize-as-equity";
+        } else {
+            catBody = {
+                from_account_id: body.account_id,
+                to_account_id:   body.category_account_id,
+                date:            body.date,
+                amount:          parseFloat(body.amount) || 0,
+                description:     body.description || ""
+            };
+            catPath = "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/expenses";
+            opLabel = "categorize-as-expense";
+        }
+
+        var catRes = await zohoBankingFetch(zohoAuth, "POST", catPath, catBody);
         if (!catRes.ok) {
-            // Include the raw Zoho error code + full body -- the human-
-            // readable message alone ("Please enter valid expense account")
-            // has already been unhelpfully identical across two different
-            // wrong-field-name guesses, so the actual diagnostic signal
-            // (Zoho's numeric error code) is worth surfacing directly
-            // instead of guessing a third field name blind.
-            return jsonErr("Zoho categorize-as-expense failed (code " + catRes.data.code + "): " +
+            // Include the raw Zoho error code + full body -- keep this
+            // detail in every failure response, not just a human-readable
+            // summary, since that summary has already proven identical
+            // across multiple different underlying causes tonight.
+            return jsonErr("Zoho " + opLabel + " failed (code " + catRes.data.code + "): " +
                 (catRes.data.message || JSON.stringify(catRes.data)) + " | raw: " + JSON.stringify(catRes.data), 502);
         }
 

@@ -2488,14 +2488,25 @@
             add_meet_link: true
           }
         })
-          .then(function(res) { return res.json(); })
-          .then(function(calData) {
-            var meetLink = (calData && calData.google_meet_link) ? calData.google_meet_link : null;
-            var eventId  = (calData && calData.google_event_id)  ? calData.google_event_id  : null;
-            scheduleSession(meetLink, eventId);
+          .then(function(res) {
+            return res.json().then(function(calData) { return { ok: res.ok, calData: calData }; });
           })
-          .catch(function() {
-            scheduleSession(null, null);
+          .then(function(result) {
+            if (!result.ok || !result.calData || !result.calData.google_meet_link) {
+              var errMsg = (result.calData && result.calData.error) ? result.calData.error : (en ? "unknown error" : "erro desconhecido");
+              btn.disabled = false;
+              statusEl.textContent = (en
+                ? "Could not create the Google Meet link (" + errMsg + "). Session was NOT scheduled — check the Google Calendar connection (add-user.html) and try again."
+                : "Nao foi possivel criar o link do Google Meet (" + errMsg + "). A sessao NAO foi agendada — verifique a conexao do Google Calendar (add-user.html) e tente novamente.");
+              statusEl.className = "pull-status is-error";
+              return;
+            }
+            scheduleSession(result.calData.google_meet_link, result.calData.google_event_id || null);
+          })
+          .catch(function(e) {
+            btn.disabled = false;
+            statusEl.textContent = (en ? "Could not create the Google Meet link (" : "Nao foi possivel criar o link do Google Meet (") + e.message + (en ? "). Session was NOT scheduled." : "). A sessao NAO foi agendada.");
+            statusEl.className = "pull-status is-error";
           });
       } else {
         scheduleSession(null, null);

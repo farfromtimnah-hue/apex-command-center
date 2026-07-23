@@ -2240,6 +2240,18 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         ).bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
 
+        // Guard: an online_meet session with no real Meet link yet (still
+        // the "[PENDING_GOOGLE_API]" placeholder stored when calendar-event
+        // creation failed, or genuinely null) must never go out over
+        // WhatsApp -- confirmed 2026-07-22 a real client received the
+        // literal placeholder string in their message. calendar.html no
+        // longer schedules a session this way, but this is the last line
+        // of defense against any other caller doing the same.
+        if (session.session_type !== "in_person" &&
+            (!session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]")) {
+            return jsonErr("This session has no Google Meet link yet -- reconnect Google Calendar (add-user.html) and re-create the event before sending.", 409);
+        }
+
         var d       = new Date(session.date + "T12:00:00");
         var weekday = WEEKDAYS_PT[d.getDay()];
         var dateParts = session.date.split("-");

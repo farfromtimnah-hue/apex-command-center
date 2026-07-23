@@ -5574,7 +5574,14 @@ async function handlePostReconciliationCategorize(transactionId, request, env) {
             "banktransactions/uncategorized/" + encodeURIComponent(transactionId) + "/categorize/expenses",
             catBody);
         if (!catRes.ok) {
-            return jsonErr("Zoho categorize-as-expense failed: " + (catRes.data.message || JSON.stringify(catRes.data)), 502);
+            // Include the raw Zoho error code + full body -- the human-
+            // readable message alone ("Please enter valid expense account")
+            // has already been unhelpfully identical across two different
+            // wrong-field-name guesses, so the actual diagnostic signal
+            // (Zoho's numeric error code) is worth surfacing directly
+            // instead of guessing a third field name blind.
+            return jsonErr("Zoho categorize-as-expense failed (code " + catRes.data.code + "): " +
+                (catRes.data.message || JSON.stringify(catRes.data)) + " | raw: " + JSON.stringify(catRes.data), 502);
         }
 
         return jsonOk({ ok: true, transaction_id: transactionId, category_account_id: body.category_account_id, message: catRes.data.message || "Categorized" });

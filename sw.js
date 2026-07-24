@@ -4,7 +4,12 @@
 // the app requires an internet connection to function. This worker exists
 // only so the app is installable and opens with a standalone look.
 
-var CACHE_NAME = "apex-static-v1";
+// Auto-stamped by .git/hooks/pre-commit with a fresh timestamp on every
+// commit that touches sw.js — do not hand-edit the suffix, it will be
+// overwritten. This is what makes the activate handler's cache cleanup below
+// actually fire on each deploy instead of silently serving stale
+// nav.js/pwa.js/mobile.css/icons forever.
+var CACHE_NAME = "apex-static-1784854822";
 
 var PRECACHE_URLS = [
   "nav.js",
@@ -78,6 +83,31 @@ self.addEventListener("fetch", function (event) {
   if (req.method !== "GET") { return; }
   if (!isStaticAsset(req.url)) { return; }
 
+  var path = new URL(req.url).pathname.toLowerCase();
+  var isCode = path.lastIndexOf(".js") === path.length - 3 || path.lastIndexOf(".css") === path.length - 4;
+
+  if (isCode) {
+    // Stale-while-revalidate: serve the cached copy instantly, but always
+    // refetch in the background so a missed/failed version bump self-heals
+    // within one extra load instead of serving stale JS/CSS indefinitely.
+    event.respondWith(
+      caches.open(CACHE_NAME).then(function (cache) {
+        return cache.match(req).then(function (cached) {
+          var fetchPromise = fetch(req).then(function (res) {
+            if (res && res.status === 200 && (res.type === "basic" || res.type === "cors")) {
+              cache.put(req, res.clone());
+            }
+            return res;
+          })["catch"](function () { return cached; });
+          return cached || fetchPromise;
+        });
+      })
+    );
+    return;
+  }
+
+  // Icons/fonts/manifest: cache-first is fine, they're content-addressed
+  // enough in practice and change far less often than code.
   event.respondWith(
     caches.match(req).then(function (cached) {
       if (cached) { return cached; }

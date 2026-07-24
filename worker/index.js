@@ -1744,6 +1744,40 @@ async function handlePostClientDocument(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: DELETE /api/clients/:id/documents/:docId
+// Deletes an uploaded client document (R2 object + client_documents row).
+// Uploaded documents only — generated documents (session PDFs) have no
+// client_documents row and are out of scope. alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleDeleteClientDocument(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT file_url FROM client_documents WHERE id = ? AND client_id = ?"
+        ).bind(docId, id).first();
+        if (!row) { return jsonErr("Document not found", 404); }
+
+        if (!/^client-documents\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.file_url)) {
+            return jsonErr("Document not found", 404);
+        }
+
+        await env.ASSETS.delete(row.file_url);
+
+        await env.DB.prepare(
+            "DELETE FROM client_documents WHERE id = ? AND client_id = ?"
+        ).bind(docId, id).run();
+
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting document: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/documents/:docId/file
 // Serves an uploaded client document from R2 — no raw R2 paths exposed to
 // the frontend. Same safe-serving pattern as GET /api/resources/:id/file.
@@ -8437,6 +8471,9 @@ export default {
             }
             if (segs.length === 6 && segs[3] === "documents" && segs[5] === "file" && method === "GET") {
                 return handleGetClientDocumentFile(cid, segs[4], request, env);
+            }
+            if (segs.length === 5 && segs[3] === "documents" && method === "DELETE") {
+                return handleDeleteClientDocument(cid, segs[4], request, env);
             }
             if (segs.length === 4 && segs[3] === "digital-presence") {
                 if (method === "GET")   { return handleGetDigitalPresence(cid, request, env); }

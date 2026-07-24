@@ -1804,6 +1804,30 @@
     </div>
   </div>
 
+  <!-- ═══════════════ MODAL: Confirmar Exclusão de Documento ═══════════════ -->
+  <div id="modalDeleteDocument" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Excluir Documento</span>
+          <span class="show-en">Delete Document</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalDeleteDocument')">×</button>
+      </div>
+      <div class="modal-body">
+        <p>
+          <span class="show-pt">Excluir este documento? Esta ação não pode ser desfeita.</span>
+          <span class="show-en">Delete this document? This action cannot be undone.</span>
+        </p>
+        <button class="btn-primary" id="btnConfirmDeleteDocument" onclick="confirmDeleteDocument()">
+          <span class="show-pt">Excluir</span>
+          <span class="show-en">Delete</span>
+        </button>
+        <div class="pull-status" id="deleteDocumentStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ MODAL: Adicionar Nota ════════════════════════════════ -->
   <div id="modalNote" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
@@ -2434,7 +2458,7 @@
 
     // Close modal on overlay click
     document.addEventListener("click", function(e) {
-      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource", "modalGrowth", "modalClientLogin", "modalFieldConfig"];
+      var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource", "modalGrowth", "modalClientLogin", "modalFieldConfig", "modalDeleteDocument"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
         if (el && !el.hidden && e.target === el) {
@@ -4284,14 +4308,27 @@
           leftEl.appendChild(titleEl);
           leftEl.appendChild(metaEl);
 
+          var actionsEl = document.createElement("div");
+          actionsEl.style.cssText = "display:flex;gap:6px;";
+
           var actionBtn = document.createElement("button");
           actionBtn.className = "btn-sm";
           actionBtn.innerHTML =
             '<span class="show-pt">Ver</span><span class="show-en">View</span>';
           actionBtn.onclick = function() { openDocument(doc); };
+          actionsEl.appendChild(actionBtn);
+
+          if (doc.kind === "uploaded") {
+            var deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn-sm";
+            deleteBtn.innerHTML =
+              '<span class="show-pt">Excluir</span><span class="show-en">Delete</span>';
+            deleteBtn.onclick = function() { openDeleteDocumentModal(doc); };
+            actionsEl.appendChild(deleteBtn);
+          }
 
           item.appendChild(leftEl);
-          item.appendChild(actionBtn);
+          item.appendChild(actionsEl);
           list.appendChild(item);
         })(docs[i]);
       }
@@ -4340,6 +4377,49 @@
         console.error("Open document error:", e.message);
         newTab.close();
       });
+    }
+
+    var docPendingDelete = null;
+
+    function openDeleteDocumentModal(doc) {
+      docPendingDelete = doc;
+      var statusEl = document.getElementById("deleteDocumentStatus");
+      if (statusEl) { statusEl.textContent = ""; statusEl.className = "pull-status"; }
+      document.getElementById("modalDeleteDocument").hidden = false;
+    }
+
+    function confirmDeleteDocument() {
+      if (!docPendingDelete) { return; }
+      var doc = docPendingDelete;
+      var statusEl = document.getElementById("deleteDocumentStatus");
+      var btn = document.getElementById("btnConfirmDeleteDocument");
+
+      if (btn) { btn.disabled = true; }
+      if (statusEl) {
+        statusEl.textContent = "Excluindo... / Deleting...";
+        statusEl.className = "pull-status";
+      }
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents/" + doc.id, {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          docPendingDelete = null;
+          if (btn) { btn.disabled = false; }
+          closeModalById("modalDeleteDocument");
+          loadDocuments();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          if (statusEl) {
+            statusEl.textContent = "Erro: " + e.message;
+            statusEl.className = "pull-status is-error";
+          }
+        });
     }
 
     function handleDocFileSelected(input) {

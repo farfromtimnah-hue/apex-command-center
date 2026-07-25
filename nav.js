@@ -228,9 +228,10 @@
       html += '<div class="apex-nav-switcher-label">DEV</div>';
       html += '<div class="apex-nav-switcher-btns">';
       var buttons = [
-        { id: "navBtnAlice", v: "alice", label: "Alice" },
-        { id: "navBtnRafa",  v: "rafa",  label: "Rafa"  },
-        { id: "navBtnDev",   v: "dev",   label: "Dev"   }
+        { id: "navBtnAlice",  v: "alice",  label: "Alice"  },
+        { id: "navBtnRafa",   v: "rafa",   label: "Rafa"   },
+        { id: "navBtnDev",    v: "dev",    label: "Dev"    },
+        { id: "navBtnClient", v: "client", label: "Client" }
       ];
       for (var j = 0; j < buttons.length; j++) {
         var b = buttons[j];
@@ -287,6 +288,13 @@
 
   // ── Public: dev view switcher ─────────────────────────────────────────────
   window.apexNavSetView = function (v) {
+    // "Client" opens the portal preview picker instead of a cosmetic nav
+    // switch — it does NOT touch apex_dev_view (the admin pages keep their
+    // current view; the preview happens on portal.html?previewAs=<id>).
+    if (v === "client") {
+      openClientPreviewPicker();
+      return;
+    }
     sessionStorage.setItem("apex_dev_view", v);
 
     if (typeof window.setView === "function") {
@@ -294,6 +302,85 @@
     }
 
     window.initNav && window.initNav();
+  };
+
+  // ── Developer client-preview picker (modeled on LTC's preview-as flow) ────
+  // Searchable modal listing every client; picking one opens
+  // portal.html?previewAs=<client_id> (read-only, enforced by the Worker).
+  var pickerClients = null;
+
+  function openClientPreviewPicker() {
+    var overlay = document.getElementById("apexClientPickerOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "apexClientPickerOverlay";
+      overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(20,18,16,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;";
+      overlay.innerHTML =
+        '<div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,0.3);font-family:\'Inter\',sans-serif;">' +
+        '<div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#1a1a1d;">' +
+        '<span class="show-pt">Ver portal como cliente</span><span class="show-en">Preview portal as client</span></div>' +
+        '<input type="text" id="apexClientPickerFilter" placeholder="Filtrar / Filter…" ' +
+        'style="border:1px solid #e8e2d9;border-radius:8px;padding:10px 12px;font-family:\'Inter\',sans-serif;font-size:14px;margin-bottom:10px;outline:none;" ' +
+        'oninput="window.apexClientPickerRender()">' +
+        '<div id="apexClientPickerList" style="overflow-y:auto;flex:1;min-height:120px;"></div>' +
+        '<div style="display:flex;justify-content:flex-end;margin-top:12px;">' +
+        '<button type="button" onclick="apexClientPickerClose()" ' +
+        'style="background:transparent;border:1px solid #e8e2d9;border-radius:8px;padding:9px 16px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:#1a1a1d;">' +
+        '<span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button>' +
+        '</div></div>';
+      overlay.addEventListener("click", function (ev) {
+        if (ev.target === overlay) { window.apexClientPickerClose(); }
+      });
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = "flex";
+    document.getElementById("apexClientPickerFilter").value = "";
+    var listEl = document.getElementById("apexClientPickerList");
+    listEl.innerHTML = '<div style="color:#6b6660;font-size:13px;padding:10px;">Carregando… / Loading…</div>';
+
+    if (pickerClients) { window.apexClientPickerRender(); return; }
+    var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+    var fb = window.firebase;
+    if (!fb || !fb.auth || !fb.auth().currentUser) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Sessão não encontrada / No session</div>';
+      return;
+    }
+    fb.auth().currentUser.getIdToken().then(function (token) {
+      return fetch(workerUrl + "/api/clients", { headers: { "Authorization": "Bearer " + token } });
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      pickerClients = data.clients || [];
+      window.apexClientPickerRender();
+    }).catch(function (e) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Erro: ' + (e && e.message ? e.message : "?") + '</div>';
+    });
+  }
+
+  window.apexClientPickerRender = function () {
+    var listEl = document.getElementById("apexClientPickerList");
+    if (!listEl || !pickerClients) { return; }
+    var q = (document.getElementById("apexClientPickerFilter").value || "").toLowerCase();
+    var html = "";
+    for (var i = 0; i < pickerClients.length; i++) {
+      var c = pickerClients[i];
+      var name = c.name || c.id;
+      if (q && name.toLowerCase().indexOf(q) === -1) { continue; }
+      html += '<button type="button" onclick="apexClientPickerGo(\'' + String(c.id).replace(/'/g, "") + '\')" ' +
+        'style="display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid #e8e2d9;' +
+        'padding:11px 6px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:600;color:#1a1a1d;cursor:pointer;">' +
+        name.replace(/&/g, "&amp;").replace(/</g, "&lt;") +
+        (c.status && c.status !== "active" ? ' <span style="font-size:11px;color:#6b6660;font-weight:500;">(' + c.status + ')</span>' : '') +
+        '</button>';
+    }
+    listEl.innerHTML = html || '<div style="color:#6b6660;font-size:13px;padding:10px;">Nenhum cliente / No clients</div>';
+  };
+
+  window.apexClientPickerGo = function (id) {
+    window.location.href = "portal.html?previewAs=" + encodeURIComponent(id);
+  };
+
+  window.apexClientPickerClose = function () {
+    var overlay = document.getElementById("apexClientPickerOverlay");
+    if (overlay) { overlay.style.display = "none"; }
   };
 
   // ── Mobile bottom tab bar + "Mais" overflow menu ─────────────────────────
@@ -395,9 +482,10 @@
     if (realRole === "developer") {
       var mmDevView = sessionStorage.getItem("apex_dev_view") || "dev";
       var mmButtons = [
-        { id: "mmBtnAlice", v: "alice", label: "Alice" },
-        { id: "mmBtnRafa",  v: "rafa",  label: "Rafa"  },
-        { id: "mmBtnDev",   v: "dev",   label: "Dev"   }
+        { id: "mmBtnAlice",  v: "alice",  label: "Alice"  },
+        { id: "mmBtnRafa",   v: "rafa",   label: "Rafa"   },
+        { id: "mmBtnDev",    v: "dev",    label: "Dev"    },
+        { id: "mmBtnClient", v: "client", label: "Client" }
       ];
       menuHtml += '<div class="mm-switcher">';
       menuHtml += '<div class="mm-switcher-label">DEV</div>';

@@ -146,10 +146,23 @@ async function authenticateClientToken(token, env) {
 }
 
 // Admin roles pass for any client; a client-role user only for their own.
+// Developer preview-as (?previewAs=<client_id>, LTC's getSelfSubmission
+// pattern) needs no extra branch here: the developer role already passes for
+// reads, and every preview WRITE is rejected earlier by the read-only gate in
+// fetch() (see "Developer preview-as is READ-ONLY").
 function requireClientAccess(user, clientId) {
     if (!user) { return false; }
     if (user.role === "alice" || user.role === "rafa" || user.role === "developer") { return true; }
     return user.role === "client" && !!user.client_id && user.client_id === clientId;
+}
+
+// The preview client id when (and only when) the caller is a developer with a
+// ?previewAs= query param. Null for every other caller — alice, rafa, and the
+// real client path never see a different identity.
+function devPreviewClientId(user, request) {
+    if (!user || user.role !== "developer") { return null; }
+    var pa = new URL(request.url).searchParams.get("previewAs");
+    return pa || null;
 }
 
 function isAdminRole(user) {
@@ -7286,21 +7299,37 @@ function indicatorByKey(key) {
     return null;
 }
 
-// Enabled + meta map for a client. Missing rows default to enabled, no meta.
-async function getFieldConfig(env, clientId) {
+// Enabled + meta map for a client, resolved for one month. Missing rows
+// default to enabled, no meta. Month resolution: the row for `month` wins;
+// otherwise the most recent prior month's row applies — a client who sets
+// goals once keeps them until they change them, and past months are never
+// retroactively rescored when a later month's goals change.
+async function getFieldConfig(env, clientId, month) {
+    if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
     var rows = await env.DB.prepare(
-        "SELECT indicator_key, enabled, meta_mensal FROM client_field_config WHERE client_id = ?"
-    ).bind(clientId).all();
+        "SELECT indicator_key, month_label, enabled, meta_mensal, status, proposed_value, proposed_at " +
+        "FROM client_field_config WHERE client_id = ? AND month_label <= ? " +
+        "ORDER BY month_label ASC"
+    ).bind(clientId, month).all();
     var byKey = {};
     (rows.results || []).forEach(function(r) {
-        byKey[r.indicator_key] = { enabled: !!r.enabled, meta_mensal: r.meta_mensal };
+        // rows arrive oldest-first, so the last write per key is the winner
+        byKey[r.indicator_key] = {
+            enabled: !!r.enabled, meta_mensal: r.meta_mensal,
+            month_label: r.month_label, status: r.status,
+            proposed_value: r.proposed_value, proposed_at: r.proposed_at
+        };
     });
     var config = {};
     INDICATORS.forEach(function(ind) {
         var row = byKey[ind.key];
         config[ind.key] = {
             enabled: row ? row.enabled : true,
-            meta_mensal: row ? row.meta_mensal : null
+            meta_mensal: row ? row.meta_mensal : null,
+            month_label: row ? row.month_label : null,
+            status: row ? row.status : "approved",
+            proposed_value: row ? row.proposed_value : null,
+            proposed_at: row ? row.proposed_at : null
         };
     });
     return config;
@@ -7421,13 +7450,15 @@ function clientRequestAllowed(path, method, clientId) {
             if (rest === "tasks" || rest === "invoices" || rest === "documents" ||
                 rest === "documents/latest" || rest === "logo-image" ||
                 rest === "field-config" || rest === "entry-state" ||
-                rest === "entries" || rest === "entries-summary") { return true; }
+                rest === "entries" || rest === "entries-summary" ||
+                rest === "goal-state" || rest === "indicator-history") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
         }
         if (method === "POST") {
             if (rest === "logo") { return true; }
             if (/^entries\/\d{4}-\d{2}-\d{2}\/day-off$/.test(rest)) { return true; }
         }
+        if (method === "PUT" && rest === "goals") { return true; }
         if (method === "PUT" && /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/.test(rest)) { return true; }
     }
     return false;
@@ -7695,10 +7726,15 @@ async function handlePostClientLogout(request, env) {
 async function handleGetPortalMe(request, env) {
     try {
         var user = await authenticate(request, env);
-        if (!user || user.role !== "client" || !user.client_id) { return jsonErr("Unauthorized", 401); }
+        // Developer preview-as (LTC pattern): a developer with ?previewAs=<id>
+        // reads this endpoint as that client. Developer only — alice/rafa and
+        // the real client path are untouched. Writes stay blocked by the
+        // preview read-only gate in fetch().
+        var previewClientId = devPreviewClientId(user, request);
+        if (!previewClientId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
         var client = await env.DB.prepare(
             "SELECT id, name, logo_url, industry, location FROM clients WHERE id = ?"
-        ).bind(user.client_id).first();
+        ).bind(previewClientId || user.client_id).first();
         if (!client) { return jsonErr("Client not found", 404); }
         return jsonOk({
             client_id: client.id, name: client.name,
@@ -7723,12 +7759,14 @@ async function handleGetPortalMe(request, env) {
 async function handleGetPortalNextMeeting(request, env) {
     try {
         var user = await authenticate(request, env);
-        if (!user || user.role !== "client" || !user.client_id) { return jsonErr("Unauthorized", 401); }
+        // Developer preview-as: same rule as handleGetPortalMe.
+        var previewClientId = devPreviewClientId(user, request);
+        if (!previewClientId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
         var row = await env.DB.prepare(
             "SELECT date, time, session_type, google_meet_link FROM sessions " +
             "WHERE client_id = ? AND status != 'discarded' AND date >= date('now', '-1 day') " +
             "ORDER BY date ASC, COALESCE(time,'99:99') ASC LIMIT 1"
-        ).bind(user.client_id).first();
+        ).bind(previewClientId || user.client_id).first();
         return jsonOk({ meeting: row || null });
     } catch (e) {
         return jsonErr("Error fetching next meeting: " + e.message, 500);
@@ -7736,9 +7774,12 @@ async function handleGetPortalNextMeeting(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Route: GET /api/clients/:id/field-config — full catalog with enabled/meta
+// Route: GET /api/clients/:id/field-config?month=YYYY-MM — full catalog with
+//   enabled/meta resolved for that month (default: current month).
 // Route: PUT /api/clients/:id/field-config — admin only; body:
-//   { indicators: [{ key, enabled, meta_mensal }] }
+//   { month?: 'YYYY-MM', indicators: [{ key, enabled, meta_mensal }] }
+//   Admin writes are direct: status='approved', set_by='admin'. A pending
+//   client proposal survives only if the admin left that meta unchanged.
 // ---------------------------------------------------------------------------
 
 async function handleGetClientFieldConfig(id, request, env) {
@@ -7746,17 +7787,23 @@ async function handleGetClientFieldConfig(id, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
-        var config = await getFieldConfig(env, id);
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+        var config = await getFieldConfig(env, id, month);
         var out = INDICATORS.map(function(ind) {
             return {
                 key: ind.key, section: ind.section, type: ind.type,
                 label_pt: ind.labelPt, label_en: ind.labelEn,
                 inverse: !!ind.inverse,
                 enabled: config[ind.key].enabled,
-                meta_mensal: config[ind.key].meta_mensal
+                meta_mensal: config[ind.key].meta_mensal,
+                goal_month: config[ind.key].month_label,
+                goal_status: config[ind.key].status,
+                proposed_value: config[ind.key].proposed_value
             };
         });
-        return jsonOk({ indicators: out, sections: ENTRY_SECTIONS });
+        return jsonOk({ month: month, indicators: out, sections: ENTRY_SECTIONS });
     } catch (e) {
         return jsonErr("Error fetching field config: " + e.message, 500);
     }
@@ -7772,6 +7819,7 @@ async function handlePutClientFieldConfig(id, request, env) {
         if (!client) { return jsonErr("Client not found", 404); }
 
         var body = await request.json();
+        var month = isValidMonthStr(body.month) ? body.month : new Date().toISOString().slice(0, 7);
         var list = Array.isArray(body.indicators) ? body.indicators : [];
         var stmts = [];
         for (var i = 0; i < list.length; i++) {
@@ -7781,16 +7829,312 @@ async function handlePutClientFieldConfig(id, request, env) {
                 ? null : Number(item.meta_mensal);
             if (meta !== null && !isFinite(meta)) { meta = null; }
             stmts.push(env.DB.prepare(
-                "INSERT INTO client_field_config (client_id, indicator_key, enabled, meta_mensal, updated_at) " +
-                "VALUES (?, ?, ?, ?, datetime('now')) " +
-                "ON CONFLICT (client_id, indicator_key) DO UPDATE SET " +
-                "enabled = excluded.enabled, meta_mensal = excluded.meta_mensal, updated_at = excluded.updated_at"
-            ).bind(id, item.key, item.enabled ? 1 : 0, meta));
+                "INSERT INTO client_field_config (client_id, indicator_key, month_label, enabled, meta_mensal, set_by, status, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, 'admin', 'approved', datetime('now')) " +
+                "ON CONFLICT (client_id, indicator_key, month_label) DO UPDATE SET " +
+                "enabled = excluded.enabled, meta_mensal = excluded.meta_mensal, " +
+                "set_by = 'admin', updated_at = excluded.updated_at, " +
+                // Admin changed the value → any live proposal is superseded.
+                // Value untouched → a pending proposal stays pending.
+                "status = CASE WHEN excluded.meta_mensal IS client_field_config.meta_mensal THEN client_field_config.status ELSE 'approved' END, " +
+                "proposed_value = CASE WHEN excluded.meta_mensal IS client_field_config.meta_mensal THEN client_field_config.proposed_value ELSE NULL END, " +
+                "proposed_at = CASE WHEN excluded.meta_mensal IS client_field_config.meta_mensal THEN client_field_config.proposed_at ELSE NULL END, " +
+                "proposed_by = CASE WHEN excluded.meta_mensal IS client_field_config.meta_mensal THEN client_field_config.proposed_by ELSE NULL END"
+            ).bind(id, item.key, month, item.enabled ? 1 : 0, meta));
         }
         if (stmts.length) { await env.DB.batch(stmts); }
-        return jsonOk({ saved: stmts.length });
+        return jsonOk({ saved: stmts.length, month: month });
     } catch (e) {
         return jsonErr("Error saving field config: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Goal-able indicators: everything a monthly target makes sense for. Excludes
+// the daily rotina toggle and metas_batidas (its meta is fixed at 100 by
+// computeMonthlySummary).
+// ---------------------------------------------------------------------------
+
+function isGoalableIndicator(ind) {
+    return ind.type !== "toggle" && ind.key !== "metas_batidas";
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/goal-state?today=YYYY-MM-DD — drives the portal
+// goal gates. "Has goals for month M" = at least one row written FOR month M
+// with an active or proposed value (fallback from prior months does not
+// count — the gate is about this month's commitment).
+// ---------------------------------------------------------------------------
+
+async function handleGetGoalState(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var today = url.searchParams.get("today");
+        if (!isValidDateStr(today)) { today = new Date().toISOString().slice(0, 10); }
+        var curMonth = today.slice(0, 7);
+        var p = curMonth.split("-");
+        var nextD = new Date(Number(p[0]), Number(p[1]), 1);
+        var nextMonth = nextD.getFullYear() + "-" + String(nextD.getMonth() + 1).padStart(2, "0");
+
+        var any = await env.DB.prepare(
+            "SELECT 1 AS x FROM client_field_config WHERE client_id = ? AND (meta_mensal IS NOT NULL OR proposed_value IS NOT NULL) LIMIT 1"
+        ).bind(id).first();
+        var cur = await env.DB.prepare(
+            "SELECT 1 AS x FROM client_field_config WHERE client_id = ? AND month_label = ? AND (meta_mensal IS NOT NULL OR proposed_value IS NOT NULL) LIMIT 1"
+        ).bind(id, curMonth).first();
+        var nxt = await env.DB.prepare(
+            "SELECT 1 AS x FROM client_field_config WHERE client_id = ? AND month_label = ? AND (meta_mensal IS NOT NULL OR proposed_value IS NOT NULL) LIMIT 1"
+        ).bind(id, nextMonth).first();
+
+        return jsonOk({
+            today: today, current_month: curMonth, next_month: nextMonth,
+            has_any_goals: !!any,
+            current_month_has_goals: !!cur,
+            next_month_has_goals: !!nxt
+        });
+    } catch (e) {
+        return jsonErr("Error fetching goal state: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/goals — the client's own goal submission.
+// Body: { month: 'YYYY-MM', goals: [{ key, meta_mensal }] }
+// Approval rules (Task 3):
+//   - no prior approved value for that month (incl. fallback) → direct write,
+//     status='approved', set_by='client' (first-time goals never block)
+//   - same value as the active goal → re-commit for the month (approved copy)
+//   - different value → proposal: the approved meta stays active and keeps
+//     driving every percentage; proposed_value waits for admin decision
+// Admins may also call this (requireClientAccess passes) — their writes go
+// through the same rules with set_by/proposed_by reflecting who called.
+// ---------------------------------------------------------------------------
+
+async function handlePutClientGoals(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json();
+        var month = isValidMonthStr(body.month) ? body.month : new Date().toISOString().slice(0, 7);
+        var list = Array.isArray(body.goals) ? body.goals : [];
+        var isAdmin = isAdminRole(user);
+        var actor = isAdmin ? (user.email || user.role) : "client";
+
+        // Past months are history — rewriting their targets would retroactively
+        // rescore them. Clients may only set current/future months (admins can
+        // still correct history via the field-config modal if ever needed).
+        if (!isAdmin && month < new Date().toISOString().slice(0, 7)) {
+            return jsonErr("Metas de meses passados não podem ser alteradas", 400);
+        }
+
+        var config = await getFieldConfig(env, id, month);
+        var monthRows = await env.DB.prepare(
+            "SELECT indicator_key, meta_mensal, status FROM client_field_config WHERE client_id = ? AND month_label = ?"
+        ).bind(id, month).all();
+        var rowInMonth = {};
+        (monthRows.results || []).forEach(function(r) { rowInMonth[r.indicator_key] = r; });
+
+        var stmts = [];
+        var pendingCount = 0, savedCount = 0;
+        for (var i = 0; i < list.length; i++) {
+            var item = list[i];
+            var ind = indicatorByKey(item.key);
+            if (!ind || !isGoalableIndicator(ind)) { continue; }
+            if (!config[item.key].enabled) { continue; }
+            var val = (item.meta_mensal === null || item.meta_mensal === undefined || item.meta_mensal === "")
+                ? null : Number(item.meta_mensal);
+            if (val !== null && !isFinite(val)) { continue; }
+            if (val === null) { continue; }   // a goal submission never clears a goal
+
+            var active = config[item.key].meta_mensal;   // resolved (with fallback) approved value
+            var enabled = config[item.key].enabled ? 1 : 0;
+
+            if (isAdmin) {
+                // Admin path: direct approved write (same semantics as field-config PUT).
+                stmts.push(env.DB.prepare(
+                    "INSERT INTO client_field_config (client_id, indicator_key, month_label, enabled, meta_mensal, set_by, status, decided_at, decided_by, updated_at) " +
+                    "VALUES (?, ?, ?, ?, ?, 'admin', 'approved', datetime('now'), ?, datetime('now')) " +
+                    "ON CONFLICT (client_id, indicator_key, month_label) DO UPDATE SET " +
+                    "meta_mensal = excluded.meta_mensal, set_by = 'admin', status = 'approved', " +
+                    "proposed_value = NULL, proposed_at = NULL, proposed_by = NULL, " +
+                    "decided_at = excluded.decided_at, decided_by = excluded.decided_by, updated_at = excluded.updated_at"
+                ).bind(id, item.key, month, enabled, val, actor));
+                savedCount++;
+            } else if (active === null || active === undefined) {
+                // First-time goal → auto-approve, never blocks a new client.
+                stmts.push(env.DB.prepare(
+                    "INSERT INTO client_field_config (client_id, indicator_key, month_label, enabled, meta_mensal, set_by, status, updated_at) " +
+                    "VALUES (?, ?, ?, ?, ?, 'client', 'approved', datetime('now')) " +
+                    "ON CONFLICT (client_id, indicator_key, month_label) DO UPDATE SET " +
+                    "meta_mensal = excluded.meta_mensal, set_by = 'client', status = 'approved', " +
+                    "proposed_value = NULL, proposed_at = NULL, proposed_by = NULL, updated_at = excluded.updated_at"
+                ).bind(id, item.key, month, enabled, val));
+                savedCount++;
+            } else if (Number(val) === Number(active)) {
+                // Unchanged → re-commit the active goal for this month (clears the
+                // monthly gate without needing approval). Never downgrades a
+                // pending proposal already sitting on this month's row.
+                var existing = rowInMonth[item.key];
+                if (!existing) {
+                    stmts.push(env.DB.prepare(
+                        "INSERT INTO client_field_config (client_id, indicator_key, month_label, enabled, meta_mensal, set_by, status, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, 'client', 'approved', datetime('now'))"
+                    ).bind(id, item.key, month, enabled, val));
+                    savedCount++;
+                }
+            } else {
+                // Edit of an existing approved goal → pending proposal. The active
+                // meta_mensal is carried into this month's row and stays live.
+                stmts.push(env.DB.prepare(
+                    "INSERT INTO client_field_config (client_id, indicator_key, month_label, enabled, meta_mensal, set_by, status, proposed_value, proposed_at, proposed_by, updated_at) " +
+                    "VALUES (?, ?, ?, ?, ?, 'client', 'pending', ?, datetime('now'), ?, datetime('now')) " +
+                    "ON CONFLICT (client_id, indicator_key, month_label) DO UPDATE SET " +
+                    "status = 'pending', proposed_value = excluded.proposed_value, " +
+                    "proposed_at = excluded.proposed_at, proposed_by = excluded.proposed_by, updated_at = excluded.updated_at"
+                ).bind(id, item.key, month, enabled, active, val, user.username || user.email || "client"));
+                pendingCount++;
+            }
+        }
+        if (stmts.length) { await env.DB.batch(stmts); }
+        return jsonOk({ saved: savedCount, pending: pendingCount, month: month });
+    } catch (e) {
+        return jsonErr("Error saving goals: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/goal-approvals — admin only. Every live client proposal.
+// Route: POST /api/goal-approvals/:client_id/:indicator_key/:month_label
+//   Body { decision: 'approve' | 'reject' }. Approve copies proposed_value
+//   into meta_mensal; reject clears the proposal only (old meta stays).
+// ---------------------------------------------------------------------------
+
+async function handleGetGoalApprovals(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT f.client_id, c.name AS client_name, f.indicator_key, f.month_label, " +
+            "f.meta_mensal, f.proposed_value, f.proposed_at, f.proposed_by " +
+            "FROM client_field_config f LEFT JOIN clients c ON c.id = f.client_id " +
+            "WHERE f.status = 'pending' AND f.proposed_value IS NOT NULL " +
+            "ORDER BY f.proposed_at DESC"
+        ).all();
+        var out = (rows.results || []).map(function(r) {
+            var ind = indicatorByKey(r.indicator_key);
+            return {
+                client_id: r.client_id, client_name: r.client_name || r.client_id,
+                indicator_key: r.indicator_key,
+                label_pt: ind ? ind.labelPt : r.indicator_key,
+                label_en: ind ? ind.labelEn : r.indicator_key,
+                month_label: r.month_label,
+                current_value: r.meta_mensal, proposed_value: r.proposed_value,
+                proposed_at: r.proposed_at, proposed_by: r.proposed_by
+            };
+        });
+        return jsonOk({ pending: out });
+    } catch (e) {
+        return jsonErr("Error fetching goal approvals: " + e.message, 500);
+    }
+}
+
+async function handlePostGoalApprovalDecision(clientId, indicatorKey, monthLabel, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        if (!isValidMonthStr(monthLabel)) { return jsonErr("Invalid month", 400); }
+
+        var body = await request.json();
+        var decision = body.decision;
+        if (decision !== "approve" && decision !== "reject") { return jsonErr("decision must be 'approve' or 'reject'", 400); }
+
+        var row = await env.DB.prepare(
+            "SELECT status, proposed_value FROM client_field_config WHERE client_id = ? AND indicator_key = ? AND month_label = ?"
+        ).bind(clientId, indicatorKey, monthLabel).first();
+        if (!row || row.status !== "pending" || row.proposed_value === null) {
+            return jsonErr("No pending proposal for this goal", 404);
+        }
+
+        var decider = user.email || user.role;
+        if (decision === "approve") {
+            await env.DB.prepare(
+                "UPDATE client_field_config SET meta_mensal = proposed_value, status = 'approved', set_by = 'client', " +
+                "proposed_value = NULL, proposed_at = NULL, proposed_by = NULL, " +
+                "decided_at = datetime('now'), decided_by = ?, updated_at = datetime('now') " +
+                "WHERE client_id = ? AND indicator_key = ? AND month_label = ?"
+            ).bind(decider, clientId, indicatorKey, monthLabel).run();
+        } else {
+            await env.DB.prepare(
+                "UPDATE client_field_config SET status = 'rejected', " +
+                "proposed_value = NULL, proposed_at = NULL, proposed_by = NULL, " +
+                "decided_at = datetime('now'), decided_by = ?, updated_at = datetime('now') " +
+                "WHERE client_id = ? AND indicator_key = ? AND month_label = ?"
+            ).bind(decider, clientId, indicatorKey, monthLabel).run();
+        }
+        return jsonOk({ decided: decision, client_id: clientId, indicator_key: indicatorKey, month_label: monthLabel });
+    } catch (e) {
+        return jsonErr("Error deciding goal approval: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/indicator-history?indicator=key&months=12
+// Monthly realizado + meta for ONE indicator, for the portal trend chart.
+// Reuses computeMonthlySummary per month so the math can never drift from the
+// analytics view. Only months that actually have completed entries appear.
+// ---------------------------------------------------------------------------
+
+async function handleGetIndicatorHistory(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var key = url.searchParams.get("indicator") || "";
+        if (!indicatorByKey(key)) { return jsonErr("Unknown indicator", 400); }
+        var maxMonths = parseInt(url.searchParams.get("months"), 10);
+        if (!maxMonths || maxMonths < 1 || maxMonths > 24) { maxMonths = 12; }
+
+        var monthsRes = await env.DB.prepare(
+            "SELECT DISTINCT substr(entry_date, 1, 7) AS m FROM client_daily_entries " +
+            "WHERE client_id = ? AND completed = 1 ORDER BY m DESC LIMIT ?"
+        ).bind(id, maxMonths).all();
+        var months = (monthsRes.results || []).map(function(r) { return r.m; }).reverse();
+
+        var points = [];
+        for (var i = 0; i < months.length; i++) {
+            var summary = await computeMonthlySummary(env, id, months[i]);
+            for (var j = 0; j < summary.indicators.length; j++) {
+                if (summary.indicators[j].key === key) {
+                    points.push({
+                        month: months[i],
+                        realizado: summary.indicators[j].realizado,
+                        meta: summary.indicators[j].meta_mensal
+                    });
+                    break;
+                }
+            }
+        }
+        var ind = indicatorByKey(key);
+        return jsonOk({
+            indicator: key, type: ind.type, inverse: !!ind.inverse,
+            label_pt: ind.labelPt, label_en: ind.labelEn, points: points
+        });
+    } catch (e) {
+        return jsonErr("Error fetching indicator history: " + e.message, 500);
     }
 }
 
@@ -7844,7 +8188,7 @@ async function handlePutEntrySection(id, dateStr, sectionKey, request, env) {
         var today = isValidDateStr(body.today) ? body.today : new Date().toISOString().slice(0, 10);
         if (dateStr > today) { return jsonErr("Cannot fill a future day", 400); }
 
-        var config = await getFieldConfig(env, id);
+        var config = await getFieldConfig(env, id, dateStr.slice(0, 7));
         var inputKeys = sectionInputKeys(sectionKey, config);
         if (inputKeys.length === 0) { return jsonErr("Section has no enabled fields for this client", 400); }
 
@@ -7985,7 +8329,7 @@ async function handleGetEntryState(id, request, env) {
         var dayOff = {};
         (missed.results || []).forEach(function(r) { if (r.status === "day_off") { dayOff[r.missed_date] = true; } });
 
-        var config = await getFieldConfig(env, id);
+        var config = await getFieldConfig(env, id, today.slice(0, 7));
         var required = applicableSections(config);
 
         var pending = [];
@@ -8054,7 +8398,7 @@ async function handleGetClientEntries(id, request, env) {
 // ---------------------------------------------------------------------------
 
 async function computeMonthlySummary(env, clientId, month) {
-    var config = await getFieldConfig(env, clientId);
+    var config = await getFieldConfig(env, clientId, month);
     var entries = await env.DB.prepare(
         "SELECT entry_date, sections_json FROM client_daily_entries " +
         "WHERE client_id = ? AND entry_date LIKE ? AND completed = 1"
@@ -8118,7 +8462,9 @@ async function computeMonthlySummary(env, clientId, month) {
             key: ind.key, section: ind.section, type: ind.type,
             label_pt: ind.labelPt, label_en: ind.labelEn, inverse: !!ind.inverse,
             meta_mensal: (meta === undefined) ? null : meta,
-            realizado: realizado, falta: falta
+            realizado: realizado, falta: falta,
+            goal_status: config[ind.key].status,
+            proposed_value: config[ind.key].proposed_value
         });
     });
 
@@ -8202,6 +8548,9 @@ async function handleGetLeaderboard(request, env) {
                     if (ind.inverse) {
                         pct = ind.realizado <= meta ? 100 : Math.round((meta / ind.realizado) * 10000) / 100;
                     } else {
+                        // Capped at 150 DELIBERATELY for fair ranking. The client
+                        // portal shows uncapped percentages on purpose — not an
+                        // inconsistency to "fix".
                         pct = Math.min(150, Math.round((ind.realizado / meta) * 10000) / 100);
                     }
                     pcts.push(pct);
@@ -8308,6 +8657,18 @@ export default {
         var gateResponse = await enforceClientRoleGate(request, env, path, method);
         if (gateResponse) { return gateResponse; }
 
+        // Developer preview-as is READ-ONLY, enforced here at the API level —
+        // not by hiding buttons. portal.html appends previewAs=<id> to every
+        // request while previewing, so any non-GET arriving with that param
+        // from a developer is rejected before route dispatch.
+        if (method !== "GET" && url.searchParams.get("previewAs")) {
+            var previewUser = null;
+            try { previewUser = await authenticate(request, env); } catch (e) { previewUser = null; }
+            if (previewUser && previewUser.role === "developer") {
+                return jsonErr("Modo preview é somente leitura / Preview mode is read-only", 403);
+            }
+        }
+
         if (path === "/api/auth/client-login"           && method === "POST") { return handlePostClientLogin(request, env); }
         if (path === "/api/auth/client-change-password" && method === "POST") { return handlePostClientChangePassword(request, env); }
         if (path === "/api/auth/client-link-google"     && method === "POST") { return handlePostClientLinkGoogle(request, env); }
@@ -8315,6 +8676,7 @@ export default {
         if (path === "/api/portal/me"                   && method === "GET")  { return handleGetPortalMe(request, env); }
         if (path === "/api/portal/next-meeting"         && method === "GET")  { return handleGetPortalNextMeeting(request, env); }
         if (path === "/api/leaderboard"                 && method === "GET")  { return handleGetLeaderboard(request, env); }
+        if (path === "/api/goal-approvals"              && method === "GET")  { return handleGetGoalApprovals(request, env); }
 
         if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
         if (path === "/api/google/oauth/start"        && method === "GET")  { return handleGoogleOAuthStart(request, env); }
@@ -8401,6 +8763,11 @@ export default {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "whatsapp" && method === "POST") {
             return handlePostSessionWhatsapp(segs[2], request, env);
+        }
+
+        // /api/goal-approvals/:client_id/:indicator_key/:month_label  POST
+        if (segs[0] === "api" && segs[1] === "goal-approvals" && segs[2] && segs[3] && segs[4] && method === "POST") {
+            return handlePostGoalApprovalDecision(segs[2], segs[3], segs[4], request, env);
         }
 
         // /api/client-resources/:id/mark-sent  POST
@@ -8510,6 +8877,15 @@ export default {
             if (segs.length === 4 && segs[3] === "field-config") {
                 if (method === "GET") { return handleGetClientFieldConfig(cid, request, env); }
                 if (method === "PUT") { return handlePutClientFieldConfig(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "goal-state" && method === "GET") {
+                return handleGetGoalState(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "goals" && method === "PUT") {
+                return handlePutClientGoals(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "indicator-history" && method === "GET") {
+                return handleGetIndicatorHistory(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "entry-state" && method === "GET") {
                 return handleGetEntryState(cid, request, env);

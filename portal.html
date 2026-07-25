@@ -338,6 +338,68 @@
     .kpi-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
     .kpi-bar-fill.done { background: var(--green); }
 
+    /* Attainment pill — color + glyph + numeric %, so status never rides on
+       color alone (WCAG 1.4.1): ▼ red, ● yellow, ▲ green. Uncapped. */
+    .att-pill {
+      display: inline-block; font-size: 11px; font-weight: 800;
+      padding: 3px 9px; border-radius: 12px; white-space: nowrap;
+    }
+    .att-pill.red    { background: rgba(180,64,64,0.12); color: var(--red); }
+    .att-pill.yellow { background: rgba(201,164,58,0.2);  color: #8a6d1d; }
+    .att-pill.green  { background: rgba(63,125,78,0.12);  color: var(--green); }
+    .kpi-pending-note { font-size: 11px; color: #8a6d1d; margin-top: 6px; }
+
+    /* Chart A — attainment bars, one indicator per row, mobile-first */
+    .chart-a-summary { font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+    .chart-a-row { padding: 10px 0 8px; border-bottom: 1px solid var(--border); }
+    .chart-a-row:last-child { border-bottom: none; }
+    .chart-a-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .chart-a-label { font-size: 13px; font-weight: 600; min-width: 0; }
+    .chart-a-track { height: 10px; border-radius: 5px; background: var(--border); overflow: hidden; margin-top: 6px; }
+    .chart-a-fill { height: 100%; border-radius: 5px; }
+    .chart-a-fill.red    { background: var(--red); }
+    .chart-a-fill.yellow { background: var(--gold); }
+    .chart-a-fill.green  { background: var(--green); }
+    .chart-a-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+    /* Chart B — one-indicator trend */
+    .chart-b-svg { width: 100%; height: auto; display: block; }
+    .chart-b-summary { font-size: 13px; margin-top: 8px; }
+    select.chart-b-picker {
+      width: 100%; border: 1px solid var(--border); border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 15px; padding: 10px 12px;
+      background: #fff; color: var(--text); margin-bottom: 10px;
+    }
+
+    /* Goals tab + pending badge */
+    .goal-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .goal-row:last-child { border-bottom: none; }
+    .goal-pending-badge {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.4px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+      background: rgba(201,164,58,0.18); color: #8a6d1d;
+    }
+
+    /* Developer preview banner */
+    #previewBanner {
+      background: #8a6d1d; color: #fff;
+      padding: 8px 16px; font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap;
+      position: sticky; top: 64px; z-index: 49;
+    }
+    #previewBanner[hidden] { display: none; }
+    #previewBanner button {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.5);
+      color: #fff; border-radius: 14px; padding: 4px 12px;
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+
     /* history table */
     table.hist { width: 100%; border-collapse: collapse; font-size: 13px; }
     table.hist th {
@@ -420,6 +482,24 @@
       </button>
     </div>
   </header>
+
+  <!-- Developer preview-as banner (LTC PreviewBanner pattern). Read-only is
+       enforced by the Worker; this just makes the mode unmistakable. -->
+  <div id="previewBanner" hidden>
+    <span>
+      <span class="show-pt">Preview: </span><span class="show-en">Preview: </span>
+      <strong id="previewClientLabel"></strong>
+      <span class="show-pt"> — somente leitura</span><span class="show-en"> — read-only</span>
+    </span>
+    <span style="display:flex;gap:8px;">
+      <button type="button" onclick="previewSwitchClient()">
+        <span class="show-pt">Trocar cliente</span><span class="show-en">Switch client</span>
+      </button>
+      <button type="button" onclick="previewExit()">
+        <span class="show-pt">Sair do preview</span><span class="show-en">Exit preview</span>
+      </button>
+    </span>
+  </div>
 
   <div id="loadingScreen">
     <span class="show-pt">Carregando…</span>
@@ -544,6 +624,48 @@
       <div class="autosave-note" id="autosaveNote"></div>
     </section>
 
+    <!-- ══ Monthly goals form (multi-step, mirrors the daily-entry form) ══ -->
+    <section id="viewGoals" hidden>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" id="goalsProgressFill"></div></div>
+        <div class="progress-label" id="goalsProgressLabel"></div>
+      </div>
+      <div class="section-hero">
+        <div class="hero-bg" data-hero-bg></div>
+        <div class="hero-scrim" style="background:rgba(20,18,16,0.55);"></div>
+        <div class="section-hero-title" id="goalsSectionTitle"></div>
+        <div class="section-hero-sub" id="goalsSectionSub"></div>
+        <div class="tile-grid" id="goalsTiles"></div>
+      </div>
+      <div class="err-msg" id="goalsErr"></div>
+      <div class="form-nav">
+        <button class="btn-outline" id="btnGoalsPrev" onclick="prevGoalsSection()">
+          <span class="show-pt">&larr; Anterior</span>
+          <span class="show-en">&larr; Back</span>
+        </button>
+        <button class="btn-gold" id="btnGoalsNext" onclick="nextGoalsSection()">
+          <span class="show-pt">Continuar &rarr;</span>
+          <span class="show-en">Continue &rarr;</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ Soft gate: next month's goals prompt (skippable) ══ -->
+    <section id="viewGoalsPrompt" hidden>
+      <div class="content-card" style="max-width:480px;margin:40px auto;">
+        <div class="card-title" id="goalsPromptTitle"></div>
+        <p class="muted" id="goalsPromptText" style="margin-bottom:16px;"></p>
+        <button class="btn-gold" style="width:100%;" onclick="acceptGoalsPrompt()">
+          <span class="show-pt">Definir metas agora</span>
+          <span class="show-en">Set goals now</span>
+        </button>
+        <button class="btn-outline" style="width:100%;margin-top:10px;" onclick="skipGoalsPrompt()">
+          <span class="show-pt">Deixar para depois</span>
+          <span class="show-en">Later</span>
+        </button>
+      </div>
+    </section>
+
     <!-- ══ Client Portal ══ -->
     <section id="viewPortal" hidden>
       <div class="hero">
@@ -574,6 +696,9 @@
 
       <div class="portal-tabs">
         <button class="portal-tab active" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+        <button class="portal-tab" data-tab="goals" onclick="switchTab('goals')">
+          <span class="show-pt">Metas</span><span class="show-en">Goals</span>
+        </button>
         <button class="portal-tab" data-tab="tasks" onclick="switchTab('tasks')">
           <span class="show-pt">Tarefas</span><span class="show-en">Tasks</span>
         </button>
@@ -607,7 +732,16 @@
             <button onclick="changeMonth(1)">&rsaquo;</button>
           </div>
           <div class="muted" id="analyticsMeta"></div>
+          <div id="chartABody"></div>
           <div id="analyticsBody"></div>
+        </div>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Evolu&ccedil;&atilde;o m&ecirc;s a m&ecirc;s</span>
+            <span class="show-en">Month-over-month trend</span>
+          </div>
+          <select class="chart-b-picker" id="chartBPicker" onchange="loadChartB()"></select>
+          <div id="chartBBody"></div>
         </div>
         <div class="content-card">
           <div class="card-title">
@@ -615,6 +749,25 @@
             <span class="show-en">Entry history</span>
           </div>
           <div id="historyBody"></div>
+        </div>
+      </div>
+
+      <div id="tabGoals" hidden>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Suas metas mensais</span>
+            <span class="show-en">Your monthly goals</span>
+          </div>
+          <div class="month-nav">
+            <button onclick="changeGoalsMonth(-1)">&lsaquo;</button>
+            <div class="month-label" id="goalsMonthLabel"></div>
+            <button onclick="changeGoalsMonth(1)">&rsaquo;</button>
+          </div>
+          <div id="goalsTabBody"></div>
+          <button class="btn-gold" id="btnEditGoalsMonth" style="width:100%;margin-top:14px;" onclick="startGoalsFromTab()">
+            <span class="show-pt">Definir / editar metas deste m&ecirc;s</span>
+            <span class="show-en">Set / edit this month's goals</span>
+          </button>
         </div>
       </div>
 
@@ -726,6 +879,20 @@
     var analyticsMonth = new Date().toISOString().slice(0, 7);
     var dayOffTargetDate = null;
     var auth = null;
+    var goalState = null;         // from /goal-state (gate driver)
+
+    // Developer preview-as (Task 0): read-only view of a client's portal.
+    // Threaded via the URL so tab switches and refreshes keep it; apiFetch
+    // appends it to every request so the Worker can enforce read-only.
+    var PREVIEW_AS = (function() {
+      var m = window.location.search.match(/[?&]previewAs=([^&]+)/);
+      return m ? decodeURIComponent(m[1]) : null;
+    })();
+
+    function previewSwitchClient() {
+      if (window.apexNavSetView) { window.apexNavSetView("client"); }
+    }
+    function previewExit() { window.location.href = "dashboard.html"; }
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -740,7 +907,11 @@
       if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
       else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
       // re-render dynamic bits that embed language-dependent text
-      if (!document.getElementById("viewPortal").hidden) { loadAnalytics(); }
+      if (!document.getElementById("viewPortal").hidden) {
+        loadAnalytics();
+        if (!document.getElementById("tabGoals").hidden) { loadGoalsTab(); }
+      }
+      if (!document.getElementById("viewGoals").hidden) { renderGoalsSection(); }
     }
 
     function todayStr() {
@@ -778,6 +949,9 @@
     }
 
     function apiFetch(path, opts) {
+      if (PREVIEW_AS) {
+        path += (path.indexOf("?") > -1 ? "&" : "?") + "previewAs=" + encodeURIComponent(PREVIEW_AS);
+      }
       return getToken().then(function(token) {
         var method  = (opts && opts.method) || "GET";
         var headers = { "Authorization": "Bearer " + token };
@@ -810,7 +984,7 @@
 
     // ── Views ───────────────────────────────────────────────────────────────
     function showView(id) {
-      ["viewPassword", "viewLinkGoogle", "viewEntryHome", "viewEntryForm", "viewPortal"].forEach(function(v) {
+      ["viewPassword", "viewLinkGoogle", "viewEntryHome", "viewEntryForm", "viewGoals", "viewGoalsPrompt", "viewPortal"].forEach(function(v) {
         document.getElementById(v).hidden = (v !== id);
       });
       window.scrollTo(0, 0);
@@ -1176,6 +1350,280 @@
         });
     }
 
+    // ── Monthly goals (Tasks 2-3) ───────────────────────────────────────────
+    // Same multi-step section-by-section pattern as the daily-entry form.
+    // Submitting writes ALL values in one PUT /goals; the Worker decides per
+    // indicator whether it's a direct approved write (first-time / unchanged)
+    // or a pending proposal (edit of an approved goal).
+
+    var goalsMonth = new Date().toISOString().slice(0, 7);   // month shown in the Metas tab
+    var goalsFormMonth = null;    // month being edited in viewGoals
+    var goalsFormConfig = null;   // field-config for goalsFormMonth
+    var goalsFormSections = [];
+    var goalsFormIdx = 0;
+    var goalsFormValues = {};
+    var goalsFormHard = false;    // hard gate: no way out until saved
+    var goalsReturnTo = "boot";   // 'boot' (continue login flow) | 'tab' (back to Metas tab)
+
+    function isGoalableInd(ind) {
+      return ind.enabled && ind.type !== "toggle" && ind.key !== "metas_batidas";
+    }
+
+    // Days remaining after `ds` in its month, from the real month length —
+    // NOT a fixed date (31-day month → soft gate from the 24th, Feb → 21st).
+    function daysLeftInMonth(ds) {
+      var p = ds.split("-");
+      var lastDay = new Date(Number(p[0]), Number(p[1]), 0).getDate();
+      return lastDay - Number(p[2]);
+    }
+
+    function loadGoalState() {
+      return apiFetch("/api/clients/" + clientId + "/goal-state?today=" + todayStr())
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(d) { goalState = d; return d; });
+    }
+
+    // Decides what the client sees right after login (runs BEFORE the
+    // pending-days logic). Preview mode skips every gate.
+    function decideBootView() {
+      if (PREVIEW_AS) { showPortal(); return; }
+      if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals)) {
+        // Hard gate: no goals at all, or none set for the current month.
+        startGoals(goalState.current_month, true, "boot");
+        return;
+      }
+      if (goalState && daysLeftInMonth(goalState.today) < 8 && !goalState.next_month_has_goals &&
+          !sessionStorage.getItem("apex_goal_soft_skip_" + goalState.next_month)) {
+        showGoalsPrompt();
+        return;
+      }
+      proceedToEntries();
+    }
+
+    // The pre-existing post-login behavior, unchanged.
+    function proceedToEntries() {
+      var pending = (entryState && entryState.pending) || [];
+      if (pending.length === 1) {
+        entryStartFromBoot();
+      } else if (pending.length > 1) {
+        showEntryHome();
+      } else {
+        showPortal();
+      }
+    }
+
+    // ── Soft gate ──
+    function showGoalsPrompt() {
+      var nextLabel = monthLabelText(goalState.next_month);
+      var left = daysLeftInMonth(goalState.today);
+      document.getElementById("goalsPromptTitle").innerHTML =
+        '<span class="show-pt">Metas de ' + escHtml(nextLabel) + '</span>' +
+        '<span class="show-en">Goals for ' + escHtml(nextLabel) + '</span>';
+      document.getElementById("goalsPromptText").innerHTML =
+        '<span class="show-pt">Faltam ' + left + ' dia(s) para o fim do m&ecirc;s e ' + escHtml(nextLabel) +
+        ' ainda n&atilde;o tem metas definidas. Voc&ecirc; pode definir agora ou seguir para o registro di&aacute;rio.</span>' +
+        '<span class="show-en">' + left + ' day(s) left in this month and ' + escHtml(nextLabel) +
+        ' has no goals set yet. You can set them now or continue to the daily log.</span>';
+      showView("viewGoalsPrompt");
+    }
+    function acceptGoalsPrompt() { startGoals(goalState.next_month, false, "boot"); }
+    function skipGoalsPrompt() {
+      sessionStorage.setItem("apex_goal_soft_skip_" + goalState.next_month, "1");
+      proceedToEntries();
+    }
+
+    // ── Multi-step goals form ──
+    function startGoals(month, hard, returnTo) {
+      goalsFormMonth = month;
+      goalsFormHard = !!hard;
+      goalsReturnTo = returnTo || "boot";
+      goalsFormValues = {};
+      apiFetch("/api/clients/" + clientId + "/field-config?month=" + month)
+        .then(function(res) { return res.json(); })
+        .then(function(cfg) {
+          goalsFormConfig = cfg;
+          goalsFormSections = SECTION_ORDER.filter(function(sec) {
+            return cfg.indicators.some(function(ind) { return ind.section === sec && isGoalableInd(ind); });
+          });
+          if (!goalsFormSections.length) {
+            // nothing goal-able (all disabled) — never trap the client
+            if (goalsReturnTo === "tab") { showPortal(); } else { proceedToEntries(); }
+            return;
+          }
+          // prefill with the resolved (active) goals
+          cfg.indicators.forEach(function(ind) {
+            if (isGoalableInd(ind) && ind.meta_mensal !== null && ind.meta_mensal !== undefined) {
+              goalsFormValues[ind.key] = ind.meta_mensal;
+            }
+          });
+          goalsFormIdx = 0;
+          renderGoalsSection();
+          showView("viewGoals");
+        })
+        .catch(function() { if (goalsReturnTo === "tab") { showPortal(); } else { proceedToEntries(); } });
+    }
+
+    function goalsIndsForSection(sec) {
+      return goalsFormConfig.indicators.filter(function(ind) {
+        return ind.section === sec && isGoalableInd(ind);
+      });
+    }
+
+    function renderGoalsSection() {
+      var sec = goalsFormSections[goalsFormIdx];
+      var label = SECTION_LABELS[sec];
+      document.getElementById("goalsSectionTitle").textContent =
+        (goalsFormIdx + 1) + ". " + (isEn() ? label.en : label.pt);
+      document.getElementById("goalsSectionSub").textContent =
+        (isEn() ? "Monthly goals — " : "Metas do mês — ") + monthLabelText(goalsFormMonth);
+      document.getElementById("goalsErr").textContent = "";
+
+      var pct = Math.round((goalsFormIdx / goalsFormSections.length) * 100);
+      document.getElementById("goalsProgressFill").style.width = pct + "%";
+      document.getElementById("goalsProgressLabel").textContent = (isEn()
+        ? "Section " + (goalsFormIdx + 1) + " of " + goalsFormSections.length
+        : "Seção " + (goalsFormIdx + 1) + " de " + goalsFormSections.length);
+
+      var html = "";
+      goalsIndsForSection(sec).forEach(function(ind) {
+        var v = (goalsFormValues[ind.key] !== undefined && goalsFormValues[ind.key] !== null)
+          ? goalsFormValues[ind.key] : "";
+        var unit = ind.type === "currency" ? "$" : ind.type === "percent" ? "%" : ind.type === "hours" ? (isEn() ? "hours" : "horas") : "";
+        html += '<div class="field-tile"><label class="tile-label" for="goal_' + ind.key + '">' +
+          escHtml(isEn() ? ind.label_en : ind.label_pt) + '</label>' +
+          '<input type="number" inputmode="decimal" step="any" min="0" id="goal_' + ind.key + '" value="' + escHtml(String(v)) + '">' +
+          (unit ? '<div class="tile-unit">' + unit + '</div>' : "") +
+          (ind.goal_status === "pending" && ind.proposed_value !== null && ind.proposed_value !== undefined
+            ? '<div class="tile-unit" style="color:#8a6d1d;">' +
+              (isEn() ? "Proposed: " : "Proposto: ") + escHtml(String(ind.proposed_value)) +
+              (isEn() ? " (awaiting approval)" : " (aguardando aprovação)") + '</div>'
+            : "") +
+          '</div>';
+      });
+      document.getElementById("goalsTiles").innerHTML = html;
+
+      document.getElementById("btnGoalsPrev").style.visibility = goalsFormIdx === 0 ? "hidden" : "visible";
+      document.getElementById("btnGoalsNext").innerHTML = goalsFormIdx === goalsFormSections.length - 1
+        ? '<span class="show-pt">Salvar metas ✔</span><span class="show-en">Save goals ✔</span>'
+        : '<span class="show-pt">Continuar →</span><span class="show-en">Continue →</span>';
+    }
+
+    function collectGoalsSection(sec) {
+      var errEl = document.getElementById("goalsErr");
+      var inds = goalsIndsForSection(sec);
+      for (var i = 0; i < inds.length; i++) {
+        var el = document.getElementById("goal_" + inds[i].key);
+        if (!el || el.value === "") {
+          errEl.textContent = (isEn() ? "All goals are required: " : "Todas as metas são obrigatórias: ") +
+            (isEn() ? inds[i].label_en : inds[i].label_pt);
+          return false;
+        }
+        var num = Number(el.value);
+        if (!isFinite(num)) {
+          errEl.textContent = (isEn() ? "Invalid value in " : "Valor inválido em ") +
+            (isEn() ? inds[i].label_en : inds[i].label_pt);
+          return false;
+        }
+        goalsFormValues[inds[i].key] = num;
+      }
+      return true;
+    }
+
+    function prevGoalsSection() {
+      collectGoalsSection(goalsFormSections[goalsFormIdx]);
+      document.getElementById("goalsErr").textContent = "";
+      if (goalsFormIdx > 0) { goalsFormIdx--; renderGoalsSection(); }
+    }
+
+    function nextGoalsSection() {
+      var sec = goalsFormSections[goalsFormIdx];
+      if (!collectGoalsSection(sec)) { return; }
+      if (goalsFormIdx < goalsFormSections.length - 1) {
+        goalsFormIdx++;
+        renderGoalsSection();
+        return;
+      }
+      var goals = [];
+      Object.keys(goalsFormValues).forEach(function(k) {
+        goals.push({ key: k, meta_mensal: goalsFormValues[k] });
+      });
+      var btn = document.getElementById("btnGoalsNext");
+      btn.disabled = true;
+      apiFetch("/api/clients/" + clientId + "/goals",
+        { method: "PUT", body: { month: goalsFormMonth, goals: goals } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          btn.disabled = false;
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          if (r.data.pending > 0) {
+            window.alert(isEn()
+              ? "Some changed goals were sent for approval. The current goals stay active until they are approved."
+              : "Algumas metas alteradas foram enviadas para aprovação. As metas atuais continuam valendo até a aprovação.");
+          }
+          return loadGoalState().then(function() {
+            if (goalsReturnTo === "tab") {
+              showPortal();
+              switchTab("goals", true);
+            } else {
+              proceedToEntries();
+            }
+          });
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          document.getElementById("goalsErr").textContent = e.message;
+        });
+    }
+
+    // ── Metas tab (proactive entry point — same form, same rules) ──
+    function changeGoalsMonth(delta) {
+      var p = goalsMonth.split("-");
+      var d = new Date(Number(p[0]), Number(p[1]) - 1 + delta, 1);
+      goalsMonth = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      loadGoalsTab();
+    }
+
+    function loadGoalsTab() {
+      document.getElementById("goalsMonthLabel").textContent = monthLabelText(goalsMonth);
+      var body = document.getElementById("goalsTabBody");
+      body.innerHTML = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
+      apiFetch("/api/clients/" + clientId + "/field-config?month=" + goalsMonth)
+        .then(function(res) { return res.json(); })
+        .then(function(cfg) {
+          var html = "";
+          SECTION_ORDER.forEach(function(sec) {
+            var list = cfg.indicators.filter(function(ind) { return ind.section === sec && isGoalableInd(ind); });
+            if (!list.length) { return; }
+            html += '<div class="kpi-section-title">' + escHtml(isEn() ? SECTION_LABELS[sec].en : SECTION_LABELS[sec].pt) + '</div>';
+            list.forEach(function(ind) {
+              var pctType = (ind.key === "margem_lucro" || ind.key === "taxa_conversao") ? "percent" : ind.type;
+              html += '<div class="goal-row">' +
+                '<span>' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</span>' +
+                '<span style="text-align:right;">' +
+                '<strong>' + (ind.meta_mensal === null || ind.meta_mensal === undefined ? "--" : fmtNum(ind.meta_mensal, pctType)) + '</strong>' +
+                (ind.goal_status === "pending" && ind.proposed_value !== null && ind.proposed_value !== undefined
+                  ? '<br><span class="goal-pending-badge">' +
+                    (isEn() ? "Proposed " : "Proposto ") + escHtml(fmtNum(ind.proposed_value, pctType)) + ' · ' +
+                    (isEn() ? "awaiting approval" : "aguardando aprovação") + '</span>'
+                  : "") +
+                '</span></div>';
+            });
+          });
+          body.innerHTML = html ||
+            '<p class="muted">' + (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
+          // Past months are read-only history — hide the edit button there.
+          var editBtn = document.getElementById("btnEditGoalsMonth");
+          if (editBtn) { editBtn.style.display = (goalsMonth < todayStr().slice(0, 7)) ? "none" : ""; }
+        })
+        .catch(function() {
+          body.innerHTML = '<p class="muted">' + (isEn() ? "Could not load goals." : "Não foi possível carregar as metas.") + '</p>';
+        });
+    }
+
+    function startGoalsFromTab() {
+      startGoals(goalsMonth, false, "tab");
+    }
+
     // ── Portal ──────────────────────────────────────────────────────────────
     var tabsLoaded = {};
 
@@ -1200,8 +1648,9 @@
     // wires taps to switchTab() instead of a page navigation.
     var PORTAL_DOCK_TABS = [
       { tab: "analytics", icon: "home",         labelPt: "Analytics",   labelEn: "Analytics" },
+      { tab: "goals",      icon: "trend",        labelPt: "Metas",       labelEn: "Goals" },
       { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",     labelEn: "Tasks" },
-      { tab: "documents",  icon: "file",         labelPt: "Documentos",  labelEn: "Documents" },
+      { tab: "documents",  icon: "file",         labelPt: "Docs",        labelEn: "Docs" },
       { tab: "invoices",   icon: "finance",      labelPt: "Faturas",     labelEn: "Invoices" }
     ];
 
@@ -1232,12 +1681,13 @@
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
       updateMobileDockActive(tab);
-      ["Analytics", "Tasks", "Documents", "Invoices"].forEach(function(t) {
+      ["Analytics", "Goals", "Tasks", "Documents", "Invoices"].forEach(function(t) {
         document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
       });
       if (force || !tabsLoaded[tab]) {
         tabsLoaded[tab] = true;
         if (tab === "analytics") { loadAnalytics(); loadHistory(); }
+        if (tab === "goals") { loadGoalsTab(); }
         if (tab === "tasks") { loadTasks(); }
         if (tab === "documents") { loadDocuments(); }
         if (tab === "invoices") { loadInvoices(); }
@@ -1314,6 +1764,76 @@
       return names[Number(p[1]) - 1] + " " + p[0];
     }
 
+    // Attainment % — the client's proven formulas, uncapped (150% shows 150%).
+    // Direct: (realizado/meta)*100. Inverse (lower is better): 100 when within
+    // target, else (meta/realizado)*100 — the Worker's leaderboard formula.
+    function attainmentPct(ind) {
+      var meta = ind.meta_mensal;
+      if (meta === null || meta === undefined || meta === 0 ||
+          ind.realizado === null || ind.realizado === undefined) { return null; }
+      if (ind.inverse) {
+        return ind.realizado <= meta ? 100 : Math.round((meta / ind.realizado) * 100);
+      }
+      return Math.round((ind.realizado / meta) * 100);
+    }
+
+    // Red < 50, yellow 50-79, green >= 80. The glyph carries the status in
+    // grayscale too (WCAG 1.4.1): ▼ red, ● yellow, ▲ green.
+    function pctBand(pct) { return pct < 50 ? "red" : pct < 80 ? "yellow" : "green"; }
+    function pillHtml(pct) {
+      if (pct === null) { return ""; }
+      var band = pctBand(pct);
+      var glyph = band === "red" ? "▼" : band === "yellow" ? "●" : "▲";
+      return '<span class="att-pill ' + band + '">' + glyph + ' ' + pct + '%</span>';
+    }
+
+    function indPctType(ind) {
+      return (ind.key === "margem_lucro" || ind.key === "taxa_conversao" || ind.key === "metas_batidas") ? "percent" : ind.type;
+    }
+
+    // Chart A — attainment bars, worst-first, 5 shown + "Ver todos (N)".
+    var chartAExpanded = false;
+    function renderChartA(indicators) {
+      var el = document.getElementById("chartABody");
+      var withPct = [];
+      indicators.forEach(function(ind) {
+        var pct = attainmentPct(ind);
+        if (pct !== null) { withPct.push({ ind: ind, pct: pct }); }
+      });
+      if (!withPct.length) { el.innerHTML = ""; return; }
+      withPct.sort(function(a, b) { return a.pct - b.pct; });
+      var onTrack = withPct.filter(function(x) { return x.pct >= 80; }).length;
+      var html = '<div class="chart-a-summary">' +
+        (isEn() ? onTrack + " of " + withPct.length + " goals on track"
+                : onTrack + " de " + withPct.length + " metas no caminho certo") + '</div>';
+      var shown = chartAExpanded ? withPct : withPct.slice(0, 5);
+      shown.forEach(function(x) {
+        var ind = x.ind;
+        var pctType = indPctType(ind);
+        var band = pctBand(x.pct);
+        html += '<div class="chart-a-row">' +
+          '<div class="chart-a-head"><span class="chart-a-label">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</span>' +
+          pillHtml(x.pct) + '</div>' +
+          '<div class="chart-a-track"><div class="chart-a-fill ' + band + '" style="width:' + Math.min(100, x.pct) + '%"></div></div>' +
+          '<div class="chart-a-sub">Meta: ' + fmtNum(ind.meta_mensal, pctType) +
+          ' · Falta: ' + fmtNum(ind.falta, pctType) + '</div>' +
+          '</div>';
+      });
+      if (withPct.length > 5) {
+        html += '<button class="btn-expand" style="margin-top:8px;" onclick="toggleChartA()">' +
+          (chartAExpanded
+            ? (isEn() ? "Show less" : "Mostrar menos")
+            : (isEn() ? "Show all (" + withPct.length + ")" : "Ver todos (" + withPct.length + ")")) +
+          '</button>';
+      }
+      el.innerHTML = html;
+    }
+    var chartAIndicators = [];
+    function toggleChartA() {
+      chartAExpanded = !chartAExpanded;
+      renderChartA(chartAIndicators);
+    }
+
     function loadAnalytics() {
       document.getElementById("monthLabel").textContent = monthLabelText(analyticsMonth);
       apiFetch("/api/clients/" + clientId + "/entries-summary?month=" + analyticsMonth)
@@ -1322,6 +1842,9 @@
           document.getElementById("analyticsMeta").textContent = (isEn()
             ? d.completed_days + " completed day(s) this month"
             : d.completed_days + " dia(s) completo(s) neste mês");
+          chartAIndicators = d.indicators;
+          renderChartA(d.indicators);
+          populateChartBPicker();
           var bySection = {};
           d.indicators.forEach(function(ind) {
             (bySection[ind.section] = bySection[ind.section] || []).push(ind);
@@ -1330,23 +1853,34 @@
           SECTION_ORDER.forEach(function(sec) {
             var list = bySection[sec];
             if (!list || !list.length) { return; }
+            // worst attainment first within the section; no-meta cards last
+            list.sort(function(a, b) {
+              var pa = attainmentPct(a), pb = attainmentPct(b);
+              if (pa === null && pb === null) { return 0; }
+              if (pa === null) { return 1; }
+              if (pb === null) { return -1; }
+              return pa - pb;
+            });
             html += '<div class="kpi-section-title">' + escHtml(isEn() ? SECTION_LABELS[sec].en : SECTION_LABELS[sec].pt) + '</div>';
             html += '<div class="kpi-grid">';
             list.forEach(function(ind) {
-              var pct = null;
-              if (ind.meta_mensal && ind.realizado !== null && !ind.inverse) {
-                pct = Math.min(100, Math.round((ind.realizado / ind.meta_mensal) * 100));
-              }
-              var pctType = (ind.key === "margem_lucro" || ind.key === "taxa_conversao" || ind.key === "metas_batidas") ? "percent" : ind.type;
+              var pct = attainmentPct(ind);
+              var pctType = indPctType(ind);
               html += '<div class="kpi-card">' +
                 '<div class="kpi-name">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</div>' +
-                '<div class="kpi-value">' + fmtNum(ind.realizado, pctType) + '</div>';
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+                '<div class="kpi-value">' + fmtNum(ind.realizado, pctType) + '</div>' +
+                pillHtml(pct) + '</div>';
               if (ind.meta_mensal !== null && ind.meta_mensal !== undefined) {
                 html += '<div class="kpi-meta-row"><span>Meta: ' + fmtNum(ind.meta_mensal, pctType) + '</span>' +
                   '<span>Falta: ' + fmtNum(ind.falta, pctType) + '</span></div>';
-                if (pct !== null) {
-                  html += '<div class="kpi-bar"><div class="kpi-bar-fill' + (pct >= 100 ? " done" : "") + '" style="width:' + pct + '%"></div></div>';
-                }
+              }
+              if (ind.goal_status === "pending" && ind.proposed_value !== null && ind.proposed_value !== undefined) {
+                html += '<div class="kpi-pending-note">' +
+                  (isEn()
+                    ? "Proposed goal: " + fmtNum(ind.proposed_value, pctType) + " (awaiting approval)"
+                    : "Meta proposta: " + fmtNum(ind.proposed_value, pctType) + " (aguardando aprovação)") +
+                  '</div>';
               }
               html += '</div>';
             });
@@ -1356,6 +1890,130 @@
             '<p class="muted">' + (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
         })
         .catch(function() {});
+    }
+
+    // ── Chart B — one indicator's month-over-month trend (inline SVG) ──────
+    var chartBLoadedFor = null;
+
+    function populateChartBPicker() {
+      var sel = document.getElementById("chartBPicker");
+      if (!sel || !fieldConfig) { return; }
+      var current = sel.value;
+      var html = "";
+      fieldConfig.indicators.forEach(function(ind) {
+        if (!ind.enabled || ind.type === "toggle") { return; }
+        html += '<option value="' + ind.key + '">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</option>';
+      });
+      sel.innerHTML = html;
+      if (current) { sel.value = current; }
+      if (!sel.value && sel.options.length) { sel.selectedIndex = 0; }
+      if (sel.value && chartBLoadedFor !== sel.value) { loadChartB(); }
+    }
+
+    function loadChartB() {
+      var sel = document.getElementById("chartBPicker");
+      var body = document.getElementById("chartBBody");
+      if (!sel || !sel.value) { return; }
+      var key = sel.value;
+      chartBLoadedFor = key;
+      body.innerHTML = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
+      apiFetch("/api/clients/" + clientId + "/indicator-history?indicator=" + encodeURIComponent(key) + "&months=12")
+        .then(function(res) { return res.json(); })
+        .then(function(d) { renderChartB(d); })
+        .catch(function() {
+          body.innerHTML = '<p class="muted">' + (isEn() ? "No data yet." : "Sem dados ainda.") + '</p>';
+        });
+    }
+
+    function chartBMonthShort(m) {
+      var namesPt = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+      var namesEn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var idx = Number(m.split("-")[1]) - 1;
+      return (isEn() ? namesEn : namesPt)[idx];
+    }
+
+    function renderChartB(d) {
+      var body = document.getElementById("chartBBody");
+      var points = (d.points || []).filter(function(p) { return p.realizado !== null && p.realizado !== undefined; });
+      if (!points.length) {
+        body.innerHTML = '<p class="muted">' + (isEn() ? "No data yet for this indicator." : "Sem dados ainda para este indicador.") + '</p>';
+        return;
+      }
+      var pctType = (d.indicator === "margem_lucro" || d.indicator === "taxa_conversao" || d.indicator === "metas_batidas") ? "percent" : d.type;
+      var W = 320, H = 150, padL = 8, padR = 8, padT = 12, padB = 26;
+      var vals = [];
+      points.forEach(function(p) {
+        vals.push(p.realizado);
+        if (p.meta !== null && p.meta !== undefined) { vals.push(p.meta); }
+      });
+      var maxV = Math.max.apply(null, vals), minV = Math.min.apply(null, vals);
+      if (maxV === minV) { maxV = maxV + (maxV === 0 ? 1 : Math.abs(maxV) * 0.2); minV = minV - (minV === 0 ? 1 : Math.abs(minV) * 0.2); }
+      var span = maxV - minV;
+      maxV += span * 0.1; minV -= span * 0.1;
+      function x(i) {
+        return points.length === 1 ? W / 2 : padL + (i / (points.length - 1)) * (W - padL - padR);
+      }
+      function y(v) { return padT + (1 - (v - minV) / (maxV - minV)) * (H - padT - padB); }
+
+      var realPts = "", metaPts = "", hasMeta = false;
+      points.forEach(function(p, i) {
+        realPts += (i ? " " : "") + x(i).toFixed(1) + "," + y(p.realizado).toFixed(1);
+        if (p.meta !== null && p.meta !== undefined) {
+          metaPts += (metaPts ? " " : "") + x(i).toFixed(1) + "," + y(p.meta).toFixed(1);
+          hasMeta = true;
+        }
+      });
+      var svg = '<svg class="chart-b-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
+        escHtml(isEn() ? d.label_en : d.label_pt) + '">';
+      if (hasMeta) {
+        svg += '<polyline points="' + metaPts + '" fill="none" stroke="#6b6660" stroke-width="1.5" stroke-dasharray="4 3"/>';
+      }
+      if (points.length > 1) {
+        svg += '<polyline points="' + realPts + '" fill="none" stroke="#C9A43A" stroke-width="2.5"/>';
+      }
+      points.forEach(function(p, i) {
+        svg += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p.realizado).toFixed(1) + '" r="3.5" fill="#C9A43A"/>';
+        svg += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle" font-size="9" fill="#6b6660" font-family="Inter,sans-serif">' +
+          chartBMonthShort(p.month) + '</text>';
+      });
+      svg += '</svg>';
+
+      // Plain-language summary — required, not decorative.
+      var last = points[points.length - 1];
+      var prev = points.length > 1 ? points[points.length - 2] : null;
+      var ptParts = [], enParts = [];
+      if (prev && prev.realizado !== 0) {
+        var change = Math.round(((last.realizado - prev.realizado) / Math.abs(prev.realizado)) * 100);
+        if (change > 0) {
+          ptParts.push("Subiu " + change + "% em relação ao mês anterior");
+          enParts.push("Up " + change + "% vs last month");
+        } else if (change < 0) {
+          ptParts.push("Caiu " + Math.abs(change) + "% em relação ao mês anterior");
+          enParts.push("Down " + Math.abs(change) + "% vs last month");
+        } else {
+          ptParts.push("Estável em relação ao mês anterior");
+          enParts.push("Flat vs last month");
+        }
+      }
+      if (last.meta !== null && last.meta !== undefined && last.meta !== 0) {
+        var onTarget = d.inverse ? last.realizado <= last.meta : last.realizado >= last.meta;
+        ptParts.push(onTarget ? "acima da meta" : "abaixo da meta");
+        enParts.push(onTarget ? "above target" : "below target");
+      }
+      var legend = hasMeta
+        ? '<div class="muted" style="font-size:11px;margin-top:4px;">' +
+          (isEn() ? "Gold line: actual · dashed line: goal" : "Linha dourada: realizado · linha tracejada: meta") + '</div>'
+        : "";
+      var summary = "";
+      if (ptParts.length) {
+        summary = '<div class="chart-b-summary">' +
+          '<span class="show-pt">' + escHtml(ptParts.join(", ")) + '.</span>' +
+          '<span class="show-en">' + escHtml(enParts.join(", ")) + '.</span></div>';
+      }
+      body.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:4px;">' +
+        (isEn() ? "Latest: " : "Último mês: ") + fmtNum(last.realizado, pctType) +
+        (last.meta !== null && last.meta !== undefined ? " · Meta: " + fmtNum(last.meta, pctType) : "") + '</div>' +
+        svg + legend + summary;
     }
 
     // Entry history — the retired grid's historical past-entries view.
@@ -1564,40 +2222,49 @@
         .then(function(res) { if (!res.ok) { throw new Error("auth"); } return res.json(); })
         .then(function(role) {
           if (role.role !== "client") {
-            // Admins never land here — send them to their own dashboard.
-            window.location.href = "dashboard.html";
+            // Developer preview-as: developers with ?previewAs stay here in
+            // read-only mode. Every other admin goes to their own dashboard.
+            if (!(PREVIEW_AS && role.role === "developer")) {
+              window.location.href = "dashboard.html";
+              throw new Error("redirect");
+            }
+          } else if (PREVIEW_AS) {
+            // a real client with a stray previewAs param — drop it
+            window.location.href = "portal.html";
             throw new Error("redirect");
           }
-          if (role.must_change_password) {
+          if (role.role === "client" && role.must_change_password) {
             document.getElementById("loadingScreen").hidden = true;
             document.getElementById("appMain").hidden = false;
             showView("viewPassword");
             throw new Error("halt");
           }
-          return apiFetch("/api/portal/me").then(function(res) { return res.json(); });
+          return apiFetch("/api/portal/me").then(function(res) {
+            if (!res.ok) { throw new Error("auth"); }
+            return res.json();
+          });
         })
         .then(function(me) {
           clientId = me.client_id;
           clientName = me.name || "";
           document.getElementById("headerClientName").textContent = clientName;
+          if (PREVIEW_AS) {
+            document.getElementById("previewClientLabel").textContent = clientName;
+            document.getElementById("previewBanner").hidden = false;
+          }
           return Promise.all([
             apiFetch("/api/clients/" + clientId + "/field-config").then(function(r) { return r.json(); }),
-            loadEntryState()
+            loadEntryState(),
+            loadGoalState().catch(function() { goalState = null; })
           ]);
         })
         .then(function(results) {
           fieldConfig = results[0];
           document.getElementById("loadingScreen").hidden = true;
           document.getElementById("appMain").hidden = false;
-          var pending = entryState.pending || [];
-          if (pending.length === 1) {
-            // exactly one day needing an entry → straight into the form
-            entryStartFromBoot();
-          } else if (pending.length > 1) {
-            showEntryHome();
-          } else {
-            showPortal();
-          }
+          // Goal gates run first; existing pending-days behavior follows
+          // unchanged inside proceedToEntries().
+          decideBootView();
         })
         .catch(function(e) {
           if (e && (e.message === "redirect" || e.message === "halt")) { return; }
@@ -1612,7 +2279,9 @@
 
     function init() {
       loadHeroBgs();
-      clientToken = localStorage.getItem("apex_client_token");
+      // Preview mode always authenticates as the developer's Google session,
+      // never with a stored client token.
+      clientToken = PREVIEW_AS ? null : localStorage.getItem("apex_client_token");
       if (clientToken) {
         bootAfterAuth();
         return;

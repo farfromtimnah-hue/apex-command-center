@@ -362,6 +362,40 @@
     .chart-a-fill.green  { background: var(--green); }
     .chart-a-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
 
+    /* Overview header — headline count + full-width bar */
+    .overview-count { font-size: 16px; font-weight: 800; margin: 12px 0 8px; }
+    .overview-pct { font-size: 13px; font-weight: 700; margin-top: 5px; }
+
+    /* Wins strip — green-forward chips, top 3 by attainment */
+    .wins-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--green); margin: 16px 0 8px;
+    }
+    .wins-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+    .win-chip {
+      background: rgba(63,125,78,0.12); color: var(--green);
+      border-radius: 16px; padding: 6px 12px;
+      font-size: 12px; font-weight: 700; white-space: nowrap;
+    }
+
+    /* Collapsible section header — whole row is the toggle button */
+    .kpi-section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; width: 100%; margin: 18px 0 10px; padding: 0;
+      background: none; border: none; cursor: pointer; text-align: left;
+      font-family: 'Inter', sans-serif;
+    }
+    .kpi-section-head .kpi-section-title { margin: 0; }
+    .kpi-section-head .section-chevron { color: var(--gold); font-size: 11px; }
+    .kpi-section-head .section-head-right { display: flex; align-items: center; gap: 8px; }
+
+    /* Needs-attention focus list */
+    .attention-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--red); margin: 22px 0 2px;
+    }
+    .attention-sub { font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+
     /* Chart B — one-indicator trend */
     .chart-b-svg { width: 100%; height: auto; display: block; }
     .chart-b-summary { font-size: 13px; margin-top: 8px; }
@@ -1791,47 +1825,175 @@
       return (ind.key === "margem_lucro" || ind.key === "taxa_conversao" || ind.key === "metas_batidas") ? "percent" : ind.type;
     }
 
-    // Chart A — attainment bars, worst-first, 5 shown + "Ver todos (N)".
-    var chartAExpanded = false;
-    function renderChartA(indicators) {
-      var el = document.getElementById("chartABody");
-      var withPct = [];
+    // Aggregate attainment — mean of per-indicator attainment across enabled
+    // indicators that have a target, each contribution capped at 100 so one
+    // indicator at 300% cannot mask four at 20%. This cap applies ONLY to
+    // aggregate figures (overall bar, section summary pills); an individual
+    // indicator's own pill stays uncapped (150% still shows 150%).
+    function cappedMeanPct(indicators) {
+      var sum = 0, n = 0;
       indicators.forEach(function(ind) {
         var pct = attainmentPct(ind);
-        if (pct !== null) { withPct.push({ ind: ind, pct: pct }); }
+        if (pct !== null) { sum += Math.min(100, pct); n++; }
       });
-      if (!withPct.length) { el.innerHTML = ""; return; }
-      withPct.sort(function(a, b) { return a.pct - b.pct; });
+      return n ? Math.round(sum / n) : null;
+    }
+
+    function withAttainment(indicators) {
+      var out = [];
+      indicators.forEach(function(ind) {
+        var pct = attainmentPct(ind);
+        if (pct !== null) { out.push({ ind: ind, pct: pct }); }
+      });
+      return out;
+    }
+
+    // Overall progress header + wins strip (top 3 at >= 80%, omitted if none).
+    function renderOverview(indicators) {
+      var el = document.getElementById("chartABody");
+      var withPct = withAttainment(indicators);
+      if (!withPct.length) {
+        // No targets yet — neutral prompt instead of a 0% bar.
+        el.innerHTML = '<p class="muted">' + (isEn()
+          ? "No goals set for this month yet. Set your goals in the Goals tab."
+          : "Nenhuma meta definida para este mês ainda. Defina suas metas na aba Metas.") + '</p>';
+        return;
+      }
       var onTrack = withPct.filter(function(x) { return x.pct >= 80; }).length;
-      var html = '<div class="chart-a-summary">' +
+      var overall = cappedMeanPct(indicators);
+      var band = pctBand(overall);
+      var glyph = band === "red" ? "▼" : band === "yellow" ? "●" : "▲";
+      var html = '<div class="overview-count">' +
         (isEn() ? onTrack + " of " + withPct.length + " goals on track"
-                : onTrack + " de " + withPct.length + " metas no caminho certo") + '</div>';
-      var shown = chartAExpanded ? withPct : withPct.slice(0, 5);
-      shown.forEach(function(x) {
-        var ind = x.ind;
-        var pctType = indPctType(ind);
-        var band = pctBand(x.pct);
-        html += '<div class="chart-a-row">' +
-          '<div class="chart-a-head"><span class="chart-a-label">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</span>' +
-          pillHtml(x.pct) + '</div>' +
-          '<div class="chart-a-track"><div class="chart-a-fill ' + band + '" style="width:' + Math.min(100, x.pct) + '%"></div></div>' +
-          '<div class="chart-a-sub">Meta: ' + fmtNum(ind.meta_mensal, pctType) +
-          ' · Falta: ' + fmtNum(ind.falta, pctType) + '</div>' +
-          '</div>';
-      });
-      if (withPct.length > 5) {
-        html += '<button class="btn-expand" style="margin-top:8px;" onclick="toggleChartA()">' +
-          (chartAExpanded
-            ? (isEn() ? "Show less" : "Mostrar menos")
-            : (isEn() ? "Show all (" + withPct.length + ")" : "Ver todos (" + withPct.length + ")")) +
-          '</button>';
+                : onTrack + " de " + withPct.length + " metas no caminho certo") + '</div>' +
+        '<div class="chart-a-track"><div class="chart-a-fill ' + band + '" style="width:' + overall + '%"></div></div>' +
+        '<div class="overview-pct">' + glyph + ' ' + overall + '% ' +
+        (isEn() ? "overall" : "geral") + '</div>';
+
+      var wins = withPct.filter(function(x) { return x.pct >= 80; });
+      if (wins.length) {
+        wins.sort(function(a, b) { return b.pct - a.pct; });
+        html += '<div class="wins-title">' + (isEn() ? "Your wins" : "Seus destaques") + '</div>' +
+          '<div class="wins-strip">';
+        wins.slice(0, 3).forEach(function(x) {
+          html += '<span class="win-chip">' + escHtml(isEn() ? x.ind.label_en : x.ind.label_pt) +
+            ' ▲ ' + x.pct + '%</span>';
+        });
+        html += '</div>';
       }
       el.innerHTML = html;
     }
-    var chartAIndicators = [];
-    function toggleChartA() {
-      chartAExpanded = !chartAExpanded;
-      renderChartA(chartAIndicators);
+
+    // Per-section collapse, persisted per client. Collapsed sections still
+    // render their header + summary pill, so no section can vanish entirely.
+    function sectionCollapseKey() { return "apex_portal_collapsed_" + clientId; }
+    function getCollapsedSections() {
+      try { return JSON.parse(localStorage.getItem(sectionCollapseKey())) || {}; }
+      catch (e) { return {}; }
+    }
+    function toggleSection(sec) {
+      var c = getCollapsedSections();
+      if (c[sec]) { delete c[sec]; } else { c[sec] = true; }
+      try { localStorage.setItem(sectionCollapseKey(), JSON.stringify(c)); } catch (e) {}
+      renderAnalyticsBody();
+    }
+
+    var sectionShowAll = {};   // per-section "Ver todos" state (not persisted)
+    function toggleSectionShowAll(sec) {
+      sectionShowAll[sec] = !sectionShowAll[sec];
+      renderAnalyticsBody();
+    }
+
+    function kpiCardHtml(ind) {
+      var pct = attainmentPct(ind);
+      var pctType = indPctType(ind);
+      var html = '<div class="kpi-card">' +
+        '<div class="kpi-name">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+        '<div class="kpi-value">' + fmtNum(ind.realizado, pctType) + '</div>' +
+        pillHtml(pct) + '</div>';
+      if (ind.meta_mensal !== null && ind.meta_mensal !== undefined) {
+        html += '<div class="kpi-meta-row"><span>Meta: ' + fmtNum(ind.meta_mensal, pctType) + '</span>' +
+          '<span>Falta: ' + fmtNum(ind.falta, pctType) + '</span></div>';
+      }
+      if (ind.goal_status === "pending" && ind.proposed_value !== null && ind.proposed_value !== undefined) {
+        html += '<div class="kpi-pending-note">' +
+          (isEn()
+            ? "Proposed goal: " + fmtNum(ind.proposed_value, pctType) + " (awaiting approval)"
+            : "Meta proposta: " + fmtNum(ind.proposed_value, pctType) + " (aguardando aprovação)") +
+          '</div>';
+      }
+      return html + '</div>';
+    }
+
+    // BSC sections in fixed canonical order (never reordered by performance),
+    // worst-first inside each section, 8 shown + "Ver todos (N)" per section,
+    // then the "Precisa de atenção" focus list (< 50%, worst-first).
+    var analyticsIndicators = [];
+    function renderAnalyticsBody() {
+      var collapsed = getCollapsedSections();
+      var bySection = {};
+      analyticsIndicators.forEach(function(ind) {
+        (bySection[ind.section] = bySection[ind.section] || []).push(ind);
+      });
+      var html = "";
+      SECTION_ORDER.forEach(function(sec) {
+        var list = bySection[sec];
+        if (!list || !list.length) { return; }
+        // worst attainment first within the section; no-meta cards last
+        list.sort(function(a, b) {
+          var pa = attainmentPct(a), pb = attainmentPct(b);
+          if (pa === null && pb === null) { return 0; }
+          if (pa === null) { return 1; }
+          if (pb === null) { return -1; }
+          return pa - pb;
+        });
+        var isOpen = !collapsed[sec];
+        var secPct = cappedMeanPct(list);   // aggregate cap — section summary only
+        html += '<button class="kpi-section-head" aria-expanded="' + (isOpen ? "true" : "false") +
+          '" onclick="toggleSection(\'' + sec + '\')">' +
+          '<span class="kpi-section-title">' + escHtml(isEn() ? SECTION_LABELS[sec].en : SECTION_LABELS[sec].pt) + '</span>' +
+          '<span class="section-head-right">' + pillHtml(secPct) +
+          '<span class="section-chevron">' + (isOpen ? "▼" : "►") + '</span></span>' +
+          '</button>';
+        if (!isOpen) { return; }
+        var shown = (list.length > 8 && !sectionShowAll[sec]) ? list.slice(0, 8) : list;
+        html += '<div class="kpi-grid">';
+        shown.forEach(function(ind) { html += kpiCardHtml(ind); });
+        html += '</div>';
+        if (list.length > 8) {
+          html += '<button class="btn-expand" style="margin-top:8px;" onclick="toggleSectionShowAll(\'' + sec + '\')">' +
+            (sectionShowAll[sec]
+              ? (isEn() ? "Show less" : "Mostrar menos")
+              : (isEn() ? "Show all (" + list.length + ")" : "Ver todos (" + list.length + ")")) +
+            '</button>';
+        }
+      });
+
+      // Needs attention — the one place global worst-first belongs. Omitted
+      // entirely when nothing is below 50%.
+      var attention = withAttainment(analyticsIndicators).filter(function(x) { return x.pct < 50; });
+      if (attention.length) {
+        attention.sort(function(a, b) { return a.pct - b.pct; });
+        html += '<div class="attention-title">' +
+          (isEn() ? "Needs attention" : "Precisa de atenção") + '</div>' +
+          '<div class="attention-sub">' + (isEn() ? "Focus here first" : "Foque aqui primeiro") + '</div>';
+        attention.forEach(function(x) {
+          var ind = x.ind;
+          var pctType = indPctType(ind);
+          var band = pctBand(x.pct);
+          html += '<div class="chart-a-row">' +
+            '<div class="chart-a-head"><span class="chart-a-label">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</span>' +
+            pillHtml(x.pct) + '</div>' +
+            '<div class="chart-a-track"><div class="chart-a-fill ' + band + '" style="width:' + Math.min(100, x.pct) + '%"></div></div>' +
+            '<div class="chart-a-sub">Meta: ' + fmtNum(ind.meta_mensal, pctType) +
+            ' · Falta: ' + fmtNum(ind.falta, pctType) + '</div>' +
+            '</div>';
+        });
+      }
+
+      document.getElementById("analyticsBody").innerHTML = html ||
+        '<p class="muted">' + (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
     }
 
     function loadAnalytics() {
@@ -1842,52 +2004,10 @@
           document.getElementById("analyticsMeta").textContent = (isEn()
             ? d.completed_days + " completed day(s) this month"
             : d.completed_days + " dia(s) completo(s) neste mês");
-          chartAIndicators = d.indicators;
-          renderChartA(d.indicators);
+          analyticsIndicators = d.indicators;
+          renderOverview(d.indicators);
+          renderAnalyticsBody();
           populateChartBPicker();
-          var bySection = {};
-          d.indicators.forEach(function(ind) {
-            (bySection[ind.section] = bySection[ind.section] || []).push(ind);
-          });
-          var html = "";
-          SECTION_ORDER.forEach(function(sec) {
-            var list = bySection[sec];
-            if (!list || !list.length) { return; }
-            // worst attainment first within the section; no-meta cards last
-            list.sort(function(a, b) {
-              var pa = attainmentPct(a), pb = attainmentPct(b);
-              if (pa === null && pb === null) { return 0; }
-              if (pa === null) { return 1; }
-              if (pb === null) { return -1; }
-              return pa - pb;
-            });
-            html += '<div class="kpi-section-title">' + escHtml(isEn() ? SECTION_LABELS[sec].en : SECTION_LABELS[sec].pt) + '</div>';
-            html += '<div class="kpi-grid">';
-            list.forEach(function(ind) {
-              var pct = attainmentPct(ind);
-              var pctType = indPctType(ind);
-              html += '<div class="kpi-card">' +
-                '<div class="kpi-name">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</div>' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
-                '<div class="kpi-value">' + fmtNum(ind.realizado, pctType) + '</div>' +
-                pillHtml(pct) + '</div>';
-              if (ind.meta_mensal !== null && ind.meta_mensal !== undefined) {
-                html += '<div class="kpi-meta-row"><span>Meta: ' + fmtNum(ind.meta_mensal, pctType) + '</span>' +
-                  '<span>Falta: ' + fmtNum(ind.falta, pctType) + '</span></div>';
-              }
-              if (ind.goal_status === "pending" && ind.proposed_value !== null && ind.proposed_value !== undefined) {
-                html += '<div class="kpi-pending-note">' +
-                  (isEn()
-                    ? "Proposed goal: " + fmtNum(ind.proposed_value, pctType) + " (awaiting approval)"
-                    : "Meta proposta: " + fmtNum(ind.proposed_value, pctType) + " (aguardando aprovação)") +
-                  '</div>';
-              }
-              html += '</div>';
-            });
-            html += '</div>';
-          });
-          document.getElementById("analyticsBody").innerHTML = html ||
-            '<p class="muted">' + (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
         })
         .catch(function() {});
     }

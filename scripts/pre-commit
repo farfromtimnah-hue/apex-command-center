@@ -1,0 +1,28 @@
+#!/bin/sh
+# Auto-stamp sw.js CACHE_NAME (and version.json) with a fresh timestamp on
+# every commit that touches a file the service worker caches, or a file
+# whose inline JS/CSS ships to users — sw.js itself, any *.html (inline
+# JS/CSS), any file in PRECACHE_URLS (nav.js, pwa.js, mobile.css,
+# manifest.json, icons/*), or any other top-level *.js/*.css. Without this,
+# a deploy that changes e.g. portal.html but not sw.js leaves the old
+# service worker in control forever, since browsers only refetch sw.js when
+# it changes byte-for-byte. See sw.js comment above CACHE_NAME.
+#
+# Tracked copy: scripts/pre-commit (installed via scripts/install-hooks.sh)
+# — this file lives only in .git/hooks/ and does NOT survive a fresh clone.
+
+STAGED=$(git diff --cached --name-only)
+
+TRIGGER=0
+if echo "$STAGED" | grep -qx "sw.js"; then TRIGGER=1; fi
+if echo "$STAGED" | grep -qE '\.html$'; then TRIGGER=1; fi
+if echo "$STAGED" | grep -qE '^[^/]+\.(js|css)$'; then TRIGGER=1; fi
+if echo "$STAGED" | grep -qE '^icons/(icon-192\.png|icon-512\.png|icon-maskable-512\.png|apple-touch-icon\.png)$'; then TRIGGER=1; fi
+if echo "$STAGED" | grep -qx "manifest.json"; then TRIGGER=1; fi
+
+if [ "$TRIGGER" = "1" ]; then
+  STAMP=$(date +%s)
+  sed -i '' -E 's/apex-static-[a-z0-9]+/apex-static-'"$STAMP"'/' sw.js
+  printf '{"version": "%s"}\n' "$STAMP" > version.json
+  git add sw.js version.json
+fi

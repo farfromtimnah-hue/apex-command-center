@@ -14,6 +14,33 @@
     });
   }
 
+  var VERSION_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+  var knownVersion = null;
+  var reloaded = false;
+
+  function checkVersion() {
+    fetch("version.json", { cache: "no-store" }).then(function (res) {
+      return res.json();
+    }).then(function (data) {
+      if (knownVersion === null) {
+        knownVersion = data.version;
+        return;
+      }
+      if (reloaded) { return; }
+      if (data.version !== knownVersion) {
+        reloaded = true;
+        window.location.reload();
+      }
+    })["catch"](function () {
+      // No network / bad response must never break the app.
+    });
+  }
+
+  function setupVersionCheck() {
+    checkVersion();
+    setInterval(checkVersion, VERSION_CHECK_INTERVAL_MS);
+  }
+
   function isStandalone() {
     if (window.navigator.standalone === true) { return true; }
     if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) { return true; }
@@ -94,5 +121,6 @@
 
   window.addEventListener("load", registerServiceWorker);
   window.addEventListener("load", setupPullToRefresh);
+  window.addEventListener("load", setupVersionCheck);
 
 })();

@@ -1926,3 +1926,24 @@ Revision of the `bb9bc66` Analytics tab, `portal.html` only, commit `e12e629`. *
 **Verified:** `node --check` clean on `worker/index.js`; portal.html inline script unchanged in Task 2; pushed `d50b54e`+`8977b1b` (no concurrent X-Ray commits on origin); deployed `portal.html` fetched from `apex.resonateai.online` byte-identical to HEAD; Worker deployed, newest deployment 100% on version `2c20d237` matching the deploy output, and the live bundle greps `velocidade_resposta … inverse: true`.
 
 **NOT verified (no authenticated browser session):** real-device 390px check still owed; wins-strip/attention rendering click-through. **Note:** an earlier Worker deploy landed today 17:56 UTC (not this session) — if the X-Ray session deployed unpushed code, this session's 18:47 deploy of HEAD superseded it.
+
+---
+
+## Session: Stale-service-worker fix — pre-commit widened trigger + version self-heal — 2026-07-25
+
+**Root cause (pre-confirmed by live repro, not re-diagnosed this session):** `.git/hooks/pre-commit` only stamped `sw.js`'s `CACHE_NAME` when `sw.js` itself was staged. A deploy changing `portal.html` alone left `sw.js` byte-identical, so the browser never refetched the worker and a stale controller kept serving old code indefinitely (confirmed: `chart-a-summary` div rendered by dead JS, survived 6 hard refreshes + `?x=1`, fixed instantly by manual unregister).
+
+**Task 1 (`.git/hooks/pre-commit`, tracked copy `scripts/pre-commit` + installer `scripts/install-hooks.sh`, README note).** Widened trigger to any staged `sw.js`, `*.html`, top-level `*.js`/`*.css`, the four `PRECACHE_URLS` icon files, or `manifest.json`. Kept the `sed` timestamp-stamping mechanism; added `version.json` stamped with the same timestamp in the same commit. Hook was previously untracked (silently absent on fresh clone, flagged 2026-07-23) — now tracked under `scripts/`.
+
+**Task 2 (`pwa.js`, `portal.html`).** Added `checkVersion()`/`setupVersionCheck()`: fetches `version.json` with `cache: "no-store"` on load and every 10 min, stores first value in a module-level var (not localStorage), reloads exactly once (module-level `reloaded` guard) when a later fetch differs, fails silently on network error. `portal.html` was missing the `pwa.js` script tag entirely (verified — it's the only page of 12 without it) — added `<script src="pwa.js" defer>` in `<head>`, matching `dashboard.html`'s placement/pattern.
+
+**Verified (commits `d3203b2`, `9070621`, pushed to `main`, live at `apex.resonateai.online`):**
+- Staging only `portal.html` triggered the hook: `sw.js` CACHE_NAME went `apex-static-1784854822` → `apex-static-1785007768`, `version.json` created with matching `{"version": "1785007768"}` in the same commit (`d3203b2`).
+- `sw.js` confirmed byte-different (`diff` showed exactly the CACHE_NAME line changed) — this is what forces the browser to refetch the worker.
+- Revert commit (`9070621`, removing the trivial test HTML comment) re-stamped again as expected: `apex-static-1785007794`, `version.json` matching.
+- Live fetch after push: `apex.resonateai.online/version.json` = `{"version": "1785007794"}`, live `sw.js` CACHE_NAME = `apex-static-1785007794` — both match repo HEAD.
+- Live `portal.html` fetched and diffed byte-identical to repo HEAD.
+- `node --check` clean on both `pwa.js` and `sw.js`.
+- `self.skipWaiting()` (sw.js:62) and `self.clients.claim()` (sw.js:77) confirmed present, untouched. `isStaticAsset()` HTML exclusion (sw.js:27) confirmed present, untouched.
+
+**NOT verified (no authenticated/real browser session):** an actual stale client self-healing in the wild — cannot open a real stale PWA session, deploy, and watch it silently reload. This requires a human loading the app, then deploying, then observing the update land without manual refresh/unregister.

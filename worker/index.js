@@ -7451,8 +7451,10 @@ function clientRequestAllowed(path, method, clientId) {
                 rest === "documents/latest" || rest === "logo-image" ||
                 rest === "field-config" || rest === "entry-state" ||
                 rest === "entries" || rest === "entries-summary" ||
-                rest === "goal-state" || rest === "indicator-history") { return true; }
+                rest === "goal-state" || rest === "indicator-history" ||
+                rest === "assessments") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+            if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }
         }
         if (method === "POST") {
             if (rest === "logo") { return true; }
@@ -7460,6 +7462,7 @@ function clientRequestAllowed(path, method, clientId) {
         }
         if (method === "PUT" && rest === "goals") { return true; }
         if (method === "PUT" && /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/.test(rest)) { return true; }
+        if (method === "PUT" && /^assessments\/[a-z_]+\/answers$/.test(rest)) { return true; }
     }
     return false;
 }
@@ -8641,6 +8644,531 @@ async function handleGetWeeklySummary(id, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Business X-Ray (Raio X Empresarial) — Part 1: instrument + scoring engine
+// + generic assessment assignment. The question bank is DATA (Part 2 appends
+// sections to it); scoring is a pure function, fully separate from rendering,
+// so a narrative/report layer can be added later without touching it.
+// ---------------------------------------------------------------------------
+
+var ASSESSMENT_TYPES = {
+    business_xray: { labelPt: "Raio X Empresarial", labelEn: "Business X-Ray" }
+};
+
+var XRAY_AREAS = [
+    { key: "identidade_cultura",  namePt: "Identidade e Cultura",   nameEn: "Identity & Culture" },
+    { key: "estrategia",          namePt: "Estratégia",        nameEn: "Strategy" },
+    { key: "processos",           namePt: "Processos",              nameEn: "Processes" },
+    { key: "pessoas",             namePt: "Pessoas",                nameEn: "People" },
+    { key: "comercial_marketing", namePt: "Comercial e Marketing",  nameEn: "Sales & Marketing" },
+    { key: "resultados",          namePt: "Resultados",             nameEn: "Results" }
+];
+
+// Every question is a plain Sim/Não. "Sim" = 1 point, raw score out of 62.
+var XRAY_QUESTIONS = [
+    // I — Identidade e Cultura (12)
+    { key: "missao_visao_valores",   area: "identidade_cultura", labelPt: "A empresa possui missão, visão e valores definidos e comunicados a toda a equipe?", labelEn: "Does the company have mission, vision and values defined and communicated to the whole team?" },
+    { key: "equipe_vive_valores",    area: "identidade_cultura", labelPt: "A equipe conhece e pratica os valores da empresa no dia a dia?", labelEn: "Does the team know and live the company's values day to day?" },
+    { key: "codigo_etica",           area: "identidade_cultura", labelPt: "Existe um código de ética ou de conduta formalizado?", labelEn: "Is there a formal code of ethics or conduct?" },
+    { key: "identidade_visual",      area: "identidade_cultura", labelPt: "A identidade visual da empresa é padronizada (logotipo, cores, materiais)?", labelEn: "Is the company's visual identity standardized (logo, colors, materials)?" },
+    { key: "rituais_cultura",        area: "identidade_cultura", labelPt: "Existem rituais que reforçam a cultura (reuniões, celebrações, integrações)?", labelEn: "Are there rituals that reinforce the culture (meetings, celebrations, team events)?" },
+    { key: "onboarding",             area: "identidade_cultura", labelPt: "Há um programa de integração (onboarding) para novos colaboradores?", labelEn: "Is there an onboarding program for new hires?" },
+    { key: "clima_positivo",         area: "identidade_cultura", labelPt: "O clima organizacional é positivo e produtivo?", labelEn: "Is the organizational climate positive and productive?" },
+    { key: "reconhecimento",         area: "identidade_cultura", labelPt: "Existe um programa de reconhecimento e valorização dos colaboradores?", labelEn: "Is there an employee recognition and appreciation program?" },
+    { key: "responsabilidade_social",area: "identidade_cultura", labelPt: "A empresa desenvolve ações de responsabilidade social ou ambiental?", labelEn: "Does the company carry out social or environmental responsibility initiatives?" },
+    { key: "comunicacao_interna",    area: "identidade_cultura", labelPt: "A comunicação interna é transparente e chega a todos?", labelEn: "Is internal communication transparent and reaching everyone?" },
+    { key: "orgulho_pertencimento",  area: "identidade_cultura", labelPt: "Os colaboradores demonstram orgulho e senso de pertencimento?", labelEn: "Do employees show pride and a sense of belonging?" },
+    { key: "sucessao_lideranca",     area: "identidade_cultura", labelPt: "Existe um plano de sucessão e de desenvolvimento de lideranças?", labelEn: "Is there a succession and leadership development plan?" },
+    // II — Estratégia (6)
+    { key: "plano_estrategico",      area: "estrategia", labelPt: "A empresa possui um planejamento estratégico formalizado?", labelEn: "Does the company have a formal strategic plan?" },
+    { key: "plano_acao_metas",       area: "estrategia", labelPt: "Existe um plano de ação com metas, responsáveis e prazos definidos?", labelEn: "Is there an action plan with goals, owners and deadlines?" },
+    { key: "revisao_periodica",      area: "estrategia", labelPt: "O planejamento é revisado periodicamente?", labelEn: "Is the plan reviewed periodically?" },
+    { key: "objetivos_conhecidos",   area: "estrategia", labelPt: "A equipe conhece os objetivos estratégicos da empresa?", labelEn: "Does the team know the company's strategic objectives?" },
+    { key: "analise_mercado",        area: "estrategia", labelPt: "A empresa analisa regularmente o mercado e a concorrência?", labelEn: "Does the company regularly analyze the market and competitors?" },
+    { key: "inovacao_melhoria",      area: "estrategia", labelPt: "Existe um processo de inovação ou de melhoria contínua?", labelEn: "Is there an innovation or continuous-improvement process?" },
+    // III — Processos (3)
+    { key: "processos_mapeados",     area: "processos", labelPt: "Os processos-chave da empresa estão mapeados e documentados?", labelEn: "Are the company's key processes mapped and documented?" },
+    { key: "indicadores_processos",  area: "processos", labelPt: "Existem indicadores de desempenho para monitorar os processos?", labelEn: "Are there performance indicators to monitor the processes?" },
+    { key: "automacao_tecnologia",   area: "processos", labelPt: "A empresa usa tecnologia para automatizar processos manuais?", labelEn: "Does the company use technology to automate manual processes?" },
+    // IV — Pessoas (18)
+    { key: "organograma_atualizado", area: "pessoas", labelPt: "A empresa possui um organograma atualizado?", labelEn: "Does the company have an up-to-date org chart?" },
+    { key: "descricoes_cargos",      area: "pessoas", labelPt: "Existem descrições de cargo claras para cada função?", labelEn: "Are there clear job descriptions for every role?" },
+    { key: "recrutamento_estruturado", area: "pessoas", labelPt: "O processo de recrutamento e seleção é estruturado?", labelEn: "Is the hiring process structured?" },
+    { key: "treinamento_desenvolvimento", area: "pessoas", labelPt: "Existe um plano de treinamento e desenvolvimento da equipe?", labelEn: "Is there a team training and development plan?" },
+    { key: "avaliacao_desempenho",   area: "pessoas", labelPt: "São realizadas avaliações de desempenho regulares?", labelEn: "Are regular performance reviews carried out?" },
+    { key: "plano_carreira",         area: "pessoas", labelPt: "Existe um plano de carreira definido para os colaboradores?", labelEn: "Is there a defined career path for employees?" },
+    { key: "remuneracao_competitiva",area: "pessoas", labelPt: "A remuneração e os benefícios são competitivos no mercado?", labelEn: "Are pay and benefits competitive in the market?" },
+    { key: "programa_bem_estar",     area: "pessoas", labelPt: "Existe um programa de bem-estar e qualidade de vida?", labelEn: "Is there a wellness and quality-of-life program?" },
+    { key: "feedback_comunicacao",   area: "pessoas", labelPt: "Existe um programa estruturado de feedback e comunicação com a equipe?", labelEn: "Is there a structured feedback and communication program for the team?" },
+    { key: "seguranca_trabalho",     area: "pessoas", labelPt: "A empresa mantém comissão ou práticas ativas de segurança do trabalho?", labelEn: "Does the company maintain an active workplace-safety committee or practices?" },
+    { key: "pesquisa_clima",         area: "pessoas", labelPt: "São aplicadas pesquisas de clima organizacional regularmente?", labelEn: "Are climate surveys run regularly?" },
+    { key: "retencao_talentos",      area: "pessoas", labelPt: "Existe um programa de retenção de talentos?", labelEn: "Is there a talent retention program?" },
+    { key: "sucessao_cargos_chave",  area: "pessoas", labelPt: "Há plano de sucessão para os cargos-chave?", labelEn: "Is there a succession plan for key roles?" },
+    { key: "politica_hibrido_remoto",area: "pessoas", labelPt: "Existe uma política clara de trabalho híbrido ou remoto?", labelEn: "Is there a clear hybrid/remote work policy?" },
+    { key: "diversidade_inclusao",   area: "pessoas", labelPt: "A empresa possui um programa de diversidade e inclusão?", labelEn: "Does the company have a diversity and inclusion program?" },
+    { key: "crescimento_interno",    area: "pessoas", labelPt: "Existem oportunidades reais de crescimento interno?", labelEn: "Are there real internal growth opportunities?" },
+    { key: "investimento_lideranca", area: "pessoas", labelPt: "A empresa investe no desenvolvimento de suas lideranças?", labelEn: "Does the company invest in developing its leaders?" },
+    { key: "estagio_trainee",        area: "pessoas", labelPt: "Existe um programa estruturado de estágio ou trainee?", labelEn: "Is there a structured internship or trainee program?" },
+    // V — Comercial e Marketing (6)
+    { key: "plano_marketing",        area: "comercial_marketing", labelPt: "A empresa possui um plano de marketing anual?", labelEn: "Does the company have an annual marketing plan?" },
+    { key: "processo_vendas",        area: "comercial_marketing", labelPt: "O processo de prospecção e vendas é estruturado?", labelEn: "Is the prospecting and sales process structured?" },
+    { key: "crm_implementado",       area: "comercial_marketing", labelPt: "A empresa utiliza um CRM implementado?", labelEn: "Does the company use an implemented CRM?" },
+    { key: "pesquisa_satisfacao",    area: "comercial_marketing", labelPt: "São realizadas pesquisas de satisfação com os clientes?", labelEn: "Are customer satisfaction surveys carried out?" },
+    { key: "programa_fidelizacao",   area: "comercial_marketing", labelPt: "Existe um programa de fidelização de clientes?", labelEn: "Is there a customer loyalty program?" },
+    { key: "redes_sociais",          area: "comercial_marketing", labelPt: "A empresa mantém presença ativa nas redes sociais?", labelEn: "Does the company maintain an active social media presence?" },
+    // VI — Resultados (17)
+    { key: "metas_financeiras",      area: "resultados", labelPt: "A empresa atinge regularmente suas metas financeiras?", labelEn: "Does the company regularly meet its financial goals?" },
+    { key: "controle_financeiro",    area: "resultados", labelPt: "O controle financeiro é rigoroso e atualizado?", labelEn: "Is financial control rigorous and up to date?" },
+    { key: "gestao_custos",          area: "resultados", labelPt: "Existe um sistema eficiente de gestão de custos?", labelEn: "Is there an efficient cost-management system?" },
+    { key: "reservas_emergencia",    area: "resultados", labelPt: "A empresa possui reservas financeiras de emergência?", labelEn: "Does the company have financial emergency reserves?" },
+    { key: "crescimento_receita",    area: "resultados", labelPt: "A receita cresce de forma sustentável?", labelEn: "Is revenue growing sustainably?" },
+    { key: "margens_saudaveis",      area: "resultados", labelPt: "As margens de lucro são saudáveis?", labelEn: "Are profit margins healthy?" },
+    { key: "contas_receber_pagar",   area: "resultados", labelPt: "O controle de contas a receber e a pagar é eficaz?", labelEn: "Is AR/AP control effective?" },
+    { key: "planejamento_tributario",area: "resultados", labelPt: "O planejamento tributário é otimizado?", labelEn: "Is tax planning optimized?" },
+    { key: "indicadores_produtividade", area: "resultados", labelPt: "Os indicadores de produtividade são monitorados?", labelEn: "Are productivity indicators monitored?" },
+    { key: "gestao_qualidade",       area: "resultados", labelPt: "Existe um sistema de gestão da qualidade?", labelEn: "Is there a quality management system?" },
+    { key: "certificacoes_qualidade",area: "resultados", labelPt: "A empresa possui certificações ou selos de qualidade?", labelEn: "Does the company hold quality certifications or seals?" },
+    { key: "benchmarking",           area: "resultados", labelPt: "É feito benchmarking com os concorrentes?", labelEn: "Is competitor benchmarking carried out?" },
+    { key: "gestao_projetos",        area: "resultados", labelPt: "Existe um sistema de gestão de projetos?", labelEn: "Is there a project management system?" },
+    { key: "investimento_pd",        area: "resultados", labelPt: "A empresa investe em pesquisa e desenvolvimento?", labelEn: "Does the company invest in R&D?" },
+    { key: "gestao_ambiental",       area: "resultados", labelPt: "Existe um sistema de gestão ambiental?", labelEn: "Is there an environmental management system?" },
+    { key: "continuidade_negocios",  area: "resultados", labelPt: "Existe um plano de continuidade de negócios?", labelEn: "Is there a business continuity plan?" },
+    { key: "gestao_riscos",          area: "resultados", labelPt: "Existe um sistema de gestão de riscos?", labelEn: "Is there a risk management system?" }
+];
+
+// Per-area recommended actions for the Plano de Ação Prioritário.
+// "fix" = weak/moderate areas; "replicate" = genuinely strong areas
+// (REPLICAÇÃO — document and replicate what already works, deliberate).
+var XRAY_ACTION_PLANS = {
+    identidade_cultura: {
+        fix: [
+            { pt: "Formalizar e comunicar missão, visão e valores em reunião geral", en: "Formalize and communicate mission, vision and values in an all-hands meeting" },
+            { pt: "Criar código de conduta e programa de integração para novos colaboradores", en: "Create a code of conduct and an onboarding program for new hires" },
+            { pt: "Implantar ritual mensal de reconhecimento e comunicação interna", en: "Establish a monthly recognition and internal-communication ritual" },
+            { pt: "Aplicar pesquisa de clima simples e definir plano de resposta", en: "Run a simple climate survey and define a response plan" }
+        ],
+        replicate: [
+            { pt: "Documentar os rituais de cultura que já funcionam", en: "Document the culture rituals that already work" },
+            { pt: "Transformar o onboarding atual em manual replicável", en: "Turn the current onboarding into a replicable playbook" },
+            { pt: "Registrar depoimentos da equipe para fortalecer a marca empregadora", en: "Capture team testimonials to strengthen the employer brand" }
+        ]
+    },
+    estrategia: {
+        fix: [
+            { pt: "Elaborar plano estratégico anual com metas, responsáveis e prazos", en: "Build an annual strategic plan with goals, owners and deadlines" },
+            { pt: "Instituir reunião mensal de revisão do plano de ação", en: "Institute a monthly action-plan review meeting" },
+            { pt: "Comunicar os objetivos estratégicos a toda a equipe", en: "Communicate the strategic objectives to the whole team" },
+            { pt: "Mapear concorrentes diretos e monitorar trimestralmente", en: "Map direct competitors and monitor them quarterly" }
+        ],
+        replicate: [
+            { pt: "Documentar o processo de planejamento que já funciona", en: "Document the planning process that already works" },
+            { pt: "Padronizar o modelo de revisão periódica para replicar em novas áreas", en: "Standardize the periodic-review model to replicate in new areas" },
+            { pt: "Compartilhar aprendizados de mercado com toda a equipe", en: "Share market learnings with the whole team" }
+        ]
+    },
+    processos: {
+        fix: [
+            { pt: "Mapear e documentar os 3 processos mais críticos da operação", en: "Map and document the 3 most critical processes of the operation" },
+            { pt: "Definir 1-2 indicadores de desempenho por processo-chave", en: "Define 1-2 performance indicators per key process" },
+            { pt: "Automatizar a tarefa manual mais repetitiva com tecnologia acessível", en: "Automate the most repetitive manual task with accessible technology" }
+        ],
+        replicate: [
+            { pt: "Consolidar a documentação de processos em repositório único", en: "Consolidate process documentation into a single repository" },
+            { pt: "Treinar a equipe para manter os indicadores atualizados", en: "Train the team to keep the indicators up to date" },
+            { pt: "Replicar o padrão de automação para os demais setores", en: "Replicate the automation pattern to the remaining departments" }
+        ]
+    },
+    pessoas: {
+        fix: [
+            { pt: "Atualizar organograma e descrições de cargo", en: "Update the org chart and job descriptions" },
+            { pt: "Estruturar processo seletivo e trilha de treinamento", en: "Structure the hiring process and a training track" },
+            { pt: "Implantar avaliação de desempenho com feedback semestral", en: "Implement performance reviews with twice-yearly feedback" },
+            { pt: "Definir plano de carreira e ações de retenção de talentos", en: "Define a career path and talent-retention actions" }
+        ],
+        replicate: [
+            { pt: "Documentar as práticas de gestão de pessoas que já funcionam", en: "Document the people-management practices that already work" },
+            { pt: "Formar multiplicadores internos de treinamento", en: "Develop internal training multipliers" },
+            { pt: "Padronizar o processo seletivo para replicar em novas vagas", en: "Standardize the hiring process to replicate for new openings" }
+        ]
+    },
+    comercial_marketing: {
+        fix: [
+            { pt: "Criar plano de marketing anual com calendário de ações", en: "Create an annual marketing plan with an action calendar" },
+            { pt: "Estruturar funil de vendas e implantar CRM", en: "Structure the sales funnel and implement a CRM" },
+            { pt: "Aplicar pesquisa de satisfação com clientes ativos", en: "Run a satisfaction survey with active customers" },
+            { pt: "Ativar presença consistente nas redes sociais", en: "Activate a consistent social media presence" }
+        ],
+        replicate: [
+            { pt: "Documentar o processo comercial que já converte", en: "Document the sales process that already converts" },
+            { pt: "Transformar cases de clientes satisfeitos em material de vendas", en: "Turn satisfied-customer cases into sales material" },
+            { pt: "Padronizar o playbook de prospecção para novos vendedores", en: "Standardize the prospecting playbook for new salespeople" }
+        ]
+    },
+    resultados: {
+        fix: [
+            { pt: "Implantar controle financeiro com fechamento mensal", en: "Implement financial control with a monthly close" },
+            { pt: "Definir metas financeiras e acompanhar semanalmente", en: "Set financial goals and track them weekly" },
+            { pt: "Estruturar gestão de custos e contas a receber/pagar", en: "Structure cost management and AR/AP control" },
+            { pt: "Constituir reserva de emergência e plano de gestão de riscos", en: "Build an emergency reserve and a risk-management plan" }
+        ],
+        replicate: [
+            { pt: "Documentar a rotina financeira que já funciona", en: "Document the financial routine that already works" },
+            { pt: "Formalizar benchmarking e indicadores em painel único", en: "Formalize benchmarking and indicators in a single dashboard" },
+            { pt: "Replicar o modelo de gestão para novas linhas de receita", en: "Replicate the management model to new revenue lines" }
+        ]
+    }
+};
+
+function assessmentCatalog(type) {
+    if (type === "business_xray") {
+        return { areas: XRAY_AREAS, questions: XRAY_QUESTIONS, total: XRAY_QUESTIONS.length };
+    }
+    return null;
+}
+
+// Per-area 4-tier status from the area's percentage of "Sim" answers.
+function xrayAreaStatus(pct) {
+    if (pct >= 80) { return "Bom"; }
+    if (pct >= 60) { return "Moderado"; }
+    if (pct >= 40) { return "Atenção"; }
+    return "Crítico";
+}
+
+// Pure scoring engine — answers is a flat { question_key: 0|1 } map.
+// Returns the full structured result; NO rendering and NO narrative here
+// (an AI narrative layer can consume this output later).
+function computeXrayScore(answers) {
+    answers = answers || {};
+    var total = XRAY_QUESTIONS.length;
+    var score = 0;
+    var areaAgg = {};
+    XRAY_AREAS.forEach(function(a) { areaAgg[a.key] = { score: 0, count: 0 }; });
+    XRAY_QUESTIONS.forEach(function(q) {
+        areaAgg[q.area].count += 1;
+        if (answers[q.key] === 1) { score += 1; areaAgg[q.area].score += 1; }
+    });
+    var pct = Math.round((score / total) * 100);
+
+    // Maturity band over the raw score.
+    var maturity;
+    if (pct >= 71)      { maturity = { level: "alta",  labelPt: "Alta",  labelEn: "High" }; }
+    else if (pct >= 41) { maturity = { level: "media", labelPt: "Média", labelEn: "Medium" }; }
+    else                { maturity = { level: "baixa", labelPt: "Baixa", labelEn: "Low" }; }
+
+    // Per-area status + three-bucket classification.
+    var STATUS_META = {
+        "Bom":              { rank: 3, bucket: "fortes",   tag: "REPLICAÇÃO", timeframePt: "3 meses",   timeframeEn: "3 months" },
+        "Moderado":         { rank: 2, bucket: "atencao",  tag: "MELHORIA",            timeframePt: "6 semanas", timeframeEn: "6 weeks" },
+        "Atenção":{ rank: 1, bucket: "atencao",  tag: "MELHORIA",            timeframePt: "1 mês", timeframeEn: "1 month" },
+        "Crítico":     { rank: 0, bucket: "criticos", tag: "URGENTE",             timeframePt: "2 semanas", timeframeEn: "2 weeks" }
+    };
+    var areas = [];
+    var buckets = { fortes: [], atencao: [], criticos: [] };
+    XRAY_AREAS.forEach(function(a) {
+        var agg = areaAgg[a.key];
+        var areaPct = agg.count ? Math.round((agg.score / agg.count) * 100) : 0;
+        var status = xrayAreaStatus(areaPct);
+        var bucketNames = {
+            fortes:   { pt: "Pontos Fortes",       en: "Strengths" },
+            atencao:  { pt: "Pontos de Atenção", en: "Attention Points" },
+            criticos: { pt: "Pontos Críticos", en: "Critical Points" }
+        };
+        var bucket = STATUS_META[status].bucket;
+        areas.push({
+            key: a.key, namePt: a.namePt, nameEn: a.nameEn,
+            score: agg.score, count: agg.count,
+            fraction: agg.score + "/" + agg.count, pct: areaPct,
+            status: status, bucket: bucket,
+            bucketLabelPt: bucketNames[bucket].pt, bucketLabelEn: bucketNames[bucket].en
+        });
+        buckets[bucket].push(a.key);
+    });
+
+    // Plano de Ação Prioritário — one ranked card per area, worst first.
+    // Strong areas keep the deliberate REPLICAÇÃO tag: document and
+    // replicate what already works instead of fixing anything.
+    var ranked = areas.slice().sort(function(x, y) {
+        var rx = STATUS_META[x.status].rank, ry = STATUS_META[y.status].rank;
+        if (rx !== ry) { return rx - ry; }
+        return x.pct - y.pct;
+    });
+    var actionPlan = ranked.map(function(area, i) {
+        var meta = STATUS_META[area.status];
+        var variant = (area.status === "Bom") ? "replicate" : "fix";
+        var actions = XRAY_ACTION_PLANS[area.key][variant];
+        var target = Math.ceil(area.count * 0.8);
+        var criterioPt, criterioEn;
+        if (variant === "replicate") {
+            criterioPt = "Manter pelo menos " + target + "/" + area.count + " respostas Sim (80%) e documentar as práticas replicáveis";
+            criterioEn = "Maintain at least " + target + "/" + area.count + " Yes answers (80%) and document the replicable practices";
+        } else {
+            criterioPt = "Atingir pelo menos " + target + "/" + area.count + " respostas Sim (80%) na reavaliação";
+            criterioEn = "Reach at least " + target + "/" + area.count + " Yes answers (80%) on reassessment";
+        }
+        return {
+            rank: i + 1,
+            areaKey: area.key, areaNamePt: area.namePt, areaNameEn: area.nameEn,
+            status: area.status, fraction: area.fraction, pct: area.pct,
+            tag: meta.tag, timeframePt: meta.timeframePt, timeframeEn: meta.timeframeEn,
+            actionsPt: actions.map(function(x) { return x.pt; }),
+            actionsEn: actions.map(function(x) { return x.en; }),
+            criterioSucessoPt: criterioPt, criterioSucessoEn: criterioEn,
+            successTarget: target, successOf: area.count
+        };
+    });
+
+    // Recommended-action table (Ação / Prioridade / Prazo / Responsável).
+    // Two templates keyed to severity: 15-day emergency intervention for
+    // Crítico areas, 30-day deep audit for Moderado/Atenção areas.
+    var actionTable = [];
+    ranked.forEach(function(area) {
+        if (area.status === "Crítico") {
+            actionTable.push({
+                areaKey: area.key,
+                acaoPt: "Intervenção emergencial em " + area.namePt + " (plano de choque de 15 dias)",
+                acaoEn: "Emergency intervention in " + area.nameEn + " (15-day shock plan)",
+                prioridade: "URGENTE",
+                prazoPt: "15 dias", prazoEn: "15 days",
+                responsavel: "Diretoria"
+            });
+        } else if (area.status === "Moderado" || area.status === "Atenção") {
+            actionTable.push({
+                areaKey: area.key,
+                acaoPt: "Auditoria profunda de " + area.namePt + " com plano de correção (30 dias)",
+                acaoEn: "Deep audit of " + area.nameEn + " with a correction plan (30 days)",
+                prioridade: "MELHORIA",
+                prazoPt: "30 dias", prazoEn: "30 days",
+                responsavel: "Diretoria"
+            });
+        }
+    });
+
+    return {
+        version: 1,
+        assessment_type: "business_xray",
+        score: score, max_score: total, pct: pct,
+        maturity: maturity,
+        areas: areas,
+        buckets: buckets,
+        action_plan: actionPlan,
+        action_table: actionTable
+    };
+}
+
+function computeAssessmentScore(type, answers) {
+    if (type === "business_xray") { return computeXrayScore(answers); }
+    return null;
+}
+
+// Answered-question count for a stored answers map, scoped to the catalog
+// (stray keys from an older bank never inflate the count).
+function assessmentAnsweredCount(type, answers) {
+    var catalog = assessmentCatalog(type);
+    if (!catalog) { return 0; }
+    var n = 0;
+    catalog.questions.forEach(function(q) {
+        if (answers[q.key] === 0 || answers[q.key] === 1) { n += 1; }
+    });
+    return n;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/assessments — assignment list (admin + own client)
+// ---------------------------------------------------------------------------
+
+async function handleGetClientAssessments(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT assessment_type, status, answers_json, score_json, activated_by, activated_at, started_at, completed_at " +
+            "FROM client_assessments WHERE client_id = ? ORDER BY activated_at"
+        ).bind(id).all();
+        var out = (rows.results || []).map(function(r) {
+            var typeMeta = ASSESSMENT_TYPES[r.assessment_type] || { labelPt: r.assessment_type, labelEn: r.assessment_type };
+            var answers = {};
+            try { answers = JSON.parse(r.answers_json || "{}"); } catch (e) { answers = {}; }
+            var catalog = assessmentCatalog(r.assessment_type);
+            var summary = null;
+            if (r.status === "completed" && r.score_json) {
+                try {
+                    var sc = JSON.parse(r.score_json);
+                    summary = { score: sc.score, max_score: sc.max_score, pct: sc.pct, maturity: sc.maturity };
+                } catch (e) { summary = null; }
+            }
+            return {
+                assessment_type: r.assessment_type,
+                labelPt: typeMeta.labelPt, labelEn: typeMeta.labelEn,
+                status: r.status,
+                answered: assessmentAnsweredCount(r.assessment_type, answers),
+                total: catalog ? catalog.total : 0,
+                activated_by: r.activated_by, activated_at: r.activated_at,
+                started_at: r.started_at, completed_at: r.completed_at,
+                score_summary: summary
+            };
+        });
+        return jsonOk({ assessments: out });
+    } catch (e) {
+        return jsonErr("Error fetching assessments: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/assessments — admin: activate an assessment
+// Body: { type: 'business_xray' }. Row existence = activated (mirrors the
+// client_logins pattern). 409 if already active.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientAssessment(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        var body = await request.json();
+        var type = body && body.type;
+        if (!type || !ASSESSMENT_TYPES[type]) { return jsonErr("Unknown assessment type", 400); }
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        var existing = await env.DB.prepare(
+            "SELECT id FROM client_assessments WHERE client_id = ? AND assessment_type = ?"
+        ).bind(id, type).first();
+        if (existing) { return jsonErr("Assessment already activated for this client", 409); }
+        await env.DB.prepare(
+            "INSERT INTO client_assessments (id, client_id, assessment_type, status, activated_by) VALUES (?, ?, ?, 'not_started', ?)"
+        ).bind(crypto.randomUUID(), id, type, user.display_name || user.role).run();
+        return jsonOk({ activated: true, assessment_type: type, status: "not_started" });
+    } catch (e) {
+        return jsonErr("Error activating assessment: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: DELETE /api/clients/:id/assessments/:type — admin: deactivate.
+// Removes the assignment AND its answers (used for test cleanup / mistakes).
+// ---------------------------------------------------------------------------
+
+async function handleDeleteClientAssessment(id, type, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        await env.DB.prepare(
+            "DELETE FROM client_assessments WHERE client_id = ? AND assessment_type = ?"
+        ).bind(id, type).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deactivating assessment: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/assessments/:type — full state for the portal:
+// assignment row + question catalog + saved answers (+ score once completed).
+// ---------------------------------------------------------------------------
+
+async function handleGetClientAssessmentDetail(id, type, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var catalog = assessmentCatalog(type);
+        if (!catalog) { return jsonErr("Unknown assessment type", 400); }
+        var row = await env.DB.prepare(
+            "SELECT status, answers_json, score_json, activated_at, started_at, completed_at " +
+            "FROM client_assessments WHERE client_id = ? AND assessment_type = ?"
+        ).bind(id, type).first();
+        if (!row) { return jsonErr("Assessment not activated for this client", 404); }
+        var answers = {};
+        try { answers = JSON.parse(row.answers_json || "{}"); } catch (e) { answers = {}; }
+        var score = null;
+        if (row.score_json) {
+            try { score = JSON.parse(row.score_json); } catch (e) { score = null; }
+        }
+        return jsonOk({
+            assessment_type: type,
+            status: row.status,
+            activated_at: row.activated_at, started_at: row.started_at, completed_at: row.completed_at,
+            answers: answers,
+            answered: assessmentAnsweredCount(type, answers),
+            total: catalog.total,
+            catalog: catalog,
+            score: score
+        });
+    } catch (e) {
+        return jsonErr("Error fetching assessment: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/assessments/:type/answers
+// Body: { draft: bool, answers: { question_key: 0|1 } }
+// draft=true  → partial autosave: merge into stored answers, never validates
+//               completeness (62 questions on a phone won't happen in one
+//               sitting — mirrors the daily-entry draft pattern).
+// draft=false → submit: requires every question answered, runs the scoring
+//               engine and freezes score_json. A completed assessment is
+//               immutable (writes return already_completed).
+// ---------------------------------------------------------------------------
+
+async function handlePutAssessmentAnswers(id, type, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var catalog = assessmentCatalog(type);
+        if (!catalog) { return jsonErr("Unknown assessment type", 400); }
+        var row = await env.DB.prepare(
+            "SELECT id, status, answers_json FROM client_assessments WHERE client_id = ? AND assessment_type = ?"
+        ).bind(id, type).first();
+        if (!row) { return jsonErr("Assessment not activated for this client", 404); }
+        if (row.status === "completed") {
+            return jsonOk({ saved: false, already_completed: true });
+        }
+
+        var body = await request.json();
+        var isDraft = !(body && body.draft === false);
+        var incoming = (body && body.answers) || {};
+        var validKeys = {};
+        catalog.questions.forEach(function(q) { validKeys[q.key] = true; });
+
+        var prev = {};
+        try { prev = JSON.parse(row.answers_json || "{}"); } catch (e) { prev = {}; }
+        var merged = Object.assign({}, prev);
+        Object.keys(incoming).forEach(function(k) {
+            if (!validKeys[k]) { return; }
+            var v = incoming[k];
+            if (v === true) { v = 1; }
+            if (v === false) { v = 0; }
+            if (v === 1 || v === 0) { merged[k] = v; }
+        });
+
+        var answered = assessmentAnsweredCount(type, merged);
+        if (isDraft) {
+            var status = answered > 0 ? "in_progress" : "not_started";
+            await env.DB.prepare(
+                "UPDATE client_assessments SET answers_json = ?, status = ?, " +
+                "started_at = CASE WHEN started_at IS NULL AND ? > 0 THEN datetime('now') ELSE started_at END, " +
+                "updated_at = datetime('now') WHERE id = ?"
+            ).bind(JSON.stringify(merged), status, answered, row.id).run();
+            return jsonOk({ saved: true, draft: true, answered: answered, total: catalog.total });
+        }
+
+        if (answered < catalog.total) {
+            return jsonErr("Ainda faltam " + (catalog.total - answered) + " perguntas para concluir", 400);
+        }
+        var score = computeAssessmentScore(type, merged);
+        await env.DB.prepare(
+            "UPDATE client_assessments SET answers_json = ?, score_json = ?, status = 'completed', " +
+            "started_at = COALESCE(started_at, datetime('now')), " +
+            "completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
+        ).bind(JSON.stringify(merged), JSON.stringify(score), row.id).run();
+        return jsonOk({ saved: true, completed: true, score: score });
+    } catch (e) {
+        return jsonErr("Error saving assessment answers: " + e.message, 500);
+    }
+}
+
 export default {
     fetch: async function(request, env) {
         var url    = new URL(request.url);
@@ -8904,6 +9432,18 @@ export default {
             }
             if (segs.length === 6 && segs[3] === "entries" && segs[5] === "day-off" && method === "POST") {
                 return handlePostEntryDayOff(cid, segs[4], request, env);
+            }
+            // Assessments (Business X-Ray + future types)
+            if (segs.length === 4 && segs[3] === "assessments") {
+                if (method === "GET")  { return handleGetClientAssessments(cid, request, env); }
+                if (method === "POST") { return handlePostClientAssessment(cid, request, env); }
+            }
+            if (segs.length === 5 && segs[3] === "assessments") {
+                if (method === "GET")    { return handleGetClientAssessmentDetail(cid, segs[4], request, env); }
+                if (method === "DELETE") { return handleDeleteClientAssessment(cid, segs[4], request, env); }
+            }
+            if (segs.length === 6 && segs[3] === "assessments" && segs[5] === "answers" && method === "PUT") {
+                return handlePutAssessmentAnswers(cid, segs[4], request, env);
             }
         }
 

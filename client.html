@@ -1721,6 +1721,19 @@
           </div>
         </div>
 
+        <!-- Assessments (Business X-Ray + future types) -->
+        <div class="content-card" id="sec-assessments">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Avalia&ccedil;&otilde;es</span>
+              <span class="show-en">Assessments</span>
+            </h2>
+          </div>
+          <div id="assessmentsBody" style="padding:16px 20px;">
+            <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+          </div>
+        </div>
+
         <!-- Weekly daily-entry summary -->
         <div class="content-card" id="sec-weeklySummary">
           <div class="content-card-header">
@@ -2584,6 +2597,7 @@
       loadClientGrowth();
       loadClientNeighbors();
       loadPortalAccess();
+      loadAssessments();
       loadWeeklySummary();
       initCollapseStates();
     }
@@ -2670,6 +2684,111 @@
       if (!waTab) {
         window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
       }
+    }
+
+    // ── Assessments (Business X-Ray + future types) ────────────────────────
+    // Generic activation card: one row per known assessment type, driven by
+    // the client_assessments assignment table. A second assessment type only
+    // needs a new entry in ASSESSMENT_TYPES_UI — no new card, no new API.
+
+    var ASSESSMENT_TYPES_UI = [
+      { type: "business_xray", pt: "Raio X Empresarial", en: "Business X-Ray" }
+    ];
+    var assessmentsData = null;
+
+    function loadAssessments() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/assessments")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          assessmentsData = data.assessments || [];
+          renderAssessments();
+        })
+        .catch(function() {
+          var el = document.getElementById("assessmentsBody");
+          if (el) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">--</div>'; }
+        });
+    }
+
+    function assessmentStatusHtml(a) {
+      if (a.status === "completed") {
+        return '<span style="color:#3f7d4e;font-weight:600;">' +
+          '<span class="show-pt">Conclu&iacute;do</span><span class="show-en">Completed</span></span>' +
+          '<div style="color:var(--muted);font-size:12px;margin-top:3px;">' +
+          '<span class="show-pt">Conclu&iacute;do em:</span><span class="show-en">Completed on:</span> ' +
+          formatDateTime(a.completed_at) +
+          (a.score_summary
+            ? ' &middot; ' + a.score_summary.score + '/' + a.score_summary.max_score +
+              ' (' + a.score_summary.pct + '%) &middot; ' +
+              '<span class="show-pt">Maturidade ' + escHtml(a.score_summary.maturity.labelPt) + '</span>' +
+              '<span class="show-en">Maturity ' + escHtml(a.score_summary.maturity.labelEn) + '</span>'
+            : '') +
+          '</div>';
+      }
+      if (a.status === "in_progress") {
+        return '<span style="color:#8a6d1d;font-weight:600;">' +
+          '<span class="show-pt">Em andamento</span><span class="show-en">In progress</span></span> ' +
+          '<span style="color:var(--muted);font-size:12px;">(' + a.answered + '/' + a.total + ')</span>';
+      }
+      return '<span style="color:var(--muted);font-weight:600;">' +
+        '<span class="show-pt">N&atilde;o iniciado</span><span class="show-en">Not started</span></span>';
+    }
+
+    function renderAssessments() {
+      var el = document.getElementById("assessmentsBody");
+      if (!el) { return; }
+      var byType = {};
+      (assessmentsData || []).forEach(function(a) { byType[a.assessment_type] = a; });
+      var html = "";
+      ASSESSMENT_TYPES_UI.forEach(function(t) {
+        var a = byType[t.type];
+        html += '<div style="font-size:13px;margin-bottom:10px;">' +
+          '<div style="font-weight:600;margin-bottom:4px;">' +
+          '<span class="show-pt">' + escHtml(t.pt) + '</span><span class="show-en">' + escHtml(t.en) + '</span></div>';
+        if (a) {
+          html += '<div style="margin-bottom:8px;">' + assessmentStatusHtml(a) + '</div>' +
+            '<div style="color:var(--muted);font-size:12px;margin-bottom:8px;">' +
+            '<span class="show-pt">Ativado em:</span><span class="show-en">Activated on:</span> ' +
+            formatDateTime(a.activated_at) + '</div>' +
+            '<button class="btn-add" onclick="deactivateAssessment(\'' + t.type + '\')">' +
+            '<span class="show-pt">Desativar</span><span class="show-en">Deactivate</span></button>';
+        } else {
+          html += '<div style="color:var(--muted);margin-bottom:8px;">' +
+            '<span class="show-pt">N&atilde;o ativado para este cliente. Ap&oacute;s ativar, o question&aacute;rio aparece no portal do cliente.</span>' +
+            '<span class="show-en">Not activated for this client. Once activated, the questionnaire appears in the client portal.</span></div>' +
+            '<button class="btn-add" data-tour="xray-activate" onclick="activateAssessment(\'' + t.type + '\')">' +
+            '<span class="show-pt">Ativar ' + escHtml(t.pt) + '</span><span class="show-en">Activate ' + escHtml(t.en) + '</span></button>';
+        }
+        html += '</div>';
+      });
+      html += '<div style="color:var(--muted);font-size:12px;">' +
+        '<span class="show-pt">O cliente acessa com o login do portal (cart&atilde;o acima).</span>' +
+        '<span class="show-en">The client signs in with the portal login (card above).</span></div>';
+      el.innerHTML = html;
+    }
+
+    function activateAssessment(type) {
+      apiFetch("/api/clients/" + CLIENT_ID + "/assessments", { method: "POST", body: { type: type } })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          loadAssessments();
+        })
+        .catch(function(e) { window.alert("Erro: " + e.message); });
+    }
+
+    function deactivateAssessment(type) {
+      var isEnLang = document.body.classList.contains("lang-en");
+      var msg = isEnLang
+        ? "Deactivate this assessment? Saved answers will be deleted."
+        : "Desativar esta avaliação? As respostas salvas serão apagadas.";
+      if (!window.confirm(msg)) { return; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/assessments/" + type, { method: "DELETE" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          loadAssessments();
+        })
+        .catch(function(e) { window.alert("Erro: " + e.message); });
     }
 
     // ── Daily-entry field config ───────────────────────────────────────────

@@ -503,6 +503,43 @@
     @media (max-width: 380px) {
       .tile-grid { grid-template-columns: 1fr; }
     }
+    /* ---------- Business X-Ray (Raio X Empresarial) ---------- */
+    .xray-progress-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .xray-section-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+      font-family: 'Inter', sans-serif; color: var(--text);
+      padding: 13px 2px; border-bottom: 1px solid var(--border);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .xray-section-row:last-child { border-bottom: none; }
+    .xray-section-name { font-weight: 600; font-size: 14px; min-width: 0; }
+    .xray-section-count { font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+    .xray-question { padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .xray-question:last-child { border-bottom: none; }
+    .xray-q-label { font-size: 14px; margin-bottom: 10px; line-height: 1.45; }
+    .xray-yn { display: flex; gap: 8px; }
+    .xray-yn button {
+      flex: 1 1 0; padding: 11px 8px; border-radius: 8px;
+      border: 1px solid var(--border); background: #fff;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      color: var(--text); cursor: pointer; min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .xray-yn button.sel-yes { background: var(--green); border-color: var(--green); color: #fff; }
+    .xray-yn button.sel-no  { background: var(--red);   border-color: var(--red);   color: #fff; }
+    .xray-nav { display: flex; gap: 8px; margin-top: 14px; }
+    .xray-nav button { flex: 1 1 0; }
+    .xray-pill {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+    .xray-pill.p-bom      { background: rgba(63,125,78,0.14);  color: #3f7d4e; }
+    .xray-pill.p-moderado { background: rgba(201,164,58,0.16); color: #8a6d1d; }
+    .xray-pill.p-atencao  { background: rgba(201,120,58,0.16); color: #a05a1d; }
+    .xray-pill.p-critico  { background: rgba(180,64,64,0.14);  color: #b44040; }
+    .xray-score-big { font-size: 34px; font-weight: 700; }
+    .xray-score-big .of { font-size: 16px; color: var(--muted); font-weight: 600; }
   </style>
 </head>
 <body class="lang-pt">
@@ -747,6 +784,9 @@
         <button class="portal-tab" data-tab="invoices" onclick="switchTab('invoices')">
           <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
         </button>
+        <button class="portal-tab" data-tab="xray" id="tabBtnXray" hidden onclick="switchTab('xray')">
+          <span class="show-pt">Raio X</span><span class="show-en">X-Ray</span>
+        </button>
       </div>
 
       <div id="tabAnalytics">
@@ -845,6 +885,15 @@
           </div>
           <div id="invoicesPaidBody"></div>
         </div>
+      </div>
+
+      <div id="tabXray" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title" id="xrayHeroTitle"></div>
+          <div class="section-hero-sub" id="xrayHeroSub"></div>
+        </div>
+        <div id="xrayBody"></div>
       </div>
     </section>
   </main>
@@ -1426,6 +1475,14 @@
     // pending-days logic). Preview mode skips every gate.
     function decideBootView() {
       if (PREVIEW_AS) { showPortal(); return; }
+      // A lead activated for the X-Ray but with no goals configured goes
+      // straight to the questionnaire — the goal/entry gates below assume a
+      // full daily-log client and would dead-end a prospect on first login.
+      if (xrayAssigned && goalState && !goalState.has_any_goals) {
+        showPortal();
+        switchTab("xray");
+        return;
+      }
       if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals)) {
         // Hard gate: no goals at all, or none set for the current month.
         startGoals(goalState.current_month, true, "boot");
@@ -1697,7 +1754,11 @@
       var bar = document.getElementById("mobile-tab-bar");
       if (!bar || !window.apexNavSvg) { return; }
       var html = "";
-      PORTAL_DOCK_TABS.forEach(function(t) {
+      var dockTabs = PORTAL_DOCK_TABS.slice();
+      if (xrayAssigned) {
+        dockTabs.push({ tab: "xray", icon: "view", labelPt: "Raio X", labelEn: "X-Ray" });
+      }
+      dockTabs.forEach(function(t) {
         html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
         html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
@@ -1720,7 +1781,7 @@
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
       updateMobileDockActive(tab);
-      ["Analytics", "Goals", "Tasks", "Documents", "Invoices"].forEach(function(t) {
+      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray"].forEach(function(t) {
         document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
       });
       if (force || !tabsLoaded[tab]) {
@@ -1730,7 +1791,311 @@
         if (tab === "tasks") { loadTasks(); }
         if (tab === "documents") { loadDocuments(); }
         if (tab === "invoices") { loadInvoices(); }
+        if (tab === "xray") { loadXray(); }
       }
+    }
+
+    // ── Business X-Ray (Raio X Empresarial) ────────────────────────────────
+    // Assignment-driven: the tab (and dock entry) only exist when the admin
+    // activated the assessment for this client (client_assessments row).
+    // Question bank + scoring live in the Worker; this only renders and
+    // autosaves answers (server-side drafts, same idea as the daily entry).
+    var xrayAssigned  = false;
+    var xrayDetail    = null;   // GET /assessments/business_xray payload
+    var xrayAnswers   = {};
+    var xrayView      = "intro";   // 'intro' | 'section' | 'done'
+    var xraySection   = 0;
+    var xraySaveTimer = null;
+    var XRAY_ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+
+    function loadAssessmentList() {
+      return apiFetch("/api/clients/" + clientId + "/assessments")
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(data) {
+          var list = (data && data.assessments) || [];
+          xrayAssigned = list.some(function(a) { return a.assessment_type === "business_xray"; });
+          var btn = document.getElementById("tabBtnXray");
+          if (btn) { btn.hidden = !xrayAssigned; }
+          return list;
+        });
+    }
+
+    function loadXray() {
+      var body = document.getElementById("xrayBody");
+      body.innerHTML = '<div class="content-card"><p class="muted">' +
+        (isEn() ? "Loading..." : "Carregando...") + '</p></div>';
+      apiFetch("/api/clients/" + clientId + "/assessments/business_xray")
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(d) {
+          xrayDetail = d;
+          xrayAnswers = d.answers || {};
+          xrayView = (d.status === "completed") ? "done" : "intro";
+          renderXray();
+        })
+        .catch(function() {
+          body.innerHTML = '<div class="content-card"><p class="muted">' +
+            (isEn() ? "Could not load the assessment." : "Não foi possível carregar a avaliação.") + '</p></div>';
+        });
+    }
+
+    function xrayQuestionsInArea(areaKey) {
+      return xrayDetail.catalog.questions.filter(function(q) { return q.area === areaKey; });
+    }
+
+    function xrayAnsweredIn(questions) {
+      var n = 0;
+      questions.forEach(function(q) {
+        if (xrayAnswers[q.key] === 0 || xrayAnswers[q.key] === 1) { n += 1; }
+      });
+      return n;
+    }
+
+    function xrayTotalAnswered() {
+      return xrayAnsweredIn(xrayDetail.catalog.questions);
+    }
+
+    function xraySetHero(titleHtml, subHtml) {
+      document.getElementById("xrayHeroTitle").innerHTML = titleHtml;
+      document.getElementById("xrayHeroSub").innerHTML = subHtml;
+    }
+
+    function xrayProgressHtml() {
+      var answered = xrayTotalAnswered();
+      var total = xrayDetail.catalog.total;
+      var pct = total ? Math.round((answered / total) * 100) : 0;
+      return '<div class="xray-progress-label" id="xrayProgressLabel">' +
+        '<span class="show-pt">' + answered + ' de ' + total + ' perguntas respondidas</span>' +
+        '<span class="show-en">' + answered + ' of ' + total + ' questions answered</span></div>' +
+        '<div class="progress-track"><div class="progress-fill" id="xrayProgressFill" style="width:' + pct + '%;"></div></div>';
+    }
+
+    function renderXray() {
+      if (!xrayDetail) { return; }
+      if (xrayView === "done") { renderXrayDone(); return; }
+      if (xrayView === "section") { renderXraySection(); return; }
+      renderXrayIntro();
+    }
+
+    function renderXrayIntro() {
+      xraySetHero(
+        '<span class="show-pt">Raio X Empresarial</span><span class="show-en">Business X-Ray</span>',
+        '<span class="show-pt">Diagn&oacute;stico completo do seu neg&oacute;cio</span>' +
+        '<span class="show-en">A complete diagnostic of your business</span>'
+      );
+      var answered = xrayTotalAnswered();
+      var total = xrayDetail.catalog.total;
+      var html = '<div class="content-card">' +
+        '<p class="muted" style="margin-bottom:14px;">' +
+        '<span class="show-pt">Responda Sim ou N&atilde;o para cada pergunta, no seu ritmo. Suas respostas s&atilde;o salvas automaticamente — voc&ecirc; pode parar e continuar depois de onde parou.</span>' +
+        '<span class="show-en">Answer Yes or No to each question, at your own pace. Your answers are saved automatically — you can stop and pick up later where you left off.</span></p>' +
+        xrayProgressHtml() +
+        '<div style="margin-top:14px;" data-tour="xray-section-nav">';
+      xrayDetail.catalog.areas.forEach(function(a, i) {
+        var qs = xrayQuestionsInArea(a.key);
+        var n = xrayAnsweredIn(qs);
+        html += '<button type="button" class="xray-section-row" onclick="xrayGoSection(' + i + ')">' +
+          '<span class="xray-section-name">' + XRAY_ROMAN[i] + ' — ' +
+          '<span class="show-pt">' + escHtml(a.namePt) + '</span><span class="show-en">' + escHtml(a.nameEn) + '</span></span>' +
+          '<span class="xray-section-count">' +
+          (n === qs.length ? '<span style="color:var(--green);font-weight:700;">&#10003; </span>' : '') +
+          n + '/' + qs.length + '</span></button>';
+      });
+      html += '</div>' +
+        '<button class="btn-gold" style="width:100%;margin-top:16px;" data-tour="xray-start" onclick="xrayStart()">' +
+        (answered === 0
+          ? '<span class="show-pt">Come&ccedil;ar</span><span class="show-en">Start</span>'
+          : (answered === total
+            ? '<span class="show-pt">Revisar e concluir</span><span class="show-en">Review and finish</span>'
+            : '<span class="show-pt">Continuar</span><span class="show-en">Continue</span>')) +
+        '</button></div>';
+      document.getElementById("xrayBody").innerHTML = html;
+    }
+
+    function xrayStart() {
+      var target = 0;
+      var areas = xrayDetail.catalog.areas;
+      for (var i = 0; i < areas.length; i++) {
+        var qs = xrayQuestionsInArea(areas[i].key);
+        if (xrayAnsweredIn(qs) < qs.length) { target = i; break; }
+        target = i;   // all complete → land on the last section (submit lives there)
+      }
+      xrayGoSection(target);
+    }
+
+    function xrayGoSection(i) {
+      xraySection = i;
+      xrayView = "section";
+      renderXray();
+      window.scrollTo(0, 0);
+    }
+
+    function renderXraySection() {
+      var areas = xrayDetail.catalog.areas;
+      var area = areas[xraySection];
+      var qs = xrayQuestionsInArea(area.key);
+      var isLast = xraySection === areas.length - 1;
+      xraySetHero(
+        XRAY_ROMAN[xraySection] + ' — <span class="show-pt">' + escHtml(area.namePt) +
+        '</span><span class="show-en">' + escHtml(area.nameEn) + '</span>',
+        '<span class="show-pt">Se&ccedil;&atilde;o ' + (xraySection + 1) + ' de ' + areas.length + '</span>' +
+        '<span class="show-en">Section ' + (xraySection + 1) + ' of ' + areas.length + '</span>'
+      );
+      // Global question numbers follow catalog order (1-62).
+      var numberByKey = {};
+      xrayDetail.catalog.questions.forEach(function(q, idx) { numberByKey[q.key] = idx + 1; });
+      var html = '<div class="content-card">' + xrayProgressHtml() + '<div>';
+      qs.forEach(function(q) {
+        var v = xrayAnswers[q.key];
+        html += '<div class="xray-question" data-tour="xray-question">' +
+          '<div class="xray-q-label"><strong>' + numberByKey[q.key] + '.</strong> ' +
+          '<span class="show-pt">' + escHtml(q.labelPt) + '</span>' +
+          '<span class="show-en">' + escHtml(q.labelEn) + '</span></div>' +
+          '<div class="xray-yn">' +
+          '<button type="button" id="xyes_' + q.key + '"' + (v === 1 ? ' class="sel-yes"' : '') +
+          ' onclick="answerXray(\'' + q.key + '\', 1)"><span class="show-pt">Sim</span><span class="show-en">Yes</span></button>' +
+          '<button type="button" id="xno_' + q.key + '"' + (v === 0 ? ' class="sel-no"' : '') +
+          ' onclick="answerXray(\'' + q.key + '\', 0)"><span class="show-pt">N&atilde;o</span><span class="show-en">No</span></button>' +
+          '</div></div>';
+      });
+      html += '</div>' +
+        '<div class="xray-nav" data-tour="xray-section-nav">' +
+        '<button class="btn-outline" onclick="xrayPrev()">' +
+        (xraySection === 0
+          ? '<span class="show-pt">Vis&atilde;o geral</span><span class="show-en">Overview</span>'
+          : '<span class="show-pt">Anterior</span><span class="show-en">Back</span>') +
+        '</button>' +
+        '<button class="btn-gold" id="xrayNextBtn" onclick="xrayNext()">' +
+        (isLast
+          ? '<span class="show-pt">Concluir</span><span class="show-en">Finish</span>'
+          : '<span class="show-pt">Pr&oacute;xima</span><span class="show-en">Next</span>') +
+        '</button></div>' +
+        '<button class="btn-outline" style="width:100%;margin-top:10px;" data-tour="xray-save-resume" onclick="xrayExit()">' +
+        '<span class="show-pt">Salvar e continuar depois</span><span class="show-en">Save and continue later</span></button>' +
+        '<div class="autosave-note" id="xrayAutosaveNote"></div></div>';
+      document.getElementById("xrayBody").innerHTML = html;
+    }
+
+    // Answer tap: update state + button styling in place (no re-render, so
+    // the page never jumps mid-scroll), then debounce a server draft save.
+    function answerXray(key, v) {
+      xrayAnswers[key] = v;
+      var yes = document.getElementById("xyes_" + key);
+      var no  = document.getElementById("xno_" + key);
+      if (yes) { yes.className = (v === 1 ? "sel-yes" : ""); }
+      if (no)  { no.className  = (v === 0 ? "sel-no"  : ""); }
+      var answered = xrayTotalAnswered();
+      var total = xrayDetail.catalog.total;
+      var label = document.getElementById("xrayProgressLabel");
+      if (label) {
+        label.innerHTML = '<span class="show-pt">' + answered + ' de ' + total + ' perguntas respondidas</span>' +
+          '<span class="show-en">' + answered + ' of ' + total + ' questions answered</span>';
+      }
+      var fill = document.getElementById("xrayProgressFill");
+      if (fill) { fill.style.width = Math.round((answered / total) * 100) + "%"; }
+      if (xraySaveTimer) { clearTimeout(xraySaveTimer); }
+      xraySaveTimer = setTimeout(function() { xraySaveDraft(); }, 900);
+    }
+
+    function xraySaveDraft() {
+      if (xraySaveTimer) { clearTimeout(xraySaveTimer); xraySaveTimer = null; }
+      if (!xrayDetail || xrayDetail.status === "completed") { return Promise.resolve(); }
+      return apiFetch("/api/clients/" + clientId + "/assessments/business_xray/answers",
+        { method: "PUT", body: { draft: true, answers: xrayAnswers } })
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.saved) {
+            var note = document.getElementById("xrayAutosaveNote");
+            if (note) {
+              note.textContent = isEn() ? "Answers saved automatically" : "Respostas salvas automaticamente";
+              setTimeout(function() { if (note) { note.textContent = ""; } }, 2500);
+            }
+          }
+        })
+        .catch(function() {});
+    }
+
+    function xrayPrev() {
+      xraySaveDraft();
+      if (xraySection === 0) { xrayView = "intro"; renderXray(); }
+      else { xrayGoSection(xraySection - 1); }
+      window.scrollTo(0, 0);
+    }
+
+    function xrayNext() {
+      xraySaveDraft();
+      var areas = xrayDetail.catalog.areas;
+      if (xraySection < areas.length - 1) { xrayGoSection(xraySection + 1); return; }
+      xraySubmit();
+    }
+
+    function xrayExit() {
+      xraySaveDraft();
+      xrayView = "intro";
+      renderXray();
+      window.scrollTo(0, 0);
+    }
+
+    function xraySubmit() {
+      var answered = xrayTotalAnswered();
+      var total = xrayDetail.catalog.total;
+      if (answered < total) {
+        var missing = total - answered;
+        window.alert(isEn()
+          ? missing + " question" + (missing === 1 ? "" : "s") + " still unanswered. Use the overview to find the pending sections."
+          : "Ainda " + (missing === 1 ? "falta 1 pergunta" : "faltam " + missing + " perguntas") + ". Use a visão geral para encontrar as seções pendentes.");
+        xrayView = "intro";
+        renderXray();
+        return;
+      }
+      if (!window.confirm(isEn()
+        ? "Submit your answers? They cannot be changed after finishing."
+        : "Enviar suas respostas? Após concluir, não será possível alterá-las.")) { return; }
+      apiFetch("/api/clients/" + clientId + "/assessments/business_xray/answers",
+        { method: "PUT", body: { draft: false, answers: xrayAnswers } })
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          xrayDetail.status = "completed";
+          xrayDetail.score = d.score;
+          xrayDetail.completed_at = new Date().toISOString();
+          xrayView = "done";
+          renderXray();
+          window.scrollTo(0, 0);
+        })
+        .catch(function(e) { window.alert("Erro: " + e.message); });
+    }
+
+    function renderXrayDone() {
+      xraySetHero(
+        '<span class="show-pt">Raio X conclu&iacute;do</span><span class="show-en">X-Ray completed</span>',
+        '<span class="show-pt">Obrigado! Seu diagn&oacute;stico foi enviado.</span>' +
+        '<span class="show-en">Thank you! Your diagnostic has been submitted.</span>'
+      );
+      var s = xrayDetail.score;
+      var html = '<div class="content-card">';
+      if (s) {
+        var XRAY_STATUS_EN = { "Bom": "Good", "Moderado": "Moderate", "Atenção": "Attention", "Crítico": "Critical" };
+        var XRAY_PILL_CLASS = { "Bom": "p-bom", "Moderado": "p-moderado", "Atenção": "p-atencao", "Crítico": "p-critico" };
+        html += '<div style="text-align:center;margin-bottom:16px;">' +
+          '<div class="xray-score-big">' + s.score + '<span class="of">/' + s.max_score + '</span></div>' +
+          '<div class="muted" style="margin-top:4px;">' + s.pct + '% &middot; ' +
+          '<span class="show-pt">Maturidade ' + escHtml(s.maturity.labelPt) + '</span>' +
+          '<span class="show-en">Maturity: ' + escHtml(s.maturity.labelEn) + '</span></div></div><div>';
+        s.areas.forEach(function(a, i) {
+          html += '<div class="xray-section-row" style="cursor:default;">' +
+            '<span class="xray-section-name">' + XRAY_ROMAN[i] + ' — ' +
+            '<span class="show-pt">' + escHtml(a.namePt) + '</span><span class="show-en">' + escHtml(a.nameEn) + '</span>' +
+            '<span class="xray-section-count" style="margin-left:8px;">' + a.fraction + ' — ' + a.pct + '%</span></span>' +
+            '<span class="xray-pill ' + (XRAY_PILL_CLASS[a.status] || "p-moderado") + '">' +
+            '<span class="show-pt">' + escHtml(a.status) + '</span>' +
+            '<span class="show-en">' + escHtml(XRAY_STATUS_EN[a.status] || a.status) + '</span></span></div>';
+        });
+        html += '</div>';
+      }
+      html += '<p class="muted" style="margin-top:14px;">' +
+        '<span class="show-pt">Seu consultor vai apresentar o relat&oacute;rio completo com o plano de a&ccedil;&atilde;o priorit&aacute;rio.</span>' +
+        '<span class="show-en">Your consultant will walk you through the full report and the priority action plan.</span></p></div>';
+      document.getElementById("xrayBody").innerHTML = html;
     }
 
     function loadPortalLogo() {
@@ -2380,7 +2745,8 @@
           return Promise.all([
             apiFetch("/api/clients/" + clientId + "/field-config").then(function(r) { return r.json(); }),
             loadEntryState(),
-            loadGoalState().catch(function() { goalState = null; })
+            loadGoalState().catch(function() { goalState = null; }),
+            loadAssessmentList().catch(function() { xrayAssigned = false; })
           ]);
         })
         .then(function(results) {

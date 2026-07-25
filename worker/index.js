@@ -7256,7 +7256,7 @@ async function handlePostZohoContactsResync(request, env) {
 //   computed_month  → dias_rotina_completos: REAL count of completed days
 //                     with rotina_completa = yes this month (bug fix #3 —
 //                     never a mirror of today's toggle)
-// inverse: lower is better (erros_retrabalho) — leaderboard scores invert it.
+// inverse: lower is better (velocidade_resposta, erros_retrabalho) — scoring inverts it.
 // ---------------------------------------------------------------------------
 
 var ENTRY_SECTIONS = ["financeiro", "clientes_mercado", "processos", "crescimento", "rotina"];
@@ -7281,7 +7281,7 @@ var INDICATORS = [
     { key: "novos_clientes",         section: "clientes_mercado", type: "count",    labelPt: "Novos Clientes",             labelEn: "New Clients" },
     { key: "entregas_realizadas",    section: "processos",        type: "count",    labelPt: "Entregas Realizadas",        labelEn: "Deliveries Completed" },
     { key: "envio_propostas",        section: "processos",        type: "count",    labelPt: "Envio de Propostas",         labelEn: "Proposals Sent" },
-    { key: "velocidade_resposta",    section: "processos",        type: "hours",    labelPt: "Velocidade de Resposta (h)", labelEn: "Response Speed (h)" },
+    { key: "velocidade_resposta",    section: "processos",        type: "hours",    labelPt: "Velocidade de Resposta (h)", labelEn: "Response Speed (h)", inverse: true },
     { key: "erros_retrabalho",       section: "processos",        type: "count",    labelPt: "Erros/Retrabalho",           labelEn: "Errors/Rework", inverse: true },
     { key: "processos_documentados", section: "processos",        type: "count",    labelPt: "Processos Documentados",     labelEn: "Processes Documented" },
     { key: "melhorias_internas",     section: "crescimento",      type: "count",    labelPt: "Melhorias Internas",         labelEn: "Internal Improvements" },

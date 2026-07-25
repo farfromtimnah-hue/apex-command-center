@@ -89,7 +89,7 @@
     }
     #loadingScreen[hidden] { display: none; }
 
-    main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 80px; }
+    main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 80px; overflow-x: hidden; }
 
     /* ---------- Hero (shared visual language) ---------- */
     .hero {
@@ -251,6 +251,7 @@
       margin-top: 16px;
     }
     .field-tile {
+      min-width: 0;
       background: rgba(255, 255, 255, 0.94);
       border: 1px solid rgba(255,255,255,0.5);
       border-radius: 12px;
@@ -330,6 +331,7 @@
     .kpi-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 10px; padding: 14px;
+      min-width: 0; /* grid items default to min-width:auto and refuse to shrink below content */
     }
     .kpi-card .kpi-name { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
     .kpi-card .kpi-value { font-size: 22px; font-weight: 800; }
@@ -376,6 +378,7 @@
       background: rgba(63,125,78,0.12); color: var(--green);
       border-radius: 16px; padding: 6px 12px;
       font-size: 12px; font-weight: 700; white-space: nowrap;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis;
     }
 
     /* Collapsible section header — whole row is the toggle button */
@@ -385,9 +388,9 @@
       background: none; border: none; cursor: pointer; text-align: left;
       font-family: 'Inter', sans-serif;
     }
-    .kpi-section-head .kpi-section-title { margin: 0; }
+    .kpi-section-head .kpi-section-title { margin: 0; min-width: 0; }
     .kpi-section-head .section-chevron { color: var(--gold); font-size: 11px; }
-    .kpi-section-head .section-head-right { display: flex; align-items: center; gap: 8px; }
+    .kpi-section-head .section-head-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
     /* Needs-attention focus list */
     .attention-title {
@@ -492,7 +495,8 @@
     @media (max-width: 600px) {
       main { padding: 14px 10px 60px; }
       .tile-grid { grid-template-columns: 1fr 1fr; }
-      .kpi-grid { grid-template-columns: 1fr 1fr; }
+      .kpi-grid { grid-template-columns: 1fr; }
+      .kpi-card .kpi-value { font-size: 19px; }
       .header-client-name { display: none; }
     }
     @media (max-width: 380px) {

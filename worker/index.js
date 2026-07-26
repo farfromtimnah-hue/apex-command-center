@@ -664,13 +664,15 @@ async function handleGetSessions(request, env) {
             stmt = env.DB.prepare(
                 "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at, " +
                 "raw_transcript IS NOT NULL as has_transcript " +
-                "FROM sessions WHERE status != 'archived' AND client_id = ? ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND meeting_category != 'event' AND client_id = ? ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
                 "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at, " +
                 "raw_transcript IS NOT NULL as has_transcript " +
-                "FROM sessions WHERE status != 'archived' ORDER BY created_at DESC"
+                // Event entries (conferences, Apex Club) are not client
+                // sessions -- keep them out of the summarize/transcript list.
+                "FROM sessions WHERE status != 'archived' AND meeting_category != 'event' ORDER BY created_at DESC"
             );
         }
 
@@ -2160,9 +2162,39 @@ async function handlePatchTask(id, request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/sessions/schedule
-// Body: { client_id, date, time, session_type, notes }
+// Body: { client_id, date, time, session_type, notes, meeting_category?,
+//         end_time?, location?, event_name?, recur_frequency?, recur_count? }
 // session_type: 'online_meet' | 'in_person'
+// meeting_category: 'client' (default) | 'prospective' | 'event'
+// 'event' entries (conferences, Apex Club) have no client: client_id is
+// stored NULL and event_name lands in the NOT NULL client_name column.
+// end_time is stored as a plain "HH:MM" (the Google Calendar sync path
+// stores full ISO datetimes in the same column -- readers handle both).
+// recur_frequency/recur_count expand an in_person series into N independent
+// rows in one POST (online_meet series are expanded by the frontend, which
+// must create each Meet link first). Count is hard-capped at 26.
 // ---------------------------------------------------------------------------
+
+var RECUR_FREQUENCIES = ["weekly", "biweekly", "monthly"];
+
+// Date of occurrence #index (0-based). UTC-only arithmetic so Florida DST
+// switches can never shift a date; monthly clamps to the last day of short
+// months (the 31st in a 30-day month stays in that month).
+function recurOccurrenceDate(dateStr, freq, index) {
+    var p = dateStr.split("-");
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    var out;
+    if (freq === "monthly") {
+        var target = new Date(Date.UTC(y, m - 1 + index, 1));
+        var lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+        out = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(d, lastDay)));
+    } else {
+        var step = freq === "biweekly" ? 14 : 7;
+        out = new Date(Date.UTC(y, m - 1, d + step * index));
+    }
+    function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+    return out.getUTCFullYear() + "-" + pad2(out.getUTCMonth() + 1) + "-" + pad2(out.getUTCDate());
+}
 
 async function handlePostSessionsSchedule(request, env) {
     try {
@@ -2170,35 +2202,78 @@ async function handlePostSessionsSchedule(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
 
         var body = await request.json();
-        if (!body.client_id)    { return jsonErr("client_id is required", 400); }
         if (!body.date)         { return jsonErr("date is required", 400); }
         if (!body.time)         { return jsonErr("time is required", 400); }
         if (body.session_type !== "online_meet" && body.session_type !== "in_person") {
             return jsonErr("session_type must be online_meet or in_person", 400);
         }
-        var meetingCategory = body.meeting_category === "prospective" ? "prospective" : "client";
+        var meetingCategory = "client";
+        if (body.meeting_category === "prospective") { meetingCategory = "prospective"; }
+        if (body.meeting_category === "event")       { meetingCategory = "event"; }
 
-        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
-            .bind(body.client_id).first();
-        if (!client) { return jsonErr("Client not found", 404); }
+        var endTime = null;
+        if (body.end_time) {
+            if (!/^\d{2}:\d{2}$/.test(body.end_time)) { return jsonErr("end_time must be HH:MM", 400); }
+            endTime = body.end_time;
+        }
+        var location = body.location || null;
 
-        var sessionId    = crypto.randomUUID();
+        var clientId, clientName, sessionType;
+        if (meetingCategory === "event") {
+            if (!body.event_name) { return jsonErr("event_name is required for events", 400); }
+            clientId    = null;
+            clientName  = body.event_name;
+            sessionType = "in_person"; // events never get a Google Meet link
+        } else {
+            if (!body.client_id) { return jsonErr("client_id is required", 400); }
+            var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
+                .bind(body.client_id).first();
+            if (!client) { return jsonErr("Client not found", 404); }
+            clientId    = body.client_id;
+            clientName  = client.name;
+            sessionType = body.session_type;
+        }
+
         var meetLink = null;
-        if (body.session_type === "online_meet") {
+        if (sessionType === "online_meet") {
           meetLink = body.google_meet_link || "[PENDING_GOOGLE_API]";
         }
 
-        await env.DB.prepare(
-            "INSERT INTO sessions (id, client_id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?)"
-        ).bind(sessionId, body.client_id, client.name, body.date, body.time, body.session_type, meetLink, body.google_event_id || null, body.notes || null, meetingCategory).run();
+        // In-person recurrence expansion: N independent rows, no series
+        // record (deliberate -- deleting one occurrence never touches the
+        // others). The 26 cap is a guard shared with the frontend.
+        var recurCount = 1;
+        var recurFreq  = null;
+        if (body.recur_count !== undefined && body.recur_count !== null) {
+            if (meetingCategory === "event") { return jsonErr("Events cannot recur", 400); }
+            if (sessionType !== "in_person") { return jsonErr("Recurrence expansion is in_person only -- online_meet series are created per-occurrence by the frontend", 400); }
+            recurCount = parseInt(body.recur_count, 10);
+            if (isNaN(recurCount) || recurCount < 2 || recurCount > 26) {
+                return jsonErr("recur_count must be between 2 and 26", 400);
+            }
+            recurFreq = body.recur_frequency;
+            if (RECUR_FREQUENCIES.indexOf(recurFreq) === -1) {
+                return jsonErr("recur_frequency must be weekly, biweekly or monthly", 400);
+            }
+        }
+
+        var sessionIds = [];
+        for (var i = 0; i < recurCount; i++) {
+            var occDate = recurFreq ? recurOccurrenceDate(body.date, recurFreq, i) : body.date;
+            var sessionId = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?)"
+            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, body.google_event_id || null, body.notes || null, meetingCategory).run();
+            sessionIds.push(sessionId);
+        }
 
         var session = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, created_at " +
+            "SELECT id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, created_at " +
             "FROM sessions WHERE id = ?"
-        ).bind(sessionId).first();
+        ).bind(sessionIds[0]).first();
 
-        return jsonOk({ session: session });
+        return jsonOk({ session: session, sessions_created: sessionIds.length });
     } catch (e) {
         return jsonErr("Error scheduling session: " + e.message, 500);
     }
@@ -2223,7 +2298,7 @@ async function handleGetSessionsCalendar(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, " +
-            "google_event_id, calendar_provider, html_link, end_time, attendees, raw_transcript, pdf_data, meeting_category " +
+            "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category " +
             "FROM sessions WHERE date LIKE ? AND status != 'discarded' ORDER BY date ASC, time ASC"
         ).bind(month + "-%").all();
 
@@ -2242,6 +2317,7 @@ async function handleGetSessionsCalendar(request, env) {
                 calendar_provider:  row.calendar_provider,
                 html_link:          row.html_link,
                 end_time:           row.end_time,
+                location:           row.location,
                 attendees:          row.attendees ? JSON.parse(row.attendees) : null,
                 has_transcript:     !!row.raw_transcript,
                 has_pdf:            !!row.pdf_data,
@@ -2354,18 +2430,26 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
 
         var session = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status " +
+            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status, meeting_category " +
             "FROM sessions WHERE id = ?"
         ).bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
+
+        // Event entries (conferences, Apex Club) are not client sessions --
+        // there is no client to message.
+        if (session.meeting_category === "event") {
+            return jsonErr("Event entries have no client to send WhatsApp to.", 400);
+        }
 
         // Guard: an online_meet session with no real Meet link yet (still
         // the "[PENDING_GOOGLE_API]" placeholder stored when calendar-event
         // creation failed, or genuinely null) must never go out over
         // WhatsApp -- confirmed 2026-07-22 a real client received the
-        // literal placeholder string in their message. calendar.html no
-        // longer schedules a session this way, but this is the last line
-        // of defense against any other caller doing the same.
+        // literal placeholder string in their message. The recurring-series
+        // flow in calendar.html now deliberately saves placeholder rows when
+        // a Meet-link creation fails mid-series (repairable via the detail
+        // modal's Generate Meet link button), so this guard is what keeps
+        // those rows -- and any other caller's -- away from clients.
         if (session.session_type !== "in_person" &&
             (!session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]")) {
             return jsonErr("This session has no Google Meet link yet -- reconnect Google Calendar (add-user.html) and re-create the event before sending.", 409);
@@ -2398,6 +2482,48 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         return jsonOk({ whatsapp_url: whatsappUrl, whatsapp_sent_at: sentAt });
     } catch (e) {
         return jsonErr("Error generating WhatsApp URL: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/sessions/:id/meet-link
+// Body: { google_meet_link, google_event_id? }
+// Attaches a Google Meet link to an EXISTING session -- every other code
+// path only ever sets google_meet_link at creation time, which left
+// sessions stuck on the "[PENDING_GOOGLE_API]" placeholder unrepairable
+// from the UI (a July 2026 incident left at least one such row live).
+// The calendar detail modal's "Generate Meet link" button calls this after
+// creating the calendar event. Refuses to store the placeholder itself:
+// this route exists to replace it, never to write it.
+// ---------------------------------------------------------------------------
+
+async function handlePatchSessionMeetLink(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var meetLink = body.google_meet_link;
+        if (!meetLink || typeof meetLink !== "string") {
+            return jsonErr("google_meet_link is required", 400);
+        }
+        if (meetLink === "[PENDING_GOOGLE_API]") {
+            return jsonErr("Refusing to store the placeholder link", 400);
+        }
+
+        var session = await env.DB.prepare(
+            "SELECT id FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE sessions SET google_meet_link = ?, google_event_id = ? WHERE id = ?"
+        ).bind(meetLink, body.google_event_id || null, sessionId).run();
+
+        return jsonOk({ ok: true, google_meet_link: meetLink, google_event_id: body.google_event_id || null });
+    } catch (e) {
+        return jsonErr("Error updating Meet link: " + e.message, 500);
     }
 }
 
@@ -9291,6 +9417,9 @@ export default {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "whatsapp" && method === "POST") {
             return handlePostSessionWhatsapp(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "meet-link" && method === "PATCH") {
+            return handlePatchSessionMeetLink(segs[2], request, env);
         }
 
         // /api/goal-approvals/:client_id/:indicator_key/:month_label  POST

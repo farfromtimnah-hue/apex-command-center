@@ -47,6 +47,13 @@
       --cal-prospective       : #000000;
       --cal-prospective-text  : #C9A43A;
       --cal-prospective-border: #C9A43A;
+
+      /* Event entries (conferences, Apex Club, etc.) -- not client sessions.
+         White card with a solid navy outline, unlike any of the four session
+         treatments (navy fill, gold fill, tan dashed, black/gold). */
+      --cal-event       : #ffffff;
+      --cal-event-text  : #1a2f5e;
+      --cal-event-border: #1a2f5e;
     }
 
     body {
@@ -451,7 +458,16 @@
     .cal-chip.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
     .cal-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
+    .cal-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-chip:hover { opacity: 0.88; }
+    /* Online session missing its real Meet link (still the internal
+       placeholder) -- warn so it isn't mistaken for a healthy meeting. */
+    .cal-chip-warn {
+      display: inline-block;
+      font-weight: 700;
+      color: var(--gold);
+      margin-right: 3px;
+    }
     .cal-chip-badge {
       display: inline-block;
       font-size: 8px;
@@ -539,6 +555,7 @@
     .cal-week-chip.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
     .cal-week-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-week-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
+    .cal-week-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-week-chip:hover { opacity: 0.88; }
 
     /* ─── Day view ───────────────────────────────────────────────────────── */
@@ -602,6 +619,7 @@
     .cal-day-chip.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
     .cal-day-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-day-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
+    .cal-day-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-day-chip:hover { opacity: 0.88; }
 
     /* ─── Empty state ────────────────────────────────────────────────────── */
@@ -645,6 +663,7 @@
     .type-pill.online      { background: var(--cal-online);      color: var(--cal-online-text); }
     .type-pill.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
     .type-pill.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
+    .type-pill.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 1px solid var(--cal-event-border); }
 
     /* ─── Toast ──────────────────────────────────────────────────────────── */
     #calToast {
@@ -884,6 +903,50 @@
     }
     .btn-whatsapp:hover    { opacity: 0.88; }
     .btn-whatsapp:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-directions {
+      background: var(--gold);
+      color: #000;
+      border: none;
+      border-radius: 7px;
+      padding: 6px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-directions:hover { opacity: 0.88; }
+
+    .btn-fix-meet {
+      background: transparent;
+      color: var(--gold);
+      border: 1.5px solid var(--gold);
+      border-radius: 7px;
+      padding: 6px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-fix-meet:hover    { background: var(--gold-dim); }
+    .btn-fix-meet:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .recur-check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .recur-check-row input { accent-color: var(--gold); }
+    .recur-preview {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
 
     .btn-close-detail {
       background: transparent;
@@ -1163,11 +1226,20 @@
             </option>
           </select>
         </div>
+        <!-- Event name: only shown for "+ Event" / "+ Apex Club" entries.
+             Stored in the client_name column server-side. -->
+        <div class="field-group" id="nsEventNameGroup" hidden>
+          <div class="field-label">
+            <span class="show-pt">Nome do evento</span>
+            <span class="show-en">Event name</span>
+          </div>
+          <input type="text" id="nsEventName">
+        </div>
         <!-- Meeting category toggle: client (real, paying) vs prospective
              (a lead who hasn't signed yet). Defaults to Client; auto-flips
              to Prospective when the selected client's own status is "lead",
              but can always be overridden manually either direction. -->
-        <div class="field-group">
+        <div class="field-group" id="nsCategoryGroup">
           <div class="field-label">
             <span class="show-pt">Categoria</span>
             <span class="show-en">Category</span>
@@ -1190,7 +1262,7 @@
             <span class="show-pt">Data</span>
             <span class="show-en">Date</span>
           </div>
-          <input type="date" id="nsDate">
+          <input type="date" id="nsDate" onchange="updateNsRecurPreview()">
         </div>
         <!-- Time -->
         <div class="field-group">
@@ -1198,41 +1270,21 @@
             <span class="show-pt">Hora</span>
             <span class="show-en">Time</span>
           </div>
-          <select id="nsTime">
-            <option value="">— select time —</option>
-            <option value="07:00">7:00 AM</option>
-            <option value="07:30">7:30 AM</option>
-            <option value="08:00">8:00 AM</option>
-            <option value="08:30">8:30 AM</option>
-            <option value="09:00">9:00 AM</option>
-            <option value="09:30">9:30 AM</option>
-            <option value="10:00">10:00 AM</option>
-            <option value="10:30">10:30 AM</option>
-            <option value="11:00">11:00 AM</option>
-            <option value="11:30">11:30 AM</option>
-            <option value="12:00">12:00 PM</option>
-            <option value="12:30">12:30 PM</option>
-            <option value="13:00">1:00 PM</option>
-            <option value="13:30">1:30 PM</option>
-            <option value="14:00">2:00 PM</option>
-            <option value="14:30">2:30 PM</option>
-            <option value="15:00">3:00 PM</option>
-            <option value="15:30">3:30 PM</option>
-            <option value="16:00">4:00 PM</option>
-            <option value="16:30">4:30 PM</option>
-            <option value="17:00">5:00 PM</option>
-            <option value="17:30">5:30 PM</option>
-            <option value="18:00">6:00 PM</option>
-            <option value="18:30">6:30 PM</option>
-            <option value="19:00">7:00 PM</option>
-            <option value="19:30">7:30 PM</option>
-            <option value="20:00">8:00 PM</option>
-            <option value="20:30">8:30 PM</option>
-            <option value="21:00">9:00 PM</option>
-          </select>
+          <!-- Options built by populateTimeSelects() from NS_TIME_OPTS so
+               the start and end lists never drift apart. -->
+          <select id="nsTime"></select>
+        </div>
+        <!-- End time: required for events, optional for client/prospective
+             (blank keeps the existing implicit 1-hour behavior). -->
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Hora de término</span>
+            <span class="show-en">End time</span>
+          </div>
+          <select id="nsEndTime"></select>
         </div>
         <!-- Session type toggle -->
-        <div class="field-group">
+        <div class="field-group" id="nsTypeGroup">
           <div class="field-label">
             <span class="show-pt">Tipo</span>
             <span class="show-en">Type</span>
@@ -1250,6 +1302,47 @@
               <span class="show-pt">Link do Meet será gerado automaticamente.</span>
               <span class="show-en">Meet link will be generated automatically.</span>
             </div>
+          </div>
+        </div>
+        <!-- Location: in-person sessions and events only. The placeholder
+             asks for a real street address because this string feeds the
+             Directions maps link -- "Rafa's office" produces a broken link.
+             Placeholder text set by JS (placeholder attr can't hold the
+             PT/EN spans). -->
+        <div class="field-group" id="nsLocationGroup" hidden>
+          <div class="field-label">
+            <span class="show-pt">Local (opcional)</span>
+            <span class="show-en">Location (optional)</span>
+          </div>
+          <input type="text" id="nsLocation">
+        </div>
+        <!-- Recurrence: client/prospective meetings only, never events.
+             Each occurrence becomes its own independent session row --
+             deliberately no series record and no edit-all/cancel-series. -->
+        <div class="field-group" id="nsRecurGroup">
+          <label class="recur-check-row">
+            <input type="checkbox" id="nsRecurring" onchange="toggleNsRecurring()">
+            <span class="show-pt">Repetir</span>
+            <span class="show-en">Repeat</span>
+          </label>
+          <div id="nsRecurFields" hidden style="margin-top:10px;">
+            <div class="field-label">
+              <span class="show-pt">Frequência</span>
+              <span class="show-en">Frequency</span>
+            </div>
+            <select id="nsRecurFreq" onchange="updateNsRecurPreview()">
+              <option value="weekly" data-pt="Semanal" data-en="Weekly"></option>
+              <option value="biweekly" data-pt="Quinzenal" data-en="Every 2 weeks"></option>
+              <option value="monthly" data-pt="Mensal" data-en="Monthly"></option>
+            </select>
+            <div class="field-label" style="margin-top:10px;">
+              <span class="show-pt">Número de reuniões</span>
+              <span class="show-en">Number of meetings</span>
+            </div>
+            <!-- max 26 is a deliberate guard: each occurrence can fire a
+                 real Google Calendar event into the client's account. -->
+            <input type="number" id="nsRecurCount" value="4" min="2" max="26" oninput="updateNsRecurPreview()">
+            <div class="recur-preview" id="nsRecurPreview"></div>
           </div>
         </div>
         <!-- Notes -->
@@ -1407,6 +1500,31 @@
         <div id="detailMeetRow" class="detail-row" hidden>
           <span class="detail-row-label">Meet</span>
           <a class="detail-meet-link" id="detailMeetLink" href="#" target="_blank" rel="noopener"></a>
+        </div>
+
+        <!-- Shown instead of the Meet row when an online session's link is
+             missing or still the internal placeholder -- lets Alice/Rafa
+             repair the session from here (see handleFixMeetLink). -->
+        <div id="detailMeetFixRow" class="detail-row" hidden>
+          <span class="detail-row-label">Meet</span>
+          <button class="btn-fix-meet" id="btnFixMeet" onclick="handleFixMeetLink()">
+            <span class="show-pt">Gerar link do Meet</span>
+            <span class="show-en">Generate Meet link</span>
+          </button>
+        </div>
+
+        <div id="detailLocationRow" class="detail-row" hidden>
+          <span class="detail-row-label">
+            <span class="show-pt">Local</span>
+            <span class="show-en">Location</span>
+          </span>
+          <span class="detail-row-val" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span id="detailLocation"></span>
+            <button class="btn-directions" id="btnDirections" onclick="openDirections()">
+              <span class="show-pt">Rotas</span>
+              <span class="show-en">Directions</span>
+            </button>
+          </span>
         </div>
 
         <div id="detailHtmlLinkRow" class="detail-row" hidden>
@@ -1762,6 +1880,18 @@
       addOpt.textContent = (en ? "+ Add New Client" : "+ Adicionar Novo Cliente");
       sel.appendChild(addOpt);
 
+      var eventOpt = document.createElement("option");
+      eventOpt.value = "__event__";
+      eventOpt.textContent = (en ? "+ Event" : "+ Evento");
+      sel.appendChild(eventOpt);
+
+      // Apex Club is the monthly in-person client/prospect event -- identical
+      // to "+ Event" except it prefills the event name to save typing.
+      var apexOpt = document.createElement("option");
+      apexOpt.value = "__apex_club__";
+      apexOpt.textContent = "+ Apex Club";
+      sel.appendChild(apexOpt);
+
       var sep = document.createElement("option");
       sep.disabled = true;
       sep.textContent = "──────────────";
@@ -1790,12 +1920,44 @@
         openModal("modalQuickAddClient");
         return;
       }
+      // Event / Apex Club: not a client session at all. The dropdown keeps
+      // showing the chosen option (unlike "__add_new__").
+      if (sel.value === "__event__" || sel.value === "__apex_club__") {
+        setNsEventMode(true, sel.value === "__apex_club__");
+        return;
+      }
+      setNsEventMode(false, false);
       // Auto-default the category toggle from the selected client's own
       // status, but this is only a default -- Alice/Rafa can still flip
       // it manually either direction afterward.
       var opt = sel.options[sel.selectedIndex];
       var status = opt ? opt.dataset.status : "";
       setNewSessionCategory(status === "lead" ? "prospective" : "client");
+    }
+
+    function nsIsEvent() {
+      var v = document.getElementById("nsClient").value;
+      return v === "__event__" || v === "__apex_club__";
+    }
+
+    // Switches the New Session modal between event mode (category/type/
+    // recurrence hidden, event name shown, type forced in_person so no Meet
+    // link is ever created) and normal client mode.
+    function setNsEventMode(isEvent, isApexClub) {
+      var nameGroup = document.getElementById("nsEventNameGroup");
+      var nameEl    = document.getElementById("nsEventName");
+      document.getElementById("nsCategoryGroup").hidden = isEvent;
+      document.getElementById("nsTypeGroup").hidden     = isEvent;
+      document.getElementById("nsRecurGroup").hidden    = isEvent;
+      nameGroup.hidden = !isEvent;
+      if (isEvent) {
+        nameEl.value = isApexClub ? "Apex Club" : "";
+        document.getElementById("nsCategoryVal").value = "event";
+        setNewSessionType("in_person");
+      } else {
+        nameEl.value = "";
+      }
+      updateNsLocationVisibility();
     }
 
     function openModal(id) {
@@ -2144,8 +2306,19 @@
 
     function sessionTypeCls(session) {
       if (session.source === "external") { return "external"; }
+      if (session.meeting_category === "event") { return "event"; }
       if (session.meeting_category === "prospective") { return "prospective"; }
       return (session.session_type === "in_person") ? "inperson" : "online";
+    }
+
+    // Online session whose Meet link is missing or still the internal
+    // "[PENDING_GOOGLE_API]" placeholder -- marked on the calendar and
+    // repairable from the detail modal.
+    function needsMeetLink(session) {
+      if (session.source === "external") { return false; }
+      if (session.meeting_category === "event") { return false; }
+      if (session.session_type !== "online_meet") { return false; }
+      return !session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]";
     }
 
     function makeMonthChip(session) {
@@ -2160,6 +2333,12 @@
         badge.className = "cal-chip-badge";
         badge.textContent = isEn() ? "EXT" : "EXT";
         nameSpan.appendChild(badge);
+      }
+      if (needsMeetLink(session)) {
+        var warn = document.createElement("span");
+        warn.className = "cal-chip-warn";
+        warn.textContent = "⚠";
+        nameSpan.appendChild(warn);
       }
       nameSpan.appendChild(document.createTextNode(session.client_name || "—"));
       chip.appendChild(nameSpan);
@@ -2277,6 +2456,7 @@
       var typeCls = sessionTypeCls(session);
       chip.className = "cal-week-chip " + typeCls;
       var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
+      if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       if (session.time) { chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + session.time.slice(0,5) + '</span>'; }
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
@@ -2368,6 +2548,7 @@
       var typeCls = sessionTypeCls(session);
       chip.className = "cal-day-chip " + typeCls;
       var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
+      if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       if (session.time) { chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + session.time.slice(0,5) + '</span>'; }
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
@@ -2540,14 +2721,76 @@
 
     // ── New Session modal ──────────────────────────────────────────────────
 
+    // Shared half-hour list (07:00-21:00) for both the start and end time
+    // selects, so the two lists can never drift apart.
+    var NS_TIME_OPTS = [];
+    (function() {
+      for (var h = 7; h <= 21; h++) {
+        NS_TIME_OPTS.push(padZ(h) + ":00");
+        if (h < 21) { NS_TIME_OPTS.push(padZ(h) + ":30"); }
+      }
+    })();
+
+    function fmtTime12(hhmm) {
+      var parts = hhmm.split(":");
+      var h = parseInt(parts[0], 10);
+      var suffix = h >= 12 ? " PM" : " AM";
+      var h12 = h % 12;
+      if (h12 === 0) { h12 = 12; }
+      return h12 + ":" + parts[1] + suffix;
+    }
+
+    function populateTimeSelects() {
+      var en = isEn();
+      var startSel = document.getElementById("nsTime");
+      var endSel   = document.getElementById("nsEndTime");
+      startSel.innerHTML = "";
+      endSel.innerHTML   = "";
+      var startPh = document.createElement("option");
+      startPh.value = "";
+      startPh.textContent = en ? "— select time —" : "— selecionar hora —";
+      startSel.appendChild(startPh);
+      var endPh = document.createElement("option");
+      endPh.value = "";
+      endPh.textContent = en ? "— select time —" : "— selecionar hora —";
+      endSel.appendChild(endPh);
+      for (var i = 0; i < NS_TIME_OPTS.length; i++) {
+        var o1 = document.createElement("option");
+        o1.value = NS_TIME_OPTS[i];
+        o1.textContent = fmtTime12(NS_TIME_OPTS[i]);
+        startSel.appendChild(o1);
+        var o2 = document.createElement("option");
+        o2.value = NS_TIME_OPTS[i];
+        o2.textContent = fmtTime12(NS_TIME_OPTS[i]);
+        endSel.appendChild(o2);
+      }
+      // <option> can't hold the PT/EN spans, so the frequency labels are
+      // localized here from data attributes.
+      var freqSel = document.getElementById("nsRecurFreq");
+      for (var f = 0; f < freqSel.options.length; f++) {
+        var fo = freqSel.options[f];
+        fo.textContent = en ? fo.dataset.en : fo.dataset.pt;
+      }
+    }
+
     function openNewSessionModal() {
       populateClientDropdown();
-      document.getElementById("nsClient").value = "";
-      document.getElementById("nsDate").value   = "";
-      document.getElementById("nsTime").value   = "";
-      document.getElementById("nsNotes").value  = "";
+      populateTimeSelects();
+      document.getElementById("nsClient").value   = "";
+      document.getElementById("nsDate").value     = "";
+      document.getElementById("nsTime").value     = "";
+      document.getElementById("nsEndTime").value  = "";
+      document.getElementById("nsNotes").value    = "";
+      document.getElementById("nsLocation").value = "";
+      document.getElementById("nsLocation").placeholder = isEn() ? "Street address" : "Endereço completo";
+      setNsEventMode(false, false);
       setNewSessionType("online_meet");
       setNewSessionCategory("client");
+      document.getElementById("nsRecurring").checked = false;
+      document.getElementById("nsRecurFields").hidden = true;
+      document.getElementById("nsRecurFreq").value  = "weekly";
+      document.getElementById("nsRecurCount").value = "4";
+      document.getElementById("nsRecurPreview").textContent = "";
       var st = document.getElementById("nsStatus");
       if (st) { st.textContent = ""; st.className = "pull-status"; }
       document.getElementById("modalNewSession").hidden = false;
@@ -2560,6 +2803,69 @@
       var wrap = document.getElementById("nsMeetInfoWrap");
       if (type === "online_meet") { wrap.classList.remove("hidden-field"); }
       else                 { wrap.classList.add("hidden-field"); }
+      updateNsLocationVisibility();
+    }
+
+    // Location only makes sense for something happening at a physical
+    // address. Cleared when hidden so a stale address can never be
+    // submitted along with a Meet session.
+    function updateNsLocationVisibility() {
+      var group = document.getElementById("nsLocationGroup");
+      var show = nsIsEvent() || document.getElementById("nsTypeVal").value === "in_person";
+      group.hidden = !show;
+      if (!show) { document.getElementById("nsLocation").value = ""; }
+    }
+
+    function toggleNsRecurring() {
+      var on = document.getElementById("nsRecurring").checked;
+      document.getElementById("nsRecurFields").hidden = !on;
+      if (on) { updateNsRecurPreview(); }
+    }
+
+    // Date of occurrence #index (0-based) in a series. All arithmetic is done
+    // in UTC on a noon-less pure date so Florida's DST switches can never
+    // shift a date. Monthly clamps to the last day of short months (Jan 31
+    // -> Feb 28/29) instead of rolling into the next month.
+    function addOccurrenceDate(dateStr, freq, index) {
+      var p = dateStr.split("-");
+      var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+      var out;
+      if (freq === "monthly") {
+        var target = new Date(Date.UTC(y, m - 1 + index, 1));
+        var lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+        out = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(d, lastDay)));
+      } else {
+        var step = freq === "biweekly" ? 14 : 7;
+        out = new Date(Date.UTC(y, m - 1, d + step * index));
+      }
+      return out.getUTCFullYear() + "-" + padZ(out.getUTCMonth() + 1) + "-" + padZ(out.getUTCDate());
+    }
+
+    function updateNsRecurPreview() {
+      var previewEl = document.getElementById("nsRecurPreview");
+      if (!previewEl || document.getElementById("nsRecurFields").hidden) { return; }
+      var en    = isEn();
+      var date  = document.getElementById("nsDate").value;
+      var freq  = document.getElementById("nsRecurFreq").value;
+      var count = parseInt(document.getElementById("nsRecurCount").value, 10);
+      if (!date || isNaN(count) || count < 2 || count > 26) {
+        previewEl.textContent = "";
+        return;
+      }
+      var endDate = addOccurrenceDate(date, freq, count - 1);
+      var ep = endDate.split("-");
+      var monthIdx = parseInt(ep[1], 10) - 1;
+      var dayNum   = parseInt(ep[2], 10);
+      var endLabel = en
+        ? (MONTHS_EN[monthIdx].slice(0, 3) + " " + dayNum)
+        : (dayNum + " de " + MONTHS_PT[monthIdx].slice(0, 3).toLowerCase());
+      var freqLabel;
+      if (freq === "monthly")       { freqLabel = en ? "every month"   : "todo mês"; }
+      else if (freq === "biweekly") { freqLabel = en ? "every 2 weeks" : "a cada 2 semanas"; }
+      else                          { freqLabel = en ? "every week"    : "toda semana"; }
+      previewEl.textContent = en
+        ? (count + " meetings, " + freqLabel + ", ending " + endLabel)
+        : (count + " reuniões, " + freqLabel + ", terminando " + endLabel);
     }
 
     function setNewSessionCategory(category) {
@@ -2569,74 +2875,224 @@
     }
 
     function handleNewSession() {
-      var clientId = document.getElementById("nsClient").value;
-      var date     = document.getElementById("nsDate").value;
-      var time     = document.getElementById("nsTime").value;
-      var type     = document.getElementById("nsTypeVal").value || "online_meet";
-      var category = document.getElementById("nsCategoryVal").value || "client";
-      var notes    = document.getElementById("nsNotes").value;
-      var statusEl = document.getElementById("nsStatus");
-      var btn      = document.getElementById("btnNsSubmit");
-      var en       = isEn();
+      var clientId  = document.getElementById("nsClient").value;
+      var isEvent   = nsIsEvent();
+      var date      = document.getElementById("nsDate").value;
+      var time      = document.getElementById("nsTime").value;
+      var endTime   = document.getElementById("nsEndTime").value;
+      var type      = isEvent ? "in_person" : (document.getElementById("nsTypeVal").value || "online_meet");
+      var category  = isEvent ? "event" : (document.getElementById("nsCategoryVal").value || "client");
+      var notes     = document.getElementById("nsNotes").value;
+      var location  = (document.getElementById("nsLocation").value || "").trim();
+      var eventName = (document.getElementById("nsEventName").value || "").trim();
+      var statusEl  = document.getElementById("nsStatus");
+      var btn       = document.getElementById("btnNsSubmit");
+      var en        = isEn();
 
-      if (!clientId || !date || !time) {
-        statusEl.textContent = en ? "Client, date and time are required." : "Cliente, data e hora sao obrigatorios.";
+      function fail(msg) {
+        statusEl.textContent = msg;
         statusEl.className = "pull-status is-error";
+      }
+
+      if (isEvent) {
+        if (!eventName || !date || !time) {
+          fail(en ? "Event name, date and time are required." : "Nome do evento, data e hora sao obrigatorios.");
+          return;
+        }
+        if (!endTime) {
+          fail(en ? "End time is required for events." : "Hora de termino e obrigatoria para eventos.");
+          return;
+        }
+      } else if (!clientId || !date || !time) {
+        fail(en ? "Client, date and time are required." : "Cliente, data e hora sao obrigatorios.");
+        return;
+      }
+      if (endTime && time && endTime <= time) {
+        fail(en ? "End time must be after start time." : "A hora de termino deve ser depois da hora de inicio.");
+        return;
+      }
+
+      var recurring  = !isEvent && document.getElementById("nsRecurring").checked;
+      var recurFreq  = document.getElementById("nsRecurFreq").value;
+      var recurCount = parseInt(document.getElementById("nsRecurCount").value, 10);
+      if (recurring && (isNaN(recurCount) || recurCount < 2 || recurCount > 26)) {
+        fail(en ? "Number of meetings must be between 2 and 26." : "Numero de reunioes deve ser entre 2 e 26.");
         return;
       }
 
       btn.disabled = true;
 
-      function scheduleSession(meetLink, googleEventId) {
-        statusEl.textContent = en ? "Scheduling session..." : "Agendando sessao...";
-        statusEl.className = "pull-status";
-        var body = { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null, meeting_category: category };
+      function baseBody(dateStr, meetLink, googleEventId) {
+        var body = { date: dateStr, time: time, session_type: type, notes: notes || null, meeting_category: category };
+        if (isEvent) { body.event_name = eventName; } else { body.client_id = clientId; }
+        if (endTime)  { body.end_time = endTime; }
+        if (location) { body.location = location; }
         if (meetLink) { body.google_meet_link = meetLink; }
         if (googleEventId) { body.google_event_id = googleEventId; }
-        apiFetch("/api/sessions/schedule", { method: "POST", body: body })
+        return body;
+      }
+
+      function postSchedule(body) {
+        return apiFetch("/api/sessions/schedule", { method: "POST", body: body })
           .then(function(res) { return res.json(); })
           .then(function(data) {
             if (data.error) { throw new Error(data.error); }
-            btn.disabled = false;
-            closeModal("modalNewSession");
-            showToast(en ? "Session scheduled!" : "Sessao agendada!");
-            loadCalendar();
-          })
+            return data;
+          });
+      }
+
+      function finishOk(msg) {
+        btn.disabled = false;
+        closeModal("modalNewSession");
+        showToast(msg);
+        loadCalendar();
+      }
+
+      function scheduleSession(meetLink, googleEventId) {
+        statusEl.textContent = en ? "Scheduling session..." : "Agendando sessao...";
+        statusEl.className = "pull-status";
+        postSchedule(baseBody(date, meetLink, googleEventId))
+          .then(function() { finishOk(en ? "Session scheduled!" : "Sessao agendada!"); })
           .catch(function(e) {
             btn.disabled = false;
-            statusEl.textContent = (en ? "Error: " : "Erro: ") + e.message;
-            statusEl.className = "pull-status is-error";
+            fail((en ? "Error: " : "Erro: ") + e.message);
           });
+      }
+
+      function meetTitle() {
+        var clientSelect = document.getElementById("nsClient");
+        var clientName = clientSelect.options[clientSelect.selectedIndex].text || "Consultoria";
+        // Visible to the client -- Google Meet shows this as the waiting-room
+        // title. Real clients get "Name - RDE"; prospective (lead) meetings
+        // stay as just the name, no suffix, per Nicole's explicit instruction.
+        return category === "prospective" ? clientName : clientName + " - RDE";
+      }
+
+      // Explicit end time when given, else the original start-plus-one-hour.
+      function calcEndTime() {
+        if (endTime) { return endTime; }
+        var timeParts = time.split(":");
+        var endHour = parseInt(timeParts[0], 10) + 1;
+        if (endHour > 23) { endHour = 23; }
+        return (endHour < 10 ? "0" : "") + endHour + ":" + timeParts[1];
+      }
+
+      function createMeetEvent(dateStr) {
+        return apiFetch("/api/google/calendar/event", {
+          method: "POST",
+          body: {
+            summary: meetTitle(),
+            start_datetime: dateStr + "T" + time + ":00",
+            end_datetime: dateStr + "T" + calcEndTime() + ":00",
+            add_meet_link: true
+          }
+        }).then(function(res) {
+          return res.json().then(function(calData) { return { ok: res.ok, calData: calData }; });
+        });
+      }
+
+      // Recurring online_meet: each occurrence needs its own Google Calendar
+      // event, created sequentially from here (the Meet link must exist
+      // before the session row is saved). A failed link does NOT discard the
+      // meeting -- the row is saved anyway and the worker stores the internal
+      // placeholder, which the server-side WhatsApp guard keeps away from
+      // clients and the detail modal's "Generate Meet link" button can
+      // repair later.
+      function runRecurringOnline() {
+        var okLinks   = 0;
+        var noLinks   = 0;
+        var rowFailed = 0;
+        var gcalDown  = false;
+
+        function report() {
+          btn.disabled = false;
+          loadCalendar();
+          var scheduled = okLinks + noLinks;
+          if (noLinks === 0 && rowFailed === 0) {
+            closeModal("modalNewSession");
+            showToast(en ? scheduled + " meetings scheduled!" : scheduled + " reunioes agendadas!");
+            return;
+          }
+          var msg = en ? scheduled + " meetings scheduled" : scheduled + " reunioes agendadas";
+          if (noLinks > 0) {
+            msg += en ? " — " + noLinks + " still need a Meet link." : " — " + noLinks + " ainda precisam de link do Meet.";
+          } else {
+            msg += ".";
+          }
+          if (rowFailed > 0) {
+            msg += en ? " " + rowFailed + " could not be saved — try again." : " " + rowFailed + " nao puderam ser salvas — tente novamente.";
+          }
+          statusEl.textContent = msg;
+          statusEl.className = "pull-status is-error";
+          if (gcalDown) { promptConnectGcal(); }
+        }
+
+        function next(i) {
+          if (i >= recurCount) { report(); return; }
+          var occDate = addOccurrenceDate(date, recurFreq, i);
+          statusEl.textContent = (en ? "Scheduling " : "Agendando ") + (i + 1) + (en ? " of " : " de ") + recurCount + "...";
+          statusEl.className = "pull-status";
+
+          function saveOcc(meetLink, googleEventId) {
+            postSchedule(baseBody(occDate, meetLink, googleEventId))
+              .then(function() {
+                if (meetLink) { okLinks++; } else { noLinks++; }
+                next(i + 1);
+              })
+              .catch(function() {
+                rowFailed++;
+                next(i + 1);
+              });
+          }
+
+          // Once the account is known to be disconnected, stop hitting the
+          // Calendar API -- the remaining rows are still created (with the
+          // placeholder) so the series exists and can be repaired.
+          if (gcalDown) { saveOcc(null, null); return; }
+
+          createMeetEvent(occDate)
+            .then(function(result) {
+              if (result.ok && result.calData && result.calData.google_meet_link) {
+                saveOcc(result.calData.google_meet_link, result.calData.google_event_id || null);
+                return;
+              }
+              var errMsg = (result.calData && result.calData.error) ? result.calData.error : "";
+              if (isGcalNotConnectedError(errMsg)) { gcalDown = true; }
+              saveOcc(null, null);
+            })
+            .catch(function() { saveOcc(null, null); });
+        }
+
+        next(0);
+      }
+
+      if (recurring && type === "in_person") {
+        // No Google dependency: the worker expands the whole series in one
+        // POST instead of N frontend calls.
+        statusEl.textContent = en ? "Scheduling meetings..." : "Agendando reunioes...";
+        statusEl.className = "pull-status";
+        var recurBody = baseBody(date, null, null);
+        recurBody.recur_frequency = recurFreq;
+        recurBody.recur_count = recurCount;
+        postSchedule(recurBody)
+          .then(function() { finishOk(en ? recurCount + " meetings scheduled!" : recurCount + " reunioes agendadas!"); })
+          .catch(function(e) {
+            btn.disabled = false;
+            fail((en ? "Error: " : "Erro: ") + e.message);
+          });
+        return;
+      }
+
+      if (recurring && type === "online_meet") {
+        runRecurringOnline();
+        return;
       }
 
       if (type === "online_meet") {
         statusEl.textContent = en ? "Creating Meet event..." : "Criando evento Meet...";
         statusEl.className = "pull-status";
 
-        var clientSelect = document.getElementById("nsClient");
-        var clientName = clientSelect.options[clientSelect.selectedIndex].text || "Consultoria";
-        // Visible to the client -- Google Meet shows this as the waiting-room
-        // title. Real clients get "Name - RDE"; prospective (lead) meetings
-        // stay as just the name, no suffix, per Nicole's explicit instruction.
-        var meetingTitle = category === "prospective" ? clientName : clientName + " - RDE";
-
-        var timeParts = time.split(":");
-        var endHour = parseInt(timeParts[0], 10) + 1;
-        if (endHour > 23) { endHour = 23; }
-        var endTime = (endHour < 10 ? "0" : "") + endHour + ":" + timeParts[1];
-
-        apiFetch("/api/google/calendar/event", {
-          method: "POST",
-          body: {
-            summary: meetingTitle,
-            start_datetime: date + "T" + time + ":00",
-            end_datetime: date + "T" + endTime + ":00",
-            add_meet_link: true
-          }
-        })
-          .then(function(res) {
-            return res.json().then(function(calData) { return { ok: res.ok, calData: calData }; });
-          })
+        createMeetEvent(date)
           .then(function(result) {
             if (!result.ok || !result.calData || !result.calData.google_meet_link) {
               var errMsg = (result.calData && result.calData.error) ? result.calData.error : "";
@@ -2667,22 +3123,42 @@
 
     // ── Session Detail modal ───────────────────────────────────────────────
 
+    // end_time carries two shapes: sessions written by this modal store a
+    // plain "HH:MM", while rows written by the Google Calendar sync store a
+    // full ISO datetime ("2026-07-26T15:30:00-04:00"). Never migrate the
+    // stored values -- normalize on read.
+    function endTimeHHMM(session) {
+      var v = session.end_time;
+      if (!v) { return null; }
+      if (v.indexOf("T") !== -1) { return v.slice(11, 16); }
+      return v.slice(0, 5);
+    }
+
     function openDetail(session) {
       activeDetailSession = session;
       var en = isEn();
       var isExternal = session.source === "external";
+      var isEventCat = session.meeting_category === "event";
 
       document.getElementById("detailTitle").textContent     = session.client_name || "—";
       document.getElementById("detailClientName").textContent = session.client_name || "—";
       document.getElementById("detailDate").textContent      = formatDisplayDate(session.date);
-      document.getElementById("detailTime").textContent      = session.time ? session.time.slice(0,5) : "—";
+      var timeText = session.time ? session.time.slice(0,5) : "—";
+      var endHHMM = endTimeHHMM(session);
+      if (session.time && endHHMM) { timeText += " – " + endHHMM; }
+      document.getElementById("detailTime").textContent      = timeText;
 
       var typePillEl = document.getElementById("detailTypePill");
-      var typeCls = (session.session_type === "in_person") ? "inperson" : "online";
+      var typeCls;
       var typeLabel;
-      if (session.session_type === "in_person") {
+      if (isEventCat) {
+        typeCls = "event";
+        typeLabel = en ? "Event" : "Evento";
+      } else if (session.session_type === "in_person") {
+        typeCls = "inperson";
         typeLabel = en ? "In-Person" : "Presencial";
       } else {
+        typeCls = "online";
         typeLabel = "Google Meet";
       }
       typePillEl.innerHTML = '<span class="type-pill ' + typeCls + '">' + escHtml(typeLabel) + '</span>';
@@ -2704,14 +3180,28 @@
       statusEl.setAttribute("data-status", session.status || "scheduled");
 
       var meetRow = document.getElementById("detailMeetRow");
+      var meetFixRow = document.getElementById("detailMeetFixRow");
       var meetLinkVal = session.google_meet_link || null;
       if (meetLinkVal && meetLinkVal !== "[PENDING_GOOGLE_API]") {
         meetRow.hidden = false;
+        meetFixRow.hidden = true;
         var link = document.getElementById("detailMeetLink");
         link.href = safeUrl(meetLinkVal);
         link.textContent = meetLinkVal;
       } else {
         meetRow.hidden = true;
+        meetFixRow.hidden = !needsMeetLink(session);
+        var fixBtn = document.getElementById("btnFixMeet");
+        fixBtn.disabled = false;
+        fixBtn.innerHTML = '<span class="show-pt">Gerar link do Meet</span><span class="show-en">Generate Meet link</span>';
+      }
+
+      var locationRow = document.getElementById("detailLocationRow");
+      if (session.location) {
+        locationRow.hidden = false;
+        document.getElementById("detailLocation").textContent = session.location;
+      } else {
+        locationRow.hidden = true;
       }
 
       var htmlLinkRow = document.getElementById("detailHtmlLinkRow");
@@ -2742,9 +3232,10 @@
 
       loadMeetingRecord(session);
 
-      // Reset WhatsApp button — hidden entirely for external (non-Apex) events
+      // Reset WhatsApp button — hidden entirely for external (non-Apex)
+      // events and for Apex event entries (not client sessions)
       var waBtn = document.getElementById("btnWhatsApp");
-      waBtn.hidden = isExternal;
+      waBtn.hidden = isExternal || isEventCat;
       waBtn.disabled = false;
       waBtn.innerHTML = '<span class="show-pt">Enviar WhatsApp</span><span class="show-en">Send WhatsApp</span>';
 
@@ -2780,6 +3271,13 @@
       pdfA.hidden = true;
       emptyEl.hidden = true;
       contentEl.hidden = true;
+
+      // Event entries (conferences, Apex Club) are not client sessions --
+      // never offer the transcript/PDF record flow for them.
+      if (session.meeting_category === "event") {
+        section.hidden = true;
+        return;
+      }
 
       if (!isPastEvent(session)) {
         section.hidden = true;
@@ -2851,6 +3349,87 @@
           if (data.whatsapp_url) { window.open(data.whatsapp_url, "_blank"); }
           btn.innerHTML = '<span class="show-pt">Enviado ✓</span><span class="show-en">Sent ✓</span>';
           if (st2) { st2.textContent = ""; }
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          if (st2) { st2.textContent = (en ? "Error: " : "Erro: ") + e.message; st2.className = "pull-status is-error"; }
+          if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }
+        });
+    }
+
+    // Opens the session's location in the platform's maps app. Deliberately
+    // just a URL -- no Maps API key, travel-time estimate, or Tesla
+    // integration (ruled out; the phone's own share sheet covers the car).
+    function openDirections() {
+      if (!activeDetailSession || !activeDetailSession.location) { return; }
+      var encoded = encodeURIComponent(activeDetailSession.location);
+      var isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+      var url = isApple
+        ? "https://maps.apple.com/?daddr=" + encoded
+        : "https://www.google.com/maps/dir/?api=1&destination=" + encoded;
+      window.open(safeUrl(url), "_blank");
+    }
+
+    // Repairs an online session whose Meet link is missing or still the
+    // internal placeholder: creates the Google Calendar event for this ONE
+    // session (same call and title convention as the New Session flow),
+    // then attaches the link via PATCH /api/sessions/:id/meet-link.
+    function handleFixMeetLink() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var en  = isEn();
+      var btn = document.getElementById("btnFixMeet");
+      var st2 = document.getElementById("detailStatus2");
+
+      var name = session.client_name || "Consultoria";
+      var title = session.meeting_category === "prospective" ? name : name + " - RDE";
+
+      var startTime = session.time ? session.time.slice(0,5) : "09:00";
+      var endHHMM = endTimeHHMM(session);
+      if (!endHHMM) {
+        var timeParts = startTime.split(":");
+        var endHour = parseInt(timeParts[0], 10) + 1;
+        if (endHour > 23) { endHour = 23; }
+        endHHMM = (endHour < 10 ? "0" : "") + endHour + ":" + timeParts[1];
+      }
+
+      btn.disabled = true;
+      if (st2) { st2.textContent = en ? "Creating Meet event..." : "Criando evento Meet..."; st2.className = "pull-status"; }
+
+      apiFetch("/api/google/calendar/event", {
+        method: "POST",
+        body: {
+          summary: title,
+          start_datetime: session.date + "T" + startTime + ":00",
+          end_datetime: session.date + "T" + endHHMM + ":00",
+          add_meet_link: true
+        }
+      })
+        .then(function(res) {
+          return res.json().then(function(calData) { return { ok: res.ok, calData: calData }; });
+        })
+        .then(function(result) {
+          if (!result.ok || !result.calData || !result.calData.google_meet_link) {
+            var errMsg = (result.calData && result.calData.error) ? result.calData.error : "unknown error";
+            throw new Error(errMsg);
+          }
+          var meetLink = result.calData.google_meet_link;
+          var googleEventId = result.calData.google_event_id || null;
+          if (st2) { st2.textContent = en ? "Saving link..." : "Salvando link..."; }
+          return apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/meet-link", {
+            method: "PATCH",
+            body: { google_meet_link: meetLink, google_event_id: googleEventId }
+          })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data.error) { throw new Error(data.error); }
+              session.google_meet_link = meetLink;
+              session.google_event_id  = googleEventId;
+              if (st2) { st2.textContent = ""; }
+              openDetail(session);
+              loadCalendar();
+              showToast(en ? "Meet link created!" : "Link do Meet criado!");
+            });
         })
         .catch(function(e) {
           btn.disabled = false;

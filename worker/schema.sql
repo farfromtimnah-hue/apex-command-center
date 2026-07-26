@@ -15,12 +15,18 @@ CREATE TABLE IF NOT EXISTS sessions (
     whatsapp_sent_at  TEXT,
     section_config    TEXT,
     meeting_category  TEXT NOT NULL DEFAULT 'client',
+    location          TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 -- meeting_category was added to the live sessions table via
 -- migrations/session_meeting_category.sql. 'client' or 'prospective'
 -- (a meeting with a lead, not yet a real client) -- stored per-session,
--- not inferred from the client's current status.
+-- not inferred from the client's current status. 'event' (added with the
+-- calendar Event/Apex Club entry types) marks a non-client calendar entry:
+-- client_id is NULL and client_name holds the event name.
+-- NOTE: location was added to the live sessions table via
+-- migrations/session_location.sql. Free-text street address for in-person
+-- sessions and events; feeds the detail modal's Directions maps link.
 -- NOTE: section_config was added to the live sessions table via
 -- migrations/session_section_config.sql. JSON: {"sections":[{key,enabled,order}x9],
 -- "custom_sections":[{id,title_pt,title_en,description,enabled,order}]}.

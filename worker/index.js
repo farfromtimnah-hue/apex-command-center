@@ -8092,7 +8092,7 @@ var ENTRY_SECTIONS = ["financeiro", "clientes_mercado", "processos", "cresciment
 
 var INDICATORS = [
     { key: "receita",                section: "financeiro",       type: "currency", labelPt: "Receita do Dia",             labelEn: "Revenue Today" },
-    { key: "saida",                  section: "financeiro",       type: "currency", labelPt: "Saída do Dia",          labelEn: "Expenses Today" },
+    { key: "saida",                  section: "financeiro",       type: "currency", labelPt: "Saída do Dia",          labelEn: "Expenses Today", inverse: true },
     { key: "lucro_liquido",          section: "financeiro",       type: "computed", labelPt: "Lucro Líquido",         labelEn: "Net Profit" },
     { key: "margem_lucro",           section: "financeiro",       type: "computed", labelPt: "Margem de Lucro %",          labelEn: "Profit Margin %" },
     { key: "vendas_fechadas",        section: "financeiro",       type: "count",    labelPt: "Vendas Fechadas",            labelEn: "Closed Sales" },

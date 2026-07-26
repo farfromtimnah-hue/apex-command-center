@@ -3170,6 +3170,60 @@
         html += '<div class="muted" style="font-size:11px;margin-top:8px;">' +
           '<span class="show-pt">Meta do mês: ' + paceFmtValue(ind, ind.meta_mensal, false) + ' · dias úteis: ' + paceWd.total + '</span>' +
           '<span class="show-en">Monthly goal: ' + paceFmtValue(ind, ind.meta_mensal, false) + ' · working days: ' + paceWd.total + '</span></div>';
+      } else if (ind.inverse && ind.type === "currency") {
+        // Inverse money metric (saida): the meta is a spending CEILING, not a
+        // target to reach. "Spend $X more per day to hit the goal" is
+        // backwards here — the Hoje tile shows remaining budget per working
+        // day, and being under the monthly figure reads as good.
+        var limit = ind.meta_mensal;
+        var spent = ind.realizado === null || ind.realizado === undefined ? 0 : ind.realizado;
+        // ind.falta for inverse metrics is the OVERAGE (see Worker), so the
+        // remaining budget is computed here.
+        var budgetLeft = Math.max(0, limit - spent);
+        var overBudget = spent > limit;
+        var todayBudget = paceWd.remaining > 0 ? budgetLeft / paceWd.remaining : null;
+        var spendPace = paceWd.elapsed > 0 ? spent / paceWd.elapsed : null;
+
+        html += '<div class="pace-grid" data-tour="pace-tiles">' +
+          '<div class="pace-tile pace-tile-big"><div class="pace-tile-label">' +
+          '<span class="show-pt">Hoje</span><span class="show-en">Today</span></div>' +
+          '<div class="pace-tile-value">' + (overBudget ? paceFmtValue(ind, 0, false) : paceFmtValue(ind, todayBudget, false)) + '</div>' +
+          '<div class="pace-tile-sub">' +
+          (overBudget
+            ? '<span class="show-pt">orçamento do mês esgotado</span><span class="show-en">monthly budget used up</span>'
+            : (paceWd.remaining > 0
+              ? '<span class="show-pt">disponível por dia útil até o fim do mês (' + paceWd.remaining + ' restantes)</span>' +
+                '<span class="show-en">available per working day until month end (' + paceWd.remaining + ' left)</span>'
+              : '<span class="show-pt">sem dias úteis restantes no mês</span><span class="show-en">no working days left this month</span>')) +
+          '</div></div>' +
+          '<div class="pace-tile pace-tile-big"><div class="pace-tile-label">' +
+          '<span class="show-pt">Média por dia</span><span class="show-en">Average per day</span></div>' +
+          '<div class="pace-tile-value">' + paceFmtValue(ind, spendPace, false) + '</div>' +
+          '<div class="pace-tile-sub"><span class="show-pt">seu ritmo de gastos (' + paceWd.elapsed + ' dias úteis)</span>' +
+          '<span class="show-en">your spending pace (' + paceWd.elapsed + ' working days)</span></div></div>' +
+          '</div>';
+
+        if (overBudget) {
+          html += paceStatusHtml("bad", "▼", "Acima do orçamento", "Over budget");
+        } else if (spendPace !== null && paceWd.total > 0 && spendPace * paceWd.total > limit) {
+          html += paceStatusHtml("warn", "●", "Ritmo de gastos alto", "Spending pace is high");
+        } else {
+          html += paceStatusHtml("ok", "✓", "Dentro do orçamento", "Within budget");
+        }
+
+        html += '<div class="pace-grid">' +
+          '<div class="pace-tile"><div class="pace-tile-label">' +
+          '<span class="show-pt">Gasto</span><span class="show-en">Spent</span></div>' +
+          '<div class="pace-tile-value">' + paceFmtValue(ind, spent, false) + '</div></div>' +
+          '<div class="pace-tile pace-emph"><div class="pace-tile-label">' +
+          '<span class="show-pt">Disponível</span><span class="show-en">Available</span></div>' +
+          '<div class="pace-tile-value">' + paceFmtValue(ind, budgetLeft, false) + '</div>' +
+          '<div class="pace-tile-sub"><span class="show-pt">quanto ainda cabe no orçamento do mês</span>' +
+          '<span class="show-en">how much still fits in this month\'s budget</span></div>' +
+          '</div></div>';
+        html += '<div class="muted" style="font-size:11px;margin-top:8px;">' +
+          '<span class="show-pt">Limite do mês: ' + paceFmtValue(ind, limit, false) + ' · dias úteis: ' + paceWd.total + '</span>' +
+          '<span class="show-en">Monthly limit: ' + paceFmtValue(ind, limit, false) + ' · working days: ' + paceWd.total + '</span></div>';
       } else {
         // Ratio/average/inverse metric: a fabricated daily pace would be
         // meaningless — current vs target + status (word + glyph + color).
@@ -3265,6 +3319,11 @@
         values["Falta"] = paceFmtValue(sel, left, false);
         values["Hoje"] = paceWd.remaining > 0 ? paceFmtValue(sel, left / paceWd.remaining, true) : "--";
         values["Média/dia"] = paceWd.elapsed > 0 ? paceFmtValue(sel, achieved / paceWd.elapsed, false) : "--";
+      } else if (sel.inverse && sel.type === "currency") {
+        var spentH = sel.realizado === null || sel.realizado === undefined ? 0 : sel.realizado;
+        values["Gasto"] = paceFmtValue(sel, spentH, false);
+        values["Disponível"] = paceFmtValue(sel, Math.max(0, sel.meta_mensal - spentH), false);
+        values["Limite"] = paceFmtValue(sel, sel.meta_mensal, false);
       } else {
         values["Atual"] = fmtNum(sel.realizado, indPctType(sel));
         values["Meta"] = fmtNum(sel.meta_mensal, indPctType(sel));

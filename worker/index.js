@@ -8395,9 +8395,14 @@ async function handlePostHelpRequest(id, request, env) {
             " — " + label + " (" + month + ")" +
             (lines.length ? " · " + lines.join(" · ") : "");
         var taskId = crypto.randomUUID();
+        // Due TODAY: the client is asking because they're overwhelmed by
+        // today's goal, so the task is same-day, not dateless. Same
+        // YYYY-MM-DD shape client.html's date inputs write and its overdue
+        // check compares against.
+        var dueDate = new Date().toISOString().slice(0, 10);
         await env.DB.prepare(
-            "INSERT INTO tasks (id, client_id, type, description, due_date, status) VALUES (?, ?, 'consultant', ?, NULL, 'pending')"
-        ).bind(taskId, id, description).run();
+            "INSERT INTO tasks (id, client_id, type, description, due_date, status) VALUES (?, ?, 'consultant', ?, ?, 'pending')"
+        ).bind(taskId, id, description, dueDate).run();
         var waText = "Oi Rafa! Aqui é " + client.name +
             ". Preciso de ajuda com \"" + label + "\" no Portal Apex. Os números estão na sua aba de tarefas.";
         return jsonOk({

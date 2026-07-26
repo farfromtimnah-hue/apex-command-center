@@ -16,6 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
+  <link rel="stylesheet" href="gm.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -806,6 +807,24 @@
         <button class="portal-tab" data-tab="invoices" onclick="switchTab('invoices')">
           <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
         </button>
+        <button class="portal-tab" data-tab="gmcrm" onclick="switchTab('gmcrm')">
+          <span class="show-pt">Vendas</span><span class="show-en">Sales</span>
+        </button>
+        <button class="portal-tab" data-tab="gmroadmap" onclick="switchTab('gmroadmap')">
+          <span class="show-pt">Execu&ccedil;&atilde;o</span><span class="show-en">Execution</span>
+        </button>
+        <button class="portal-tab" data-tab="gmbase" onclick="switchTab('gmbase')">
+          <span class="show-pt">Base de Ouro</span><span class="show-en">Golden Base</span>
+        </button>
+        <button class="portal-tab" data-tab="gmpartners" onclick="switchTab('gmpartners')">
+          <span class="show-pt">Parceiros</span><span class="show-en">Partners</span>
+        </button>
+        <button class="portal-tab" data-tab="gmfinance" onclick="switchTab('gmfinance')">
+          <span class="show-pt">Financeiro</span><span class="show-en">Finances</span>
+        </button>
+        <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
+          <span class="show-pt">Obras</span><span class="show-en">Jobs</span>
+        </button>
         <button class="portal-tab" data-tab="xray" id="tabBtnXray" hidden onclick="switchTab('xray')">
           <span class="show-pt">Raio X</span><span class="show-en">X-Ray</span>
         </button>
@@ -908,6 +927,14 @@
           <div id="invoicesPaidBody"></div>
         </div>
       </div>
+
+      <!-- ══ Growth Management (six data tabs) — rendered by gm.js ══ -->
+      <div id="tabGmcrm" hidden><div id="gmCrmBody"></div></div>
+      <div id="tabGmroadmap" hidden><div id="gmRoadmapBody"></div></div>
+      <div id="tabGmbase" hidden><div id="gmBaseBody"></div></div>
+      <div id="tabGmpartners" hidden><div id="gmPartnersBody"></div></div>
+      <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
+      <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
 
       <div id="tabXray" hidden>
         <div class="section-hero">
@@ -1022,6 +1049,7 @@
         if (!document.getElementById("tabGoals").hidden) { loadGoalsTab(); }
       }
       if (!document.getElementById("viewGoals").hidden) { renderGoalsSection(); }
+      if (window.gmOnLangChange) { gmOnLangChange(); }
     }
 
     function todayStr() {
@@ -1779,37 +1807,87 @@
     // and the #mobile-tab-bar container + mobile.css's .m-tab styling — the
     // exact same static-HTML-only container pattern nav.js itself uses — but
     // wires taps to switchTab() instead of a page navigation.
+    // With the six Growth Management sections the portal now has 12
+    // destinations. A bottom bar holds 5 max (MD3 / Apple HIG; Portuguese
+    // labels run ~30% longer than English), so: 4 tabs + "Mais" opening a
+    // full-screen menu page (mobile.css's existing #mobile-more-menu
+    // pattern) — NOT a hamburger drawer, NOT 6+ cramped tabs.
     var PORTAL_DOCK_TABS = [
-      { tab: "analytics", icon: "home",         labelPt: "Analytics",   labelEn: "Analytics" },
-      { tab: "goals",      icon: "trend",        labelPt: "Metas",       labelEn: "Goals" },
-      { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",     labelEn: "Tasks" },
-      { tab: "documents",  icon: "file",         labelPt: "Docs",        labelEn: "Docs" },
-      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",     labelEn: "Invoices" }
+      { tab: "analytics", icon: "home",      labelPt: "Analytics",  labelEn: "Analytics" },
+      { tab: "gmcrm",     icon: "trend",     labelPt: "Vendas",     labelEn: "Sales" },
+      { tab: "gmfinance", icon: "finance",   labelPt: "Financeiro", labelEn: "Finances" },
+      { tab: "gmjobs",    icon: "briefcase", labelPt: "Obras",      labelEn: "Jobs" }
     ];
+    var PORTAL_MORE_TABS = [
+      { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
+      { tab: "gmbase",     icon: "star",         labelPt: "Base de Ouro", labelEn: "Golden Base" },
+      { tab: "gmpartners", icon: "users",        labelPt: "Parceiros",    labelEn: "Partners" },
+      { tab: "goals",      icon: "target",       labelPt: "Metas",        labelEn: "Goals" },
+      { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",      labelEn: "Tasks" },
+      { tab: "documents",  icon: "file",         labelPt: "Documentos",   labelEn: "Documents" },
+      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",      labelEn: "Invoices" }
+    ];
+
+    function portalMoreTabs() {
+      var more = PORTAL_MORE_TABS.slice();
+      if (xrayAssigned) {
+        more.push({ tab: "xray", icon: "view", labelPt: "Raio X", labelEn: "X-Ray" });
+      }
+      return more;
+    }
 
     function populateMobileDock() {
       var bar = document.getElementById("mobile-tab-bar");
       if (!bar || !window.apexNavSvg) { return; }
       var html = "";
-      var dockTabs = PORTAL_DOCK_TABS.slice();
-      if (xrayAssigned) {
-        dockTabs.push({ tab: "xray", icon: "view", labelPt: "Raio X", labelEn: "X-Ray" });
-      }
-      dockTabs.forEach(function(t) {
+      PORTAL_DOCK_TABS.forEach(function(t) {
         html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
         html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
         html += '</button>';
       });
+      html += '<button type="button" class="m-tab" data-dock-tab="mais" data-tour="portal-more-menu" onclick="portalMoreToggle()">';
+      html += '<span class="m-tab-ico">' + window.apexNavSvg("more") + '</span>';
+      html += '<span class="m-tab-label"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
+      html += '</button>';
       bar.innerHTML = html;
+
+      var menu = document.getElementById("mobile-more-menu");
+      if (menu) {
+        var menuHtml = '<div class="mm-head">' +
+          '<span class="mm-title"><span class="show-pt">Mais</span><span class="show-en">More</span></span>' +
+          '<button type="button" class="mm-close" onclick="portalMoreToggle()" aria-label="Fechar">&times;</button>' +
+          '</div><nav class="mm-list">';
+        portalMoreTabs().forEach(function(t) {
+          menuHtml += '<button type="button" class="mm-item" onclick="portalMoreGo(\'' + t.tab + '\')">';
+          menuHtml += '<span class="mm-item-ico">' + window.apexNavSvg(t.icon) + '</span>';
+          menuHtml += '<span><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
+          menuHtml += '</button>';
+        });
+        menuHtml += '</nav>';
+        menu.innerHTML = menuHtml;
+      }
       updateMobileDockActive("analytics");
+    }
+
+    function portalMoreToggle() {
+      var menu = document.getElementById("mobile-more-menu");
+      if (menu) { menu.classList.toggle("mm-open"); }
+    }
+
+    function portalMoreGo(tab) {
+      var menu = document.getElementById("mobile-more-menu");
+      if (menu) { menu.classList.remove("mm-open"); }
+      switchTab(tab);
     }
 
     function updateMobileDockActive(tab) {
       var bar = document.getElementById("mobile-tab-bar");
       if (!bar) { return; }
+      var inDock = PORTAL_DOCK_TABS.some(function(t) { return t.tab === tab; });
       bar.querySelectorAll(".m-tab").forEach(function(b) {
-        b.classList.toggle("m-tab-active", b.getAttribute("data-dock-tab") === tab);
+        var key = b.getAttribute("data-dock-tab");
+        b.classList.toggle("m-tab-active", inDock ? key === tab : key === "mais");
       });
     }
 
@@ -1818,10 +1896,14 @@
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
       updateMobileDockActive(tab);
-      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray"].forEach(function(t) {
+      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray",
+       "Gmcrm", "Gmroadmap", "Gmbase", "Gmpartners", "Gmfinance", "Gmjobs"].forEach(function(t) {
         document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
       });
-      if (force || !tabsLoaded[tab]) {
+      // GM tabs always refetch on entry: their data changes from other tabs
+      // (a reactivation creates a lead; a lead closing changes a partner's
+      // attribution), so a stale cache would show wrong numbers.
+      if (force || !tabsLoaded[tab] || tab.indexOf("gm") === 0) {
         tabsLoaded[tab] = true;
         if (tab === "analytics") { loadAnalytics(); loadHistory(); }
         if (tab === "goals") { loadGoalsTab(); }
@@ -1829,6 +1911,12 @@
         if (tab === "documents") { loadDocuments(); }
         if (tab === "invoices") { loadInvoices(); }
         if (tab === "xray") { loadXray(); }
+        if (tab === "gmcrm") { gmLoadCrm(); }
+        if (tab === "gmroadmap") { gmLoadRoadmap(); }
+        if (tab === "gmbase") { gmLoadBase(); }
+        if (tab === "gmpartners") { gmLoadPartners(); }
+        if (tab === "gmfinance") { gmLoadFinance(); }
+        if (tab === "gmjobs") { gmLoadJobs(); }
       }
     }
 
@@ -3001,6 +3089,7 @@
 
     init();
   </script>
+  <script src="gm.js"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav
@@ -3009,5 +3098,8 @@
        overflow menu: the portal only has 4 sections, so they all fit in the
        bar directly (unlike the admin dock's longer nav list). -->
   <div id="mobile-tab-bar"></div>
+  <!-- "Mais" full-screen menu — static container like the tab bar (never
+       created at runtime; populateMobileDock() only fills it in). -->
+  <div id="mobile-more-menu"></div>
 </body>
 </html>

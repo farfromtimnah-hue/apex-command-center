@@ -1,0 +1,262 @@
+/* APEX Growth Management (Part 1) — styles for the six data tabs in the
+   client portal (portal.html + gm.js). Mobile-first at ~390px; touch
+   targets 48px minimum; status is never colour-alone (colour + glyph +
+   word, WCAG 2.1 SC 1.4.1). Palette matches portal.html's :root vars. */
+
+/* ── Summary metric strip ─────────────────────────────────────────────── */
+.gm-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.gm-metric {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 0;
+}
+.gm-metric .gm-metric-name { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+.gm-metric .gm-metric-value { font-size: 19px; font-weight: 800; overflow-wrap: anywhere; }
+.gm-metric.gm-metric-bad .gm-metric-value { color: var(--red); }
+.gm-metric.gm-metric-good .gm-metric-value { color: var(--green); }
+.gm-metric .gm-metric-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* ── Status pills: colour + glyph + word, always ──────────────────────── */
+.gm-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.gm-pill.gm-gold   { background: rgba(201,164,58,0.18); color: #7a5f18; }
+.gm-pill.gm-green  { background: rgba(63,125,78,0.14);  color: #2f6b3e; }
+.gm-pill.gm-red    { background: rgba(180,64,64,0.13);  color: #a03636; }
+.gm-pill.gm-muted  { background: rgba(107,102,96,0.13); color: #575249; }
+
+/* ── Pipeline: stacked stage sections ─────────────────────────────────── */
+.gm-stage-section { margin-bottom: 4px; }
+.gm-stage-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 12px 2px 6px;
+  border-bottom: 2px solid var(--border);
+}
+.gm-stage-name { font-size: 13px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; }
+.gm-stage-count {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 2px 10px;
+}
+.gm-stage-empty { font-size: 12px; color: var(--muted); padding: 10px 2px; }
+
+/* ── Lead rows (max 4 elements, 48px+ target) ─────────────────────────── */
+.gm-lead-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; min-height: 56px;
+  padding: 11px 2px; border: none; border-bottom: 1px solid var(--border);
+  background: none; cursor: pointer; text-align: left;
+  font-family: 'Inter', sans-serif; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-lead-row:last-child { border-bottom: none; }
+.gm-lead-main { flex: 1; min-width: 0; }
+.gm-lead-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-lead-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-lead-side { flex-shrink: 0; text-align: right; }
+
+/* ── Sticky stage chip rail (high-volume view) ────────────────────────── */
+.gm-stage-rail {
+  position: sticky;
+  top: 64px;                 /* below the fixed header */
+  z-index: 30;
+  display: flex; gap: 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  padding: 10px 0;
+  margin: 0 -2px 6px;
+  scrollbar-width: none;
+}
+.gm-stage-rail::-webkit-scrollbar { display: none; }
+.gm-stage-chip {
+  flex-shrink: 0;
+  min-height: 48px;
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1.5px solid var(--border); border-radius: 24px;
+  background: var(--card); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  padding: 10px 16px; cursor: pointer; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-stage-chip .gm-chip-count {
+  font-size: 11px; font-weight: 800;
+  background: var(--surface); border-radius: 10px; padding: 1px 8px;
+}
+.gm-stage-chip.gm-chip-active { background: var(--header); border-color: var(--header); color: var(--gold); }
+.gm-stage-chip.gm-chip-active .gm-chip-count { background: rgba(255,255,255,0.12); }
+
+/* ── View-mode toggle ─────────────────────────────────────────────────── */
+.gm-view-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin: 4px 0 8px;
+}
+.gm-view-toggle .btn-outline { min-height: 48px; }
+
+/* ── Quick-add FAB ────────────────────────────────────────────────────── */
+.gm-fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 940;
+  width: 58px; height: 58px; border-radius: 50%;
+  background: var(--gold); color: #fff; border: none;
+  font-size: 30px; line-height: 1; font-family: 'Inter', sans-serif;
+  box-shadow: 0 6px 20px rgba(26,26,29,0.35);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 767px) {
+  /* clear the fixed bottom dock */
+  .gm-fab { bottom: calc(78px + env(safe-area-inset-bottom)); }
+}
+
+/* ── Bottom sheets ────────────────────────────────────────────────────── */
+.gm-sheet-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(20,18,16,0.55);
+  z-index: 1000;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.gm-sheet {
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  width: 100%; max-width: 560px;
+  max-height: 86vh;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 14px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.3);
+}
+.gm-sheet-grabber {
+  width: 42px; height: 4px; border-radius: 2px;
+  background: var(--border); margin: 0 auto 10px;
+}
+.gm-sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 10px;
+}
+.gm-sheet-title { font-size: 17px; font-weight: 800; min-width: 0; overflow-wrap: anywhere; }
+.gm-sheet-close {
+  flex-shrink: 0;
+  width: 48px; height: 48px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 20px; line-height: 1; color: var(--text); cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Contact actions pinned in the lead-detail header */
+.gm-contact-row { display: flex; gap: 8px; margin: 4px 0 12px; }
+.gm-contact-btn {
+  flex: 1 1 0;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 48px; border-radius: 10px; text-decoration: none;
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+  border: none; cursor: pointer;
+}
+.gm-contact-btn.gm-call { background: var(--header); color: #fff; }
+.gm-contact-btn.gm-wa   { background: #1faa53; color: #fff; }
+.gm-contact-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+
+/* Tap-to-edit field rows inside a detail sheet */
+.gm-field-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; min-height: 52px;
+  padding: 10px 2px; background: none; border: none;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Inter', sans-serif; text-align: left; cursor: pointer;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.gm-field-value { font-size: 14px; font-weight: 600; margin-top: 2px; overflow-wrap: anywhere; }
+.gm-field-value.gm-empty { color: var(--muted); font-weight: 400; }
+.gm-field-chev { color: var(--gold); font-size: 14px; flex-shrink: 0; }
+
+/* Single-field editor */
+.gm-editor-input input, .gm-editor-input textarea, .gm-editor-input select {
+  width: 100%;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  font-family: 'Inter', sans-serif; font-size: 16px;
+  padding: 13px 12px; background: #fff; color: var(--text);
+  min-height: 48px;
+}
+.gm-editor-input textarea { min-height: 90px; resize: vertical; }
+.gm-editor-input input:focus, .gm-editor-input textarea:focus, .gm-editor-input select:focus {
+  outline: none; border-color: var(--gold);
+}
+.gm-editor-actions { display: flex; gap: 8px; margin-top: 14px; }
+.gm-editor-actions .btn-gold, .gm-editor-actions .btn-outline {
+  flex: 1 1 0; min-height: 48px;
+}
+.gm-derived-note {
+  font-size: 12px; color: var(--muted); margin-top: 8px;
+}
+
+/* Choice chips (≤5 options) */
+.gm-chip-set { display: flex; flex-wrap: wrap; gap: 8px; }
+.gm-choice-chip {
+  min-height: 48px;
+  border: 1.5px solid var(--border); border-radius: 12px;
+  background: var(--card); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+  padding: 12px 16px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-choice-chip.gm-chip-sel { background: var(--gold); border-color: var(--gold); color: #fff; }
+
+/* ── Generic list rows for the other five tabs ────────────────────────── */
+.gm-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; min-height: 56px;
+  padding: 11px 2px; border: none; border-bottom: 1px solid var(--border);
+  background: none; cursor: pointer; text-align: left;
+  font-family: 'Inter', sans-serif; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-row:last-child { border-bottom: none; }
+
+/* ── Financeiro ───────────────────────────────────────────────────────── */
+.gm-month-card {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.gm-month-title { font-size: 14px; font-weight: 800; margin-bottom: 8px; }
+.gm-month-line { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+.gm-finance-svg { width: 100%; height: auto; display: block; }
+
+/* ── Toast / snackbar ─────────────────────────────────────────────────── */
+.gm-toast {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 1100;
+  background: var(--header); color: #fff;
+  border-radius: 12px; padding: 13px 18px;
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  max-width: calc(100vw - 32px);
+}
+.gm-toast button {
+  background: none; border: none; color: var(--gold);
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 800;
+  cursor: pointer; padding: 6px;
+}
+
+/* Add buttons inside tab cards */
+.gm-add-btn { width: 100%; min-height: 48px; margin-top: 12px; }
+
+/* Warning line (ALVO?, SLA) */
+.gm-warn { color: var(--red); font-weight: 700; }
+.gm-ok   { color: var(--green); font-weight: 700; }

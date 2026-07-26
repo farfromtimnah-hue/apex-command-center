@@ -8292,6 +8292,30 @@ function clientRequestAllowed(path, method, clientId) {
         if (method === "PUT" && rest === "goals") { return true; }
         if (method === "PUT" && /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/.test(rest)) { return true; }
         if (method === "PUT" && /^assessments\/[a-z_]+\/answers$/.test(rest)) { return true; }
+        // Growth Management — the client business's own data (their leads,
+        // roadmap, dormant customers, partners, ledger, jobs). Full CRUD for
+        // the client's own client_id; PUT gm/config (list/threshold admin) is
+        // deliberately NOT here — only the consultancy configures lists.
+        if (rest.indexOf("gm/") === 0) {
+            var gmRest = rest.slice(3);
+            if (method === "GET") {
+                if (gmRest === "config" || gmRest === "leads" || gmRest === "roadmap" ||
+                    gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
+                    gmRest === "jobs") { return true; }
+            }
+            if (method === "POST") {
+                if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
+                    gmRest === "partners" || gmRest === "finance" || gmRest === "jobs") { return true; }
+                if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
+            }
+            if (method === "PUT") {
+                if (gmRest === "config/view-mode") { return true; }
+                if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+            }
+            if (method === "DELETE") {
+                if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+            }
+        }
     }
     return false;
 }
@@ -10196,6 +10220,1057 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// APEX Growth Management (Part 1) — the six data tabs that port the 7-month
+// Google Sheets engagement workbook into the client portal.
+//
+// DATA TIER NOTE: gm_leads rows are the CLIENT's own customers (e.g. LIRA's
+// paver leads) — one tier below the clients table, and completely unrelated
+// to clients.status = 'lead' (the consultancy's own prospect flag).
+//
+// THE METHOD (fixed for every client — never configurable):
+//   - the 8 pipeline stages below,
+//   - "pipeline ativo" = the 3 stages in GM_ACTIVE_PIPELINE_STAGES,
+//   - the Entrada/Saída category model with tipo DERIVED from categoria,
+//   - the 5-minute first-contact SLA and 24-hour estimate SLA.
+// Per-client configurable (gm_config, seeded with the LIRA defaults):
+//   SERVIÇO list, VENDEDOR list, finance categories, partner types, cycle
+//   months, target margin %, pipeline view threshold.
+// ---------------------------------------------------------------------------
+
+var GM_STAGES = ["Novo Lead", "Contato Feito", "Visita Agendada", "Estimate Enviado", "Follow-up", "Negociação", "Fechado", "Perdido"];
+// Pipeline ativo ($) sums VALOR over EXACTLY these three stages — Visita
+// Agendada and Contato Feito deliberately do NOT count (the client's rule).
+var GM_ACTIVE_PIPELINE_STAGES = ["Estimate Enviado", "Follow-up", "Negociação"];
+// "Live" leads for the pipeline view-mode threshold: everything except
+// Fechado and Perdido. Closed/lost history must never force the crowded-
+// pipeline chip-rail view on someone managing 20 live leads.
+var GM_LIVE_STAGES = ["Novo Lead", "Contato Feito", "Visita Agendada", "Estimate Enviado", "Follow-up", "Negociação"];
+var GM_ORIGENS = ["Orgânico", "Tráfego pago", "Indicação", "Base de Clientes", "Parceiro", "Google", "Instagram", "Site", "Outro"];
+var GM_ROADMAP_STATUSES = ["Realizado", "Em andamento", "Pendente", "Atrasado", "Cancelado"];
+var GM_FRENTES = ["Comercial", "Gestão", "Base de Ouro", "Financeiro", "Parcerias", "Marketing", "Operação"];
+var GM_BASE_OURO_STATUSES = ["Não contatado", "Contatado", "Interessado", "Reativado", "Sem interesse"];
+var GM_PARTNER_STATUSES = ["Prospectando", "Ativo", "Inativo"];
+var GM_JOB_STATUSES = ["Em andamento", "Concluída", "Atrasada", "Pausada"];
+
+// LIRA seed defaults for the per-client configurable lists.
+var GM_DEFAULT_SERVICOS = ["Pavers", "Pergola", "Outdoor Kitchen", "Fire Pit", "Turf", "Travertine", "Lighting", "Landscape", "Living Area", "Combo", "Sealer"];
+var GM_DEFAULT_VENDEDORES = ["Anderson", "Ana"];
+var GM_DEFAULT_PARTNER_TYPES = ["Pool", "Screen", "Realtor", "Builder", "Landscaper", "Designer", "Arquiteto", "Outro"];
+var GM_DEFAULT_CYCLE_MONTHS = ["Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro", "Janeiro"];
+// The Entrada/Saída derivation table — tipo comes from HERE (or a client's
+// configured copy), never from a request body.
+var GM_DEFAULT_FINANCE_CATEGORIES = [
+    { name: "Recebimento de obra",        tipo: "Entrada" },
+    { name: "Outras receitas",            tipo: "Entrada" },
+    { name: "Material de obra",           tipo: "Saída" },
+    { name: "Mão de obra / equipe",       tipo: "Saída" },
+    { name: "Combustível / veículos",     tipo: "Saída" },
+    { name: "Equipamentos / ferramentas", tipo: "Saída" },
+    { name: "Marketing / tráfego pago",   tipo: "Saída" },
+    { name: "Software / plataformas",     tipo: "Saída" },
+    { name: "Seguro / licenças",          tipo: "Saída" },
+    { name: "Impostos / taxas",           tipo: "Saída" },
+    { name: "Pró-labore / retiradas",     tipo: "Saída" },
+    { name: "Administrativo / escritório", tipo: "Saída" },
+    { name: "Frete / descarte",           tipo: "Saída" },
+    { name: "Outros",                     tipo: "Saída" }
+];
+
+function gmParseJsonList(s, fallback) {
+    try {
+        var v = JSON.parse(s);
+        if (Object.prototype.toString.call(v) === "[object Array]" && v.length) { return v; }
+    } catch (e) {}
+    return fallback;
+}
+
+// Load (and lazily seed with the LIRA defaults) a client's gm_config row.
+async function gmGetConfig(env, clientId) {
+    var row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
+    if (!row) {
+        await env.DB.prepare(
+            "INSERT INTO gm_config (client_id, servicos_json, vendedores_json, finance_categories_json, partner_types_json, cycle_months_json) " +
+            "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (client_id) DO NOTHING"
+        ).bind(
+            clientId,
+            JSON.stringify(GM_DEFAULT_SERVICOS),
+            JSON.stringify(GM_DEFAULT_VENDEDORES),
+            JSON.stringify(GM_DEFAULT_FINANCE_CATEGORIES),
+            JSON.stringify(GM_DEFAULT_PARTNER_TYPES),
+            JSON.stringify(GM_DEFAULT_CYCLE_MONTHS)
+        ).run();
+        row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
+    }
+    return {
+        servicos:            gmParseJsonList(row.servicos_json, GM_DEFAULT_SERVICOS),
+        vendedores:          gmParseJsonList(row.vendedores_json, GM_DEFAULT_VENDEDORES),
+        finance_categories:  gmParseJsonList(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
+        partner_types:       gmParseJsonList(row.partner_types_json, GM_DEFAULT_PARTNER_TYPES),
+        cycle_months:        gmParseJsonList(row.cycle_months_json, GM_DEFAULT_CYCLE_MONTHS),
+        target_margin:       row.target_margin,
+        pipeline_view_threshold: row.pipeline_view_threshold,
+        pipeline_view_override:  row.pipeline_view_override || null
+    };
+}
+
+function gmStr(v, max) {
+    if (typeof v !== "string") { return null; }
+    var s = v.trim();
+    if (!s) { return null; }
+    return s.slice(0, max || 500);
+}
+
+function gmNum(v) {
+    if (v === null || v === undefined || v === "") { return null; }
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+}
+
+// tipo is a pure function of categoria — the ONLY way a gm_finance row gets
+// its tipo. Request bodies never carry it.
+function gmFinanceTipo(config, categoria) {
+    for (var i = 0; i < config.finance_categories.length; i++) {
+        var c = config.finance_categories[i];
+        if (c && c.name === categoria) { return c.tipo === "Entrada" ? "Entrada" : "Saída"; }
+    }
+    return null;
+}
+
+async function gmOwnedRow(env, table, rowId, clientId) {
+    // table names come from code, never from the request
+    return env.DB.prepare("SELECT * FROM " + table + " WHERE id = ? AND client_id = ?")
+        .bind(rowId, clientId).first();
+}
+
+// Dynamic-SET updates bind a variable-length array; .bind must keep the
+// prepared statement as its `this`.
+async function gmRunUpdate(env, sql, binds) {
+    var stmt = env.DB.prepare(sql);
+    return stmt.bind.apply(stmt, binds).run();
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/gm/config — configurable lists + method constants
+// ---------------------------------------------------------------------------
+
+async function handleGetGmConfig(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var config = await gmGetConfig(env, id);
+        return jsonOk({
+            config: config,
+            method: {
+                stages: GM_STAGES,
+                active_pipeline_stages: GM_ACTIVE_PIPELINE_STAGES,
+                live_stages: GM_LIVE_STAGES,
+                origens: GM_ORIGENS,
+                roadmap_statuses: GM_ROADMAP_STATUSES,
+                frentes: GM_FRENTES,
+                base_ouro_statuses: GM_BASE_OURO_STATUSES,
+                partner_statuses: GM_PARTNER_STATUSES,
+                job_statuses: GM_JOB_STATUSES
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error fetching GM config: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/gm/config — ADMIN ONLY (per-client lists/settings)
+// ---------------------------------------------------------------------------
+
+async function handlePutGmConfig(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        await gmGetConfig(env, id);   // ensure the row exists
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var sets = [], binds = [];
+        function listOfStrings(v) {
+            if (Object.prototype.toString.call(v) !== "[object Array]") { return null; }
+            var out = [];
+            for (var i = 0; i < v.length; i++) {
+                var s = gmStr(v[i], 80);
+                if (s) { out.push(s); }
+            }
+            return out.length ? out : null;
+        }
+        var servicos = listOfStrings(body.servicos);
+        if (servicos) { sets.push("servicos_json = ?"); binds.push(JSON.stringify(servicos)); }
+        var vendedores = listOfStrings(body.vendedores);
+        if (vendedores) { sets.push("vendedores_json = ?"); binds.push(JSON.stringify(vendedores)); }
+        var partnerTypes = listOfStrings(body.partner_types);
+        if (partnerTypes) { sets.push("partner_types_json = ?"); binds.push(JSON.stringify(partnerTypes)); }
+        var cycleMonths = listOfStrings(body.cycle_months);
+        if (cycleMonths) { sets.push("cycle_months_json = ?"); binds.push(JSON.stringify(cycleMonths)); }
+        if (Object.prototype.toString.call(body.finance_categories) === "[object Array]") {
+            var cats = [];
+            for (var i = 0; i < body.finance_categories.length; i++) {
+                var c = body.finance_categories[i] || {};
+                var name = gmStr(c.name, 80);
+                if (!name) { continue; }
+                cats.push({ name: name, tipo: c.tipo === "Entrada" ? "Entrada" : "Saída" });
+            }
+            if (cats.length) { sets.push("finance_categories_json = ?"); binds.push(JSON.stringify(cats)); }
+        }
+        var tm = gmNum(body.target_margin);
+        if (tm !== null && tm >= 0 && tm <= 100) { sets.push("target_margin = ?"); binds.push(tm); }
+        var thr = gmNum(body.pipeline_view_threshold);
+        if (thr !== null && thr >= 1) { sets.push("pipeline_view_threshold = ?"); binds.push(Math.round(thr)); }
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')");
+        binds.push(id);
+        await gmRunUpdate(env, "UPDATE gm_config SET " + sets.join(", ") + " WHERE client_id = ?", binds);
+        var config = await gmGetConfig(env, id);
+        return jsonOk({ saved: true, config: config });
+    } catch (e) {
+        return jsonErr("Error saving GM config: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/gm/config/view-mode — the client's persisted
+// manual pipeline-view toggle (overrides the automatic threshold both ways)
+// ---------------------------------------------------------------------------
+
+async function handlePutGmViewMode(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        await gmGetConfig(env, id);
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var override = null;
+        if (body.override === "stacked" || body.override === "rail") { override = body.override; }
+        await env.DB.prepare(
+            "UPDATE gm_config SET pipeline_view_override = ?, updated_at = datetime('now') WHERE client_id = ?"
+        ).bind(override, id).run();
+        return jsonOk({ saved: true, pipeline_view_override: override });
+    } catch (e) {
+        return jsonErr("Error saving view mode: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/gm/leads — pipeline + summary metrics
+// ---------------------------------------------------------------------------
+// Summary lives in SQL so the definitions are auditable in one place:
+//   - pipeline ativo sums EXACTLY Estimate Enviado / Follow-up / Negociação
+//   - the two SLA counts are computed correctly here (the source spreadsheet's
+//     formulas were #REF! and silently returned 0 — do not "preserve" that)
+//   - live_count feeds the view-mode threshold and EXCLUDES Fechado/Perdido
+
+async function handleGetGmLeads(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT l.*, p.name AS parceiro_name FROM gm_leads l " +
+            "LEFT JOIN gm_partners p ON p.id = l.parceiro_id " +
+            "WHERE l.client_id = ? " +
+            "ORDER BY COALESCE(l.data_lead, l.created_at) DESC"
+        ).bind(id).all();
+        var summary = await env.DB.prepare(
+            "SELECT COUNT(*) AS leads_totais, " +
+            "SUM(CASE WHEN estagio IN ('Estimate Enviado','Follow-up','Negociação') THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
+            "SUM(CASE WHEN estagio = 'Fechado' THEN COALESCE(valor,0) ELSE 0 END) AS receita_fechada, " +
+            "SUM(CASE WHEN estagio = 'Fechado' THEN 1 ELSE 0 END) AS fechados, " +
+            "SUM(CASE WHEN data_lead IS NOT NULL AND data_contato IS NOT NULL " +
+            "AND (julianday(data_contato) - julianday(data_lead)) * 1440.0 > 5.0 THEN 1 ELSE 0 END) AS fora_sla_contato, " +
+            "SUM(CASE WHEN data_lead IS NOT NULL AND data_estimate IS NOT NULL " +
+            "AND (julianday(data_estimate) - julianday(data_lead)) > 1.0 THEN 1 ELSE 0 END) AS fora_sla_estimate, " +
+            "SUM(CASE WHEN estagio NOT IN ('Fechado','Perdido') THEN 1 ELSE 0 END) AS live_count " +
+            "FROM gm_leads WHERE client_id = ?"
+        ).bind(id).first();
+        var leadsTotais = (summary && summary.leads_totais) || 0;
+        var fechados = (summary && summary.fechados) || 0;
+        return jsonOk({
+            leads: (rows.results || []),
+            summary: {
+                leads_totais: leadsTotais,
+                pipeline_ativo: (summary && summary.pipeline_ativo) || 0,
+                receita_fechada: (summary && summary.receita_fechada) || 0,
+                fechados: fechados,
+                conversao_pct: leadsTotais > 0 ? Math.round((fechados / leadsTotais) * 1000) / 10 : null,
+                fora_sla_contato: (summary && summary.fora_sla_contato) || 0,
+                fora_sla_estimate: (summary && summary.fora_sla_estimate) || 0,
+                live_count: (summary && summary.live_count) || 0
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error fetching leads: " + e.message, 500);
+    }
+}
+
+// Shared field extraction for lead create/update. Returns { fields, error }.
+// partial=true (PUT) only touches keys present in the body.
+async function gmLeadFields(body, config, partial, env, clientId) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!partial || has("cliente")) {
+        var cliente = gmStr(body.cliente, 200);
+        if (!cliente) { return { error: "CLIENTE é obrigatório" }; }
+        out.cliente = cliente;
+    }
+    if (!partial || has("estagio")) {
+        var estagio = body.estagio === undefined || body.estagio === null ? "Novo Lead" : body.estagio;
+        if (GM_STAGES.indexOf(estagio) === -1) { return { error: "Estágio inválido" }; }
+        out.estagio = estagio;
+    }
+    if (has("origem")) {
+        out.origem = body.origem === null ? null : (GM_ORIGENS.indexOf(body.origem) !== -1 ? body.origem : null);
+        if (body.origem !== null && out.origem === null) { return { error: "Origem inválida" }; }
+    }
+    if (has("parceiro_id")) {
+        if (body.parceiro_id === null || body.parceiro_id === "") {
+            out.parceiro_id = null;
+        } else {
+            var partner = await gmOwnedRow(env, "gm_partners", String(body.parceiro_id), clientId);
+            if (!partner) { return { error: "Parceiro não encontrado" }; }
+            out.parceiro_id = partner.id;
+        }
+    }
+    var strFields = [
+        ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["servico", 80],
+        ["observacao", 2000], ["vendedor", 80], ["data_contato", 40],
+        ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40]
+    ];
+    for (var i = 0; i < strFields.length; i++) {
+        var k = strFields[i][0];
+        if (has(k)) { out[k] = body[k] === null ? null : gmStr(body[k], strFields[i][1]); }
+    }
+    if (has("valor")) { out.valor = gmNum(body.valor); }
+    if (has("followups")) {
+        var f = gmNum(body.followups);
+        out.followups = f === null ? null : Math.max(0, Math.round(f));
+    }
+    return { fields: out };
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/gm/leads
+// ---------------------------------------------------------------------------
+
+async function handlePostGmLead(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var config = await gmGetConfig(env, id);
+        var parsed = await gmLeadFields(body, config, false, env, id);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var leadId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, origem, parceiro_id, servico, " +
+            "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            leadId, id,
+            f.mes_lead !== undefined ? f.mes_lead : null,
+            f.data_lead !== undefined ? f.data_lead : null,
+            f.cliente,
+            f.telefone !== undefined ? f.telefone : null,
+            f.origem !== undefined ? f.origem : null,
+            f.parceiro_id !== undefined ? f.parceiro_id : null,
+            f.servico !== undefined ? f.servico : null,
+            f.observacao !== undefined ? f.observacao : null,
+            f.vendedor !== undefined ? f.vendedor : null,
+            f.data_contato !== undefined ? f.data_contato : null,
+            f.data_estimate !== undefined ? f.data_estimate : null,
+            f.valor !== undefined ? f.valor : null,
+            f.estagio,
+            f.followups !== undefined ? f.followups : null,
+            f.proxima_acao !== undefined ? f.proxima_acao : null,
+            f.mes_fechamento !== undefined ? f.mes_fechamento : null
+        ).run();
+        var row = await gmOwnedRow(env, "gm_leads", leadId, id);
+        return jsonOk({ created: true, lead: row });
+    } catch (e) {
+        return jsonErr("Error creating lead: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/gm/leads/:leadId — partial update; a stage
+// change restamps stage_changed_at (drives "days in stage")
+// ---------------------------------------------------------------------------
+
+async function handlePutGmLead(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!existing) { return jsonErr("Lead not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var config = await gmGetConfig(env, id);
+        var parsed = await gmLeadFields(body, config, true, env, id);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) {
+            sets.push(k + " = ?");
+            binds.push(f[k]);
+        });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        if (f.estagio !== undefined && f.estagio !== existing.estagio) {
+            sets.push("stage_changed_at = datetime('now')");
+        }
+        sets.push("updated_at = datetime('now')");
+        binds.push(leadId);
+        binds.push(id);
+        await gmRunUpdate(env, "UPDATE gm_leads SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        var row = await gmOwnedRow(env, "gm_leads", leadId, id);
+        return jsonOk({ saved: true, lead: row });
+    } catch (e) {
+        return jsonErr("Error updating lead: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/POST /api/clients/:id/gm/roadmap, PUT /gm/roadmap/:rowId
+// ---------------------------------------------------------------------------
+
+async function handleGetGmRoadmap(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_roadmap WHERE client_id = ? ORDER BY created_at"
+        ).bind(id).all();
+        var items = rows.results || [];
+        var done = 0;
+        items.forEach(function(r) { if (r.status === "Realizado") { done++; } });
+        return jsonOk({
+            items: items,
+            summary: { total: items.length, realizado: done,
+                       completion_pct: items.length ? Math.round((done / items.length) * 100) : null }
+        });
+    } catch (e) {
+        return jsonErr("Error fetching roadmap: " + e.message, 500);
+    }
+}
+
+function gmRoadmapFields(body, partial) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!partial || has("acao")) {
+        var acao = gmStr(body.acao, 500);
+        if (!acao) { return { error: "AÇÃO é obrigatória" }; }
+        out.acao = acao;
+    }
+    if (has("status")) {
+        if (GM_ROADMAP_STATUSES.indexOf(body.status) === -1) { return { error: "Status inválido" }; }
+        out.status = body.status;
+    }
+    if (has("frente")) {
+        out.frente = body.frente === null ? null : (GM_FRENTES.indexOf(body.frente) !== -1 ? body.frente : null);
+        if (body.frente !== null && out.frente === null) { return { error: "Frente inválida" }; }
+    }
+    if (has("mes")) { out.mes = body.mes === null ? null : gmStr(body.mes, 40); }
+    if (has("responsavel")) { out.responsavel = body.responsavel === null ? null : gmStr(body.responsavel, 120); }
+    if (has("observacoes")) { out.observacoes = body.observacoes === null ? null : gmStr(body.observacoes, 2000); }
+    return { fields: out };
+}
+
+async function handlePostGmRoadmap(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmRoadmapFields(body, false);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var rowId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_roadmap (id, client_id, mes, acao, frente, responsavel, status, observacoes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(rowId, id,
+            f.mes !== undefined ? f.mes : null, f.acao,
+            f.frente !== undefined ? f.frente : null,
+            f.responsavel !== undefined ? f.responsavel : null,
+            f.status !== undefined ? f.status : "Pendente",
+            f.observacoes !== undefined ? f.observacoes : null).run();
+        var row = await gmOwnedRow(env, "gm_roadmap", rowId, id);
+        return jsonOk({ created: true, item: row });
+    } catch (e) {
+        return jsonErr("Error creating roadmap item: " + e.message, 500);
+    }
+}
+
+async function handlePutGmRoadmap(id, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_roadmap", rowId, id);
+        if (!existing) { return jsonErr("Item not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmRoadmapFields(body, true);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')");
+        binds.push(rowId); binds.push(id);
+        await gmRunUpdate(env, "UPDATE gm_roadmap SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        var row = await gmOwnedRow(env, "gm_roadmap", rowId, id);
+        return jsonOk({ saved: true, item: row });
+    } catch (e) {
+        return jsonErr("Error updating roadmap item: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/POST /api/clients/:id/gm/base-ouro, PUT /gm/base-ouro/:rowId,
+//        POST /gm/base-ouro/:rowId/reactivate
+// ---------------------------------------------------------------------------
+
+async function handleGetGmBaseOuro(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_base_ouro WHERE client_id = ? ORDER BY created_at"
+        ).bind(id).all();
+        return jsonOk({ items: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching base de ouro: " + e.message, 500);
+    }
+}
+
+function gmBaseOuroFields(body, partial) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!partial || has("cliente")) {
+        var cliente = gmStr(body.cliente, 200);
+        if (!cliente) { return { error: "CLIENTE é obrigatório" }; }
+        out.cliente = cliente;
+    }
+    if (has("status")) {
+        if (GM_BASE_OURO_STATUSES.indexOf(body.status) === -1) { return { error: "Status inválido" }; }
+        // 'Reativado' only via the explicit reactivate action, never a plain edit
+        if (body.status === "Reativado") { return { error: "Use a ação Reativar para marcar como Reativado" }; }
+        out.status = body.status;
+    }
+    if (has("telefone")) { out.telefone = body.telefone === null ? null : gmStr(body.telefone, 60); }
+    if (has("servico_anterior")) { out.servico_anterior = body.servico_anterior === null ? null : gmStr(body.servico_anterior, 200); }
+    if (has("data_contato")) { out.data_contato = body.data_contato === null ? null : gmStr(body.data_contato, 40); }
+    if (has("oferta")) { out.oferta = body.oferta === null ? null : gmStr(body.oferta, 500); }
+    if (has("observacoes")) { out.observacoes = body.observacoes === null ? null : gmStr(body.observacoes, 2000); }
+    return { fields: out };
+}
+
+async function handlePostGmBaseOuro(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmBaseOuroFields(body, false);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var rowId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_base_ouro (id, client_id, cliente, telefone, servico_anterior, status, data_contato, oferta, observacoes) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(rowId, id, f.cliente,
+            f.telefone !== undefined ? f.telefone : null,
+            f.servico_anterior !== undefined ? f.servico_anterior : null,
+            f.status !== undefined ? f.status : "Não contatado",
+            f.data_contato !== undefined ? f.data_contato : null,
+            f.oferta !== undefined ? f.oferta : null,
+            f.observacoes !== undefined ? f.observacoes : null).run();
+        var row = await gmOwnedRow(env, "gm_base_ouro", rowId, id);
+        return jsonOk({ created: true, item: row });
+    } catch (e) {
+        return jsonErr("Error creating base de ouro row: " + e.message, 500);
+    }
+}
+
+async function handlePutGmBaseOuro(id, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_base_ouro", rowId, id);
+        if (!existing) { return jsonErr("Item not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmBaseOuroFields(body, true);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')");
+        binds.push(rowId); binds.push(id);
+        await gmRunUpdate(env, "UPDATE gm_base_ouro SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        var row = await gmOwnedRow(env, "gm_base_ouro", rowId, id);
+        return jsonOk({ saved: true, item: row });
+    } catch (e) {
+        return jsonErr("Error updating base de ouro row: " + e.message, 500);
+    }
+}
+
+// The explicit, confirmed reactivation action: creates the CRM lead with
+// ORIGEM = 'Base de Clientes' and stamps the link. Idempotent — a second
+// call returns the existing lead instead of duplicating it.
+async function handlePostGmBaseOuroReactivate(id, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var row = await gmOwnedRow(env, "gm_base_ouro", rowId, id);
+        if (!row) { return jsonErr("Item not found", 404); }
+        if (row.reactivated_lead_id) {
+            return jsonOk({ reactivated: true, already: true, lead_id: row.reactivated_lead_id });
+        }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var dataLead = gmStr(body.data_lead, 40);   // device-local datetime from the portal
+        var mesLead = gmStr(body.mes_lead, 40);
+        var leadId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, servico, origem, estagio) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'Base de Clientes', 'Novo Lead')"
+        ).bind(leadId, id, mesLead, dataLead, row.cliente, row.telefone, null).run();
+        await env.DB.prepare(
+            "UPDATE gm_base_ouro SET status = 'Reativado', reactivated_lead_id = ?, updated_at = datetime('now') WHERE id = ?"
+        ).bind(leadId, rowId).run();
+        return jsonOk({ reactivated: true, lead_id: leadId });
+    } catch (e) {
+        return jsonErr("Error reactivating: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/POST /api/clients/:id/gm/partners, PUT /gm/partners/:rowId
+// LEADS INDICADOS / RECEITA GERADA are computed through the parceiro_id FK —
+// the spreadsheet's name-string join had already drifted after one month
+// ("Mark Alluminum" vs "MARK (LUMINUM)"), silently zeroing attribution.
+// ---------------------------------------------------------------------------
+
+async function handleGetGmPartners(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT p.*, " +
+            "(SELECT COUNT(*) FROM gm_leads l WHERE l.parceiro_id = p.id) AS leads_indicados, " +
+            "(SELECT COALESCE(SUM(l.valor), 0) FROM gm_leads l WHERE l.parceiro_id = p.id AND l.estagio = 'Fechado') AS receita_gerada " +
+            "FROM gm_partners p WHERE p.client_id = ? ORDER BY p.name COLLATE NOCASE"
+        ).bind(id).all();
+        return jsonOk({ partners: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching partners: " + e.message, 500);
+    }
+}
+
+function gmPartnerFields(body, config, partial) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!partial || has("name")) {
+        var name = gmStr(body.name, 200);
+        if (!name) { return { error: "PARCEIRO (nome) é obrigatório" }; }
+        out.name = name;
+    }
+    if (has("status")) {
+        if (GM_PARTNER_STATUSES.indexOf(body.status) === -1) { return { error: "Status inválido" }; }
+        out.status = body.status;
+    }
+    if (has("tipo")) {
+        out.tipo = body.tipo === null ? null : (config.partner_types.indexOf(body.tipo) !== -1 ? body.tipo : null);
+        if (body.tipo !== null && out.tipo === null) { return { error: "Tipo inválido" }; }
+    }
+    if (has("contato")) { out.contato = body.contato === null ? null : gmStr(body.contato, 200); }
+    if (has("ultima_interacao")) { out.ultima_interacao = body.ultima_interacao === null ? null : gmStr(body.ultima_interacao, 40); }
+    if (has("proxima_acao")) { out.proxima_acao = body.proxima_acao === null ? null : gmStr(body.proxima_acao, 500); }
+    return { fields: out };
+}
+
+async function handlePostGmPartner(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var config = await gmGetConfig(env, id);
+        var parsed = gmPartnerFields(body, config, false);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var rowId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_partners (id, client_id, name, tipo, contato, status, ultima_interacao, proxima_acao) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(rowId, id, f.name,
+            f.tipo !== undefined ? f.tipo : null,
+            f.contato !== undefined ? f.contato : null,
+            f.status !== undefined ? f.status : "Prospectando",
+            f.ultima_interacao !== undefined ? f.ultima_interacao : null,
+            f.proxima_acao !== undefined ? f.proxima_acao : null).run();
+        var row = await gmOwnedRow(env, "gm_partners", rowId, id);
+        return jsonOk({ created: true, partner: row });
+    } catch (e) {
+        return jsonErr("Error creating partner: " + e.message, 500);
+    }
+}
+
+async function handlePutGmPartner(id, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_partners", rowId, id);
+        if (!existing) { return jsonErr("Partner not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var config = await gmGetConfig(env, id);
+        var parsed = gmPartnerFields(body, config, true);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')");
+        binds.push(rowId); binds.push(id);
+        await gmRunUpdate(env, "UPDATE gm_partners SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        var row = await gmOwnedRow(env, "gm_partners", rowId, id);
+        return jsonOk({ saved: true, partner: row });
+    } catch (e) {
+        return jsonErr("Error updating partner: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/POST /api/clients/:id/gm/finance, PUT /gm/finance/:rowId
+// tipo is DERIVED from categoria via gm_config — a request body's tipo is
+// never read. Monthly summary: ENTRADAS | SAÍDAS | RESULTADO | MARGEM.
+// ---------------------------------------------------------------------------
+
+async function handleGetGmFinance(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT f.*, j.obra AS obra_name FROM gm_finance f " +
+            "LEFT JOIN gm_jobs j ON j.id = f.obra_id " +
+            "WHERE f.client_id = ? ORDER BY COALESCE(f.data, f.created_at) DESC"
+        ).bind(id).all();
+        var sums = await env.DB.prepare(
+            "SELECT mes, " +
+            "SUM(CASE WHEN tipo = 'Entrada' THEN valor ELSE 0 END) AS entradas, " +
+            "SUM(CASE WHEN tipo = 'Saída' THEN valor ELSE 0 END) AS saidas " +
+            "FROM gm_finance WHERE client_id = ? GROUP BY mes"
+        ).bind(id).all();
+        var monthly = [];
+        (sums.results || []).forEach(function(m) {
+            var entradas = m.entradas || 0;
+            var saidas = m.saidas || 0;
+            var resultado = entradas - saidas;
+            monthly.push({
+                mes: m.mes,
+                entradas: entradas,
+                saidas: saidas,
+                resultado: resultado,
+                margem_pct: entradas > 0 ? Math.round((resultado / entradas) * 1000) / 10 : null
+            });
+        });
+        return jsonOk({ entries: rows.results || [], monthly: monthly });
+    } catch (e) {
+        return jsonErr("Error fetching finance entries: " + e.message, 500);
+    }
+}
+
+async function gmFinanceFields(body, config, partial, env, clientId) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!partial || has("descricao")) {
+        var descricao = gmStr(body.descricao, 500);
+        if (!descricao) { return { error: "DESCRIÇÃO é obrigatória" }; }
+        out.descricao = descricao;
+    }
+    if (!partial || has("categoria")) {
+        var categoria = gmStr(body.categoria, 80);
+        var tipo = categoria ? gmFinanceTipo(config, categoria) : null;
+        if (!tipo) { return { error: "Categoria inválida" }; }
+        out.categoria = categoria;
+        out.tipo = tipo;   // derived — body.tipo is never read
+    }
+    if (!partial || has("valor")) {
+        var valor = gmNum(body.valor);
+        if (valor === null || valor < 0) { return { error: "VALOR deve ser um número" }; }
+        out.valor = valor;
+    }
+    if (has("obra_id")) {
+        if (body.obra_id === null || body.obra_id === "") {
+            out.obra_id = null;
+        } else {
+            var job = await gmOwnedRow(env, "gm_jobs", String(body.obra_id), clientId);
+            if (!job) { return { error: "Obra não encontrada" }; }
+            out.obra_id = job.id;
+        }
+    }
+    if (has("mes")) { out.mes = body.mes === null ? null : gmStr(body.mes, 40); }
+    if (has("data")) { out.data = body.data === null ? null : gmStr(body.data, 40); }
+    if (has("obs")) { out.obs = body.obs === null ? null : gmStr(body.obs, 2000); }
+    return { fields: out };
+}
+
+async function handlePostGmFinance(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var config = await gmGetConfig(env, id);
+        var parsed = await gmFinanceFields(body, config, false, env, id);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var rowId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_finance (id, client_id, mes, data, descricao, categoria, tipo, valor, obra_id, obs) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(rowId, id,
+            f.mes !== undefined ? f.mes : null,
+            f.data !== undefined ? f.data : null,
+            f.descricao, f.categoria, f.tipo, f.valor,
+            f.obra_id !== undefined ? f.obra_id : null,
+            f.obs !== undefined ? f.obs : null).run();
+        var row = await gmOwnedRow(env, "gm_finance", rowId, id);
+        return jsonOk({ created: true, entry: row });
+    } catch (e) {
+        return jsonErr("Error creating finance entry: " + e.message, 500);
+    }
+}
+
+async function handlePutGmFinance(id, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_finance", rowId, id);
+        if (!existing) { return jsonErr("Entry not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var config = await gmGetConfig(env, id);
+        var parsed = await gmFinanceFields(body, config, true, env, id);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')");
+        binds.push(rowId); binds.push(id);
+        await gmRunUpdate(env, "UPDATE gm_finance SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        var row = await gmOwnedRow(env, "gm_finance", rowId, id);
+        return jsonOk({ saved: true, entry: row });
+    } catch (e) {
+        return jsonErr("Error updating finance entry: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/POST /api/clients/:id/gm/jobs, PUT /gm/jobs/:rowId
+// CUSTO TOTAL / LUCRO / MARGEM % / ALVO? / NO PRAZO? computed at read time.
+// ---------------------------------------------------------------------------
+
+function gmJobComputed(row, targetMargin) {
+    var custoTotal = (row.material || 0) + (row.mao_de_obra || 0) + (row.outros || 0);
+    var lucro = row.valor === null || row.valor === undefined ? null : row.valor - custoTotal;
+    var margemPct = (row.valor && row.valor > 0 && lucro !== null)
+        ? Math.round((lucro / row.valor) * 1000) / 10 : null;
+    var noPrazo = null;
+    if (row.entrega_real && row.prazo_previsto) { noPrazo = row.entrega_real <= row.prazo_previsto; }
+    return {
+        custo_total: custoTotal,
+        lucro: lucro,
+        margem_pct: margemPct,
+        // ALVO? — warn when margin is below the client's configured minimum.
+        // "No proposal goes out below this number."
+        alvo_ok: margemPct === null ? null : margemPct >= targetMargin,
+        no_prazo: noPrazo
+    };
+}
+
+async function handleGetGmJobs(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var config = await gmGetConfig(env, id);
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_jobs WHERE client_id = ? ORDER BY created_at DESC"
+        ).bind(id).all();
+        var jobs = [];
+        (rows.results || []).forEach(function(r) {
+            var computed = gmJobComputed(r, config.target_margin);
+            var out = {};
+            Object.keys(r).forEach(function(k) { out[k] = r[k]; });
+            Object.keys(computed).forEach(function(k) { out[k] = computed[k]; });
+            jobs.push(out);
+        });
+        return jsonOk({ jobs: jobs, target_margin: config.target_margin });
+    } catch (e) {
+        return jsonErr("Error fetching jobs: " + e.message, 500);
+    }
+}
+
+function gmJobFields(body, partial) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!partial || has("obra")) {
+        var obra = gmStr(body.obra, 300);
+        if (!obra) { return { error: "CLIENTE / OBRA é obrigatório" }; }
+        out.obra = obra;
+    }
+    if (has("status")) {
+        if (GM_JOB_STATUSES.indexOf(body.status) === -1) { return { error: "Status inválido" }; }
+        out.status = body.status;
+    }
+    var numFields = ["valor", "material", "mao_de_obra", "outros"];
+    for (var i = 0; i < numFields.length; i++) {
+        if (has(numFields[i])) { out[numFields[i]] = gmNum(body[numFields[i]]); }
+    }
+    var strFields = [["mes_entrega", 40], ["inicio", 40], ["prazo_previsto", 40], ["entrega_real", 40]];
+    for (var j = 0; j < strFields.length; j++) {
+        var k = strFields[j][0];
+        if (has(k)) { out[k] = body[k] === null ? null : gmStr(body[k], strFields[j][1]); }
+    }
+    return { fields: out };
+}
+
+async function handlePostGmJob(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmJobFields(body, false);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var rowId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_jobs (id, client_id, obra, mes_entrega, valor, material, mao_de_obra, outros, inicio, prazo_previsto, entrega_real, status) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(rowId, id, f.obra,
+            f.mes_entrega !== undefined ? f.mes_entrega : null,
+            f.valor !== undefined ? f.valor : null,
+            f.material !== undefined ? f.material : null,
+            f.mao_de_obra !== undefined ? f.mao_de_obra : null,
+            f.outros !== undefined ? f.outros : null,
+            f.inicio !== undefined ? f.inicio : null,
+            f.prazo_previsto !== undefined ? f.prazo_previsto : null,
+            f.entrega_real !== undefined ? f.entrega_real : null,
+            f.status !== undefined ? f.status : "Em andamento").run();
+        var row = await gmOwnedRow(env, "gm_jobs", rowId, id);
+        return jsonOk({ created: true, job: row });
+    } catch (e) {
+        return jsonErr("Error creating job: " + e.message, 500);
+    }
+}
+
+async function handlePutGmJob(id, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_jobs", rowId, id);
+        if (!existing) { return jsonErr("Job not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmJobFields(body, true);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')");
+        binds.push(rowId); binds.push(id);
+        await gmRunUpdate(env, "UPDATE gm_jobs SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        var row = await gmOwnedRow(env, "gm_jobs", rowId, id);
+        return jsonOk({ saved: true, job: row });
+    } catch (e) {
+        return jsonErr("Error updating job: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: DELETE /api/clients/:id/gm/<collection>/:rowId
+// FK-referenced rows are protected with a clear message instead of a raw
+// constraint error; a deleted lead first releases its base-ouro back-link.
+// ---------------------------------------------------------------------------
+
+var GM_DELETE_TABLES = {
+    "leads":     "gm_leads",
+    "roadmap":   "gm_roadmap",
+    "base-ouro": "gm_base_ouro",
+    "partners":  "gm_partners",
+    "finance":   "gm_finance",
+    "jobs":      "gm_jobs"
+};
+
+async function handleDeleteGmRow(id, collection, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var table = GM_DELETE_TABLES[collection];
+        if (!table) { return jsonErr("Not found", 404); }
+        var existing = await gmOwnedRow(env, table, rowId, id);
+        if (!existing) { return jsonErr("Not found", 404); }
+        if (table === "gm_partners") {
+            var refLeads = await env.DB.prepare(
+                "SELECT COUNT(*) AS c FROM gm_leads WHERE parceiro_id = ?"
+            ).bind(rowId).first();
+            if (refLeads && refLeads.c > 0) {
+                return jsonErr("Este parceiro tem leads vinculados no CRM — remova o vínculo nos leads antes de excluir", 400);
+            }
+        }
+        if (table === "gm_jobs") {
+            var refFin = await env.DB.prepare(
+                "SELECT COUNT(*) AS c FROM gm_finance WHERE obra_id = ?"
+            ).bind(rowId).first();
+            if (refFin && refFin.c > 0) {
+                return jsonErr("Esta obra tem lançamentos financeiros vinculados — remova o vínculo antes de excluir", 400);
+            }
+        }
+        if (table === "gm_leads") {
+            await env.DB.prepare(
+                "UPDATE gm_base_ouro SET reactivated_lead_id = NULL WHERE reactivated_lead_id = ?"
+            ).bind(rowId).run();
+        }
+        await env.DB.prepare("DELETE FROM " + table + " WHERE id = ? AND client_id = ?")
+            .bind(rowId, id).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting: " + e.message, 500);
+    }
+}
+
 export default {
     fetch: async function(request, env) {
         var url    = new URL(request.url);
@@ -10484,6 +11559,47 @@ export default {
             }
             if (segs.length === 6 && segs[3] === "assessments" && segs[5] === "answers" && method === "PUT") {
                 return handlePutAssessmentAnswers(cid, segs[4], request, env);
+            }
+            // Growth Management (the six data tabs) — /api/clients/:id/gm/...
+            if (segs[3] === "gm" && segs[4]) {
+                var gmCol = segs[4];
+                if (segs.length === 5 && method === "GET") {
+                    if (gmCol === "config")    { return handleGetGmConfig(cid, request, env); }
+                    if (gmCol === "leads")     { return handleGetGmLeads(cid, request, env); }
+                    if (gmCol === "roadmap")   { return handleGetGmRoadmap(cid, request, env); }
+                    if (gmCol === "base-ouro") { return handleGetGmBaseOuro(cid, request, env); }
+                    if (gmCol === "partners")  { return handleGetGmPartners(cid, request, env); }
+                    if (gmCol === "finance")   { return handleGetGmFinance(cid, request, env); }
+                    if (gmCol === "jobs")      { return handleGetGmJobs(cid, request, env); }
+                }
+                if (segs.length === 5 && method === "POST") {
+                    if (gmCol === "leads")     { return handlePostGmLead(cid, request, env); }
+                    if (gmCol === "roadmap")   { return handlePostGmRoadmap(cid, request, env); }
+                    if (gmCol === "base-ouro") { return handlePostGmBaseOuro(cid, request, env); }
+                    if (gmCol === "partners")  { return handlePostGmPartner(cid, request, env); }
+                    if (gmCol === "finance")   { return handlePostGmFinance(cid, request, env); }
+                    if (gmCol === "jobs")      { return handlePostGmJob(cid, request, env); }
+                }
+                if (segs.length === 5 && gmCol === "config" && method === "PUT") {
+                    return handlePutGmConfig(cid, request, env);   // admin only
+                }
+                if (segs.length === 6 && gmCol === "config" && segs[5] === "view-mode" && method === "PUT") {
+                    return handlePutGmViewMode(cid, request, env);
+                }
+                if (segs.length === 7 && gmCol === "base-ouro" && segs[6] === "reactivate" && method === "POST") {
+                    return handlePostGmBaseOuroReactivate(cid, segs[5], request, env);
+                }
+                if (segs.length === 6 && method === "PUT") {
+                    if (gmCol === "leads")     { return handlePutGmLead(cid, segs[5], request, env); }
+                    if (gmCol === "roadmap")   { return handlePutGmRoadmap(cid, segs[5], request, env); }
+                    if (gmCol === "base-ouro") { return handlePutGmBaseOuro(cid, segs[5], request, env); }
+                    if (gmCol === "partners")  { return handlePutGmPartner(cid, segs[5], request, env); }
+                    if (gmCol === "finance")   { return handlePutGmFinance(cid, segs[5], request, env); }
+                    if (gmCol === "jobs")      { return handlePutGmJob(cid, segs[5], request, env); }
+                }
+                if (segs.length === 6 && method === "DELETE") {
+                    return handleDeleteGmRow(cid, gmCol, segs[5], request, env);
+                }
             }
         }
 

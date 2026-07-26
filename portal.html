@@ -520,6 +520,26 @@
     .xray-question { padding: 14px 0; border-bottom: 1px solid var(--border); }
     .xray-question:last-child { border-bottom: none; }
     .xray-q-label { font-size: 14px; margin-bottom: 10px; line-height: 1.45; }
+    /* Inline jargon help: an optional (i) per flagged question. Tapping
+       reveals a plain-language reframing; presentation-only, never touches
+       answers or scoring. */
+    .xray-help-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; margin-left: 6px; padding: 0;
+      border: 1.5px solid var(--gold); border-radius: 50%;
+      background: transparent; color: var(--gold);
+      font-size: 13px; font-weight: 700; font-style: italic; font-family: Georgia, serif;
+      cursor: pointer; vertical-align: middle; flex-shrink: 0;
+      /* generous hit area beyond the visible circle */
+      position: relative;
+    }
+    .xray-help-btn::after { content: ""; position: absolute; inset: -11px; }
+    .xray-help-btn.open { background: var(--gold); color: #fff; }
+    .xray-help {
+      margin: 8px 0 2px; padding: 10px 12px; font-size: 13px; line-height: 1.5;
+      color: #5c5346; background: rgba(201,164,58,0.10);
+      border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0;
+    }
     .xray-yn { display: flex; gap: 8px; }
     .xray-yn button {
       flex: 1 1 0; padding: 11px 8px; border-radius: 8px;
@@ -2177,7 +2197,9 @@
         html += '<div class="xray-question" data-tour="xray-question">' +
           '<div class="xray-q-label"><strong>' + numberByKey[q.key] + '.</strong> ' +
           '<span class="show-pt">' + escHtml(q.labelPt) + '</span>' +
-          '<span class="show-en">' + escHtml(q.labelEn) + '</span></div>' +
+          '<span class="show-en">' + escHtml(q.labelEn) + '</span>' +
+          xrayHelpIconHtml(q) + '</div>' +
+          xrayHelpBoxHtml(q) +
           '<div class="xray-yn">' +
           '<button type="button" id="xyes_' + q.key + '"' + (v === 1 ? ' class="sel-yes"' : '') +
           ' onclick="answerXray(\'' + q.key + '\', 1)"><span class="show-pt">Sim</span><span class="show-en">Yes</span></button>' +
@@ -2214,7 +2236,9 @@
         html += '<div class="xray-activity" data-tour="xray-question">' +
           '<div class="xray-activity-title">' +
           '<span class="show-pt">' + escHtml(act.labelPt) + '</span>' +
-          '<span class="show-en">' + escHtml(act.labelEn) + '</span></div>';
+          '<span class="show-en">' + escHtml(act.labelEn) + '</span>' +
+          xrayHelpIconHtml(act) + '</div>' +
+          xrayHelpBoxHtml(act);
         dims.forEach(function(dim) {
           html += '<div class="xray-dim"><div class="xray-dim-label">' +
             '<span class="show-pt">' + escHtml(dim.labelPt) + '</span>' +
@@ -2265,6 +2289,46 @@
           if (btn) { btn.className = (opt.key === optKey ? "sel-choice" : ""); }
         });
       }
+    }
+
+    // ── Jargon help (presentation-only) ────────────────────────────────────
+    // Flagged questions/activities carry helpPt/helpEn in the catalog. The
+    // (i) toggles a plain-language reframing inline; opening one closes any
+    // other. Nothing here reads or writes answers, profile or score.
+    function xrayHelpIconHtml(item) {
+      if (!item.helpPt) { return ""; }
+      return '<button type="button" class="xray-help-btn" id="xhelpbtn_' + item.key + '"' +
+        ' aria-expanded="false" aria-label="' +
+        (isEn() ? "What does this mean?" : "O que isso significa?") + '"' +
+        ' onclick="xrayToggleHelp(\'' + item.key + '\')">i</button>';
+    }
+
+    function xrayHelpBoxHtml(item) {
+      if (!item.helpPt) { return ""; }
+      return '<div class="xray-help" id="xhelp_' + item.key + '" hidden>' +
+        '<span class="show-pt">' + escHtml(item.helpPt) + '</span>' +
+        '<span class="show-en">' + escHtml(item.helpEn || item.helpPt) + '</span></div>';
+    }
+
+    var xrayOpenHelpKey = null;
+    function xrayToggleHelp(key) {
+      var box = document.getElementById("xhelp_" + key);
+      var btn = document.getElementById("xhelpbtn_" + key);
+      if (!box) { return; }
+      // Close whichever one is open (tap another icon → previous closes).
+      if (xrayOpenHelpKey && xrayOpenHelpKey !== key) {
+        var prevBox = document.getElementById("xhelp_" + xrayOpenHelpKey);
+        var prevBtn = document.getElementById("xhelpbtn_" + xrayOpenHelpKey);
+        if (prevBox) { prevBox.hidden = true; }
+        if (prevBtn) { prevBtn.classList.remove("open"); prevBtn.setAttribute("aria-expanded", "false"); }
+      }
+      var opening = box.hidden;
+      box.hidden = !opening;
+      if (btn) {
+        btn.classList.toggle("open", opening);
+        btn.setAttribute("aria-expanded", opening ? "true" : "false");
+      }
+      xrayOpenHelpKey = opening ? key : null;
     }
 
     // Answer tap: update state + button styling in place (no re-render, so

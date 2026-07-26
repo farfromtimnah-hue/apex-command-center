@@ -982,7 +982,38 @@
       color: var(--text);
       cursor: pointer;
     }
-    .recur-check-row input { accent-color: var(--gold); }
+    /* The generic `.field-group input { width:100% }` rule was blowing this
+       checkbox up to the full modal width, shoving its "Repetir"/"Repeat"
+       label off the right edge -- pin it to checkbox size explicitly. */
+    .recur-check-row input[type="checkbox"] {
+      accent-color: var(--gold);
+      width: 16px;
+      height: 16px;
+      /* mobile.css sets .modal-box input { min-height: 44px } for touch
+         targets -- a 44px-tall checkbox is the clipped-orphan bug at phone
+         widths, so neutralize it here (the label row stays tappable). */
+      min-height: 0;
+      min-width: 0;
+      flex: 0 0 auto;
+      padding: 0;
+      margin: 0;
+    }
+
+    /* Small unobtrusive reveal link for the collapsed end-time field on
+       client/prospective meetings. */
+    .ns-endtime-link {
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: underline;
+      cursor: pointer;
+      align-self: flex-start;
+      text-align: left;
+    }
+    .ns-endtime-link:hover { color: var(--text); }
     .recur-preview {
       font-size: 12px;
       color: var(--muted);
@@ -1315,14 +1346,23 @@
                the start and end lists never drift apart. -->
           <select id="nsTime"></select>
         </div>
-        <!-- End time: required for events, optional for client/prospective
-             (blank keeps the existing implicit 1-hour behavior). -->
-        <div class="field-group">
-          <div class="field-label">
-            <span class="show-pt">Hora de término</span>
-            <span class="show-en">End time</span>
+        <!-- End time: required (and always visible) for events, where
+             duration genuinely varies. Client/prospective meetings have
+             always been one hour -- the select stays collapsed behind a
+             small "Change end time" link and, when never revealed, no
+             end_time is sent so the start-plus-one-hour default applies. -->
+        <div class="field-group" id="nsEndTimeGroup">
+          <button type="button" class="ns-endtime-link" id="nsEndTimeReveal" onclick="revealNsEndTime()">
+            <span class="show-pt">Alterar horário de término</span>
+            <span class="show-en">Change end time</span>
+          </button>
+          <div id="nsEndTimeField" hidden>
+            <div class="field-label">
+              <span class="show-pt">Hora de término</span>
+              <span class="show-en">End time</span>
+            </div>
+            <select id="nsEndTime"></select>
           </div>
-          <select id="nsEndTime"></select>
         </div>
         <!-- Session type toggle -->
         <div class="field-group" id="nsTypeGroup">
@@ -1737,36 +1777,38 @@
     </div>
   </div>
 
-  <!-- ═══════════════ MODAL: Reagendar — escopo da série ═══════════════════ -->
-  <!-- Shown only when the session belongs to a recurring series; mirrors
-       Google Calendar's own scope question. -->
-  <div id="modalRescheduleScope" class="modal-overlay" hidden>
+  <!-- ═══════════════ MODAL: Escopo da série ═══════════════════════════════ -->
+  <!-- Shown whenever a series session is cancelled OR rescheduled; mirrors
+       Google Calendar's own scope question. ONE shared dialog -- the action
+       that opened it receives the chosen scope via openSeriesScope()'s
+       callback, so cancel and reschedule can never drift apart. -->
+  <div id="modalSeriesScope" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h3>
-          <span class="show-pt">Reagendar reunião recorrente</span>
-          <span class="show-en">Reschedule recurring meeting</span>
+          <span class="show-pt">Reunião recorrente</span>
+          <span class="show-en">Recurring meeting</span>
         </h3>
-        <button class="modal-close" onclick="closeModal('modalRescheduleScope')">×</button>
+        <button class="modal-close" onclick="cancelSeriesScope()">×</button>
       </div>
       <div class="modal-body">
         <p class="modal-help-text" style="font-size:13px;">
           <span class="show-pt">Esta reunião faz parte de uma série. Quais reuniões deseja alterar?</span>
           <span class="show-en">This meeting is part of a series. Which meetings do you want to change?</span>
         </p>
-        <button class="btn-submit" onclick="submitReschedule('single')">
+        <button class="btn-submit" onclick="chooseSeriesScope('single')">
           <span class="show-pt">Esta reunião</span>
           <span class="show-en">This meeting</span>
         </button>
-        <button class="btn-submit" onclick="submitReschedule('following')">
+        <button class="btn-submit" onclick="chooseSeriesScope('following')">
           <span class="show-pt">Esta e todas as seguintes</span>
           <span class="show-en">This and all following</span>
         </button>
-        <button class="btn-submit" onclick="submitReschedule('all')">
+        <button class="btn-submit" onclick="chooseSeriesScope('all')">
           <span class="show-pt">Todas as reuniões</span>
           <span class="show-en">All meetings</span>
         </button>
-        <button class="btn-cancel-link" onclick="closeModal('modalRescheduleScope')">
+        <button class="btn-cancel-link" onclick="cancelSeriesScope()">
           <span class="show-pt">Cancelar</span>
           <span class="show-en">Cancel</span>
         </button>
@@ -1953,11 +1995,15 @@
 
     // ── Close modals on overlay click ──────────────────────────────────────
     document.addEventListener("click", function(e) {
-      var modals = ["modalNewSession", "modalDetail", "modalQuickAddClient", "modalCancelSession", "modalReschedule", "modalRescheduleScope", "modalEdit"];
+      var modals = ["modalNewSession", "modalDetail", "modalQuickAddClient", "modalCancelSession", "modalReschedule", "modalEdit"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
         if (el && !el.hidden && e.target === el) { el.hidden = true; }
       }
+      // The shared scope dialog must resolve its pending callback (as a
+      // back-out) when dismissed via the overlay, never just disappear.
+      var scopeEl = document.getElementById("modalSeriesScope");
+      if (scopeEl && !scopeEl.hidden && e.target === scopeEl) { cancelSeriesScope(); }
     });
 
     // ── Auth & bootstrap ───────────────────────────────────────────────────
@@ -2176,6 +2222,7 @@
         nameEl.value = "";
       }
       updateNsLocationVisibility();
+      updateNsEndTimeVisibility();
     }
 
     function openModal(id) {
@@ -3009,6 +3056,27 @@
       }
     }
 
+    // Whether the user asked to see the end-time select this time around.
+    // Reset on every modal open: routine client bookings never show it.
+    var nsEndTimeRevealed = false;
+
+    // Events always show (and require) the end time; client/prospective
+    // meetings keep it collapsed behind the "Change end time" link unless
+    // revealed. Collapsing clears the value so a hidden field can never
+    // carry state into the submit.
+    function updateNsEndTimeVisibility() {
+      var show = nsIsEvent() || nsEndTimeRevealed;
+      document.getElementById("nsEndTimeField").hidden  = !show;
+      document.getElementById("nsEndTimeReveal").hidden = show;
+      if (!show) { document.getElementById("nsEndTime").value = ""; }
+    }
+
+    function revealNsEndTime() {
+      nsEndTimeRevealed = true;
+      updateNsEndTimeVisibility();
+      clearNsStatus();
+    }
+
     function openNewSessionModal() {
       populateClientDropdown();
       populateTimeSelects();
@@ -3016,6 +3084,7 @@
       document.getElementById("nsDate").value     = "";
       document.getElementById("nsTime").value     = "";
       document.getElementById("nsEndTime").value  = "";
+      nsEndTimeRevealed = false;
       document.getElementById("nsNotes").value    = "";
       document.getElementById("nsLocation").value = "";
       document.getElementById("nsLocation").placeholder = isEn() ? "Street address" : "Endereço completo";
@@ -3103,6 +3172,33 @@
       document.getElementById("nsCategoryProspective").className = "type-toggle-btn" + (category === "prospective" ? " active" : "");
       document.getElementById("nsCategoryVal").value              = category;
     }
+
+    // A stale inline validation error must clear the moment the user edits
+    // any field it could refer to, not linger until the next submit.
+    function clearNsStatus() {
+      var st = document.getElementById("nsStatus");
+      if (st && st.className.indexOf("is-error") !== -1) {
+        st.textContent = "";
+        st.className = "pull-status";
+      }
+    }
+    (function() {
+      var ids = ["nsClient", "nsEventName", "nsDate", "nsTime", "nsEndTime",
+                 "nsLocation", "nsRecurring", "nsRecurFreq", "nsRecurCount", "nsNotes"];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (!el) { continue; }
+        el.addEventListener("input", clearNsStatus);
+        el.addEventListener("change", clearNsStatus);
+      }
+      // The type/category/event toggles write to hidden inputs that fire no
+      // events -- hook the toggle containers' clicks instead.
+      var groups = ["nsTypeGroup", "nsCategoryGroup"];
+      for (var g = 0; g < groups.length; g++) {
+        var grp = document.getElementById(groups[g]);
+        if (grp) { grp.addEventListener("click", clearNsStatus); }
+      }
+    })();
 
     function handleNewSession() {
       var clientId  = document.getElementById("nsClient").value;
@@ -3670,7 +3766,43 @@
       openModal("modalCancelSession");
     }
 
+    // ONE shared series-scope dialog for cancel and reschedule. The caller
+    // passes a callback; it receives 'single'|'following'|'all', or null when
+    // the user backs out.
+    var seriesScopeCb = null;
+    function openSeriesScope(cb) {
+      seriesScopeCb = cb;
+      openModal("modalSeriesScope");
+    }
+    function chooseSeriesScope(scope) {
+      closeModal("modalSeriesScope");
+      var cb = seriesScopeCb;
+      seriesScopeCb = null;
+      if (cb) { cb(scope); }
+    }
+    function cancelSeriesScope() {
+      closeModal("modalSeriesScope");
+      var cb = seriesScopeCb;
+      seriesScopeCb = null;
+      if (cb) { cb(null); }
+    }
+
     function handleCancelSession(mode) {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      // Series sessions get the scope question first -- same dialog the
+      // reschedule flow uses.
+      if (session.series_id) {
+        openSeriesScope(function(scope) {
+          if (!scope) { return; } // backed out; cancel modal is still open
+          doCancelSession(mode, scope);
+        });
+        return;
+      }
+      doCancelSession(mode, "single");
+    }
+
+    function doCancelSession(mode, scope) {
       var session = activeDetailSession;
       if (!session) { return; }
       var en = isEn();
@@ -3683,32 +3815,34 @@
 
       apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/cancel", {
         method: "POST",
-        body: { mode: mode }
+        body: { mode: mode, scope: scope }
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          loadCalendar();
-          // google_event_removed === false means the Apex side changed but
-          // the event is STILL live on the client's Google Calendar -- keep
-          // the modal open and say so plainly, never let it look clean.
-          if (data.google_event_removed === false) {
-            btnA.disabled = true;
-            btnB.disabled = true;
+          // ok === false / google_event_removed === false: the worker refused
+          // to touch the Apex side because the Google Calendar removal did
+          // not verifiably succeed. NOTHING changed -- say plainly that the
+          // meeting is still on the client's calendar and allow a retry.
+          if (data.ok === false || data.google_event_removed === false) {
+            btnA.disabled = false;
+            btnB.disabled = false;
             if (st) {
               st.textContent = en
-                ? "Removed in Apex, but the meeting could NOT be removed from Google Calendar (" + (data.google_error || "unknown error") + "). It is still on the client's calendar — remove it there manually."
-                : "Removida no Apex, mas a reuniao NAO pode ser removida do Google Calendar (" + (data.google_error || "erro desconhecido") + "). Ela ainda esta no calendario do cliente — remova manualmente.";
+                ? "The meeting was NOT cancelled — it could not be removed from Google Calendar (" + (data.google_error || "unknown error") + ") and is still on the client's calendar. Nothing was changed in Apex. Try again."
+                : "A reuniao NAO foi cancelada — nao foi possivel remove-la do Google Calendar (" + (data.google_error || "erro desconhecido") + ") e ela ainda esta no calendario do cliente. Nada foi alterado no Apex. Tente novamente.";
               st.className = "pull-status is-error";
             }
             if (isGcalNotConnectedError(data.google_error || "")) { promptConnectGcal(); }
             return;
           }
+          loadCalendar();
           closeModal("modalCancelSession");
           closeModal("modalDetail");
+          var n = data.updated || 1;
           showToast(mode === "mistake"
-            ? (en ? "Session deleted." : "Sessao excluida.")
-            : (en ? "Meeting cancelled." : "Reuniao cancelada."));
+            ? (en ? (n > 1 ? n + " sessions deleted." : "Session deleted.") : (n > 1 ? n + " sessoes excluidas." : "Sessao excluida."))
+            : (en ? (n > 1 ? n + " meetings cancelled." : "Meeting cancelled.") : (n > 1 ? n + " reunioes canceladas." : "Reuniao cancelada.")));
         })
         .catch(function(e) {
           btnA.disabled = false;
@@ -3768,16 +3902,19 @@
       }
       // Scope question only when this is genuinely part of a series --
       // standalone meetings (including everything created before series
-      // linkage existed) reschedule with no dialog.
+      // linkage existed) reschedule with no dialog. Same shared dialog the
+      // cancel flow uses.
       if (session.series_id) {
-        openModal("modalRescheduleScope");
+        openSeriesScope(function(scope) {
+          if (!scope) { return; } // backed out; reschedule modal is still open
+          submitReschedule(scope);
+        });
         return;
       }
       submitReschedule("single");
     }
 
     function submitReschedule(scope) {
-      closeModal("modalRescheduleScope");
       var session = activeDetailSession;
       if (!session) { return; }
       var en = isEn();

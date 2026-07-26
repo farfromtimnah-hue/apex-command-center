@@ -61,13 +61,24 @@
     body.lang-pt .status-badge[data-status="pending"]::before    { content: "Pendente"; }
     body.lang-pt .status-badge[data-status="summarized"]::before { content: "Resumido"; }
     body.lang-pt .status-badge[data-status="approved"]::before   { content: "Aprovado"; }
+    body.lang-pt .status-badge[data-status="scheduled"]::before  { content: "Agendado"; }
+    body.lang-pt .status-badge[data-status="cancelled"]::before  { content: "Cancelado"; }
     body.lang-en .status-badge[data-status="pending"]::before    { content: "Pending"; }
     body.lang-en .status-badge[data-status="summarized"]::before { content: "Summarized"; }
     body.lang-en .status-badge[data-status="approved"]::before   { content: "Approved"; }
+    body.lang-en .status-badge[data-status="scheduled"]::before  { content: "Scheduled"; }
+    body.lang-en .status-badge[data-status="cancelled"]::before  { content: "Cancelled"; }
 
     .status-badge[data-status="pending"]    { background: #fdf3dc; color: #8a6200; }
     .status-badge[data-status="summarized"] { background: #dce8fd; color: #1a4a8a; }
     .status-badge[data-status="approved"]   { background: #ddfaec; color: #1a6640; }
+    .status-badge[data-status="scheduled"]  { background: #dce8fd; color: #1a4a8a; }
+    .status-badge[data-status="cancelled"]  { background: #f3e8ff; color: #6b21a8; }
+
+    /* Cancelled sessions stay in the history (that is the point of keeping
+       them) but read as clearly struck business history, not active work. */
+    tr.session-row-cancelled td { opacity: 0.62; }
+    tr.session-row-cancelled td:first-child { text-decoration: line-through; }
 
     /* ─── Summary section titles ─────────────────────────────────────────── */
     .section-title { font-size: 13px; font-weight: 700; color: var(--brown); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.6px; }
@@ -4241,6 +4252,7 @@
       for (var i = 0; i < sess.length; i++) {
         (function(s) {
           var tr = document.createElement("tr");
+          if (s.status === "cancelled") { tr.className = "session-row-cancelled"; }
 
           var tdDate = document.createElement("td");
           tdDate.className = "mc-head";

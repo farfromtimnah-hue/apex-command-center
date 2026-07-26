@@ -3269,13 +3269,24 @@
         values["Atual"] = fmtNum(sel.realizado, indPctType(sel));
         values["Meta"] = fmtNum(sel.meta_mensal, indPctType(sel));
       }
-      // window.open must be synchronous in the tap (Safari) — same pattern
-      // as openDocument; the wa.me URL lands when the Worker answers.
-      var tab = window.open("", "_blank");
+      // iOS Safari requires a popup's destination URL to be set synchronously
+      // inside the user gesture — an about:blank tab navigated later stays
+      // blank. The wa.me URL only depends on clientName + label (both already
+      // known here, and /api/portal/me returns the same clients.name the
+      // Worker uses), so build it locally, open the tab with the final URL
+      // in the tap itself, and create the consultant task in the background.
+      var label = isEn() ? sel.label_en : sel.label_pt;
+      var waText = "Oi Rafa! Aqui é " + clientName +
+        ". Preciso de ajuda com \"" + label + "\" no Portal Apex. Os números estão na sua aba de tarefas.";
+      var tab = window.open("https://wa.me/?text=" + encodeURIComponent(waText), "_blank");
+      if (!tab) {
+        window.alert(isEn() ? "Popup blocked — allow popups and try again." : "Popup bloqueado — permita popups e tente de novo.");
+        return;
+      }
       apiFetch("/api/clients/" + clientId + "/help-request", {
         method: "POST",
         body: {
-          category_label: isEn() ? sel.label_en : sel.label_pt,
+          category_label: label,
           month: todayStr().slice(0, 7),
           values: values
         }
@@ -3283,14 +3294,14 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) {
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
-          if (tab) { tab.location.href = r.data.whatsapp_url; }
           window.alert(isEn()
             ? "Help request sent — Rafa was notified and will see your numbers."
             : "Pedido de ajuda enviado — o Rafa foi avisado e vai ver seus números.");
         })
         .catch(function(e) {
-          if (tab) { tab.close(); }
-          window.alert(e.message);
+          window.alert(isEn()
+            ? "The WhatsApp message opened, but saving your numbers for Rafa failed: " + e.message
+            : "O WhatsApp abriu, mas não foi possível salvar seus números para o Rafa: " + e.message);
         });
     }
 

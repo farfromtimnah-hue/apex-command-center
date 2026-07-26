@@ -5889,6 +5889,9 @@
             var opt = document.createElement("option");
             opt.value = clients[i].id;
             opt.textContent = clients[i].name;
+            // Carried so the Google event can invite the client when their
+            // record has an email (same behavior as calendar.html).
+            opt.dataset.email = clients[i].email || "";
             if (clients[i].id === CLIENT_ID) { opt.selected = true; }
             sel.appendChild(opt);
           }
@@ -5963,14 +5966,21 @@
         if (endHour > 23) { endHour = 23; }
         var endTime = (endHour < 10 ? "0" : "") + endHour + ":" + timeParts[1];
 
+        var ssEventBody = {
+          summary: clientName + " - Consultoria Apex",
+          start_datetime: date + "T" + time + ":00",
+          end_datetime: date + "T" + endTime + ":00",
+          add_meet_link: true
+        };
+        // Invite the client when their record has a valid email -- Google
+        // then sends a real invite. No email on file adds no attendee.
+        var ssOpt = (sel && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex] : null;
+        var ssEmail = ssOpt && ssOpt.dataset ? (ssOpt.dataset.email || "").trim() : "";
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ssEmail)) { ssEventBody.attendee_email = ssEmail; }
+
         apiFetch("/api/google/calendar/event", {
           method: "POST",
-          body: {
-            summary: clientName + " - Consultoria Apex",
-            start_datetime: date + "T" + time + ":00",
-            end_datetime: date + "T" + endTime + ":00",
-            add_meet_link: true
-          }
+          body: ssEventBody
         })
           .then(function(res) { return res.json(); })
           .then(function(calData) {

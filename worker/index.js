@@ -357,7 +357,7 @@ async function findCalendarTitleForFireflies(env, meta) {
     var dayStr = firefliesDateToYMD(meta.date);
     var dayRows = await env.DB.prepare(
         "SELECT client_name, time, google_meet_link FROM sessions " +
-        "WHERE date = ? AND client_name IS NOT NULL AND client_name != '' AND status != 'discarded'"
+        "WHERE date = ? AND client_name IS NOT NULL AND client_name != '' AND status != 'discarded' AND status != 'cancelled'"
     ).bind(dayStr).all();
 
     for (var i = 0; i < dayRows.results.length; i++) {
@@ -664,7 +664,7 @@ async function handleGetSessions(request, env) {
             stmt = env.DB.prepare(
                 "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at, " +
                 "raw_transcript IS NOT NULL as has_transcript " +
-                "FROM sessions WHERE status != 'archived' AND meeting_category != 'event' AND client_id = ? ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category != 'event' AND client_id = ? ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
@@ -672,7 +672,7 @@ async function handleGetSessions(request, env) {
                 "raw_transcript IS NOT NULL as has_transcript " +
                 // Event entries (conferences, Apex Club) are not client
                 // sessions -- keep them out of the summarize/transcript list.
-                "FROM sessions WHERE status != 'archived' AND meeting_category != 'event' ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category != 'event' ORDER BY created_at DESC"
             );
         }
 
@@ -2170,9 +2170,10 @@ async function handlePatchTask(id, request, env) {
 // stored NULL and event_name lands in the NOT NULL client_name column.
 // end_time is stored as a plain "HH:MM" (the Google Calendar sync path
 // stores full ISO datetimes in the same column -- readers handle both).
-// recur_frequency/recur_count expand an in_person series into N independent
-// rows in one POST (online_meet series are expanded by the frontend, which
-// must create each Meet link first). Count is hard-capped at 26.
+// recur_frequency/recur_count expand a series into N rows linked by a
+// series_id in one POST. online_meet series additionally create ONE Google
+// Calendar event carrying a native RRULE (shared Meet link; Google
+// generates the instances). Count is hard-capped at 26.
 // ---------------------------------------------------------------------------
 
 var RECUR_FREQUENCIES = ["weekly", "biweekly", "monthly"];
@@ -2239,14 +2240,12 @@ async function handlePostSessionsSchedule(request, env) {
           meetLink = body.google_meet_link || "[PENDING_GOOGLE_API]";
         }
 
-        // In-person recurrence expansion: N independent rows, no series
-        // record (deliberate -- deleting one occurrence never touches the
-        // others). The 26 cap is a guard shared with the frontend.
+        // Recurrence expansion: N linked rows sharing a series_id. The 26 cap
+        // is a guard shared with the frontend.
         var recurCount = 1;
         var recurFreq  = null;
         if (body.recur_count !== undefined && body.recur_count !== null) {
             if (meetingCategory === "event") { return jsonErr("Events cannot recur", 400); }
-            if (sessionType !== "in_person") { return jsonErr("Recurrence expansion is in_person only -- online_meet series are created per-occurrence by the frontend", 400); }
             recurCount = parseInt(body.recur_count, 10);
             if (isNaN(recurCount) || recurCount < 2 || recurCount > 26) {
                 return jsonErr("recur_count must be between 2 and 26", 400);
@@ -2257,23 +2256,63 @@ async function handlePostSessionsSchedule(request, env) {
             }
         }
 
+        var seriesId      = recurFreq ? crypto.randomUUID() : null;
+        var googleEventId = body.google_event_id || null;
+        var gcalError     = null;
+
+        // Recurring online series: ONE Google Calendar event carrying a
+        // native RRULE (Google generates the instances; the whole series
+        // shares one Meet link), then N local rows below. One API call, so
+        // there is no per-occurrence partial-failure problem. If Google
+        // fails, the rows are still created with the placeholder link so the
+        // series exists and is repairable from the detail modal; the
+        // WhatsApp 409 guard keeps the placeholder away from clients.
+        if (recurFreq && sessionType === "online_meet") {
+            var seriesEndHHMM = endTime || plusOneHourHHMM(body.time);
+            var seriesTitle = meetingCategory === "prospective" ? clientName : clientName + " - RDE";
+            var attendeeEmail = meetingCategory === "event" ? null : await lookupClientAttendeeEmail(env, clientId);
+            try {
+                var seriesToken = await getGoogleAccessToken(env);
+                var seriesEventBody = {
+                    summary: seriesTitle,
+                    start: { dateTime: body.date + "T" + body.time + ":00", timeZone: "America/Sao_Paulo" },
+                    end:   { dateTime: body.date + "T" + seriesEndHHMM + ":00", timeZone: "America/Sao_Paulo" },
+                    recurrence: [buildRecurrenceRule(recurFreq, recurCount)],
+                    conferenceData: {
+                        createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+                    }
+                };
+                if (attendeeEmail) { seriesEventBody.attendees = [{ email: attendeeEmail }]; }
+                var seriesRes = await googleCalendarApiCall(seriesToken, "POST", "/events?conferenceDataVersion=1", seriesEventBody);
+                if (seriesRes.ok && seriesRes.data) {
+                    googleEventId = seriesRes.data.id;
+                    var seriesMeet = extractGoogleEventMeetLink(seriesRes.data);
+                    if (seriesMeet) { meetLink = seriesMeet; }
+                } else {
+                    gcalError = googleApiErrMessage(seriesRes);
+                }
+            } catch (seriesErr) {
+                gcalError = seriesErr.message;
+            }
+        }
+
         var sessionIds = [];
         for (var i = 0; i < recurCount; i++) {
             var occDate = recurFreq ? recurOccurrenceDate(body.date, recurFreq, i) : body.date;
             var sessionId = crypto.randomUUID();
             await env.DB.prepare(
-                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?)"
-            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, body.google_event_id || null, body.notes || null, meetingCategory).run();
+                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?)"
+            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId).run();
             sessionIds.push(sessionId);
         }
 
         var session = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, created_at " +
+            "SELECT id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, series_id, created_at " +
             "FROM sessions WHERE id = ?"
         ).bind(sessionIds[0]).first();
 
-        return jsonOk({ session: session, sessions_created: sessionIds.length });
+        return jsonOk({ session: session, sessions_created: sessionIds.length, series_id: seriesId, gcal_error: gcalError });
     } catch (e) {
         return jsonErr("Error scheduling session: " + e.message, 500);
     }
@@ -2298,8 +2337,8 @@ async function handleGetSessionsCalendar(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, " +
-            "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category " +
-            "FROM sessions WHERE date LIKE ? AND status != 'discarded' ORDER BY date ASC, time ASC"
+            "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category, series_id " +
+            "FROM sessions WHERE date LIKE ? AND status != 'discarded' AND status != 'cancelled' ORDER BY date ASC, time ASC"
         ).bind(month + "-%").all();
 
         var sessions = res.results.map(function(row) {
@@ -2321,7 +2360,11 @@ async function handleGetSessionsCalendar(request, env) {
                 attendees:          row.attendees ? JSON.parse(row.attendees) : null,
                 has_transcript:     !!row.raw_transcript,
                 has_pdf:            !!row.pdf_data,
-                meeting_category:   row.meeting_category || "client"
+                meeting_category:   row.meeting_category || "client",
+                series_id:          row.series_id || null,
+                // Notes live in raw_transcript until a real transcript
+                // replaces them -- only expose while still just notes.
+                notes:              row.status === "scheduled" ? (row.raw_transcript || null) : null
             };
         });
 
@@ -2374,7 +2417,7 @@ async function handleGetSessionsMatchForEvent(request, env) {
 
         var dayRows = await env.DB.prepare(
             "SELECT id, client_name, time, google_meet_link, raw_transcript, pdf_data, status " +
-            "FROM sessions WHERE date = ? AND status != 'discarded'"
+            "FROM sessions WHERE date = ? AND status != 'discarded' AND status != 'cancelled'"
         ).bind(dateStr).all();
 
         var best = null;
@@ -2457,8 +2500,10 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
 
         var d       = new Date(session.date + "T12:00:00");
         var weekday = WEEKDAYS_PT[d.getDay()];
+        // American format (MM/DD/YYYY) -- this string goes to real clients,
+        // matching the app-wide display convention shipped in datetime.js.
         var dateParts = session.date.split("-");
-        var dateFormatted = dateParts[2] + "/" + dateParts[1] + "/" + dateParts[0];
+        var dateFormatted = dateParts[1] + "/" + dateParts[2] + "/" + dateParts[0];
         var time    = session.time || "";
 
         var templateKey = session.session_type === "in_person" ? "session_in_person" : "session_online";
@@ -2524,6 +2569,539 @@ async function handlePatchSessionMeetLink(sessionId, request, env) {
         return jsonOk({ ok: true, google_meet_link: meetLink, google_event_id: body.google_event_id || null });
     } catch (e) {
         return jsonErr("Error updating Meet link: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers for the session-mutation routes (cancel/reschedule/edit)
+// and the RRULE-based recurring scheduling.
+// ---------------------------------------------------------------------------
+
+var ATTENDEE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Minimal Google Calendar API call against the primary calendar. Returns
+// { ok, status, data } -- never throws on HTTP errors (callers decide what
+// a 404 means); throws only on timeout/network failure.
+async function googleCalendarApiCall(accessToken, method, path, body) {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 15000);
+    var res;
+    try {
+        res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary" + path, {
+            method: method,
+            headers: { "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+    var data = null;
+    if (res.status !== 204) {
+        try { data = await res.json(); } catch (e) { data = null; }
+    }
+    return { ok: res.ok, status: res.status, data: data };
+}
+
+function googleApiErrMessage(result) {
+    if (result.data && result.data.error && result.data.error.message) {
+        return "Google Calendar API error: " + result.data.error.message;
+    }
+    return "Google Calendar API error (HTTP " + result.status + ")";
+}
+
+// Resolves the concrete instance id of ONE occurrence of a recurring Google
+// event (series rows all store the master event id). Matched by the
+// occurrence's stored D1 date. Returns null when Google has no instance on
+// that date -- i.e. it was already moved or removed on the Google side.
+async function findGoogleInstanceId(accessToken, masterEventId, dateStr) {
+    var result = await googleCalendarApiCall(accessToken, "GET",
+        "/events/" + encodeURIComponent(masterEventId) + "/instances?maxResults=60", null);
+    if (!result.ok || !result.data || !result.data.items) { return null; }
+    for (var i = 0; i < result.data.items.length; i++) {
+        var inst = result.data.items[i];
+        var startVal = inst.start && (inst.start.dateTime || inst.start.date);
+        if (startVal && startVal.slice(0, 10) === dateStr) { return inst.id; }
+    }
+    return null;
+}
+
+// Maps the app's frequency options onto a native Google RRULE:
+// weekly -> FREQ=WEEKLY, biweekly -> FREQ=WEEKLY;INTERVAL=2,
+// monthly -> FREQ=MONTHLY. COUNT carries the occurrence count.
+function buildRecurrenceRule(freq, count) {
+    if (freq === "monthly")  { return "RRULE:FREQ=MONTHLY;COUNT=" + count; }
+    if (freq === "biweekly") { return "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=" + count; }
+    return "RRULE:FREQ=WEEKLY;COUNT=" + count;
+}
+
+// Cadence of a stored series, derived from the dates of its OWN rows (these
+// were generated by recurOccurrenceDate, so the gap is deterministic -- this
+// is not the forbidden cross-meeting client/time/spacing heuristic).
+// Single-row series fall back to weekly; nothing is left to derive from and
+// nothing after this occurrence exists to move anyway.
+function deriveSeriesFrequency(dates) {
+    if (dates.length < 2) { return "weekly"; }
+    var a = new Date(dates[0] + "T00:00:00Z").getTime();
+    var b = new Date(dates[1] + "T00:00:00Z").getTime();
+    var gap = Math.round((b - a) / 86400000);
+    if (gap >= 21) { return "monthly"; }
+    if (gap >= 10) { return "biweekly"; }
+    return "weekly";
+}
+
+function addDaysToDateStr(dateStr, days) {
+    var p = dateStr.split("-");
+    var out = new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + days));
+    function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+    return out.getUTCFullYear() + "-" + pad2(out.getUTCMonth() + 1) + "-" + pad2(out.getUTCDate());
+}
+
+function daysBetweenDateStr(fromStr, toStr) {
+    var a = new Date(fromStr + "T00:00:00Z").getTime();
+    var b = new Date(toStr + "T00:00:00Z").getTime();
+    return Math.round((b - a) / 86400000);
+}
+
+function plusOneHourHHMM(hhmm) {
+    var p = hhmm.split(":");
+    var h = parseInt(p[0], 10) + 1;
+    if (h > 23) { h = 23; }
+    return (h < 10 ? "0" + h : "" + h) + ":" + p[1];
+}
+
+// end_time carries two shapes in D1 ("HH:MM" from the app, full ISO from the
+// Google sync) -- normalize on read, never migrate stored values.
+function endTimeHHMMFromRow(endVal) {
+    if (!endVal) { return null; }
+    if (endVal.indexOf("T") !== -1) { return endVal.slice(11, 16); }
+    return endVal.slice(0, 5);
+}
+
+// The client's email as a Google Calendar attendee, only when the client
+// record actually carries one that looks like an email (a malformed address
+// would send a real invite to a stranger). Missing email = no attendee, no
+// warning -- most clients have none on file and that is expected.
+async function lookupClientAttendeeEmail(env, clientId) {
+    if (!clientId) { return null; }
+    var row = await env.DB.prepare("SELECT email FROM clients WHERE id = ?").bind(clientId).first();
+    var email = row && row.email ? String(row.email).trim() : "";
+    return ATTENDEE_EMAIL_RE.test(email) ? email : null;
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/sessions/:id/cancel
+// Body: { mode: "mistake" | "cancelled" }
+//   "mistake"   -> hard-deletes the session row (nothing real happened)
+//   "cancelled" -> keeps the row with status='cancelled' (business history)
+// Both remove the Google Calendar event so nothing lingers on the client's
+// calendar. Externally-synced ('google_external') sessions are refused: they
+// belong to Google, and deleting Apex's row would just re-sync it back.
+// Legacy 'google'/'manual' rows are Apex-side history -- deletable, but no
+// Google call is ever made for them.
+// A 404/410 from Google is SUCCESS here: the desired end state ("not on the
+// calendar") is already true. Any other Google failure does not block the
+// Apex-side change, but google_event_removed=false + google_error tell the
+// frontend to say plainly that the client's calendar was NOT cleaned.
+// ---------------------------------------------------------------------------
+
+async function handlePostSessionCancel(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var mode = body.mode;
+        if (mode !== "mistake" && mode !== "cancelled") {
+            return jsonErr("mode must be 'mistake' or 'cancelled'", 400);
+        }
+
+        var session = await env.DB.prepare(
+            "SELECT id, google_event_id, calendar_provider, series_id, date, status FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        if (session.calendar_provider === "google_external") {
+            return jsonErr("Externally-synced Google Calendar events cannot be cancelled from Apex -- remove them in Google Calendar itself.", 400);
+        }
+
+        var googleRemoved = null; // null = no Google event involved at all
+        var googleError = null;
+        if (session.calendar_provider === "apex" && session.google_event_id) {
+            var accessToken = null;
+            try {
+                accessToken = await getGoogleAccessToken(env);
+            } catch (tokenErr) {
+                googleRemoved = false;
+                googleError = tokenErr.message;
+            }
+            if (accessToken) {
+                // Series rows share the master recurring event: while other
+                // rows still use this google_event_id, delete only this
+                // occurrence's instance, not the whole series.
+                var targetEventId = session.google_event_id;
+                if (session.series_id) {
+                    var siblings = await env.DB.prepare(
+                        "SELECT COUNT(*) AS n FROM sessions WHERE google_event_id = ? AND id != ? AND status != 'cancelled'"
+                    ).bind(session.google_event_id, sessionId).first();
+                    if (siblings && siblings.n > 0) {
+                        targetEventId = await findGoogleInstanceId(accessToken, session.google_event_id, session.date);
+                    }
+                }
+                if (!targetEventId) {
+                    googleRemoved = true; // no instance on that date -> already off the calendar
+                } else {
+                    try {
+                        var delRes = await googleCalendarApiCall(accessToken, "DELETE",
+                            "/events/" + encodeURIComponent(targetEventId), null);
+                        if (delRes.ok || delRes.status === 404 || delRes.status === 410) {
+                            googleRemoved = true;
+                        } else {
+                            googleRemoved = false;
+                            googleError = googleApiErrMessage(delRes);
+                        }
+                    } catch (delErr) {
+                        googleRemoved = false;
+                        googleError = delErr.message;
+                    }
+                }
+            }
+        }
+
+        if (mode === "mistake") {
+            await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sessionId).run();
+        } else {
+            await env.DB.prepare("UPDATE sessions SET status = 'cancelled' WHERE id = ?").bind(sessionId).run();
+        }
+
+        return jsonOk({ ok: true, mode: mode, google_event_removed: googleRemoved, google_error: googleError });
+    } catch (e) {
+        return jsonErr("Error cancelling session: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/sessions/:id/reschedule
+// Body: { date, time, end_time?, scope? }  scope: 'single'|'following'|'all'
+// Apex-created sessions only. PATCHes the existing Google event (preserving
+// the Meet link; Google notifies attendees) instead of delete+recreate.
+// Series semantics mirror Google Calendar's own UI:
+//   'single'    -> move one instance (resolved via the instances endpoint)
+//   'following' -> truncate the master's RRULE with UNTIL just before this
+//                  occurrence, then create a NEW recurring event for the
+//                  remainder (this is how Google's own UI implements it --
+//                  there is no native this-and-following API operation)
+//   'all'       -> move the master's start; Google regenerates instances,
+//                  and the local rows are regenerated the same way
+// Google failures other than 404/410 abort BEFORE any D1 change so Apex and
+// the client's calendar can never silently disagree about a meeting time.
+// ---------------------------------------------------------------------------
+
+async function handlePostSessionReschedule(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.date || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)) { return jsonErr("date must be YYYY-MM-DD", 400); }
+        if (!body.time || !/^\d{2}:\d{2}$/.test(body.time))       { return jsonErr("time must be HH:MM", 400); }
+        var newEnd = null;
+        if (body.end_time) {
+            if (!/^\d{2}:\d{2}$/.test(body.end_time)) { return jsonErr("end_time must be HH:MM", 400); }
+            if (body.end_time <= body.time) { return jsonErr("end_time must be after time", 400); }
+            newEnd = body.end_time;
+        }
+        var scope = body.scope || "single";
+        if (scope !== "single" && scope !== "following" && scope !== "all") {
+            return jsonErr("scope must be single, following or all", 400);
+        }
+
+        var session = await env.DB.prepare(
+            "SELECT id, client_name, date, time, end_time, session_type, google_event_id, calendar_provider, series_id, status " +
+            "FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+        if (session.calendar_provider === "google_external") {
+            return jsonErr("Externally-synced Google Calendar events cannot be rescheduled from Apex -- change them in Google Calendar itself.", 400);
+        }
+        if (session.calendar_provider !== "apex") {
+            return jsonErr("Legacy sessions are read-only history and cannot be rescheduled.", 400);
+        }
+
+        // The Google event PATCH needs an end; default to start-plus-one-hour
+        // (same convention as event creation) when none was given or stored.
+        var googleEndHHMM = newEnd || endTimeHHMMFromRow(session.end_time);
+        if (!googleEndHHMM || googleEndHHMM <= body.time) { googleEndHHMM = plusOneHourHHMM(body.time); }
+
+        var hasGoogle = session.calendar_provider === "apex" && !!session.google_event_id;
+        var accessToken = null;
+        if (hasGoogle) {
+            try {
+                accessToken = await getGoogleAccessToken(env);
+            } catch (tokenErr) {
+                // Refuse rather than diverge: an Apex-side move with the
+                // Google event stuck at the old time would show the client a
+                // wrong calendar while Apex believes it moved.
+                return jsonErr("Cannot reschedule while Google Calendar is not connected: " + tokenErr.message, 502);
+            }
+        }
+
+        var googleWarning = null;
+        var startDT = { dateTime: body.date + "T" + body.time + ":00", timeZone: "America/Sao_Paulo" };
+        var endDT   = { dateTime: body.date + "T" + googleEndHHMM + ":00", timeZone: "America/Sao_Paulo" };
+
+        // Load the series rows once for any series-aware path.
+        var seriesRows = null;
+        var seriesFreq = null;
+        var thisIdx = -1;
+        if (session.series_id) {
+            var sr = await env.DB.prepare(
+                "SELECT id, date, time, end_time, status FROM sessions WHERE series_id = ? AND status != 'cancelled' ORDER BY date ASC"
+            ).bind(session.series_id).all();
+            seriesRows = sr.results;
+            var seriesDates = [];
+            for (var sd = 0; sd < seriesRows.length; sd++) { seriesDates.push(seriesRows[sd].date); }
+            seriesFreq = deriveSeriesFrequency(seriesDates);
+            for (var ti = 0; ti < seriesRows.length; ti++) {
+                if (seriesRows[ti].id === session.id) { thisIdx = ti; break; }
+            }
+        }
+        if (!session.series_id || thisIdx === -1) { scope = "single"; }
+        // "Following" from the first occurrence IS the whole series.
+        if (scope === "following" && thisIdx === 0) { scope = "all"; }
+
+        if (scope === "single") {
+            if (hasGoogle) {
+                var targetId = session.google_event_id;
+                if (session.series_id) {
+                    var others = await env.DB.prepare(
+                        "SELECT COUNT(*) AS n FROM sessions WHERE google_event_id = ? AND id != ? AND status != 'cancelled'"
+                    ).bind(session.google_event_id, sessionId).first();
+                    if (others && others.n > 0) {
+                        targetId = await findGoogleInstanceId(accessToken, session.google_event_id, session.date);
+                        if (!targetId) { googleWarning = "No matching Google Calendar instance was found for this occurrence -- only the Apex side was updated."; }
+                    }
+                }
+                if (targetId) {
+                    var patchRes = await googleCalendarApiCall(accessToken, "PATCH",
+                        "/events/" + encodeURIComponent(targetId), { start: startDT, end: endDT });
+                    if (!patchRes.ok) {
+                        if (patchRes.status === 404 || patchRes.status === 410) {
+                            googleWarning = "The Google Calendar event no longer exists -- only the Apex side was updated.";
+                        } else {
+                            return jsonErr(googleApiErrMessage(patchRes), 502);
+                        }
+                    }
+                }
+            }
+            await env.DB.prepare(
+                "UPDATE sessions SET date = ?, time = ?, end_time = ? WHERE id = ?"
+            ).bind(body.date, body.time, newEnd, sessionId).run();
+            return jsonOk({ ok: true, scope: "single", updated: 1, google_warning: googleWarning });
+        }
+
+        if (scope === "following") {
+            var followingRows = seriesRows.slice(thisIdx);
+            var newMasterId = session.google_event_id;
+            var newMeetLink = null;
+            if (hasGoogle) {
+                var masterRes = await googleCalendarApiCall(accessToken, "GET",
+                    "/events/" + encodeURIComponent(session.google_event_id), null);
+                if (!masterRes.ok) {
+                    if (masterRes.status === 404 || masterRes.status === 410) {
+                        googleWarning = "The Google Calendar series no longer exists -- only the Apex side was updated.";
+                        newMasterId = null;
+                    } else {
+                        return jsonErr(googleApiErrMessage(masterRes), 502);
+                    }
+                } else {
+                    var master = masterRes.data;
+                    // Truncate the original rule the way Google's UI does:
+                    // strip COUNT/UNTIL, add UNTIL just before this occurrence.
+                    var oldRule = (master.recurrence && master.recurrence[0]) || buildRecurrenceRule(seriesFreq, seriesRows.length);
+                    var truncated = oldRule
+                        .replace(/;COUNT=\d+/i, "")
+                        .replace(/;UNTIL=[0-9TZ]+/i, "")
+                        + ";UNTIL=" + addDaysToDateStr(session.date, -1).split("-").join("") + "T235959Z";
+                    var truncRes = await googleCalendarApiCall(accessToken, "PATCH",
+                        "/events/" + encodeURIComponent(session.google_event_id), { recurrence: [truncated] });
+                    if (!truncRes.ok && truncRes.status !== 404 && truncRes.status !== 410) {
+                        return jsonErr(googleApiErrMessage(truncRes), 502);
+                    }
+                    var newEventBody = {
+                        summary:     master.summary || session.client_name,
+                        description: master.description || undefined,
+                        location:    master.location || undefined,
+                        start: startDT,
+                        end:   endDT,
+                        recurrence: [buildRecurrenceRule(seriesFreq, followingRows.length)]
+                    };
+                    if (master.attendees && master.attendees.length) {
+                        newEventBody.attendees = master.attendees.map(function(a) { return { email: a.email }; });
+                    }
+                    if (session.session_type === "online_meet") {
+                        newEventBody.conferenceData = {
+                            createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+                        };
+                    }
+                    var createRes = await googleCalendarApiCall(accessToken, "POST",
+                        "/events?conferenceDataVersion=1", newEventBody);
+                    if (!createRes.ok || !createRes.data) {
+                        return jsonErr(googleApiErrMessage(createRes), 502);
+                    }
+                    newMasterId = createRes.data.id;
+                    newMeetLink = extractGoogleEventMeetLink(createRes.data);
+                }
+            }
+            for (var fi = 0; fi < followingRows.length; fi++) {
+                var occDateF = recurOccurrenceDate(body.date, seriesFreq, fi);
+                if (newMeetLink) {
+                    await env.DB.prepare(
+                        "UPDATE sessions SET date = ?, time = ?, end_time = ?, google_event_id = ?, google_meet_link = ? WHERE id = ?"
+                    ).bind(occDateF, body.time, newEnd, newMasterId, newMeetLink, followingRows[fi].id).run();
+                } else {
+                    await env.DB.prepare(
+                        "UPDATE sessions SET date = ?, time = ?, end_time = ?, google_event_id = ? WHERE id = ?"
+                    ).bind(occDateF, body.time, newEnd, newMasterId, followingRows[fi].id).run();
+                }
+            }
+            return jsonOk({ ok: true, scope: "following", updated: followingRows.length, google_warning: googleWarning });
+        }
+
+        // scope === "all": shift the whole series by this occurrence's delta.
+        var deltaDays = daysBetweenDateStr(session.date, body.date);
+        var newFirstDate = addDaysToDateStr(seriesRows ? seriesRows[0].date : session.date, deltaDays);
+        if (hasGoogle) {
+            var allStart = { dateTime: newFirstDate + "T" + body.time + ":00", timeZone: "America/Sao_Paulo" };
+            var allEnd   = { dateTime: newFirstDate + "T" + googleEndHHMM + ":00", timeZone: "America/Sao_Paulo" };
+            var allRes = await googleCalendarApiCall(accessToken, "PATCH",
+                "/events/" + encodeURIComponent(session.google_event_id), { start: allStart, end: allEnd });
+            if (!allRes.ok) {
+                if (allRes.status === 404 || allRes.status === 410) {
+                    googleWarning = "The Google Calendar event no longer exists -- only the Apex side was updated.";
+                } else {
+                    return jsonErr(googleApiErrMessage(allRes), 502);
+                }
+            }
+        }
+        var rowsToMove = seriesRows || [ { id: session.id } ];
+        for (var ai = 0; ai < rowsToMove.length; ai++) {
+            var occDateA = seriesRows ? recurOccurrenceDate(newFirstDate, seriesFreq, ai) : body.date;
+            await env.DB.prepare(
+                "UPDATE sessions SET date = ?, time = ?, end_time = ? WHERE id = ?"
+            ).bind(occDateA, body.time, newEnd, rowsToMove[ai].id).run();
+        }
+        return jsonOk({ ok: true, scope: "all", updated: rowsToMove.length, google_warning: googleWarning });
+    } catch (e) {
+        return jsonErr("Error rescheduling session: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/sessions/:id
+// Body: { location?, notes?, end_time? } -- only supplied fields change.
+// Edit of location / notes / end time. Apex-created sessions only (legacy
+// rows are read-only history; external rows belong to Google).
+// Google side: an end-time change PATCHes the event's end so the calendar
+// duration stays right; a location change PATCHes the event's location so
+// the client's own calendar entry carries the address.
+// Notes live in raw_transcript for scheduled sessions (that is where the
+// schedule route writes them) -- refuse to touch that column once a real
+// transcript may have replaced them.
+// ---------------------------------------------------------------------------
+
+async function handlePatchSessionDetails(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var hasLocation = Object.prototype.hasOwnProperty.call(body, "location");
+        var hasNotes    = Object.prototype.hasOwnProperty.call(body, "notes");
+        var hasEnd      = Object.prototype.hasOwnProperty.call(body, "end_time");
+        if (!hasLocation && !hasNotes && !hasEnd) {
+            return jsonErr("Nothing to update -- provide location, notes and/or end_time", 400);
+        }
+
+        var session = await env.DB.prepare(
+            "SELECT id, date, time, end_time, location, session_type, google_event_id, calendar_provider, series_id, status " +
+            "FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+        if (session.calendar_provider === "google_external") {
+            return jsonErr("Externally-synced Google Calendar events cannot be edited from Apex.", 400);
+        }
+        if (session.calendar_provider !== "apex") {
+            return jsonErr("Legacy sessions are read-only history and cannot be edited.", 400);
+        }
+
+        var newLocation = hasLocation ? ((body.location && String(body.location).trim()) || null) : session.location;
+        var newEnd = null;
+        if (hasEnd && body.end_time) {
+            if (!/^\d{2}:\d{2}$/.test(body.end_time)) { return jsonErr("end_time must be HH:MM", 400); }
+            if (session.time && body.end_time <= session.time.slice(0, 5)) {
+                return jsonErr("end_time must be after the session's start time", 400);
+            }
+            newEnd = body.end_time;
+        }
+        if (hasNotes && session.status !== "scheduled") {
+            return jsonErr("Notes can only be edited while the session is still scheduled.", 400);
+        }
+
+        // Google event PATCH when the change affects the calendar entry.
+        var googleWarning = null;
+        var patchBody = {};
+        if (hasEnd && newEnd && session.time) {
+            patchBody.end = { dateTime: session.date + "T" + newEnd + ":00", timeZone: "America/Sao_Paulo" };
+        }
+        if (hasLocation) {
+            patchBody.location = newLocation || "";
+        }
+        if (session.google_event_id && (patchBody.end || hasLocation)) {
+            var accessToken = null;
+            try {
+                accessToken = await getGoogleAccessToken(env);
+            } catch (tokenErr) {
+                return jsonErr("Cannot edit while Google Calendar is not connected: " + tokenErr.message, 502);
+            }
+            var targetId = session.google_event_id;
+            if (session.series_id) {
+                var others = await env.DB.prepare(
+                    "SELECT COUNT(*) AS n FROM sessions WHERE google_event_id = ? AND id != ? AND status != 'cancelled'"
+                ).bind(session.google_event_id, sessionId).first();
+                if (others && others.n > 0) {
+                    targetId = await findGoogleInstanceId(accessToken, session.google_event_id, session.date);
+                    if (!targetId) { googleWarning = "No matching Google Calendar instance was found -- only the Apex side was updated."; }
+                }
+            }
+            if (targetId) {
+                var patchRes = await googleCalendarApiCall(accessToken, "PATCH",
+                    "/events/" + encodeURIComponent(targetId), patchBody);
+                if (!patchRes.ok) {
+                    if (patchRes.status === 404 || patchRes.status === 410) {
+                        googleWarning = "The Google Calendar event no longer exists -- only the Apex side was updated.";
+                    } else {
+                        return jsonErr(googleApiErrMessage(patchRes), 502);
+                    }
+                }
+            }
+        }
+
+        var sets = [];
+        var binds = [];
+        if (hasLocation) { sets.push("location = ?");       binds.push(newLocation); }
+        if (hasEnd)      { sets.push("end_time = ?");       binds.push(newEnd); }
+        if (hasNotes)    { sets.push("raw_transcript = ?"); binds.push((body.notes && String(body.notes).trim()) || null); }
+        binds.push(sessionId);
+        var stmt = env.DB.prepare("UPDATE sessions SET " + sets.join(", ") + " WHERE id = ?");
+        await stmt.bind.apply(stmt, binds).run();
+
+        return jsonOk({ ok: true, google_warning: googleWarning });
+    } catch (e) {
+        return jsonErr("Error editing session: " + e.message, 500);
     }
 }
 
@@ -2739,6 +3317,17 @@ async function handlePostGoogleCalendarEvent(request, env) {
                     conferenceSolutionKey: { type: "hangoutsMeet" }
                 }
             };
+        }
+
+        // Optional single attendee (the client's email, when their record has
+        // one) -- validated because a malformed address would send a real
+        // Google invite to a stranger.
+        if (body.attendee_email) {
+            var attendeeEmail = String(body.attendee_email).trim();
+            if (!ATTENDEE_EMAIL_RE.test(attendeeEmail)) {
+                return jsonErr("attendee_email is not a valid email address", 400);
+            }
+            eventBody.attendees = [{ email: attendeeEmail }];
         }
 
         var calUrl = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -7893,7 +8482,7 @@ async function handleGetPortalNextMeeting(request, env) {
         if (!previewClientId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
         var row = await env.DB.prepare(
             "SELECT date, time, session_type, google_meet_link FROM sessions " +
-            "WHERE client_id = ? AND status != 'discarded' AND date >= date('now', '-1 day') " +
+            "WHERE client_id = ? AND status != 'discarded' AND status != 'cancelled' AND date >= date('now', '-1 day') " +
             "ORDER BY date ASC, COALESCE(time,'99:99') ASC LIMIT 1"
         ).bind(previewClientId || user.client_id).first();
         return jsonOk({ meeting: row || null });
@@ -9420,6 +10009,16 @@ export default {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "meet-link" && method === "PATCH") {
             return handlePatchSessionMeetLink(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "cancel" && method === "POST") {
+            return handlePostSessionCancel(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "reschedule" && method === "POST") {
+            return handlePostSessionReschedule(segs[2], request, env);
+        }
+        // /api/sessions/:id  PATCH -- edit location/notes/end_time
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs.length === 3 && method === "PATCH") {
+            return handlePatchSessionDetails(segs[2], request, env);
         }
 
         // /api/goal-approvals/:client_id/:indicator_key/:month_label  POST

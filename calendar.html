@@ -934,6 +934,46 @@
     .btn-fix-meet:hover    { background: var(--gold-dim); }
     .btn-fix-meet:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* Cancel-meeting action: outlined red so it reads as destructive without
+       competing with the primary actions. */
+    .btn-danger-outline {
+      background: transparent;
+      color: #b44040;
+      border: 1.5px solid #b44040;
+      border-radius: 7px;
+      padding: 10px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-danger-outline:hover    { background: rgba(180,64,64,0.08); }
+    .btn-danger-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-danger-solid {
+      width: 100%;
+      background: #b44040;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 11px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-danger-solid:hover    { opacity: 0.88; }
+    .btn-danger-solid:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .modal-help-text {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+
     .recur-check-row {
       display: flex;
       align-items: center;
@@ -1318,8 +1358,9 @@
           <input type="text" id="nsLocation">
         </div>
         <!-- Recurrence: client/prospective meetings only, never events.
-             Each occurrence becomes its own independent session row --
-             deliberately no series record and no edit-all/cancel-series. -->
+             The worker creates ONE Google Calendar event with a native
+             RRULE (shared Meet link) plus N local rows linked by series_id,
+             so reschedule can offer this/following/all like Google does. -->
         <div class="field-group" id="nsRecurGroup">
           <label class="recur-check-row">
             <input type="checkbox" id="nsRecurring" onchange="toggleNsRecurring()">
@@ -1585,12 +1626,195 @@
             <span class="show-pt">Enviar WhatsApp</span>
             <span class="show-en">Send WhatsApp</span>
           </button>
+          <button class="btn-fix-meet" id="btnDetailReschedule" onclick="openReschedule()" hidden>
+            <span class="show-pt">Reagendar</span>
+            <span class="show-en">Reschedule</span>
+          </button>
+          <button class="btn-fix-meet" id="btnDetailEdit" onclick="openEditSession()" hidden>
+            <span class="show-pt">Editar</span>
+            <span class="show-en">Edit</span>
+          </button>
+          <button class="btn-danger-outline" id="btnDetailCancel" onclick="openCancelSession()" hidden>
+            <span class="show-pt">Cancelar reuniao</span>
+            <span class="show-en">Cancel meeting</span>
+          </button>
           <button class="btn-close-detail" onclick="closeModal('modalDetail')">
             <span class="show-pt">Fechar</span>
             <span class="show-en">Close</span>
           </button>
         </div>
         <div class="pull-status" id="detailStatus2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Cancelar Reunião ══════════════════════════════ -->
+  <!-- Two genuinely different outcomes: "mistake" hard-deletes the Apex
+       record; "cancelled" keeps it as business history. Both remove the
+       Google Calendar event so nothing lingers on the client's calendar.
+       Follows the modalDeleteDocument confirm pattern from client.html. -->
+  <div id="modalCancelSession" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Cancelar Reunião</span>
+          <span class="show-en">Cancel Meeting</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalCancelSession')">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-help-text" style="font-size:13px;">
+          <span class="show-pt">A reunião será removida do Google Calendar do cliente. Esta ação não pode ser desfeita.</span>
+          <span class="show-en">The meeting will be removed from the client's Google Calendar. This action cannot be undone.</span>
+        </p>
+        <button class="btn-submit" id="btnCancelAsCancelled" onclick="handleCancelSession('cancelled')">
+          <span class="show-pt">Esta reunião foi cancelada</span>
+          <span class="show-en">This meeting was cancelled</span>
+        </button>
+        <p class="modal-help-text">
+          <span class="show-pt">O Apex mantém o registro como "Cancelado" (histórico do negócio); a reunião sai do calendário do cliente.</span>
+          <span class="show-en">Apex keeps the record as "Cancelled" (business history); the meeting comes off the client's calendar.</span>
+        </p>
+        <button class="btn-danger-solid" id="btnCancelAsMistake" onclick="handleCancelSession('mistake')">
+          <span class="show-pt">Foi um erro</span>
+          <span class="show-en">This was a mistake</span>
+        </button>
+        <p class="modal-help-text">
+          <span class="show-pt">O registro é excluído permanentemente do Apex e a reunião sai do calendário do cliente. Nada permanece.</span>
+          <span class="show-en">The record is permanently removed from Apex and the meeting comes off the client's calendar. Nothing lingers.</span>
+        </p>
+        <button class="btn-cancel-link" onclick="closeModal('modalCancelSession')">
+          <span class="show-pt">Voltar</span>
+          <span class="show-en">Back</span>
+        </button>
+        <div class="pull-status" id="cancelSessionStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Reagendar ═════════════════════════════════════ -->
+  <div id="modalReschedule" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Reagendar</span>
+          <span class="show-en">Reschedule</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalReschedule')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Nova data</span>
+            <span class="show-en">New date</span>
+          </div>
+          <input type="date" id="rsDate">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Hora</span>
+            <span class="show-en">Time</span>
+          </div>
+          <select id="rsTime"></select>
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Hora de término</span>
+            <span class="show-en">End time</span>
+          </div>
+          <select id="rsEndTime"></select>
+        </div>
+        <button class="btn-submit" id="btnRescheduleSubmit" onclick="handleRescheduleSubmit()">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <button class="btn-cancel-link" onclick="closeModal('modalReschedule')">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <div class="pull-status" id="rescheduleStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Reagendar — escopo da série ═══════════════════ -->
+  <!-- Shown only when the session belongs to a recurring series; mirrors
+       Google Calendar's own scope question. -->
+  <div id="modalRescheduleScope" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Reagendar reunião recorrente</span>
+          <span class="show-en">Reschedule recurring meeting</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalRescheduleScope')">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-help-text" style="font-size:13px;">
+          <span class="show-pt">Esta reunião faz parte de uma série. Quais reuniões deseja alterar?</span>
+          <span class="show-en">This meeting is part of a series. Which meetings do you want to change?</span>
+        </p>
+        <button class="btn-submit" onclick="submitReschedule('single')">
+          <span class="show-pt">Esta reunião</span>
+          <span class="show-en">This meeting</span>
+        </button>
+        <button class="btn-submit" onclick="submitReschedule('following')">
+          <span class="show-pt">Esta e todas as seguintes</span>
+          <span class="show-en">This and all following</span>
+        </button>
+        <button class="btn-submit" onclick="submitReschedule('all')">
+          <span class="show-pt">Todas as reuniões</span>
+          <span class="show-en">All meetings</span>
+        </button>
+        <button class="btn-cancel-link" onclick="closeModal('modalRescheduleScope')">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Editar Sessão ═════════════════════════════════ -->
+  <div id="modalEdit" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Editar Sessão</span>
+          <span class="show-en">Edit Session</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalEdit')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group" id="edLocationGroup">
+          <div class="field-label">
+            <span class="show-pt">Local</span>
+            <span class="show-en">Location</span>
+          </div>
+          <input type="text" id="edLocation">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Hora de término</span>
+            <span class="show-en">End time</span>
+          </div>
+          <select id="edEndTime"></select>
+        </div>
+        <div class="field-group" id="edNotesGroup">
+          <div class="field-label">
+            <span class="show-pt">Notas</span>
+            <span class="show-en">Notes</span>
+          </div>
+          <textarea id="edNotes"></textarea>
+        </div>
+        <button class="btn-submit" id="btnEditSubmit" onclick="handleEditSubmit()">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <button class="btn-cancel-link" onclick="closeModal('modalEdit')">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <div class="pull-status" id="editStatus"></div>
       </div>
     </div>
   </div>
@@ -1729,7 +1953,7 @@
 
     // ── Close modals on overlay click ──────────────────────────────────────
     document.addEventListener("click", function(e) {
-      var modals = ["modalNewSession", "modalDetail", "modalQuickAddClient"];
+      var modals = ["modalNewSession", "modalDetail", "modalQuickAddClient", "modalCancelSession", "modalReschedule", "modalRescheduleScope", "modalEdit"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
         if (el && !el.hidden && e.target === el) { el.hidden = true; }
@@ -2109,8 +2333,9 @@
 
         if (s.session_type === "online_meet") {
           countOnline++;
-          var link = s.google_meet_link;
-          if (!link || link === "[PENDING_GOOGLE_API]") { countAwaitLink++; }
+          // Same gate as the ⚠ marker: only Apex-created sessions can be
+          // "awaiting" a link -- external and legacy rows are not broken.
+          if (needsMeetLink(s)) { countAwaitLink++; }
         }
 
         if (s.session_type === "in_person") { countInPerson++; }
@@ -2298,21 +2523,45 @@
       }
     }
 
+    // calendar_provider is the real external/Apex signal. Live D1 holds FOUR
+    // values: 'apex' (created by the New Session modal), 'google_external'
+    // (synced in from Google Calendar), and legacy 'google'/'manual' rows --
+    // historical records no current code path writes. `source` only exists on
+    // the /api/google/calendar/events payload shape; keep it strictly as a
+    // fallback for rows with no calendar_provider at all.
+    function isExternalSession(session) {
+      if (session.calendar_provider) { return session.calendar_provider === "google_external"; }
+      return session.source === "external";
+    }
+
+    function isApexSession(session) {
+      return session.calendar_provider === "apex";
+    }
+
     function sessionTypeCls(session) {
-      if (session.source === "external") { return "external"; }
+      if (isExternalSession(session)) { return "external"; }
       if (session.meeting_category === "event") { return "event"; }
       if (session.meeting_category === "prospective") { return "prospective"; }
       return (session.session_type === "in_person") ? "inperson" : "online";
     }
 
-    // Online session whose Meet link is missing or still the internal
-    // "[PENDING_GOOGLE_API]" placeholder -- marked on the calendar and
-    // repairable from the detail modal.
+    // Apex-created online session whose Meet link is missing or still the
+    // internal "[PENDING_GOOGLE_API]" placeholder -- marked on the calendar
+    // and repairable from the detail modal. Never true for external events
+    // (they belong to Google) or legacy 'google'/'manual' rows (read-only
+    // history, expected to have no link -- not broken).
     function needsMeetLink(session) {
-      if (session.source === "external") { return false; }
+      if (!isApexSession(session)) { return false; }
       if (session.meeting_category === "event") { return false; }
       if (session.session_type !== "online_meet") { return false; }
       return !session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]";
+    }
+
+    // Bilingual "All day" chip text for sessions that legitimately have no
+    // time (legacy transcript-ingested rows, Google all-day events) -- an
+    // empty slot would read as a rendering failure.
+    function allDayHtml() {
+      return '<span class="show-pt">Dia inteiro</span><span class="show-en">All day</span>';
     }
 
     function makeMonthChip(session) {
@@ -2322,7 +2571,7 @@
 
       var nameSpan = document.createElement("span");
       nameSpan.className = "cal-chip-name";
-      if (session.source === "external") {
+      if (isExternalSession(session)) {
         var badge = document.createElement("span");
         badge.className = "cal-chip-badge";
         badge.textContent = isEn() ? "EXT" : "EXT";
@@ -2337,12 +2586,14 @@
       nameSpan.appendChild(document.createTextNode(session.client_name || "—"));
       chip.appendChild(nameSpan);
 
+      var timeSpan = document.createElement("span");
+      timeSpan.className = "cal-chip-time";
       if (session.time) {
-        var timeSpan = document.createElement("span");
-        timeSpan.className = "cal-chip-time";
         timeSpan.textContent = " " + formatTime(session.time);
-        chip.appendChild(timeSpan);
+      } else {
+        timeSpan.innerHTML = " " + allDayHtml();
       }
+      chip.appendChild(timeSpan);
 
       (function(s) { chip.onclick = function(e) { e.stopPropagation(); openDetail(s); }; })(session);
       return chip;
@@ -2449,10 +2700,10 @@
       var chip = document.createElement("div");
       var typeCls = sessionTypeCls(session);
       chip.className = "cal-week-chip " + typeCls;
-      var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
+      var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
       if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
-      if (session.time) { chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + formatTime(session.time) + '</span>'; }
+      chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + (session.time ? formatTime(session.time) : allDayHtml()) + '</span>';
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
     }
@@ -2541,10 +2792,10 @@
       var chip = document.createElement("div");
       var typeCls = sessionTypeCls(session);
       chip.className = "cal-day-chip " + typeCls;
-      var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
+      var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
       if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
-      if (session.time) { chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + formatTime(session.time) + '</span>'; }
+      chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + (session.time ? formatTime(session.time) : allDayHtml()) + '</span>';
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
     }
@@ -2957,113 +3208,56 @@
       }
 
       function createMeetEvent(dateStr) {
+        var body = {
+          summary: meetTitle(),
+          start_datetime: dateStr + "T" + time + ":00",
+          end_datetime: dateStr + "T" + calcEndTime() + ":00",
+          add_meet_link: true
+        };
+        // Invite the client when their record has an email -- Google then
+        // sends a real invite and the meeting lands in their own calendar.
+        // No email on file is normal and adds no attendee, no warning.
+        var attendeeEmail = clientEmailById(clientId);
+        if (attendeeEmail) { body.attendee_email = attendeeEmail; }
         return apiFetch("/api/google/calendar/event", {
           method: "POST",
-          body: {
-            summary: meetTitle(),
-            start_datetime: dateStr + "T" + time + ":00",
-            end_datetime: dateStr + "T" + calcEndTime() + ":00",
-            add_meet_link: true
-          }
+          body: body
         }).then(function(res) {
           return res.json().then(function(calData) { return { ok: res.ok, calData: calData }; });
         });
       }
 
-      // Recurring online_meet: each occurrence needs its own Google Calendar
-      // event, created sequentially from here (the Meet link must exist
-      // before the session row is saved). A failed link does NOT discard the
-      // meeting -- the row is saved anyway and the worker stores the internal
-      // placeholder, which the server-side WhatsApp guard keeps away from
-      // clients and the detail modal's "Generate Meet link" button can
-      // repair later.
-      function runRecurringOnline() {
-        var okLinks   = 0;
-        var noLinks   = 0;
-        var rowFailed = 0;
-        var gcalDown  = false;
-
-        function report() {
-          btn.disabled = false;
-          loadCalendar();
-          var scheduled = okLinks + noLinks;
-          if (noLinks === 0 && rowFailed === 0) {
-            closeModal("modalNewSession");
-            showToast(en ? scheduled + " meetings scheduled!" : scheduled + " reunioes agendadas!");
-            return;
-          }
-          var msg = en ? scheduled + " meetings scheduled" : scheduled + " reunioes agendadas";
-          if (noLinks > 0) {
-            msg += en ? " — " + noLinks + " still need a Meet link." : " — " + noLinks + " ainda precisam de link do Meet.";
-          } else {
-            msg += ".";
-          }
-          if (rowFailed > 0) {
-            msg += en ? " " + rowFailed + " could not be saved — try again." : " " + rowFailed + " nao puderam ser salvas — tente novamente.";
-          }
-          statusEl.textContent = msg;
-          statusEl.className = "pull-status is-error";
-          if (gcalDown) { promptConnectGcal(); }
-        }
-
-        function next(i) {
-          if (i >= recurCount) { report(); return; }
-          var occDate = addOccurrenceDate(date, recurFreq, i);
-          statusEl.textContent = (en ? "Scheduling " : "Agendando ") + (i + 1) + (en ? " of " : " de ") + recurCount + "...";
-          statusEl.className = "pull-status";
-
-          function saveOcc(meetLink, googleEventId) {
-            postSchedule(baseBody(occDate, meetLink, googleEventId))
-              .then(function() {
-                if (meetLink) { okLinks++; } else { noLinks++; }
-                next(i + 1);
-              })
-              .catch(function() {
-                rowFailed++;
-                next(i + 1);
-              });
-          }
-
-          // Once the account is known to be disconnected, stop hitting the
-          // Calendar API -- the remaining rows are still created (with the
-          // placeholder) so the series exists and can be repaired.
-          if (gcalDown) { saveOcc(null, null); return; }
-
-          createMeetEvent(occDate)
-            .then(function(result) {
-              if (result.ok && result.calData && result.calData.google_meet_link) {
-                saveOcc(result.calData.google_meet_link, result.calData.google_event_id || null);
-                return;
-              }
-              var errMsg = (result.calData && result.calData.error) ? result.calData.error : "";
-              if (isGcalNotConnectedError(errMsg)) { gcalDown = true; }
-              saveOcc(null, null);
-            })
-            .catch(function() { saveOcc(null, null); });
-        }
-
-        next(0);
-      }
-
-      if (recurring && type === "in_person") {
-        // No Google dependency: the worker expands the whole series in one
-        // POST instead of N frontend calls.
+      // Recurring series (both types): one POST -- the worker expands the N
+      // local rows, and for online_meet creates ONE Google Calendar event
+      // carrying a native RRULE (one API call, one shared Meet link, no
+      // per-occurrence partial failures). If the Google side failed, the
+      // rows exist with the internal placeholder (kept away from clients by
+      // the server-side WhatsApp guard) and are repairable from the detail
+      // modal's "Generate Meet link" button.
+      if (recurring) {
         statusEl.textContent = en ? "Scheduling meetings..." : "Agendando reunioes...";
         statusEl.className = "pull-status";
         var recurBody = baseBody(date, null, null);
         recurBody.recur_frequency = recurFreq;
         recurBody.recur_count = recurCount;
         postSchedule(recurBody)
-          .then(function() { finishOk(en ? recurCount + " meetings scheduled!" : recurCount + " reunioes agendadas!"); })
+          .then(function(data) {
+            if (data.gcal_error) {
+              btn.disabled = false;
+              loadCalendar();
+              statusEl.textContent = en
+                ? recurCount + " meetings scheduled, but the Meet link could NOT be created — repair it from the meeting details."
+                : recurCount + " reunioes agendadas, mas o link do Meet NAO pode ser criado — repare nos detalhes da reuniao.";
+              statusEl.className = "pull-status is-error";
+              if (isGcalNotConnectedError(data.gcal_error)) { promptConnectGcal(); }
+              return;
+            }
+            finishOk(en ? recurCount + " meetings scheduled!" : recurCount + " reunioes agendadas!");
+          })
           .catch(function(e) {
             btn.disabled = false;
             fail((en ? "Error: " : "Erro: ") + e.message);
           });
-        return;
-      }
-
-      if (recurring && type === "online_meet") {
-        runRecurringOnline();
         return;
       }
 
@@ -3100,6 +3294,20 @@
       }
     }
 
+    // The client's email for Google Calendar invites, only when it actually
+    // looks like an email (the worker validates again -- a malformed address
+    // would send a real invite to a stranger). Null in every other case.
+    function clientEmailById(clientId) {
+      if (!clientId) { return null; }
+      for (var i = 0; i < clients.length; i++) {
+        if (clients[i].id === clientId) {
+          var email = (clients[i].email || "").trim();
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+        }
+      }
+      return null;
+    }
+
     // ── Session Detail modal ───────────────────────────────────────────────
 
     // end_time carries two shapes: sessions written by this modal store a
@@ -3116,7 +3324,7 @@
     function openDetail(session) {
       activeDetailSession = session;
       var en = isEn();
-      var isExternal = session.source === "external";
+      var isExternal = isExternalSession(session);
       var isEventCat = session.meeting_category === "event";
 
       document.getElementById("detailTitle").textContent     = session.client_name || "—";
@@ -3142,9 +3350,12 @@
       }
       typePillEl.innerHTML = '<span class="type-pill ' + typeCls + '">' + escHtml(typeLabel) + '</span>';
 
+      // "Meeting" row: only ever carries the prospective pill -- hidden (and
+      // cleared, so nothing stale can linger) in every other case.
       var categoryRowEl = document.getElementById("detailCategoryRow");
       if (isExternal || session.meeting_category !== "prospective") {
         categoryRowEl.hidden = true;
+        document.getElementById("detailCategoryPill").innerHTML = "";
       } else {
         categoryRowEl.hidden = false;
         var categoryLabel = en ? "Prospective Client" : "Cliente Potencial";
@@ -3152,33 +3363,49 @@
           '<span class="type-pill prospective">' + escHtml(categoryLabel) + '</span>';
       }
 
-      document.getElementById("detailStatusRow").hidden = isExternal;
+      // Status row: the badge can only render scheduled/completed/cancelled/
+      // pending. Legacy rows carry other statuses (approved, archived, inbox)
+      // that would paint an empty badge -- hide the row instead.
+      var RENDERABLE_STATUSES = ["scheduled", "completed", "cancelled", "pending"];
+      var statusVal = session.status || "";
+      var statusRenderable = RENDERABLE_STATUSES.indexOf(statusVal) !== -1;
+      document.getElementById("detailStatusRow").hidden = isExternal || !statusRenderable;
       document.getElementById("detailExternalRow").hidden = !isExternal;
 
       var statusEl = document.getElementById("detailStatus");
-      statusEl.setAttribute("data-status", session.status || "scheduled");
+      statusEl.setAttribute("data-status", statusRenderable ? statusVal : "scheduled");
 
+      // Meet rows are mutually exclusive by construction: the link row shows
+      // a real link; the button row shows ONLY when needsMeetLink() -- i.e.
+      // Apex-created online_meet with a missing/placeholder link. Clicking
+      // "Generate" on a session that already has a working link would create
+      // a second calendar event and double-book the real calendar.
       var meetRow = document.getElementById("detailMeetRow");
       var meetFixRow = document.getElementById("detailMeetFixRow");
       var meetLinkVal = session.google_meet_link || null;
-      if (meetLinkVal && meetLinkVal !== "[PENDING_GOOGLE_API]") {
-        meetRow.hidden = false;
-        meetFixRow.hidden = true;
+      var hasRealLink = !!(meetLinkVal && meetLinkVal !== "[PENDING_GOOGLE_API]");
+      meetRow.hidden = !hasRealLink;
+      meetFixRow.hidden = hasRealLink || !needsMeetLink(session);
+      if (hasRealLink) {
         var link = document.getElementById("detailMeetLink");
         link.href = safeUrl(meetLinkVal);
         link.textContent = meetLinkVal;
-      } else {
-        meetRow.hidden = true;
-        meetFixRow.hidden = !needsMeetLink(session);
+      } else if (!meetFixRow.hidden) {
         var fixBtn = document.getElementById("btnFixMeet");
         fixBtn.disabled = false;
         fixBtn.innerHTML = '<span class="show-pt">Gerar link do Meet</span><span class="show-en">Generate Meet link</span>';
       }
 
+      // Location row only with a real non-empty value; the Directions button
+      // additionally only where a physical destination exists (in-person
+      // sessions and events -- never a Google Meet session).
       var locationRow = document.getElementById("detailLocationRow");
-      if (session.location) {
+      var locVal = session.location ? String(session.location).trim() : "";
+      if (locVal) {
         locationRow.hidden = false;
-        document.getElementById("detailLocation").textContent = session.location;
+        document.getElementById("detailLocation").textContent = locVal;
+        document.getElementById("btnDirections").hidden =
+          !(session.session_type === "in_person" || isEventCat);
       } else {
         locationRow.hidden = true;
       }
@@ -3211,12 +3438,23 @@
 
       loadMeetingRecord(session);
 
-      // Reset WhatsApp button — hidden entirely for external (non-Apex)
-      // events and for Apex event entries (not client sessions)
+      // Reset WhatsApp button — hidden only for event entries (no client to
+      // message). Externally-synced sessions get it too: the wa.me URL has
+      // no phone number, Alice picks the recipient in WhatsApp herself, and
+      // the worker's placeholder-link 409 guard still applies.
       var waBtn = document.getElementById("btnWhatsApp");
-      waBtn.hidden = isExternal || isEventCat;
+      waBtn.hidden = isEventCat;
       waBtn.disabled = false;
       waBtn.innerHTML = '<span class="show-pt">Enviar WhatsApp</span><span class="show-en">Send WhatsApp</span>';
+
+      // Session actions: Reschedule/Edit only for Apex-created sessions.
+      // Cancel also covers legacy 'google'/'manual' rows (Apex-side history
+      // with no Google event). Externally-synced events get none -- they
+      // belong to Google and deleting Apex's row would just re-sync it back.
+      var canModify = isApexSession(session);
+      document.getElementById("btnDetailReschedule").hidden = !canModify;
+      document.getElementById("btnDetailEdit").hidden       = !canModify;
+      document.getElementById("btnDetailCancel").hidden     = isExternal;
 
       var st2 = document.getElementById("detailStatus2");
       if (st2) { st2.textContent = ""; st2.className = "pull-status"; }
@@ -3375,14 +3613,18 @@
       btn.disabled = true;
       if (st2) { st2.textContent = en ? "Creating Meet event..." : "Criando evento Meet..."; st2.className = "pull-status"; }
 
+      var fixBody = {
+        summary: title,
+        start_datetime: session.date + "T" + startTime + ":00",
+        end_datetime: session.date + "T" + endHHMM + ":00",
+        add_meet_link: true
+      };
+      var fixAttendee = clientEmailById(session.client_id);
+      if (fixAttendee) { fixBody.attendee_email = fixAttendee; }
+
       apiFetch("/api/google/calendar/event", {
         method: "POST",
-        body: {
-          summary: title,
-          start_datetime: session.date + "T" + startTime + ":00",
-          end_datetime: session.date + "T" + endHHMM + ":00",
-          add_meet_link: true
-        }
+        body: fixBody
       })
         .then(function(res) {
           return res.json().then(function(calData) { return { ok: res.ok, calData: calData }; });
@@ -3413,6 +3655,232 @@
         .catch(function(e) {
           btn.disabled = false;
           if (st2) { st2.textContent = (en ? "Error: " : "Erro: ") + e.message; st2.className = "pull-status is-error"; }
+          if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }
+        });
+    }
+
+    // ── Cancel / Reschedule / Edit actions ─────────────────────────────────
+
+    function openCancelSession() {
+      if (!activeDetailSession) { return; }
+      var st = document.getElementById("cancelSessionStatus");
+      if (st) { st.textContent = ""; st.className = "pull-status"; }
+      document.getElementById("btnCancelAsCancelled").disabled = false;
+      document.getElementById("btnCancelAsMistake").disabled = false;
+      openModal("modalCancelSession");
+    }
+
+    function handleCancelSession(mode) {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var en = isEn();
+      var st = document.getElementById("cancelSessionStatus");
+      var btnA = document.getElementById("btnCancelAsCancelled");
+      var btnB = document.getElementById("btnCancelAsMistake");
+      btnA.disabled = true;
+      btnB.disabled = true;
+      if (st) { st.textContent = en ? "Cancelling..." : "Cancelando..."; st.className = "pull-status"; }
+
+      apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/cancel", {
+        method: "POST",
+        body: { mode: mode }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          loadCalendar();
+          // google_event_removed === false means the Apex side changed but
+          // the event is STILL live on the client's Google Calendar -- keep
+          // the modal open and say so plainly, never let it look clean.
+          if (data.google_event_removed === false) {
+            btnA.disabled = true;
+            btnB.disabled = true;
+            if (st) {
+              st.textContent = en
+                ? "Removed in Apex, but the meeting could NOT be removed from Google Calendar (" + (data.google_error || "unknown error") + "). It is still on the client's calendar — remove it there manually."
+                : "Removida no Apex, mas a reuniao NAO pode ser removida do Google Calendar (" + (data.google_error || "erro desconhecido") + "). Ela ainda esta no calendario do cliente — remova manualmente.";
+              st.className = "pull-status is-error";
+            }
+            if (isGcalNotConnectedError(data.google_error || "")) { promptConnectGcal(); }
+            return;
+          }
+          closeModal("modalCancelSession");
+          closeModal("modalDetail");
+          showToast(mode === "mistake"
+            ? (en ? "Session deleted." : "Sessao excluida.")
+            : (en ? "Meeting cancelled." : "Reuniao cancelada."));
+        })
+        .catch(function(e) {
+          btnA.disabled = false;
+          btnB.disabled = false;
+          if (st) { st.textContent = (en ? "Error: " : "Erro: ") + e.message; st.className = "pull-status is-error"; }
+        });
+    }
+
+    // Shared populate for the reschedule/edit end-time selects (same
+    // half-hour list the New Session modal uses).
+    function populateHHMMSelect(sel, allowEmpty) {
+      var en = isEn();
+      sel.innerHTML = "";
+      var ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = allowEmpty
+        ? (en ? "— none —" : "— nenhuma —")
+        : (en ? "— select time —" : "— selecionar hora —");
+      sel.appendChild(ph);
+      for (var i = 0; i < NS_TIME_OPTS.length; i++) {
+        var o = document.createElement("option");
+        o.value = NS_TIME_OPTS[i];
+        o.textContent = formatTime(NS_TIME_OPTS[i]);
+        sel.appendChild(o);
+      }
+    }
+
+    function openReschedule() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      populateHHMMSelect(document.getElementById("rsTime"), false);
+      populateHHMMSelect(document.getElementById("rsEndTime"), true);
+      document.getElementById("rsDate").value = session.date || "";
+      document.getElementById("rsTime").value = session.time ? session.time.slice(0, 5) : "";
+      document.getElementById("rsEndTime").value = endTimeHHMM(session) || "";
+      var st = document.getElementById("rescheduleStatus");
+      if (st) { st.textContent = ""; st.className = "pull-status"; }
+      document.getElementById("btnRescheduleSubmit").disabled = false;
+      openModal("modalReschedule");
+    }
+
+    function handleRescheduleSubmit() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var en = isEn();
+      var st = document.getElementById("rescheduleStatus");
+      var date = document.getElementById("rsDate").value;
+      var time = document.getElementById("rsTime").value;
+      var endT = document.getElementById("rsEndTime").value;
+      if (!date || !time) {
+        if (st) { st.textContent = en ? "Date and time are required." : "Data e hora sao obrigatorias."; st.className = "pull-status is-error"; }
+        return;
+      }
+      if (endT && endT <= time) {
+        if (st) { st.textContent = en ? "End time must be after start time." : "A hora de termino deve ser depois da hora de inicio."; st.className = "pull-status is-error"; }
+        return;
+      }
+      // Scope question only when this is genuinely part of a series --
+      // standalone meetings (including everything created before series
+      // linkage existed) reschedule with no dialog.
+      if (session.series_id) {
+        openModal("modalRescheduleScope");
+        return;
+      }
+      submitReschedule("single");
+    }
+
+    function submitReschedule(scope) {
+      closeModal("modalRescheduleScope");
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var en = isEn();
+      var st = document.getElementById("rescheduleStatus");
+      var btn = document.getElementById("btnRescheduleSubmit");
+      var date = document.getElementById("rsDate").value;
+      var time = document.getElementById("rsTime").value;
+      var endT = document.getElementById("rsEndTime").value;
+
+      btn.disabled = true;
+      if (st) { st.textContent = en ? "Rescheduling..." : "Reagendando..."; st.className = "pull-status"; }
+
+      var body = { date: date, time: time, scope: scope };
+      if (endT) { body.end_time = endT; }
+
+      apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/reschedule", {
+        method: "POST",
+        body: body
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          closeModal("modalReschedule");
+          closeModal("modalDetail");
+          loadCalendar();
+          if (data.google_warning) {
+            showToast((en ? "Rescheduled. " : "Reagendada. ") + data.google_warning);
+          } else {
+            showToast(en ? "Meeting rescheduled." : "Reuniao reagendada.");
+          }
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          if (st) { st.textContent = (en ? "Error: " : "Erro: ") + e.message; st.className = "pull-status is-error"; }
+          if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }
+        });
+    }
+
+    function openEditSession() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      populateHHMMSelect(document.getElementById("edEndTime"), true);
+      document.getElementById("edLocation").value = session.location || "";
+      document.getElementById("edEndTime").value = endTimeHHMM(session) || "";
+      document.getElementById("edNotes").value = session.notes || "";
+      // Location is only meaningful where something happens at a physical
+      // address; notes live in raw_transcript and are only editable while
+      // the session is still just scheduled.
+      var isEventCat = session.meeting_category === "event";
+      document.getElementById("edLocationGroup").hidden =
+        !(session.session_type === "in_person" || isEventCat);
+      document.getElementById("edNotesGroup").hidden = session.status !== "scheduled";
+      var st = document.getElementById("editStatus");
+      if (st) { st.textContent = ""; st.className = "pull-status"; }
+      document.getElementById("btnEditSubmit").disabled = false;
+      openModal("modalEdit");
+    }
+
+    function handleEditSubmit() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var en = isEn();
+      var st = document.getElementById("editStatus");
+      var btn = document.getElementById("btnEditSubmit");
+      var endT = document.getElementById("edEndTime").value;
+      if (endT && session.time && endT <= session.time.slice(0, 5)) {
+        if (st) { st.textContent = en ? "End time must be after start time." : "A hora de termino deve ser depois da hora de inicio."; st.className = "pull-status is-error"; }
+        return;
+      }
+
+      var body = { end_time: endT || null };
+      if (!document.getElementById("edLocationGroup").hidden) {
+        body.location = document.getElementById("edLocation").value.trim() || null;
+      }
+      if (!document.getElementById("edNotesGroup").hidden) {
+        body.notes = document.getElementById("edNotes").value.trim() || null;
+      }
+
+      btn.disabled = true;
+      if (st) { st.textContent = en ? "Saving..." : "Salvando..."; st.className = "pull-status"; }
+
+      apiFetch("/api/sessions/" + encodeURIComponent(session.id), {
+        method: "PATCH",
+        body: body
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          session.end_time = body.end_time;
+          if (Object.prototype.hasOwnProperty.call(body, "location")) { session.location = body.location; }
+          if (Object.prototype.hasOwnProperty.call(body, "notes"))    { session.notes = body.notes; }
+          closeModal("modalEdit");
+          loadCalendar();
+          openDetail(session);
+          if (data.google_warning) {
+            showToast((en ? "Saved. " : "Salvo. ") + data.google_warning);
+          } else {
+            showToast(en ? "Session updated." : "Sessao atualizada.");
+          }
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          if (st) { st.textContent = (en ? "Error: " : "Erro: ") + e.message; st.className = "pull-status is-error"; }
           if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }
         });
     }

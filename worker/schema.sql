@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- NOTE: location was added to the live sessions table via
 -- migrations/session_location.sql. Free-text street address for in-person
 -- sessions and events; feeds the detail modal's Directions maps link.
+-- NOTE: series_id was added to the live sessions table via
+-- migrations/session_series.sql. Apex's own UUID linking the occurrences of
+-- a recurring series created by the calendar. NULL = standalone (including
+-- every row created before the migration -- membership is stored, never
+-- inferred). For an online_meet series every row shares one google_event_id:
+-- the recurring Google master event carrying the RRULE.
 -- NOTE: section_config was added to the live sessions table via
 -- migrations/session_section_config.sql. JSON: {"sections":[{key,enabled,order}x9],
 -- "custom_sections":[{id,title_pt,title_en,description,enabled,order}]}.

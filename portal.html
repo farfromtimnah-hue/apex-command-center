@@ -1015,14 +1015,34 @@
       return names[new Date(ds + "T12:00:00").getDay()];
     }
 
+    // American number format in BOTH languages ("1,234.56") -- this page is
+    // client-facing and all currency is USD, matching the app-wide American
+    // date/time convention in datetime.js. Plain string math on purpose: the
+    // toLocale* functions follow the device locale, which is exactly the
+    // inconsistency being removed.
+    function fmtNumAmerican(n) {
+      var rounded = Math.round(n * 100) / 100;
+      var neg = rounded < 0;
+      var abs = Math.abs(rounded);
+      var parts = String(abs).split(".");
+      var intPart = parts[0];
+      var decPart = parts.length > 1 ? parts[1].slice(0, 2) : "";
+      var grouped = "";
+      for (var i = 0; i < intPart.length; i++) {
+        if (i > 0 && (intPart.length - i) % 3 === 0) { grouped += ","; }
+        grouped += intPart.charAt(i);
+      }
+      var out = grouped + (decPart ? "." + decPart : "");
+      return neg ? "-" + out : out;
+    }
+
     function fmtNum(v, type) {
       if (v === null || v === undefined) { return "--"; }
       var n = Number(v);
-      if (type === "currency") {
-        return "$" + n.toLocaleString(isEn() ? "en-US" : "pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-      }
-      if (type === "percent") { return n.toLocaleString(isEn() ? "en-US" : "pt-BR", { maximumFractionDigits: 2 }) + "%"; }
-      return n.toLocaleString(isEn() ? "en-US" : "pt-BR", { maximumFractionDigits: 2 });
+      if (isNaN(n)) { return "--"; }
+      if (type === "currency") { return "$" + fmtNumAmerican(n); }
+      if (type === "percent")  { return fmtNumAmerican(n) + "%"; }
+      return fmtNumAmerican(n);
     }
 
     // ── API ─────────────────────────────────────────────────────────────────

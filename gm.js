@@ -1205,6 +1205,9 @@ function gmRenderSimpleSheet(kind) {
         gmT("Reativar → criar lead no CRM", "Reactivate → create CRM lead") + '</button>';
     }
   }
+  if (kind === "partner") {
+    body += gmPartnerReferralHtml(row);
+  }
   if (kind === "finance") {
     body += '<div class="gm-derived-note">' + gmT("Tipo: ", "Type: ") +
       (row.tipo === "Entrada" ? '<span class="gm-ok">▲ Entrada</span>' : '<span class="gm-warn">▼ Saída</span>') +
@@ -1347,6 +1350,380 @@ function gmDeleteSimple() {
   gmApi(spec.collection + "/" + row.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); spec.reload(); })
     .catch(function(e) { window.alert(e.message); });
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// QR code generator — self-contained, no CDN, no external requests.
+// Byte mode, error-correction level M, versions 1-10 (auto-picked), mask
+// pattern 0 applied with matching format info (spec-valid: mask choice is a
+// readability optimization, not a correctness requirement). Renders SVG.
+// ═════════════════════════════════════════════════════════════════════════
+
+// GF(256) log/antilog tables (poly 0x11d) for Reed-Solomon EC codewords.
+var GM_QR_EXP = [], GM_QR_LOG = [];
+(function() {
+  var x = 1;
+  for (var i = 0; i < 255; i++) {
+    GM_QR_EXP[i] = x;
+    GM_QR_LOG[x] = i;
+    x = x << 1;
+    if (x & 0x100) { x = (x ^ 0x11d) & 0xff; }
+  }
+  for (var j = 255; j < 512; j++) { GM_QR_EXP[j] = GM_QR_EXP[j - 255]; }
+})();
+
+// Per-version (1-10) EC-level-M block structure:
+// [ecPerBlock, [dataCodewordsPerBlock, ...]]
+var GM_QR_BLOCKS_M = {
+  1:  [10, [16]],
+  2:  [16, [28]],
+  3:  [26, [44]],
+  4:  [18, [32, 32]],
+  5:  [24, [43, 43]],
+  6:  [16, [27, 27, 27, 27]],
+  7:  [18, [31, 31, 31, 31]],
+  8:  [22, [38, 38, 39, 39]],
+  9:  [22, [36, 36, 36, 37, 37]],
+  10: [26, [43, 43, 43, 43, 44]]
+};
+var GM_QR_ALIGN = {
+  1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30],
+  6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50]
+};
+// Format info for EC level M, mask 0 (BCH-encoded, spec table).
+var GM_QR_FORMAT_M0 = "101010000010010";
+// Version info bit strings for versions 7-10 (spec table).
+var GM_QR_VERSION_INFO = {
+  7: "000111110010010100", 8: "001000010110111100",
+  9: "001001101010011001", 10: "001010010011010011"
+};
+
+// GF(256) polynomial multiply (coefficients as byte values, index 0 = highest term).
+function gmQrPolyMul(a, b) {
+  var out = [];
+  for (var i = 0; i < a.length + b.length - 1; i++) { out.push(0); }
+  for (var x = 0; x < a.length; x++) {
+    if (a[x] === 0) { continue; }
+    for (var y = 0; y < b.length; y++) {
+      if (b[y] === 0) { continue; }
+      out[x + y] ^= GM_QR_EXP[(GM_QR_LOG[a[x]] + GM_QR_LOG[b[y]]) % 255];
+    }
+  }
+  return out;
+}
+
+function gmQrRsEncode(data, ecLen) {
+  // Generator polynomial: product of (x - a^d) for d = 0..ecLen-1.
+  var gen = [1];
+  for (var d = 0; d < ecLen; d++) {
+    gen = gmQrPolyMul(gen, [1, GM_QR_EXP[d]]);
+  }
+  // Synthetic division of data·x^ecLen by gen; remainder = EC codewords.
+  var rem = data.slice();
+  for (var z = 0; z < ecLen; z++) { rem.push(0); }
+  for (var i = 0; i < data.length; i++) {
+    var factor = rem[i];
+    if (factor === 0) { continue; }
+    for (var j = 0; j < gen.length; j++) {
+      rem[i + j] ^= GM_QR_EXP[(GM_QR_LOG[gen[j]] + GM_QR_LOG[factor]) % 255];
+    }
+  }
+  return rem.slice(data.length);
+}
+
+function gmQrBytes(str) {
+  // UTF-8 encode.
+  var out = [];
+  var enc = unescape(encodeURIComponent(str));
+  for (var i = 0; i < enc.length; i++) { out.push(enc.charCodeAt(i)); }
+  return out;
+}
+
+function gmQrPickVersion(nBytes) {
+  for (var v = 1; v <= 10; v++) {
+    var spec = GM_QR_BLOCKS_M[v];
+    var dataCw = 0;
+    spec[1].forEach(function(n) { dataCw += n; });
+    var cci = v <= 9 ? 8 : 16;
+    var capacity = Math.floor((dataCw * 8 - 4 - cci) / 8);
+    if (nBytes <= capacity) { return v; }
+  }
+  return null;
+}
+
+function gmQrBuildCodewords(bytes, version) {
+  var spec = GM_QR_BLOCKS_M[version];
+  var ecLen = spec[0];
+  var blocks = spec[1];
+  var dataCw = 0;
+  blocks.forEach(function(n) { dataCw += n; });
+  var cci = version <= 9 ? 8 : 16;
+  // Bit stream: mode 0100, char count, data, terminator, pad.
+  var bits = [];
+  function push(val, len) {
+    for (var i = len - 1; i >= 0; i--) { bits.push((val >> i) & 1); }
+  }
+  push(4, 4);
+  push(bytes.length, cci);
+  bytes.forEach(function(b) { push(b, 8); });
+  var maxBits = dataCw * 8;
+  var term = Math.min(4, maxBits - bits.length);
+  push(0, term);
+  while (bits.length % 8 !== 0) { bits.push(0); }
+  var cw = [];
+  for (var i = 0; i < bits.length; i += 8) {
+    var val = 0;
+    for (var j = 0; j < 8; j++) { val = (val << 1) | bits[i + j]; }
+    cw.push(val);
+  }
+  var padToggle = true;
+  while (cw.length < dataCw) { cw.push(padToggle ? 0xec : 0x11); padToggle = !padToggle; }
+  // Split into blocks, compute EC, interleave.
+  var dataBlocks = [], ecBlocks = [];
+  var offset = 0;
+  blocks.forEach(function(n) {
+    var block = cw.slice(offset, offset + n);
+    offset += n;
+    dataBlocks.push(block);
+    ecBlocks.push(gmQrRsEncode(block, ecLen));
+  });
+  var out = [];
+  var maxData = 0;
+  dataBlocks.forEach(function(b) { maxData = Math.max(maxData, b.length); });
+  for (var c = 0; c < maxData; c++) {
+    dataBlocks.forEach(function(b) { if (c < b.length) { out.push(b[c]); } });
+  }
+  for (var e = 0; e < ecLen; e++) {
+    ecBlocks.forEach(function(b) { out.push(b[e]); });
+  }
+  return out;
+}
+
+// Build the module matrix. Returns { size, get(r,c) → 0|1 }.
+function gmQrMatrix(text) {
+  var bytes = gmQrBytes(text);
+  var version = gmQrPickVersion(bytes.length);
+  if (!version) { return null; }
+  var size = version * 4 + 17;
+  var modules = [], reserved = [];
+  for (var r = 0; r < size; r++) {
+    modules.push(new Array(size));
+    reserved.push(new Array(size));
+  }
+  function set(r, c, v) { modules[r][c] = v ? 1 : 0; reserved[r][c] = true; }
+
+  // Finder patterns + separators.
+  function finder(r0, c0) {
+    for (var r = -1; r <= 7; r++) {
+      for (var c = -1; c <= 7; c++) {
+        var rr = r0 + r, cc = c0 + c;
+        if (rr < 0 || rr >= size || cc < 0 || cc >= size) { continue; }
+        var on = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                 (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                 (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+        set(rr, cc, on);
+      }
+    }
+  }
+  finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+
+  // Alignment patterns.
+  var centers = GM_QR_ALIGN[version];
+  centers.forEach(function(cr) {
+    centers.forEach(function(cc) {
+      if (reserved[cr][cc]) { return; }   // overlaps a finder
+      for (var r = -2; r <= 2; r++) {
+        for (var c = -2; c <= 2; c++) {
+          var on = Math.max(Math.abs(r), Math.abs(c)) !== 1;
+          set(cr + r, cc + c, on);
+        }
+      }
+    });
+  });
+
+  // Timing patterns.
+  for (var t = 8; t < size - 8; t++) {
+    if (!reserved[6][t]) { set(6, t, t % 2 === 0); }
+    if (!reserved[t][6]) { set(t, 6, t % 2 === 0); }
+  }
+
+  // Dark module.
+  set(size - 8, 8, 1);
+
+  // Reserve format info areas.
+  for (var f = 0; f < 9; f++) {
+    if (!reserved[8][f]) { reserved[8][f] = true; modules[8][f] = 0; }
+    if (!reserved[f][8]) { reserved[f][8] = true; modules[f][8] = 0; }
+  }
+  for (var f2 = size - 8; f2 < size; f2++) {
+    if (!reserved[8][f2]) { reserved[8][f2] = true; modules[8][f2] = 0; }
+    if (!reserved[f2][8]) { reserved[f2][8] = true; modules[f2][8] = 0; }
+  }
+
+  // Reserve + write version info (v >= 7).
+  if (version >= 7) {
+    var vi = GM_QR_VERSION_INFO[version];
+    // Bits placed LSB-first per spec: bit i at (floor(i/3), size-11 + i%3).
+    for (var i = 0; i < 18; i++) {
+      var bit = Number(vi.charAt(17 - i));
+      var rr2 = Math.floor(i / 3), cc2 = size - 11 + (i % 3);
+      set(rr2, cc2, bit);
+      set(cc2, rr2, bit);
+    }
+  }
+
+  // Data placement: zigzag from bottom-right, skipping column 6, mask 0.
+  var codewords = gmQrBuildCodewords(bytes, version);
+  var bitIdx = 0;
+  var totalBits = codewords.length * 8;
+  function nextBit() {
+    if (bitIdx >= totalBits) { bitIdx++; return 0; }   // remainder bits = 0
+    var b = (codewords[Math.floor(bitIdx / 8)] >> (7 - (bitIdx % 8))) & 1;
+    bitIdx++;
+    return b;
+  }
+  var col = size - 1;
+  var upward = true;
+  while (col > 0) {
+    if (col === 6) { col--; }
+    for (var step = 0; step < size; step++) {
+      var row = upward ? size - 1 - step : step;
+      for (var dc = 0; dc < 2; dc++) {
+        var c2 = col - dc;
+        if (reserved[row][c2]) { continue; }
+        var bit = nextBit();
+        // Mask 0: invert when (row + col) even.
+        if ((row + c2) % 2 === 0) { bit = bit ^ 1; }
+        modules[row][c2] = bit;
+        reserved[row][c2] = true;
+      }
+    }
+    upward = !upward;
+    col -= 2;
+  }
+
+  // Format info (EC M, mask 0) — written last over the reserved cells.
+  var fmt = GM_QR_FORMAT_M0;
+  for (var fi = 0; fi < 15; fi++) {
+    var fb = Number(fmt.charAt(fi));
+    // Copy 1: around the top-left finder.
+    if (fi < 6)       { modules[8][fi] = fb; }
+    else if (fi === 6) { modules[8][7] = fb; }
+    else if (fi === 7) { modules[8][8] = fb; }
+    else if (fi === 8) { modules[7][8] = fb; }
+    else              { modules[14 - fi][8] = fb; }
+    // Copy 2: split between top-right and bottom-left.
+    if (fi < 8) { modules[8][size - 1 - fi] = fb; }
+    else        { modules[size - 15 + fi][8] = fb; }
+  }
+
+  return { size: size, modules: modules };
+}
+
+// SVG render with a 4-module quiet zone. Black on white, crisp rects.
+function gmQrSvg(text, pixelSize) {
+  var m = gmQrMatrix(text);
+  if (!m) { return ""; }
+  var quiet = 4;
+  var dim = m.size + quiet * 2;
+  var svg = '<svg class="gm-qr-svg" viewBox="0 0 ' + dim + ' ' + dim + '" ' +
+    'width="' + (pixelSize || 220) + '" height="' + (pixelSize || 220) + '" ' +
+    'shape-rendering="crispEdges" role="img" aria-label="QR code">' +
+    '<rect width="' + dim + '" height="' + dim + '" fill="#ffffff"/>';
+  for (var r = 0; r < m.size; r++) {
+    var runStart = -1;
+    for (var c = 0; c <= m.size; c++) {
+      var on = c < m.size && m.modules[r][c] === 1;
+      if (on && runStart === -1) { runStart = c; }
+      if (!on && runStart !== -1) {
+        svg += '<rect x="' + (runStart + quiet) + '" y="' + (r + quiet) +
+          '" width="' + (c - runStart) + '" height="1" fill="#1a1a1d"/>';
+        runStart = -1;
+      }
+    }
+  }
+  svg += '</svg>';
+  return svg;
+}
+
+// ── Partner referral link + QR (Task: real attribution, no text match) ───
+function gmReferralUrl(row) {
+  if (!row || !row.referral_slug) { return null; }
+  return window.location.origin + "/referral.html?p=" + row.referral_slug;
+}
+
+function gmPartnerReferralHtml(row) {
+  var url = gmReferralUrl(row);
+  if (!url) { return ""; }
+  return '<div class="gm-month-card" style="margin-top:12px;" data-tour="partners-referral-link">' +
+    '<div class="gm-month-title">' + gmT("Link de indicação", "Referral link") + '</div>' +
+    '<p class="muted" style="font-size:12px;margin:6px 0 8px;">' +
+    gmT("Quem preencher este link vira lead no CRM já vinculado a este parceiro — sem digitação manual.",
+        "Anyone who fills in this link becomes a CRM lead already linked to this partner — no manual matching.") + '</p>' +
+    '<div style="font-size:12px;word-break:break-all;background:#fff;border:1px solid var(--border,#e3ded6);border-radius:8px;padding:8px;" id="gmRefUrl">' +
+    escHtml(url) + '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">' +
+    '<button type="button" class="btn-outline" style="flex:1;min-height:48px;" onclick="gmCopyReferralLink()">' +
+    gmT("Copiar link", "Copy link") + '</button>' +
+    '<button type="button" class="btn-outline" style="flex:1;min-height:48px;" onclick="gmShareReferralLink()">' +
+    gmT("Compartilhar", "Share") + '</button>' +
+    '</div>' +
+    '<div style="text-align:center;margin-top:12px;" data-tour="partners-referral-qr" id="gmRefQrBox">' +
+    gmQrSvg(url, 200) +
+    '</div>' +
+    '<button type="button" class="btn-outline gm-add-btn" onclick="gmDownloadReferralQr()">' +
+    gmT("Baixar QR (PNG)", "Download QR (PNG)") + '</button>' +
+    '</div>';
+}
+
+function gmCopyReferralLink() {
+  var url = gmReferralUrl(gmSheetRow);
+  if (!url) { return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      gmToast(gmT("Link copiado ✓", "Link copied ✓"));
+    }).catch(function() { window.prompt(gmT("Copie o link:", "Copy the link:"), url); });
+  } else {
+    window.prompt(gmT("Copie o link:", "Copy the link:"), url);
+  }
+}
+
+function gmShareReferralLink() {
+  var row = gmSheetRow;
+  var url = gmReferralUrl(row);
+  if (!url) { return; }
+  var text = gmT("Peça um orçamento por este link: ", "Request a quote through this link: ") + url;
+  if (navigator.share) {
+    navigator.share({ title: row.name, text: text, url: url }).catch(function() {});
+  } else {
+    window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener");
+  }
+}
+
+function gmDownloadReferralQr() {
+  var row = gmSheetRow;
+  var url = gmReferralUrl(row);
+  if (!url) { return; }
+  var box = document.getElementById("gmRefQrBox");
+  var svgEl = box ? box.querySelector("svg") : null;
+  if (!svgEl) { return; }
+  var xml = new XMLSerializer().serializeToString(svgEl);
+  var img = new Image();
+  img.onload = function() {
+    var canvas = document.createElement("canvas");
+    canvas.width = 800; canvas.height = 800;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 800, 800);
+    ctx.drawImage(img, 0, 0, 800, 800);
+    var a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = "qr-" + (row.referral_slug || "indicacao") + ".png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
 }
 
 // ── Language toggle re-render (called from portal.html's toggleLang) ─────

@@ -10559,6 +10559,37 @@ async function gmLeadFields(body, config, partial, env, clientId) {
 // Route: POST /api/clients/:id/gm/leads
 // ---------------------------------------------------------------------------
 
+// The ONE lead-insert path — the authenticated quick-add and the public
+// referral form both go through here, so a referral lead is a normal lead
+// in every way (summary metrics, partner attribution, detail sheet).
+async function gmInsertLead(env, clientId, f) {
+    var leadId = crypto.randomUUID();
+    await env.DB.prepare(
+        "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, origem, parceiro_id, servico, " +
+        "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+        leadId, clientId,
+        f.mes_lead !== undefined ? f.mes_lead : null,
+        f.data_lead !== undefined ? f.data_lead : null,
+        f.cliente,
+        f.telefone !== undefined ? f.telefone : null,
+        f.origem !== undefined ? f.origem : null,
+        f.parceiro_id !== undefined ? f.parceiro_id : null,
+        f.servico !== undefined ? f.servico : null,
+        f.observacao !== undefined ? f.observacao : null,
+        f.vendedor !== undefined ? f.vendedor : null,
+        f.data_contato !== undefined ? f.data_contato : null,
+        f.data_estimate !== undefined ? f.data_estimate : null,
+        f.valor !== undefined ? f.valor : null,
+        f.estagio,
+        f.followups !== undefined ? f.followups : null,
+        f.proxima_acao !== undefined ? f.proxima_acao : null,
+        f.mes_fechamento !== undefined ? f.mes_fechamento : null
+    ).run();
+    return leadId;
+}
+
 async function handlePostGmLead(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -10569,31 +10600,7 @@ async function handlePostGmLead(id, request, env) {
         var config = await gmGetConfig(env, id);
         var parsed = await gmLeadFields(body, config, false, env, id);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
-        var f = parsed.fields;
-        var leadId = crypto.randomUUID();
-        await env.DB.prepare(
-            "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, origem, parceiro_id, servico, " +
-            "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(
-            leadId, id,
-            f.mes_lead !== undefined ? f.mes_lead : null,
-            f.data_lead !== undefined ? f.data_lead : null,
-            f.cliente,
-            f.telefone !== undefined ? f.telefone : null,
-            f.origem !== undefined ? f.origem : null,
-            f.parceiro_id !== undefined ? f.parceiro_id : null,
-            f.servico !== undefined ? f.servico : null,
-            f.observacao !== undefined ? f.observacao : null,
-            f.vendedor !== undefined ? f.vendedor : null,
-            f.data_contato !== undefined ? f.data_contato : null,
-            f.data_estimate !== undefined ? f.data_estimate : null,
-            f.valor !== undefined ? f.valor : null,
-            f.estagio,
-            f.followups !== undefined ? f.followups : null,
-            f.proxima_acao !== undefined ? f.proxima_acao : null,
-            f.mes_fechamento !== undefined ? f.mes_fechamento : null
-        ).run();
+        var leadId = await gmInsertLead(env, id, parsed.fields);
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ created: true, lead: row });
     } catch (e) {
@@ -10869,11 +10876,32 @@ async function handlePostGmBaseOuroReactivate(id, rowId, request, env) {
 // ("Mark Alluminum" vs "MARK (LUMINUM)"), silently zeroing attribution.
 // ---------------------------------------------------------------------------
 
+// Referral slug: 14 chars from a 32-char alphabet (~70 bits) — unguessable
+// and non-enumerable, unlike a sequential id. 32 divides 256 exactly, so
+// the modulo introduces no bias.
+function gmReferralSlug() {
+    var alphabet = "abcdefghijklmnopqrstuvwxyz234567";
+    var bytes = crypto.getRandomValues(new Uint8Array(14));
+    var out = "";
+    for (var i = 0; i < bytes.length; i++) { out += alphabet[bytes[i] % 32]; }
+    return out;
+}
+
 async function handleGetGmPartners(id, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        // Backfill: partners created before the referral feature get a slug
+        // on first read, so every partner card can always show its link/QR.
+        var missing = await env.DB.prepare(
+            "SELECT id FROM gm_partners WHERE client_id = ? AND referral_slug IS NULL"
+        ).bind(id).all();
+        var missingRows = (missing.results || []);
+        for (var mi = 0; mi < missingRows.length; mi++) {
+            await env.DB.prepare("UPDATE gm_partners SET referral_slug = ? WHERE id = ?")
+                .bind(gmReferralSlug(), missingRows[mi].id).run();
+        }
         var rows = await env.DB.prepare(
             "SELECT p.*, " +
             "(SELECT COUNT(*) FROM gm_leads l WHERE l.parceiro_id = p.id) AS leads_indicados, " +
@@ -10921,14 +10949,15 @@ async function handlePostGmPartner(id, request, env) {
         var f = parsed.fields;
         var rowId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO gm_partners (id, client_id, name, tipo, contato, status, ultima_interacao, proxima_acao) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO gm_partners (id, client_id, name, tipo, contato, status, ultima_interacao, proxima_acao, referral_slug) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(rowId, id, f.name,
             f.tipo !== undefined ? f.tipo : null,
             f.contato !== undefined ? f.contato : null,
             f.status !== undefined ? f.status : "Prospectando",
             f.ultima_interacao !== undefined ? f.ultima_interacao : null,
-            f.proxima_acao !== undefined ? f.proxima_acao : null).run();
+            f.proxima_acao !== undefined ? f.proxima_acao : null,
+            gmReferralSlug()).run();
         var row = await gmOwnedRow(env, "gm_partners", rowId, id);
         return jsonOk({ created: true, partner: row });
     } catch (e) {
@@ -10959,6 +10988,138 @@ async function handlePutGmPartner(id, rowId, request, env) {
         return jsonOk({ saved: true, partner: row });
     } catch (e) {
         return jsonErr("Error updating partner: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC referral intake — the first no-login surface in this app.
+//   GET  /api/referral/:slug  → the minimum the form needs to render:
+//                               business name + partner first name + serviços.
+//   POST /api/referral/:slug  → creates a gm_leads row via gmInsertLead with
+//                               parceiro_id set from the slug lookup (never a
+//                               text match), origem 'Parceiro', estágio
+//                               'Novo Lead'.
+// Treated as hostile input by default: strict slug shape, server-side
+// validation/truncation of every field, per-slug and per-IP rate limits in
+// D1 (gm_referral_hits), a honeypot field and a minimum fill time. Responses
+// never carry lead ids, other partners, or any client data beyond the
+// business display name.
+// ---------------------------------------------------------------------------
+
+var GM_MONTH_NAMES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+// Local date/time in the app's timezone (America/New_York), matching what
+// the portal's own gmNowLocalIso() would produce on a phone in Florida.
+function gmNyNowParts() {
+    var fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit",
+        day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+    });
+    var parts = {};
+    fmt.formatToParts(new Date()).forEach(function(p) { parts[p.type] = p.value; });
+    // en-CA can render midnight as "24" — normalize to 00
+    if (parts.hour === "24") { parts.hour = "00"; }
+    return parts;
+}
+
+function gmReferralSlugValid(slug) {
+    return /^[a-z2-7]{10,40}$/.test(slug || "");
+}
+
+async function gmPartnerBySlug(env, slug) {
+    if (!gmReferralSlugValid(slug)) { return null; }
+    return env.DB.prepare(
+        "SELECT p.id, p.client_id, p.name, c.name AS business_name " +
+        "FROM gm_partners p JOIN clients c ON c.id = p.client_id " +
+        "WHERE p.referral_slug = ?"
+    ).bind(slug).first();
+}
+
+async function handleGetReferralInfo(slug, request, env) {
+    try {
+        var partner = await gmPartnerBySlug(env, slug);
+        if (!partner) { return jsonErr("Not found", 404); }
+        var config = await gmGetConfig(env, partner.client_id);
+        // Only what the public form needs — no ids, no other partners, no
+        // financials. Partner first name only (it's their own link).
+        return jsonOk({
+            business_name: partner.business_name,
+            partner_name: (partner.name || "").split(/\s+/)[0],
+            servicos: config.servicos
+        });
+    } catch (e) {
+        return jsonErr("Error loading referral form", 500);
+    }
+}
+
+async function handlePostReferralLead(slug, request, env) {
+    try {
+        var partner = await gmPartnerBySlug(env, slug);
+        if (!partner) { return jsonErr("Not found", 404); }
+
+        var ip = request.headers.get("CF-Connecting-IP") || "";
+
+        // Rate limit BEFORE reading the body: 10/hour per link, 20/hour per
+        // IP. Every attempt is a hit, valid or not, so hammering invalid
+        // payloads cannot bypass the counter. Old rows pruned opportunistically.
+        await env.DB.prepare(
+            "DELETE FROM gm_referral_hits WHERE created_at < datetime('now', '-2 days')"
+        ).run();
+        var slugHits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE slug = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(slug).first();
+        var ipHits = ip ? await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE ip = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(ip).first() : { c: 0 };
+        if ((slugHits && slugHits.c >= 10) || (ipHits && ipHits.c >= 20)) {
+            return jsonErr("Muitas tentativas. Tente novamente mais tarde. / Too many attempts. Try again later.", 429);
+        }
+        await env.DB.prepare(
+            "INSERT INTO gm_referral_hits (id, slug, ip) VALUES (?, ?, ?)"
+        ).bind(crypto.randomUUID(), slug, ip || null).run();
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+
+        // Honeypot: real users never see the 'website' field. Bots that fill
+        // it get a fake success so they don't adapt. Same for an impossibly
+        // fast submit (3 fields in under 3 seconds).
+        var elapsed = gmNum(body.elapsed_ms);
+        if (gmStr(body.website, 200) !== null || (elapsed !== null && elapsed >= 0 && elapsed < 3000)) {
+            return jsonOk({ created: true });
+        }
+
+        var nome = gmStr(body.nome, 200);
+        if (!nome) { return jsonErr("Nome é obrigatório / Name is required", 400); }
+        var telefone = gmStr(body.telefone, 60);
+        if (telefone && !/^[0-9+()\-.\s]{7,60}$/.test(telefone)) {
+            return jsonErr("Telefone inválido / Invalid phone", 400);
+        }
+        var config = await gmGetConfig(env, partner.client_id);
+        var servico = gmStr(body.servico, 80);
+        if (servico && config.servicos.indexOf(servico) === -1) { servico = null; }
+
+        var now = gmNyNowParts();
+        var mesLead = GM_MONTH_NAMES_PT[Number(now.month) - 1];
+        if (config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
+
+        // Same insert path as the authenticated quick-add — parceiro_id from
+        // the slug's own partner row, by record.
+        await gmInsertLead(env, partner.client_id, {
+            cliente: nome,
+            telefone: telefone,
+            servico: servico,
+            origem: "Parceiro",
+            parceiro_id: partner.id,
+            estagio: "Novo Lead",
+            data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
+            mes_lead: mesLead,
+            observacao: "Recebido pelo link de indicação do parceiro."
+        });
+        // Deliberately no lead id / no data in the public response.
+        return jsonOk({ created: true });
+    } catch (e) {
+        return jsonErr("Error submitting referral", 500);
     }
 }
 
@@ -11297,6 +11458,13 @@ export default {
             if (previewUser && previewUser.role === "developer") {
                 return jsonErr("Modo preview é somente leitura / Preview mode is read-only", 403);
             }
+        }
+
+        // PUBLIC partner-referral intake (no auth by design — see handlers).
+        var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
+        if (refMatch) {
+            if (method === "GET")  { return handleGetReferralInfo(refMatch[1], request, env); }
+            if (method === "POST") { return handlePostReferralLead(refMatch[1], request, env); }
         }
 
         if (path === "/api/auth/client-login"           && method === "POST") { return handlePostClientLogin(request, env); }

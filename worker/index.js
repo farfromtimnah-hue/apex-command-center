@@ -8359,6 +8359,57 @@ async function handleDeleteBlockedRange(id, rangeId, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/help-request — the pace dashboard's "Pedir
+// ajuda com esta área" button. Creates a structured consultant task (the
+// exact inbox Rafa already works from in tasks.html / the client profile)
+// carrying the category and the four tile values, and returns a wa.me
+// prefill URL (the app's existing no-phone-number WhatsApp pattern) so the
+// client can ping Rafa directly. The full context lives in the task; the
+// WhatsApp message just points him there.
+// ---------------------------------------------------------------------------
+
+async function handlePostHelpRequest(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var label = gmStr(body.category_label, 120);
+        if (!label) { return jsonErr("category_label is required", 400); }
+        var month = isValidMonthStr(body.month) ? body.month : new Date().toISOString().slice(0, 7);
+        // values: free-form label→string map, sanitized and capped (works for
+        // count/money four-tile categories AND ratio current-vs-target ones).
+        var lines = [];
+        if (body.values && typeof body.values === "object") {
+            Object.keys(body.values).slice(0, 8).forEach(function(k) {
+                var kk = gmStr(k, 40);
+                var vv = gmStr(String(body.values[k]), 60);
+                if (kk && vv) { lines.push(kk + ": " + vv); }
+            });
+        }
+        var description = "[Pedido de ajuda / Help request] " + client.name +
+            " — " + label + " (" + month + ")" +
+            (lines.length ? " · " + lines.join(" · ") : "");
+        var taskId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO tasks (id, client_id, type, description, due_date, status) VALUES (?, ?, 'consultant', ?, NULL, 'pending')"
+        ).bind(taskId, id, description).run();
+        var waText = "Oi Rafa! Aqui é " + client.name +
+            ". Preciso de ajuda com \"" + label + "\" no Portal Apex. Os números estão na sua aba de tarefas.";
+        return jsonOk({
+            created: true,
+            task_id: taskId,
+            whatsapp_url: "https://wa.me/?text=" + encodeURIComponent(waText)
+        });
+    } catch (e) {
+        return jsonErr("Error creating help request: " + e.message, 500);
+    }
+}
+
 async function handleGetWorkingDays(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -8497,6 +8548,7 @@ function clientRequestAllowed(path, method, clientId) {
         if (method === "POST") {
             if (rest === "logo") { return true; }
             if (rest === "blocked-ranges") { return true; }
+            if (rest === "help-request") { return true; }
             if (/^entries\/\d{4}-\d{2}-\d{2}\/day-off$/.test(rest)) { return true; }
         }
         if (method === "DELETE" && /^blocked-ranges\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
@@ -9419,7 +9471,10 @@ async function handleGetEntryState(id, request, env) {
         return jsonOk({
             today: today, tracking_start: start, required_sections: required,
             pending: pending,
-            work_schedule_set: workCtx.schedule_set
+            work_schedule_set: workCtx.schedule_set,
+            // Uncapped (the `tracking_start` above is clamped to 14 days for
+            // the backlog): drives the new/established framing emphasis only.
+            tracking_start_raw: (login && login.tracking_start) || null
         });
     } catch (e) {
         return jsonErr("Error fetching entry state: " + e.message, 500);
@@ -11970,6 +12025,9 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "working-days" && method === "GET") {
                 return handleGetWorkingDays(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "help-request" && method === "POST") {
+                return handlePostHelpRequest(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "entries" && method === "GET") {
                 return handleGetClientEntries(cid, request, env);

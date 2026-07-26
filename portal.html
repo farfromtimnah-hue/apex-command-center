@@ -520,6 +520,31 @@
     .xray-question { padding: 14px 0; border-bottom: 1px solid var(--border); }
     .xray-question:last-child { border-bottom: none; }
     .xray-q-label { font-size: 14px; margin-bottom: 10px; line-height: 1.45; }
+    /* ── "Como estou indo?" pace summary (GM Part 2) ──
+       Four tiles per category; Hoje + Média por dia are the two prominent
+       ones (the side-by-side comparison IS the "am I on track" answer).
+       Status is always color + glyph + word together. */
+    .pace-rail { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; -webkit-overflow-scrolling: touch; }
+    .pace-chip {
+      flex-shrink: 0; min-height: 48px; padding: 10px 14px; border-radius: 999px;
+      border: 1px solid var(--border); background: #fff; font-size: 13px;
+      font-weight: 600; cursor: pointer;
+    }
+    .pace-chip.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .pace-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .pace-tile { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; }
+    .pace-tile-big { background: rgba(201,164,58,0.07); border-color: rgba(201,164,58,0.45); }
+    .pace-tile-label { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+    .pace-tile-value { font-size: 22px; font-weight: 800; margin-top: 4px; word-break: break-word; }
+    .pace-tile-big .pace-tile-value { font-size: 26px; }
+    .pace-tile-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .pace-emph { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+    .pace-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; margin-top: 10px; padding: 6px 12px; border-radius: 999px; }
+    .pace-status.ok   { background: rgba(63,125,78,0.12);  color: #2f6b3e; }
+    .pace-status.warn { background: rgba(201,164,58,0.16); color: #8a6d1d; }
+    .pace-status.bad  { background: rgba(180,64,64,0.12);  color: #a03636; }
+    .pace-head-line { font-size: 15px; font-weight: 600; margin: 4px 0 10px; }
+
     /* Inline jargon help: an optional (i) per flagged question. Tapping
        reveals a plain-language reframing; presentation-only, never touches
        answers or scoring. */
@@ -888,6 +913,14 @@
             </button>
           </div>
         </div>
+        <!-- ══ Pace summary — plain-language layer ABOVE the analytics ══ -->
+        <div class="content-card" id="paceCard" hidden>
+          <div class="card-title">
+            <span class="show-pt">Como estou indo?</span>
+            <span class="show-en">How am I doing?</span>
+          </div>
+          <div id="paceBody"></div>
+        </div>
         <div class="content-card">
           <div class="month-nav">
             <button onclick="changeMonth(-1)">&lsaquo;</button>
@@ -1091,6 +1124,7 @@
       // re-render dynamic bits that embed language-dependent text
       if (!document.getElementById("viewPortal").hidden) {
         loadAnalytics();
+        if (paceSummary) { renderPaceCard(); }
         if (!document.getElementById("tabGoals").hidden) { loadGoalsTab(); }
         if (!document.getElementById("tabWorksched").hidden && workSettings) { renderWorkSettings(); }
       }
@@ -2143,7 +2177,7 @@
       // attribution), so a stale cache would show wrong numbers.
       if (force || !tabsLoaded[tab] || tab.indexOf("gm") === 0) {
         tabsLoaded[tab] = true;
-        if (tab === "analytics") { loadAnalytics(); loadHistory(); }
+        if (tab === "analytics") { loadPace(); loadAnalytics(); loadHistory(); }
         if (tab === "goals") { loadGoalsTab(); }
         if (tab === "tasks") { loadTasks(); }
         if (tab === "documents") { loadDocuments(); }
@@ -2966,6 +3000,300 @@
         .catch(function() {});
     }
 
+    // ═══ "Como estou indo?" — pace summary layer (GM Part 2) ═══════════════
+    // A plain-language interpretation layer ABOVE the analytics, never a
+    // replacement: every number stays visible below. Core mechanic: monthly
+    // goal ÷ REAL working days (Task 3's shared calculation via
+    // /working-days — never a hardcoded 5-day week). Pinned to the CURRENT
+    // month: pace has no meaning for past months.
+    var paceSummary = null;      // entries-summary for the current month
+    var paceWd = null;           // working-days {total, elapsed, remaining}
+    var paceSelectedKey = null;
+    var paceChartOpen = false;
+    var paceChartCache = {};     // indicator key → indicator-history payload
+
+    // New/established framing: an established client (60+ days tracked)
+    // responds better to seeing the open gap; a newer one to what they've
+    // already accomplished. Adjusts EMPHASIS only — all four tiles always show.
+    function paceEstablished() {
+      var raw = entryState && entryState.tracking_start_raw;
+      if (!raw) { return false; }
+      var t = Date.parse(raw + "T12:00:00Z");
+      return isFinite(t) && (Date.now() - t) >= 60 * 24 * 3600 * 1000;
+    }
+
+    // Count/money metrics accumulate → the four-tile pace model applies.
+    // Ratios/averages/inverse metrics don't have a meaningful daily pace →
+    // current vs target with word + glyph + color instead.
+    function pacePaceable(ind) {
+      if (ind.inverse) { return false; }
+      if (ind.key === "dias_rotina_completos") { return true; }
+      return ind.type === "count" || ind.type === "currency";
+    }
+
+    function paceEligible(ind) {
+      return ind.meta_mensal !== null && ind.meta_mensal !== undefined;
+    }
+
+    function paceInds() {
+      if (!paceSummary) { return []; }
+      return paceSummary.indicators.filter(paceEligible);
+    }
+
+    function loadPace() {
+      var cm = todayStr().slice(0, 7);
+      Promise.all([
+        apiFetch("/api/clients/" + clientId + "/entries-summary?month=" + cm)
+          .then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.json(); }),
+        apiFetch("/api/clients/" + clientId + "/working-days?month=" + cm + "&today=" + todayStr())
+          .then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.json(); })
+      ]).then(function(results) {
+        paceSummary = results[0];
+        paceWd = results[1];
+        renderPaceCard();
+      }).catch(function() {
+        document.getElementById("paceCard").hidden = true;
+      });
+    }
+
+    function paceFmtValue(ind, v, ceil) {
+      if (v === null || v === undefined) { return "--"; }
+      if (ind.type === "currency") { return fmtNum(Math.round(v * 100) / 100, "currency"); }
+      var n = ceil ? Math.ceil(v) : Math.round(v * 10) / 10;
+      return fmtNum(n, indPctType(ind));
+    }
+
+    function paceStatusHtml(band, glyph, pt, en) {
+      return '<span class="pace-status ' + band + '">' + glyph + ' ' +
+        '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span></span>';
+    }
+
+    function renderPaceCard() {
+      var card = document.getElementById("paceCard");
+      var body = document.getElementById("paceBody");
+      var inds = paceInds();
+      if (!paceSummary || !paceWd || !inds.length) {
+        card.hidden = true;
+        return;
+      }
+      card.hidden = false;
+      if (!paceSelectedKey || !inds.some(function(x) { return x.key === paceSelectedKey; })) {
+        paceSelectedKey = inds[0].key;
+      }
+
+      // Header sentence: one aggregated judgment (single signal beats a row
+      // of dots), always glyph + word + color together.
+      var overall = cappedMeanPct(paceSummary.indicators);
+      var expected = paceWd.total ? Math.round((paceWd.elapsed / paceWd.total) * 100) : null;
+      var html = "";
+      if (overall !== null && expected !== null) {
+        var good = overall >= expected - 10;
+        html += '<div class="pace-head-line">' +
+          (good
+            ? '<span style="color:#2f6b3e;">▲ <span class="show-pt">Você está indo bem este mês.</span><span class="show-en">You are doing well this month.</span></span>'
+            : '<span style="color:#8a6d1d;">● <span class="show-pt">Alguns pontos precisam de atenção.</span><span class="show-en">Some areas need attention.</span></span>') +
+          '</div>';
+      }
+
+      html += '<div class="pace-rail" data-tour="pace-chips">';
+      inds.forEach(function(ind) {
+        html += '<button type="button" class="pace-chip' + (ind.key === paceSelectedKey ? " active" : "") +
+          '" onclick="pacePick(\'' + ind.key + '\')">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</button>';
+      });
+      html += '</div>';
+
+      var sel = null;
+      inds.forEach(function(x) { if (x.key === paceSelectedKey) { sel = x; } });
+      html += paceDetailHtml(sel);
+      body.innerHTML = html;
+      if (paceChartOpen) { paceRenderChart(); }
+    }
+
+    function paceDetailHtml(ind) {
+      if (!ind) { return ""; }
+      var html = "";
+      var established = paceEstablished();
+
+      if (pacePaceable(ind)) {
+        var meta = ind.meta_mensal;
+        var achieved = ind.realizado === null || ind.realizado === undefined ? 0 : ind.realizado;
+        var left = ind.falta === null || ind.falta === undefined ? Math.max(0, meta - achieved) : ind.falta;
+        var todayNeed = paceWd.remaining > 0 ? left / paceWd.remaining : null;
+        var avgDay = paceWd.elapsed > 0 ? achieved / paceWd.elapsed : null;
+        var hit = left <= 0;
+
+        // Big pair: Hoje vs Média por dia — the comparison IS the answer.
+        html += '<div class="pace-grid" data-tour="pace-tiles">' +
+          '<div class="pace-tile pace-tile-big"><div class="pace-tile-label">' +
+          '<span class="show-pt">Hoje</span><span class="show-en">Today</span></div>' +
+          '<div class="pace-tile-value">' + (hit ? "✓" : paceFmtValue(ind, todayNeed, true)) + '</div>' +
+          '<div class="pace-tile-sub">' +
+          (hit
+            ? '<span class="show-pt">meta do mês já batida</span><span class="show-en">monthly goal already hit</span>'
+            : (paceWd.remaining > 0
+              ? '<span class="show-pt">por dia útil para bater a meta (' + paceWd.remaining + ' restantes)</span>' +
+                '<span class="show-en">per working day to hit the goal (' + paceWd.remaining + ' left)</span>'
+              : '<span class="show-pt">sem dias úteis restantes no mês</span><span class="show-en">no working days left this month</span>')) +
+          '</div></div>' +
+          '<div class="pace-tile pace-tile-big"><div class="pace-tile-label">' +
+          '<span class="show-pt">Média por dia</span><span class="show-en">Average per day</span></div>' +
+          '<div class="pace-tile-value">' + paceFmtValue(ind, avgDay, false) + '</div>' +
+          '<div class="pace-tile-sub"><span class="show-pt">seu ritmo até agora (' + paceWd.elapsed + ' dias úteis)</span>' +
+          '<span class="show-en">your pace so far (' + paceWd.elapsed + ' working days)</span></div></div>' +
+          '</div>';
+
+        // One aggregated judgment for the pair — color + glyph + word.
+        if (hit) {
+          html += paceStatusHtml("ok", "✓", "Meta batida!", "Goal hit!");
+        } else if (avgDay !== null && todayNeed !== null) {
+          html += avgDay >= todayNeed
+            ? paceStatusHtml("ok", "▲", "No ritmo certo", "On pace")
+            : paceStatusHtml("warn", "●", "Precisa acelerar um pouco", "Needs a little push");
+        }
+
+        // Secondary pair: Realizado / Falta — emphasis follows the framing.
+        html += '<div class="pace-grid">' +
+          '<div class="pace-tile' + (!established ? " pace-emph" : "") + '"><div class="pace-tile-label">' +
+          '<span class="show-pt">Realizado</span><span class="show-en">Achieved</span></div>' +
+          '<div class="pace-tile-value">' + paceFmtValue(ind, achieved, false) + '</div>' +
+          (!established
+            ? '<div class="pace-tile-sub"><span class="show-pt">olha o que você já construiu</span><span class="show-en">look what you have built already</span></div>'
+            : '') +
+          '</div>' +
+          '<div class="pace-tile' + (established ? " pace-emph" : "") + '"><div class="pace-tile-label">' +
+          '<span class="show-pt">Falta</span><span class="show-en">Left</span></div>' +
+          '<div class="pace-tile-value">' + paceFmtValue(ind, left, false) + '</div>' +
+          (established
+            ? '<div class="pace-tile-sub"><span class="show-pt">é isso que separa você da meta</span><span class="show-en">this is what stands between you and the goal</span></div>'
+            : '') +
+          '</div></div>';
+        html += '<div class="muted" style="font-size:11px;margin-top:8px;">' +
+          '<span class="show-pt">Meta do mês: ' + paceFmtValue(ind, ind.meta_mensal, false) + ' · dias úteis: ' + paceWd.total + '</span>' +
+          '<span class="show-en">Monthly goal: ' + paceFmtValue(ind, ind.meta_mensal, false) + ' · working days: ' + paceWd.total + '</span></div>';
+      } else {
+        // Ratio/average/inverse metric: a fabricated daily pace would be
+        // meaningless — current vs target + status (word + glyph + color).
+        var pctType = indPctType(ind);
+        var cur = ind.realizado;
+        var target = ind.meta_mensal;
+        html += '<div class="pace-grid" data-tour="pace-tiles">' +
+          '<div class="pace-tile pace-tile-big"><div class="pace-tile-label">' +
+          '<span class="show-pt">Atual</span><span class="show-en">Current</span></div>' +
+          '<div class="pace-tile-value">' + fmtNum(cur, pctType) + '</div></div>' +
+          '<div class="pace-tile pace-tile-big"><div class="pace-tile-label">' +
+          '<span class="show-pt">Meta</span><span class="show-en">Target</span></div>' +
+          '<div class="pace-tile-value">' + fmtNum(target, pctType) + '</div></div>' +
+          '</div>';
+        if (cur !== null && cur !== undefined && target !== null && target !== undefined) {
+          var onTarget = ind.inverse ? cur <= target : cur >= target;
+          html += onTarget
+            ? paceStatusHtml("ok", "✓", "Na meta", "On target")
+            : (ind.inverse
+              ? paceStatusHtml("bad", "▼", "Acima do limite da meta", "Above the target limit")
+              : paceStatusHtml("warn", "●", "Abaixo da meta", "Below target"));
+        }
+        html += '<div class="muted" style="font-size:11px;margin-top:8px;">' +
+          '<span class="show-pt">Indicador de proporção — acompanhado por valor atual, não por ritmo diário.</span>' +
+          '<span class="show-en">Ratio-style indicator — tracked by current value, not a daily pace.</span></div>';
+      }
+
+      // Progressive disclosure: chart + full analytics on request only.
+      html += '<button type="button" class="btn-outline" style="width:100%;margin-top:12px;min-height:48px;" data-tour="pace-expand-chart" onclick="paceToggleChart()">' +
+        (paceChartOpen
+          ? '<span class="show-pt">Esconder gráfico desta área</span><span class="show-en">Hide this area\'s chart</span>'
+          : '<span class="show-pt">Ver gráfico desta área</span><span class="show-en">See this area\'s chart</span>') +
+        '</button>' +
+        '<div id="paceChartBox" style="margin-top:10px;"' + (paceChartOpen ? '' : ' hidden') + '></div>';
+
+      html += '<button type="button" class="btn-gold" style="width:100%;margin-top:10px;min-height:48px;" data-tour="pace-help" onclick="paceAskHelp()">' +
+        '<span class="show-pt">Pedir ajuda com esta área</span><span class="show-en">Ask for help with this area</span></button>';
+      return html;
+    }
+
+    function pacePick(key) {
+      paceSelectedKey = key;
+      paceChartOpen = false;
+      renderPaceCard();
+    }
+
+    // The pace card's per-category chart: an ADDITIONAL, optional view with
+    // its own container and fetch cache — independent of Chart B, which
+    // stays always-visible in its own card further down the page.
+    function paceToggleChart() {
+      paceChartOpen = !paceChartOpen;
+      renderPaceCard();
+    }
+
+    function paceRenderChart() {
+      var box = document.getElementById("paceChartBox");
+      if (!box) { return; }
+      var key = paceSelectedKey;
+      if (paceChartCache[key]) {
+        box.innerHTML = trendChartHtml(paceChartCache[key]);
+        return;
+      }
+      box.innerHTML = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
+      apiFetch("/api/clients/" + clientId + "/indicator-history?indicator=" + encodeURIComponent(key) + "&months=12")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          paceChartCache[key] = d;
+          if (paceSelectedKey === key && paceChartOpen) {
+            var b = document.getElementById("paceChartBox");
+            if (b) { b.innerHTML = trendChartHtml(d); }
+          }
+        })
+        .catch(function() {
+          var b = document.getElementById("paceChartBox");
+          if (b) { b.innerHTML = '<p class="muted">' + (isEn() ? "No data yet." : "Sem dados ainda.") + '</p>'; }
+        });
+    }
+
+    // "Pedir ajuda": captures the category + tile values into a consultant
+    // task (Rafa's existing inbox) and opens the app's standard wa.me
+    // prefill so he gets pinged promptly. Works for every metric shape.
+    function paceAskHelp() {
+      var inds = paceInds();
+      var sel = null;
+      inds.forEach(function(x) { if (x.key === paceSelectedKey) { sel = x; } });
+      if (!sel) { return; }
+      var values = {};
+      if (pacePaceable(sel)) {
+        var meta = sel.meta_mensal;
+        var achieved = sel.realizado === null || sel.realizado === undefined ? 0 : sel.realizado;
+        var left = sel.falta === null || sel.falta === undefined ? Math.max(0, meta - achieved) : sel.falta;
+        values["Realizado"] = paceFmtValue(sel, achieved, false);
+        values["Falta"] = paceFmtValue(sel, left, false);
+        values["Hoje"] = paceWd.remaining > 0 ? paceFmtValue(sel, left / paceWd.remaining, true) : "--";
+        values["Média/dia"] = paceWd.elapsed > 0 ? paceFmtValue(sel, achieved / paceWd.elapsed, false) : "--";
+      } else {
+        values["Atual"] = fmtNum(sel.realizado, indPctType(sel));
+        values["Meta"] = fmtNum(sel.meta_mensal, indPctType(sel));
+      }
+      // window.open must be synchronous in the tap (Safari) — same pattern
+      // as openDocument; the wa.me URL lands when the Worker answers.
+      var tab = window.open("", "_blank");
+      apiFetch("/api/clients/" + clientId + "/help-request", {
+        method: "POST",
+        body: {
+          category_label: isEn() ? sel.label_en : sel.label_pt,
+          month: todayStr().slice(0, 7),
+          values: values
+        }
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          if (tab) { tab.location.href = r.data.whatsapp_url; }
+          window.alert(isEn()
+            ? "Help request sent — Rafa was notified and will see your numbers."
+            : "Pedido de ajuda enviado — o Rafa foi avisado e vai ver seus números.");
+        })
+        .catch(function(e) {
+          if (tab) { tab.close(); }
+          window.alert(e.message);
+        });
+    }
+
     // ── Chart B — one indicator's month-over-month trend (inline SVG) ──────
     var chartBLoadedFor = null;
 
@@ -3006,12 +3334,14 @@
       return (isEn() ? namesEn : namesPt)[idx];
     }
 
-    function renderChartB(d) {
-      var body = document.getElementById("chartBBody");
+    // Pure trend-chart builder shared by Chart B (the always-visible growth
+    // chart, fixed in its own card) and the pace card's OPTIONAL per-category
+    // chart. Two independent chart instances — different containers,
+    // different fetch state — sharing only this rendering function.
+    function trendChartHtml(d) {
       var points = (d.points || []).filter(function(p) { return p.realizado !== null && p.realizado !== undefined; });
       if (!points.length) {
-        body.innerHTML = '<p class="muted">' + (isEn() ? "No data yet for this indicator." : "Sem dados ainda para este indicador.") + '</p>';
-        return;
+        return '<p class="muted">' + (isEn() ? "No data yet for this indicator." : "Sem dados ainda para este indicador.") + '</p>';
       }
       var pctType = (d.indicator === "margem_lucro" || d.indicator === "taxa_conversao" || d.indicator === "metas_batidas") ? "percent" : d.type;
       var W = 320, H = 150, padL = 8, padR = 8, padT = 12, padB = 26;
@@ -3084,10 +3414,14 @@
           '<span class="show-pt">' + escHtml(ptParts.join(", ")) + '.</span>' +
           '<span class="show-en">' + escHtml(enParts.join(", ")) + '.</span></div>';
       }
-      body.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:4px;">' +
+      return '<div class="muted" style="font-size:12px;margin-bottom:4px;">' +
         (isEn() ? "Latest: " : "Último mês: ") + fmtNum(last.realizado, pctType) +
         (last.meta !== null && last.meta !== undefined ? " · Meta: " + fmtNum(last.meta, pctType) : "") + '</div>' +
         svg + legend + summary;
+    }
+
+    function renderChartB(d) {
+      document.getElementById("chartBBody").innerHTML = trendChartHtml(d);
     }
 
     // Entry history — the retired grid's historical past-entries view.

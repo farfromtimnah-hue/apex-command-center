@@ -9648,18 +9648,132 @@ var XRAY_ACTION_PLANS = {
     }
 };
 
+// ---------------------------------------------------------------------------
+// Part 2 — practice-profile sections (Marketing / Sistemas & IA).
+// These are a PICTURE, not a grade: they never touch XRAY_QUESTIONS, the
+// 62-point score, the percentage or the maturity band. Answers live in a
+// separate column (client_assessments.profile_json) and computeXrayScore
+// never sees them. Each activity is profiled across five dimensions:
+// what is actually done / who does it / weekly time cost / observed result /
+// pain point. The point is truth over box-ticking — "a monthly Instagram
+// post" scores Sim on redes_sociais; the profile shows what that really is.
+// ---------------------------------------------------------------------------
+
+var XRAY_PROFILE_SECTIONS = [
+    { key: "marketing_pratica", namePt: "Marketing na Prática", nameEn: "Marketing in Practice" },
+    { key: "sistemas_ia",       namePt: "Sistemas e IA",        nameEn: "Business Systems & AI" }
+];
+
+// The five dimensions every activity is profiled across. 'required' drives
+// completion (the two free-text reflection fields stay optional so nobody
+// is forced to invent a resultado/dor that doesn't exist).
+var XRAY_PROFILE_DIMENSIONS = [
+    { key: "o_que",     type: "text",   required: true,
+      labelPt: "O que é feito hoje? (canais, frequência, como funciona na prática)",
+      labelEn: "What is done today? (channels, frequency, how it actually works)" },
+    { key: "quem",      type: "choice", required: true,
+      labelPt: "Quem faz?", labelEn: "Who does it?",
+      options: [
+        { key: "dono",       labelPt: "Eu (dono)",              labelEn: "Me (owner)" },
+        { key: "funcionario",labelPt: "Funcionário",       labelEn: "Employee" },
+        { key: "terceiro",   labelPt: "Agência/terceiro",  labelEn: "Agency/third party" },
+        { key: "ninguem",    labelPt: "Ninguém",           labelEn: "Nobody" }
+      ] },
+    { key: "tempo",     type: "choice", required: true,
+      labelPt: "Tempo gasto por semana", labelEn: "Time spent per week",
+      options: [
+        { key: "nenhum",   labelPt: "Nenhum",            labelEn: "None" },
+        { key: "ate_2h",   labelPt: "Até 2h",       labelEn: "Up to 2h" },
+        { key: "de_2_5h",  labelPt: "2 a 5h",            labelEn: "2 to 5h" },
+        { key: "de_5_10h", labelPt: "5 a 10h",           labelEn: "5 to 10h" },
+        { key: "mais_10h", labelPt: "Mais de 10h",       labelEn: "More than 10h" }
+      ] },
+    { key: "resultado", type: "text",   required: false,
+      labelPt: "Que resultado você percebe? (opcional)",
+      labelEn: "What result do you observe? (optional)" },
+    { key: "dor",       type: "text",   required: false,
+      labelPt: "Onde isso trava ou dói hoje? (opcional)",
+      labelEn: "Where does it hurt or get stuck today? (optional)" }
+];
+
+// Marketing activities are derived from what Rafa already tracks:
+// area V (comercial_marketing) questions + the Daily Log marketing
+// indicators — not a generic checklist. Source of each item:
+//   redes_sociais_pratica   ← Q redes_sociais + Daily Log post_publicado/story/video_curto
+//   prospeccao_pratica      ← Q processo_vendas + Daily Log leads_gerados/contatos_estrategicos/envio_propostas
+//   crm_followup_pratica    ← Q crm_implementado + Daily Log retomadas_cliente/pipeline_ativo
+//   avaliacoes_pratica      ← Daily Log google_review + Q pesquisa_satisfacao
+//   fidelizacao_pratica     ← Q programa_fidelizacao + Daily Log visitas_estrategicas/interacoes_estrategicas
+//   plano_marketing_pratica ← Q plano_marketing
+var XRAY_PROFILE_ACTIVITIES = [
+    { key: "redes_sociais_pratica",   section: "marketing_pratica",
+      labelPt: "Redes sociais (posts, stories, vídeos curtos)",
+      labelEn: "Social media (posts, stories, short videos)" },
+    { key: "prospeccao_pratica",      section: "marketing_pratica",
+      labelPt: "Prospecção e geração de leads",
+      labelEn: "Prospecting and lead generation" },
+    { key: "crm_followup_pratica",    section: "marketing_pratica",
+      labelPt: "CRM e acompanhamento de clientes (follow-up, pipeline)",
+      labelEn: "CRM and client follow-up (pipeline)" },
+    { key: "avaliacoes_pratica",      section: "marketing_pratica",
+      labelPt: "Avaliações e reputação online (Google Reviews, satisfação)",
+      labelEn: "Reviews and online reputation (Google Reviews, satisfaction)" },
+    { key: "fidelizacao_pratica",     section: "marketing_pratica",
+      labelPt: "Fidelização e relacionamento com clientes atuais",
+      labelEn: "Loyalty and relationships with current clients" },
+    { key: "plano_marketing_pratica", section: "marketing_pratica",
+      labelPt: "Planejamento e calendário de marketing",
+      labelEn: "Marketing planning and calendar" },
+    { key: "controle_financeiro_op",  section: "sistemas_ia",
+      labelPt: "Controle financeiro do dia a dia (onde e como registra receitas e saídas)",
+      labelEn: "Day-to-day financial control (where and how revenue and expenses are recorded)" },
+    { key: "atendimento_comunicacao", section: "sistemas_ia",
+      labelPt: "Atendimento e comunicação com clientes (canais, quem responde)",
+      labelEn: "Client service and communication (channels, who answers)" },
+    { key: "agenda_tarefas",          section: "sistemas_ia",
+      labelPt: "Agenda, tarefas e compromissos da equipe",
+      labelEn: "Team schedule, tasks and commitments" },
+    { key: "dados_clientes",          section: "sistemas_ia",
+      labelPt: "Cadastro e informações de clientes (onde os dados vivem)",
+      labelEn: "Client records and information (where the data lives)" },
+    { key: "tarefas_repetitivas",     section: "sistemas_ia",
+      labelPt: "Tarefas repetitivas feitas manualmente (o que consome tempo toda semana)",
+      labelEn: "Repetitive tasks done by hand (what eats time every week)" },
+    { key: "uso_ia",                  section: "sistemas_ia",
+      labelPt: "Uso atual de IA e automação (o que já usa hoje, mesmo que pouco)",
+      labelEn: "Current use of AI and automation (whatever is used today, even a little)" }
+];
+
 function assessmentCatalog(type) {
     if (type === "business_xray") {
-        return { areas: XRAY_AREAS, questions: XRAY_QUESTIONS, total: XRAY_QUESTIONS.length };
+        return {
+            areas: XRAY_AREAS, questions: XRAY_QUESTIONS, total: XRAY_QUESTIONS.length,
+            profile_sections: XRAY_PROFILE_SECTIONS,
+            profile_activities: XRAY_PROFILE_ACTIVITIES,
+            profile_dimensions: XRAY_PROFILE_DIMENSIONS
+        };
     }
     return null;
 }
 
+// ---------------------------------------------------------------------------
+// Band cutoffs — the ONLY place these numbers live. Placeholder values
+// pending the consultant's real thresholds; everything downstream (portal,
+// report) keys off the computed labels, never off raw numbers.
+//   maturity: pct >= alta → Alta; pct >= media → Média; else Baixa
+//   area:     pct >= bom → Bom; >= moderado → Moderado; >= atencao → Atenção;
+//             else Crítico
+// ---------------------------------------------------------------------------
+var XRAY_CUTOFFS = {
+    maturity: { alta: 71, media: 41 },
+    area:     { bom: 80, moderado: 60, atencao: 40 }
+};
+
 // Per-area 4-tier status from the area's percentage of "Sim" answers.
 function xrayAreaStatus(pct) {
-    if (pct >= 80) { return "Bom"; }
-    if (pct >= 60) { return "Moderado"; }
-    if (pct >= 40) { return "Atenção"; }
+    if (pct >= XRAY_CUTOFFS.area.bom)      { return "Bom"; }
+    if (pct >= XRAY_CUTOFFS.area.moderado) { return "Moderado"; }
+    if (pct >= XRAY_CUTOFFS.area.atencao)  { return "Atenção"; }
     return "Crítico";
 }
 
@@ -9678,11 +9792,11 @@ function computeXrayScore(answers) {
     });
     var pct = Math.round((score / total) * 100);
 
-    // Maturity band over the raw score.
+    // Maturity band over the raw score (cutoffs live in XRAY_CUTOFFS only).
     var maturity;
-    if (pct >= 71)      { maturity = { level: "alta",  labelPt: "Alta",  labelEn: "High" }; }
-    else if (pct >= 41) { maturity = { level: "media", labelPt: "Média", labelEn: "Medium" }; }
-    else                { maturity = { level: "baixa", labelPt: "Baixa", labelEn: "Low" }; }
+    if (pct >= XRAY_CUTOFFS.maturity.alta)       { maturity = { level: "alta",  labelPt: "Alta",  labelEn: "High" }; }
+    else if (pct >= XRAY_CUTOFFS.maturity.media) { maturity = { level: "media", labelPt: "Média", labelEn: "Medium" }; }
+    else                                         { maturity = { level: "baixa", labelPt: "Baixa", labelEn: "Low" }; }
 
     // Per-area status + three-bucket classification.
     var STATUS_META = {
@@ -9801,6 +9915,67 @@ function assessmentAnsweredCount(type, answers) {
     return n;
 }
 
+// ── Practice-profile helpers (Part 2) ──────────────────────────────────────
+// profile is { <activity_key>: { <dimension_key>: value } }. Counts and
+// validation cover REQUIRED dimensions only; the optional free-text ones
+// never block completion.
+
+function xrayProfileRequiredDims() {
+    return XRAY_PROFILE_DIMENSIONS.filter(function(d) { return d.required; });
+}
+
+function xrayProfileRequiredTotal() {
+    return XRAY_PROFILE_ACTIVITIES.length * xrayProfileRequiredDims().length;
+}
+
+function xrayProfileDimAnswered(dim, entry) {
+    if (!entry) { return false; }
+    var v = entry[dim.key];
+    if (dim.type === "choice") {
+        return dim.options.some(function(o) { return o.key === v; });
+    }
+    return typeof v === "string" && v.trim().length > 0;
+}
+
+function xrayProfileAnsweredCount(profile) {
+    profile = profile || {};
+    var required = xrayProfileRequiredDims();
+    var n = 0;
+    XRAY_PROFILE_ACTIVITIES.forEach(function(act) {
+        required.forEach(function(dim) {
+            if (xrayProfileDimAnswered(dim, profile[act.key])) { n += 1; }
+        });
+    });
+    return n;
+}
+
+// Merge an incoming profile draft into the stored one, accepting only known
+// activity/dimension keys, valid choice values, and length-capped text.
+function xrayMergeProfile(prev, incoming) {
+    var merged = {};
+    var dimByKey = {};
+    XRAY_PROFILE_DIMENSIONS.forEach(function(d) { dimByKey[d.key] = d; });
+    XRAY_PROFILE_ACTIVITIES.forEach(function(act) {
+        var entry = Object.assign({}, (prev && prev[act.key]) || {});
+        var inc = incoming && incoming[act.key];
+        if (inc && typeof inc === "object") {
+            Object.keys(inc).forEach(function(dk) {
+                var dim = dimByKey[dk];
+                if (!dim) { return; }
+                var v = inc[dk];
+                if (dim.type === "choice") {
+                    if (dim.options.some(function(o) { return o.key === v; })) { entry[dk] = v; }
+                    else if (v === null || v === "") { delete entry[dk]; }
+                } else if (typeof v === "string") {
+                    entry[dk] = v.slice(0, 2000);
+                }
+            });
+        }
+        if (Object.keys(entry).length > 0) { merged[act.key] = entry; }
+    });
+    return merged;
+}
+
 // ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/assessments — assignment list (admin + own client)
 // ---------------------------------------------------------------------------
@@ -9811,13 +9986,15 @@ async function handleGetClientAssessments(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var rows = await env.DB.prepare(
-            "SELECT assessment_type, status, answers_json, score_json, activated_by, activated_at, started_at, completed_at " +
+            "SELECT assessment_type, status, answers_json, profile_json, score_json, activated_by, activated_at, started_at, completed_at " +
             "FROM client_assessments WHERE client_id = ? ORDER BY activated_at"
         ).bind(id).all();
         var out = (rows.results || []).map(function(r) {
             var typeMeta = ASSESSMENT_TYPES[r.assessment_type] || { labelPt: r.assessment_type, labelEn: r.assessment_type };
             var answers = {};
             try { answers = JSON.parse(r.answers_json || "{}"); } catch (e) { answers = {}; }
+            var profile = {};
+            try { profile = JSON.parse(r.profile_json || "{}"); } catch (e) { profile = {}; }
             var catalog = assessmentCatalog(r.assessment_type);
             var summary = null;
             if (r.status === "completed" && r.score_json) {
@@ -9832,6 +10009,8 @@ async function handleGetClientAssessments(id, request, env) {
                 status: r.status,
                 answered: assessmentAnsweredCount(r.assessment_type, answers),
                 total: catalog ? catalog.total : 0,
+                profile_answered: (r.assessment_type === "business_xray") ? xrayProfileAnsweredCount(profile) : 0,
+                profile_required_total: (r.assessment_type === "business_xray") ? xrayProfileRequiredTotal() : 0,
                 activated_by: r.activated_by, activated_at: r.activated_at,
                 started_at: r.started_at, completed_at: r.completed_at,
                 score_summary: summary
@@ -9904,12 +10083,14 @@ async function handleGetClientAssessmentDetail(id, type, request, env) {
         var catalog = assessmentCatalog(type);
         if (!catalog) { return jsonErr("Unknown assessment type", 400); }
         var row = await env.DB.prepare(
-            "SELECT status, answers_json, score_json, activated_at, started_at, completed_at " +
+            "SELECT status, answers_json, profile_json, score_json, activated_at, started_at, completed_at " +
             "FROM client_assessments WHERE client_id = ? AND assessment_type = ?"
         ).bind(id, type).first();
         if (!row) { return jsonErr("Assessment not activated for this client", 404); }
         var answers = {};
         try { answers = JSON.parse(row.answers_json || "{}"); } catch (e) { answers = {}; }
+        var profile = {};
+        try { profile = JSON.parse(row.profile_json || "{}"); } catch (e) { profile = {}; }
         var score = null;
         if (row.score_json) {
             try { score = JSON.parse(row.score_json); } catch (e) { score = null; }
@@ -9921,6 +10102,9 @@ async function handleGetClientAssessmentDetail(id, type, request, env) {
             answers: answers,
             answered: assessmentAnsweredCount(type, answers),
             total: catalog.total,
+            profile: profile,
+            profile_answered: xrayProfileAnsweredCount(profile),
+            profile_required_total: xrayProfileRequiredTotal(),
             catalog: catalog,
             score: score
         });
@@ -9948,7 +10132,7 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
         var catalog = assessmentCatalog(type);
         if (!catalog) { return jsonErr("Unknown assessment type", 400); }
         var row = await env.DB.prepare(
-            "SELECT id, status, answers_json FROM client_assessments WHERE client_id = ? AND assessment_type = ?"
+            "SELECT id, status, answers_json, profile_json FROM client_assessments WHERE client_id = ? AND assessment_type = ?"
         ).bind(id, type).first();
         if (!row) { return jsonErr("Assessment not activated for this client", 404); }
         if (row.status === "completed") {
@@ -9972,26 +10156,40 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
             if (v === 1 || v === 0) { merged[k] = v; }
         });
 
+        // Practice profile (Part 2): merged and stored in its own column,
+        // NEVER handed to the scoring engine below.
+        var prevProfile = {};
+        try { prevProfile = JSON.parse(row.profile_json || "{}"); } catch (e) { prevProfile = {}; }
+        var mergedProfile = xrayMergeProfile(prevProfile, (body && body.profile) || null);
+        var profileAnswered = xrayProfileAnsweredCount(mergedProfile);
+        var profileTotal = xrayProfileRequiredTotal();
+
         var answered = assessmentAnsweredCount(type, merged);
         if (isDraft) {
-            var status = answered > 0 ? "in_progress" : "not_started";
+            var status = (answered > 0 || profileAnswered > 0) ? "in_progress" : "not_started";
             await env.DB.prepare(
-                "UPDATE client_assessments SET answers_json = ?, status = ?, " +
+                "UPDATE client_assessments SET answers_json = ?, profile_json = ?, status = ?, " +
                 "started_at = CASE WHEN started_at IS NULL AND ? > 0 THEN datetime('now') ELSE started_at END, " +
                 "updated_at = datetime('now') WHERE id = ?"
-            ).bind(JSON.stringify(merged), status, answered, row.id).run();
-            return jsonOk({ saved: true, draft: true, answered: answered, total: catalog.total });
+            ).bind(JSON.stringify(merged), JSON.stringify(mergedProfile), status, answered + profileAnswered, row.id).run();
+            return jsonOk({ saved: true, draft: true, answered: answered, total: catalog.total,
+                            profile_answered: profileAnswered, profile_required_total: profileTotal });
         }
 
         if (answered < catalog.total) {
             return jsonErr("Ainda faltam " + (catalog.total - answered) + " perguntas para concluir", 400);
         }
+        if (profileAnswered < profileTotal) {
+            return jsonErr("Ainda faltam " + (profileTotal - profileAnswered) + " campos das seções de prática para concluir", 400);
+        }
+        // Score is computed from the 62 Sim/Não answers ONLY — the practice
+        // profile is stored alongside but never influences score/pct/band.
         var score = computeAssessmentScore(type, merged);
         await env.DB.prepare(
-            "UPDATE client_assessments SET answers_json = ?, score_json = ?, status = 'completed', " +
+            "UPDATE client_assessments SET answers_json = ?, profile_json = ?, score_json = ?, status = 'completed', " +
             "started_at = COALESCE(started_at, datetime('now')), " +
             "completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
-        ).bind(JSON.stringify(merged), JSON.stringify(score), row.id).run();
+        ).bind(JSON.stringify(merged), JSON.stringify(mergedProfile), JSON.stringify(score), row.id).run();
         return jsonOk({ saved: true, completed: true, score: score });
     } catch (e) {
         return jsonErr("Error saving assessment answers: " + e.message, 500);

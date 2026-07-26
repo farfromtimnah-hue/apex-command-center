@@ -2743,6 +2743,10 @@
             '<div style="color:var(--muted);font-size:12px;margin-bottom:8px;">' +
             '<span class="show-pt">Ativado em:</span><span class="show-en">Activated on:</span> ' +
             formatDateTime(a.activated_at) + '</div>' +
+            (a.status === "completed"
+              ? '<button class="btn-add" style="margin-right:6px;" onclick="openAssessmentReport()">' +
+                '<span class="show-pt">Ver Relat&oacute;rio</span><span class="show-en">View Report</span></button>'
+              : '') +
             '<button class="btn-add" onclick="deactivateAssessment(\'' + t.type + '\')">' +
             '<span class="show-pt">Desativar</span><span class="show-en">Deactivate</span></button>';
         } else {
@@ -2758,6 +2762,12 @@
         '<span class="show-pt">O cliente acessa com o login do portal (cart&atilde;o acima).</span>' +
         '<span class="show-en">The client signs in with the portal login (card above).</span></div>';
       el.innerHTML = html;
+    }
+
+    function openAssessmentReport() {
+      var name = (clientData && clientData.name) || "";
+      window.open("xray-report.html?client=" + encodeURIComponent(CLIENT_ID) +
+        "&name=" + encodeURIComponent(name), "_blank");
     }
 
     function activateAssessment(type) {

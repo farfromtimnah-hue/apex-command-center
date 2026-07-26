@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <script src="datetime.js"></script>
+  <title>Relatório Raio X Empresarial — Apex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface : #f9f7f4;
+      --header  : #1a1a1d;
+      --gold    : #C9A43A;
+      --text    : #1a1a1d;
+      --muted   : #6b6660;
+      --border  : #e8e2d9;
+      --card    : #ffffff;
+      --green   : #3f7d4e;
+      --amber   : #8a6d1d;
+      --red     : #b44040;
+      --radius  : 10px;
+      --shadow  : 0 2px 20px rgba(26,26,29,0.09);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    header {
+      background: var(--header);
+      min-height: 56px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-title { color: var(--gold); font-size: 14px; font-weight: 800; letter-spacing: 1px; }
+    .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .hdr-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .hdr-btn:hover { background: rgba(201,164,58,0.14); }
+
+    main { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; overflow-x: hidden; }
+
+    .report-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 16px;
+      margin-bottom: 16px;
+    }
+    .card-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .card-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+    .muted { color: var(--muted); }
+
+    .report-hero {
+      background: var(--header);
+      color: #fff;
+      border-radius: 14px;
+      padding: 22px 18px;
+      margin-bottom: 16px;
+    }
+    .report-hero h1 { font-size: 20px; font-weight: 800; color: var(--gold); }
+    .report-hero .client { font-size: 15px; font-weight: 600; margin-top: 6px; }
+    .report-hero .date { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+    .score-wrap { text-align: center; margin-bottom: 14px; }
+    .score-big { font-size: 40px; font-weight: 800; line-height: 1.1; }
+    .score-big .of { font-size: 18px; color: var(--muted); font-weight: 600; }
+    .score-pct { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+    .band-card { border-radius: var(--radius); padding: 14px 16px; border: 1.5px solid; }
+    .band-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+    .band-desc { font-size: 13px; line-height: 1.55; }
+    .band-danger  { background: rgba(180,64,64,0.10);  border-color: var(--red);   color: var(--red); }
+    .band-warning { background: rgba(201,164,58,0.14); border-color: #c9a43a;      color: var(--amber); }
+    .band-success { background: rgba(63,125,78,0.10);  border-color: var(--green); color: var(--green); }
+
+    .area-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .area-row:last-child { border-bottom: none; }
+    .area-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+    .area-name { font-size: 13px; font-weight: 700; min-width: 0; }
+    .area-frac { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .status-pill {
+      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; white-space: nowrap;
+    }
+    .p-bom      { background: rgba(63,125,78,0.14);  color: var(--green); }
+    .p-moderado { background: rgba(201,164,58,0.16); color: var(--amber); }
+    .p-atencao  { background: rgba(201,120,58,0.16); color: #a05a1d; }
+    .p-critico  { background: rgba(180,64,64,0.14);  color: var(--red); }
+    .bar-svg { display: block; width: 100%; height: 18px; }
+
+    .bucket-group { margin-bottom: 12px; }
+    .bucket-group:last-child { margin-bottom: 0; }
+    .bucket-label { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
+    .bucket-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .bucket-chip {
+      font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+    }
+
+    .plan-card {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px; margin-bottom: 12px; background: var(--surface);
+      break-inside: avoid; page-break-inside: avoid;
+    }
+    .plan-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .plan-rank { font-size: 13px; font-weight: 800; }
+    .plan-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.6px; padding: 3px 8px; border-radius: 10px; }
+    .tag-urgente    { background: rgba(180,64,64,0.14);  color: var(--red); }
+    .tag-melhoria   { background: rgba(201,164,58,0.16); color: var(--amber); }
+    .tag-replicacao { background: rgba(63,125,78,0.14);  color: var(--green); }
+    .plan-time { font-size: 11px; color: var(--muted); }
+    .plan-actions { margin: 8px 0 8px 18px; font-size: 13px; line-height: 1.6; }
+    .plan-criterio { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    .acao-row { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1.5; }
+    .acao-row:last-child { border-bottom: none; }
+    .acao-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .profile-activity { padding: 14px 0; border-bottom: 1px solid var(--border); break-inside: avoid; page-break-inside: avoid; }
+    .profile-activity:last-child { border-bottom: none; }
+    .profile-activity-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; line-height: 1.4; }
+    .profile-dim { margin-bottom: 8px; }
+    .profile-dim-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .profile-dim-value { font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .profile-chip {
+      display: inline-block; font-size: 12px; font-weight: 600; padding: 4px 10px;
+      border-radius: 14px; background: var(--surface); border: 1px solid var(--border);
+    }
+
+    #stateMsg { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+
+    @media print {
+      header { display: none; }
+      body { background: #fff; }
+      main { max-width: none; padding: 0; }
+      .report-card { box-shadow: none; margin-bottom: 12px; }
+      .report-hero { border-radius: 0; }
+      .report-card, .band-card { break-inside: avoid; page-break-inside: avoid; }
+      .page-break-before { break-before: page; page-break-before: always; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+  <header>
+    <div class="header-title">RAIO X EMPRESARIAL</div>
+    <div class="header-right">
+      <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
+      <button class="hdr-btn" onclick="toggleLang()">PT / EN</button>
+      <button class="hdr-btn" onclick="window.print()"><span class="show-pt">Exportar PDF</span><span class="show-en">Export PDF</span></button>
+    </div>
+  </header>
+
+  <main>
+    <div id="stateMsg">Carregando...</div>
+    <div id="reportBody" hidden></div>
+  </main>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var params = new URLSearchParams(window.location.search);
+    var CLIENT_ID   = params.get("client");
+    var CLIENT_NAME = params.get("name") || localStorage.getItem("apex_client_name") || "";
+    var PREVIEW_AS  = params.get("previewAs");
+
+    // Maturity band copy — Rafa's real wording, verbatim (Portuguese). The
+    // band LABEL is the only thing decided here; the numeric cutoffs live in
+    // the Worker (XRAY_CUTOFFS) and arrive already applied via score.maturity.
+    var BAND_COPY = {
+      baixa: {
+        cls: "band-danger",
+        titlePt: "Maturidade Baixa", titleEn: "Low Maturity",
+        descPt: "A organização precisa de uma reestruturação profunda. Urgência em definir pilares estratégicos.",
+        descEn: "The organization needs a deep restructuring. Urgency in defining strategic pillars."
+      },
+      media: {
+        cls: "band-warning",
+        titlePt: "Maturidade Média", titleEn: "Medium Maturity",
+        descPt: "Existem lacunas importantes a serem preenchidas. Foco na estruturação de processos básicos.",
+        descEn: "There are important gaps to be filled. Focus on structuring basic processes."
+      },
+      alta: {
+        cls: "band-success",
+        titlePt: "Maturidade Alta!", titleEn: "High Maturity!",
+        descPt: "Sua organização está no caminho certo. Mantenha a disciplina e o foco estratégico.",
+        descEn: "Your organization is on the right track. Keep the discipline and strategic focus."
+      }
+    };
+
+    var STATUS_EN = { "Bom": "Good", "Moderado": "Moderate", "Atenção": "Attention", "Crítico": "Critical" };
+    var PILL_CLASS = { "Bom": "p-bom", "Moderado": "p-moderado", "Atenção": "p-atencao", "Crítico": "p-critico" };
+    var STATUS_ICON = { "Bom": "✔", "Moderado": "→", "Atenção": "!", "Crítico": "✖" };
+    var BAR_COLOR = { "Bom": "#3f7d4e", "Moderado": "#c9a43a", "Atenção": "#c9783a", "Crítico": "#b44040" };
+    var TAG_CLASS = { "URGENTE": "tag-urgente", "MELHORIA": "tag-melhoria", "REPLICAÇÃO": "tag-replicacao" };
+    var TAG_EN = { "URGENTE": "URGENT", "MELHORIA": "IMPROVEMENT", "REPLICAÇÃO": "REPLICATION" };
+    var XRAY_ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+
+    var currentUser = null;
+    var auth = null;
+
+    function escHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function isEn() { return document.body.classList.contains("lang-en"); }
+
+    function toggleLang() {
+      var b = document.body;
+      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
+      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
+    }
+
+    function goBack() {
+      if (window.history.length > 1) { window.history.back(); }
+      else { window.location.href = "portal.html"; }
+    }
+
+    function ptEn(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+
+    function getToken() {
+      var capt = localStorage.getItem("apex_client_token");
+      if (capt) { return Promise.resolve(capt); }
+      if (currentUser) { return currentUser.getIdToken(); }
+      return Promise.reject(new Error("Not authenticated"));
+    }
+
+    function apiFetch(path) {
+      if (PREVIEW_AS) {
+        path += (path.indexOf("?") > -1 ? "&" : "?") + "previewAs=" + encodeURIComponent(PREVIEW_AS);
+      }
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+      });
+    }
+
+    function showMsg(pt, en) {
+      var el = document.getElementById("stateMsg");
+      el.hidden = false;
+      el.innerHTML = ptEn(escHtml(pt), escHtml(en));
+      document.getElementById("reportBody").hidden = true;
+    }
+
+    // ── Charts: hand-written inline SVG horizontal bars. Value labels are
+    // printed on the chart itself (touch has no hover), colour is always
+    // paired with the status text pill, and a 0–100 track keeps the scale
+    // honest at 390px wide. No chart library, no CDN.
+    function areaBarSvg(pct, status) {
+      var color = BAR_COLOR[status] || "#c9a43a";
+      var w = Math.max(0, Math.min(100, pct));
+      return '<svg class="bar-svg" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label="' + w + '%">' +
+        '<rect x="0" y="1" width="100" height="10" rx="2" fill="#efeae2"></rect>' +
+        '<rect x="0" y="1" width="' + w + '" height="10" rx="2" fill="' + color + '"></rect>' +
+        '</svg>';
+    }
+
+    function renderReport(d) {
+      var s = d.score;
+      var band = BAND_COPY[s.maturity.level] || BAND_COPY.media;
+      var html = "";
+
+      // ── Hero ──
+      html += '<div class="report-hero">' +
+        '<h1>' + ptEn("Relatório — Raio X Empresarial", "Report — Business X-Ray") + '</h1>' +
+        (CLIENT_NAME ? '<div class="client">' + escHtml(CLIENT_NAME) + '</div>' : '') +
+        '<div class="date">' + ptEn("Concluído em", "Completed on") + ' ' + escHtml(formatDate(d.completed_at)) + '</div>' +
+        '</div>';
+
+      // ── Overall score + maturity band ──
+      html += '<div class="report-card">' +
+        '<div class="score-wrap">' +
+        '<div class="score-big">' + s.score + '<span class="of">/' + s.max_score + '</span></div>' +
+        '<div class="score-pct">' + s.pct + '% ' + ptEn("de respostas Sim", "Yes answers") + '</div>' +
+        '</div>' +
+        '<div class="band-card ' + band.cls + '">' +
+        '<div class="band-title">' + ptEn(escHtml(band.titlePt), escHtml(band.titleEn)) + '</div>' +
+        '<div class="band-desc">' + ptEn(escHtml(band.descPt), escHtml(band.descEn)) + '</div>' +
+        '</div></div>';
+
+      // ── Per-area breakdown ──
+      html += '<div class="report-card">' +
+        '<div class="card-title">' + ptEn("Resultado por Área", "Results by Area") + '</div>' +
+        '<div class="card-sub">' + ptEn("Percentual de respostas Sim em cada área.", "Percentage of Yes answers in each area.") + '</div>';
+      s.areas.forEach(function(a, i) {
+        html += '<div class="area-row">' +
+          '<div class="area-head">' +
+          '<span class="area-name">' + XRAY_ROMAN[i] + ' — ' + ptEn(escHtml(a.namePt), escHtml(a.nameEn)) + '</span>' +
+          '<span style="display:flex;align-items:center;gap:8px;">' +
+          '<span class="area-frac">' + a.fraction + ' · ' + a.pct + '%</span>' +
+          '<span class="status-pill ' + (PILL_CLASS[a.status] || "p-moderado") + '">' +
+          (STATUS_ICON[a.status] || "") + ' ' + ptEn(escHtml(a.status), escHtml(STATUS_EN[a.status] || a.status)) + '</span>' +
+          '</span></div>' +
+          areaBarSvg(a.pct, a.status) +
+          '</div>';
+      });
+      html += '</div>';
+
+      // ── Buckets ──
+      var bucketDefs = [
+        { key: "fortes",   labelPt: "Pontos Fortes",      labelEn: "Strengths",        icon: "✔", color: "var(--green)" },
+        { key: "atencao",  labelPt: "Pontos de Atenção",  labelEn: "Attention Points", icon: "!", color: "var(--amber)" },
+        { key: "criticos", labelPt: "Pontos Críticos",    labelEn: "Critical Points",  icon: "✖", color: "var(--red)" }
+      ];
+      var areaByKey = {};
+      s.areas.forEach(function(a) { areaByKey[a.key] = a; });
+      html += '<div class="report-card">' +
+        '<div class="card-title">' + ptEn("Visão Geral", "Overview") + '</div><div style="margin-top:10px;">';
+      bucketDefs.forEach(function(b) {
+        var keys = (s.buckets && s.buckets[b.key]) || [];
+        html += '<div class="bucket-group">' +
+          '<div class="bucket-label" style="color:' + b.color + ';">' + b.icon + ' ' + ptEn(escHtml(b.labelPt), escHtml(b.labelEn)) + '</div>' +
+          '<div class="bucket-chips">';
+        if (keys.length === 0) {
+          html += '<span class="bucket-chip muted">' + ptEn("Nenhuma área", "No areas") + '</span>';
+        }
+        keys.forEach(function(k) {
+          var a = areaByKey[k];
+          if (!a) { return; }
+          html += '<span class="bucket-chip">' + ptEn(escHtml(a.namePt), escHtml(a.nameEn)) + ' · ' + a.pct + '%</span>';
+        });
+        html += '</div></div>';
+      });
+      html += '</div>';
+
+      // ── Priority action plan (from the weakest areas up) ──
+      html += '<div class="report-card page-break-before">' +
+        '<div class="card-title">' + ptEn("Plano de Ação Prioritário", "Priority Action Plan") + '</div>' +
+        '<div class="card-sub">' + ptEn("Ordenado da área mais frágil para a mais forte.", "Ordered from the weakest area to the strongest.") + '</div>';
+      (s.action_plan || []).forEach(function(p) {
+        html += '<div class="plan-card">' +
+          '<div class="plan-head">' +
+          '<span class="plan-rank">' + p.rank + '. ' + ptEn(escHtml(p.areaNamePt), escHtml(p.areaNameEn)) + '</span>' +
+          '<span class="plan-tag ' + (TAG_CLASS[p.tag] || "tag-melhoria") + '">' + ptEn(escHtml(p.tag), escHtml(TAG_EN[p.tag] || p.tag)) + '</span>' +
+          '<span class="plan-time">' + ptEn(escHtml(p.timeframePt), escHtml(p.timeframeEn)) + ' · ' + p.fraction + ' · ' + p.pct + '%</span>' +
+          '</div><ul class="plan-actions">';
+        var actionsPt = p.actionsPt || [];
+        var actionsEn = p.actionsEn || [];
+        actionsPt.forEach(function(a, i) {
+          html += '<li>' + ptEn(escHtml(a), escHtml(actionsEn[i] || a)) + '</li>';
+        });
+        html += '</ul>' +
+          '<div class="plan-criterio"><strong>' + ptEn("Critério de sucesso:", "Success criterion:") + '</strong> ' +
+          ptEn(escHtml(p.criterioSucessoPt), escHtml(p.criterioSucessoEn)) + '</div>' +
+          '</div>';
+      });
+      html += '</div>';
+
+      // ── Recommended actions ──
+      if ((s.action_table || []).length > 0) {
+        html += '<div class="report-card">' +
+          '<div class="card-title">' + ptEn("Ações Recomendadas", "Recommended Actions") + '</div>';
+        s.action_table.forEach(function(row) {
+          html += '<div class="acao-row">' + ptEn(escHtml(row.acaoPt), escHtml(row.acaoEn)) +
+            '<div class="acao-meta">' +
+            '<span class="plan-tag ' + (TAG_CLASS[row.prioridade] || "tag-melhoria") + '">' +
+            ptEn(escHtml(row.prioridade), escHtml(TAG_EN[row.prioridade] || row.prioridade)) + '</span> · ' +
+            ptEn("Prazo:", "Deadline:") + ' ' + ptEn(escHtml(row.prazoPt), escHtml(row.prazoEn)) + ' · ' +
+            ptEn("Responsável:", "Owner:") + ' ' + escHtml(row.responsavel) +
+            '</div></div>';
+        });
+        html += '</div>';
+      }
+
+      // ── Practice profile — a picture, not a grade ──
+      var cat = d.catalog || {};
+      var dims = cat.profile_dimensions || [];
+      var profile = d.profile || {};
+      (cat.profile_sections || []).forEach(function(sec, si) {
+        var acts = (cat.profile_activities || []).filter(function(a) { return a.section === sec.key; });
+        html += '<div class="report-card page-break-before">' +
+          '<div class="card-title">' + XRAY_ROMAN[6 + si] + ' — ' + ptEn(escHtml(sec.namePt), escHtml(sec.nameEn)) + '</div>' +
+          '<div class="card-sub">' +
+          ptEn("Retrato de como funciona hoje, na prática — esta seção não entra na pontuação.",
+               "A picture of how things work today, in practice — this section is not part of the score.") +
+          '</div>';
+        acts.forEach(function(act) {
+          var entry = profile[act.key] || {};
+          html += '<div class="profile-activity">' +
+            '<div class="profile-activity-title">' + ptEn(escHtml(act.labelPt), escHtml(act.labelEn)) + '</div>';
+          dims.forEach(function(dim) {
+            var v = entry[dim.key];
+            var valueHtml;
+            if (dim.type === "choice") {
+              var opt = null;
+              (dim.options || []).forEach(function(o) { if (o.key === v) { opt = o; } });
+              valueHtml = opt
+                ? '<span class="profile-chip">' + ptEn(escHtml(opt.labelPt), escHtml(opt.labelEn)) + '</span>'
+                : '<span class="muted">—</span>';
+            } else {
+              valueHtml = (typeof v === "string" && v.trim())
+                ? escHtml(v.trim())
+                : '<span class="muted">—</span>';
+            }
+            // Strip the "(opcional)" coaching suffix from report labels.
+            var lp = String(dim.labelPt).replace(/\s*\(opcional\)\s*$/, "").split(" (")[0];
+            var le = String(dim.labelEn).replace(/\s*\(optional\)\s*$/, "").split(" (")[0];
+            html += '<div class="profile-dim">' +
+              '<div class="profile-dim-label">' + ptEn(escHtml(lp), escHtml(le)) + '</div>' +
+              '<div class="profile-dim-value">' + valueHtml + '</div></div>';
+          });
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+
+      html += '<p class="muted" style="font-size:12px;line-height:1.5;">' +
+        ptEn("Relatório gerado pelo Raio X Empresarial. Os resultados refletem as respostas fornecidas na data de conclusão.",
+             "Report generated by the Business X-Ray. Results reflect the answers given on the completion date.") + '</p>';
+
+      document.getElementById("stateMsg").hidden = true;
+      var bodyEl = document.getElementById("reportBody");
+      bodyEl.innerHTML = html;
+      bodyEl.hidden = false;
+    }
+
+    function loadReport() {
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/assessments/business_xray")
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(d) {
+          if (d.status !== "completed" || !d.score) {
+            showMsg("O Raio X ainda não foi concluído. O relatório fica disponível após o envio das respostas.",
+                    "The X-Ray has not been completed yet. The report becomes available once the answers are submitted.");
+            return;
+          }
+          renderReport(d);
+        })
+        .catch(function() {
+          showMsg("Não foi possível carregar o relatório. Verifique sua conexão e seu acesso.",
+                  "Could not load the report. Check your connection and your access.");
+        });
+    }
+
+    function init() {
+      if (!CLIENT_ID) {
+        showMsg("Cliente não informado.", "No client specified.");
+        return;
+      }
+      // Password-based portal clients carry a capt_ token in localStorage;
+      // admins and Google-linked clients authenticate via Firebase.
+      if (localStorage.getItem("apex_client_token")) {
+        loadReport();
+        return;
+      }
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          showMsg("Faça login para ver o relatório.", "Sign in to view the report.");
+          return;
+        }
+        currentUser = user;
+        loadReport();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

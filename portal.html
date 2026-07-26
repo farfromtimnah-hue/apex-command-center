@@ -10,6 +10,7 @@
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
   <title>Portal do Cliente — Apex</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1007,11 +1008,6 @@
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     }
 
-    function formatDateBR(ds) {
-      var p = (ds || "").split("-");
-      return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : ds;
-    }
-
     function weekdayName(ds) {
       var names = isEn()
         ? ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
@@ -1163,7 +1159,7 @@
       pending.forEach(function(p, i) {
         var started = p.sections && Object.keys(p.sections).length > 0;
         html += '<div class="pending-day-row">' +
-          '<div><span class="pending-day-date">' + weekdayName(p.date) + ", " + formatDateBR(p.date) + '</span>' +
+          '<div><span class="pending-day-date">' + weekdayName(p.date) + ", " + formatDate(p.date) + '</span>' +
           (p.is_today
             ? '<span class="pending-day-tag">' + (isEn() ? "Today" : "Hoje") + '</span>'
             : '<span class="pending-day-tag">' + (isEn() ? "Missed" : "Pendente") + '</span>') +
@@ -1183,7 +1179,7 @@
 
     function openDayOffModal(date) {
       dayOffTargetDate = date;
-      document.getElementById("dayOffDateLabel").textContent = weekdayName(date) + ", " + formatDateBR(date);
+      document.getElementById("dayOffDateLabel").textContent = weekdayName(date) + ", " + formatDate(date);
       document.getElementById("dayOffReason").value = "";
       document.getElementById("modalDayOff").hidden = false;
     }
@@ -1242,7 +1238,7 @@
       document.getElementById("formSectionTitle").textContent =
         (currentSectionIdx + 1) + ". " + (isEn() ? label.en : label.pt);
       document.getElementById("formSectionDate").textContent =
-        weekdayName(currentEntryDate) + ", " + formatDateBR(currentEntryDate);
+        weekdayName(currentEntryDate) + ", " + formatDate(currentEntryDate);
       document.getElementById("formErr").textContent = "";
       document.getElementById("autosaveNote").textContent = "";
 
@@ -2139,8 +2135,8 @@
             join.innerHTML = "";
             return;
           }
-          var when = weekdayName(d.meeting.date) + ", " + formatDateBR(d.meeting.date) +
-                     (d.meeting.time ? " · " + d.meeting.time : "");
+          var when = weekdayName(d.meeting.date) + ", " + formatDate(d.meeting.date) +
+                     (d.meeting.time ? " · " + formatTime(d.meeting.time) : "");
           line.textContent = (isEn() ? "Next meeting: " : "Próxima reunião: ") + when;
           join.innerHTML = d.meeting.google_meet_link
             ? '<a class="btn-gold" style="text-decoration:none;display:inline-block;" href="' + escHtml(d.meeting.google_meet_link) + '" target="_blank" rel="noopener">' +
@@ -2529,7 +2525,7 @@
             var stLabel = st === "completed" ? (isEn() ? "Completed" : "Completo")
               : st === "filled_late" ? (isEn() ? "Filled late" : "Preenchido depois")
               : (isEn() ? "Partial" : "Parcial");
-            rows += '<tr><td>' + formatDateBR(e.date) + '</td>' +
+            rows += '<tr><td>' + formatDate(e.date) + '</td>' +
               '<td><span class="hist-status ' + (st === "filled_late" ? "completed" : st) + '">' + stLabel + '</span></td>' +
               '<td style="text-align:right;"><button class="btn-expand" onclick="toggleHistDetail(' + i + ')">' +
               (isEn() ? "details" : "detalhes") + '</button></td></tr>' +
@@ -2537,7 +2533,7 @@
           });
           (d.missed_days || []).forEach(function(m) {
             if (covered[m.missed_date] || m.status !== "day_off") { return; }
-            rows += '<tr><td>' + formatDateBR(m.missed_date) + '</td>' +
+            rows += '<tr><td>' + formatDate(m.missed_date) + '</td>' +
               '<td><span class="hist-status day_off">' + (isEn() ? "Day off" : "Folga") +
               (m.reason ? " · " + escHtml(m.reason) : "") + '</span></td><td></td></tr>';
           });
@@ -2588,7 +2584,7 @@
           tasks.forEach(function(t) {
             html += '<div class="list-row"><div class="list-main">' +
               '<div class="list-title">' + escHtml(t.description) + '</div>' +
-              (t.due_date ? '<div class="list-sub">' + (isEn() ? "Due " : "Prazo ") + formatDateBR(t.due_date) + '</div>' : "") +
+              (t.due_date ? '<div class="list-sub">' + (isEn() ? "Due " : "Prazo ") + formatDate(t.due_date) + '</div>' : "") +
               '</div>' +
               '<span class="badge ' + (t.status === "done" ? "done" : "pending") + '">' +
               (t.status === "done" ? (isEn() ? "Done" : "Concluída") : (isEn() ? "Pending" : "Pendente")) + '</span>' +
@@ -2615,7 +2611,7 @@
           documentsCache.forEach(function(doc, i) {
             html += '<div class="list-row"><div class="list-main">' +
               '<div class="list-title">' + escHtml(doc.title) + '</div>' +
-              '<div class="list-sub">' + formatDateBR((doc.date || "").slice(0, 10)) +
+              '<div class="list-sub">' + formatDate((doc.date || "").slice(0, 10)) +
               (doc.kind === "generated"
                 ? ' · <span class="show-pt">Relatório</span><span class="show-en">Report</span>'
                 : ' · <span class="show-pt">Arquivo</span><span class="show-en">File</span>') + '</div>' +
@@ -2697,7 +2693,7 @@
       list.forEach(function(inv) {
         html += '<div class="list-row"><div class="list-main">' +
           '<div class="list-title">#' + escHtml(inv.invoice_number) + ' · ' + fmtNum(inv.total, "currency") + '</div>' +
-          '<div class="list-sub">' + (inv.due_date ? (isEn() ? "Due " : "Vencimento ") + formatDateBR(inv.due_date) : "") + '</div>' +
+          '<div class="list-sub">' + (inv.due_date ? (isEn() ? "Due " : "Vencimento ") + formatDate(inv.due_date) : "") + '</div>' +
           '</div>' +
           '<span class="badge ' + (kind === "paid" ? "paid" : "unpaid") + '">' +
           (kind === "paid" ? (isEn() ? "Paid" : "Paga") : (isEn() ? "Open" : "Em aberto")) + '</span>' +

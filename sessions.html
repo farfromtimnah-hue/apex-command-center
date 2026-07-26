@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
   <title>Apex — Sessões</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1561,13 +1562,6 @@
 
     // ── Utilities ──────────────────────────────────────────────────────────
 
-    function formatDate(str) {
-      if (!str) { return "--"; }
-      var p = str.split("-");
-      if (p.length !== 3) { return str; }
-      return p[2] + "/" + p[1] + "/" + p[0];
-    }
-
     function getToken() {
       if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
       return currentUser.getIdToken();
@@ -2002,7 +1996,7 @@
             // outage, Nicole couldn't tell which of the backlog were
             // already pulled in without importing everything first.
             var importedTag = t.already_imported ? (isPtLang ? " [já importado]" : " [already imported]") : "";
-            label.textContent = (t.date || "") + " — " + t.title + (t.duration_min ? " (" + t.duration_min + " min)" : "") + importedTag;
+            label.textContent = (t.date ? formatDate(t.date) : "") + " — " + t.title + (t.duration_min ? " (" + t.duration_min + " min)" : "") + importedTag;
             var btnGroup = document.createElement("span");
             btnGroup.style.cssText = "display:flex; gap:6px; flex-shrink:0;";
             var btn = document.createElement("button");

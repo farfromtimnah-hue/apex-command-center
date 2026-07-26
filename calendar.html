@@ -12,6 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
   <title>Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1726,13 +1727,6 @@
       return d.getFullYear() + "-" + padZ(d.getMonth() + 1) + "-" + padZ(d.getDate());
     }
 
-    function formatDisplayDate(dateStr) {
-      if (!dateStr) { return "—"; }
-      var p = dateStr.split("-");
-      if (p.length !== 3) { return dateStr; }
-      return p[2] + "/" + p[1] + "/" + p[0];
-    }
-
     // ── Close modals on overlay click ──────────────────────────────────────
     document.addEventListener("click", function(e) {
       var modals = ["modalNewSession", "modalDetail", "modalQuickAddClient"];
@@ -2346,7 +2340,7 @@
       if (session.time) {
         var timeSpan = document.createElement("span");
         timeSpan.className = "cal-chip-time";
-        timeSpan.textContent = " " + session.time.slice(0,5);
+        timeSpan.textContent = " " + formatTime(session.time);
         chip.appendChild(timeSpan);
       }
 
@@ -2458,7 +2452,7 @@
       var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
       if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
-      if (session.time) { chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + session.time.slice(0,5) + '</span>'; }
+      if (session.time) { chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + formatTime(session.time) + '</span>'; }
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
     }
@@ -2550,7 +2544,7 @@
       var badgeHtml = session.source === "external" ? '<span class="cal-chip-badge">EXT</span>' : "";
       if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
-      if (session.time) { chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + session.time.slice(0,5) + '</span>'; }
+      if (session.time) { chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + formatTime(session.time) + '</span>'; }
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
     }
@@ -2731,15 +2725,6 @@
       }
     })();
 
-    function fmtTime12(hhmm) {
-      var parts = hhmm.split(":");
-      var h = parseInt(parts[0], 10);
-      var suffix = h >= 12 ? " PM" : " AM";
-      var h12 = h % 12;
-      if (h12 === 0) { h12 = 12; }
-      return h12 + ":" + parts[1] + suffix;
-    }
-
     function populateTimeSelects() {
       var en = isEn();
       var startSel = document.getElementById("nsTime");
@@ -2757,11 +2742,11 @@
       for (var i = 0; i < NS_TIME_OPTS.length; i++) {
         var o1 = document.createElement("option");
         o1.value = NS_TIME_OPTS[i];
-        o1.textContent = fmtTime12(NS_TIME_OPTS[i]);
+        o1.textContent = formatTime(NS_TIME_OPTS[i]);
         startSel.appendChild(o1);
         var o2 = document.createElement("option");
         o2.value = NS_TIME_OPTS[i];
-        o2.textContent = fmtTime12(NS_TIME_OPTS[i]);
+        o2.textContent = formatTime(NS_TIME_OPTS[i]);
         endSel.appendChild(o2);
       }
       // <option> can't hold the PT/EN spans, so the frequency labels are
@@ -2852,13 +2837,7 @@
         previewEl.textContent = "";
         return;
       }
-      var endDate = addOccurrenceDate(date, freq, count - 1);
-      var ep = endDate.split("-");
-      var monthIdx = parseInt(ep[1], 10) - 1;
-      var dayNum   = parseInt(ep[2], 10);
-      var endLabel = en
-        ? (MONTHS_EN[monthIdx].slice(0, 3) + " " + dayNum)
-        : (dayNum + " de " + MONTHS_PT[monthIdx].slice(0, 3).toLowerCase());
+      var endLabel = formatDate(addOccurrenceDate(date, freq, count - 1));
       var freqLabel;
       if (freq === "monthly")       { freqLabel = en ? "every month"   : "todo mês"; }
       else if (freq === "biweekly") { freqLabel = en ? "every 2 weeks" : "a cada 2 semanas"; }
@@ -3142,10 +3121,10 @@
 
       document.getElementById("detailTitle").textContent     = session.client_name || "—";
       document.getElementById("detailClientName").textContent = session.client_name || "—";
-      document.getElementById("detailDate").textContent      = formatDisplayDate(session.date);
-      var timeText = session.time ? session.time.slice(0,5) : "—";
+      document.getElementById("detailDate").textContent      = formatDate(session.date);
+      var timeText = session.time ? formatTime(session.time) : "—";
       var endHHMM = endTimeHHMM(session);
-      if (session.time && endHHMM) { timeText += " – " + endHHMM; }
+      if (session.time && endHHMM) { timeText += " – " + formatTime(endHHMM); }
       document.getElementById("detailTime").textContent      = timeText;
 
       var typePillEl = document.getElementById("detailTypePill");

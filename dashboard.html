@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -999,18 +1000,6 @@
     function currentMonthStr() {
       var t = new Date();
       return t.getFullYear() + "-" + padZ(t.getMonth() + 1);
-    }
-
-    function formatDate(str) {
-      if (!str) { return "--"; }
-      var p = str.split("-");
-      if (p.length !== 3) { return str; }
-      return p[2] + "/" + p[1] + "/" + p[0];
-    }
-
-    function formatTime(t) {
-      if (!t) { return ""; }
-      return t.slice(0, 5);
     }
 
     function escHtml(str) {

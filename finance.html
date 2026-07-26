@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
   <title>Apex &#8212; Financeiro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2181,13 +2182,6 @@
       return (isNeg ? "-$" : "$") + formatted;
     }
 
-    function fmtDate(str) {
-      if (!str) { return "--"; }
-      var p = str.split("-");
-      if (p.length !== 3) { return str; }
-      return p[2] + "/" + p[1] + "/" + p[0];
-    }
-
     function daysUntil(dateStr) {
       if (!dateStr) { return null; }
       var today = new Date();
@@ -2618,7 +2612,7 @@
         html += '<div class="sub-row">';
         html += '<div class="sub-name">' + escHtml(s.service_name) + '</div>';
         html += '<div class="sub-cost">' + fmtCurrency(s.monthly_cost) + '/mo</div>';
-        html += '<div class="sub-renewal">' + fmtDate(s.next_renewal_date) + '</div>';
+        html += '<div class="sub-renewal">' + formatDate(s.next_renewal_date) + '</div>';
         if (daysLabel) {
           html += '<span class="sub-days ' + daysClass + '">' + daysLabel + '</span>';
         }
@@ -2906,7 +2900,7 @@
         html += '<td class="mc-head" style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
         html += '<td class="mc-field" data-label-pt="Cliente" data-label-en="Client">' + escHtml(inv.customer_name || "--") + '</td>';
         html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
-        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(fmtDate(inv.due_date)) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_date)) + '</td>';
         html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status"><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
         html += '<td class="mc-action"><a class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
         html += mcIcon("view");
@@ -3534,7 +3528,7 @@
         html += '<td class="mc-head">' + escHtml(inv.customer_name || "--") + '</td>';
         html += '<td class="mc-field" data-label-pt="Fatura #" data-label-en="Invoice #" style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
         html += '<td class="mc-field" data-label-pt="Saldo" data-label-en="Balance" style="font-weight:600;">' + fmtCurrency(inv.balance) + '</td>';
-        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(fmtDate(inv.due_date)) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_date)) + '</td>';
         html += '<td class="mc-field" data-label-pt="Dias em Atraso" data-label-en="Days Overdue">' + (inv.days_overdue > 0 ? inv.days_overdue : "--") + '</td>';
         html += '<td class="mc-field" data-label-pt="Faixa" data-label-en="Bucket">' + agingChip(inv.bucket) + '</td>';
         html += '</tr>';
@@ -3756,7 +3750,7 @@
         html += '<div class="recon-tx-main">';
         html += '<div class="recon-tx-desc">' + escHtml(desc) + '</div>';
         html += payeeHtml;
-        html += '<div class="recon-tx-date">' + escHtml(fmtDate(t.date)) + ' &middot; ' + escHtml(t.account_name || "--") + ' &middot; ' + reconStatusChip(t.status) + '</div>';
+        html += '<div class="recon-tx-date">' + escHtml(formatDate(t.date)) + ' &middot; ' + escHtml(t.account_name || "--") + ' &middot; ' + reconStatusChip(t.status) + '</div>';
         html += '</div>';
         html += '<div class="recon-tx-amount ' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</div>';
         if (tab === "uncategorized") {
@@ -3925,7 +3919,7 @@
       var listEl  = document.getElementById("reconFolderSheetList");
       var t = reconTxCache[txnId];
       if (infoEl && t) {
-        infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + reconTxLabel(t);
+        infoEl.innerHTML = escHtml(formatDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + reconTxLabel(t);
       }
       if (listEl) {
         var clientIncomeLabelPt = escHtml(reconClientIncomeLabel || "Renda de Cliente");
@@ -4148,7 +4142,7 @@
 
       var t = reconTxCache[txnId];
       if (infoEl && t) {
-        infoEl.innerHTML = escHtml(fmtDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + reconTxLabel(t);
+        infoEl.innerHTML = escHtml(formatDate(t.date)) + ' &middot; <strong>' + fmtCurrency(t.amount) + '</strong> &middot; ' + reconTxLabel(t);
       }
       if (invSel) { invSel.innerHTML = '<option value="">--</option>'; invSel.disabled = true; }
       if (confirmBtn) { confirmBtn.disabled = true; }
@@ -4218,7 +4212,7 @@
           }
           var html = '<option value="">--</option>';
           for (var i = 0; i < unpaid.length; i++) {
-            var label = (unpaid[i].invoice_number || unpaid[i].invoice_id) + " - " + fmtCurrency(unpaid[i].total) + " - " + fmtDate(unpaid[i].due_date);
+            var label = (unpaid[i].invoice_number || unpaid[i].invoice_id) + " - " + fmtCurrency(unpaid[i].total) + " - " + formatDate(unpaid[i].due_date);
             html += '<option value="' + escHtml(unpaid[i].invoice_id) + '">' + escHtml(label) + '</option>';
           }
           invSel.innerHTML = html;
@@ -4440,7 +4434,7 @@
       for (var i = 0; i < expenses.length; i++) {
         var e = expenses[i];
         html += '<tr>';
-        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(fmtDate(e.date)) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Data" data-label-en="Date">' + escHtml(formatDate(e.date)) + '</td>';
         html += '<td class="mc-head"><div class="tx-desc" title="' + escHtml(e.description) + '">' + escHtml(e.description || "--") + '</div></td>';
         html += '<td class="mc-field" data-label-pt="Categoria" data-label-en="Category">' + escHtml(e.account_name || "--") + '</td>';
         html += '<td class="mc-field" data-label-pt="Pago Atraves De" data-label-en="Paid Through">' + escHtml(e.paid_through_account_name || "--") + '</td>';

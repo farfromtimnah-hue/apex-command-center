@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
   <title>Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2429,24 +2430,6 @@
       }
     }
 
-    function formatDate(str) {
-      if (!str) { return "--"; }
-      var p = str.split("-");
-      if (p.length !== 3) { return str; }
-      return p[2] + "/" + p[1] + "/" + p[0];
-    }
-
-    function formatDateTime(str) {
-      if (!str) { return "--"; }
-      var normalized = str.replace("T", " ").split(".")[0];
-      var parts      = normalized.split(" ");
-      var datePart   = parts[0] || "";
-      var timePart   = parts[1] ? parts[1].slice(0, 5) : "";
-      var d = datePart.split("-");
-      var date = d.length === 3 ? d[2] + "/" + d[1] + "/" + d[0] : datePart;
-      return timePart ? date + " " + timePart : date;
-    }
-
     function getToken() {
       if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
       return currentUser.getIdToken();
@@ -2984,13 +2967,6 @@
     }
     window.loadClientResources = loadClientResources;
 
-    function formatResourceDate(iso) {
-      if (!iso) { return "--"; }
-      var d = iso.slice(0, 10).split("-");
-      if (d.length !== 3) { return iso; }
-      return d[2] + "/" + d[1] + "/" + d[0];
-    }
-
     function renderClientResources(rows) {
       var container = document.getElementById("resourcesSection");
       if (!container) { return; }
@@ -3016,8 +2992,8 @@
           '<div style="font-size:12px;color:var(--muted);margin-top:1px;">' +
           escHtml(r.category) +
           (sent
-            ? ' · <span class="show-pt">Enviado em ' + formatResourceDate(r.whatsapp_sent_at) + (r.sent_by ? ' por ' + escHtml(r.sent_by) : '') + '</span>' +
-              '<span class="show-en">Sent ' + formatResourceDate(r.whatsapp_sent_at) + (r.sent_by ? ' by ' + escHtml(r.sent_by) : '') + '</span>'
+            ? ' · <span class="show-pt">Enviado em ' + formatDate(r.whatsapp_sent_at) + (r.sent_by ? ' por ' + escHtml(r.sent_by) : '') + '</span>' +
+              '<span class="show-en">Sent ' + formatDate(r.whatsapp_sent_at) + (r.sent_by ? ' by ' + escHtml(r.sent_by) : '') + '</span>'
             : ' · <span class="show-pt">Pendente de envio</span><span class="show-en">Pending send</span>') +
           '</div></div>' +
           '</div>';
@@ -3156,8 +3132,8 @@
           '<div style="font-size:13px;font-weight:600;">' + formatMonthLabel(en.month_label) + '</div>' +
           rawLine +
           '<div style="font-size:12px;color:var(--muted);margin-top:1px;">' +
-          '<span class="show-pt">Registrado em ' + formatResourceDate(en.entered_at) + (en.entered_by ? ' por ' + escHtml(en.entered_by) : '') + '</span>' +
-          '<span class="show-en">Entered ' + formatResourceDate(en.entered_at) + (en.entered_by ? ' by ' + escHtml(en.entered_by) : '') + '</span>' +
+          '<span class="show-pt">Registrado em ' + formatDate(en.entered_at) + (en.entered_by ? ' por ' + escHtml(en.entered_by) : '') + '</span>' +
+          '<span class="show-en">Entered ' + formatDate(en.entered_at) + (en.entered_by ? ' by ' + escHtml(en.entered_by) : '') + '</span>' +
           '</div></div>' +
           '<div style="font-size:15px;font-weight:700;' + (neg ? 'color:#b44040;' : 'color:#C9A43A;') + '">' +
           formatGrowthPct(en.growth_percent) + '</div>' +

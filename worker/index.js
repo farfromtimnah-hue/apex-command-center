@@ -8187,6 +8187,214 @@ function isValidDateStr(s) {
 function isValidMonthStr(s) { return /^\d{4}-\d{2}$/.test(s || ""); }
 
 // ---------------------------------------------------------------------------
+// THE working-days calculation — the single source of truth composed from
+// three mechanisms (never duplicate this logic elsewhere):
+//   1. client_logins.work_schedule — weekly schedule (JSON weekday array,
+//      0=Sun..6=Sat). NULL = never asked → every weekday counts, preserving
+//      pre-feature behavior until the client answers the one-time setup.
+//   2. client_blocked_ranges — planned closures (vacations etc.).
+//   3. client_missed_days status 'day_off' — reactive one-off (existing).
+// A day is a working day iff: weekday ∈ schedule AND not inside any blocked
+// range AND not marked day_off. entry-state, weekly-summary and the pace
+// dashboard all call isWorkingDay()/countWorkingDays() on a loadWorkContext.
+// ---------------------------------------------------------------------------
+
+function parseWorkScheduleJson(s) {
+    if (!s) { return null; }
+    try {
+        var v = JSON.parse(s);
+        if (Array.isArray(v)) {
+            var out = [];
+            v.forEach(function(n) {
+                var x = Number(n);
+                if (isFinite(x) && x >= 0 && x <= 6 && out.indexOf(x) === -1) { out.push(x); }
+            });
+            if (out.length) { out.sort(); return out; }
+        }
+    } catch (e) {}
+    return null;
+}
+
+async function loadWorkContext(env, clientId, fromDate, toDate) {
+    var login = await env.DB.prepare(
+        "SELECT work_schedule FROM client_logins WHERE client_id = ?"
+    ).bind(clientId).first();
+    var schedule = parseWorkScheduleJson(login && login.work_schedule);
+    var ranges = await env.DB.prepare(
+        "SELECT start_date, end_date FROM client_blocked_ranges " +
+        "WHERE client_id = ? AND end_date >= ? AND start_date <= ?"
+    ).bind(clientId, fromDate, toDate).all();
+    var missed = await env.DB.prepare(
+        "SELECT missed_date FROM client_missed_days " +
+        "WHERE client_id = ? AND status = 'day_off' AND missed_date >= ? AND missed_date <= ?"
+    ).bind(clientId, fromDate, toDate).all();
+    var dayOff = {};
+    (missed.results || []).forEach(function(r) { dayOff[r.missed_date] = true; });
+    return {
+        schedule: schedule,               // null = not set → all weekdays count
+        schedule_set: !!schedule,
+        blocked: ranges.results || [],
+        day_off: dayOff
+    };
+}
+
+function isWorkingDay(ctx, dateStr) {
+    var dow = new Date(dateStr + "T12:00:00Z").getUTCDay();
+    if (ctx.schedule && ctx.schedule.indexOf(dow) === -1) { return false; }
+    for (var i = 0; i < ctx.blocked.length; i++) {
+        if (dateStr >= ctx.blocked[i].start_date && dateStr <= ctx.blocked[i].end_date) { return false; }
+    }
+    if (ctx.day_off[dateStr]) { return false; }
+    return true;
+}
+
+function nextDateStr(ds) {
+    return new Date(new Date(ds + "T12:00:00Z").getTime() + 24 * 3600 * 1000)
+        .toISOString().slice(0, 10);
+}
+
+// Inclusive count of working days in [fromDate, toDate].
+function countWorkingDays(ctx, fromDate, toDate) {
+    var n = 0;
+    var d = fromDate;
+    while (d <= toDate) {
+        if (isWorkingDay(ctx, d)) { n++; }
+        d = nextDateStr(d);
+    }
+    return n;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET  /api/clients/:id/work-settings — schedule + blocked ranges
+// Route: PUT  /api/clients/:id/work-settings — { work_schedule: [0-6, ...] }
+// Route: POST /api/clients/:id/blocked-ranges — { start_date, end_date, reason? }
+// Route: DELETE /api/clients/:id/blocked-ranges/:rangeId
+// Route: GET  /api/clients/:id/working-days?month=YYYY-MM&today=YYYY-MM-DD —
+//   total/elapsed/remaining working days for the month, from the ONE shared
+//   calculation (feeds the pace tiles; never a hardcoded 5-day week).
+// ---------------------------------------------------------------------------
+
+async function handleGetWorkSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var login = await env.DB.prepare(
+            "SELECT work_schedule FROM client_logins WHERE client_id = ?"
+        ).bind(id).first();
+        var ranges = await env.DB.prepare(
+            "SELECT id, start_date, end_date, reason FROM client_blocked_ranges " +
+            "WHERE client_id = ? ORDER BY start_date"
+        ).bind(id).all();
+        return jsonOk({
+            work_schedule: parseWorkScheduleJson(login && login.work_schedule),
+            blocked_ranges: ranges.results || []
+        });
+    } catch (e) {
+        return jsonErr("Error fetching work settings: " + e.message, 500);
+    }
+}
+
+async function handlePutWorkSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var schedule = parseWorkScheduleJson(JSON.stringify(body.work_schedule));
+        if (!schedule) {
+            return jsonErr("Selecione pelo menos um dia de trabalho / Select at least one working day", 400);
+        }
+        var res = await env.DB.prepare(
+            "UPDATE client_logins SET work_schedule = ? WHERE client_id = ?"
+        ).bind(JSON.stringify(schedule), id).run();
+        if (!res.meta || res.meta.changes === 0) {
+            return jsonErr("Client login not found", 404);
+        }
+        return jsonOk({ saved: true, work_schedule: schedule });
+    } catch (e) {
+        return jsonErr("Error saving work schedule: " + e.message, 500);
+    }
+}
+
+async function handlePostBlockedRange(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (!isValidDateStr(body.start_date) || !isValidDateStr(body.end_date)) {
+            return jsonErr("Datas inválidas / Invalid dates", 400);
+        }
+        if (body.end_date < body.start_date) {
+            return jsonErr("A data final deve ser igual ou depois da inicial / End date must not be before start", 400);
+        }
+        var span = (new Date(body.end_date + "T12:00:00Z") - new Date(body.start_date + "T12:00:00Z")) / 86400000;
+        if (span > 370) { return jsonErr("Período longo demais / Range too long", 400); }
+        var reason = (typeof body.reason === "string" && body.reason.trim())
+            ? body.reason.trim().slice(0, 200) : null;
+        var rangeId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_blocked_ranges (id, client_id, start_date, end_date, reason) VALUES (?, ?, ?, ?, ?)"
+        ).bind(rangeId, id, body.start_date, body.end_date, reason).run();
+        return jsonOk({ created: true, range: { id: rangeId, start_date: body.start_date, end_date: body.end_date, reason: reason } });
+    } catch (e) {
+        return jsonErr("Error creating blocked range: " + e.message, 500);
+    }
+}
+
+async function handleDeleteBlockedRange(id, rangeId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        await env.DB.prepare(
+            "DELETE FROM client_blocked_ranges WHERE id = ? AND client_id = ?"
+        ).bind(rangeId, id).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting blocked range: " + e.message, 500);
+    }
+}
+
+async function handleGetWorkingDays(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+        var today = url.searchParams.get("today");
+        if (!isValidDateStr(today)) { today = new Date().toISOString().slice(0, 10); }
+        var p = month.split("-");
+        var first = month + "-01";
+        var lastDay = new Date(Date.UTC(Number(p[0]), Number(p[1]), 0)).getUTCDate();
+        var last = month + "-" + String(lastDay).padStart(2, "0");
+        var ctx = await loadWorkContext(env, id, first, last);
+        var total = countWorkingDays(ctx, first, last);
+        // elapsed includes today; remaining also includes today (today is both
+        // the latest day you produced on and the first day you can still act on).
+        var elapsed, remaining;
+        if (today < first)      { elapsed = 0;     remaining = total; }
+        else if (today > last)  { elapsed = total; remaining = 0; }
+        else {
+            elapsed = countWorkingDays(ctx, first, today);
+            remaining = countWorkingDays(ctx, today, last);
+        }
+        return jsonOk({
+            month: month, today: today,
+            schedule_set: ctx.schedule_set,
+            total: total, elapsed: elapsed, remaining: remaining
+        });
+    } catch (e) {
+        return jsonErr("Error computing working days: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Password hashing (PBKDF2-SHA256) + token helpers
 // ---------------------------------------------------------------------------
 
@@ -8281,14 +8489,18 @@ function clientRequestAllowed(path, method, clientId) {
                 rest === "field-config" || rest === "entry-state" ||
                 rest === "entries" || rest === "entries-summary" ||
                 rest === "goal-state" || rest === "indicator-history" ||
+                rest === "work-settings" || rest === "working-days" ||
                 rest === "assessments") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
             if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }
         }
         if (method === "POST") {
             if (rest === "logo") { return true; }
+            if (rest === "blocked-ranges") { return true; }
             if (/^entries\/\d{4}-\d{2}-\d{2}\/day-off$/.test(rest)) { return true; }
         }
+        if (method === "DELETE" && /^blocked-ranges\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        if (method === "PUT" && rest === "work-settings") { return true; }
         if (method === "PUT" && rest === "goals") { return true; }
         if (method === "PUT" && /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/.test(rest)) { return true; }
         if (method === "PUT" && /^assessments\/[a-z_]+\/answers$/.test(rest)) { return true; }
@@ -9176,14 +9388,14 @@ async function handleGetEntryState(id, request, env) {
             "SELECT entry_date, sections_json, completed FROM client_daily_entries " +
             "WHERE client_id = ? AND entry_date >= ? AND entry_date <= ?"
         ).bind(id, start, today).all();
-        var missed = await env.DB.prepare(
-            "SELECT missed_date, status FROM client_missed_days WHERE client_id = ? AND missed_date >= ? AND missed_date <= ?"
-        ).bind(id, start, today).all();
 
         var entryByDate = {};
         (entries.results || []).forEach(function(r) { entryByDate[r.entry_date] = r; });
-        var dayOff = {};
-        (missed.results || []).forEach(function(r) { if (r.status === "day_off") { dayOff[r.missed_date] = true; } });
+
+        // The shared working-day rule (weekly schedule + blocked ranges +
+        // day_off) decides which dates need entries — the log never prompts
+        // for a Sunday a Mon-Sat business is closed, or inside a vacation.
+        var workCtx = await loadWorkContext(env, id, start, today);
 
         var config = await getFieldConfig(env, id, today.slice(0, 7));
         var required = applicableSections(config);
@@ -9194,7 +9406,7 @@ async function handleGetEntryState(id, request, env) {
         while (d <= end) {
             var ds = d.toISOString().slice(0, 10);
             var entry = entryByDate[ds];
-            if (!(entry && entry.completed) && !dayOff[ds]) {
+            if (!(entry && entry.completed) && isWorkingDay(workCtx, ds)) {
                 pending.push({
                     date: ds,
                     is_today: ds === today,
@@ -9204,7 +9416,11 @@ async function handleGetEntryState(id, request, env) {
             d = new Date(d.getTime() + 24 * 3600 * 1000);
         }
 
-        return jsonOk({ today: today, tracking_start: start, required_sections: required, pending: pending });
+        return jsonOk({
+            today: today, tracking_start: start, required_sections: required,
+            pending: pending,
+            work_schedule_set: workCtx.schedule_set
+        });
     } catch (e) {
         return jsonErr("Error fetching entry state: " + e.message, 500);
     }
@@ -9476,6 +9692,8 @@ async function handleGetWeeklySummary(id, request, env) {
         (entries.results || []).forEach(function(r) { entryByDate[r.entry_date] = r; });
         (missed.results || []).forEach(function(r) { missedByDate[r.missed_date] = r; });
 
+        var workCtx = await loadWorkContext(env, id, start, endDate);
+
         var days = [];
         for (var i = 0; i < 7; i++) {
             var ds = new Date(new Date(start + "T12:00:00Z").getTime() + i * 24 * 3600 * 1000)
@@ -9485,6 +9703,9 @@ async function handleGetWeeklySummary(id, request, env) {
             var status;
             if (e && e.completed) { status = (m && m.status === "filled_late") ? "filled_late" : "completed"; }
             else if (m && m.status === "day_off") { status = "day_off"; }
+            // Weekly schedule / blocked range: the day was never expected —
+            // it must not read as "missing" on the admin card.
+            else if (!isWorkingDay(workCtx, ds)) { status = "not_scheduled"; }
             else if (ds > today) { status = "future"; }
             else if (trackingStart && ds < trackingStart) { status = "not_tracked"; }
             else if (e) { status = "partial"; }
@@ -11736,6 +11957,19 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "entry-state" && method === "GET") {
                 return handleGetEntryState(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "work-settings") {
+                if (method === "GET") { return handleGetWorkSettings(cid, request, env); }
+                if (method === "PUT") { return handlePutWorkSettings(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "blocked-ranges" && method === "POST") {
+                return handlePostBlockedRange(cid, request, env);
+            }
+            if (segs.length === 5 && segs[3] === "blocked-ranges" && method === "DELETE") {
+                return handleDeleteBlockedRange(cid, segs[4], request, env);
+            }
+            if (segs.length === 4 && segs[3] === "working-days" && method === "GET") {
+                return handleGetWorkingDays(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "entries" && method === "GET") {
                 return handleGetClientEntries(cid, request, env);

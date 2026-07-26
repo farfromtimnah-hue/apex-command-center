@@ -785,6 +785,26 @@
       </div>
     </section>
 
+    <!-- ══ One-time work-schedule setup (before the daily log first renders) ══ -->
+    <section id="viewSchedule" hidden>
+      <div class="content-card" style="max-width:480px;margin:40px auto;">
+        <div class="card-title">
+          <span class="show-pt">Quais dias sua empresa trabalha?</span>
+          <span class="show-en">Which days does your business work?</span>
+        </div>
+        <p class="muted" style="margin-bottom:14px;">
+          <span class="show-pt">O registro di&aacute;rio s&oacute; vai pedir preenchimento nos dias que voc&ecirc; marcar aqui. D&aacute; para mudar depois na aba Ajustes.</span>
+          <span class="show-en">The daily log will only ask for entries on the days you select here. You can change this later in the Settings tab.</span>
+        </p>
+        <div class="gm-chip-set" id="scheduleSetupChips" data-tour="work-schedule-chips"></div>
+        <div class="err-msg" id="scheduleSetupErr"></div>
+        <button class="btn-gold" style="width:100%;margin-top:14px;min-height:48px;" data-tour="work-schedule-save" onclick="saveScheduleSetup()">
+          <span class="show-pt">Salvar e continuar</span>
+          <span class="show-en">Save and continue</span>
+        </button>
+      </div>
+    </section>
+
     <!-- ══ Client Portal ══ -->
     <section id="viewPortal" hidden>
       <div class="hero">
@@ -847,6 +867,9 @@
         </button>
         <button class="portal-tab" data-tab="xray" id="tabBtnXray" hidden onclick="switchTab('xray')">
           <span class="show-pt">Raio X</span><span class="show-en">X-Ray</span>
+        </button>
+        <button class="portal-tab" data-tab="worksched" onclick="switchTab('worksched')">
+          <span class="show-pt">Ajustes</span><span class="show-en">Settings</span>
         </button>
       </div>
 
@@ -955,6 +978,8 @@
       <div id="tabGmpartners" hidden><div id="gmPartnersBody"></div></div>
       <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
       <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
+
+      <div id="tabWorksched" hidden><div id="workschedBody"></div></div>
 
       <div id="tabXray" hidden>
         <div class="section-hero">
@@ -1067,6 +1092,10 @@
       if (!document.getElementById("viewPortal").hidden) {
         loadAnalytics();
         if (!document.getElementById("tabGoals").hidden) { loadGoalsTab(); }
+        if (!document.getElementById("tabWorksched").hidden && workSettings) { renderWorkSettings(); }
+      }
+      if (!document.getElementById("viewSchedule").hidden) {
+        document.getElementById("scheduleSetupChips").innerHTML = scheduleChipsHtml("schedday_");
       }
       if (!document.getElementById("viewGoals").hidden) { renderGoalsSection(); }
       if (window.gmOnLangChange) { gmOnLangChange(); }
@@ -1157,7 +1186,7 @@
 
     // ── Views ───────────────────────────────────────────────────────────────
     function showView(id) {
-      ["viewPassword", "viewLinkGoogle", "viewEntryHome", "viewEntryForm", "viewGoals", "viewGoalsPrompt", "viewPortal"].forEach(function(v) {
+      ["viewPassword", "viewLinkGoogle", "viewEntryHome", "viewEntryForm", "viewGoals", "viewGoalsPrompt", "viewSchedule", "viewPortal"].forEach(function(v) {
         document.getElementById(v).hidden = (v !== id);
       });
       window.scrollTo(0, 0);
@@ -1235,6 +1264,11 @@
     }
 
     function showEntryHome() {
+      // Never render the daily log before the one-time schedule setup.
+      if (entryState && entryState.work_schedule_set === false && !PREVIEW_AS) {
+        showScheduleSetup();
+        return;
+      }
       var list = document.getElementById("pendingDaysList");
       document.getElementById("homeClientName").textContent = clientName;
       var pending = (entryState && entryState.pending) || [];
@@ -1581,8 +1615,191 @@
       proceedToEntries();
     }
 
+    // ── Work schedule + blocked date ranges (feeds the shared working-days
+    // rule on the Worker; the daily log only prompts on working days) ──────
+    // Display order Mon..Sun (Brazilian convention); values are JS weekday
+    // numbers (0=Sunday) matching client_logins.work_schedule.
+    var WEEKDAY_CHIPS = [
+      { n: 1, pt: "Seg", en: "Mon" }, { n: 2, pt: "Ter", en: "Tue" },
+      { n: 3, pt: "Qua", en: "Wed" }, { n: 4, pt: "Qui", en: "Thu" },
+      { n: 5, pt: "Sex", en: "Fri" }, { n: 6, pt: "Sáb", en: "Sat" },
+      { n: 0, pt: "Dom", en: "Sun" }
+    ];
+    var scheduleDraft = [];      // selected weekday numbers (shared by setup + settings)
+    var workSettings = null;     // GET /work-settings payload (settings tab cache)
+
+    function scheduleChipsHtml(prefix) {
+      var html = "";
+      WEEKDAY_CHIPS.forEach(function(d) {
+        var sel = scheduleDraft.indexOf(d.n) !== -1;
+        html += '<button type="button" class="gm-choice-chip' + (sel ? " gm-chip-sel" : "") +
+          '" style="min-height:48px;" id="' + prefix + d.n + '" onclick="toggleScheduleDay(\'' + prefix + '\',' + d.n + ')">' +
+          (isEn() ? d.en : d.pt) + '</button>';
+      });
+      return html;
+    }
+
+    function toggleScheduleDay(prefix, n) {
+      var idx = scheduleDraft.indexOf(n);
+      if (idx === -1) { scheduleDraft.push(n); } else { scheduleDraft.splice(idx, 1); }
+      var btn = document.getElementById(prefix + n);
+      if (btn) { btn.classList.toggle("gm-chip-sel", idx === -1); }
+    }
+
+    // One-time setup: shown before the daily log's first render whenever the
+    // schedule was never answered. Change-later lives in the Ajustes tab.
+    function showScheduleSetup() {
+      scheduleDraft = [];
+      document.getElementById("scheduleSetupChips").innerHTML = scheduleChipsHtml("schedday_");
+      document.getElementById("scheduleSetupErr").textContent = "";
+      showView("viewSchedule");
+    }
+
+    function saveScheduleSetup() {
+      var err = document.getElementById("scheduleSetupErr");
+      err.textContent = "";
+      if (!scheduleDraft.length) {
+        err.textContent = isEn() ? "Select at least one day." : "Selecione pelo menos um dia.";
+        return;
+      }
+      apiFetch("/api/clients/" + clientId + "/work-settings",
+        { method: "PUT", body: { work_schedule: scheduleDraft } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          // Pending days may shrink (e.g. Sundays drop out) — refetch.
+          return loadEntryState();
+        })
+        .then(function() { proceedToEntries(); })
+        .catch(function(e) { err.textContent = e.message; });
+    }
+
+    // ── Ajustes tab: schedule editor + blocked ranges ──
+    function loadWorkSettings() {
+      var body = document.getElementById("workschedBody");
+      body.innerHTML = '<div class="content-card"><p class="muted">' +
+        (isEn() ? "Loading…" : "Carregando…") + '</p></div>';
+      apiFetch("/api/clients/" + clientId + "/work-settings")
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(d) {
+          workSettings = d;
+          scheduleDraft = (d.work_schedule || []).slice();
+          renderWorkSettings();
+        })
+        .catch(function() {
+          body.innerHTML = '<div class="content-card"><p class="muted">' +
+            (isEn() ? "Could not load settings." : "Não foi possível carregar os ajustes.") + '</p></div>';
+        });
+    }
+
+    function renderWorkSettings() {
+      var body = document.getElementById("workschedBody");
+      if (!workSettings) { return; }
+      var html = '<div class="content-card">' +
+        '<div class="card-title">' + (isEn() ? "Working days" : "Dias de trabalho") + '</div>' +
+        '<p class="muted" style="margin-bottom:10px;">' +
+        (isEn()
+          ? "The daily log and your pace numbers only count the days selected here."
+          : "O registro diário e os cálculos de ritmo só contam os dias marcados aqui.") + '</p>' +
+        '<div class="gm-chip-set" data-tour="work-schedule-chips">' + scheduleChipsHtml("wsday_") + '</div>' +
+        '<div class="err-msg" id="wsErr"></div>' +
+        '<button class="btn-gold" style="width:100%;margin-top:12px;min-height:48px;" data-tour="work-schedule-save" onclick="wsSaveSchedule()">' +
+        (isEn() ? "Save working days" : "Salvar dias de trabalho") + '</button></div>';
+
+      html += '<div class="content-card">' +
+        '<div class="card-title">' + (isEn() ? "Blocked periods" : "Períodos bloqueados") + '</div>' +
+        '<p class="muted" style="margin-bottom:10px;">' +
+        (isEn()
+          ? "Plan ahead (vacation, holidays): the daily log never asks for entries inside a blocked period."
+          : "Planeje com antecedência (férias, feriados): o registro diário não pede preenchimento dentro de um período bloqueado.") + '</p>';
+      var today = todayStr();
+      var ranges = (workSettings.blocked_ranges || []).filter(function(r) { return r.end_date >= today; });
+      if (!ranges.length) {
+        html += '<p class="muted">' + (isEn() ? "No upcoming blocked periods." : "Nenhum período bloqueado à frente.") + '</p>';
+      } else {
+        ranges.forEach(function(r) {
+          html += '<div class="list-row" data-tour="blocked-range-row"><div class="list-main">' +
+            '<div class="list-title">' + formatDate(r.start_date) + ' – ' + formatDate(r.end_date) + '</div>' +
+            (r.reason ? '<div class="list-sub">' + escHtml(r.reason) + '</div>' : "") + '</div>' +
+            '<button class="btn-outline" style="min-height:44px;" onclick="wsRemoveRange(\'' + escHtml(r.id) + '\')">' +
+            (isEn() ? "Remove" : "Remover") + '</button></div>';
+        });
+      }
+      html += '<div style="margin-top:14px;" data-tour="blocked-range-add">' +
+        '<label class="field-label">' + (isEn() ? "From" : "De") + '</label>' +
+        '<input type="date" id="blkStart" style="margin-bottom:8px;">' +
+        '<label class="field-label">' + (isEn() ? "To" : "Até") + '</label>' +
+        '<input type="date" id="blkEnd" style="margin-bottom:8px;">' +
+        '<label class="field-label">' + (isEn() ? "Reason (optional)" : "Motivo (opcional)") + '</label>' +
+        '<input type="text" id="blkReason" maxlength="200">' +
+        '<div class="err-msg" id="blkErr"></div>' +
+        '<button class="btn-outline" style="width:100%;margin-top:10px;min-height:48px;" onclick="wsAddRange()">' +
+        (isEn() ? "+ Add blocked period" : "+ Adicionar período bloqueado") + '</button></div></div>';
+      body.innerHTML = html;
+    }
+
+    function wsSaveSchedule() {
+      var err = document.getElementById("wsErr");
+      err.textContent = "";
+      if (!scheduleDraft.length) {
+        err.textContent = isEn() ? "Select at least one day." : "Selecione pelo menos um dia.";
+        return;
+      }
+      apiFetch("/api/clients/" + clientId + "/work-settings",
+        { method: "PUT", body: { work_schedule: scheduleDraft } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          workSettings.work_schedule = r.data.work_schedule;
+          // Pending days follow the schedule — refresh the banner state.
+          return loadEntryState().catch(function() {});
+        })
+        .then(function() {
+          document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
+          renderWorkSettings();
+        })
+        .catch(function(e) { err.textContent = e.message; });
+    }
+
+    function wsAddRange() {
+      var err = document.getElementById("blkErr");
+      err.textContent = "";
+      var start = document.getElementById("blkStart").value;
+      var end = document.getElementById("blkEnd").value;
+      var reason = document.getElementById("blkReason").value.trim();
+      if (!start || !end) {
+        err.textContent = isEn() ? "Pick both dates." : "Escolha as duas datas.";
+        return;
+      }
+      apiFetch("/api/clients/" + clientId + "/blocked-ranges",
+        { method: "POST", body: { start_date: start, end_date: end, reason: reason || null } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          return loadEntryState().catch(function() {});
+        })
+        .then(function() {
+          document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
+          loadWorkSettings();
+        })
+        .catch(function(e) { err.textContent = e.message; });
+    }
+
+    function wsRemoveRange(rangeId) {
+      if (!window.confirm(isEn() ? "Remove this blocked period?" : "Remover este período bloqueado?")) { return; }
+      apiFetch("/api/clients/" + clientId + "/blocked-ranges/" + rangeId, { method: "DELETE" })
+        .then(function() { return loadEntryState().catch(function() {}); })
+        .then(function() { loadWorkSettings(); })
+        .catch(function() { loadWorkSettings(); });
+    }
+
     // The pre-existing post-login behavior, unchanged.
     function proceedToEntries() {
+      // One-time schedule setup comes before the daily log ever renders.
+      if (entryState && entryState.work_schedule_set === false && !PREVIEW_AS) {
+        showScheduleSetup();
+        return;
+      }
       var pending = (entryState && entryState.pending) || [];
       if (pending.length === 1) {
         entryStartFromBoot();
@@ -1845,7 +2062,8 @@
       { tab: "goals",      icon: "target",       labelPt: "Metas",        labelEn: "Goals" },
       { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",      labelEn: "Tasks" },
       { tab: "documents",  icon: "file",         labelPt: "Documentos",   labelEn: "Documents" },
-      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",      labelEn: "Invoices" }
+      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",      labelEn: "Invoices" },
+      { tab: "worksched",  icon: "settings",     labelPt: "Ajustes",      labelEn: "Settings" }
     ];
 
     function portalMoreTabs() {
@@ -1916,7 +2134,7 @@
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
       updateMobileDockActive(tab);
-      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray",
+      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
        "Gmcrm", "Gmroadmap", "Gmbase", "Gmpartners", "Gmfinance", "Gmjobs"].forEach(function(t) {
         document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
       });
@@ -1931,6 +2149,7 @@
         if (tab === "documents") { loadDocuments(); }
         if (tab === "invoices") { loadInvoices(); }
         if (tab === "xray") { loadXray(); }
+        if (tab === "worksched") { loadWorkSettings(); }
         if (tab === "gmcrm") { gmLoadCrm(); }
         if (tab === "gmroadmap") { gmLoadRoadmap(); }
         if (tab === "gmbase") { gmLoadBase(); }

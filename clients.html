@@ -493,6 +493,75 @@
     body.lang-en .status-lozenge[data-status="closed"]::before   { content: "Closed"; }
     body.lang-en .status-lozenge[data-status="lead_dormant"]::before { content: "To reactivate"; }
 
+    /* ── Apex's own referral partners (.ap-*) ────────────────────────────────
+       Task 2's partner-card language applied to Apex's own roster: card per
+       partner, the two numbers that matter at full weight, then grouped
+       icon+label+value rows. Always Apex's own black-and-gold — this is an
+       internal tool, so there is no per-partner branding to honor. */
+    .ap-intro { font-size: 13px; color: var(--muted); line-height: 1.55; margin: 14px 0 12px; }
+    .ap-add {
+      width: 100%; min-height: 46px; margin-bottom: 14px;
+      border: 1.5px solid var(--gold); border-radius: 10px;
+      background: var(--gold-dim); color: var(--brown);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .ap-add:hover { background: var(--gold); color: #1a1a1d; }
+    .ap-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 15px; margin-bottom: 12px;
+    }
+    .ap-card-top {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 10px; margin-bottom: 12px;
+    }
+    .ap-card-name { font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+    .ap-card-type { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .ap-pill {
+      flex-shrink: 0; font-size: 11px; font-weight: 700;
+      padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    }
+    .ap-pill-gold  { background: rgba(201,164,58,0.18); color: #7a5f18; }
+    .ap-pill-green { background: rgba(63,125,78,0.14);  color: #2f6b3e; }
+    .ap-pill-muted { background: rgba(107,102,96,0.13); color: #575249; }
+    .ap-stats {
+      display: flex; gap: 12px;
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      padding: 10px 0; margin-bottom: 4px;
+    }
+    .ap-stat { flex: 1 1 0; min-width: 0; }
+    .ap-stat-label {
+      font-size: 10px; font-weight: 800; color: var(--muted);
+      letter-spacing: 0.07em; text-transform: uppercase;
+    }
+    .ap-stat-value { font-size: 19px; font-weight: 800; margin-top: 2px; }
+    .ap-stat-value.ap-zero { color: var(--muted); font-weight: 700; }
+    .ap-rows { margin-top: 2px; }
+    .ap-row {
+      display: flex; align-items: center; gap: 11px;
+      padding: 9px 0; border-bottom: 1px solid var(--border);
+    }
+    .ap-row:last-child { border-bottom: none; }
+    .ap-row-icon {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ap-row-icon svg { width: 14px; height: 14px; color: var(--brown); }
+    .ap-row-body { flex: 1; min-width: 0; }
+    .ap-row-label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+    .ap-row-value { display: block; font-size: 13px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
+    .ap-row-value.ap-empty { color: var(--muted); font-weight: 400; }
+    .ap-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .ap-btn {
+      flex: 1 1 0; min-width: 120px; min-height: 42px;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
+      color: var(--text); cursor: pointer;
+    }
+    .ap-btn:hover { border-color: var(--gold); color: var(--brown); }
+    .ap-btn svg { width: 14px; height: 14px; color: var(--muted); flex-shrink: 0; }
+
     /* ── Client status sub-tabs (copied from finance.html .inv-subtab-bar) ── */
     .inv-subtab-bar {
       display: flex;
@@ -758,6 +827,13 @@
                 <span class="show-pt">Consolidados</span>
                 <span class="show-en">Consolidados</span>
               </button>
+              <!-- APEX's OWN referral partners — who sends coaching clients TO
+                   Apex. Not a client's gm_partners (that lives in the portal,
+                   one tier below). Admin-only data; the routes enforce it. -->
+              <button class="inv-subtab" id="subtabClientsParceiros" onclick="switchClientsTab('parceiros')">
+                <span class="show-pt">Parceiros</span>
+                <span class="show-en">Partners</span>
+              </button>
             </div>
             <div id="clientsListContainer">
               <div class="empty-state show-pt">Carregando clientes...</div>
@@ -771,6 +847,59 @@
   </div>
 
   <!-- ══ MODAL: Novo Cliente / Add New Client ══════════════════════════════ -->
+  <!-- ══ MODAL: Parceiro Apex / Apex partner ═══════════════════════════════
+       Apex's OWN referral partner. Deliberately simpler than a client's
+       gm_partners sheet: no language picker and no color picker, because this
+       is Apex's internal tool and always wears Apex's own black-and-gold. -->
+  <div id="modalApexPartner" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:460px;">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Parceiro Apex</span>
+          <span class="show-en">Apex Partner</span>
+        </h3>
+        <button class="modal-close" onclick="document.getElementById('modalApexPartner').hidden=true">&#215;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label><span class="show-pt">Nome *</span><span class="show-en">Name *</span></label>
+          <input type="text" id="apName" maxlength="200">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span class="show-pt">Tipo</span><span class="show-en">Type</span></label>
+            <input type="text" id="apTipo" maxlength="100" placeholder="Contador, Ex-cliente…">
+          </div>
+          <div class="field-group">
+            <label><span class="show-pt">Status</span><span class="show-en">Status</span></label>
+            <select id="apStatus"></select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label><span class="show-pt">Contato</span><span class="show-en">Contact</span></label>
+          <input type="text" id="apContato" maxlength="200">
+        </div>
+        <div class="field-group">
+          <label><span class="show-pt">Última interação</span><span class="show-en">Last interaction</span></label>
+          <input type="date" id="apUltima">
+        </div>
+        <div class="field-group">
+          <label><span class="show-pt">Próxima ação</span><span class="show-en">Next action</span></label>
+          <input type="text" id="apProxima" maxlength="500">
+        </div>
+        <div class="form-status" id="apStatusMsg"></div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button class="btn-primary" style="flex:1;" onclick="saveApexPartner()">
+            <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+          </button>
+          <button class="ap-btn" id="apDelete" style="flex:0 0 auto;color:#b44040;border-color:#b44040;" onclick="deleteApexPartner()">
+            <span class="show-pt">Remover</span><span class="show-en">Remove</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="modalNewClient" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -1173,9 +1302,19 @@
       var btnLeads        = document.getElementById("subtabClientsLeads");
       var btnActive       = document.getElementById("subtabClientsActive");
       var btnConsolidados = document.getElementById("subtabClientsConsolidados");
+      var btnParceiros    = document.getElementById("subtabClientsParceiros");
       if (btnLeads)        { btnLeads.classList.toggle("active", tab === "leads"); }
       if (btnActive)       { btnActive.classList.toggle("active", tab === "active"); }
       if (btnConsolidados) { btnConsolidados.classList.toggle("active", tab === "consolidados"); }
+      if (btnParceiros)    { btnParceiros.classList.toggle("active", tab === "parceiros"); }
+
+      // Parceiros is Apex's OWN partner roster, not a filtered view of
+      // clients — the "+ Novo Cliente" button above the list would create the
+      // wrong kind of record here, so it is hidden while this tab is open.
+      var addBtn = document.getElementById("btnAddClient");
+      if (addBtn) { addBtn.hidden = (tab === "parceiros"); }
+
+      if (tab === "parceiros") { return loadApexPartners(); }
       renderClients(filterClientsForTab(tab));
     }
 
@@ -1373,6 +1512,229 @@
       if (currentClientsTab === "leads")        { return renderLeadsTab(container, clients); }
       if (currentClientsTab === "consolidados") { return renderConsolidadosTab(container, clients); }
       renderClientsTable(container, clients);
+    }
+
+    // ══ APEX'S OWN REFERRAL PARTNERS ═════════════════════════════════════════
+    // Who sends coaching clients TO Apex. NOT a client's gm_partners (that is
+    // one tier below, in the portal). Apex-internal: PT/EN follows the rest of
+    // this admin page, always Apex's own black-and-gold, no per-partner
+    // branding — those are all client-tier concerns that do not apply here.
+    //
+    // Visual language is Task 2's partner redesign, reused via the .ap-*
+    // family: cards with the numbers that matter at full weight, then grouped
+    // icon rows in the detail view.
+
+    var apexPartners = [];
+    var apexPartnerStatuses = ["Prospectando", "Ativo", "Inativo"];
+    var apexOpenPartnerId = null;
+
+    // Same inline-SVG approach as gm.js — real stroked paths, never glyphs.
+    var AP_ICONS = {
+      person:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/>',
+      calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+      check:    '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+      link:     '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+      copy:     '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    };
+    function apIcon(name) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+        'stroke-linecap="round" stroke-linejoin="round">' + (AP_ICONS[name] || "") + "</svg>";
+    }
+
+    // apiFetch() here is GET-only; writes need their own body-carrying call.
+    function apexApi(path, method, body) {
+      return getToken().then(function (token) {
+        var opts = {
+          method: method || "GET",
+          headers: { "Authorization": "Bearer " + token }
+        };
+        if (body) {
+          opts.headers["Content-Type"] = "application/json";
+          opts.body = JSON.stringify(body);
+        }
+        return fetch(WORKER_URL + path, opts);
+      }).then(function (res) {
+        return res.json().then(function (d) {
+          if (!res.ok || d.error) { throw new Error(d.error || "HTTP " + res.status); }
+          return d;
+        });
+      });
+    }
+
+    function loadApexPartners() {
+      var container = document.getElementById("clientsListContainer");
+      if (!container) { return; }
+      var en = document.body.classList.contains("lang-en");
+      container.innerHTML = '<div class="empty-state">' + (en ? "Loading…" : "Carregando…") + "</div>";
+      return apexApi("/api/apex-partners")
+        .then(function (d) {
+          apexPartners = d.partners || [];
+          if (d.statuses && d.statuses.length) { apexPartnerStatuses = d.statuses; }
+          renderApexPartners();
+        })
+        .catch(function (e) {
+          container.innerHTML = '<div class="empty-state">' + escHtml(e.message) + "</div>";
+        });
+    }
+
+    function apexStatusClass(status) {
+      if (status === "Ativo")    { return "ap-pill-green"; }
+      if (status === "Inativo")  { return "ap-pill-muted"; }
+      return "ap-pill-gold";
+    }
+
+    function renderApexPartners() {
+      var container = document.getElementById("clientsListContainer");
+      var en = document.body.classList.contains("lang-en");
+
+      var html = '<p class="ap-intro">' +
+        (en
+          ? "Apex's own referral partners — people and businesses who send clients to Apex. A referral through a partner's link lands directly in the Leads pipeline, already attributed."
+          : "Os parceiros de indicação da própria Apex — pessoas e empresas que indicam clientes para a Apex. Uma indicação pelo link do parceiro cai direto no pipeline de Leads, já atribuída.") +
+        "</p>";
+
+      html += '<button type="button" class="ap-add" onclick="openApexPartnerModal(null)">' +
+        (en ? "+ New partner" : "+ Novo parceiro") + "</button>";
+
+      if (!apexPartners.length) {
+        html += '<div class="empty-state">' +
+          (en ? "No partners yet." : "Nenhum parceiro cadastrado ainda.") + "</div>";
+        container.innerHTML = html;
+        return;
+      }
+
+      apexPartners.forEach(function (p) {
+        var indicados  = p.clientes_indicados || 0;
+        var convertidos = p.clientes_convertidos || 0;
+        html += '<div class="ap-card">' +
+          '<div class="ap-card-top">' +
+            '<div style="min-width:0;">' +
+              '<div class="ap-card-name">' + escHtml(p.name) + "</div>" +
+              (p.tipo ? '<div class="ap-card-type">' + escHtml(p.tipo) + "</div>" : "") +
+            "</div>" +
+            '<span class="ap-pill ' + apexStatusClass(p.status) + '">' + escHtml(p.status) + "</span>" +
+          "</div>" +
+          '<div class="ap-stats">' +
+            '<div class="ap-stat">' +
+              '<div class="ap-stat-label">' + (en ? "Clients referred" : "Clientes indicados") + "</div>" +
+              '<div class="ap-stat-value' + (indicados ? "" : " ap-zero") + '">' + indicados + "</div>" +
+            "</div>" +
+            '<div class="ap-stat">' +
+              '<div class="ap-stat-label">' + (en ? "Became clients" : "Viraram clientes") + "</div>" +
+              '<div class="ap-stat-value' + (convertidos ? "" : " ap-zero") + '">' + convertidos + "</div>" +
+            "</div>" +
+          "</div>" +
+          '<div class="ap-rows">' +
+            apexRowHtml("person", en ? "Contact" : "Contato", p.contato) +
+            apexRowHtml("calendar", en ? "Last interaction" : "Última interação", p.ultima_interacao) +
+            apexRowHtml("check", en ? "Next action" : "Próxima ação", p.proxima_acao) +
+          "</div>" +
+          '<div class="ap-actions">' +
+            '<button type="button" class="ap-btn" onclick="openApexPartnerModal(\'' + escHtml(p.id) + '\')">' +
+              (en ? "Edit" : "Editar") + "</button>" +
+            (p.referral_slug
+              ? '<button type="button" class="ap-btn" onclick="copyApexReferral(\'' + escHtml(p.referral_slug) + '\')">' +
+                  apIcon("copy") + (en ? "Copy referral link" : "Copiar link de indicação") + "</button>"
+              : "") +
+          "</div>" +
+          "</div>";
+      });
+
+      container.innerHTML = html;
+    }
+
+    function apexRowHtml(icon, label, value) {
+      var en = document.body.classList.contains("lang-en");
+      return '<div class="ap-row">' +
+        '<span class="ap-row-icon">' + apIcon(icon) + "</span>" +
+        '<span class="ap-row-body">' +
+          '<span class="ap-row-label">' + escHtml(label) + "</span>" +
+          '<span class="ap-row-value' + (value ? "" : " ap-empty") + '">' +
+            escHtml(value || (en ? "Not set" : "Não preenchido")) + "</span>" +
+        "</span></div>";
+    }
+
+    function apexReferralUrl(slug) {
+      return window.location.origin + "/apex-referral.html?p=" + slug;
+    }
+
+    function copyApexReferral(slug) {
+      var url = apexReferralUrl(slug);
+      var en = document.body.classList.contains("lang-en");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url)
+          .then(function () { window.alert(en ? "Link copied." : "Link copiado."); })
+          .catch(function () { window.prompt(en ? "Copy the link:" : "Copie o link:", url); });
+      } else {
+        window.prompt(en ? "Copy the link:" : "Copie o link:", url);
+      }
+    }
+
+    function openApexPartnerModal(id) {
+      apexOpenPartnerId = id;
+      var p = null;
+      if (id) {
+        apexPartners.forEach(function (x) { if (x.id === id) { p = x; } });
+      }
+      document.getElementById("apName").value    = p ? (p.name || "") : "";
+      document.getElementById("apTipo").value    = p ? (p.tipo || "") : "";
+      document.getElementById("apContato").value = p ? (p.contato || "") : "";
+      document.getElementById("apUltima").value  = p ? (p.ultima_interacao || "") : "";
+      document.getElementById("apProxima").value = p ? (p.proxima_acao || "") : "";
+
+      var sel = document.getElementById("apStatus");
+      sel.innerHTML = apexPartnerStatuses.map(function (s) {
+        return '<option value="' + escHtml(s) + '">' + escHtml(s) + "</option>";
+      }).join("");
+      sel.value = p ? (p.status || "Prospectando") : "Prospectando";
+
+      document.getElementById("apStatusMsg").textContent = "";
+      document.getElementById("apDelete").hidden = !id;
+      document.getElementById("modalApexPartner").hidden = false;
+    }
+
+    function saveApexPartner() {
+      var msg = document.getElementById("apStatusMsg");
+      var en = document.body.classList.contains("lang-en");
+      var name = document.getElementById("apName").value.trim();
+      if (!name) {
+        msg.textContent = en ? "Name is required." : "O nome é obrigatório.";
+        return;
+      }
+      msg.textContent = en ? "Saving…" : "Salvando…";
+      var body = {
+        name: name,
+        tipo: document.getElementById("apTipo").value.trim() || null,
+        contato: document.getElementById("apContato").value.trim() || null,
+        status: document.getElementById("apStatus").value,
+        ultima_interacao: document.getElementById("apUltima").value || null,
+        proxima_acao: document.getElementById("apProxima").value.trim() || null
+      };
+      var req = apexOpenPartnerId
+        ? apexApi("/api/apex-partners/" + apexOpenPartnerId, "PUT", body)
+        : apexApi("/api/apex-partners", "POST", body);
+      req.then(function () {
+          document.getElementById("modalApexPartner").hidden = true;
+          return loadApexPartners();
+        })
+        .catch(function (e) { msg.textContent = e.message; });
+    }
+
+    function deleteApexPartner() {
+      if (!apexOpenPartnerId) { return; }
+      var en = document.body.classList.contains("lang-en");
+      // Leads this partner referred are NOT deleted server-side — only their
+      // attribution is cleared. Say so, so the confirm is an informed one.
+      if (!window.confirm(en
+        ? "Remove this partner? Leads they referred stay in the pipeline, but lose their attribution."
+        : "Remover este parceiro? Os leads indicados por ele continuam no pipeline, mas perdem a atribuição.")) { return; }
+      apexApi("/api/apex-partners/" + apexOpenPartnerId, "DELETE")
+        .then(function () {
+          document.getElementById("modalApexPartner").hidden = true;
+          return loadApexPartners();
+        })
+        .catch(function (e) { document.getElementById("apStatusMsg").textContent = e.message; });
     }
 
     function renderClientsTable(container, clients) {

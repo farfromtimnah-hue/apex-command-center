@@ -13154,6 +13154,269 @@ async function handleGetReferralInfo(slug, request, env) {
     }
 }
 
+// ===========================================================================
+// APEX'S OWN REFERRAL PARTNERS  (apex_partners)
+//
+// DATA TIER NOTE — the distinction this whole file keeps having to repeat:
+//   gm_partners   = a CLIENT's referral partners (LIRA's suppliers). One tier
+//                   below Apex, scoped by client_id, client-accessible.
+//   apex_partners = APEX's own referral partners: who sends COACHING CLIENTS
+//                   to Apex. This section. No client_id exists on the table,
+//                   so there is no client scope to grant — every authenticated
+//                   route here is isAdminRole-only, full stop, and a
+//                   client-role token can never reach any of it.
+//
+// A referred lead lands in the APEX-INTERNAL pipeline (clients.status='lead',
+// the Task-1 ladder), never in any client's gm_leads. Attribution is by record
+// through clients.referred_by_partner_id, never by matching a typed name.
+// ===========================================================================
+
+// Apex's own partner statuses — same three-rung ladder as gm_partners, so the
+// two screens read identically. Deliberately a separate constant: the client
+// tier's list is configurable per client, Apex's own is fixed.
+var APEX_PARTNER_STATUSES = ["Prospectando", "Ativo", "Inativo"];
+
+function apexPartnerFields(body, partial) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!partial || has("name")) {
+        var name = gmStr(body.name, 200);
+        if (!name) { return { error: "Nome do parceiro é obrigatório" }; }
+        out.name = name;
+    }
+    if (has("status")) {
+        if (APEX_PARTNER_STATUSES.indexOf(body.status) === -1) { return { error: "Status inválido" }; }
+        out.status = body.status;
+    }
+    // tipo is FREE TEXT here, unlike gm_partners.tipo which validates against
+    // the client's configurable partner_types list. Apex has no such list to
+    // configure and only two people use this screen.
+    if (has("tipo")) { out.tipo = body.tipo === null ? null : gmStr(body.tipo, 100); }
+    if (has("contato")) { out.contato = body.contato === null ? null : gmStr(body.contato, 200); }
+    if (has("ultima_interacao")) { out.ultima_interacao = body.ultima_interacao === null ? null : gmStr(body.ultima_interacao, 40); }
+    if (has("proxima_acao")) { out.proxima_acao = body.proxima_acao === null ? null : gmStr(body.proxima_acao, 500); }
+    return { fields: out };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/apex-partners — admin only
+//
+// clientes_indicados / clientes_convertidos are COMPUTED here and never
+// stored, the same rule gm_partners follows for leads_indicados: a stored
+// counter drifts the moment a lead is deleted, converted or re-attributed.
+// ---------------------------------------------------------------------------
+
+async function handleGetApexPartners(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        // Backfill, mirroring handleGetGmPartners: partners created before a
+        // slug existed get one on first read, so every card can show its link.
+        var missing = await env.DB.prepare(
+            "SELECT id FROM apex_partners WHERE referral_slug IS NULL"
+        ).all();
+        var missingRows = missing.results || [];
+        for (var mi = 0; mi < missingRows.length; mi++) {
+            await env.DB.prepare("UPDATE apex_partners SET referral_slug = ? WHERE id = ?")
+                .bind(gmReferralSlug(), missingRows[mi].id).run();
+        }
+
+        var rows = await env.DB.prepare(
+            "SELECT p.*, " +
+            "(SELECT COUNT(*) FROM clients c WHERE c.referred_by_partner_id = p.id) AS clientes_indicados, " +
+            // "Converted" means the referred lead actually became a paying
+            // client — status='active'. A lead still in the pipeline counts as
+            // referred but not yet converted.
+            "(SELECT COUNT(*) FROM clients c WHERE c.referred_by_partner_id = p.id AND c.status = 'active') AS clientes_convertidos " +
+            "FROM apex_partners p ORDER BY p.name COLLATE NOCASE"
+        ).all();
+
+        return jsonOk({ partners: rows.results || [], statuses: APEX_PARTNER_STATUSES });
+    } catch (e) {
+        return jsonErr("Error fetching Apex partners: " + e.message, 500);
+    }
+}
+
+async function handlePostApexPartner(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = apexPartnerFields(body, false);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+
+        var rowId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO apex_partners (id, name, tipo, contato, status, ultima_interacao, proxima_acao, referral_slug) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(rowId, f.name,
+            f.tipo !== undefined ? f.tipo : null,
+            f.contato !== undefined ? f.contato : null,
+            f.status !== undefined ? f.status : "Prospectando",
+            f.ultima_interacao !== undefined ? f.ultima_interacao : null,
+            f.proxima_acao !== undefined ? f.proxima_acao : null,
+            gmReferralSlug()).run();
+
+        var row = await env.DB.prepare("SELECT * FROM apex_partners WHERE id = ?").bind(rowId).first();
+        return jsonOk({ created: true, partner: row });
+    } catch (e) {
+        return jsonErr("Error creating Apex partner: " + e.message, 500);
+    }
+}
+
+async function handlePutApexPartner(rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM apex_partners WHERE id = ?").bind(rowId).first();
+        if (!existing) { return jsonErr("Partner not found", 404); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = apexPartnerFields(body, true);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')");
+        binds.push(rowId);
+
+        await gmRunUpdate(env, "UPDATE apex_partners SET " + sets.join(", ") + " WHERE id = ?", binds);
+
+        var row = await env.DB.prepare("SELECT * FROM apex_partners WHERE id = ?").bind(rowId).first();
+        return jsonOk({ saved: true, partner: row });
+    } catch (e) {
+        return jsonErr("Error updating Apex partner: " + e.message, 500);
+    }
+}
+
+async function handleDeleteApexPartner(rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM apex_partners WHERE id = ?").bind(rowId).first();
+        if (!existing) { return jsonErr("Partner not found", 404); }
+
+        // Leads this partner referred are NOT deleted — they are real people in
+        // Apex's pipeline. Their attribution is cleared instead, so the lead
+        // survives with no partner rather than pointing at a missing row.
+        await env.DB.prepare(
+            "UPDATE clients SET referred_by_partner_id = NULL WHERE referred_by_partner_id = ?"
+        ).bind(rowId).run();
+        await env.DB.prepare("DELETE FROM apex_partners WHERE id = ?").bind(rowId).run();
+
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting Apex partner: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: GET/POST /api/apex-referral/:slug — Apex's own referral landing.
+//
+// Deliberately mirrors the gm_partners public form, with three differences
+// that follow from this being Apex's own tool rather than a client's:
+//   * PT only — no language field. Rafa and Alice are both Brazilian and this
+//     page represents Apex itself, not a client with American customers.
+//   * Apex's own black/gold always. No per-partner color customization.
+//   * A submission creates a row in the APEX-INTERNAL pipeline
+//     (clients.status='lead', lead_stage='Lead') — never a gm_leads row.
+// ---------------------------------------------------------------------------
+
+async function apexPartnerBySlug(env, slug) {
+    if (!gmReferralSlugValid(slug)) { return null; }
+    return env.DB.prepare(
+        "SELECT id, name FROM apex_partners WHERE referral_slug = ?"
+    ).bind(slug).first();
+}
+
+async function handleGetApexReferralInfo(slug, request, env) {
+    try {
+        var partner = await apexPartnerBySlug(env, slug);
+        if (!partner) { return jsonErr("Not found", 404); }
+        // First name only — it is the partner's own link, and nothing else
+        // about Apex's partner roster is exposed publicly.
+        return jsonOk({ partner_name: (partner.name || "").split(/\s+/)[0] });
+    } catch (e) {
+        return jsonErr("Error loading referral form", 500);
+    }
+}
+
+async function handlePostApexReferralLead(slug, request, env) {
+    try {
+        var partner = await apexPartnerBySlug(env, slug);
+        if (!partner) { return jsonErr("Not found", 404); }
+
+        var ip = request.headers.get("CF-Connecting-IP") || "";
+
+        // Same rate-limit shape as the gm referral form, against its OWN
+        // ledger table: 10/hour per link, 20/hour per IP, counted BEFORE the
+        // body is read so invalid payloads cannot bypass the counter.
+        await env.DB.prepare(
+            "DELETE FROM apex_referral_hits WHERE created_at < datetime('now', '-2 days')"
+        ).run();
+        var slugHits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM apex_referral_hits WHERE slug = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(slug).first();
+        var ipHits = ip ? await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM apex_referral_hits WHERE ip = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(ip).first() : { c: 0 };
+        if ((slugHits && slugHits.c >= 10) || (ipHits && ipHits.c >= 20)) {
+            return jsonErr("Muitas tentativas. Tente novamente mais tarde.", 429);
+        }
+        await env.DB.prepare(
+            "INSERT INTO apex_referral_hits (id, slug, ip) VALUES (?, ?, ?)"
+        ).bind(crypto.randomUUID(), slug, ip || null).run();
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+
+        // Honeypot + impossibly-fast submit get a FAKE success, so bots do not
+        // learn to adapt. Identical to the gm form's treatment.
+        var elapsed = gmNum(body.elapsed_ms);
+        if (gmStr(body.website, 200) !== null || (elapsed !== null && elapsed >= 0 && elapsed < 3000)) {
+            return jsonOk({ created: true });
+        }
+
+        var nome = gmStr(body.nome, 200);
+        if (!nome) { return jsonErr("Nome é obrigatório", 400); }
+        var telefone = gmStr(body.telefone, 60);
+        if (telefone && !/^[0-9+()\-.\s]{7,60}$/.test(telefone)) {
+            return jsonErr("Telefone inválido", 400);
+        }
+        var email = gmStr(body.email, 200);
+        if (email && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) {
+            return jsonErr("Email inválido", 400);
+        }
+
+        // Lands in the APEX-INTERNAL pipeline at the first rung, with
+        // stage_changed_at stamped so Task 1's "days in this stage" starts
+        // counting from arrival rather than reading as unknown.
+        var leadId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id) " +
+            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?)"
+        ).bind(leadId, nome, telefone, email, partner.id).run();
+
+        // Deliberately no id and no data in the public response.
+        return jsonOk({ created: true });
+    } catch (e) {
+        return jsonErr("Error submitting referral", 500);
+    }
+}
+
 async function handlePostReferralLead(slug, request, env) {
     try {
         var partner = await gmPartnerBySlug(env, slug);
@@ -13580,6 +13843,27 @@ export default {
         if (refMatch) {
             if (method === "GET")  { return handleGetReferralInfo(refMatch[1], request, env); }
             if (method === "POST") { return handlePostReferralLead(refMatch[1], request, env); }
+        }
+
+        // PUBLIC intake for APEX'S OWN referral partners. Separate path and
+        // separate handlers from /api/referral/ above: that one creates a
+        // gm_leads row for a CLIENT, this one creates an Apex-internal lead.
+        var apexRefMatch = path.match(/^\/api\/apex-referral\/([A-Za-z0-9]+)$/);
+        if (apexRefMatch) {
+            if (method === "GET")  { return handleGetApexReferralInfo(apexRefMatch[1], request, env); }
+            if (method === "POST") { return handlePostApexReferralLead(apexRefMatch[1], request, env); }
+        }
+
+        // Apex's own partner roster — admin only, enforced in every handler.
+        // Never under /api/clients/, because these rows belong to no client.
+        if (path === "/api/apex-partners") {
+            if (method === "GET")  { return handleGetApexPartners(request, env); }
+            if (method === "POST") { return handlePostApexPartner(request, env); }
+        }
+        var apexPartnerMatch = path.match(/^\/api\/apex-partners\/([A-Za-z0-9-]+)$/);
+        if (apexPartnerMatch) {
+            if (method === "PUT")    { return handlePutApexPartner(apexPartnerMatch[1], request, env); }
+            if (method === "DELETE") { return handleDeleteApexPartner(apexPartnerMatch[1], request, env); }
         }
 
         if (path === "/api/auth/client-login"           && method === "POST") { return handlePostClientLogin(request, env); }

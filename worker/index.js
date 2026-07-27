@@ -170,6 +170,53 @@ function isAdminRole(user) {
 }
 
 // ---------------------------------------------------------------------------
+// LEAD PIPELINE (Apex's own sales pipeline over clients.status = 'lead')
+//
+// DATA TIER NOTE: unrelated to gm_leads (the CLIENT's own customers, one tier
+// below). Same word, different tier — never join or conflate them.
+//
+// The ladder is fixed and never configurable. Terminal outcomes are NOT stages:
+// they change clients.status instead ('active' with a package, or 'lead_dormant')
+// and the record leaves the Leads tab, so lead_stage stops applying.
+// ---------------------------------------------------------------------------
+
+var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
+
+// Contact-log vocabularies. Both lists are FINAL — do not extend either.
+var LEAD_CONTACT_METHODS = ["WhatsApp", "Phone call", "Email", "In person", "Text message"];
+var LEAD_CONTACT_RESULTS = ["No response", "Answered", "Left voicemail", "Rescheduled", "Not interested"];
+
+function leadStageIndex(stage) {
+    var i = LEAD_STAGES.indexOf(stage || "Lead");
+    return i < 0 ? 0 : i;
+}
+
+// Auto-advance a lead's stage as a side effect of a real action elsewhere
+// (first contact logged, X-Ray assigned/submitted, session scheduled).
+//
+// Deliberately FORWARD-ONLY and non-throwing:
+//   - forward-only, so re-running an action (a second session, a re-submitted
+//     X-Ray) can never drag a lead backwards down the ladder;
+//   - only touches status='lead' rows, so scheduling a session for a real
+//     active client is a no-op;
+//   - never throws, because it is a side effect of the caller's real work —
+//     a stage bump must not fail an X-Ray submission or a calendar booking.
+async function advanceLeadStage(env, clientId, targetStage) {
+    if (!clientId) { return; }
+    try {
+        var row = await env.DB.prepare(
+            "SELECT status, lead_stage FROM clients WHERE id = ?"
+        ).bind(clientId).first();
+        if (!row || (row.status || "") !== "lead") { return; }
+        if (leadStageIndex(row.lead_stage) >= leadStageIndex(targetStage)) { return; }
+        await env.DB.prepare("UPDATE clients SET lead_stage = ? WHERE id = ?")
+            .bind(targetStage, clientId).run();
+    } catch (e) {
+        // Swallow: never let a stage bump break the action that triggered it.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/role
 // ---------------------------------------------------------------------------
 
@@ -1450,7 +1497,7 @@ async function handleGetClients(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, created_at " +
+            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, created_at " +
             "FROM clients ORDER BY name ASC"
         ).all();
 
@@ -1477,8 +1524,8 @@ async function handlePostClients(request, env) {
         var clientId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO clients " +
-            "(id, name, owners, industry, location, logo_url, profile_pt, profile_en, package, status, phone, email, whatsapp, contacts) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "(id, name, owners, industry, location, logo_url, profile_pt, profile_en, package, status, phone, email, whatsapp, contacts, lead_stage) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             clientId,
             body.name,
@@ -1493,7 +1540,9 @@ async function handlePostClients(request, env) {
             body.phone      || null,
             body.email      || null,
             body.whatsapp   || null,
-            body.contacts   || null
+            body.contacts   || null,
+            // New leads start at the first stage; anything else has no pipeline.
+            (body.status === "lead") ? "Lead" : null
         ).run();
 
         var result = { client_id: clientId, name: body.name };
@@ -1535,7 +1584,7 @@ async function handleGetClient(id, request, env) {
 
         var client = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, consolidated, " +
+            "package, status, phone, email, whatsapp, payment_method, contacts, consolidated, lead_stage, " +
             "created_at FROM clients WHERE id = ?"
         ).bind(id).first();
 
@@ -1618,6 +1667,224 @@ async function handlePostClientNote(id, request, env) {
         return jsonOk({ note: note });
     } catch (e) {
         return jsonErr("Error saving note: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/contact-log — outreach attempts, newest first
+//
+// Distinct from /notes (client_notes): that is a general note about the client,
+// this is one specific outreach attempt. Both exist independently.
+// ---------------------------------------------------------------------------
+
+async function handleGetLeadContactLog(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            // rowid breaks ties: datetime('now') is second-resolution, so two
+            // entries logged in the same second would otherwise have an
+            // undefined order. rowid preserves true insertion order.
+            "SELECT id, client_id, method, result, notes, logged_by, logged_at FROM lead_contact_log " +
+            "WHERE client_id = ? ORDER BY logged_at DESC, rowid DESC"
+        ).bind(id).all();
+
+        return jsonOk({ entries: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching contact log: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/contact-log
+// Body: { method, result, notes? }
+//
+// notes is optional on EVERY entry regardless of method/result — never gated.
+// logged_by/logged_at are server-set from the authenticated user, matching the
+// client_notes convention. Logging the FIRST attempt for a lead auto-advances
+// the stage to "Contato inicial".
+// ---------------------------------------------------------------------------
+
+async function handlePostLeadContactLog(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var method = (body.method || "").trim();
+        var result = (body.result || "").trim();
+        if (LEAD_CONTACT_METHODS.indexOf(method) < 0) { return jsonErr("Invalid method", 400); }
+        if (LEAD_CONTACT_RESULTS.indexOf(result) < 0) { return jsonErr("Invalid result", 400); }
+
+        var notes = (body.notes || "").trim() || null;
+        var loggedBy = user.role === "alice" ? "Alice" : user.role === "rafa" ? "Rafa" : "Dev";
+
+        var entryId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO lead_contact_log (id, client_id, method, result, notes, logged_by) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(entryId, id, method, result, notes, loggedBy).run();
+
+        // First contact logged → "Contato inicial" (forward-only, lead-only).
+        await advanceLeadStage(env, id, "Contato inicial");
+
+        var entry = await env.DB.prepare(
+            "SELECT id, client_id, method, result, notes, logged_by, logged_at FROM lead_contact_log WHERE id = ?"
+        ).bind(entryId).first();
+
+        var client = await env.DB.prepare("SELECT lead_stage FROM clients WHERE id = ?").bind(id).first();
+
+        return jsonOk({ entry: entry, lead_stage: client ? client.lead_stage : null });
+    } catch (e) {
+        return jsonErr("Error saving contact log entry: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/lead-pipeline
+//
+// Everything the lead detail view needs that it cannot infer from the client
+// row: the "Raio X enviado" three-step checklist status, and the system facts
+// used to detect a conflicting manual stage override.
+//
+// The checklist reports REAL completion state read from the same tables the
+// underlying features write to — it never stores its own copy:
+//   1. portal login created  -> client_logins row exists
+//   2. X-Ray assigned        -> client_assessments row exists
+//   3. credentials sent      -> see caveat below
+//
+// CAVEAT (credentials_sent): sending the login happens entirely client-side —
+// sendLoginViaWhatsapp() opens wa.me in a new tab and nothing is ever written
+// back to D1. There is no server-side record that the WhatsApp message was
+// actually sent, so this step is reported from whether the password has been
+// generated and not yet changed. It answers "credentials exist to send",
+// not "Alice pressed send". Making it exact would need a new column stamped
+// on send, which is outside this build's scope.
+// ---------------------------------------------------------------------------
+
+async function handleGetLeadPipeline(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var login = await env.DB.prepare(
+            "SELECT username, password_changed_at FROM client_logins WHERE client_id = ?"
+        ).bind(id).first();
+
+        var assessment = await env.DB.prepare(
+            "SELECT status, completed_at FROM client_assessments WHERE client_id = ? AND assessment_type = 'business_xray'"
+        ).bind(id).first();
+
+        var session = await env.DB.prepare(
+            "SELECT id, date, time FROM sessions WHERE client_id = ? AND status != 'cancelled' ORDER BY date DESC LIMIT 1"
+        ).bind(id).first();
+
+        var contactCount = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM lead_contact_log WHERE client_id = ?"
+        ).bind(id).first();
+
+        return jsonOk({
+            checklist: {
+                login_created:    !!login,
+                xray_assigned:    !!assessment,
+                credentials_sent: !!login
+            },
+            facts: {
+                has_contact_log:  !!(contactCount && contactCount.n > 0),
+                xray_assigned:    !!assessment,
+                xray_completed:   !!(assessment && assessment.status === "completed"),
+                has_session:      !!session,
+                session_date:     session ? session.date : null
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error fetching lead pipeline state: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/clients/:id/lead-stage
+// Body: { stage }  — manual override from the lead's detail view.
+//
+// Manual override ALWAYS wins: the warning about conflicting system facts is
+// raised in the UI (inform-never-block), and by the time this is called the
+// user has already chosen to proceed. The server records the choice rather
+// than second-guessing it.
+// ---------------------------------------------------------------------------
+
+async function handlePatchLeadStage(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var stage = (body.stage || "").trim();
+        if (LEAD_STAGES.indexOf(stage) < 0) { return jsonErr("Invalid stage", 400); }
+
+        var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        if ((client.status || "") !== "lead") { return jsonErr("Not a lead", 400); }
+
+        await env.DB.prepare("UPDATE clients SET lead_stage = ? WHERE id = ?").bind(stage, id).run();
+        return jsonOk({ lead_stage: stage });
+    } catch (e) {
+        return jsonErr("Error updating lead stage: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/lead-outcome
+// Body: { outcome: 'converted' | 'dormant', package? }
+//
+// ONE code path for both terminal outcomes. The Outcome Control and setting a
+// terminal state from the stage control are two entry points into this single
+// handler — deliberately not two implementations of the same rule.
+//
+//   converted -> status='active' (package required), lead_stage cleared;
+//                the record leaves the Leads tab and becomes a normal client.
+//   dormant   -> status='lead_dormant', lead_stage cleared; shown in
+//                Consolidados under "Leads para reativar". NOT "lost" — Rafa
+//                works this list to revive them.
+//
+// lead_stage is nulled in both cases: the record is no longer a live lead, so
+// a stale stage would misrepresent it if it were ever reopened.
+// ---------------------------------------------------------------------------
+
+async function handlePostLeadOutcome(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var outcome = (body.outcome || "").trim();
+
+        var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        if (outcome === "converted") {
+            var pkg = (body.package || "").trim();
+            if (!pkg) { return jsonErr("A package is required to convert a lead into a client", 400); }
+            await env.DB.prepare(
+                "UPDATE clients SET status = 'active', package = ?, lead_stage = NULL WHERE id = ?"
+            ).bind(pkg, id).run();
+            return jsonOk({ status: "active", package: pkg });
+        }
+
+        if (outcome === "dormant") {
+            await env.DB.prepare(
+                "UPDATE clients SET status = 'lead_dormant', lead_stage = NULL WHERE id = ?"
+            ).bind(id).run();
+            return jsonOk({ status: "lead_dormant" });
+        }
+
+        return jsonErr("Unknown outcome", 400);
+    } catch (e) {
+        return jsonErr("Error saving lead outcome: " + e.message, 500);
     }
 }
 
@@ -2311,6 +2578,9 @@ async function handlePostSessionsSchedule(request, env) {
             ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId).run();
             sessionIds.push(sessionId);
         }
+
+        // Session scheduled for a lead → "Agendamento" (no-op for real clients).
+        await advanceLeadStage(env, clientId, "Agendamento");
 
         var session = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, series_id, created_at " +
@@ -10395,6 +10665,8 @@ async function handlePostClientAssessment(id, request, env) {
         await env.DB.prepare(
             "INSERT INTO client_assessments (id, client_id, assessment_type, status, activated_by) VALUES (?, ?, ?, 'not_started', ?)"
         ).bind(crypto.randomUUID(), id, type, user.display_name || user.role).run();
+        // X-Ray assigned to a lead → "Raio X enviado" (no-op for real clients).
+        await advanceLeadStage(env, id, "Raio X enviado");
         return jsonOk({ activated: true, assessment_type: type, status: "not_started" });
     } catch (e) {
         return jsonErr("Error activating assessment: " + e.message, 500);
@@ -10540,6 +10812,9 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
             "started_at = COALESCE(started_at, datetime('now')), " +
             "completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
         ).bind(JSON.stringify(merged), JSON.stringify(mergedProfile), JSON.stringify(score), row.id).run();
+        // X-Ray submitted → "Raio X recebido", the stage flagged in the UI as
+        // Alice's cue to act (schedule the meeting).
+        await advanceLeadStage(env, id, "Raio X recebido");
         return jsonOk({ saved: true, completed: true, score: score });
     } catch (e) {
         return jsonErr("Error saving assessment answers: " + e.message, 500);
@@ -11979,6 +12254,19 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "contacts" && method === "GET") {
                 return handleGetClientContacts(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "contact-log") {
+                if (method === "GET")  { return handleGetLeadContactLog(cid, request, env); }
+                if (method === "POST") { return handlePostLeadContactLog(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "lead-pipeline" && method === "GET") {
+                return handleGetLeadPipeline(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "lead-stage" && method === "PATCH") {
+                return handlePatchLeadStage(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "lead-outcome" && method === "POST") {
+                return handlePostLeadOutcome(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "logo" && method === "POST") {
                 return handlePostClientLogo(cid, request, env);

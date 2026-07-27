@@ -1578,6 +1578,78 @@
           </div>
         </div>
 
+        <!-- ══ LEAD PIPELINE — only rendered for clients.status = 'lead' ══════
+             Two sections a regular active client's profile does not have:
+             the Contact Log and the Outcome Control. Hidden entirely (and its
+             data never fetched) for non-lead records. -->
+        <div class="content-card" id="sec-leadPipeline" hidden>
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Pipeline do Lead</span>
+              <span class="show-en">Lead Pipeline</span>
+            </h2>
+          </div>
+          <div style="padding:16px 20px;">
+
+            <!-- Stage control — the ONLY place a stage changes. No drag-and-drop. -->
+            <div style="margin-bottom:18px;">
+              <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Etapa</span><span class="show-en">Stage</span>
+              </label>
+              <select id="leadStageSelect" onchange="onLeadStageChange()"
+                style="width:100%;max-width:320px;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);"></select>
+              <div id="leadStageFlag" hidden style="margin-top:8px;font-size:12px;font-weight:700;color:var(--brown);">
+                <span class="show-pt">&#9873; Raio X recebido — agendar a reunião.</span>
+                <span class="show-en">&#9873; X-Ray received — schedule the meeting.</span>
+              </div>
+            </div>
+
+            <!-- "Raio X enviado" is one stage but three real steps. Real
+                 completion state, read from the tables each step writes to. -->
+            <div style="margin-bottom:18px;">
+              <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--muted);margin-bottom:8px;">
+                <span class="show-pt">Raio X enviado — checklist</span>
+                <span class="show-en">X-Ray sent — checklist</span>
+              </div>
+              <div id="leadChecklist" style="font-size:13px;line-height:1.9;"></div>
+            </div>
+
+            <!-- Contact Log. Distinct from the general Notes section above:
+                 that is a note about the client, this is one outreach attempt. -->
+            <div style="margin-bottom:18px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--muted);">
+                  <span class="show-pt">Registro de contatos</span>
+                  <span class="show-en">Contact Log</span>
+                </div>
+                <button class="btn-add" onclick="openContactLogModal()">
+                  + <span class="show-pt">Registrar contato</span><span class="show-en">Log contact</span>
+                </button>
+              </div>
+              <div id="leadContactLog" style="font-size:13px;"></div>
+            </div>
+
+            <!-- Outcome Control — same underlying logic as setting a terminal
+                 state; two entry points, one code path (POST /lead-outcome). -->
+            <div style="border-top:1px solid var(--border);padding-top:14px;">
+              <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--muted);margin-bottom:8px;">
+                <span class="show-pt">Desfecho</span><span class="show-en">Outcome</span>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn-primary" onclick="openConvertLeadModal()">
+                  <span class="show-pt">Tornou-se cliente</span>
+                  <span class="show-en">Became a client</span>
+                </button>
+                <button class="btn-add" onclick="openDormantLeadModal()">
+                  <span class="show-pt">Não seguiu adiante</span>
+                  <span class="show-en">Did not move forward</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         <!-- Notes section -->
         <div class="content-card" id="sec-notes" data-section-id="notes">
           <div class="content-card-header">
@@ -2328,6 +2400,138 @@
   </div>
 
   <!-- ═══════════════ MODAL: Login do Cliente ═════════════════════════════ -->
+  <!-- ══ MODAL: Registrar contato / Log contact ═══════════════════════════
+       Method and Result are FINAL five-value lists — do not extend either.
+       Notes is optional and present on EVERY entry, never gated by result. -->
+  <div id="modalContactLog" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Registrar contato</span>
+          <span class="show-en">Log contact</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalContactLog')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
+            <span class="show-pt">Meio</span><span class="show-en">Method</span>
+          </label>
+          <select id="clMethod" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);">
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Phone call">Phone call / Ligação</option>
+            <option value="Email">Email</option>
+            <option value="In person">In person / Pessoalmente</option>
+            <option value="Text message">Text message / SMS</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
+            <span class="show-pt">Resultado</span><span class="show-en">Result</span>
+          </label>
+          <select id="clResult" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);">
+            <option value="No response">No response / Sem resposta</option>
+            <option value="Answered">Answered / Atendeu</option>
+            <option value="Left voicemail">Left voicemail / Deixou recado</option>
+            <option value="Rescheduled">Rescheduled / Remarcado</option>
+            <option value="Not interested">Not interested / Sem interesse</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
+            <span class="show-pt">Notas (opcional)</span><span class="show-en">Notes (optional)</span>
+          </label>
+          <textarea id="clNotes" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;min-height:70px;line-height:1.5;"></textarea>
+        </div>
+        <button class="btn-primary" style="width:100%;" onclick="saveContactLogEntry()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+        <div class="form-status" id="clStatus2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: conflito de etapa / stage conflict ════════════════════════
+       Inform-never-block: names the specific conflict, offers proceed or
+       cancel. Manual override always wins if the user proceeds. -->
+  <div id="modalStageConflict" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px;">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Conflito com o registro</span>
+          <span class="show-en">Conflicts with the record</span>
+        </h3>
+        <button class="modal-close" onclick="cancelStageConflict()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="stageConflictBody" style="font-size:13px;line-height:1.6;color:var(--text);margin-bottom:16px;"></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn-primary" style="flex:1;" onclick="confirmStageConflict()">
+            <span class="show-pt">Alterar assim mesmo</span>
+            <span class="show-en">Change anyway</span>
+          </button>
+          <button class="btn-add" style="flex:1;" onclick="cancelStageConflict()">
+            <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: Tornou-se cliente / Became a client ═══════════════════════
+       Package selection reuses the live /api/settings/packages list — same
+       source as the Add New Client dropdown, not a second picker. -->
+  <div id="modalConvertLead" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px;">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Tornou-se cliente</span>
+          <span class="show-en">Became a client</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalConvertLead')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+          <span class="show-pt">O registro passa a ser um cliente ativo e sai da aba Leads.</span>
+          <span class="show-en">The record becomes an active client and leaves the Leads tab.</span>
+        </p>
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
+          <span class="show-pt">Pacote (obrigatório)</span><span class="show-en">Package (required)</span>
+        </label>
+        <select id="convertPackage" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);margin-bottom:14px;">
+          <option value="">-- Pacote / Package --</option>
+        </select>
+        <button class="btn-primary" style="width:100%;" onclick="confirmConvertLead()">
+          <span class="show-pt">Confirmar</span><span class="show-en">Confirm</span>
+        </button>
+        <div class="form-status" id="convertStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: Não seguiu adiante / Did not move forward ═════════════════ -->
+  <div id="modalDormantLead" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px;">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Não seguiu adiante</span>
+          <span class="show-en">Did not move forward</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalDormantLead')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+          <span class="show-pt">O registro vai para Consolidados, em <strong>Leads para reativar</strong> — continua acessível para retomar o contato mais tarde.</span>
+          <span class="show-en">The record moves to Consolidados, under <strong>Leads to reactivate</strong> — still there to pick back up later.</span>
+        </p>
+        <button class="btn-primary" style="width:100%;" onclick="confirmDormantLead()">
+          <span class="show-pt">Confirmar</span><span class="show-en">Confirm</span>
+        </button>
+        <div class="form-status" id="dormantStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="modalClientLogin" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -3391,6 +3595,7 @@
           renderContactsSection(clientData.contacts ? parseContacts(clientData.contacts) : []);
           initLogoDisplay(clientData);
           initPaymentMethod(clientData);
+          initLeadPipeline(clientData);
         })
         .catch(function(e) {
           document.getElementById("clientName").textContent = "Cliente não encontrado";
@@ -3493,6 +3698,291 @@
         .catch(function() {})
         .then(function() { packageListLoadPromise = null; });
       return packageListLoadPromise;
+    }
+
+    // ══ LEAD PIPELINE ════════════════════════════════════════════════════════
+    // Only active for clients.status = 'lead'. Mirrors LEAD_STAGES in
+    // worker/index.js — terminal outcomes are NOT stages, they change status.
+    var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
+    var LEAD_STAGE_FLAGGED = "Raio X recebido";
+    var leadFacts = null;          // system-known facts, for conflict detection
+    var leadStageCurrent = null;   // last committed stage, to revert a cancel
+    var pendingStage = null;       // stage awaiting conflict confirmation
+
+    function initLeadPipeline(client) {
+      var card = document.getElementById("sec-leadPipeline");
+      if (!card) { return; }
+      if (!client || (client.status || "").toLowerCase() !== "lead") {
+        card.hidden = true;   // not a lead: section never appears, no data fetched
+        return;
+      }
+      card.hidden = false;
+      // initSectionOrder() already ran (before this async load resolved) while
+      // the card was still hidden, so pin it to the top now that it is shown.
+      var list = document.getElementById("sectionsList");
+      if (list) { list.insertBefore(card, list.firstChild); }
+
+      leadStageCurrent = client.lead_stage && LEAD_STAGES.indexOf(client.lead_stage) >= 0
+        ? client.lead_stage : "Lead";
+
+      var sel = document.getElementById("leadStageSelect");
+      var html = "";
+      for (var i = 0; i < LEAD_STAGES.length; i++) {
+        html += '<option value="' + LEAD_STAGES[i] + '">' + LEAD_STAGES[i] + "</option>";
+      }
+      sel.innerHTML = html;
+      sel.value = leadStageCurrent;
+      document.getElementById("leadStageFlag").hidden = (leadStageCurrent !== LEAD_STAGE_FLAGGED);
+
+      loadLeadPipelineState();
+      loadContactLog();
+    }
+
+    function loadLeadPipelineState() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/lead-pipeline")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          leadFacts = data.facts || null;
+          renderLeadChecklist(data.checklist || {});
+        })
+        .catch(function(e) {
+          document.getElementById("leadChecklist").textContent = "Erro: " + e.message;
+        });
+    }
+
+    function renderLeadChecklist(ck) {
+      var en = document.body.classList.contains("lang-en");
+      var items = [
+        { done: ck.login_created,
+          pt: "Login do portal criado", en: "Portal login created" },
+        { done: ck.xray_assigned,
+          pt: "Raio X atribuído",       en: "X-Ray assigned" },
+        // See handleGetLeadPipeline: sending happens client-side via wa.me and
+        // is never recorded server-side, so this reports "credentials exist to
+        // send", not "the message was actually sent".
+        { done: ck.credentials_sent,
+          pt: "Credenciais prontas para envio", en: "Credentials ready to send" }
+      ];
+      var out = "";
+      for (var i = 0; i < items.length; i++) {
+        var mark = items[i].done ? "&#10003;" : "&#9675;";
+        var color = items[i].done ? "#1a6640" : "var(--muted)";
+        out += '<div style="color:' + color + ';">' + mark + " " +
+               escHtml(en ? items[i].en : items[i].pt) + "</div>";
+      }
+      document.getElementById("leadChecklist").innerHTML = out;
+    }
+
+    // Detect a manual stage change that contradicts what the system recorded.
+    // Returns a specific human sentence, or null when there is no conflict.
+    function leadStageConflict(target) {
+      if (!leadFacts) { return null; }
+      var en = document.body.classList.contains("lang-en");
+      var ti = LEAD_STAGES.indexOf(target);
+      var msgs = [];
+      if (leadFacts.has_session && ti < LEAD_STAGES.indexOf("Agendamento")) {
+        msgs.push(en ? "The system shows a session is already scheduled"
+                     : "O sistema mostra que já existe uma sessão agendada");
+      }
+      if (leadFacts.xray_completed && ti < LEAD_STAGES.indexOf("Raio X recebido")) {
+        msgs.push(en ? "The system shows the X-Ray was already submitted"
+                     : "O sistema mostra que o Raio X já foi enviado pelo lead");
+      }
+      if (leadFacts.xray_assigned && ti < LEAD_STAGES.indexOf("Raio X enviado")) {
+        msgs.push(en ? "The system shows the X-Ray was already sent"
+                     : "O sistema mostra que o Raio X já foi enviado");
+      }
+      if (leadFacts.has_contact_log && ti < LEAD_STAGES.indexOf("Contato inicial")) {
+        msgs.push(en ? "The system shows contact was already logged"
+                     : "O sistema mostra que já houve contato registrado");
+      }
+      return msgs.length ? msgs.join(". ") + "." : null;
+    }
+
+    function onLeadStageChange() {
+      var sel = document.getElementById("leadStageSelect");
+      var target = sel.value;
+      if (target === leadStageCurrent) { return; }
+      var conflict = leadStageConflict(target);
+      if (conflict) {
+        // Inform, never block: name the conflict, then let the user decide.
+        pendingStage = target;
+        var en = document.body.classList.contains("lang-en");
+        document.getElementById("stageConflictBody").innerHTML =
+          escHtml(conflict) + "<br><br>" +
+          escHtml(en ? 'Change the stage to "' + target + '" anyway?'
+                     : 'Mudar a etapa para "' + target + '" assim mesmo?');
+        document.getElementById("modalStageConflict").hidden = false;
+        return;
+      }
+      commitLeadStage(target);
+    }
+
+    function confirmStageConflict() {
+      document.getElementById("modalStageConflict").hidden = true;
+      if (pendingStage) { commitLeadStage(pendingStage); pendingStage = null; }
+    }
+
+    function cancelStageConflict() {
+      document.getElementById("modalStageConflict").hidden = true;
+      pendingStage = null;
+      document.getElementById("leadStageSelect").value = leadStageCurrent;  // revert
+    }
+
+    function commitLeadStage(stage) {
+      apiFetch("/api/clients/" + CLIENT_ID + "/lead-stage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: stage })
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          leadStageCurrent = stage;
+          document.getElementById("leadStageFlag").hidden = (stage !== LEAD_STAGE_FLAGGED);
+        })
+        .catch(function(e) {
+          window.alert("Erro: " + e.message);
+          document.getElementById("leadStageSelect").value = leadStageCurrent;
+        });
+    }
+
+    // ── Contact Log ────────────────────────────────────────────────────────
+    function loadContactLog() {
+      apiFetch("/api/clients/" + CLIENT_ID + "/contact-log")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          renderContactLog(data.entries || []);
+        })
+        .catch(function(e) {
+          document.getElementById("leadContactLog").textContent = "Erro: " + e.message;
+        });
+    }
+
+    function renderContactLog(entries) {
+      var el = document.getElementById("leadContactLog");
+      var en = document.body.classList.contains("lang-en");
+      if (!entries.length) {
+        el.innerHTML = '<div style="color:var(--muted);font-style:italic;">' +
+          escHtml(en ? "No contact logged yet." : "Nenhum contato registrado ainda.") + "</div>";
+        return;
+      }
+      var out = "";
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        out += '<div style="padding:9px 0;border-bottom:1px solid var(--border);">' +
+          '<div><strong>' + escHtml(e.method) + "</strong> &middot; " + escHtml(e.result) + "</div>" +
+          (e.notes ? '<div style="color:var(--text);margin-top:3px;">' + escHtml(e.notes) + "</div>" : "") +
+          '<div style="color:var(--muted);font-size:12px;margin-top:3px;">' +
+            escHtml(formatDateTime(e.logged_at)) +
+            (e.logged_by ? " &middot; " + escHtml(e.logged_by) : "") +
+          "</div></div>";
+      }
+      el.innerHTML = out;
+    }
+
+    function openContactLogModal() {
+      document.getElementById("clNotes").value = "";
+      document.getElementById("clStatus2").textContent = "";
+      document.getElementById("modalContactLog").hidden = false;
+    }
+
+    function saveContactLogEntry() {
+      var statusEl = document.getElementById("clStatus2");
+      statusEl.textContent = "Salvando... / Saving...";
+      apiFetch("/api/clients/" + CLIENT_ID + "/contact-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          method: document.getElementById("clMethod").value,
+          result: document.getElementById("clResult").value,
+          notes:  document.getElementById("clNotes").value
+        })
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          document.getElementById("modalContactLog").hidden = true;
+          // The first entry may have auto-advanced the stage server-side.
+          if (data.lead_stage && LEAD_STAGES.indexOf(data.lead_stage) >= 0) {
+            leadStageCurrent = data.lead_stage;
+            document.getElementById("leadStageSelect").value = data.lead_stage;
+            document.getElementById("leadStageFlag").hidden = (data.lead_stage !== LEAD_STAGE_FLAGGED);
+          }
+          loadContactLog();
+          loadLeadPipelineState();
+        })
+        .catch(function(e) { statusEl.textContent = "Erro: " + e.message; });
+    }
+
+    // ── Outcome Control ────────────────────────────────────────────────────
+    // Both outcomes POST to /lead-outcome — the same single code path a
+    // terminal stage selection would use.
+    var convertPackagesLoaded = false;
+    function openConvertLeadModal() {
+      document.getElementById("convertStatus").textContent = "";
+      document.getElementById("modalConvertLead").hidden = false;
+      if (convertPackagesLoaded) { return; }
+      // Same live package source as clients.html's Add New Client dropdown.
+      apiFetch("/api/settings/packages")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var pkgs = data.packages || [];
+          if (!pkgs.length) { return; }
+          convertPackagesLoaded = true;
+          var newPkgs    = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
+          var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
+          var html = '<option value="">-- Pacote / Package --</option>';
+          for (var i = 0; i < newPkgs.length; i++) {
+            html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' + escHtml(newPkgs[i].short_name) + "</option>";
+          }
+          if (newPkgs.length && legacyPkgs.length) {
+            html += '<option value="" disabled>----- Legacy / Legado -----</option>';
+          }
+          for (var j = 0; j < legacyPkgs.length; j++) {
+            html += '<option value="' + escHtml(legacyPkgs[j].short_name) + '">' + escHtml(legacyPkgs[j].short_name) + "</option>";
+          }
+          document.getElementById("convertPackage").innerHTML = html;
+        })
+        .catch(function() { /* static fallback option stays in the DOM */ });
+    }
+
+    function confirmConvertLead() {
+      var statusEl = document.getElementById("convertStatus");
+      var pkg = document.getElementById("convertPackage").value;
+      if (!pkg) {
+        statusEl.textContent = "Escolha um pacote. / Choose a package.";
+        return;
+      }
+      statusEl.textContent = "Salvando... / Saving...";
+      postLeadOutcome({ outcome: "converted", package: pkg }, statusEl);
+    }
+
+    function openDormantLeadModal() {
+      document.getElementById("dormantStatus").textContent = "";
+      document.getElementById("modalDormantLead").hidden = false;
+    }
+
+    function confirmDormantLead() {
+      var statusEl = document.getElementById("dormantStatus");
+      statusEl.textContent = "Salvando... / Saving...";
+      postLeadOutcome({ outcome: "dormant" }, statusEl);
+    }
+
+    function postLeadOutcome(payload, statusEl) {
+      apiFetch("/api/clients/" + CLIENT_ID + "/lead-outcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          window.location.href = "clients.html";   // record left the Leads tab
+        })
+        .catch(function(e) { statusEl.textContent = "Erro: " + e.message; });
     }
 
     function renderClientHeader(client) {
@@ -5366,6 +5856,12 @@
         var el = document.getElementById("sec-" + order[i]);
         if (el) { list.appendChild(el); }
       }
+      // The Lead Pipeline card carries no data-section-id (it is not
+      // reorderable and only exists for leads), so the loop above would leave
+      // it wherever the re-append happened to strand it. Pin it to the top
+      // explicitly: for a lead, the pipeline is the point of the page.
+      var lead = document.getElementById("sec-leadPipeline");
+      if (lead && !lead.hidden) { list.insertBefore(lead, list.firstChild); }
     }
 
     function initSectionOrder() {

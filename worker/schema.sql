@@ -101,6 +101,25 @@ CREATE TABLE IF NOT EXISTS clients (
 -- contacts stores a JSON array of {name, role, phone, whatsapp, email} objects.
 -- digital_presence stores a JSON object keyed by platform name → {url, notes:[{date,working,needs_improvement}]}
 
+-- NOTE: lead_stage was added to the live clients table via migrations/lead_pipeline.sql:
+--   ALTER TABLE clients ADD COLUMN lead_stage TEXT;
+-- Pipeline position of a status='lead' row. Fixed ladder, never configurable:
+--   Lead | Contato inicial | Raio X enviado | Raio X recebido | Agendamento
+-- Auto-advanced as a side effect of real actions (first lead_contact_log row,
+-- client_assessments activation, assessment completion, session creation) but
+-- always manually overridable with a warning, so the column -- not inference --
+-- is the source of truth. NULL = a lead predating the migration; read as 'Lead'.
+-- The two terminal outcomes are clients.status changes, NOT lead_stage values:
+--   became a client      -> status='active' (+package), leaves the Leads tab
+--   did not move forward -> status='lead_dormant'
+-- NOTE: 'lead_dormant' is a clients.status value added by the same migration
+-- (no schema change -- status is free-text TEXT). Shown in the Consolidados tab
+-- under "Leads para reativar" / "Leads to reactivate", stacked ABOVE the
+-- status='closed' rows ("Clientes consolidados"). Never labelled "lost": these
+-- are revisitable, and Rafa periodically works the list to revive them.
+-- No archived_from column was needed -- status alone separates the two groups,
+-- so pre-existing 'closed' rows were left untouched.
+
 -- NOTE: consolidated was added to the live D1 database via migrations/client_consolidated.sql:
 --   ALTER TABLE clients ADD COLUMN consolidated INTEGER NOT NULL DEFAULT 0;
 -- Manual-only flag (never automatic) toggled on the client profile page to move a
@@ -127,6 +146,23 @@ CREATE TABLE IF NOT EXISTS client_notes (
     created_by  TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- NOTE: lead_contact_log was added via migrations/lead_pipeline.sql. Running
+-- history of outreach attempts against a lead. DISTINCT FROM client_notes and
+-- never merged with it: a client_notes row is a general note about the client,
+-- a lead_contact_log row is one outreach attempt with its own method/result.
+-- Both must continue to exist independently.
+-- CREATE TABLE IF NOT EXISTS lead_contact_log (
+--   id         TEXT PRIMARY KEY,
+--   client_id  TEXT NOT NULL,
+--   method     TEXT NOT NULL,  -- WhatsApp | Phone call | Email | In person | Text message
+--   result     TEXT NOT NULL,  -- No response | Answered | Left voicemail | Rescheduled | Not interested
+--   notes      TEXT,           -- optional, on every entry, never gated by result
+--   logged_by  TEXT,
+--   logged_at  TEXT NOT NULL DEFAULT (datetime('now'))
+-- );
+-- The five method and five result values are FINAL -- do not extend either list.
+-- Inserting the FIRST row for a client auto-advances lead_stage to 'Contato inicial'.
 
 CREATE TABLE IF NOT EXISTS users (
     email TEXT PRIMARY KEY,

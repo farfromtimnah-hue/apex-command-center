@@ -310,6 +310,147 @@
     }
     .client-name-link:hover { color: var(--gold); }
 
+    /* ── Lead pipeline: stacked stage sections ───────────────────────────────
+       Deliberately stacked vertical sections, NOT a left-to-right kanban:
+       chosen over a chip rail after side-by-side review at mobile width.
+       The chip rail below is only the high-volume fallback. Stage changes
+       always happen in the lead's detail view — there is no drag-and-drop
+       on either layout, at any lead count. */
+    .lead-stage-section { margin-bottom: 22px; }
+    .lead-stage-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .lead-stage-name {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .lead-stage-count {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      background: rgba(0,0,0,0.05);
+      border-radius: 20px;
+      padding: 2px 9px;
+    }
+    /* "Raio X recebido" is the one stage that demands action — Alice must
+       schedule the meeting. Flagged so it cannot be mistaken for a passive
+       status like the others. */
+    .lead-stage-section[data-flagged="1"] .lead-stage-header {
+      background: rgba(201,164,58,0.14);
+      border-color: var(--gold);
+    }
+    .lead-stage-section[data-flagged="1"] .lead-stage-name { color: var(--brown); }
+    .lead-stage-flag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--brown);
+      margin-left: auto;
+    }
+    .lead-empty {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 12px 10px;
+      font-style: italic;
+    }
+    .lead-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .lead-row:last-child { border-bottom: none; }
+    .lead-row:hover { background: #fdf7eb; }
+    .lead-row-name { font-weight: 600; color: var(--text); text-decoration: none; flex: 1; }
+    .lead-row-name:hover { color: var(--gold); }
+    .lead-row-meta { font-size: 12px; color: var(--muted); }
+
+    /* Chip rail — the automatic high-volume layout. Horizontal scroll is
+       contained here so the page body never scrolls sideways. */
+    .lead-chip-rail { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+    .lead-chip-col {
+      min-width: 210px;
+      flex: 0 0 210px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .lead-chip-col[data-flagged="1"] {
+      background: rgba(201,164,58,0.14);
+      border-color: var(--gold);
+    }
+    .lead-chip-col .lead-stage-name { font-size: 11px; }
+    .lead-chip {
+      display: block;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .lead-chip:hover { border-color: var(--gold); color: var(--gold); }
+
+    .lead-layout-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .lead-layout-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .lead-layout-toggle:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* Consolidados split: dormant leads stack ABOVE consolidated clients,
+       so the revisitable list is what Rafa sees first. */
+    .cons-group-header {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--text);
+      padding: 10px 12px 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .cons-group-sub {
+      font-size: 12px;
+      font-style: italic;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+    .cons-group { margin-bottom: 26px; }
+
     /* ── Lozenges ────────────────────────────────────────────────────────── */
     .package-lozenge {
       display: inline-block;
@@ -335,17 +476,22 @@
     .status-lozenge[data-status="paused"]   { background: #fdf3dc; color: #8a6200; }
     .status-lozenge[data-status="lead"]     { background: #dce8fd; color: #1a4a8a; }
     .status-lozenge[data-status="closed"]   { background: #f2f2f2; color: #555; }
+    /* A dormant lead is revisitable, never "lost" — kept in the lead blue
+       family rather than the closed grey, so it reads as still in play. */
+    .status-lozenge[data-status="lead_dormant"] { background: #e8eefb; color: #3a5a8a; }
 
     body.lang-pt .status-lozenge[data-status="active"]::before   { content: "Ativo"; }
     body.lang-pt .status-lozenge[data-status="inactive"]::before { content: "Pausado"; }
     body.lang-pt .status-lozenge[data-status="paused"]::before   { content: "Pausado"; }
     body.lang-pt .status-lozenge[data-status="lead"]::before     { content: "Lead"; }
     body.lang-pt .status-lozenge[data-status="closed"]::before   { content: "Encerrado"; }
+    body.lang-pt .status-lozenge[data-status="lead_dormant"]::before { content: "Para reativar"; }
     body.lang-en .status-lozenge[data-status="active"]::before   { content: "Active"; }
     body.lang-en .status-lozenge[data-status="inactive"]::before { content: "Paused"; }
     body.lang-en .status-lozenge[data-status="paused"]::before   { content: "Paused"; }
     body.lang-en .status-lozenge[data-status="lead"]::before     { content: "Lead"; }
     body.lang-en .status-lozenge[data-status="closed"]::before   { content: "Closed"; }
+    body.lang-en .status-lozenge[data-status="lead_dormant"]::before { content: "To reactivate"; }
 
     /* ── Client status sub-tabs (copied from finance.html .inv-subtab-bar) ── */
     .inv-subtab-bar {
@@ -600,6 +746,10 @@
           </div>
           <div class="content-card">
             <div class="inv-subtab-bar m-scroll-tabs">
+              <button class="inv-subtab" id="subtabClientsLeads" onclick="switchClientsTab('leads')">
+                <span class="show-pt">Leads</span>
+                <span class="show-en">Leads</span>
+              </button>
               <button class="inv-subtab active" id="subtabClientsActive" onclick="switchClientsTab('active')">
                 <span class="show-pt">Ativos</span>
                 <span class="show-en">Active</span>
@@ -979,20 +1129,213 @@
         });
     }
 
+    // ── Lead pipeline ──────────────────────────────────────────────────────
+    // Fixed ladder, mirrors LEAD_STAGES in worker/index.js. Terminal outcomes
+    // are NOT stages — they change clients.status and leave this tab.
+    var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
+    var LEAD_STAGE_FLAGGED = "Raio X recebido";   // the one stage that demands action
+
+    // Past this many LIVE leads the stacked sections become unwieldy and the
+    // layout auto-switches to a chip rail. Terminal records never reach this
+    // tab at all (they change status), so nothing terminal can inflate it.
+    var LEAD_CHIP_RAIL_THRESHOLD = 50;
+
+    // Manual override of the automatic choice, persisted. null = follow the count.
+    function leadLayoutOverride() {
+      try { return window.localStorage.getItem("apexLeadLayout"); } catch (e) { return null; }
+    }
+    function setLeadLayoutOverride(v) {
+      try {
+        if (v === null) { window.localStorage.removeItem("apexLeadLayout"); }
+        else { window.localStorage.setItem("apexLeadLayout", v); }
+      } catch (e) { /* private mode — fall back to the automatic choice */ }
+    }
+
+    function leadStageOf(c) {
+      // NULL lead_stage = a lead created before the pipeline shipped; read as
+      // the first stage rather than backfilled, so "never moved" stays visible.
+      var s = c.lead_stage || "Lead";
+      return LEAD_STAGES.indexOf(s) < 0 ? "Lead" : s;
+    }
+
     function filterClientsForTab(tab) {
       return allClients.filter(function (c) {
-        var isClosed = (c.status || "").toLowerCase() === "closed";
-        return tab === "consolidados" ? isClosed : !isClosed;
+        var st = (c.status || "").toLowerCase();
+        if (tab === "leads")        { return st === "lead"; }
+        // Consolidados holds both closed clients and dormant (revisitable) leads.
+        if (tab === "consolidados") { return st === "closed" || st === "lead_dormant"; }
+        return st !== "closed" && st !== "lead" && st !== "lead_dormant";
       });
     }
 
     function switchClientsTab(tab) {
       currentClientsTab = tab;
+      var btnLeads        = document.getElementById("subtabClientsLeads");
       var btnActive       = document.getElementById("subtabClientsActive");
       var btnConsolidados = document.getElementById("subtabClientsConsolidados");
+      if (btnLeads)        { btnLeads.classList.toggle("active", tab === "leads"); }
       if (btnActive)       { btnActive.classList.toggle("active", tab === "active"); }
       if (btnConsolidados) { btnConsolidados.classList.toggle("active", tab === "consolidados"); }
       renderClients(filterClientsForTab(tab));
+    }
+
+    function toggleLeadLayout() {
+      var leads = filterClientsForTab("leads");
+      var auto  = leads.length > LEAD_CHIP_RAIL_THRESHOLD ? "rail" : "stacked";
+      var cur   = leadLayoutOverride() || auto;
+      var next  = cur === "rail" ? "stacked" : "rail";
+      // Clearing the override when it matches the automatic choice again keeps
+      // the layout responsive to future volume changes instead of pinning it.
+      setLeadLayoutOverride(next === auto ? null : next);
+      renderClients(leads);
+    }
+
+    function renderLeadsTab(container, leads) {
+      var auto     = leads.length > LEAD_CHIP_RAIL_THRESHOLD ? "rail" : "stacked";
+      var override = leadLayoutOverride();
+      var layout   = override || auto;
+      var en       = document.body.classList.contains("lang-en");
+
+      container.innerHTML = "";
+
+      var bar = document.createElement("div");
+      bar.className = "lead-layout-bar";
+      var label = document.createElement("span");
+      label.textContent = leads.length + (en ? " leads" : " leads") +
+        (override ? (en ? " · manual view" : " · visão manual") : "");
+      var btn = document.createElement("button");
+      btn.className = "lead-layout-toggle";
+      btn.type = "button";
+      btn.textContent = layout === "rail"
+        ? (en ? "Switch to stacked view" : "Ver em seções")
+        : (en ? "Switch to column view" : "Ver em colunas");
+      btn.onclick = toggleLeadLayout;
+      bar.appendChild(label);
+      bar.appendChild(btn);
+      container.appendChild(bar);
+
+      if (leads.length === 0) {
+        var empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = en ? "No leads yet." : "Nenhum lead ainda.";
+        container.appendChild(empty);
+        return;
+      }
+
+      var byStage = {};
+      for (var s = 0; s < LEAD_STAGES.length; s++) { byStage[LEAD_STAGES[s]] = []; }
+      for (var i = 0; i < leads.length; i++) { byStage[leadStageOf(leads[i])].push(leads[i]); }
+
+      if (layout === "rail") {
+        var rail = document.createElement("div");
+        rail.className = "lead-chip-rail";
+        for (var r = 0; r < LEAD_STAGES.length; r++) {
+          var stage = LEAD_STAGES[r];
+          var col = document.createElement("div");
+          col.className = "lead-chip-col";
+          if (stage === LEAD_STAGE_FLAGGED) { col.setAttribute("data-flagged", "1"); }
+          var ch = document.createElement("div");
+          ch.className = "lead-stage-header";
+          ch.innerHTML = '<span class="lead-stage-name"></span><span class="lead-stage-count"></span>';
+          ch.querySelector(".lead-stage-name").textContent = stage;
+          ch.querySelector(".lead-stage-count").textContent = byStage[stage].length;
+          col.appendChild(ch);
+          for (var q = 0; q < byStage[stage].length; q++) {
+            var chip = document.createElement("a");
+            chip.className = "lead-chip";
+            chip.href = "client.html?id=" + encodeURIComponent(byStage[stage][q].id);
+            chip.textContent = byStage[stage][q].name || "--";
+            col.appendChild(chip);
+          }
+          rail.appendChild(col);
+        }
+        container.appendChild(rail);
+        return;
+      }
+
+      for (var k = 0; k < LEAD_STAGES.length; k++) {
+        var st2 = LEAD_STAGES[k];
+        var sec = document.createElement("div");
+        sec.className = "lead-stage-section";
+        if (st2 === LEAD_STAGE_FLAGGED) { sec.setAttribute("data-flagged", "1"); }
+
+        var head = document.createElement("div");
+        head.className = "lead-stage-header";
+        head.innerHTML = '<span class="lead-stage-name"></span><span class="lead-stage-count"></span>' +
+          (st2 === LEAD_STAGE_FLAGGED ? '<span class="lead-stage-flag"></span>' : "");
+        head.querySelector(".lead-stage-name").textContent = st2;
+        head.querySelector(".lead-stage-count").textContent = byStage[st2].length;
+        if (st2 === LEAD_STAGE_FLAGGED) {
+          head.querySelector(".lead-stage-flag").textContent =
+            en ? "Action needed — schedule" : "Ação necessária — agendar";
+        }
+        sec.appendChild(head);
+
+        if (byStage[st2].length === 0) {
+          var none = document.createElement("div");
+          none.className = "lead-empty";
+          none.textContent = en ? "No leads at this stage." : "Nenhum lead nesta etapa.";
+          sec.appendChild(none);
+        } else {
+          for (var m = 0; m < byStage[st2].length; m++) {
+            var c2 = byStage[st2][m];
+            var row = document.createElement("div");
+            row.className = "lead-row";
+            var a = document.createElement("a");
+            a.className = "lead-row-name";
+            a.href = "client.html?id=" + encodeURIComponent(c2.id);
+            a.textContent = c2.name || "--";
+            row.appendChild(a);
+            if (c2.phone || c2.whatsapp) {
+              var meta = document.createElement("span");
+              meta.className = "lead-row-meta";
+              meta.textContent = c2.whatsapp || c2.phone;
+              row.appendChild(meta);
+            }
+            sec.appendChild(row);
+          }
+        }
+        container.appendChild(sec);
+      }
+    }
+
+    // Consolidados, split in two. Dormant leads come FIRST: they are
+    // revisitable and Rafa works the list to revive them.
+    function renderConsolidadosTab(container, rows) {
+      var en = document.body.classList.contains("lang-en");
+      var dormant = rows.filter(function (c) { return (c.status || "").toLowerCase() === "lead_dormant"; });
+      var closed  = rows.filter(function (c) { return (c.status || "").toLowerCase() === "closed"; });
+
+      container.innerHTML = "";
+
+      var groups = [
+        { rows: dormant,
+          title: en ? "Leads to reactivate" : "Leads para reativar",
+          sub:   en ? "did not move forward yet — worth revisiting"
+                   : "ainda não seguiram adiante — vale revisitar" },
+        { rows: closed,
+          title: en ? "Consolidated clients" : "Clientes consolidados",
+          sub:   "" }
+      ];
+
+      for (var g = 0; g < groups.length; g++) {
+        var grp = document.createElement("div");
+        grp.className = "cons-group";
+        var h = document.createElement("div");
+        h.className = "cons-group-header";
+        h.textContent = groups[g].title + " (" + groups[g].rows.length + ")";
+        if (groups[g].sub) {
+          var sub = document.createElement("span");
+          sub.className = "cons-group-sub";
+          sub.textContent = groups[g].sub;
+          h.appendChild(sub);
+        }
+        grp.appendChild(h);
+        var body = document.createElement("div");
+        grp.appendChild(body);
+        renderClientsTable(body, groups[g].rows);
+        container.appendChild(grp);
+      }
     }
 
     function renderTiles(clients) {
@@ -1026,6 +1369,13 @@
 
     function renderClients(clients) {
       var container = document.getElementById("clientsListContainer");
+      if (!container) { return; }
+      if (currentClientsTab === "leads")        { return renderLeadsTab(container, clients); }
+      if (currentClientsTab === "consolidados") { return renderConsolidadosTab(container, clients); }
+      renderClientsTable(container, clients);
+    }
+
+    function renderClientsTable(container, clients) {
       if (!container) { return; }
 
       if (clients.length === 0) {

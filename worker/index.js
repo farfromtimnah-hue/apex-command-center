@@ -209,7 +209,10 @@ async function advanceLeadStage(env, clientId, targetStage) {
         ).bind(clientId).first();
         if (!row || (row.status || "") !== "lead") { return; }
         if (leadStageIndex(row.lead_stage) >= leadStageIndex(targetStage)) { return; }
-        await env.DB.prepare("UPDATE clients SET lead_stage = ? WHERE id = ?")
+        // The early return above is what keeps stage_changed_at honest: this
+        // line is only ever reached when the stage genuinely moves, so the
+        // "days in stage" clock never resets on a re-run of the same action.
+        await env.DB.prepare("UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now') WHERE id = ?")
             .bind(targetStage, clientId).run();
     } catch (e) {
         // Swallow: never let a stage bump break the action that triggered it.
@@ -1585,6 +1588,7 @@ async function handleGetClient(id, request, env) {
         var client = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
             "package, status, phone, email, whatsapp, payment_method, contacts, consolidated, lead_stage, " +
+            "stage_changed_at, next_step, next_step_set_by, next_step_set_at, " +
             "created_at FROM clients WHERE id = ?"
         ).bind(id).first();
 
@@ -1825,14 +1829,89 @@ async function handlePatchLeadStage(id, request, env) {
         var stage = (body.stage || "").trim();
         if (LEAD_STAGES.indexOf(stage) < 0) { return jsonErr("Invalid stage", 400); }
 
-        var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ?").bind(id).first();
+        var client = await env.DB.prepare("SELECT id, status, lead_stage, stage_changed_at FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
         if ((client.status || "") !== "lead") { return jsonErr("Not a lead", 400); }
 
-        await env.DB.prepare("UPDATE clients SET lead_stage = ? WHERE id = ?").bind(stage, id).run();
-        return jsonOk({ lead_stage: stage });
+        // Re-selecting the stage the lead is already on is a no-op, NOT a
+        // reset of the "days in stage" clock. A lead sitting on "Agendamento"
+        // for 12 days that Alice re-picks from the dropdown is still 12 days
+        // in — stage_changed_at answers "when did it last MOVE", so it is only
+        // stamped when the value actually changes. A NULL lead_stage reads as
+        // the first stage ("Lead"), matching leadStageIndex().
+        var currentStage = client.lead_stage || "Lead";
+        if (currentStage === stage) {
+            return jsonOk({ lead_stage: stage, stage_changed_at: client.stage_changed_at || null, unchanged: true });
+        }
+
+        await env.DB.prepare(
+            "UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now') WHERE id = ?"
+        ).bind(stage, id).run();
+
+        var stamped = await env.DB.prepare("SELECT stage_changed_at FROM clients WHERE id = ?").bind(id).first();
+        return jsonOk({ lead_stage: stage, stage_changed_at: stamped ? stamped.stage_changed_at : null });
     } catch (e) {
         return jsonErr("Error updating lead stage: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/clients/:id/lead-next-step
+// Body: { next_step }  — the one "what happens next" line on a lead.
+//
+// Attribution is the point of this field: on a hard lead, Rafa needs to see
+// what Alice committed to (and vice versa). So next_step_set_by and
+// next_step_set_at are stamped SERVER-SIDE from the authenticated user on every
+// write and written in the SAME statement as the value — the three can never
+// drift apart, and a client cannot forge authorship.
+//
+// Both Alice and Rafa (any isAdminRole) may edit, including overwriting each
+// other's text. That is deliberate and not a gap: the whole reason the field
+// carries attribution is that either of them can step in on the other's lead,
+// and the display then simply shows who touched it last.
+//
+// Sending an empty string CLEARS the field — and clears the attribution with
+// it, since "set by Rafa" attached to no next step would be noise.
+// ---------------------------------------------------------------------------
+
+async function handlePatchLeadNextStep(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var nextStep = (body.next_step || "").trim();
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        if (!nextStep) {
+            // Clearing takes the attribution with it — see above.
+            await env.DB.prepare(
+                "UPDATE clients SET next_step = NULL, next_step_set_by = NULL, next_step_set_at = NULL WHERE id = ?"
+            ).bind(id).run();
+            return jsonOk({ next_step: null, next_step_set_by: null, next_step_set_at: null });
+        }
+
+        // Same display-name derivation as lead_contact_log.logged_by.
+        var setBy = user.role === "alice" ? "Alice" : user.role === "rafa" ? "Rafa" : "Dev";
+
+        await env.DB.prepare(
+            "UPDATE clients SET next_step = ?, next_step_set_by = ?, next_step_set_at = datetime('now') WHERE id = ?"
+        ).bind(nextStep, setBy, id).run();
+
+        var row = await env.DB.prepare(
+            "SELECT next_step, next_step_set_by, next_step_set_at FROM clients WHERE id = ?"
+        ).bind(id).first();
+
+        return jsonOk({
+            next_step:        row ? row.next_step : nextStep,
+            next_step_set_by: row ? row.next_step_set_by : setBy,
+            next_step_set_at: row ? row.next_step_set_at : null
+        });
+    } catch (e) {
+        return jsonErr("Error updating next step: " + e.message, 500);
     }
 }
 
@@ -13554,6 +13633,9 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "lead-stage" && method === "PATCH") {
                 return handlePatchLeadStage(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "lead-next-step" && method === "PATCH") {
+                return handlePatchLeadNextStep(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "lead-outcome" && method === "POST") {
                 return handlePostLeadOutcome(cid, request, env);

@@ -47,6 +47,72 @@
     body.lang-pt .show-en { display: none; }
     body.lang-en .show-pt { display: none; }
 
+    /* ─── Lead-detail redesign language (.ld-*) ──────────────────────────────
+       The approved mockup's grouped-card vocabulary: a stage+value hero, then
+       sections of icon+label+value rows under small uppercase labels. Shared by
+       the Lead Pipeline card and the Apex Partners section, which is why these
+       live here as a named family rather than as inline styles on one card.
+       Tokens are the page's own :root — no new colors are introduced. */
+    .ld-hero {
+      background: linear-gradient(135deg, #fbf6e8, #f7f0dc);
+      border: 1px solid #ecdfb2;
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .ld-hero-stage {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #fff; border: 1px solid var(--gold);
+      color: var(--brown); font-size: 12px; font-weight: 700;
+      padding: 5px 10px 5px 8px; border-radius: 999px;
+    }
+    .ld-hero-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+    .ld-hero-days { font-size: 11px; color: var(--muted); margin-top: 6px; }
+    .ld-hero-right { text-align: right; }
+    .ld-hero-label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    .ld-hero-value { font-size: 22px; font-weight: 800; color: var(--text); }
+    .ld-hero-empty { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+    .ld-section { margin-bottom: 22px; }
+    .ld-section-title {
+      font-size: 11px; font-weight: 800; color: var(--muted);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin: 0 0 8px 2px;
+    }
+    .ld-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .ld-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      width: 100%; text-align: left; background: none; font-family: inherit;
+    }
+    .ld-row:last-child { border-bottom: none; }
+    .ld-row-btn { cursor: pointer; border-left: none; border-right: none; border-top: none; }
+    .ld-row-btn:hover { background: var(--surface); }
+    .ld-row-icon {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ld-row-icon svg { width: 15px; height: 15px; color: var(--brown); }
+    .ld-row-body { flex: 1; min-width: 0; }
+    .ld-row-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .ld-row-value { font-size: 14px; font-weight: 700; color: var(--text); margin-top: 1px; word-break: break-word; }
+    .ld-row-value.empty { color: var(--muted); font-weight: 500; }
+    .ld-row-meta { color: var(--muted); font-weight: 500; font-size: 12px; }
+    .ld-row-chev { color: var(--border); flex-shrink: 0; font-size: 18px; }
+
     /* ─── Status badge (sessions table) ─────────────────────────────────── */
     .status-badge {
       display: inline-block;
@@ -1591,16 +1657,56 @@
           </div>
           <div style="padding:16px 20px;">
 
-            <!-- Stage control — the ONLY place a stage changes. No drag-and-drop. -->
-            <div style="margin-bottom:18px;">
-              <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--muted);margin-bottom:6px;">
-                <span class="show-pt">Etapa</span><span class="show-en">Stage</span>
-              </label>
-              <select id="leadStageSelect" onchange="onLeadStageChange()"
-                style="width:100%;max-width:320px;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);"></select>
-              <div id="leadStageFlag" hidden style="margin-top:8px;font-size:12px;font-weight:700;color:var(--brown);">
-                <span class="show-pt">&#9873; Raio X recebido — agendar a reunião.</span>
-                <span class="show-en">&#9873; X-Ray received — schedule the meeting.</span>
+            <!-- Stage hero — the stage pill and how long the lead has sat on
+                 it, the two facts Rafa reads first on a hard lead. The <select>
+                 stays the ONLY place a stage changes (no drag-and-drop); the
+                 pill is a display of it, not a second control. -->
+            <div class="ld-hero">
+              <div>
+                <div class="ld-hero-stage"><span class="ld-hero-dot"></span><span id="leadStagePill">&nbsp;</span></div>
+                <div class="ld-hero-days" id="leadStageDays"></div>
+              </div>
+              <div class="ld-hero-right" style="flex:1;min-width:180px;">
+                <div class="ld-hero-label">
+                  <span class="show-pt">Mudar etapa</span><span class="show-en">Change stage</span>
+                </div>
+                <select id="leadStageSelect" onchange="onLeadStageChange()"
+                  style="width:100%;max-width:220px;border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;background:#fff;color:var(--text);"></select>
+              </div>
+            </div>
+            <div id="leadStageFlag" hidden style="margin:-10px 0 18px;font-size:12px;font-weight:700;color:var(--brown);">
+              <span class="show-pt">&#9873; Raio X recebido — agendar a reunião.</span>
+              <span class="show-en">&#9873; X-Ray received — schedule the meeting.</span>
+            </div>
+
+            <!-- Next step, with attribution. Tapping the row edits it; the
+                 "view log" row below opens the EXISTING contact log — this
+                 section deliberately has no log table of its own. -->
+            <div class="ld-section">
+              <p class="ld-section-title">
+                <span class="show-pt">Próximo passo</span><span class="show-en">Next step</span>
+              </p>
+              <div class="ld-card">
+                <button type="button" class="ld-row ld-row-btn" onclick="openNextStepModal()">
+                  <span class="ld-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                  <span class="ld-row-body">
+                    <span class="ld-row-label">
+                      <span class="show-pt">O que vem a seguir</span><span class="show-en">What's next</span>
+                    </span>
+                    <span class="ld-row-value" id="leadNextStepValue"></span>
+                  </span>
+                  <span class="ld-row-chev">&rsaquo;</span>
+                </button>
+                <button type="button" class="ld-row ld-row-btn" onclick="jumpToContactLog()">
+                  <span class="ld-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+                  <span class="ld-row-body">
+                    <span class="ld-row-label">
+                      <span class="show-pt">Contatos registrados</span><span class="show-en">Follow-ups logged</span>
+                    </span>
+                    <span class="ld-row-value" id="leadContactCount"></span>
+                  </span>
+                  <span class="ld-row-chev">&rsaquo;</span>
+                </button>
               </div>
             </div>
 
@@ -2451,6 +2557,39 @@
           <span class="show-pt">Salvar</span><span class="show-en">Save</span>
         </button>
         <div class="form-status" id="clStatus2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: próximo passo / next step ═════════════════════════════════
+       Attribution (who set it, when) is stamped server-side from the
+       authenticated user — there is deliberately no author field here. -->
+  <div id="modalNextStep" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:440px;">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Próximo passo</span>
+          <span class="show-en">Next step</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalNextStep')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
+            <span class="show-pt">O que vem a seguir neste lead?</span>
+            <span class="show-en">What happens next on this lead?</span>
+          </label>
+          <textarea id="nsInput" maxlength="300"
+            style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;min-height:70px;line-height:1.5;"></textarea>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px;">
+            <span class="show-pt">Deixe em branco para limpar.</span>
+            <span class="show-en">Leave blank to clear it.</span>
+          </div>
+        </div>
+        <button class="btn-primary" style="width:100%;" onclick="saveNextStep()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+        <div class="form-status" id="nsStatus"></div>
       </div>
     </div>
   </div>
@@ -3762,10 +3901,129 @@
       sel.value = leadStageCurrent;
       document.getElementById("leadStageFlag").hidden = (leadStageCurrent !== LEAD_STAGE_FLAGGED);
 
+      leadStageChangedAt = client.stage_changed_at || null;
+      leadNextStep = {
+        next_step:        client.next_step || null,
+        next_step_set_by: client.next_step_set_by || null,
+        next_step_set_at: client.next_step_set_at || null
+      };
+      renderLeadHero();
+      renderNextStep();
+
       renderContactLogOptions();   // fill dropdown text for the current language
       initLeadLangObserver();      // and keep it correct when the user toggles
       loadLeadPipelineState();
       loadContactLog();
+    }
+
+    // ── Stage hero: the pill + "X day(s) in this stage" ────────────────────
+    var leadStageChangedAt = null;   // when the lead last MOVED stage
+    var leadNextStep = null;         // { next_step, next_step_set_by, next_step_set_at }
+
+    // Whole days elapsed since an ISO/SQLite datetime, or null when unknown.
+    // SQLite writes "YYYY-MM-DD HH:MM:SS" in UTC with no zone marker, which
+    // Safari parses as NaN and Chrome parses as LOCAL time — both wrong. Force
+    // it to UTC explicitly so the count is the same in every browser.
+    function daysSince(ts) {
+      if (!ts) { return null; }
+      var iso = String(ts).indexOf("T") >= 0 ? String(ts) : String(ts).replace(" ", "T") + "Z";
+      var t = Date.parse(iso);
+      if (isNaN(t)) { return null; }
+      var d = Math.floor((Date.now() - t) / 86400000);
+      return d < 0 ? 0 : d;      // clock skew must never show a negative age
+    }
+
+    // "2 days ago" / "há 2 dias", with hour and minute granularity for today.
+    function relativeTime(ts, en) {
+      if (!ts) { return ""; }
+      var iso = String(ts).indexOf("T") >= 0 ? String(ts) : String(ts).replace(" ", "T") + "Z";
+      var t = Date.parse(iso);
+      if (isNaN(t)) { return ""; }
+      var mins = Math.floor((Date.now() - t) / 60000);
+      if (mins < 1)  { return en ? "just now" : "agora"; }
+      if (mins < 60) { return en ? mins + " min ago" : "há " + mins + " min"; }
+      var hrs = Math.floor(mins / 60);
+      if (hrs < 24)  { return en ? hrs + (hrs === 1 ? " hour ago" : " hours ago") : "há " + hrs + (hrs === 1 ? " hora" : " horas"); }
+      var days = Math.floor(hrs / 24);
+      return en ? days + (days === 1 ? " day ago" : " days ago") : "há " + days + (days === 1 ? " dia" : " dias");
+    }
+
+    function renderLeadHero() {
+      var en = document.body.classList.contains("lang-en");
+      document.getElementById("leadStagePill").textContent = leadStageCurrent || "Lead";
+      var d = daysSince(leadStageChangedAt);
+      var el = document.getElementById("leadStageDays");
+      if (d === null) {
+        // Pre-migration lead: the column is NULL and we genuinely do not know
+        // when it entered this stage. Say nothing rather than imply "0 days".
+        el.textContent = "";
+        return;
+      }
+      el.textContent = en
+        ? d + (d === 1 ? " day in this stage" : " days in this stage")
+        : d + (d === 1 ? " dia nesta etapa" : " dias nesta etapa");
+    }
+
+    // ── Next step (with attribution) ───────────────────────────────────────
+    function renderNextStep() {
+      var en = document.body.classList.contains("lang-en");
+      var el = document.getElementById("leadNextStepValue");
+      var ns = leadNextStep || {};
+      if (!ns.next_step) {
+        el.className = "ld-row-value empty";
+        el.textContent = en ? "Tap to fill in" : "Toque para preencher";
+        return;
+      }
+      el.className = "ld-row-value";
+      var meta = "";
+      if (ns.next_step_set_by) {
+        meta = (en ? " — set by " : " — por ") + ns.next_step_set_by;
+        var rel = relativeTime(ns.next_step_set_at, en);
+        if (rel) { meta += " · " + rel; }
+      }
+      el.innerHTML = escHtml(ns.next_step) +
+        (meta ? '<span class="ld-row-meta">' + escHtml(meta) + "</span>" : "");
+    }
+
+    function openNextStepModal() {
+      document.getElementById("nsInput").value = (leadNextStep && leadNextStep.next_step) || "";
+      document.getElementById("nsStatus").textContent = "";
+      document.getElementById("modalNextStep").hidden = false;
+    }
+
+    function saveNextStep() {
+      var statusEl = document.getElementById("nsStatus");
+      statusEl.textContent = "Salvando... / Saving...";
+      apiFetch("/api/clients/" + CLIENT_ID + "/lead-next-step", {
+        method: "PATCH",
+        body: { next_step: document.getElementById("nsInput").value }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          // Trust the server's echo, not the local input: set_by/set_at are
+          // server-derived and the page must show what was actually stored.
+          leadNextStep = {
+            next_step:        data.next_step || null,
+            next_step_set_by: data.next_step_set_by || null,
+            next_step_set_at: data.next_step_set_at || null
+          };
+          renderNextStep();
+          document.getElementById("modalNextStep").hidden = true;
+        })
+        .catch(function(e) { statusEl.textContent = "Erro: " + e.message; });
+    }
+
+    // Click-through to the EXISTING contact log — no second log is built for
+    // the next-step section. Scrolls the already-rendered #leadContactLog list
+    // into view and flashes it so the jump is visible.
+    function jumpToContactLog() {
+      var el = document.getElementById("leadContactLog");
+      if (!el) { return; }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.transition = "background-color 0.4s";
+      el.style.backgroundColor = "var(--gold-dim)";
+      setTimeout(function() { el.style.backgroundColor = ""; }, 900);
     }
 
     function loadLeadPipelineState() {
@@ -3876,6 +4134,13 @@
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
           leadStageCurrent = stage;
+          // The server only re-stamps stage_changed_at when the stage really
+          // moved; it echoes the stored value either way, so the day count
+          // stays correct without a full reload.
+          if (typeof data.stage_changed_at !== "undefined") {
+            leadStageChangedAt = data.stage_changed_at;
+          }
+          renderLeadHero();
           document.getElementById("leadStageFlag").hidden = (stage !== LEAD_STAGE_FLAGGED);
         })
         .catch(function(e) {
@@ -3910,6 +4175,16 @@
       lastContactLogEntries = entries;
       var el = document.getElementById("leadContactLog");
       var en = document.body.classList.contains("lang-en");
+
+      // Keep the hero-section's "follow-ups logged" row in sync with the list
+      // it links to — one source of truth for the count.
+      var countEl = document.getElementById("leadContactCount");
+      if (countEl) {
+        countEl.innerHTML = entries.length +
+          '<span class="ld-row-meta">' +
+          escHtml(en ? " — view log" : " — ver registro") + "</span>";
+      }
+
       if (!entries.length) {
         el.innerHTML = '<div style="color:var(--muted);font-style:italic;">' +
           escHtml(en ? "No contact logged yet." : "Nenhum contato registrado ainda.") + "</div>";
@@ -3982,6 +4257,8 @@
         if (nowEn === lastEn) { return; }            // unrelated class change
         lastEn = nowEn;
         renderContactLogOptions();
+        renderLeadHero();
+        renderNextStep();
         if (lastLeadChecklist) { renderLeadChecklist(lastLeadChecklist); }
         if (lastContactLogEntries) { renderContactLog(lastContactLogEntries); }
       }).observe(document.body, { attributes: true, attributeFilter: ["class"] });

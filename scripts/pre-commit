@@ -1,4 +1,8 @@
 #!/bin/sh
+# Two related jobs, both about never shipping a stale asset:
+#   1. Stamp sw.js CACHE_NAME + version.json (below).
+#   2. Bump the ?v= cache-buster on gm.css/gm.js references (bottom of file).
+#
 # Auto-stamp sw.js CACHE_NAME (and version.json) with a fresh timestamp on
 # every commit that touches a file the service worker caches, or a file
 # whose inline JS/CSS ships to users — sw.js itself, any *.html (inline
@@ -26,3 +30,27 @@ if [ "$TRIGGER" = "1" ]; then
   printf '{"version": "%s"}\n' "$STAMP" > version.json
   git add sw.js version.json
 fi
+
+# Bump the ?v= cache-buster on <link>/<script> references to versioned assets.
+# CACHE_NAME stamping alone is NOT enough for these: sw.js serves .js/.css
+# stale-while-revalidate, so a page whose asset URL never changes renders one
+# load behind forever. portal.html hit exactly this — its gm.css/gm.js were
+# unversioned while the HTML shell (never cached) updated instantly, so the
+# client portal showed an old design while admin pages were correct.
+# A changed file must mean a changed URL. See sw.js's fetch handler.
+VERSIONED_ASSETS="gm.css gm.js"
+
+for ASSET in $VERSIONED_ASSETS; do
+  if ! echo "$STAGED" | grep -qx "$ASSET"; then continue; fi
+
+  ASTAMP=$(date +%s)
+  ESCAPED=$(echo "$ASSET" | sed 's/\./\\./g')
+
+  # Rewrite every reference across all tracked HTML, whether it already
+  # carries a ?v= or not, so a newly added unversioned reference self-heals.
+  for HTML in $(git ls-files '*.html'); do
+    if ! grep -q "$ESCAPED" "$HTML"; then continue; fi
+    sed -i '' -E 's|(["/])'"$ESCAPED"'(\?v=[0-9]+)?(["#])|\1'"$ASSET"'?v='"$ASTAMP"'\3|g' "$HTML"
+    git add "$HTML"
+  done
+done

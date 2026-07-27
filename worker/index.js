@@ -10073,7 +10073,8 @@ var ASSESSMENT_TYPES = {
     business_xray:   { labelPt: "Raio X Empresarial", labelEn: "Business X-Ray" },
     management_xray: { labelPt: "Raio X de Gestão",  labelEn: "Management X-Ray" },
     leadership_xray: { labelPt: "Raio X Nível de Liderança", labelEn: "Leadership Level X-Ray" },
-    permissividade_xray: { labelPt: "Raio X de Permissividade", labelEn: "Permissiveness X-Ray" }
+    permissividade_xray: { labelPt: "Raio X de Permissividade", labelEn: "Permissiveness X-Ray" },
+    falhas_xray: { labelPt: "Raio X Falhas", labelEn: "Failures X-Ray" }
 };
 
 // Answer scales. A catalog declares which one it uses and EVERY generic path
@@ -10495,6 +10496,23 @@ function assessmentCatalog(type) {
             questions: PERM_QUESTIONS,
             total: PERM_QUESTIONS.length,
             scale10_bands: scale10BandLegend(false)
+        };
+    }
+    if (type === "falhas_xray") {
+        // INVERTED: a high answer means the failure is strongly present, so
+        // the legend is built the other way round and the portal's rating row
+        // colours 8-10 red instead of green. `groups` drives the grouped
+        // rendering in both the questionnaire and the report.
+        return {
+            assessment_type: "falhas_xray",
+            scale: ASSESSMENT_SCALES.scale0to10,
+            layout: "single_page",
+            inverted: true,
+            groups: FALHAS_GROUPS,
+            categories: FALHAS_QUESTIONS,
+            questions: FALHAS_QUESTIONS,
+            total: FALHAS_QUESTIONS.length,
+            scale10_bands: scale10BandLegend(true)
         };
     }
     return null;
@@ -11321,11 +11339,243 @@ function computePermissividadeXrayScore(answers) {
     };
 }
 
+// ---------------------------------------------------------------------------
+// Failures X-Ray (Raio X Falhas) — the fifth assigned assessment, and the
+// INVERTED one: every answer rates how strongly a failure is PRESENT, so a
+// high answer is the bad outcome (the opposite of every other instrument).
+//
+//   maxIntensity  = 27 × 10 = 270
+//   intensityTotal = Σ answers
+//   healthPct     = 100 − round(intensityTotal / 270 × 100)
+//
+// Two groups (16 operational failures + 11 strategic errors) that the report
+// prints as separate sub-sections, matching the card's own framing.
+// ---------------------------------------------------------------------------
+
+var FALHAS_GROUPS = [
+    { key: "operacionais", prefix: "f",
+      namePt: "Falhas Operacionais", nameEn: "Operational Failures",
+      shortPt: "FALHA", shortEn: "FAILURE" },
+    { key: "estrategicos", prefix: "e",
+      namePt: "Erros Estratégicos", nameEn: "Strategic Errors",
+      shortPt: "ERRO", shortEn: "ERROR" }
+];
+
+var FALHAS_QUESTIONS = [
+    // Falhas Operacionais (f1-f16)
+    { key: "f1",  group: "operacionais", namePt: "Falta de direcionamento claro", nameEn: "Lack of clear direction",
+      labelPt: "Falta de direcionamento claro?", labelEn: "Lack of clear direction?" },
+    { key: "f2",  group: "operacionais", namePt: "Não conseguir sair do operacional", nameEn: "Unable to step out of day-to-day operations",
+      labelPt: "Não conseguir sair do operacional?", labelEn: "Unable to step out of day-to-day operations?" },
+    { key: "f3",  group: "operacionais", namePt: "Falta de acabativa", nameEn: "Failure to finish what is started",
+      labelPt: "Falta de acabativa?", labelEn: "Failure to finish what is started?" },
+    { key: "f4",  group: "operacionais", namePt: "Falta de alinhamento da equipe", nameEn: "Lack of team alignment",
+      labelPt: "Falta de alinhamento da equipe?", labelEn: "Lack of team alignment?" },
+    { key: "f5",  group: "operacionais", namePt: "Desperdício de recursos", nameEn: "Wasted resources",
+      labelPt: "Desperdício de recursos?", labelEn: "Wasted resources?" },
+    { key: "f6",  group: "operacionais", namePt: "Perda de oportunidades", nameEn: "Missed opportunities",
+      labelPt: "Perda de oportunidades?", labelEn: "Missed opportunities?" },
+    { key: "f7",  group: "operacionais", namePt: "Desmotivação do time", nameEn: "Team demotivation",
+      labelPt: "Desmotivação do time?", labelEn: "Team demotivation?" },
+    { key: "f8",  group: "operacionais", namePt: "Insubordinação", nameEn: "Insubordination",
+      labelPt: "Insubordinação?", labelEn: "Insubordination?" },
+    { key: "f9",  group: "operacionais", namePt: "Não conseguir adaptar às mudanças do mercado", nameEn: "Unable to adapt to market change",
+      labelPt: "Não conseguir adaptar com as mudanças do mercado?", labelEn: "Unable to adapt to changes in the market?" },
+    { key: "f10", group: "operacionais", namePt: "Cultura de reatividade", nameEn: "Reactive culture",
+      labelPt: "Cultura de reatividade?", labelEn: "A reactive culture?" },
+    { key: "f11", group: "operacionais", namePt: "Perda de foco", nameEn: "Loss of focus",
+      labelPt: "Perda de foco?", labelEn: "Loss of focus?" },
+    { key: "f12", group: "operacionais", namePt: "Dificuldade para atrair e reter pessoas", nameEn: "Difficulty attracting and retaining people",
+      labelPt: "Dificuldade para atrair e reter pessoas?", labelEn: "Difficulty attracting and retaining people?" },
+    { key: "f13", group: "operacionais", namePt: "Problemas com fluxo de caixa e planejamento financeiro", nameEn: "Cash-flow and financial-planning problems",
+      labelPt: "Problemas com fluxo de caixa e planejamento financeiro?", labelEn: "Problems with cash flow and financial planning?" },
+    { key: "f14", group: "operacionais", namePt: "Dificuldade em ser competitivo", nameEn: "Difficulty staying competitive",
+      labelPt: "Dificuldade em ser competitivo?", labelEn: "Difficulty being competitive?" },
+    { key: "f15", group: "operacionais", namePt: "Má gestão do tempo", nameEn: "Poor time management",
+      labelPt: "Má gestão do tempo?", labelEn: "Poor time management?" },
+    { key: "f16", group: "operacionais", namePt: "Problemas com produtividade e eficiência", nameEn: "Productivity and efficiency problems",
+      labelPt: "Problemas com produtividade e eficiência?", labelEn: "Problems with productivity and efficiency?" },
+    // Erros Estratégicos (e1-e11)
+    { key: "e1",  group: "estrategicos", namePt: "Ausência de planejamento estratégico", nameEn: "No strategic planning",
+      labelPt: "Ausência de planejamento estratégico?", labelEn: "Absence of strategic planning?" },
+    { key: "e2",  group: "estrategicos", namePt: "Contratação sem critérios corretos", nameEn: "Hiring without proper criteria",
+      labelPt: "Contratação sem critérios corretos?", labelEn: "Hiring without the right criteria?" },
+    { key: "e3",  group: "estrategicos", namePt: "Marketing fraco ou inexistente", nameEn: "Weak or non-existent marketing",
+      labelPt: "Marketing fraco ou inexistente?", labelEn: "Weak or non-existent marketing?" },
+    { key: "e4",  group: "estrategicos", namePt: "Gestão comercial inexistente", nameEn: "No sales management",
+      labelPt: "Gestão comercial inexistente?", labelEn: "Non-existent sales management?" },
+    { key: "e5",  group: "estrategicos", namePt: "Falta de tempo para o estratégico", nameEn: "No time for strategic work",
+      labelPt: "Falta de tempo para o estratégico?", labelEn: "No time for strategic work?" },
+    { key: "e6",  group: "estrategicos", namePt: "Desconhecimento do cliente atual", nameEn: "Not knowing your current customer",
+      labelPt: "Desconhecimento do cliente atual?", labelEn: "Not knowing your current customer?" },
+    { key: "e7",  group: "estrategicos", namePt: "Precificação ruim", nameEn: "Poor pricing",
+      labelPt: "Precificação ruim?", labelEn: "Poor pricing?" },
+    { key: "e8",  group: "estrategicos", namePt: "Má gestão financeira e contábil", nameEn: "Poor financial and accounting management",
+      labelPt: "Má gestão financeira e contábil?", labelEn: "Poor financial and accounting management?" },
+    { key: "e9",  group: "estrategicos", namePt: "Falta de foco em indicadores e números", nameEn: "No focus on indicators and numbers",
+      labelPt: "Falta de foco em indicadores e números?", labelEn: "Lack of focus on indicators and numbers?" },
+    { key: "e10", group: "estrategicos", namePt: "Isolamento empresarial", nameEn: "Business isolation",
+      labelPt: "Isolamento empresarial?", labelEn: "Business isolation?" },
+    { key: "e11", group: "estrategicos", namePt: "Incapacidade de formar times de alta performance", nameEn: "Unable to build high-performance teams",
+      labelPt: "Incapacidade de formar times de alta performance?", labelEn: "Inability to build high-performance teams?" }
+];
+
+// Band cutoffs on healthPct. Ordered strongest-first.
+//
+// VERIFIED: only the 100% anchor ("Nível de Saúde Excelente", with the
+// devolutiva and ação below). The mid and low bands' cutoffs AND copy are
+// INFERRED — thresholds chosen to match this family's convention (>=80 /
+// 50-79 / <50) and the copy written in the same voice as the verified string.
+// Flagged as unverified in the build report; swap in the consultant's real
+// wording when it is available.
+var FALHAS_CUTOFFS = [
+    { min: 80, level: "excelente", color: "success",
+      labelPt: "Nível de Saúde Excelente", labelEn: "Excellent Health Level",
+      devolutivaPt: "Sua empresa possui poucas falhas operacionais e erros estratégicos (Intensidade total de falhas: {total}/{max}). A operação está rodando com fluidez e a estratégia está bem direcionada.",
+      devolutivaEn: "Your company has few operational failures and strategic errors (Total failure intensity: {total}/{max}). Operations are running smoothly and the strategy is well directed.",
+      acaoImediataPt: "Mantenha o rigor nos processos e foque em expansão agressiva.",
+      acaoImediataEn: "Keep the rigor in your processes and focus on aggressive expansion." },
+    { min: 50, level: "atencao", color: "warning",
+      labelPt: "Nível de Saúde em Atenção", labelEn: "Health Level Needs Attention",
+      devolutivaPt: "Sua empresa convive com um conjunto relevante de falhas operacionais e erros estratégicos (Intensidade total de falhas: {total}/{max}). A operação ainda entrega, mas o desgaste é constante e boa parte da energia da liderança é consumida corrigindo o que deveria funcionar sozinho.",
+      devolutivaEn: "Your company lives with a significant set of operational failures and strategic errors (Total failure intensity: {total}/{max}). Operations still deliver, but the strain is constant and much of leadership's energy goes into correcting what should run on its own.",
+      acaoImediataPt: "Ataque as falhas de maior intensidade primeiro, uma de cada vez. Escolha as três notas mais altas desta lista e trate cada uma como um projeto com responsável e prazo.",
+      acaoImediataEn: "Attack the highest-intensity failures first, one at a time. Pick the three highest scores on this list and treat each as a project with an owner and a deadline." },
+    { min: 0, level: "critico", color: "danger",
+      labelPt: "Nível de Saúde Crítico", labelEn: "Critical Health Level",
+      devolutivaPt: "Sua empresa acumula falhas operacionais e erros estratégicos em intensidade alta (Intensidade total de falhas: {total}/{max}). Nesse patamar os problemas deixam de ser pontuais e passam a se alimentar entre si — a operação consome a estratégia, e a sobrevivência do negócio está em risco.",
+      devolutivaEn: "Your company is accumulating operational failures and strategic errors at high intensity (Total failure intensity: {total}/{max}). At this level problems stop being isolated and start feeding each other — operations consume strategy, and the survival of the business is at risk.",
+      acaoImediataPt: "Pare de tratar sintomas. Escolha as duas falhas mais intensas e resolva-as antes de qualquer iniciativa nova. Se necessário, busque apoio externo para estruturar o básico.",
+      acaoImediataEn: "Stop treating symptoms. Pick the two most intense failures and resolve them before starting anything new. If needed, bring in outside support to structure the basics." }
+];
+
+function falhasMaxIntensity() { return FALHAS_QUESTIONS.length * 10; }
+
+// Health percentage from an intensity total over a given question count —
+// the same formula the overall score uses, so the per-group bars in the
+// chart cannot drift from the headline.
+function falhasHealthPct(intensity, questionCount) {
+    var max = questionCount * 10;
+    if (!max) { return 0; }
+    return 100 - Math.round((intensity / max) * 100);
+}
+
+// Pure scoring engine — answers is a flat { f1..f16, e1..e11: 0..10 } map.
+function computeFalhasXrayScore(answers) {
+    answers = answers || {};
+
+    // INVERTED banding: for a failure, 0-3 (barely present) is Adequado and
+    // 8-10 (strongly present) is Crítico.
+    var dist = scale10Distribution(FALHAS_QUESTIONS, answers, true);
+
+    var intensityTotal = 0;
+    var questions = FALHAS_QUESTIONS.map(function(q) {
+        var v = answers[q.key];
+        var b = scale10Band(v, true);
+        if (b) { intensityTotal += v; }
+        return {
+            key: q.key, group: q.group,
+            namePt: q.namePt, nameEn: q.nameEn,
+            labelPt: q.labelPt, labelEn: q.labelEn,
+            value: b ? v : null,
+            band: b ? b.key : null,
+            color: b ? b.color : "muted",
+            hex: b ? b.hex : SCALE10_UNANSWERED_HEX,
+            bandLabelPt: b ? b.labelPt : null,
+            bandLabelEn: b ? b.labelEn : null
+        };
+    });
+
+    var maxIntensity = falhasMaxIntensity();
+    var healthPct = falhasHealthPct(intensityTotal, FALHAS_QUESTIONS.length);
+
+    var band = FALHAS_CUTOFFS[FALHAS_CUTOFFS.length - 1];
+    for (var i = 0; i < FALHAS_CUTOFFS.length; i++) {
+        if (healthPct >= FALHAS_CUTOFFS[i].min) { band = FALHAS_CUTOFFS[i]; break; }
+    }
+    function fill(s) {
+        return s.replace("{total}", intensityTotal).replace("{max}", maxIntensity);
+    }
+
+    // Per-group rollup, scoped to that group's own question count.
+    var groups = FALHAS_GROUPS.map(function(g) {
+        var mine = questions.filter(function(q) { return q.group === g.key; });
+        var sub = 0;
+        mine.forEach(function(q) { if (q.value != null) { sub += q.value; } });
+        return {
+            key: g.key, namePt: g.namePt, nameEn: g.nameEn,
+            shortPt: g.shortPt, shortEn: g.shortEn,
+            count: mine.length,
+            intensity: sub, maxIntensity: mine.length * 10,
+            healthPct: falhasHealthPct(sub, mine.length)
+        };
+    });
+
+    // Chart DATA only.
+    //   Bar: efficiency per group, flat gray (NOT coloured by value) — it is a
+    //        percentage, not a 0-10 answer, so the band colours would lie.
+    //   Doughnut: the legacy tool reuses its binary Sim/Não/unanswered chart
+    //        here, which does not fit a 0-10 instrument at all. Deliberately
+    //        NOT ported: this uses the same three-band split as the
+    //        "Distribuição do Resultado" section, inverted like everything
+    //        else in this instrument.
+    var charts = {
+        groupBar: {
+            titlePt: "Eficiência por Área (%)", titleEn: "Efficiency by Area (%)",
+            yMin: 0, yMax: 100, flatHex: "#6c757d",
+            bars: groups.map(function(g) {
+                return { key: g.key, labelPt: g.shortPt, labelEn: g.shortEn,
+                         value: g.healthPct, hex: "#6c757d" };
+            })
+        },
+        bandDoughnut: {
+            titlePt: "Distribuição do Resultado", titleEn: "Result Distribution",
+            total: dist.total,
+            slices: [
+                { key: "vermelho",       labelPt: "Crítico (8-10)",  labelEn: "Critical (8-10)",  count: dist.vermelho,       hex: "#dc3545" },
+                { key: "amarelo",        labelPt: "Atenção (4-7)",   labelEn: "Attention (4-7)",  count: dist.amarelo,        hex: "#ffc107" },
+                { key: "verde",          labelPt: "Adequado (0-3)",  labelEn: "Adequate (0-3)",   count: dist.verde,          hex: "#28a745" },
+                { key: "nao_respondido", labelPt: "Pendente",        labelEn: "Pending",          count: dist.nao_respondido, hex: SCALE10_UNANSWERED_HEX }
+            ].map(function(s) {
+                return Object.assign(s, { pct: dist.total ? Math.round((s.count / dist.total) * 100) : 0 });
+            })
+        }
+    };
+
+    return {
+        version: 1,
+        assessment_type: "falhas_xray",
+        intensity_total: intensityTotal, max_intensity: maxIntensity,
+        health_pct: healthPct,
+        // Generic mirror for the admin row: "score" is health, not intensity,
+        // so a higher number always reads as better wherever it is printed.
+        score: healthPct, max_score: 100, pct: healthPct,
+        overall: {
+            level: band.level, color: band.color,
+            labelPt: band.labelPt, labelEn: band.labelEn,
+            headlinePt: band.labelPt + " (" + healthPct + "%)",
+            headlineEn: band.labelEn + " (" + healthPct + "%)",
+            devolutivaPt: fill(band.devolutivaPt), devolutivaEn: fill(band.devolutivaEn),
+            acaoImediataPt: band.acaoImediataPt, acaoImediataEn: band.acaoImediataEn
+        },
+        maturity: {
+            level: band.level, color: band.color,
+            labelPt: band.labelPt, labelEn: band.labelEn
+        },
+        categories: questions,
+        questions: questions,
+        groups: groups,
+        distribution: dist,
+        charts: charts
+    };
+}
+
 function computeAssessmentScore(type, answers) {
     if (type === "business_xray")   { return computeXrayScore(answers); }
     if (type === "management_xray") { return computeManagementXrayScore(answers); }
     if (type === "leadership_xray") { return computeLeadershipXrayScore(answers); }
     if (type === "permissividade_xray") { return computePermissividadeXrayScore(answers); }
+    if (type === "falhas_xray")     { return computeFalhasXrayScore(answers); }
     return null;
 }
 

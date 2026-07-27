@@ -621,6 +621,13 @@
       display: inline-block; width: 9px; height: 9px; border-radius: 50%;
       margin-right: 4px; vertical-align: middle;
     }
+    /* Group heading inside a grouped questionnaire (catalog.groups). */
+    .spa-group-head {
+      font-size: 12px; font-weight: 800; letter-spacing: 0.6px;
+      text-transform: uppercase; color: var(--muted);
+      margin: 20px 0 2px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    .spa-group-head:first-child { margin-top: 4px; padding-top: 0; border-top: none; }
     /* Practice-profile (Part 2) inputs */
     .xray-activity { padding: 16px 0; border-bottom: 1px solid var(--border); }
     .xray-activity:last-child { border-bottom: none; }
@@ -999,6 +1006,9 @@
         <button class="portal-tab" data-tab="permxray" id="tabBtnPermXray" hidden onclick="switchTab('permxray')">
           <span class="show-pt">Permissividade</span><span class="show-en">Permissiveness</span>
         </button>
+        <button class="portal-tab" data-tab="falhasxray" id="tabBtnFalhasXray" hidden onclick="switchTab('falhasxray')">
+          <span class="show-pt">Raio X Falhas</span><span class="show-en">Failures X-Ray</span>
+        </button>
         <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
           <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
         </button>
@@ -1169,6 +1179,15 @@
           <div class="section-hero-sub" id="permXrayHeroSub"></div>
         </div>
         <div id="permXrayBody"></div>
+      </div>
+
+      <div id="tabFalhasxray" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title" id="falhasXrayHeroTitle"></div>
+          <div class="section-hero-sub" id="falhasXrayHeroSub"></div>
+        </div>
+        <div id="falhasXrayBody"></div>
       </div>
 
       <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
@@ -2372,6 +2391,26 @@
         introEn: "There are {total} indicators. For each, rate your reality today from 0 to 10.",
         unitPt: "indicadores", unitEn: "indicators",
         donePt: "Raio X de Permissividade conclu&iacute;do", doneEn: "Permissiveness X-Ray completed"
+      },
+      {
+        key: "falhasxray",
+        type: "falhas_xray",
+        elPrefix: "falhasXray",
+        tabBtnId: "tabBtnFalhasXray",
+        report: "falhas-xray-report.html",
+        icon: "trend",
+        titlePt: "Raio X Falhas", titleEn: "Failures X-Ray",
+        moreLabelPt: "Raio X Falhas", moreLabelEn: "Failures X-Ray",
+        subPt: "Avalia&ccedil;&atilde;o de Sobreviv&ecirc;ncia e Efici&ecirc;ncia Operacional",
+        subEn: "A survival and operational-efficiency assessment",
+        descPt: "27 falhas e erros avaliados pela intensidade com que aparecem.",
+        descEn: "27 failures and errors rated by how strongly each shows up.",
+        // Inverted instrument: spell the direction out, since every other
+        // questionnaire in the portal reads the opposite way.
+        introPt: "S&atilde;o {total} itens. Em cada um, d&ecirc; uma nota de 0 a 10 para o quanto aquilo acontece hoje na sua empresa — 0 significa que n&atilde;o acontece, 10 que acontece o tempo todo.",
+        introEn: "There are {total} items. For each, rate from 0 to 10 how much it happens in your company today — 0 means it does not happen, 10 that it happens constantly.",
+        unitPt: "itens", unitEn: "items",
+        donePt: "Raio X Falhas conclu&iacute;do", doneEn: "Failures X-Ray completed"
       }
     ];
 
@@ -3431,8 +3470,25 @@
         '<span class="show-pt">' + conf.titlePt + '</span><span class="show-en">' + conf.titleEn + '</span>',
         '<span class="show-pt">' + qs.length + ' ' + conf.unitPt + '</span>' +
         '<span class="show-en">' + qs.length + ' ' + conf.unitEn + '</span>');
+      // A catalog may declare `groups`; when it does, the questions render
+      // under their group heading (27 ungrouped items is a wall of text).
+      // Purely presentational — grouping never affects answers or scoring.
+      var groups = st.detail.catalog.groups || null;
+      var groupNames = {};
+      (groups || []).forEach(function(g) { groupNames[g.key] = g; });
+      var lastGroup = null;
+
       var html = '<div class="content-card">' + spaProgressHtml(key) + '<div style="margin-top:8px;">';
       qs.forEach(function(q, idx) {
+        if (groups && q.group && q.group !== lastGroup) {
+          lastGroup = q.group;
+          var g = groupNames[q.group];
+          if (g) {
+            html += '<div class="spa-group-head">' +
+              '<span class="show-pt">' + escHtml(g.namePt) + '</span>' +
+              '<span class="show-en">' + escHtml(g.nameEn) + '</span></div>';
+          }
+        }
         html += '<div class="xray-question">' +
           '<div class="xray-q-label"><strong>' + (idx + 1) + '.</strong> ' +
           '<span class="show-pt">' + escHtml(q.namePt) + '</span>' +

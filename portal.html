@@ -1190,12 +1190,6 @@
     var auth = null;
     var goalState = null;         // from /goal-state (gate driver)
 
-    // ===== TEMPORARY DIAGNOSTIC — REMOVE ONCE PREVIEW-AS BUG IS FIXED =====
-    // Check window.__PORTAL_BUILD__ in the console to prove the browser is
-    // running the source that was actually just deployed.
-    window.__PORTAL_BUILD__ = "2026-07-27T17:43-preview-debug-1";
-    // ===== END TEMPORARY DIAGNOSTIC =====
-
     // Developer preview-as (Task 0): read-only view of a client's portal.
     // Threaded via the URL so tab switches and refreshes keep it; apiFetch
     // appends it to every request so the Worker can enforce read-only.
@@ -1302,8 +1296,6 @@
     }
 
     function goToLogin() {
-      // TEMPORARY DIAGNOSTIC — remove once preview-as bug is fixed
-      console.log("GO_TO_LOGIN", { build: window.__PORTAL_BUILD__, href: window.location.href, stack: new Error().stack });
       localStorage.removeItem("apex_client_token");
       localStorage.removeItem("apex_client_id");
       localStorage.removeItem("apex_client_name");
@@ -4103,8 +4095,6 @@
           });
         })
         .then(function(me) {
-          // TEMPORARY DIAGNOSTIC — remove once preview-as bug is fixed
-          console.log("PORTAL_ME_RAW", { build: window.__PORTAL_BUILD__, previewAs: PREVIEW_AS, me: me });
           clientId = me.client_id;
           clientName = me.name || "";
           // Live off clients.status, re-read server-side on every portal load.

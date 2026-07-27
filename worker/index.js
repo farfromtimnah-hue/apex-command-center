@@ -10071,7 +10071,8 @@ async function handleGetWeeklySummary(id, request, env) {
 
 var ASSESSMENT_TYPES = {
     business_xray:   { labelPt: "Raio X Empresarial", labelEn: "Business X-Ray" },
-    management_xray: { labelPt: "Raio X de Gestão",  labelEn: "Management X-Ray" }
+    management_xray: { labelPt: "Raio X de Gestão",  labelEn: "Management X-Ray" },
+    leadership_xray: { labelPt: "Raio X Nível de Liderança", labelEn: "Leadership Level X-Ray" }
 };
 
 // Answer scales. A catalog declares which one it uses and EVERY generic path
@@ -10080,8 +10081,68 @@ var ASSESSMENT_TYPES = {
 //   coerceBool: legacy true/false payloads collapse to 1/0 (binary only).
 var ASSESSMENT_SCALES = {
     binary:  { type: "binary",  values: [0, 1],    coerceBool: true },
-    ternary: { type: "ternary", values: [0, 1, 2], coerceBool: false }
+    ternary: { type: "ternary", values: [0, 1, 2], coerceBool: false },
+    // 0-10 rating. Same descriptor contract as the two above, so the merge
+    // loop, answered-count and the portal widget pick it up with no branch —
+    // only the button count changes (11 instead of 3).
+    scale0to10: { type: "scale0to10", values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], coerceBool: false }
 };
+
+// ---------------------------------------------------------------------------
+// 0-10 banding — shared by every scale0to10 instrument. Three tiers:
+//   0-3 Crítico (vermelho) · 4-7 Atenção (amarelo) · 8-10 Adequado (verde)
+// `inverted` flips the MEANING without moving the cutoffs: on the Falhas
+// instrument a high answer means the failure is strongly present, so 8-10 is
+// the critical end. The numeric boundaries stay in ONE place either way.
+// ---------------------------------------------------------------------------
+var SCALE10_BANDS = {
+    verde:    { key: "verde",    color: "success", hex: "#28a745",
+                labelPt: "Adequado", labelEn: "Adequate" },
+    amarelo:  { key: "amarelo",  color: "warning", hex: "#ffc107",
+                labelPt: "Atenção",  labelEn: "Attention" },
+    vermelho: { key: "vermelho", color: "danger",  hex: "#dc3545",
+                labelPt: "Crítico",  labelEn: "Critical" }
+};
+
+var SCALE10_UNANSWERED_HEX = "#c9cbcf";
+
+// Band a single 0-10 answer. Returns null when unanswered so callers can
+// count "não respondidas" separately rather than defaulting to a real band.
+function scale10Band(v, inverted) {
+    if (typeof v !== "number" || v < 0 || v > 10) { return null; }
+    var low = inverted ? SCALE10_BANDS.verde : SCALE10_BANDS.vermelho;
+    var high = inverted ? SCALE10_BANDS.vermelho : SCALE10_BANDS.verde;
+    if (v <= 3) { return low; }
+    if (v <= 7) { return SCALE10_BANDS.amarelo; }
+    return high;
+}
+
+// Chart bar colour for a raw 0-10 value, using the same cutoffs.
+function scale10Hex(v, inverted) {
+    var b = scale10Band(v, inverted);
+    return b ? b.hex : SCALE10_UNANSWERED_HEX;
+}
+
+// Count answers per band across a question list. `inverted` is passed through
+// so a Falhas-style instrument reports its counts the right way round.
+function scale10Distribution(questions, answers, inverted) {
+    var dist = { verde: 0, amarelo: 0, vermelho: 0, nao_respondido: 0, total: questions.length };
+    questions.forEach(function(q) {
+        var b = scale10Band(answers[q.key], inverted);
+        if (b) { dist[b.key] += 1; } else { dist.nao_respondido += 1; }
+    });
+    return dist;
+}
+
+// The ONLY assessment type wired into the lead pipeline. The two "Raio X"
+// lead stages ("Raio X enviado" / "Raio X recebido") mean the Business X-Ray
+// specifically, so this is an allowlist, not a denylist: a newly added
+// instrument never touches a prospect's CRM stage unless it is named here.
+var LEAD_STAGE_ASSESSMENT_TYPES = ["business_xray"];
+
+function assessmentAdvancesLeadStage(type) {
+    return LEAD_STAGE_ASSESSMENT_TYPES.indexOf(type) > -1;
+}
 
 var XRAY_AREAS = [
     { key: "identidade_cultura",  namePt: "Identidade e Cultura",   nameEn: "Identity & Culture" },
@@ -10410,7 +10471,32 @@ function assessmentCatalog(type) {
             scale_levels: MGMT_SCALE_LEVELS
         };
     }
+    if (type === "leadership_xray") {
+        // Same category === question shape as the Management X-Ray, on a 0-10
+        // scale. `scale10_bands` lets the portal colour the 11 buttons from
+        // the same cutoffs the Worker scores with — never a second copy.
+        return {
+            assessment_type: "leadership_xray",
+            scale: ASSESSMENT_SCALES.scale0to10,
+            layout: "single_page",
+            categories: LEAD_QUESTIONS,
+            questions: LEAD_QUESTIONS,
+            total: LEAD_QUESTIONS.length,
+            scale10_bands: scale10BandLegend(false)
+        };
+    }
     return null;
+}
+
+// The three 0-10 bands as a portal-renderable legend (low → high), so the
+// questionnaire UI reads its colours from the same cutoffs as the scoring.
+function scale10BandLegend(inverted) {
+    return [0, 4, 8].map(function(v) {
+        var b = scale10Band(v, inverted);
+        return { from: v, to: (v === 0 ? 3 : (v === 4 ? 7 : 10)),
+                 key: b.key, color: b.color, hex: b.hex,
+                 labelPt: b.labelPt, labelEn: b.labelEn };
+    });
 }
 
 // True when `v` is one of the values the catalog's scale declares.
@@ -10843,9 +10929,193 @@ function computeManagementXrayScore(answers) {
     };
 }
 
+// ---------------------------------------------------------------------------
+// Leadership X-Ray (Raio X Nível de Liderança) — the third assigned assessment.
+//
+// Structurally different again, and the first instrument that is NOT scored by
+// summing points:
+//   - 10 competencies, one question each, answered 0-10;
+//   - the overall result is the MAJORITY BAND across the ten answers, not a
+//     total. Ten 9s and ten 2s both produce a single-colour verdict; a split
+//     field resolves to amarelo.
+// No weights, no practice profile — simpler than both existing instruments.
+// ---------------------------------------------------------------------------
+
+// Each question carries the FULL competency name it maps to. The report and
+// the bar chart both print this — never a truncated label.
+var LEAD_QUESTIONS = [
+    { key: "L1",
+      namePt: "Admiração e Referência", nameEn: "Admiration & Role Model",
+      labelPt: "A equipe te admira como líder e tem você como referência de conduta e excelência?",
+      labelEn: "Does the team admire you as a leader and see you as a reference for conduct and excellence?" },
+    { key: "L2",
+      namePt: "Autogestão da Equipe", nameEn: "Team Self-Management",
+      labelPt: "A sua equipe é autogerenciável o suficiente a ponto de você poder se ausentar da empresa por 30 dias sem que haja prejuízo nos resultados comerciais e operacionais?",
+      labelEn: "Is your team self-managing enough that you could be away from the company for 30 days with no damage to commercial and operational results?" },
+    { key: "L3",
+      namePt: "Execução de Projetos", nameEn: "Project Execution",
+      labelPt: "Seus projetos prioritários estão caminhando conforme o planejado e dentro dos prazos estipulados? Eles já geraram os resultados esperados ou estão em vias de gerar?",
+      labelEn: "Are your priority projects progressing as planned and on schedule? Have they delivered the expected results, or are they about to?" },
+    { key: "L4",
+      namePt: "Disciplina de Reuniões", nameEn: "Meeting Discipline",
+      labelPt: "As rotinas semanais de reuniões de sua equipe direta ocorrem de forma disciplinada na data e horários acordados?",
+      labelEn: "Do the weekly meeting routines with your direct team happen with discipline, on the agreed dates and times?" },
+    { key: "L5",
+      namePt: "Aderência a Processos", nameEn: "Process Adherence",
+      labelPt: "Há quanto tempo sua equipe obedece de forma rígida os processos fundamentais da área com disciplina?",
+      labelEn: "For how long has your team strictly and consistently followed the area's fundamental processes?" },
+    { key: "L6",
+      namePt: "Desenvolvimento de Liderados", nameEn: "Developing Direct Reports",
+      labelPt: "Existem ritos claros e bem definidos de passagem de aprendizado, aculturamento e desenvolvimento formal da liderança dos seus liderados diretos?",
+      labelEn: "Are there clear, well-defined rituals for transferring learning, onboarding into the culture and formally developing your direct reports' leadership?" },
+    { key: "L7",
+      namePt: "Resolução de Problemas", nameEn: "Problem Solving",
+      labelPt: "Você é um resolvedor de problemas ou um criador sistemático de problemas?",
+      labelEn: "Are you a problem solver, or a systematic creator of problems?" },
+    { key: "L8",
+      namePt: "Retenção de Talentos", nameEn: "Talent Retention",
+      labelPt: "Os talentos que estão sob sua liderança permanecem na empresa, crescem e se desenvolvem de forma constante sob sua liderança?",
+      labelEn: "Do the talents under your leadership stay with the company, grow and develop consistently under you?" },
+    { key: "L9",
+      namePt: "Decisão e Adaptação", nameEn: "Decision-Making & Adaptability",
+      labelPt: "No ambiente dinâmico em que vivemos, qual nível de capacidade de tomada de decisão e adaptação da sua equipe hoje?",
+      labelEn: "In today's dynamic environment, what is your team's current level of decision-making and adaptability?" },
+    { key: "L10",
+      namePt: "Resultados e Metas", nameEn: "Results & Targets",
+      labelPt: "Os resultados gerados pela sua equipe nos últimos trimestres de performance, inovação ou em ganho de eficiência superaram as expectativas da diretoria ou stakeholders? As metas são batidas com consistência?",
+      labelEn: "Have your team's results over recent quarters — performance, innovation or efficiency gains — exceeded the expectations of the board or stakeholders? Are targets hit consistently?" }
+];
+
+// Verbatim devolutiva + ação copy, one pair per overall colour. The ONLY
+// place this wording lives.
+var LEAD_VERDICTS = {
+    verde: {
+        key: "verde", color: "success",
+        labelPt: "Liderança de Alta Performance", labelEn: "High-Performance Leadership",
+        devolutivaPt: "Sua liderança está em alta performance. Seus liderados confiam no seu direcionamento, você tem autonomia e os processos rodam mesmo na sua ausência. Há resultados consistentes e um clima organizacional favorável para crescimento e inovação.",
+        devolutivaEn: "Your leadership is performing at a high level. Your reports trust your direction, you have autonomy, and processes keep running even when you are away. Results are consistent and the organizational climate favours growth and innovation.",
+        acaoImediataPt: "Mantenha o foco em formar novos líderes abaixo de você para sustentar a expansão. Celebre as conquistas da equipe e engaje-os na visão de longo prazo da empresa.",
+        acaoImediataEn: "Keep the focus on building new leaders below you to sustain expansion. Celebrate the team's wins and engage them in the company's long-term vision."
+    },
+    amarelo: {
+        key: "amarelo", color: "warning",
+        labelPt: "Liderança com Gargalos", labelEn: "Leadership with Bottlenecks",
+        devolutivaPt: "Sua liderança possui boas intenções e potencial, mas apresenta gargalos operacionais. Você provavelmente ainda apaga muitos incêndios e a equipe não tem a autonomia necessária. Os resultados da área podem estar oscilando ou abaixo do esperado.",
+        devolutivaEn: "Your leadership has good intentions and potential, but shows operational bottlenecks. You are probably still putting out a lot of fires and the team lacks the autonomy it needs. The area's results may be fluctuating or below expectations.",
+        acaoImediataPt: "Mapeie o que mais toma seu tempo hoje (microgerenciamento). Tente instituir rotinas básicas de Delegação e Follow-up. Melhore a disciplina dos ritos de gestão (reuniões com pauta e check-ins frequentes).",
+        acaoImediataEn: "Map what takes up most of your time today (micromanagement). Put basic Delegation and Follow-up routines in place. Improve the discipline of your management rituals (meetings with an agenda and frequent check-ins)."
+    },
+    vermelho: {
+        key: "vermelho", color: "danger",
+        labelPt: "Liderança Frágil", labelEn: "Fragile Leadership",
+        devolutivaPt: "A situação atual da sua liderança é extremamente frágil. A equipe não consegue operar sozinha e você está sobrecarregado resolvendo problemas que não deveriam chegar a você. Isso prejudica a retenção de talentos e a entrega de resultados.",
+        devolutivaEn: "The current state of your leadership is extremely fragile. The team cannot operate on its own and you are overloaded solving problems that should never reach you. This harms talent retention and the delivery of results.",
+        acaoImediataPt: "Pare e estruture o básico. Desenhe claramente as responsabilidades de cada membro (quem faz o que). Institua processos inegociáveis. Se necessário, busque mentoria de outro líder sênior ou revise a composição do seu time.",
+        acaoImediataEn: "Stop and structure the basics. Clearly map out each member's responsibilities (who does what). Establish non-negotiable processes. If needed, seek mentoring from another senior leader or review your team's composition."
+    }
+};
+
+// Majority band across the ten answers.
+//   - a strict majority of one colour wins;
+//   - anything else (a tie, or no colour above half) resolves to amarelo.
+// Verified against the legacy tool's 5-verde/5-vermelho case, which returns
+// amarelo rather than picking a side.
+function leadOverallColorKey(dist) {
+    var answered = dist.total - dist.nao_respondido;
+    if (!answered) { return "amarelo"; }
+    var keys = ["verde", "amarelo", "vermelho"];
+    var top = keys[0];
+    keys.forEach(function(k) { if (dist[k] > dist[top]) { top = k; } });
+    // A tie for the lead is not a majority — amarelo is the tie-break default.
+    var tied = keys.filter(function(k) { return dist[k] === dist[top]; }).length > 1;
+    if (tied) { return "amarelo"; }
+    return top;
+}
+
+// Pure scoring engine — answers is a flat { L1..L10: 0..10 } map.
+// Returns the structured result; NO rendering and NO narrative here.
+function computeLeadershipXrayScore(answers) {
+    answers = answers || {};
+    var dist = scale10Distribution(LEAD_QUESTIONS, answers, false);
+
+    var categories = LEAD_QUESTIONS.map(function(q) {
+        var v = answers[q.key];
+        var band = scale10Band(v, false);
+        return {
+            key: q.key, namePt: q.namePt, nameEn: q.nameEn,
+            labelPt: q.labelPt, labelEn: q.labelEn,
+            value: band ? v : null,
+            band: band ? band.key : null,
+            color: band ? band.color : "muted",
+            hex: band ? band.hex : SCALE10_UNANSWERED_HEX,
+            bandLabelPt: band ? band.labelPt : null,
+            bandLabelEn: band ? band.labelEn : null
+        };
+    });
+
+    var overall = LEAD_VERDICTS[leadOverallColorKey(dist)];
+
+    // A 0-100 read for the card badge ("Escala de 100 pontos"). It does NOT
+    // decide the colour — the majority band does — but it gives the report a
+    // single headline number.
+    var answeredCount = dist.total - dist.nao_respondido;
+    var sum = 0;
+    LEAD_QUESTIONS.forEach(function(q) {
+        var b = scale10Band(answers[q.key], false);
+        if (b) { sum += answers[q.key]; }
+    });
+    var pct = answeredCount ? Math.round((sum / (answeredCount * 10)) * 100) : 0;
+
+    // Chart DATA only — the report draws it as inline SVG, no library, no CDN.
+    var charts = {
+        competencyBar: {
+            titlePt: "Nota por Competência", titleEn: "Score by Competency",
+            yMin: 0, yMax: 10,
+            bars: categories.map(function(c) {
+                return { key: c.key, labelPt: c.namePt, labelEn: c.nameEn,
+                         value: c.value, hex: c.hex };
+            })
+        },
+        bandDoughnut: {
+            titlePt: "Distribuição do Resultado", titleEn: "Result Distribution",
+            total: dist.total,
+            slices: [
+                { key: "vermelho",       labelPt: "Crítico (0-3)",    labelEn: "Critical (0-3)",   count: dist.vermelho,       hex: "#dc3545" },
+                { key: "amarelo",        labelPt: "Atenção (4-7)",    labelEn: "Attention (4-7)",  count: dist.amarelo,        hex: "#ffc107" },
+                { key: "verde",          labelPt: "Excelência (8-10)", labelEn: "Excellence (8-10)", count: dist.verde,        hex: "#28a745" },
+                { key: "nao_respondido", labelPt: "Pendente",          labelEn: "Pending",          count: dist.nao_respondido, hex: SCALE10_UNANSWERED_HEX }
+            ].map(function(s) {
+                return Object.assign(s, { pct: dist.total ? Math.round((s.count / dist.total) * 100) : 0 });
+            })
+        }
+    };
+
+    return {
+        version: 1,
+        assessment_type: "leadership_xray",
+        score: sum, max_score: dist.total * 10, pct: pct,
+        overall: {
+            color: overall.color, key: overall.key,
+            labelPt: overall.labelPt, labelEn: overall.labelEn,
+            devolutivaPt: overall.devolutivaPt, devolutivaEn: overall.devolutivaEn,
+            acaoImediataPt: overall.acaoImediataPt, acaoImediataEn: overall.acaoImediataEn
+        },
+        // client.html's assessment card reads score_summary.maturity — mirror
+        // the shape so the generic admin row needs no special case.
+        maturity: {
+            level: overall.key, color: overall.color,
+            labelPt: overall.labelPt, labelEn: overall.labelEn
+        },
+        categories: categories,
+        distribution: dist,
+        charts: charts
+    };
+}
+
 function computeAssessmentScore(type, answers) {
     if (type === "business_xray")   { return computeXrayScore(answers); }
     if (type === "management_xray") { return computeManagementXrayScore(answers); }
+    if (type === "leadership_xray") { return computeLeadershipXrayScore(answers); }
     return null;
 }
 
@@ -10996,9 +11266,10 @@ async function handlePostClientAssessment(id, request, env) {
         ).bind(crypto.randomUUID(), id, type, user.display_name || user.role).run();
         // Business X-Ray assigned to a lead → "Raio X enviado" (no-op for real
         // clients). Type-scoped on purpose: the lead pipeline's "Raio X" stages
-        // track that instrument only, so assigning any other assessment must
-        // leave the prospect's stage exactly where it was.
-        if (type === "business_xray") {
+        // track that instrument only, so assigning ANY other assessment
+        // (Gestão, Liderança, Permissividade, Falhas, Feedback 360, Pilares)
+        // must leave the prospect's stage exactly where it was.
+        if (assessmentAdvancesLeadStage(type)) {
             await advanceLeadStage(env, id, "Raio X enviado");
         }
         return jsonOk({ activated: true, assessment_type: type, status: "not_started" });
@@ -11156,9 +11427,9 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
         ).bind(JSON.stringify(merged), JSON.stringify(mergedProfile), JSON.stringify(score), row.id).run();
         // X-Ray submitted → "Raio X recebido", the stage flagged in the UI as
         // Alice's cue to act (schedule the meeting). The two "Raio X" lead
-        // stages mean the BUSINESS X-Ray specifically, so a Management X-Ray
-        // must never move a lead's pipeline stage.
-        if (type === "business_xray") {
+        // stages mean the BUSINESS X-Ray specifically, so no other instrument
+        // may move a lead's pipeline stage.
+        if (assessmentAdvancesLeadStage(type)) {
             await advanceLeadStage(env, id, "Raio X recebido");
         }
         return jsonOk({ saved: true, completed: true, score: score });

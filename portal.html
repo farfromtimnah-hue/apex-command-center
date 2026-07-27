@@ -600,6 +600,27 @@
     .xray-scale button.sel-1 { background: #8a6d1d;      border-color: #8a6d1d;      color: #fff; }
     .xray-scale button.sel-2 { background: var(--green); border-color: var(--green); color: #fff; }
     .xray-scale button[class*="sel-"] .sc-dot { border-color: rgba(255,255,255,0.85); }
+    /* 0-10 rating row (scale0to10 instruments). Wraps on narrow phones rather
+       than shrinking below the 44px tap target. The selected button's colour
+       is set inline from the catalog's band hexes — the same cutoffs the
+       Worker scores with, never a second copy of 0-3/4-7/8-10 in CSS. */
+    .rating10 { display: flex; flex-wrap: wrap; gap: 6px; }
+    .rating10 .r10-btn {
+      flex: 1 1 auto; min-width: 44px; min-height: 44px; padding: 10px 4px;
+      border-radius: 8px; border: 1px solid var(--border); background: #fff;
+      font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700;
+      color: var(--text); cursor: pointer; text-align: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .rating10 .r10-btn.r10-sel { color: #fff; }
+    .rating10-legend {
+      display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;
+      font-size: 11px; color: var(--muted);
+    }
+    .rating10-legend .r10-dot {
+      display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+      margin-right: 4px; vertical-align: middle;
+    }
     /* Practice-profile (Part 2) inputs */
     .xray-activity { padding: 16px 0; border-bottom: 1px solid var(--border); }
     .xray-activity:last-child { border-bottom: none; }
@@ -972,6 +993,9 @@
         <button class="portal-tab" data-tab="mgmtxray" id="tabBtnMgmtXray" hidden onclick="switchTab('mgmtxray')">
           <span class="show-pt">Raio X Gest&atilde;o</span><span class="show-en">Mgmt X-Ray</span>
         </button>
+        <button class="portal-tab" data-tab="leadxray" id="tabBtnLeadXray" hidden onclick="switchTab('leadxray')">
+          <span class="show-pt">Raio X Lideran&ccedil;a</span><span class="show-en">Leadership X-Ray</span>
+        </button>
         <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
           <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
         </button>
@@ -1114,6 +1138,9 @@
         <div id="xrayBody"></div>
       </div>
 
+      <!-- Single-page assessment hosts. One container per
+           SINGLE_PAGE_ASSESSMENTS entry: the id after "tab" is the entry's
+           `key` capitalized, and the inner ids are its `elPrefix` + suffix. -->
       <div id="tabMgmtxray" hidden>
         <div class="section-hero">
           <div class="hero-bg" data-hero-bg></div>
@@ -1121,6 +1148,15 @@
           <div class="section-hero-sub" id="mgmtXrayHeroSub"></div>
         </div>
         <div id="mgmtXrayBody"></div>
+      </div>
+
+      <div id="tabLeadxray" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title" id="leadXrayHeroTitle"></div>
+          <div class="section-hero-sub" id="leadXrayHeroSub"></div>
+        </div>
+        <div id="leadXrayBody"></div>
       </div>
 
       <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
@@ -1771,9 +1807,15 @@
       // full daily-log client and would dead-end a prospect on first login.
       // The Business X-Ray wins when both are assigned: it is the deeper
       // diagnostic and the one the lead pipeline's stages track.
-      if ((xrayAssigned || mgmtAssigned) && goalState && !goalState.has_any_goals) {
+      if ((xrayAssigned || anySinglePageAssigned()) && goalState && !goalState.has_any_goals) {
         showPortal();
-        switchTab(xrayAssigned ? "xray" : "mgmtxray");
+        // Business X-Ray wins when several are assigned; otherwise the first
+        // assigned single-page instrument in registry order.
+        var firstSpa = null;
+        SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
+          if (!firstSpa && spaState[t.key].assigned) { firstSpa = t.key; }
+        });
+        switchTab(xrayAssigned ? "xray" : firstSpa);
         return;
       }
       if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals)) {
@@ -2251,14 +2293,94 @@
     var clientStatus = "active";
     function isLead() { return clientStatus === "lead"; }
 
+    // ── Single-page assessments registry ───────────────────────────────────
+    // Every assigned assessment EXCEPT the Business X-Ray renders as one
+    // scrolling page: the instrument is short enough that a wizard would add
+    // taps without adding clarity. They all share the assignment plumbing, the
+    // draft/autosave contract and the submit-locks-immutable rule, and the
+    // answer widget is driven by catalog.scale — so the whole flow below is
+    // ONE implementation parameterized by the entries here.
+    //
+    // Adding an instrument = one row here + its report page. Nothing else in
+    // the portal (tab markup aside) is per-type: the lead allowlist, the
+    // Assigned-tab picker, the More menu and the switchTab id list all DERIVE
+    // from this array, so a new type can never be silently bounced by a
+    // hardcoded list that someone forgot to update.
+    var SINGLE_PAGE_ASSESSMENTS = [
+      {
+        key: "mgmtxray",                       // tab id suffix: tabMgmtxray
+        type: "management_xray",
+        elPrefix: "mgmtXray",                  // ids: mgmtXrayBody / mgmtXrayHeroTitle / ...
+        tabBtnId: "tabBtnMgmtXray",
+        report: "management-xray-report.html",
+        icon: "list",
+        titlePt: "Raio X de Gest&atilde;o", titleEn: "Management X-Ray",
+        moreLabelPt: "Raio X Gest&atilde;o", moreLabelEn: "Mgmt X-Ray",
+        subPt: "Diagn&oacute;stico da matura&ccedil;&atilde;o da sua gest&atilde;o",
+        subEn: "A diagnostic of your management maturity",
+        descPt: "11 categorias de gest&atilde;o avaliadas em uma escala de matura&ccedil;&atilde;o.",
+        descEn: "11 management categories scored on a maturity scale.",
+        introPt: "S&atilde;o {total} categorias, uma pergunta cada. Em cada uma, escolha a op&ccedil;&atilde;o que melhor descreve a sua empresa hoje.",
+        introEn: "There are {total} categories, one question each. For each, pick the option that best describes your company today.",
+        unitPt: "categorias", unitEn: "categories",
+        donePt: "Raio X de Gest&atilde;o conclu&iacute;do", doneEn: "Management X-Ray completed"
+      },
+      {
+        key: "leadxray",
+        type: "leadership_xray",
+        elPrefix: "leadXray",
+        tabBtnId: "tabBtnLeadXray",
+        report: "leadership-xray-report.html",
+        icon: "users",
+        titlePt: "Raio X N&iacute;vel de Lideran&ccedil;a", titleEn: "Leadership Level X-Ray",
+        moreLabelPt: "Raio X Lideran&ccedil;a", moreLabelEn: "Leadership X-Ray",
+        subPt: "Avalie o n&iacute;vel e o impacto da sua lideran&ccedil;a",
+        subEn: "Assess the level and impact of your leadership",
+        descPt: "10 compet&ecirc;ncias de lideran&ccedil;a avaliadas de 0 a 10.",
+        descEn: "10 leadership competencies scored from 0 to 10.",
+        introPt: "S&atilde;o {total} perguntas. Em cada uma, d&ecirc; uma nota de 0 a 10 para a sua realidade de hoje — 0 &eacute; o pior cen&aacute;rio, 10 o ideal.",
+        introEn: "There are {total} questions. For each, rate your reality today from 0 to 10 — 0 is the worst case, 10 the ideal.",
+        unitPt: "perguntas", unitEn: "questions",
+        donePt: "Raio X de Lideran&ccedil;a conclu&iacute;do", doneEn: "Leadership X-Ray completed"
+      }
+    ];
+
+    // Runtime state per registry entry, keyed by `key`. Replaces the old
+    // one-set-of-globals-per-instrument pattern (mgmtDetail, mgmtAnswers, …).
+    var spaState = {};
+    SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
+      spaState[t.key] = {
+        assigned: false,
+        detail: null,     // GET /assessments/<type> payload
+        answers: {},
+        view: "intro",    // 'intro' | 'questions' | 'done'
+        saveTimer: null
+      };
+    });
+
+    function spaConf(key) {
+      var found = null;
+      SINGLE_PAGE_ASSESSMENTS.forEach(function(t) { if (t.key === key) { found = t; } });
+      return found;
+    }
+    function spaAssigned(key) { return spaState[key].assigned; }
+    function anySinglePageAssigned() {
+      return SINGLE_PAGE_ASSESSMENTS.some(function(t) { return spaState[t.key].assigned; });
+    }
+
     // The only tabs a lead may actually land on. "xray" is here because the
     // Assigned tab opens the real X-Ray; "lockedpreview" is the teaser host
     // (must be allowed or openLockedPreview -> switchTab would recurse).
-    var LEAD_ALLOWED_TABS = ["assigned", "documents", "xray", "mgmtxray", "lockedpreview"];
+    // Every single-page instrument is appended from the registry rather than
+    // listed by hand — a new type is reachable the moment it is registered,
+    // instead of being silently bounced back to Assigned by a stale allowlist.
+    var LEAD_ALLOWED_TABS = ["assigned", "documents", "xray", "lockedpreview"]
+      .concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) { return t.key; }));
 
-    // Tools Pr. Rafa can assign to a lead. One entry per tool; `assigned` is
-    // re-evaluated on each render against the real assignment data, so adding
-    // a second tool later means adding a row here, not touching the tab.
+    // Tools Pr. Rafa can assign to a lead. The Business X-Ray is spelled out
+    // (it is the only multi-section instrument); every single-page one is
+    // derived from SINGLE_PAGE_ASSESSMENTS. `isAssigned` is re-evaluated on
+    // each render against the real assignment data.
     var ASSIGNABLE_TOOLS = [
       {
         key: "xray",
@@ -2269,18 +2391,15 @@
         descPt: "Diagn&oacute;stico completo da sua opera&ccedil;&atilde;o, &aacute;rea por &aacute;rea.",
         descEn: "A full diagnostic of your operation, area by area.",
         isAssigned: function() { return xrayAssigned; }
-      },
-      {
-        key: "mgmtxray",
-        tab: "mgmtxray",
-        icon: "list",
-        titlePt: "Raio X de Gest&atilde;o",
-        titleEn: "Management X-Ray",
-        descPt: "11 categorias de gest&atilde;o avaliadas em uma escala de matura&ccedil;&atilde;o.",
-        descEn: "11 management categories scored on a maturity scale.",
-        isAssigned: function() { return mgmtAssigned; }
       }
-    ];
+    ].concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) {
+      return {
+        key: t.key, tab: t.key, icon: t.icon,
+        titlePt: t.titlePt, titleEn: t.titleEn,
+        descPt: t.descPt, descEn: t.descEn,
+        isAssigned: function() { return spaState[t.key].assigned; }
+      };
+    }));
 
     function assignedTools() {
       return ASSIGNABLE_TOOLS.filter(function(t) { return t.isAssigned(); });
@@ -2499,9 +2618,11 @@
       if (xrayAssigned) {
         more.push({ tab: "xray", icon: "view", labelPt: "Raio X", labelEn: "X-Ray" });
       }
-      if (mgmtAssigned) {
-        more.push({ tab: "mgmtxray", icon: "list", labelPt: "Raio X Gest&atilde;o", labelEn: "Mgmt X-Ray" });
-      }
+      SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
+        if (spaState[t.key].assigned) {
+          more.push({ tab: t.key, icon: t.icon, labelPt: t.moreLabelPt, labelEn: t.moreLabelEn });
+        }
+      });
       return more;
     }
 
@@ -2582,12 +2703,20 @@
       // Each entry must match its element id EXACTLY after the "tab" prefix
       // (id="tabLockedPreview", capital P) — a casing slip here returns null
       // from getElementById and throws inside the forEach, which aborts
-      // showPortal() mid-boot and bounces the whole page.
-      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Mgmtxray", "Worksched",
+      // showPortal() mid-boot and bounces the whole page. The single-page
+      // assessments are appended from the registry (each key capitalized to
+      // its tabXxx id) so registering a type cannot desync this list; the
+      // null-guard keeps a missing element from taking the boot down with it.
+      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
        "Gmcrm", "Gmroadmap", "Gmbase", "Gmpartners", "Gmfinance", "Gmjobs",
-       "Assigned", "LockedPreview"].forEach(function(t) {
-        document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
-      });
+       "Assigned", "LockedPreview"]
+        .concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) {
+          return t.key.charAt(0).toUpperCase() + t.key.slice(1);
+        }))
+        .forEach(function(t) {
+          var el = document.getElementById("tab" + t);
+          if (el) { el.hidden = (t.toLowerCase() !== tab); }
+        });
       // GM tabs always refetch on entry: their data changes from other tabs
       // (a reactivation creates a lead; a lead closing changes a partner's
       // attribution), so a stale cache would show wrong numbers.
@@ -2601,7 +2730,7 @@
         if (tab === "documents") { loadDocuments(); }
         if (tab === "invoices") { loadInvoices(); }
         if (tab === "xray") { loadXray(); }
-        if (tab === "mgmtxray") { loadMgmtXray(); }
+        if (spaConf(tab)) { loadSinglePageAssessment(tab); }
         if (tab === "assigned") { loadAssigned(); }
         if (tab === "worksched") { loadWorkSettings(); }
         if (tab === "gmcrm") { gmLoadCrm(); }
@@ -2627,30 +2756,21 @@
     var xraySaveTimer = null;
     var XRAY_ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
 
-    // Raio X de Gestão — the second assigned assessment. 11 weighted
-    // categories on a 0/1/2 scale, one question each, so it renders as a
-    // single scrolling page instead of the 62-question wizard above. It
-    // shares the assignment plumbing, the draft/autosave contract and the
-    // submit-locks-immutable rule; only the question rendering differs.
-    var mgmtAssigned  = false;
-    var mgmtDetail    = null;   // GET /assessments/management_xray payload
-    var mgmtAnswers   = {};
-    var mgmtView      = "intro";   // 'intro' | 'questions' | 'done'
-    var mgmtSaveTimer = null;
-
     function loadAssessmentList() {
       return apiFetch("/api/clients/" + clientId + "/assessments")
         .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
         .then(function(data) {
           var list = (data && data.assessments) || [];
           xrayAssigned = list.some(function(a) { return a.assessment_type === "business_xray"; });
-          mgmtAssigned = list.some(function(a) { return a.assessment_type === "management_xray"; });
           // For a lead the assessments are reached through the Assigned tab, so
           // they never get their own strip button — one entry point, not two.
           var btn = document.getElementById("tabBtnXray");
           if (btn) { btn.hidden = !xrayAssigned || isLead(); }
-          var mbtn = document.getElementById("tabBtnMgmtXray");
-          if (mbtn) { mbtn.hidden = !mgmtAssigned || isLead(); }
+          SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
+            spaState[t.key].assigned = list.some(function(a) { return a.assessment_type === t.type; });
+            var b = document.getElementById(t.tabBtnId);
+            if (b) { b.hidden = !spaState[t.key].assigned || isLead(); }
+          });
           return list;
         });
     }
@@ -3152,24 +3272,30 @@
       window.location.href = href;
     }
 
-    // ── Raio X de Gestão (Management X-Ray) ────────────────────────────────
-    // Single scrolling page: 11 questions is short enough that a wizard would
-    // add taps without adding clarity. Everything else matches the Business
-    // X-Ray — server-side drafts, debounced autosave, immutable after submit.
-    // The answer widget is driven by catalog.scale, so it is the SCALE that
-    // decides the buttons, not the assessment type.
+    // ── Single-page assessments: ONE questionnaire flow, many instruments ──
+    // Everything below is parameterized by a SINGLE_PAGE_ASSESSMENTS entry
+    // (`key`), never by the assessment type: the widget comes from
+    // catalog.scale, the copy from the registry row, the element ids from
+    // `elPrefix`. Matches the Business X-Ray's contract — server-side drafts,
+    // debounced autosave, immutable after submit — only the layout differs.
 
-    function loadMgmtXray() {
-      var body = document.getElementById("mgmtXrayBody");
+    function spaEl(key, suffix) {
+      return document.getElementById(spaConf(key).elPrefix + suffix);
+    }
+
+    function loadSinglePageAssessment(key) {
+      var conf = spaConf(key);
+      var st = spaState[key];
+      var body = spaEl(key, "Body");
       body.innerHTML = '<div class="content-card"><p class="muted">' +
         (isEn() ? "Loading..." : "Carregando...") + '</p></div>';
-      apiFetch("/api/clients/" + clientId + "/assessments/management_xray")
+      apiFetch("/api/clients/" + clientId + "/assessments/" + conf.type)
         .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
         .then(function(d) {
-          mgmtDetail = d;
-          mgmtAnswers = d.answers || {};
-          mgmtView = (d.status === "completed") ? "done" : "intro";
-          renderMgmtXray();
+          st.detail = d;
+          st.answers = d.answers || {};
+          st.view = (d.status === "completed") ? "done" : "intro";
+          renderSpa(key);
         })
         .catch(function() {
           body.innerHTML = '<div class="content-card"><p class="muted">' +
@@ -3178,98 +3304,104 @@
     }
 
     // Scale-driven: a value counts as answered when the catalog's scale
-    // declares it, so this same helper works for a binary or ternary bank.
-    function mgmtScaleValues() {
-      var scale = mgmtDetail && mgmtDetail.catalog && mgmtDetail.catalog.scale;
+    // declares it, so this works for a binary, ternary or 0-10 bank alike.
+    function spaScaleValues(key) {
+      var st = spaState[key];
+      var scale = st.detail && st.detail.catalog && st.detail.catalog.scale;
       return (scale && scale.values) || [];
     }
 
-    function mgmtIsAnswered(key) {
-      return mgmtScaleValues().indexOf(mgmtAnswers[key]) > -1;
+    function spaIsAnswered(key, qKey) {
+      return spaScaleValues(key).indexOf(spaState[key].answers[qKey]) > -1;
     }
 
-    function mgmtTotalAnswered() {
+    function spaTotalAnswered(key) {
+      var st = spaState[key];
       var n = 0;
-      (mgmtDetail.catalog.questions || []).forEach(function(q) {
-        if (mgmtIsAnswered(q.key)) { n += 1; }
+      (st.detail.catalog.questions || []).forEach(function(q) {
+        if (spaIsAnswered(key, q.key)) { n += 1; }
       });
       return n;
     }
 
-    function mgmtSetHero(titleHtml, subHtml) {
-      document.getElementById("mgmtXrayHeroTitle").innerHTML = titleHtml;
-      document.getElementById("mgmtXrayHeroSub").innerHTML = subHtml;
+    function spaSetHero(key, titleHtml, subHtml) {
+      spaEl(key, "HeroTitle").innerHTML = titleHtml;
+      spaEl(key, "HeroSub").innerHTML = subHtml;
     }
 
-    function mgmtProgressHtml() {
-      var answered = mgmtTotalAnswered();
-      var total = mgmtDetail.catalog.total;
+    function spaProgressHtml(key) {
+      var answered = spaTotalAnswered(key);
+      var total = spaState[key].detail.catalog.total;
       var pct = total ? Math.round((answered / total) * 100) : 0;
-      return '<div class="xray-progress-label" id="mgmtProgressLabel">' +
+      return '<div class="xray-progress-label" id="' + key + 'ProgressLabel">' +
         '<span class="show-pt">' + answered + ' de ' + total + ' respostas preenchidas</span>' +
         '<span class="show-en">' + answered + ' of ' + total + ' answers filled in</span></div>' +
-        '<div class="progress-track"><div class="progress-fill" id="mgmtProgressFill" style="width:' + pct + '%;"></div></div>';
+        '<div class="progress-track"><div class="progress-fill" id="' + key + 'ProgressFill" style="width:' + pct + '%;"></div></div>';
     }
 
-    function mgmtUpdateProgressBar() {
-      var answered = mgmtTotalAnswered();
-      var total = mgmtDetail.catalog.total;
-      var label = document.getElementById("mgmtProgressLabel");
+    function spaUpdateProgressBar(key) {
+      var answered = spaTotalAnswered(key);
+      var total = spaState[key].detail.catalog.total;
+      var label = document.getElementById(key + "ProgressLabel");
       if (label) {
         label.innerHTML = '<span class="show-pt">' + answered + ' de ' + total + ' respostas preenchidas</span>' +
           '<span class="show-en">' + answered + ' of ' + total + ' answers filled in</span>';
       }
-      var fill = document.getElementById("mgmtProgressFill");
+      var fill = document.getElementById(key + "ProgressFill");
       if (fill) { fill.style.width = (total ? Math.round((answered / total) * 100) : 0) + "%"; }
     }
 
-    function renderMgmtXray() {
-      if (!mgmtDetail) { return; }
-      if (mgmtView === "done") { renderMgmtXrayDone(); return; }
-      if (mgmtView === "questions") { renderMgmtXrayQuestions(); return; }
-      renderMgmtXrayIntro();
+    function renderSpa(key) {
+      var st = spaState[key];
+      if (!st.detail) { return; }
+      if (st.view === "done") { renderSpaDone(key); return; }
+      if (st.view === "questions") { renderSpaQuestions(key); return; }
+      renderSpaIntro(key);
     }
 
-    function renderMgmtXrayIntro() {
-      mgmtSetHero(
-        '<span class="show-pt">Raio X de Gest&atilde;o</span><span class="show-en">Management X-Ray</span>',
-        '<span class="show-pt">Diagn&oacute;stico da matura&ccedil;&atilde;o da sua gest&atilde;o</span>' +
-        '<span class="show-en">A diagnostic of your management maturity</span>'
-      );
-      var answered = mgmtTotalAnswered();
-      var total = mgmtDetail.catalog.total;
+    function renderSpaIntro(key) {
+      var conf = spaConf(key);
+      var st = spaState[key];
+      spaSetHero(key,
+        '<span class="show-pt">' + conf.titlePt + '</span><span class="show-en">' + conf.titleEn + '</span>',
+        '<span class="show-pt">' + conf.subPt + '</span><span class="show-en">' + conf.subEn + '</span>');
+      var answered = spaTotalAnswered(key);
+      var total = st.detail.catalog.total;
+      var savedPt = " Suas respostas s&atilde;o salvas automaticamente — voc&ecirc; pode parar e continuar depois.";
+      var savedEn = " Your answers are saved automatically — you can stop and pick up later.";
       var html = '<div class="content-card">' +
         '<p class="muted" style="margin-bottom:14px;">' +
-        '<span class="show-pt">S&atilde;o ' + total + ' categorias, uma pergunta cada. Em cada uma, escolha a op&ccedil;&atilde;o que melhor descreve a sua empresa hoje. Suas respostas s&atilde;o salvas automaticamente — voc&ecirc; pode parar e continuar depois.</span>' +
-        '<span class="show-en">There are ' + total + ' categories, one question each. For each, pick the option that best describes your company today. Your answers are saved automatically — you can stop and pick up later.</span></p>' +
-        mgmtProgressHtml() +
-        '<button class="btn-gold" style="width:100%;margin-top:16px;" onclick="mgmtStart()">' +
+        '<span class="show-pt">' + conf.introPt.replace("{total}", total) + savedPt + '</span>' +
+        '<span class="show-en">' + conf.introEn.replace("{total}", total) + savedEn + '</span></p>' +
+        spaProgressHtml(key) +
+        '<button class="btn-gold" style="width:100%;margin-top:16px;" onclick="spaStart(\'' + key + '\')">' +
         (answered === 0
           ? '<span class="show-pt">Come&ccedil;ar</span><span class="show-en">Start</span>'
           : (answered === total
             ? '<span class="show-pt">Revisar e concluir</span><span class="show-en">Review and finish</span>'
             : '<span class="show-pt">Continuar</span><span class="show-en">Continue</span>')) +
         '</button></div>';
-      document.getElementById("mgmtXrayBody").innerHTML = html;
+      spaEl(key, "Body").innerHTML = html;
     }
 
-    function mgmtStart() {
-      mgmtView = "questions";
-      renderMgmtXray();
+    function spaStart(key) {
+      spaState[key].view = "questions";
+      renderSpa(key);
       window.scrollTo(0, 0);
     }
 
-    // One card, all 11 questions. Each question renders its three catalog
-    // options as full-width buttons — the option TEXT is the answer, so the
-    // client never has to map a colour or a number onto a meaning.
-    function renderMgmtXrayQuestions() {
-      var qs = mgmtDetail.catalog.questions || [];
-      mgmtSetHero(
-        '<span class="show-pt">Raio X de Gest&atilde;o</span><span class="show-en">Management X-Ray</span>',
-        '<span class="show-pt">' + qs.length + ' categorias</span>' +
-        '<span class="show-en">' + qs.length + ' categories</span>'
-      );
-      var html = '<div class="content-card">' + mgmtProgressHtml() + '<div style="margin-top:8px;">';
+    // One card, every question. The answer widget is chosen by the catalog's
+    // SCALE, so a ternary instrument gets option buttons and a 0-10 one gets
+    // the 11-point rating row — same code path, same autosave.
+    function renderSpaQuestions(key) {
+      var conf = spaConf(key);
+      var st = spaState[key];
+      var qs = st.detail.catalog.questions || [];
+      spaSetHero(key,
+        '<span class="show-pt">' + conf.titlePt + '</span><span class="show-en">' + conf.titleEn + '</span>',
+        '<span class="show-pt">' + qs.length + ' ' + conf.unitPt + '</span>' +
+        '<span class="show-en">' + qs.length + ' ' + conf.unitEn + '</span>');
+      var html = '<div class="content-card">' + spaProgressHtml(key) + '<div style="margin-top:8px;">';
       qs.forEach(function(q, idx) {
         html += '<div class="xray-question">' +
           '<div class="xray-q-label"><strong>' + (idx + 1) + '.</strong> ' +
@@ -3280,34 +3412,42 @@
           '<span class="show-en">' + escHtml(q.labelEn) + '</span></div>' +
           xrayHelpIconHtml(q) + '</div>' +
           xrayHelpBoxHtml(q) +
-          mgmtScaleHtml(q);
+          spaAnswerWidgetHtml(key, q);
         html += '</div>';
       });
       html += '</div>' +
-        '<button class="btn-gold" style="width:100%;margin-top:14px;" onclick="mgmtSubmit()">' +
+        '<button class="btn-gold" style="width:100%;margin-top:14px;" onclick="spaSubmit(\'' + key + '\')">' +
         '<span class="show-pt">Concluir</span><span class="show-en">Finish</span></button>' +
-        '<button class="btn-outline" style="width:100%;margin-top:10px;" onclick="mgmtExit()">' +
+        '<button class="btn-outline" style="width:100%;margin-top:10px;" onclick="spaExit(\'' + key + '\')">' +
         '<span class="show-pt">Salvar e continuar depois</span><span class="show-en">Save and continue later</span></button>' +
-        '<div class="autosave-note" id="mgmtAutosaveNote"></div>' +
+        '<div class="autosave-note" id="' + key + 'AutosaveNote"></div>' +
         '</div>';
-      document.getElementById("mgmtXrayBody").innerHTML = html;
+      spaEl(key, "Body").innerHTML = html;
     }
 
-    // The answer widget for one question, built from the catalog's scale.
-    // Option labels come from the catalog (optionsPt/optionsEn indexed by
-    // value); the level colour comes from catalog.scale_levels.
-    function mgmtScaleHtml(q) {
-      var levels = (mgmtDetail.catalog && mgmtDetail.catalog.scale_levels) || [];
-      var v = mgmtAnswers[q.key];
+    // Widget dispatch by SCALE, not by type. scale_levels (ternary) → labelled
+    // option buttons; scale10_bands (0-10) → an 11-point rating row.
+    function spaAnswerWidgetHtml(key, q) {
+      var cat = spaState[key].detail.catalog || {};
+      if (cat.scale && cat.scale.type === "scale0to10") { return spaScale10Html(key, q); }
+      return spaLevelsHtml(key, q);
+    }
+
+    // Ternary widget: option labels come from the catalog (optionsPt/optionsEn
+    // indexed by value); the level colour comes from catalog.scale_levels.
+    function spaLevelsHtml(key, q) {
+      var st = spaState[key];
+      var levels = (st.detail.catalog && st.detail.catalog.scale_levels) || [];
+      var v = st.answers[q.key];
       var html = '<div class="xray-scale" role="group">';
       levels.forEach(function(lvl) {
         var sel = (v === lvl.value);
         var optPt = (q.optionsPt || [])[lvl.value] || lvl.labelPt;
         var optEn = (q.optionsEn || [])[lvl.value] || lvl.labelEn;
-        html += '<button type="button" id="msc_' + q.key + '_' + lvl.value + '"' +
+        html += '<button type="button" id="sc_' + key + '_' + q.key + '_' + lvl.value + '"' +
           (sel ? ' class="sel-' + lvl.value + '"' : '') +
           ' aria-pressed="' + (sel ? "true" : "false") + '"' +
-          ' onclick="answerMgmt(\'' + q.key + '\', ' + lvl.value + ')">' +
+          ' onclick="answerSpa(\'' + key + '\', \'' + q.key + '\', ' + lvl.value + ')">' +
           '<span class="sc-dot" style="background:' + lvl.hex + ';"></span>' +
           '<span><span class="show-pt">' + escHtml(optPt) + '</span>' +
           '<span class="show-en">' + escHtml(optEn) + '</span></span>' +
@@ -3316,32 +3456,83 @@
       return html + '</div>';
     }
 
-    // Same contract as answerXray: update state + styling in place (no
-    // re-render, so the page never jumps mid-scroll), then debounce a draft.
-    function answerMgmt(key, v) {
-      mgmtAnswers[key] = v;
-      var levels = (mgmtDetail.catalog && mgmtDetail.catalog.scale_levels) || [];
-      levels.forEach(function(lvl) {
-        var btn = document.getElementById("msc_" + key + "_" + lvl.value);
-        if (!btn) { return; }
-        var sel = (lvl.value === v);
-        btn.className = sel ? ("sel-" + lvl.value) : "";
-        btn.setAttribute("aria-pressed", sel ? "true" : "false");
+    // 0-10 widget: eleven numbered buttons. The band colours come from the
+    // catalog (scale10_bands), which the Worker derives from the SAME cutoffs
+    // it scores with — the portal never hardcodes 0-3/4-7/8-10 itself.
+    function spaScale10Html(key, q) {
+      var st = spaState[key];
+      var cat = st.detail.catalog || {};
+      var bands = cat.scale10_bands || [];
+      var values = (cat.scale && cat.scale.values) || [];
+      var v = st.answers[q.key];
+      function hexFor(n) {
+        var hex = "#c9cbcf";
+        bands.forEach(function(b) { if (n >= b.from && n <= b.to) { hex = b.hex; } });
+        return hex;
+      }
+      var html = '<div class="rating10" role="group">';
+      values.forEach(function(n) {
+        var sel = (v === n);
+        html += '<button type="button" id="sc_' + key + '_' + q.key + '_' + n + '"' +
+          ' class="r10-btn' + (sel ? ' r10-sel' : '') + '"' +
+          (sel ? ' style="background:' + hexFor(n) + ';border-color:' + hexFor(n) + ';"' : '') +
+          ' aria-pressed="' + (sel ? "true" : "false") + '"' +
+          ' onclick="answerSpa(\'' + key + '\', \'' + q.key + '\', ' + n + ')">' + n + '</button>';
       });
-      mgmtUpdateProgressBar();
-      if (mgmtSaveTimer) { clearTimeout(mgmtSaveTimer); }
-      mgmtSaveTimer = setTimeout(function() { mgmtSaveDraft(); }, 900);
+      html += '</div><div class="rating10-legend">';
+      bands.forEach(function(b) {
+        html += '<span><span class="r10-dot" style="background:' + b.hex + ';"></span>' +
+          b.from + '-' + b.to + ' ' +
+          '<span class="show-pt">' + escHtml(b.labelPt) + '</span>' +
+          '<span class="show-en">' + escHtml(b.labelEn) + '</span></span>';
+      });
+      return html + '</div>';
     }
 
-    function mgmtSaveDraft() {
-      if (mgmtSaveTimer) { clearTimeout(mgmtSaveTimer); mgmtSaveTimer = null; }
-      if (!mgmtDetail || mgmtDetail.status === "completed") { return Promise.resolve(); }
-      return apiFetch("/api/clients/" + clientId + "/assessments/management_xray/answers",
-        { method: "PUT", body: { draft: true, answers: mgmtAnswers } })
+    // Same contract as answerXray: update state + styling in place (no
+    // re-render, so the page never jumps mid-scroll), then debounce a draft.
+    function answerSpa(key, qKey, v) {
+      var st = spaState[key];
+      var cat = st.detail.catalog || {};
+      st.answers[qKey] = v;
+      var isScale10 = cat.scale && cat.scale.type === "scale0to10";
+      var bands = cat.scale10_bands || [];
+      ((cat.scale && cat.scale.values) || []).forEach(function(n) {
+        var btn = document.getElementById("sc_" + key + "_" + qKey + "_" + n);
+        if (!btn) { return; }
+        var sel = (n === v);
+        if (isScale10) {
+          btn.className = "r10-btn" + (sel ? " r10-sel" : "");
+          if (sel) {
+            var hex = "#c9cbcf";
+            bands.forEach(function(b) { if (n >= b.from && n <= b.to) { hex = b.hex; } });
+            btn.style.background = hex;
+            btn.style.borderColor = hex;
+          } else {
+            btn.style.background = "";
+            btn.style.borderColor = "";
+          }
+        } else {
+          btn.className = sel ? ("sel-" + n) : "";
+        }
+        btn.setAttribute("aria-pressed", sel ? "true" : "false");
+      });
+      spaUpdateProgressBar(key);
+      if (st.saveTimer) { clearTimeout(st.saveTimer); }
+      st.saveTimer = setTimeout(function() { spaSaveDraft(key); }, 900);
+    }
+
+    function spaSaveDraft(key) {
+      var conf = spaConf(key);
+      var st = spaState[key];
+      if (st.saveTimer) { clearTimeout(st.saveTimer); st.saveTimer = null; }
+      if (!st.detail || st.detail.status === "completed") { return Promise.resolve(); }
+      return apiFetch("/api/clients/" + clientId + "/assessments/" + conf.type + "/answers",
+        { method: "PUT", body: { draft: true, answers: st.answers } })
         .then(function(res) { return res.json(); })
         .then(function(d) {
           if (d.saved) {
-            var note = document.getElementById("mgmtAutosaveNote");
+            var note = document.getElementById(key + "AutosaveNote");
             if (note) {
               note.textContent = isEn() ? "Answers saved automatically" : "Respostas salvas automaticamente";
               setTimeout(function() { if (note) { note.textContent = ""; } }, 2500);
@@ -3351,29 +3542,31 @@
         .catch(function() {});
     }
 
-    function mgmtExit() {
-      mgmtSaveDraft();
-      mgmtView = "intro";
-      renderMgmtXray();
+    function spaExit(key) {
+      spaSaveDraft(key);
+      spaState[key].view = "intro";
+      renderSpa(key);
       window.scrollTo(0, 0);
     }
 
-    function mgmtSubmit() {
-      var total = mgmtDetail.catalog.total;
-      var answered = mgmtTotalAnswered();
+    function spaSubmit(key) {
+      var conf = spaConf(key);
+      var st = spaState[key];
+      var total = st.detail.catalog.total;
+      var answered = spaTotalAnswered(key);
       if (answered < total) {
         var missing = total - answered;
         window.alert(isEn()
           ? missing + " question" + (missing === 1 ? "" : "s") + " still unanswered."
           : "Ainda " + (missing === 1 ? "falta 1 pergunta" : "faltam " + missing + " perguntas") + ".");
         // Scroll to the first unanswered question rather than making the
-        // client hunt for it down an 11-question page.
+        // client hunt for it down the page.
         var first = null;
-        (mgmtDetail.catalog.questions || []).forEach(function(q) {
-          if (!first && !mgmtIsAnswered(q.key)) { first = q.key; }
+        (st.detail.catalog.questions || []).forEach(function(q) {
+          if (!first && !spaIsAnswered(key, q.key)) { first = q.key; }
         });
         if (first) {
-          var el = document.getElementById("msc_" + first + "_0");
+          var el = document.getElementById("sc_" + key + "_" + first + "_0");
           if (el && el.scrollIntoView) { el.scrollIntoView({ block: "center" }); }
         }
         return;
@@ -3381,64 +3574,76 @@
       if (!window.confirm(isEn()
         ? "Submit your answers? They cannot be changed after finishing."
         : "Enviar suas respostas? Após concluir, não será possível alterá-las.")) { return; }
-      apiFetch("/api/clients/" + clientId + "/assessments/management_xray/answers",
-        { method: "PUT", body: { draft: false, answers: mgmtAnswers } })
+      apiFetch("/api/clients/" + clientId + "/assessments/" + conf.type + "/answers",
+        { method: "PUT", body: { draft: false, answers: st.answers } })
         .then(function(res) { return res.json(); })
         .then(function(d) {
           if (d.error) { throw new Error(d.error); }
-          mgmtDetail.status = "completed";
-          mgmtDetail.score = d.score;
-          mgmtDetail.completed_at = new Date().toISOString();
-          mgmtView = "done";
-          renderMgmtXray();
+          st.detail.status = "completed";
+          st.detail.score = d.score;
+          st.detail.completed_at = new Date().toISOString();
+          st.view = "done";
+          renderSpa(key);
           window.scrollTo(0, 0);
         })
         .catch(function(e) { window.alert("Erro: " + e.message); });
     }
 
-    function renderMgmtXrayDone() {
-      mgmtSetHero(
-        '<span class="show-pt">Raio X de Gest&atilde;o conclu&iacute;do</span>' +
-        '<span class="show-en">Management X-Ray completed</span>',
+    // The completion screen. Weighted instruments print score/max; band-based
+    // ones (0-10) print their verdict pill and per-question bands instead, so
+    // the summary reads correctly whichever scoring shape the type uses.
+    function renderSpaDone(key) {
+      var conf = spaConf(key);
+      var st = spaState[key];
+      spaSetHero(key,
+        '<span class="show-pt">' + conf.donePt + '</span>' +
+        '<span class="show-en">' + conf.doneEn + '</span>',
         '<span class="show-pt">Obrigado! Seu diagn&oacute;stico foi enviado.</span>' +
-        '<span class="show-en">Thank you! Your diagnostic has been submitted.</span>'
-      );
-      var s = mgmtDetail.score;
+        '<span class="show-en">Thank you! Your diagnostic has been submitted.</span>');
+      var s = st.detail.score;
       var html = '<div class="content-card">';
       if (s) {
         var PILL_BY_COLOR = { success: "p-bom", warning: "p-moderado", danger: "p-critico" };
+        var band = s.maturity || s.overall || null;
         html += '<div style="text-align:center;margin-bottom:16px;">' +
-          '<div class="xray-score-big">' + s.pct + '%<span class="of"> · ' + s.score + '/' + s.max_score + '</span></div>' +
-          '<div style="margin-top:8px;">' +
-          '<span class="xray-pill ' + (PILL_BY_COLOR[s.maturity.color] || "p-moderado") + '">' +
-          '<span class="show-pt">' + escHtml(s.maturity.labelPt) + '</span>' +
-          '<span class="show-en">' + escHtml(s.maturity.labelEn) + '</span></span></div></div><div>';
+          '<div class="xray-score-big">' + s.pct + '%' +
+          (s.max_score ? '<span class="of"> · ' + s.score + '/' + s.max_score + '</span>' : '') +
+          '</div>' +
+          (band ? '<div style="margin-top:8px;">' +
+            '<span class="xray-pill ' + (PILL_BY_COLOR[band.color] || "p-moderado") + '">' +
+            '<span class="show-pt">' + escHtml(band.labelPt) + '</span>' +
+            '<span class="show-en">' + escHtml(band.labelEn) + '</span></span></div>' : '') +
+          '</div><div>';
         (s.categories || []).forEach(function(c) {
+          // Weighted instruments carry weightedScore/maxWeighted; 0-10 ones
+          // carry a raw value out of 10. Print whichever the type produced.
+          var num = (c.weightedScore != null && c.maxWeighted != null)
+            ? c.weightedScore + '/' + c.maxWeighted
+            : (c.value == null ? '—' : c.value + '/10');
+          var pillPt = c.response ? c.response.labelPt : (c.bandLabelPt || '—');
+          var pillEn = c.response ? c.response.labelEn : (c.bandLabelEn || '—');
           html += '<div class="xray-section-row" style="cursor:default;">' +
             '<span class="xray-section-name">' +
             '<span class="show-pt">' + escHtml(c.namePt) + '</span>' +
             '<span class="show-en">' + escHtml(c.nameEn) + '</span>' +
-            '<span class="xray-section-count" style="margin-left:8px;">' +
-            c.weightedScore + '/' + c.maxWeighted + '</span></span>' +
+            '<span class="xray-section-count" style="margin-left:8px;">' + num + '</span></span>' +
             '<span class="xray-pill ' + (PILL_BY_COLOR[c.color] || "p-moderado") + '">' +
-            (c.response
-              ? '<span class="show-pt">' + escHtml(c.response.labelPt) + '</span>' +
-                '<span class="show-en">' + escHtml(c.response.labelEn) + '</span>'
-              : '—') +
+            '<span class="show-pt">' + escHtml(pillPt) + '</span>' +
+            '<span class="show-en">' + escHtml(pillEn) + '</span>' +
             '</span></div>';
         });
         html += '</div>';
       }
-      html += '<button class="btn-gold" style="width:100%;margin-top:16px;" onclick="mgmtOpenReport()">' +
+      html += '<button class="btn-gold" style="width:100%;margin-top:16px;" onclick="spaOpenReport(\'' + key + '\')">' +
         '<span class="show-pt">Ver relat&oacute;rio completo</span><span class="show-en">View full report</span></button>' +
         '<p class="muted" style="margin-top:14px;">' +
         '<span class="show-pt">Seu consultor vai apresentar o relat&oacute;rio completo com o plano de a&ccedil;&atilde;o priorit&aacute;rio.</span>' +
         '<span class="show-en">Your consultant will walk you through the full report and the priority action plan.</span></p></div>';
-      document.getElementById("mgmtXrayBody").innerHTML = html;
+      spaEl(key, "Body").innerHTML = html;
     }
 
-    function mgmtOpenReport() {
-      var href = "management-xray-report.html?client=" + encodeURIComponent(clientId) +
+    function spaOpenReport(key) {
+      var href = spaConf(key).report + "?client=" + encodeURIComponent(clientId) +
         "&name=" + encodeURIComponent(clientName || "");
       if (PREVIEW_AS) { href += "&previewAs=" + encodeURIComponent(PREVIEW_AS); }
       window.location.href = href;

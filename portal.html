@@ -1993,8 +1993,13 @@
         .then(function(d) {
           workSettings = d;
           scheduleDraft = (d.work_schedule || []).slice();
-          renderWorkSettings();
+          // Referral settings share this tab but are a separate concern: a
+          // failure there must not blank out the working-days card, so it
+          // resolves either way and renderWorkSettings simply omits the
+          // referral card when the payload never arrived.
+          return loadReferralSettings().catch(function() { referralSettings = null; });
         })
+        .then(function() { renderWorkSettings(); })
         .catch(function() {
           body.innerHTML = '<div class="content-card"><p class="muted">' +
             (isEn() ? "Could not load settings." : "Não foi possível carregar os ajustes.") + '</p></div>';
@@ -2044,7 +2049,147 @@
         '<div class="err-msg" id="blkErr"></div>' +
         '<button class="btn-outline" style="width:100%;margin-top:10px;min-height:48px;" onclick="wsAddRange()">' +
         (isEn() ? "+ Add blocked period" : "+ Adicionar período bloqueado") + '</button></div></div>';
+
+      html += referralSettingsHtml();
       body.innerHTML = html;
+      syncReferralColorInputs();
+    }
+
+    // ── Referral page settings ─────────────────────────────────────────────
+    // Controls the client's own PUBLIC referral page (referral.html), which
+    // their partners' referral links point at: which language it opens in,
+    // and its two brand colors. The logo is NOT here — it is the same
+    // clients.logo_url the hero already uploads, shown as a read-only note.
+    var referralSettings = null;   // GET /referral-settings cache
+
+    function loadReferralSettings() {
+      return apiFetch("/api/clients/" + clientId + "/referral-settings")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          referralSettings = d;
+          return d;
+        });
+    }
+
+    function referralSettingsHtml() {
+      var d = referralSettings;
+      if (!d) { return ""; }
+      var en = isEn();
+      var bg   = d.referral_bg_color   || d.default_bg_color;
+      var text = d.referral_text_color || d.default_text_color;
+      var usingDefaults = !d.referral_bg_color && !d.referral_text_color;
+
+      return '<div class="content-card">' +
+        '<div class="card-title">' + (en ? "Referral page" : "Página de indicação") + '</div>' +
+        '<p class="muted" style="margin-bottom:12px;">' +
+        (en
+          ? "The public page your partners' referral links open. These settings only change how it looks to your customers."
+          : "A página pública que os links de indicação dos seus parceiros abrem. Estes ajustes mudam só como ela aparece para os seus clientes.") + '</p>' +
+
+        // Language: which one the page OPENS in. The visitor's own toggle stays.
+        '<label class="field-label">' + (en ? "Starting language" : "Idioma inicial") + '</label>' +
+        '<div class="gm-chip-set" style="margin-bottom:6px;">' +
+          '<button type="button" class="gm-choice-chip' + (d.language === "pt" ? " gm-chip-sel" : "") +
+            '" onclick="rsSetLanguage(\'pt\')">Português</button>' +
+          '<button type="button" class="gm-choice-chip' + (d.language === "en" ? " gm-chip-sel" : "") +
+            '" onclick="rsSetLanguage(\'en\')">English</button>' +
+        '</div>' +
+        '<p class="muted" style="font-size:12px;margin-bottom:14px;">' +
+        (en
+          ? "Visitors can still switch language themselves — this only sets which one it opens in."
+          : "Quem abrir a página ainda pode trocar o idioma — isto define só como ela abre.") + '</p>' +
+
+        // Colors: native picker synced to a hex field, both editing one value.
+        '<label class="field-label">' + (en ? "Background color" : "Cor de fundo") + '</label>' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">' +
+          '<input type="color" id="rsBgPicker" value="' + escHtml(bg) + '" ' +
+            'oninput="rsSyncColor(\'Bg\', this.value)" ' +
+            'style="width:52px;min-height:48px;padding:4px;border:1px solid var(--border);border-radius:10px;background:#fff;">' +
+          '<input type="text" id="rsBgHex" value="' + escHtml(bg) + '" maxlength="7" ' +
+            'placeholder="' + escHtml(d.default_bg_color) + '" ' +
+            'oninput="rsSyncColor(\'Bg\', this.value)" style="flex:1;">' +
+        '</div>' +
+        '<label class="field-label">' + (en ? "Accent color" : "Cor de destaque") + '</label>' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">' +
+          '<input type="color" id="rsTextPicker" value="' + escHtml(text) + '" ' +
+            'oninput="rsSyncColor(\'Text\', this.value)" ' +
+            'style="width:52px;min-height:48px;padding:4px;border:1px solid var(--border);border-radius:10px;background:#fff;">' +
+          '<input type="text" id="rsTextHex" value="' + escHtml(text) + '" maxlength="7" ' +
+            'placeholder="' + escHtml(d.default_text_color) + '" ' +
+            'oninput="rsSyncColor(\'Text\', this.value)" style="flex:1;">' +
+        '</div>' +
+        '<p class="muted" style="font-size:12px;margin-bottom:10px;">' +
+        (usingDefaults
+          ? (en ? "Currently using the default Apex colors." : "Usando as cores padrão da Apex.")
+          : (en ? "Leave a field empty to go back to the default." : "Deixe um campo vazio para voltar ao padrão.")) + '</p>' +
+
+        // Logo: reuses the existing upload; no second upload path here.
+        '<p class="muted" style="font-size:12px;margin-bottom:10px;">' +
+        (d.has_logo
+          ? (en ? "Your logo appears on the referral page. Change it by tapping the logo at the top of the Home tab."
+                : "Seu logo aparece na página de indicação. Para trocar, toque no logo no topo da aba Início.")
+          : (en ? "No logo yet — the page shows your business name as text. Add one by tapping the logo at the top of the Home tab."
+                : "Sem logo ainda — a página mostra o nome do seu negócio como texto. Para adicionar, toque no logo no topo da aba Início.")) + '</p>' +
+
+        '<div class="err-msg" id="rsErr"></div>' +
+        '<button class="btn-gold" style="width:100%;margin-top:6px;min-height:48px;" onclick="rsSave()">' +
+        (en ? "Save referral page" : "Salvar página de indicação") + '</button></div>';
+    }
+
+    // Keep the native picker and the hex text field showing one value. Only a
+    // complete 6-digit hex is pushed to the picker — the text field must stay
+    // typeable mid-entry ("#1a" is not yet a color).
+    function rsSyncColor(which, value) {
+      var hexField = document.getElementById("rs" + which + "Hex");
+      var picker   = document.getElementById("rs" + which + "Picker");
+      if (!hexField || !picker) { return; }
+      if (hexField.value !== value) { hexField.value = value; }
+      if (/^#[0-9a-fA-F]{6}$/.test(value)) { picker.value = value; }
+    }
+
+    function syncReferralColorInputs() {
+      if (!referralSettings) { return; }
+      rsSyncColor("Bg", document.getElementById("rsBgHex") ? document.getElementById("rsBgHex").value : "");
+      rsSyncColor("Text", document.getElementById("rsTextHex") ? document.getElementById("rsTextHex").value : "");
+    }
+
+    function rsSetLanguage(lang) {
+      if (!referralSettings) { return; }
+      referralSettings.language = lang;
+      renderWorkSettings();     // re-render so the selected chip updates
+    }
+
+    function rsSave() {
+      var err = document.getElementById("rsErr");
+      err.textContent = "";
+      var bg   = document.getElementById("rsBgHex").value.trim();
+      var text = document.getElementById("rsTextHex").value.trim();
+      var hex  = /^#[0-9a-fA-F]{6}$/;
+      // Empty means "back to the Apex default" and is sent as "" so the
+      // server clears the column; anything else must be a real hex.
+      if (bg && !hex.test(bg)) {
+        err.textContent = isEn() ? "Background color must look like #1a1a1d." : "A cor de fundo deve ser como #1a1a1d.";
+        return;
+      }
+      if (text && !hex.test(text)) {
+        err.textContent = isEn() ? "Accent color must look like #C9A43A." : "A cor de destaque deve ser como #C9A43A.";
+        return;
+      }
+      apiFetch("/api/clients/" + clientId + "/referral-settings", {
+        method: "PUT",
+        body: { language: referralSettings.language, referral_bg_color: bg, referral_text_color: text }
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          // Trust the server's echo — it is what referral.html will read.
+          referralSettings.language            = r.data.language;
+          referralSettings.referral_bg_color   = r.data.referral_bg_color;
+          referralSettings.referral_text_color = r.data.referral_text_color;
+          renderWorkSettings();
+        })
+        .catch(function(e) { err.textContent = e.message; });
     }
 
     function wsSaveSchedule() {

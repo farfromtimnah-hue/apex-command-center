@@ -8669,6 +8669,100 @@ async function handlePutWorkSettings(id, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/referral-settings
+// Route: PUT /api/clients/:id/referral-settings
+//   Body: { language?: 'pt'|'en', referral_bg_color?, referral_text_color? }
+//
+// The client's own control over their PUBLIC referral page (referral.html):
+// which language it opens in, and its two brand colors. Same
+// requireClientAccess contract as work-settings — a client edits their own
+// record, admins may edit any.
+//
+// Colors are stored RAW (null when unset) rather than pre-resolved to the Apex
+// fallback: null is the meaningful "I have no branding of my own" state, and
+// baking the fallback in at write time would make a later change to Apex's
+// palette silently miss every client who once opened this screen.
+// handleGetReferralInfo applies the fallback at read time instead.
+//
+// The logo is deliberately NOT part of this payload: it reuses the existing
+// clients.logo_url written by POST /api/clients/:id/logo, which the portal
+// already exposes. One upload path, one stored key.
+// ---------------------------------------------------------------------------
+
+async function handleGetReferralSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT language, referral_bg_color, referral_text_color, logo_url FROM clients WHERE id = ?"
+        ).bind(id).first();
+        if (!row) { return jsonErr("Client not found", 404); }
+
+        return jsonOk({
+            language: row.language === "en" ? "en" : "pt",
+            referral_bg_color:   referralHexOrNull(row.referral_bg_color),
+            referral_text_color: referralHexOrNull(row.referral_text_color),
+            has_logo: !!row.logo_url,
+            // The values used when the client sets nothing — so the picker can
+            // show the real fallback instead of an invented placeholder.
+            default_bg_color:   REFERRAL_DEFAULT_BG,
+            default_text_color: REFERRAL_DEFAULT_TEXT
+        });
+    } catch (e) {
+        return jsonErr("Error fetching referral settings: " + e.message, 500);
+    }
+}
+
+async function handlePutReferralSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+
+        if (typeof body.language !== "undefined") {
+            if (body.language !== "pt" && body.language !== "en") {
+                return jsonErr("Invalid language", 400);
+            }
+            await env.DB.prepare("UPDATE clients SET language = ? WHERE id = ?")
+                .bind(body.language, id).run();
+        }
+
+        // Each color is independently settable and independently clearable:
+        // sending "" (or any non-hex value) resets that one back to the Apex
+        // fallback without disturbing the other.
+        var colorKeys = ["referral_bg_color", "referral_text_color"];
+        for (var i = 0; i < colorKeys.length; i++) {
+            var key = colorKeys[i];
+            if (typeof body[key] === "undefined") { continue; }
+            var hex = referralHexOrNull(body[key]);
+            if (body[key] && !hex) { return jsonErr("Invalid color: " + key, 400); }
+            await env.DB.prepare("UPDATE clients SET " + key + " = ? WHERE id = ?")
+                .bind(hex, id).run();
+        }
+
+        var row = await env.DB.prepare(
+            "SELECT language, referral_bg_color, referral_text_color, logo_url FROM clients WHERE id = ?"
+        ).bind(id).first();
+        if (!row) { return jsonErr("Client not found", 404); }
+
+        return jsonOk({
+            saved: true,
+            language: row.language === "en" ? "en" : "pt",
+            referral_bg_color:   referralHexOrNull(row.referral_bg_color),
+            referral_text_color: referralHexOrNull(row.referral_text_color),
+            has_logo: !!row.logo_url
+        });
+    } catch (e) {
+        return jsonErr("Error saving referral settings: " + e.message, 500);
+    }
+}
+
 async function handlePostBlockedRange(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -8897,6 +8991,7 @@ function clientRequestAllowed(path, method, clientId) {
                 rest === "entries" || rest === "entries-summary" ||
                 rest === "goal-state" || rest === "indicator-history" ||
                 rest === "work-settings" || rest === "working-days" ||
+                rest === "referral-settings" ||
                 rest === "assessments") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
             if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }
@@ -8909,6 +9004,9 @@ function clientRequestAllowed(path, method, clientId) {
         }
         if (method === "DELETE" && /^blocked-ranges\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         if (method === "PUT" && rest === "work-settings") { return true; }
+        // The client's own public referral page: their language default and
+        // brand colors. Their own record only — requireClientAccess enforces it.
+        if (method === "PUT" && rest === "referral-settings") { return true; }
         if (method === "PUT" && rest === "goals") { return true; }
         if (method === "PUT" && /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/.test(rest)) { return true; }
         if (method === "PUT" && /^assessments\/[a-z_]+\/answers$/.test(rest)) { return true; }
@@ -13006,10 +13104,20 @@ function gmReferralSlugValid(slug) {
 async function gmPartnerBySlug(env, slug) {
     if (!gmReferralSlugValid(slug)) { return null; }
     return env.DB.prepare(
-        "SELECT p.id, p.client_id, p.name, c.name AS business_name " +
+        "SELECT p.id, p.client_id, p.name, c.name AS business_name, " +
+        "c.language, c.referral_bg_color, c.referral_text_color, c.logo_url " +
         "FROM gm_partners p JOIN clients c ON c.id = p.client_id " +
         "WHERE p.referral_slug = ?"
     ).bind(slug).first();
+}
+
+// Apex's own palette — the literal values referral.html already hardcodes.
+// Used as the fallback when a client has set no branding of their own.
+var REFERRAL_DEFAULT_BG   = "#1a1a1d";   // --header
+var REFERRAL_DEFAULT_TEXT = "#C9A43A";   // --gold
+
+function referralHexOrNull(v) {
+    return /^#[0-9a-fA-F]{6}$/.test(String(v || "")) ? String(v) : null;
 }
 
 async function handleGetReferralInfo(slug, request, env) {
@@ -13019,10 +13127,27 @@ async function handleGetReferralInfo(slug, request, env) {
         var config = await gmGetConfig(env, partner.client_id);
         // Only what the public form needs — no ids, no other partners, no
         // financials. Partner first name only (it's their own link).
+        //
+        // Branding is resolved to concrete values HERE rather than sent as
+        // nulls for the page to interpret: referral.html is deliberately
+        // dependency-free, and the fallback rule (Apex black/gold) belongs in
+        // one place. A stored value that is not a valid 6-digit hex is treated
+        // as unset — the page can never be handed a broken color.
+        var logoUrl = null;
+        if (partner.logo_url) {
+            // Served through the EXISTING logo-image route; no raw R2 key is
+            // ever exposed to a public page.
+            logoUrl = new URL(request.url).origin + "/api/clients/" + partner.client_id + "/logo-image";
+        }
         return jsonOk({
             business_name: partner.business_name,
             partner_name: (partner.name || "").split(/\s+/)[0],
-            servicos: config.servicos
+            servicos: config.servicos,
+            language: partner.language === "en" ? "en" : "pt",
+            referral_bg_color:   referralHexOrNull(partner.referral_bg_color)   || REFERRAL_DEFAULT_BG,
+            referral_text_color: referralHexOrNull(partner.referral_text_color) || REFERRAL_DEFAULT_TEXT,
+            has_logo: !!logoUrl,
+            logo_url: logoUrl
         });
     } catch (e) {
         return jsonErr("Error loading referral form", 500);
@@ -13710,6 +13835,10 @@ export default {
             if (segs.length === 4 && segs[3] === "work-settings") {
                 if (method === "GET") { return handleGetWorkSettings(cid, request, env); }
                 if (method === "PUT") { return handlePutWorkSettings(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "referral-settings") {
+                if (method === "GET") { return handleGetReferralSettings(cid, request, env); }
+                if (method === "PUT") { return handlePutReferralSettings(cid, request, env); }
             }
             if (segs.length === 4 && segs[3] === "blocked-ranges" && method === "POST") {
                 return handlePostBlockedRange(cid, request, env);

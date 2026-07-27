@@ -425,6 +425,24 @@
       background: rgba(201,164,58,0.18); color: #8a6d1d;
     }
 
+    /* "Something is waiting for you in Assigned" dot. The portal had no
+       notification component at all before this; this is deliberately the
+       smallest one that solves "easy to miss" — a solid dot on the Assigned
+       entry point in both the desktop strip and the mobile dock, shown
+       whenever anyIncompleteAssigned() is true. It is state-derived, not
+       seen/unseen: an assignment stays flagged until it is completed, which
+       needs no new backend state and cannot go stale. */
+    .assigned-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #c9a43a; margin-left: 6px; vertical-align: middle;
+    }
+    .m-tab-ico { position: relative; }
+    .m-tab-dot {
+      position: absolute; top: -2px; right: -4px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #c9a43a; box-shadow: 0 0 0 2px #fff;
+    }
+
     /* Developer preview banner */
     #previewBanner {
       background: #8a6d1d; color: #fff;
@@ -963,6 +981,15 @@
       </div>
 
       <div class="portal-tabs">
+        <!-- Assigned is deliberately FIRST in DOM order: when there is
+             anything assigned-and-incomplete it is shown (and is therefore
+             the leading tab in the strip); when there is nothing to do it is
+             hidden entirely and the strip reads as if it were never there.
+             See refreshAssignedEntryPoint(). -->
+        <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
+          <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
+          <span class="assigned-dot" id="assignedTabDot" hidden aria-hidden="true"></span>
+        </button>
         <button class="portal-tab active" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
         <button class="portal-tab" data-tab="goals" onclick="switchTab('goals')">
           <span class="show-pt">Metas</span><span class="show-en">Goals</span>
@@ -994,30 +1021,38 @@
         <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
           <span class="show-pt">Obras</span><span class="show-en">Jobs</span>
         </button>
-        <button class="portal-tab" data-tab="xray" id="tabBtnXray" hidden onclick="switchTab('xray')">
-          <span class="show-pt">Raio X</span><span class="show-en">X-Ray</span>
-        </button>
-        <button class="portal-tab" data-tab="mgmtxray" id="tabBtnMgmtXray" hidden onclick="switchTab('mgmtxray')">
-          <span class="show-pt">Raio X Gest&atilde;o</span><span class="show-en">Mgmt X-Ray</span>
-        </button>
-        <button class="portal-tab" data-tab="leadxray" id="tabBtnLeadXray" hidden onclick="switchTab('leadxray')">
-          <span class="show-pt">Raio X Lideran&ccedil;a</span><span class="show-en">Leadership X-Ray</span>
-        </button>
-        <button class="portal-tab" data-tab="permxray" id="tabBtnPermXray" hidden onclick="switchTab('permxray')">
-          <span class="show-pt">Permissividade</span><span class="show-en">Permissiveness</span>
-        </button>
-        <button class="portal-tab" data-tab="falhasxray" id="tabBtnFalhasXray" hidden onclick="switchTab('falhasxray')">
-          <span class="show-pt">Raio X Falhas</span><span class="show-en">Failures X-Ray</span>
-        </button>
-        <button class="portal-tab" data-tab="feedback360" id="tabBtnFeedback360" hidden onclick="switchTab('feedback360')">
-          <span class="show-pt">Feedback 360&ordm;</span><span class="show-en">360&ordm; Feedback</span>
-        </button>
-        <button class="portal-tab" data-tab="pilares" id="tabBtnPilares" hidden onclick="switchTab('pilares')">
-          <span class="show-pt">Pilares</span><span class="show-en">Growth Pillars</span>
-        </button>
-        <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
-          <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
-        </button>
+        <!-- Per-assessment tab buttons. These are NEVER shown in the strip
+             (or the More menu) any more, for leads or clients: seven of them
+             turned the nav into a scrolling list and left a finished
+             assessment parked there forever. Every assessment is now reached
+             through the single Assigned entry point above, which routes to
+             this same tab via switchTab(). The buttons stay in the DOM —
+             permanently hidden, outside .portal-tabs so nothing can un-hide
+             them — because loadAssessmentList() and the registry's tabBtnId
+             still address them, and they remain a working direct handle. -->
+        <div hidden id="legacyAssessmentTabBtns">
+          <button data-tab="xray" id="tabBtnXray" hidden onclick="switchTab('xray')">
+            <span class="show-pt">Raio X</span><span class="show-en">X-Ray</span>
+          </button>
+          <button data-tab="mgmtxray" id="tabBtnMgmtXray" hidden onclick="switchTab('mgmtxray')">
+            <span class="show-pt">Raio X Gest&atilde;o</span><span class="show-en">Mgmt X-Ray</span>
+          </button>
+          <button data-tab="leadxray" id="tabBtnLeadXray" hidden onclick="switchTab('leadxray')">
+            <span class="show-pt">Raio X Lideran&ccedil;a</span><span class="show-en">Leadership X-Ray</span>
+          </button>
+          <button data-tab="permxray" id="tabBtnPermXray" hidden onclick="switchTab('permxray')">
+            <span class="show-pt">Permissividade</span><span class="show-en">Permissiveness</span>
+          </button>
+          <button data-tab="falhasxray" id="tabBtnFalhasXray" hidden onclick="switchTab('falhasxray')">
+            <span class="show-pt">Raio X Falhas</span><span class="show-en">Failures X-Ray</span>
+          </button>
+          <button data-tab="feedback360" id="tabBtnFeedback360" hidden onclick="switchTab('feedback360')">
+            <span class="show-pt">Feedback 360&ordm;</span><span class="show-en">360&ordm; Feedback</span>
+          </button>
+          <button data-tab="pilares" id="tabBtnPilares" hidden onclick="switchTab('pilares')">
+            <span class="show-pt">Pilares</span><span class="show-en">Growth Pillars</span>
+          </button>
+        </div>
         <!-- Lead-only desktop entry into the same "Mais" overflow menu the
              mobile dock uses (#mobile-more-menu) — one teaser list, one UI. -->
         <button class="portal-tab" id="portalLeadMoreBtn" hidden onclick="portalMoreToggle()">
@@ -1862,15 +1897,18 @@
       // full daily-log client and would dead-end a prospect on first login.
       // The Business X-Ray wins when both are assigned: it is the deeper
       // diagnostic and the one the lead pipeline's stages track.
-      if ((xrayAssigned || anySinglePageAssigned()) && goalState && !goalState.has_any_goals) {
+      // Only an assessment that is still OPEN justifies jumping straight into
+      // the questionnaire — landing someone on a completed one's done-screen
+      // is a dead end.
+      if (anyIncompleteAssigned() && goalState && !goalState.has_any_goals) {
         showPortal();
         // Business X-Ray wins when several are assigned; otherwise the first
         // assigned single-page instrument in registry order.
         var firstSpa = null;
         SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
-          if (!firstSpa && spaState[t.key].assigned) { firstSpa = t.key; }
+          if (!firstSpa && spaOpen(t.key)) { firstSpa = t.key; }
         });
-        switchTab(xrayAssigned ? "xray" : firstSpa);
+        switchTab(xrayOpen() ? "xray" : firstSpa);
         return;
       }
       if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals)) {
@@ -2295,6 +2333,7 @@
 
     // ── Portal ──────────────────────────────────────────────────────────────
     var tabsLoaded = {};
+    var currentTab = null;   // last tab switchTab() landed on
 
     // Desktop tab strip: leads get only the two real tabs. The locked teasers
     // are reachable via "Mais" (the same overflow pattern mobile uses), which
@@ -2305,14 +2344,31 @@
       document.querySelectorAll(".portal-tab").forEach(function(b) {
         var t = b.getAttribute("data-tab");
         if (!lead) {
-          // client: leave existing visibility alone except the lead-only tab
-          if (t === "assigned") { b.hidden = true; }
+          // Client: leave existing visibility alone. "assigned" is NOT forced
+          // hidden here any more — it is now the shared front door for clients
+          // too, owned entirely by refreshAssignedEntryPoint().
+          if (t === "assigned") { return; }
           return;
         }
         b.hidden = (t !== "assigned" && t !== "documents");
       });
       var moreBtn = document.getElementById("portalLeadMoreBtn");
       if (moreBtn) { moreBtn.hidden = !lead; }
+      refreshAssignedEntryPoint();
+    }
+
+    // Single owner of the Assigned tab button's visibility + badge, for leads
+    // and clients alike. Called from applyPortalShape() and from the existing
+    // loadAssessmentList() refresh cycle — no second polling mechanism.
+    function refreshAssignedEntryPoint() {
+      var on = anyIncompleteAssigned();
+      var btn = document.getElementById("tabBtnAssigned");
+      // Nothing left to do -> the entry point disappears completely, rather
+      // than sitting in the strip (or trailing the More menu) as dead weight.
+      if (btn) { btn.hidden = !on; }
+      var dot = document.getElementById("assignedTabDot");
+      if (dot) { dot.hidden = !on; }
+      populateMobileDock();
     }
 
     function showPortal() {
@@ -2480,6 +2536,7 @@
     SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
       spaState[t.key] = {
         assigned: false,
+        status: null,     // 'not_started' | 'in_progress' | 'completed'
         detail: null,     // GET /assessments/<type> payload
         answers: {},
         view: "intro",    // 'intro' | 'questions' | 'done'
@@ -2496,6 +2553,18 @@
     function anySinglePageAssigned() {
       return SINGLE_PAGE_ASSESSMENTS.some(function(t) { return spaState[t.key].assigned; });
     }
+    // "Assigned" for nav purposes means assigned AND still actionable. A
+    // completed assessment is done business: it drops out of the Assigned tab
+    // and resurfaces under Documents as a report (see loadDocuments()).
+    function spaOpen(key) {
+      return spaState[key].assigned && spaState[key].status !== "completed";
+    }
+    function xrayOpen() {
+      return xrayAssigned && xrayStatus !== "completed";
+    }
+    function anyIncompleteAssigned() {
+      return xrayOpen() || SINGLE_PAGE_ASSESSMENTS.some(function(t) { return spaOpen(t.key); });
+    }
 
     // The only tabs a lead may actually land on. "xray" is here because the
     // Assigned tab opens the real X-Ray; "lockedpreview" is the teaser host
@@ -2509,7 +2578,8 @@
     // Tools Pr. Rafa can assign to a lead. The Business X-Ray is spelled out
     // (it is the only multi-section instrument); every single-page one is
     // derived from SINGLE_PAGE_ASSESSMENTS. `isAssigned` is re-evaluated on
-    // each render against the real assignment data.
+    // each render against the real assignment data, and means "assigned and
+    // not yet completed" — a finished assessment leaves this list.
     var ASSIGNABLE_TOOLS = [
       {
         key: "xray",
@@ -2519,14 +2589,14 @@
         titleEn: "Business X-Ray",
         descPt: "Diagn&oacute;stico completo da sua opera&ccedil;&atilde;o, &aacute;rea por &aacute;rea.",
         descEn: "A full diagnostic of your operation, area by area.",
-        isAssigned: function() { return xrayAssigned; }
+        isAssigned: function() { return xrayOpen(); }
       }
     ].concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) {
       return {
         key: t.key, tab: t.key, icon: t.icon,
         titlePt: t.titlePt, titleEn: t.titleEn,
         descPt: t.descPt, descEn: t.descEn,
-        isAssigned: function() { return spaState[t.key].assigned; }
+        isAssigned: function() { return spaOpen(t.key); }
       };
     }));
 
@@ -2729,8 +2799,19 @@
       { tab: "documents", icon: "file", labelPt: "Documentos",        labelEn: "Documents" }
     ];
 
+    var ASSIGNED_DOCK_TAB = {
+      tab: "assigned", icon: "view", labelPt: "Atribu&iacute;dos", labelEn: "Assigned"
+    };
+
     function portalDockTabs() {
-      return isLead() ? LEAD_DOCK_TABS : PORTAL_DOCK_TABS;
+      if (isLead()) { return LEAD_DOCK_TABS; }
+      // Client: Assigned leads the dock whenever something is waiting, and is
+      // absent entirely when there is nothing to do — same rule as the desktop
+      // strip, so the two never disagree. The bar still holds 4 + "Mais" (see
+      // the note above), so the last fixed tab yields its slot rather than
+      // making the bar overflow; it stays reachable under "Mais".
+      if (!anyIncompleteAssigned()) { return PORTAL_DOCK_TABS; }
+      return [ASSIGNED_DOCK_TAB].concat(PORTAL_DOCK_TABS.slice(0, PORTAL_DOCK_TABS.length - 1));
     }
 
     function portalMoreTabs() {
@@ -2743,14 +2824,18 @@
           };
         });
       }
+      // The per-assessment entries used to be appended here, one per assigned
+      // type — up to seven, on top of the eight fixed ones, which is what made
+      // this menu scroll. They are gone: Assigned is the one entry point, and
+      // it lives in the dock proper, not in the overflow. The only thing added
+      // back is whichever fixed dock tab Assigned displaced, so nothing
+      // becomes unreachable.
       var more = PORTAL_MORE_TABS.slice();
-      if (xrayAssigned) {
-        more.push({ tab: "xray", icon: "view", labelPt: "Raio X", labelEn: "X-Ray" });
-      }
-      SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
-        if (spaState[t.key].assigned) {
-          more.push({ tab: t.key, icon: t.icon, labelPt: t.moreLabelPt, labelEn: t.moreLabelEn });
-        }
+      var docked = portalDockTabs();
+      PORTAL_DOCK_TABS.forEach(function(t) {
+        var stillDocked = docked.some(function(d) { return d.tab === t.tab; });
+        var alreadyListed = more.some(function(m) { return m.tab === t.tab; });
+        if (!stillDocked && !alreadyListed) { more.push(t); }
       });
       return more;
     }
@@ -2761,7 +2846,9 @@
       var html = "";
       portalDockTabs().forEach(function(t) {
         html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
-        html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) + '</span>';
+        html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) +
+          (t.tab === "assigned" && anyIncompleteAssigned()
+            ? '<span class="m-tab-dot" aria-hidden="true"></span>' : '') + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
         html += '</button>';
       });
@@ -2792,7 +2879,10 @@
         menuHtml += '</nav>';
         menu.innerHTML = menuHtml;
       }
-      updateMobileDockActive(isLead() ? "assigned" : "analytics");
+      // The dock is now rebuilt mid-session (whenever the assignment set
+      // changes), so it must re-highlight the tab the user is actually on
+      // rather than snapping back to the boot tab.
+      updateMobileDockActive(currentTab || (isLead() ? "assigned" : "analytics"));
     }
 
     function portalMoreToggle() {
@@ -2825,6 +2915,7 @@
         if (lockedPreviewMeta(tab)) { openLockedPreview(tab); return; }
         tab = "assigned";
       }
+      currentTab = tab;
       document.querySelectorAll(".portal-tab").forEach(function(b) {
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
@@ -2877,6 +2968,8 @@
     // Question bank + scoring live in the Worker; this only renders and
     // autosaves answers (server-side drafts, same idea as the daily entry).
     var xrayAssigned  = false;
+    var xrayStatus    = null;   // 'not_started' | 'in_progress' | 'completed'
+    var assessmentsCache = [];  // last GET /assessments payload (status + labels)
     var xrayDetail    = null;   // GET /assessments/business_xray payload
     var xrayAnswers   = {};
     var xrayProfile   = {};     // Part 2 practice profile — separate from scored answers
@@ -2890,16 +2983,34 @@
         .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
         .then(function(data) {
           var list = (data && data.assessments) || [];
-          xrayAssigned = list.some(function(a) { return a.assessment_type === "business_xray"; });
-          // For a lead the assessments are reached through the Assigned tab, so
-          // they never get their own strip button — one entry point, not two.
-          var btn = document.getElementById("tabBtnXray");
-          if (btn) { btn.hidden = !xrayAssigned || isLead(); }
+          // Cached so the Documents tab can list completed assessments without
+          // a second round trip — this response already carries status and the
+          // labels, so no new endpoint was needed.
+          assessmentsCache = list;
+          function rowFor(type) {
+            var found = null;
+            list.forEach(function(a) { if (a.assessment_type === type) { found = a; } });
+            return found;
+          }
+          var xr = rowFor("business_xray");
+          xrayAssigned = !!xr;
+          xrayStatus = xr ? xr.status : null;
           SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
-            spaState[t.key].assigned = list.some(function(a) { return a.assessment_type === t.type; });
-            var b = document.getElementById(t.tabBtnId);
-            if (b) { b.hidden = !spaState[t.key].assigned || isLead(); }
+            var row = rowFor(t.type);
+            spaState[t.key].assigned = !!row;
+            spaState[t.key].status = row ? row.status : null;
           });
+          // Every assessment is now reached through the single Assigned entry
+          // point — for clients as well as leads — so the per-type strip
+          // buttons stay hidden unconditionally and the Assigned button's
+          // visibility/badge is recomputed here, on this same refresh cycle.
+          var btn = document.getElementById("tabBtnXray");
+          if (btn) { btn.hidden = true; }
+          SINGLE_PAGE_ASSESSMENTS.forEach(function(t) {
+            var b = document.getElementById(t.tabBtnId);
+            if (b) { b.hidden = true; }
+          });
+          refreshAssignedEntryPoint();
           return list;
         });
     }
@@ -3352,7 +3463,12 @@
           xrayDetail.status = "completed";
           xrayDetail.score = d.score;
           xrayDetail.completed_at = new Date().toISOString();
+          xrayStatus = "completed";
           xrayView = "done";
+          // Finishing here is what removes this card from Assigned (and, if it
+          // was the last one, the Assigned entry point itself) and adds the
+          // report to Documents — without waiting for a reload.
+          onAssessmentCompleted("business_xray");
           renderXray();
           window.scrollTo(0, 0);
         })
@@ -3733,7 +3849,9 @@
           st.detail.status = "completed";
           st.detail.score = d.score;
           st.detail.completed_at = new Date().toISOString();
+          st.status = "completed";
           st.view = "done";
+          onAssessmentCompleted(spaConf(key).type);
           renderSpa(key);
           window.scrollTo(0, 0);
         })
@@ -4681,32 +4799,112 @@
     }
 
     // Documents — reuses the existing documents feature, scoped to this client.
+    // Two sections now, grouped the same way the Goals tab groups by section
+    // (a .kpi-section-title heading per group, one body under it):
+    //   1. the plain document list (uploaded files + generated reports), and
+    //   2. completed assessments, each linking to its own report page.
+    // Section 2 is where an assessment goes once it is finished and leaves the
+    // Assigned tab, so a completed diagnostic is still one tap away.
     var documentsCache = [];
     function loadDocuments() {
       apiFetch("/api/clients/" + clientId + "/documents")
         .then(function(res) { return res.json(); })
         .then(function(d) {
           documentsCache = d.documents || [];
+          var html = '<div class="kpi-section-title">' +
+            '<span class="show-pt">Arquivos e relat&oacute;rios</span>' +
+            '<span class="show-en">Files and reports</span></div>';
           if (!documentsCache.length) {
-            document.getElementById("documentsBody").innerHTML =
-              '<p class="muted">' + (isEn() ? "No documents yet." : "Nenhum documento ainda.") + '</p>';
-            return;
+            html += '<p class="muted">' + (isEn() ? "No documents yet." : "Nenhum documento ainda.") + '</p>';
+          } else {
+            documentsCache.forEach(function(doc, i) {
+              html += '<div class="list-row"><div class="list-main">' +
+                '<div class="list-title">' + escHtml(doc.title) + '</div>' +
+                '<div class="list-sub">' + formatDate((doc.date || "").slice(0, 10)) +
+                (doc.kind === "generated"
+                  ? ' · <span class="show-pt">Relatório</span><span class="show-en">Report</span>'
+                  : ' · <span class="show-pt">Arquivo</span><span class="show-en">File</span>') + '</div>' +
+                '</div>' +
+                '<button class="btn-outline" onclick="openDocument(' + i + ')">' +
+                (isEn() ? "View" : "Ver") + '</button></div>';
+            });
           }
-          var html = "";
-          documentsCache.forEach(function(doc, i) {
-            html += '<div class="list-row"><div class="list-main">' +
-              '<div class="list-title">' + escHtml(doc.title) + '</div>' +
-              '<div class="list-sub">' + formatDate((doc.date || "").slice(0, 10)) +
-              (doc.kind === "generated"
-                ? ' · <span class="show-pt">Relatório</span><span class="show-en">Report</span>'
-                : ' · <span class="show-pt">Arquivo</span><span class="show-en">File</span>') + '</div>' +
-              '</div>' +
-              '<button class="btn-outline" onclick="openDocument(' + i + ')">' +
-              (isEn() ? "View" : "Ver") + '</button></div>';
-          });
+          html += completedAssessmentsHtml();
           document.getElementById("documentsBody").innerHTML = html;
         })
         .catch(function() {});
+    }
+
+    // Every assessment this client has finished, newest section of the
+    // Documents tab. Reads assessmentsCache — the same
+    // GET /api/clients/:id/assessments payload the nav already loads, which
+    // carries `status` and `completed_at` — so this needs no new endpoint and
+    // no second fetch. Each row opens that instrument's own report page via
+    // the existing xrayOpenReport()/spaOpenReport() helpers.
+    function completedAssessmentsList() {
+      var out = [];
+      (assessmentsCache || []).forEach(function(a) {
+        if (a.status !== "completed") { return; }
+        if (a.assessment_type === "business_xray") {
+          out.push({
+            titlePt: "Raio X Empresarial", titleEn: "Business X-Ray",
+            completedAt: a.completed_at, open: "xrayOpenReport()"
+          });
+          return;
+        }
+        var conf = null;
+        SINGLE_PAGE_ASSESSMENTS.forEach(function(t) { if (t.type === a.assessment_type) { conf = t; } });
+        if (!conf) { return; }
+        out.push({
+          titlePt: conf.titlePt, titleEn: conf.titleEn,
+          completedAt: a.completed_at, open: "spaOpenReport('" + conf.key + "')"
+        });
+      });
+      return out;
+    }
+
+    function completedAssessmentsHtml() {
+      var done = completedAssessmentsList();
+      var html = '<div class="kpi-section-title" style="margin-top:18px;">' +
+        '<span class="show-pt">Diagn&oacute;sticos e relat&oacute;rios conclu&iacute;dos</span>' +
+        '<span class="show-en">Completed assessments &amp; reports</span></div>';
+      if (!done.length) {
+        return html + '<p class="muted">' +
+          '<span class="show-pt">Nenhum diagn&oacute;stico conclu&iacute;do ainda.</span>' +
+          '<span class="show-en">No completed assessments yet.</span></p>';
+      }
+      done.forEach(function(a) {
+        html += '<div class="list-row"><div class="list-main">' +
+          '<div class="list-title"><span class="show-pt">' + a.titlePt + '</span>' +
+          '<span class="show-en">' + a.titleEn + '</span></div>' +
+          '<div class="list-sub">' +
+          (a.completedAt
+            ? formatDate((a.completedAt || "").slice(0, 10)) + ' · '
+            : '') +
+          '<span class="show-pt">Conclu&iacute;do</span><span class="show-en">Completed</span>' +
+          '</div></div>' +
+          '<button class="btn-outline" onclick="' + a.open + '">' +
+          '<span class="show-pt">Ver relat&oacute;rio</span><span class="show-en">View report</span>' +
+          '</button></div>';
+      });
+      return html;
+    }
+
+    // Called the moment an assessment is submitted, so the nav reflects it
+    // without a reload: the card leaves Assigned, the badge/entry point
+    // disappears if that was the last open item, and the Documents tab
+    // re-renders with the new report row on next entry.
+    function onAssessmentCompleted(type) {
+      for (var i = 0; i < (assessmentsCache || []).length; i++) {
+        if (assessmentsCache[i].assessment_type === type) {
+          assessmentsCache[i].status = "completed";
+          if (!assessmentsCache[i].completed_at) {
+            assessmentsCache[i].completed_at = new Date().toISOString();
+          }
+        }
+      }
+      tabsLoaded.documents = false;
+      refreshAssignedEntryPoint();
     }
 
     function openDocument(i) {

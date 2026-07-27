@@ -1170,6 +1170,57 @@
       rotina:           { pt: "Rotina",              en: "Routine" }
     };
 
+    // ===== TEMPORARY DIAGNOSTIC — REMOVE ONCE PREVIEW-AS BUG IS FIXED =====
+    // Append-only trace in localStorage (survives navigation). Also traps the
+    // actual navigation so we capture WHO redirects, with a stack trace,
+    // instead of inferring it from surrounding markers.
+    var APEX_DBG_SEQ = 0;
+    var APEX_DBG_PAGE = String(Math.floor(Math.random() * 1e9));
+    function APEX_DBG(tag, data) {
+      try {
+        var log = JSON.parse(localStorage.getItem("apex_debug_trace") || "[]");
+        log.push({
+          seq: ++APEX_DBG_SEQ, page: APEX_DBG_PAGE, tag: tag,
+          at: new Date().toISOString(), href: window.location.href,
+          data: data || null
+        });
+        while (log.length > 80) { log.shift(); }
+        localStorage.setItem("apex_debug_trace", JSON.stringify(log));
+      } catch (e) {}
+    }
+    APEX_DBG("script:parse", { search: window.location.search });
+    (function trapNav() {
+      try {
+        var loc = window.location;
+        ["assign", "replace"].forEach(function(fn) {
+          var orig = loc[fn].bind(loc);
+          try {
+            loc[fn] = function(u) {
+              APEX_DBG("location." + fn, { target: String(u), stack: new Error().stack });
+              return orig(u);
+            };
+          } catch (e) { APEX_DBG("trap:failed", { fn: fn, err: String(e) }); }
+        });
+      } catch (e) { APEX_DBG("trap:outer-failed", { err: String(e) }); }
+      // window.location.href = "..." cannot be intercepted, so every in-page
+      // assignment is wrapped by navTo() below instead.
+      window.addEventListener("beforeunload", function() {
+        APEX_DBG("beforeunload", {});
+      });
+      window.addEventListener("error", function(ev) {
+        APEX_DBG("window:error", { msg: String(ev.message), src: String(ev.filename), line: ev.lineno });
+      });
+      window.addEventListener("unhandledrejection", function(ev) {
+        APEX_DBG("window:unhandledrejection", { reason: String(ev.reason && ev.reason.message || ev.reason) });
+      });
+    })();
+    // Single choke point for every deliberate navigation in this file.
+    function navTo(url, why) {
+      APEX_DBG("navTo", { target: String(url), why: why || null, stack: new Error().stack });
+      window.location.href = url;
+    }
+    // ===== END TEMPORARY DIAGNOSTIC =====
+
     var currentUser = null;       // firebase user (google client) or null
     var clientToken = null;       // capt_ token (password client) or null
     var clientId    = null;
@@ -1201,7 +1252,7 @@
     function previewSwitchClient() {
       if (window.apexNavSetView) { window.apexNavSetView("client"); }
     }
-    function previewExit() { window.location.href = "dashboard.html"; }
+    function previewExit() { navTo("dashboard.html", "previewExit"); }
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -1299,7 +1350,7 @@
       localStorage.removeItem("apex_client_token");
       localStorage.removeItem("apex_client_id");
       localStorage.removeItem("apex_client_name");
-      window.location.href = "index.html";
+      navTo("index.html", "goToLogin");
     }
 
     function handleSignOut() {
@@ -1721,6 +1772,7 @@
     // Decides what the client sees right after login (runs BEFORE the
     // pending-days logic). Preview mode skips every gate.
     function decideBootView() {
+      APEX_DBG("decideBootView:enter", { previewAs: PREVIEW_AS, clientId: clientId, clientStatus: clientStatus, xrayAssigned: xrayAssigned, hasGoalState: !!goalState, hasEntryState: !!entryState });
       if (PREVIEW_AS) { showPortal(); return; }
       // A lead never sees the goal or daily-entry gates — those belong to the
       // full client engagement. They land on Assigned (showPortal picks it).
@@ -2165,6 +2217,7 @@
     // is shown on desktop for leads since there is no room for it in a 2-tab
     // strip and the teaser list is the whole point of the lead experience.
     function applyPortalShape() {
+      APEX_DBG("applyPortalShape:enter", { clientStatus: clientStatus, isLead: isLead() });
       var lead = isLead();
       document.querySelectorAll(".portal-tab").forEach(function(b) {
         var t = b.getAttribute("data-tab");
@@ -2180,6 +2233,7 @@
     }
 
     function showPortal() {
+      APEX_DBG("showPortal:enter", { clientId: clientId, clientName: clientName, clientStatus: clientStatus, previewAs: PREVIEW_AS });
       document.getElementById("portalClientName").textContent = clientName;
       document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
       loadPortalLogo();
@@ -4064,32 +4118,31 @@
 
     // ── Bootstrap ───────────────────────────────────────────────────────────
     function bootAfterAuth() {
+      APEX_DBG("bootAfterAuth:enter", { previewAs: PREVIEW_AS, hasCurrentUser: !!currentUser, hasClientToken: !!clientToken });
       return apiFetch("/api/role")
         .then(function(res) { if (!res.ok) { throw new Error("auth"); } return res.json(); })
         .then(function(role) {
           // ===== TEMPORARY DIAGNOSTIC — REMOVE ONCE PREVIEW-AS BUG IS FIXED =====
-          try {
-            localStorage.setItem("apex_debug_role", JSON.stringify({
-              role: role,
-              previewAs: PREVIEW_AS,
-              url: window.location.href,
-              search: window.location.search,
-              hasClientToken: !!clientToken,
-              hasCurrentUser: !!currentUser,
-              at: new Date().toISOString()
-            }));
-          } catch (e) {}
+          APEX_DBG("bootAfterAuth:role", {
+            role: role,
+            previewAs: PREVIEW_AS,
+            url: window.location.href,
+            search: window.location.search,
+            hasClientToken: !!clientToken,
+            hasCurrentUser: !!currentUser,
+            branchWouldRedirect: (role.role !== "client") && !(PREVIEW_AS && role.role === "developer")
+          });
           // ===== END TEMPORARY DIAGNOSTIC =====
           if (role.role !== "client") {
             // Developer preview-as: developers with ?previewAs stay here in
             // read-only mode. Every other admin goes to their own dashboard.
             if (!(PREVIEW_AS && role.role === "developer")) {
-              window.location.href = "dashboard.html";
+              navTo("dashboard.html", "bootAfterAuth:not-client-branch");
               throw new Error("redirect");
             }
           } else if (PREVIEW_AS) {
             // a real client with a stray previewAs param — drop it
-            window.location.href = "portal.html";
+            navTo("portal.html", "bootAfterAuth:client-with-stray-previewAs");
             throw new Error("redirect");
           }
           if (role.role === "client" && role.must_change_password) {
@@ -4104,6 +4157,7 @@
           });
         })
         .then(function(me) {
+          APEX_DBG("bootAfterAuth:me", { client_id: me.client_id, name: me.name, status: me.status });
           clientId = me.client_id;
           clientName = me.name || "";
           // Live off clients.status, re-read server-side on every portal load.
@@ -4122,6 +4176,7 @@
           ]);
         })
         .then(function(results) {
+          APEX_DBG("bootAfterAuth:loaded", { clientId: clientId, clientStatus: clientStatus });
           fieldConfig = results[0];
           document.getElementById("loadingScreen").hidden = true;
           document.getElementById("appMain").hidden = false;
@@ -4130,6 +4185,7 @@
           decideBootView();
         })
         .catch(function(e) {
+          APEX_DBG("bootAfterAuth:catch", { msg: String(e && e.message), stack: String(e && e.stack) });
           if (e && (e.message === "redirect" || e.message === "halt")) { return; }
           goToLogin();
         });
@@ -4152,12 +4208,14 @@
       firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth();
       auth.onAuthStateChanged(function(user) {
+        APEX_DBG("onAuthStateChanged", { hasUser: !!user, email: user && user.email });
         if (!user) { goToLogin(); return; }
         currentUser = user;
         bootAfterAuth();
       });
     }
 
+    APEX_DBG("init:call", {});
     init();
   </script>
   <script src="gm.js"></script>

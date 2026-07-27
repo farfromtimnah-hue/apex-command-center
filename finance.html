@@ -2321,6 +2321,7 @@
 
       window.initNav && window.initNav();
       initHeroBg("financeHeroBg", "financeHeroScrim");
+      loadMessageTemplates();
       loadOverview();
       loadChartData();
       loadSubscriptions();
@@ -2893,7 +2894,7 @@
             : inv.status === "draft" ? "inv-status-draft"
             : "inv-status-unpaid";
         var statusLabel = inv.status === "paid" ? "Paga" : inv.status === "overdue" ? "Vencida" : inv.status === "draft" ? "Rascunho" : "A Pagar";
-        var invPath = "https://farfromtimnah-hue.github.io/apex-command-center/templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
+        var invPath = "https://apex.resonateai.online/templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
         var invPathLocal = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
         var mcIcon = window.apexMcIcon || function () { return ""; };
         html += '<tr>';
@@ -2960,6 +2961,23 @@
         });
     }
 
+    // Pre-fetched at page load (see setupPage) so doSendInvoiceWhatsApp() never
+    // needs an await between opening the blank tab and navigating it -- any
+    // fetch there risks a blocked popup (see bugs/apex-whatsapp-popup-blocked.md).
+    var messageTemplates = null;
+
+    function loadMessageTemplates() {
+      apiFetch("/api/settings/templates")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          messageTemplates = {};
+          (data.templates || []).forEach(function(t) {
+            messageTemplates[t.template_key] = t.template_text;
+          });
+        })
+        .catch(function() { messageTemplates = null; });
+    }
+
     // Enviar via WhatsApp (unpaid tab): opens WhatsApp with the invoice link.
     // window.open() is called synchronously as the first line, before any
     // await, so browsers do not treat it as a blocked popup.
@@ -3001,7 +3019,9 @@
     }
 
     function doSendInvoiceWhatsApp(invoiceId, invoiceLink, btn, waWindow) {
-      var message = "Ola! Segue a fatura para sua aprovacao:\n" + invoiceLink;
+      var tpl = (messageTemplates && messageTemplates.invoice_send) ||
+        "Ola! Segue a fatura para sua aprovacao:\n{invoiceLink}";
+      var message = tpl.split("{invoiceLink}").join(invoiceLink);
       var waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
       if (waWindow) {
         waWindow.location.href = waUrl;

@@ -1735,7 +1735,9 @@ function gmShareReferralLink() {
   var row = gmSheetRow;
   var url = gmReferralUrl(row);
   if (!url) { return; }
-  var text = gmT("Peça um orçamento por este link: ", "Request a quote through this link: ") + url;
+  var tpl = (gmConfig && gmConfig.referral_share_template) ||
+    gmT("Peça um orçamento por este link: {referralUrl}", "Request a quote through this link: {referralUrl}");
+  var text = tpl.split("{referralUrl}").join(url);
   if (navigator.share) {
     navigator.share({ title: row.name, text: text, url: url }).catch(function() {});
   } else {

@@ -2579,6 +2579,7 @@
 
     function loadClientPage() {
       initSectionOrder();
+      loadMessageTemplates();
       loadClient();
       loadSessions();
       loadNotes();
@@ -2600,6 +2601,24 @@
 
     var portalLoginStatus = null;
     var generatedCredentials = null;   // { username, temp_password } — shown once
+
+    // Pre-fetched at page load (see loadMessageTemplates) so sendLoginViaWhatsapp()
+    // can build the wa.me URL and call window.open() synchronously in the click
+    // handler -- any await first risks a blocked popup (see
+    // bugs/apex-whatsapp-popup-blocked.md).
+    var messageTemplates = null;
+
+    function loadMessageTemplates() {
+      apiFetch("/api/settings/templates")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          messageTemplates = {};
+          (data.templates || []).forEach(function(t) {
+            messageTemplates[t.template_key] = t.template_text;
+          });
+        })
+        .catch(function() { messageTemplates = null; });
+    }
 
     function loadPortalAccess() {
       apiFetch("/api/clients/" + CLIENT_ID + "/login")
@@ -2665,12 +2684,17 @@
       if (!generatedCredentials) { return; }
       // window.open must run synchronously in the click handler — any await gap
       // before it lets the popup blocker fire (confirmed project lesson).
-      var loginUrl = "https://farfromtimnah-hue.github.io/apex-command-center/index.html";
-      var msg = "Olá! Seu acesso ao Portal do Cliente Apex está pronto.\n\n" +
-        "Link: " + loginUrl + "\n" +
-        "Usuário: " + generatedCredentials.username + "\n" +
-        "Senha temporária: " + generatedCredentials.temp_password + "\n\n" +
+      var loginUrl = "https://apex.resonateai.online/index.html";
+      var tpl = (messageTemplates && messageTemplates.client_login) ||
+        "Olá! Seu acesso ao Portal do Cliente Apex está pronto.\n\n" +
+        "Link: {loginUrl}\n" +
+        "Usuário: {username}\n" +
+        "Senha temporária: {tempPassword}\n\n" +
         "No primeiro acesso você vai criar uma senha nova.";
+      var msg = tpl
+        .split("{loginUrl}").join(loginUrl)
+        .split("{username}").join(generatedCredentials.username)
+        .split("{tempPassword}").join(generatedCredentials.temp_password);
       var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");
       var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
                   "?text=" + encodeURIComponent(msg);

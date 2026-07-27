@@ -1474,6 +1474,50 @@
     }
 
     // ── Make a single template card ────────────────────────────────────────
+    // Bilingual title per known template key; unknown keys fall back to the
+    // raw key name.
+    var TEMPLATE_TITLES = {
+      session_in_person: { pt: "Sess&#227;o Presencial", en: "In-Person Session" },
+      session_online: { pt: "Sess&#227;o Online", en: "Online Session" },
+      client_login: { pt: "Acesso ao Portal do Cliente", en: "Client Portal Access" },
+      invoice_send: { pt: "Envio de Fatura", en: "Invoice Send" },
+      portal_help_request: { pt: "Pedido de Ajuda (Portal)", en: "Help Request (Portal)" },
+      resource_send: { pt: "Envio de Recurso", en: "Resource Send" },
+      partner_referral_share: { pt: "Compartilhar Link de Indica&#231;&#227;o", en: "Referral Link Share" }
+    };
+
+    // Per-key token hint — only the tokens that key actually substitutes.
+    var TEMPLATE_TOKEN_HINTS = {
+      session_in_person: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>. Estas s&#227;o preenchidas automaticamente ao enviar a mensagem.',
+        en: 'Available tokens: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>. These are filled in automatically when the message is sent.'
+      },
+      session_online: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. Estas s&#227;o preenchidas automaticamente ao enviar a mensagem.',
+        en: 'Available tokens: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. These are filled in automatically when the message is sent.'
+      },
+      client_login: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.',
+        en: 'Available tokens: <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.'
+      },
+      invoice_send: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{invoiceLink}</code>.',
+        en: 'Available token: <code>{invoiceLink}</code>.'
+      },
+      portal_help_request: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{clientName}</code>, <code>{label}</code>.',
+        en: 'Available tokens: <code>{clientName}</code>, <code>{label}</code>.'
+      },
+      resource_send: {
+        pt: 'Esta mensagem n&#227;o usa vari&#225;veis — o t&#237;tulo e o link do recurso s&#227;o anexados automaticamente.',
+        en: 'This message has no tokens — the resource title and link are appended automatically.'
+      },
+      partner_referral_share: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{referralUrl}</code>.',
+        en: 'Available token: <code>{referralUrl}</code>.'
+      }
+    };
+
     function makeTemplateCard(tpl) {
       var key = tpl.template_key || "";
 
@@ -1483,14 +1527,11 @@
       // Title — bilingual for known keys; raw key fallback for unknown
       var titleEl = document.createElement("div");
       titleEl.className = "template-card-title";
-      if (key === "session_in_person") {
+      var titles = TEMPLATE_TITLES[key];
+      if (titles) {
         titleEl.innerHTML =
-          '<span class="show-pt">Sess&#227;o Presencial</span>' +
-          '<span class="show-en">In-Person Session</span>';
-      } else if (key === "session_online") {
-        titleEl.innerHTML =
-          '<span class="show-pt">Sess&#227;o Online</span>' +
-          '<span class="show-en">Online Session</span>';
+          '<span class="show-pt">' + titles.pt + '</span>' +
+          '<span class="show-en">' + titles.en + '</span>';
       } else {
         titleEl.textContent = key;
       }
@@ -1502,23 +1543,16 @@
       textarea.value = tpl.template_text || "";
       card.appendChild(textarea);
 
-      // Placeholder hint — tokens listed in HTML, no accented chars in JS strings
-      var hint = document.createElement("div");
-      hint.className = "template-hint";
-      hint.innerHTML =
-        '<span class="show-pt">' +
-          'Vari&#225;veis dispon&#237;veis: ' +
-          '<code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. ' +
-          'Estas s&#227;o preenchidas automaticamente ao enviar a mensagem. ' +
-          '<code>{meetLink}</code> aplica-se apenas a sess&#245;es online.' +
-        '</span>' +
-        '<span class="show-en">' +
-          'Available tokens: ' +
-          '<code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. ' +
-          'These are filled in automatically when the message is sent. ' +
-          '<code>{meetLink}</code> only applies to online sessions.' +
-        '</span>';
-      card.appendChild(hint);
+      // Placeholder hint — per-key tokens only; unknown keys get no hint.
+      var hints = TEMPLATE_TOKEN_HINTS[key];
+      if (hints) {
+        var hint = document.createElement("div");
+        hint.className = "template-hint";
+        hint.innerHTML =
+          '<span class="show-pt">' + hints.pt + '</span>' +
+          '<span class="show-en">' + hints.en + '</span>';
+        card.appendChild(hint);
+      }
 
       // Meta line (updated_at / updated_by) — use a container so it can be refreshed
       var metaEl = document.createElement("div");

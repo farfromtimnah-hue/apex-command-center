@@ -834,6 +834,7 @@
 
       window.initNav && window.initNav();
       initHeroBg("heroBgImage", "heroBgScrim");
+      loadMessageTemplates();
       loadClients();
       loadPendingResources();
     }
@@ -885,9 +886,32 @@
       strip.hidden   = false;
     }
 
+    // Pre-fetched at page load (see setupPage) so handleSendResource() can
+    // build the wa.me URL and call window.open() synchronously in the click
+    // handler -- any await first risks a blocked popup (see
+    // bugs/apex-whatsapp-popup-blocked.md).
+    var messageTemplates = null;
+
+    function loadMessageTemplates() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          messageTemplates = {};
+          (data.templates || []).forEach(function(t) {
+            messageTemplates[t.template_key] = t.template_text;
+          });
+        })
+        .catch(function() { messageTemplates = null; });
+    }
+
     // Client-facing WhatsApp message is PT-only (standing project decision).
     function buildResourceMessage(p) {
-      var lines = ["Olá! Segue uma recomendação da Apex Business & Leadership:", "", p.title];
+      var introTpl = (messageTemplates && messageTemplates.resource_send) ||
+        "Olá! Segue uma recomendação da Apex Business & Leadership:";
+      var lines = [introTpl, "", p.title];
       if (p.description) { lines.push(p.description); }
       if (p.resource_type === "contact") {
         var parts = [];

@@ -2469,7 +2469,9 @@ var WEEKDAYS_PT = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "
 
 var DEFAULT_WHATSAPP_TEMPLATES = {
     session_in_person: "Olá! Sua sessão de consultoria está agendada para {weekday}, {date} às {time}.",
-    session_online: "Olá! Sua sessão de consultoria está agendada para {weekday}, {date} às {time}. Acesse aqui: {meetLink}"
+    session_online: "Olá! Sua sessão de consultoria está agendada para {weekday}, {date} às {time}. Acesse aqui: {meetLink}",
+    portal_help_request: "Oi Rafa! Aqui é {clientName}. Preciso de ajuda com \"{label}\" no Portal Apex. Os números estão na sua aba de tarefas.",
+    partner_referral_share: "Peça um orçamento por este link: {referralUrl}"
 };
 
 async function handlePostSessionWhatsapp(sessionId, request, env) {
@@ -8861,13 +8863,20 @@ async function handleGetPortalMe(request, env) {
             "SELECT id, name, logo_url, industry, location FROM clients WHERE id = ?"
         ).bind(previewClientId || user.client_id).first();
         if (!client) { return jsonErr("Client not found", 404); }
+        var helpTemplateRow = await env.DB.prepare(
+            "SELECT template_text FROM message_templates WHERE template_key = ?"
+        ).bind("portal_help_request").first();
+        var helpTemplateText = (helpTemplateRow && helpTemplateRow.template_text)
+            ? helpTemplateRow.template_text
+            : DEFAULT_WHATSAPP_TEMPLATES.portal_help_request;
         return jsonOk({
             client_id: client.id, name: client.name,
             has_logo: !!client.logo_url,
             industry: client.industry, location: client.location,
             username: user.username || null,
             auth_method: user.auth_method,
-            must_change_password: !!user.must_change_password
+            must_change_password: !!user.must_change_password,
+            help_request_template: helpTemplateText
         });
     } catch (e) {
         return jsonErr("Error fetching portal profile: " + e.message, 500);
@@ -10677,8 +10686,15 @@ async function handleGetGmConfig(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var config = await gmGetConfig(env, id);
+        var referralTemplateRow = await env.DB.prepare(
+            "SELECT template_text FROM message_templates WHERE template_key = ?"
+        ).bind("partner_referral_share").first();
+        var referralTemplateText = (referralTemplateRow && referralTemplateRow.template_text)
+            ? referralTemplateRow.template_text
+            : DEFAULT_WHATSAPP_TEMPLATES.partner_referral_share;
         return jsonOk({
             config: config,
+            referral_share_template: referralTemplateText,
             method: {
                 stages: GM_STAGES,
                 active_pipeline_stages: GM_ACTIVE_PIPELINE_STAGES,

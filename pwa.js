@@ -41,6 +41,37 @@
     setInterval(checkVersion, VERSION_CHECK_INTERVAL_MS);
   }
 
+  // ── bfcache (back-forward cache) restore ────────────────────────────────
+  // Safari's bfcache is far more aggressive than Chrome's: on back/forward
+  // navigation, and on reopening a recently-closed tab, WebKit can restore a
+  // fully-alive page — already-executed JS, already-rendered DOM — WITHOUT
+  // re-running any script or refetching the HTML. The page's only signal that
+  // this happened is pageshow's event.persisted flag.
+  //
+  // This is a THIRD staleness path, distinct from the two fixed on 2026-07-25
+  // (d3203b2): the service worker is not involved at all (the HTML is never
+  // refetched, so nothing consults sw.js), and the version-check poll above
+  // does not save us either — setInterval is paused while the page sits in
+  // bfcache and may be discarded outright, so a restored page can show stale
+  // content for up to a full VERSION_CHECK_INTERVAL_MS after it reappears.
+  // Confirmed live in Safari on 2026-07-27: portal.html rendered pre-fix
+  // content while a fetch() from that same tab's console returned the fixed
+  // HTML, proving the network layer was correct and the DOM was restored.
+  //
+  // Force a real reload rather than trusting restored in-memory state. This
+  // does not fight the eight per-page pageshow handlers that call
+  // fetchAndApplyRole() — those re-validate the user's ROLE on a restore but
+  // deliberately keep the rendered DOM; reloading supersedes them, and their
+  // work is redone by the fresh load's own init().
+  function setupBfcacheReload() {
+    window.addEventListener("pageshow", function (evt) {
+      if (!evt.persisted) { return; }   // normal load; init() already ran
+      if (reloaded) { return; }
+      reloaded = true;
+      window.location.reload();
+    });
+  }
+
   function isStandalone() {
     if (window.navigator.standalone === true) { return true; }
     if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) { return true; }
@@ -122,5 +153,11 @@
   window.addEventListener("load", registerServiceWorker);
   window.addEventListener("load", setupPullToRefresh);
   window.addEventListener("load", setupVersionCheck);
+
+  // Registered immediately, NOT on "load" — a bfcache restore fires pageshow
+  // without firing load, so a load-gated registration would never be attached
+  // on the very restore it exists to catch. (pwa.js is deferred, so the
+  // document is already parsed by the time this runs.)
+  setupBfcacheReload();
 
 })();

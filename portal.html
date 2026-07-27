@@ -608,6 +608,57 @@
     .xray-pill.p-critico  { background: rgba(180,64,64,0.14);  color: #b44040; }
     .xray-score-big { font-size: 34px; font-weight: 700; }
     .xray-score-big .of { font-size: 16px; color: var(--muted); font-weight: 600; }
+
+    /* Lead teaser menu on DESKTOP. mobile.css intentionally keeps every
+       #mobile-more-menu rule (including .mm-open's fixed positioning) inside
+       its max-width media query, so above 768px the menu would open unstyled.
+       Rather than editing that shared file's hard rules, the portal restyles
+       the same container for its own desktop use — same markup, same
+       populateMobileDock() output, no second overflow-menu implementation. */
+    @media (min-width: 769px) {
+      #mobile-more-menu.mm-open {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        inset: 0;
+        z-index: 960;
+        background: rgba(20, 18, 16, 0.97);
+        padding: 48px;
+        overflow-y: auto;
+      }
+      #mobile-more-menu .mm-head {
+        display: flex; align-items: center; justify-content: space-between;
+        margin: 0 auto 22px; width: 100%; max-width: 640px;
+      }
+      #mobile-more-menu .mm-title {
+        font-family: 'Inter', sans-serif; font-size: 19px; font-weight: 700;
+        color: #f9f7f4; letter-spacing: 0.4px;
+      }
+      #mobile-more-menu .mm-close {
+        width: 44px; height: 44px; display: flex; align-items: center;
+        justify-content: center; background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.14); border-radius: 12px;
+        color: #f9f7f4; font-size: 22px; line-height: 1; cursor: pointer;
+        font-family: 'Inter', sans-serif;
+      }
+      #mobile-more-menu .mm-list {
+        display: flex; flex-direction: column; gap: 10px;
+        width: 100%; max-width: 640px; margin: 0 auto;
+      }
+      #mobile-more-menu .mm-item {
+        display: flex; align-items: center; gap: 14px; min-height: 56px;
+        padding: 14px 16px; background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+        color: #f9f7f4; font-family: 'Inter', sans-serif; font-size: 15px;
+        cursor: pointer; text-align: left;
+      }
+      #mobile-more-menu .mm-item .mm-item-ico {
+        width: 22px; height: 22px; flex: 0 0 22px; color: #C9A43A;
+      }
+      #mobile-more-menu .mm-item .mm-item-chevron {
+        margin-left: auto; font-size: 12px; opacity: 0.7;
+      }
+    }
   </style>
 </head>
 <body class="lang-pt">
@@ -893,6 +944,14 @@
         <button class="portal-tab" data-tab="xray" id="tabBtnXray" hidden onclick="switchTab('xray')">
           <span class="show-pt">Raio X</span><span class="show-en">X-Ray</span>
         </button>
+        <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
+          <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
+        </button>
+        <!-- Lead-only desktop entry into the same "Mais" overflow menu the
+             mobile dock uses (#mobile-more-menu) — one teaser list, one UI. -->
+        <button class="portal-tab" id="portalLeadMoreBtn" hidden onclick="portalMoreToggle()">
+          <span class="show-pt">Mais &#128274;</span><span class="show-en">More &#128274;</span>
+        </button>
         <button class="portal-tab" data-tab="worksched" onclick="switchTab('worksched')">
           <span class="show-pt">Ajustes</span><span class="show-en">Settings</span>
         </button>
@@ -1025,6 +1084,32 @@
           <div class="section-hero-sub" id="xrayHeroSub"></div>
         </div>
         <div id="xrayBody"></div>
+      </div>
+
+      <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
+           this record. X-Ray is the only assignable tool today; more get added
+           as entries in ASSIGNABLE_TOOLS, not by rebuilding this tab. Opening
+           an entry hands off to that tool's existing tab (switchTab('xray')),
+           so there is exactly one X-Ray rendering path in the portal. -->
+      <div id="tabAssigned" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title">
+            <span class="show-pt">Suas ferramentas</span>
+            <span class="show-en">Your tools</span>
+          </div>
+          <div class="section-hero-sub">
+            <span class="show-pt">O que a Apex liberou para voc&ecirc; at&eacute; agora.</span>
+            <span class="show-en">What Apex has unlocked for you so far.</span>
+          </div>
+        </div>
+        <div id="assignedBody"></div>
+      </div>
+
+      <!-- Lead-only: locked teaser. Renders a real tab's layout filled with
+           obviously-fake sample data, behind a persistent "preview" banner. -->
+      <div id="tabLockedPreview" hidden>
+        <div id="lockedPreviewBody"></div>
       </div>
     </section>
   </main>
@@ -1637,6 +1722,13 @@
     // pending-days logic). Preview mode skips every gate.
     function decideBootView() {
       if (PREVIEW_AS) { showPortal(); return; }
+      // A lead never sees the goal or daily-entry gates — those belong to the
+      // full client engagement. They land on Assigned (showPortal picks it).
+      // The moment clients.status flips to 'active', this branch stops firing
+      // and the normal gates below take over on the very next load, including
+      // the first-time work-schedule popup (entryState.work_schedule_set ===
+      // false will still be true for a freshly-converted lead).
+      if (isLead()) { showPortal(); return; }
       // A lead activated for the X-Ray but with no goals configured goes
       // straight to the questionnaire — the goal/entry gates below assume a
       // full daily-log client and would dead-end a prospect on first login.
@@ -2068,13 +2160,33 @@
     // ── Portal ──────────────────────────────────────────────────────────────
     var tabsLoaded = {};
 
+    // Desktop tab strip: leads get only the two real tabs. The locked teasers
+    // are reachable via "Mais" (the same overflow pattern mobile uses), which
+    // is shown on desktop for leads since there is no room for it in a 2-tab
+    // strip and the teaser list is the whole point of the lead experience.
+    function applyPortalShape() {
+      var lead = isLead();
+      document.querySelectorAll(".portal-tab").forEach(function(b) {
+        var t = b.getAttribute("data-tab");
+        if (!lead) {
+          // client: leave existing visibility alone except the lead-only tab
+          if (t === "assigned") { b.hidden = true; }
+          return;
+        }
+        b.hidden = (t !== "assigned" && t !== "documents");
+      });
+      var moreBtn = document.getElementById("portalLeadMoreBtn");
+      if (moreBtn) { moreBtn.hidden = !lead; }
+    }
+
     function showPortal() {
       document.getElementById("portalClientName").textContent = clientName;
       document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
       loadPortalLogo();
       loadNextMeeting();
+      applyPortalShape();
       populateMobileDock();
-      switchTab("analytics", true);
+      switchTab(isLead() ? "assigned" : "analytics", true);
       showView("viewPortal");
     }
 
@@ -2092,6 +2204,210 @@
     // labels run ~30% longer than English), so: 4 tabs + "Mais" opening a
     // full-screen menu page (mobile.css's existing #mobile-more-menu
     // pattern) — NOT a hamburger drawer, NOT 6+ cramped tabs.
+    // ── Lead vs. client portal shape ────────────────────────────────────────
+    // clientStatus comes from /api/portal/me, which re-reads clients.status on
+    // every portal load. Nothing about tab visibility is decided at login or
+    // stored in the token, so the moment the Lead Pipeline's Outcome Control
+    // flips a row to 'active' the next load is the full client portal.
+    var clientStatus = "active";
+    function isLead() { return clientStatus === "lead"; }
+
+    // The only tabs a lead may actually land on. "xray" is here because the
+    // Assigned tab opens the real X-Ray; "lockedpreview" is the teaser host
+    // (must be allowed or openLockedPreview -> switchTab would recurse).
+    var LEAD_ALLOWED_TABS = ["assigned", "documents", "xray", "lockedpreview"];
+
+    // Tools Pr. Rafa can assign to a lead. One entry per tool; `assigned` is
+    // re-evaluated on each render against the real assignment data, so adding
+    // a second tool later means adding a row here, not touching the tab.
+    var ASSIGNABLE_TOOLS = [
+      {
+        key: "xray",
+        tab: "xray",
+        icon: "view",
+        titlePt: "Raio X Empresarial",
+        titleEn: "Business X-Ray",
+        descPt: "Diagn&oacute;stico completo da sua opera&ccedil;&atilde;o, &aacute;rea por &aacute;rea.",
+        descEn: "A full diagnostic of your operation, area by area.",
+        isAssigned: function() { return xrayAssigned; }
+      }
+    ];
+
+    function assignedTools() {
+      return ASSIGNABLE_TOOLS.filter(function(t) { return t.isAssigned(); });
+    }
+
+    function loadAssigned() {
+      var body = document.getElementById("assignedBody");
+      if (!body) { return; }
+      var tools = assignedTools();
+      if (!tools.length) {
+        body.innerHTML = '<div class="content-card"><p class="muted">' +
+          '<span class="show-pt">Nenhuma ferramenta liberada ainda. A Apex avisa voc&ecirc; assim que houver novidade.</span>' +
+          '<span class="show-en">No tools unlocked yet. Apex will let you know as soon as there is something new.</span>' +
+          '</p></div>';
+        return;
+      }
+      var html = "";
+      tools.forEach(function(t) {
+        html += '<div class="content-card">' +
+          '<div class="list-row" style="cursor:pointer;" onclick="switchTab(\'' + t.tab + '\')">' +
+          '<div class="list-main">' +
+          '<div class="list-title"><span class="show-pt">' + t.titlePt + '</span><span class="show-en">' + t.titleEn + '</span></div>' +
+          '<div class="list-sub"><span class="show-pt">' + t.descPt + '</span><span class="show-en">' + t.descEn + '</span></div>' +
+          '</div>' +
+          '<button type="button" class="btn-gold" onclick="event.stopPropagation();switchTab(\'' + t.tab + '\')">' +
+          '<span class="show-pt">Abrir</span><span class="show-en">Open</span></button>' +
+          '</div></div>';
+      });
+      body.innerHTML = html;
+    }
+
+    // ── Locked teaser previews (lead-only) ──────────────────────────────────
+    // What a lead unlocks on becoming a client. Deliberately excludes Invoices
+    // and Tasks — per Nicole those aren't motivating for a prospect, so they
+    // are absent entirely rather than teased.
+    var LOCKED_PREVIEWS = [
+      { key: "analytics",  icon: "home",      labelPt: "Analytics",              labelEn: "Analytics" },
+      { key: "goals",      icon: "target",    labelPt: "Metas",                  labelEn: "Goals" },
+      { key: "gmcrm",      icon: "trend",     labelPt: "Vendas",                 labelEn: "Sales" },
+      { key: "gmroadmap",  icon: "list",      labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
+      { key: "gmbase",     icon: "star",      labelPt: "Base de Ouro",           labelEn: "Golden Base" },
+      { key: "gmpartners", icon: "users",     labelPt: "Parceiros",              labelEn: "Partners" },
+      { key: "gmfinance",  icon: "finance",   labelPt: "Financeiro",             labelEn: "Finances" },
+      { key: "gmjobs",     icon: "briefcase", labelPt: "Obras",                  labelEn: "Jobs" },
+      { key: "worksched",  icon: "settings",  labelPt: "Ajustes",                labelEn: "Settings" }
+    ];
+
+    function lockedPreviewMeta(key) {
+      for (var i = 0; i < LOCKED_PREVIEWS.length; i++) {
+        if (LOCKED_PREVIEWS[i].key === key) { return LOCKED_PREVIEWS[i]; }
+      }
+      return null;
+    }
+
+    // Persistent, unmissable "this is not your data" framing. Sits above every
+    // preview body and stays on screen (it is re-emitted on each render).
+    function lockedPreviewBanner(meta) {
+      return '<div class="content-card" style="border:1px solid var(--gold,#c9a227);background:rgba(201,162,39,0.08);">' +
+        '<div class="card-title">' +
+        '<span class="show-pt">Pr&eacute;via bloqueada &mdash; ' + meta.labelPt + '</span>' +
+        '<span class="show-en">Locked preview &mdash; ' + meta.labelEn + '</span>' +
+        '</div>' +
+        '<p class="muted" style="margin:0;">' +
+        '<span class="show-pt"><strong>Estes dados s&atilde;o fict&iacute;cios.</strong> ' +
+        'Isto &eacute; apenas uma demonstra&ccedil;&atilde;o de como a ferramenta funciona. ' +
+        'Ao se tornar cliente da Apex, esta aba passa a mostrar os seus n&uacute;meros reais.</span>' +
+        '<span class="show-en"><strong>This data is fake.</strong> ' +
+        'This is only a demonstration of how the tool works. ' +
+        'When you become an Apex client, this tab shows your real numbers.</span>' +
+        '</p></div>';
+    }
+
+    // Sample rows are labelled "Exemplo/Sample" inline as well as under the
+    // banner, so a screenshot of any single row still reads as a demo.
+    function lpSampleTag() {
+      return '<span class="badge" style="opacity:0.7;">' +
+        '<span class="show-pt">Exemplo</span><span class="show-en">Sample</span></span>';
+    }
+
+    function lpRow(titlePt, titleEn, subPt, subEn, right) {
+      return '<div class="list-row"><div class="list-main">' +
+        '<div class="list-title"><span class="show-pt">' + titlePt + '</span><span class="show-en">' + titleEn + '</span></div>' +
+        '<div class="list-sub"><span class="show-pt">' + subPt + '</span><span class="show-en">' + subEn + '</span></div>' +
+        '</div>' + (right || lpSampleTag()) + '</div>';
+    }
+
+    function lpCard(titlePt, titleEn, inner) {
+      return '<div class="content-card"><div class="card-title">' +
+        '<span class="show-pt">' + titlePt + '</span><span class="show-en">' + titleEn + '</span>' +
+        '</div>' + inner + '</div>';
+    }
+
+    // Fake-but-shaped-like-the-real-thing bodies, one per locked tool.
+    function lockedPreviewBody(key) {
+      if (key === "analytics") {
+        return lpCard("Ritmo do m&ecirc;s (exemplo)", "Month pace (sample)",
+            '<div class="stat-grid">' +
+            '<div class="stat"><div class="stat-value">R$ 48.000</div><div class="stat-label">' +
+            '<span class="show-pt">Faturamento</span><span class="show-en">Revenue</span></div></div>' +
+            '<div class="stat"><div class="stat-value">72%</div><div class="stat-label">' +
+            '<span class="show-pt">Da meta</span><span class="show-en">Of goal</span></div></div>' +
+            '<div class="stat"><div class="stat-value">14</div><div class="stat-label">' +
+            '<span class="show-pt">Or&ccedil;amentos</span><span class="show-en">Quotes</span></div></div>' +
+            '<div class="stat"><div class="stat-value">31%</div><div class="stat-label">' +
+            '<span class="show-pt">Convers&atilde;o</span><span class="show-en">Close rate</span></div></div>' +
+            '</div>') +
+          lpCard("Hist&oacute;rico (exemplo)", "History (sample)",
+            lpRow("Julho", "July", "R$ 48.000 &middot; 72% da meta", "R$ 48,000 &middot; 72% of goal") +
+            lpRow("Junho", "June", "R$ 61.500 &middot; 103% da meta", "R$ 61,500 &middot; 103% of goal") +
+            lpRow("Maio", "May", "R$ 39.200 &middot; 88% da meta", "R$ 39,200 &middot; 88% of goal"));
+      }
+      if (key === "goals") {
+        return lpCard("Metas do m&ecirc;s (exemplo)", "Goals for the month (sample)",
+          lpRow("Faturamento: R$ 65.000", "Revenue: R$ 65,000", "72% atingido", "72% reached") +
+          lpRow("Novos clientes: 8", "New clients: 8", "5 de 8", "5 of 8") +
+          lpRow("Velocidade de resposta: 2h", "Response time: 2h", "M&eacute;dia atual 3h10", "Current average 3h10"));
+      }
+      if (key === "gmcrm") {
+        return lpCard("Funil de vendas (exemplo)", "Sales pipeline (sample)",
+          lpRow("Novo contato &mdash; 6 leads", "New contact &mdash; 6 leads", "R$ 74.000 em aberto", "R$ 74,000 open") +
+          lpRow("Visita agendada &mdash; 3 leads", "Visit scheduled &mdash; 3 leads", "R$ 41.000 em aberto", "R$ 41,000 open") +
+          lpRow("Or&ccedil;amento enviado &mdash; 4 leads", "Quote sent &mdash; 4 leads", "R$ 96.500 em aberto", "R$ 96,500 open") +
+          lpRow("Fechado &mdash; 2 leads", "Closed &mdash; 2 leads", "R$ 28.000 ganhos", "R$ 28,000 won"));
+      }
+      if (key === "gmroadmap") {
+        return lpCard("Roadmap de execu&ccedil;&atilde;o (exemplo)", "Execution roadmap (sample)",
+          lpRow("Padronizar or&ccedil;amentos", "Standardize quotes", "Conclu&iacute;do", "Done") +
+          lpRow("Rotina de follow-up em 24h", "24h follow-up routine", "Em andamento", "In progress") +
+          lpRow("Tabela de pre&ccedil;os revisada", "Revised price table", "N&atilde;o iniciado", "Not started"));
+      }
+      if (key === "gmbase") {
+        return lpCard("Base de Ouro (exemplo)", "Golden Base (sample)",
+          lpRow("Clientes recorrentes: 24", "Repeat clients: 24", "8 reativados neste trimestre", "8 reactivated this quarter") +
+          lpRow("Ticket m&eacute;dio: R$ 12.400", "Average ticket: R$ 12,400", "+18% vs. trimestre anterior", "+18% vs. last quarter"));
+      }
+      if (key === "gmpartners") {
+        return lpCard("Parceiros (exemplo)", "Partners (sample)",
+          lpRow("Arquiteta Exemplo", "Sample Architect", "5 indica&ccedil;&otilde;es &middot; R$ 82.000", "5 referrals &middot; R$ 82,000") +
+          lpRow("Loja de Materiais Exemplo", "Sample Supply Store", "2 indica&ccedil;&otilde;es &middot; R$ 19.500", "2 referrals &middot; R$ 19,500"));
+      }
+      if (key === "gmfinance") {
+        return lpCard("Financeiro (exemplo)", "Finances (sample)",
+            '<div class="stat-grid">' +
+            '<div class="stat"><div class="stat-value">R$ 48.000</div><div class="stat-label">' +
+            '<span class="show-pt">Entradas</span><span class="show-en">Inflow</span></div></div>' +
+            '<div class="stat"><div class="stat-value">R$ 31.700</div><div class="stat-label">' +
+            '<span class="show-pt">Sa&iacute;das</span><span class="show-en">Outflow</span></div></div>' +
+            '<div class="stat"><div class="stat-value">34%</div><div class="stat-label">' +
+            '<span class="show-pt">Margem</span><span class="show-en">Margin</span></div></div>' +
+            '</div>') +
+          lpCard("Lan&ccedil;amentos (exemplo)", "Entries (sample)",
+            lpRow("Obra Exemplo &mdash; parcela 2", "Sample Job &mdash; installment 2", "Recebido", "Received") +
+            lpRow("Material &mdash; fornecedor exemplo", "Materials &mdash; sample supplier", "Pago", "Paid"));
+      }
+      if (key === "gmjobs") {
+        return lpCard("Obras (exemplo)", "Jobs (sample)",
+          lpRow("Reforma Exemplo &mdash; Apto 42", "Sample Remodel &mdash; Unit 42", "Em execu&ccedil;&atilde;o &middot; 60%", "In progress &middot; 60%") +
+          lpRow("Constru&ccedil;&atilde;o Exemplo &mdash; Lote 7", "Sample Build &mdash; Lot 7", "Planejamento", "Planning") +
+          lpRow("Manuten&ccedil;&atilde;o Exemplo", "Sample Maintenance", "Conclu&iacute;da", "Completed"));
+      }
+      if (key === "worksched") {
+        return lpCard("Dias de trabalho (exemplo)", "Working days (sample)",
+          lpRow("Segunda a sexta", "Monday to Friday", "S&aacute;bado e domingo folga", "Saturday and Sunday off") +
+          lpRow("Per&iacute;odo bloqueado", "Blocked range", "Ferias de exemplo", "Sample vacation"));
+      }
+      return "";
+    }
+
+    function openLockedPreview(key) {
+      var meta = lockedPreviewMeta(key);
+      if (!meta) { return; }
+      var body = document.getElementById("lockedPreviewBody");
+      if (body) { body.innerHTML = lockedPreviewBanner(meta) + lockedPreviewBody(key); }
+      switchTab("lockedpreview");
+    }
+
     var PORTAL_DOCK_TABS = [
       { tab: "analytics", icon: "home",      labelPt: "Analytics",  labelEn: "Analytics" },
       { tab: "gmcrm",     icon: "trend",     labelPt: "Vendas",     labelEn: "Sales" },
@@ -2109,7 +2425,27 @@
       { tab: "worksched",  icon: "settings",     labelPt: "Ajustes",      labelEn: "Settings" }
     ];
 
+    // A lead's dock: only the two real tabs. Everything else lives in "Mais"
+    // as a locked teaser (see portalMoreTabs).
+    var LEAD_DOCK_TABS = [
+      { tab: "assigned",  icon: "view", labelPt: "Atribu&iacute;dos", labelEn: "Assigned" },
+      { tab: "documents", icon: "file", labelPt: "Documentos",        labelEn: "Documents" }
+    ];
+
+    function portalDockTabs() {
+      return isLead() ? LEAD_DOCK_TABS : PORTAL_DOCK_TABS;
+    }
+
     function portalMoreTabs() {
+      // Lead: the More menu is entirely locked teasers. Invoices and Tasks are
+      // absent by design — not locked, not listed.
+      if (isLead()) {
+        return LOCKED_PREVIEWS.map(function(p) {
+          return {
+            tab: p.key, icon: p.icon, labelPt: p.labelPt, labelEn: p.labelEn, locked: true
+          };
+        });
+      }
       var more = PORTAL_MORE_TABS.slice();
       if (xrayAssigned) {
         more.push({ tab: "xray", icon: "view", labelPt: "Raio X", labelEn: "X-Ray" });
@@ -2121,7 +2457,7 @@
       var bar = document.getElementById("mobile-tab-bar");
       if (!bar || !window.apexNavSvg) { return; }
       var html = "";
-      PORTAL_DOCK_TABS.forEach(function(t) {
+      portalDockTabs().forEach(function(t) {
         html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
         html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
@@ -2140,15 +2476,21 @@
           '<button type="button" class="mm-close" onclick="portalMoreToggle()" aria-label="Fechar">&times;</button>' +
           '</div><nav class="mm-list">';
         portalMoreTabs().forEach(function(t) {
-          menuHtml += '<button type="button" class="mm-item" onclick="portalMoreGo(\'' + t.tab + '\')">';
+          menuHtml += '<button type="button" class="mm-item"' + (t.locked ? ' style="opacity:0.6;"' : '') +
+            ' onclick="portalMoreGo(\'' + t.tab + '\',' + (t.locked ? "true" : "false") + ')">';
           menuHtml += '<span class="mm-item-ico">' + window.apexNavSvg(t.icon) + '</span>';
-          menuHtml += '<span><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
+          menuHtml += '<span><span class="show-pt">' + t.labelPt + (t.locked ? ' &#128274;' : '') + '</span>' +
+            '<span class="show-en">' + t.labelEn + (t.locked ? ' &#128274;' : '') + '</span></span>';
+          if (t.locked) {
+            menuHtml += '<span class="mm-item-chevron"><span class="show-pt">Pr&eacute;via</span>' +
+              '<span class="show-en">Preview</span></span>';
+          }
           menuHtml += '</button>';
         });
         menuHtml += '</nav>';
         menu.innerHTML = menuHtml;
       }
-      updateMobileDockActive("analytics");
+      updateMobileDockActive(isLead() ? "assigned" : "analytics");
     }
 
     function portalMoreToggle() {
@@ -2156,16 +2498,17 @@
       if (menu) { menu.classList.toggle("mm-open"); }
     }
 
-    function portalMoreGo(tab) {
+    function portalMoreGo(tab, locked) {
       var menu = document.getElementById("mobile-more-menu");
       if (menu) { menu.classList.remove("mm-open"); }
+      if (locked) { openLockedPreview(tab); return; }
       switchTab(tab);
     }
 
     function updateMobileDockActive(tab) {
       var bar = document.getElementById("mobile-tab-bar");
       if (!bar) { return; }
-      var inDock = PORTAL_DOCK_TABS.some(function(t) { return t.tab === tab; });
+      var inDock = portalDockTabs().some(function(t) { return t.tab === tab; });
       bar.querySelectorAll(".m-tab").forEach(function(b) {
         var key = b.getAttribute("data-dock-tab");
         b.classList.toggle("m-tab-active", inDock ? key === tab : key === "mais");
@@ -2173,18 +2516,28 @@
     }
 
     function switchTab(tab, force) {
+      // Lead safety net: even if a stale deep-link or an old cached dock aims
+      // at a client-only tab, a lead can never land on real client data. The
+      // teaser tabs go to their preview; anything else falls back to Assigned.
+      if (isLead() && LEAD_ALLOWED_TABS.indexOf(tab) === -1) {
+        if (lockedPreviewMeta(tab)) { openLockedPreview(tab); return; }
+        tab = "assigned";
+      }
       document.querySelectorAll(".portal-tab").forEach(function(b) {
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
       updateMobileDockActive(tab);
       ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
-       "Gmcrm", "Gmroadmap", "Gmbase", "Gmpartners", "Gmfinance", "Gmjobs"].forEach(function(t) {
+       "Gmcrm", "Gmroadmap", "Gmbase", "Gmpartners", "Gmfinance", "Gmjobs",
+       "Assigned", "Lockedpreview"].forEach(function(t) {
         document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
       });
       // GM tabs always refetch on entry: their data changes from other tabs
       // (a reactivation creates a lead; a lead closing changes a partner's
       // attribution), so a stale cache would show wrong numbers.
-      if (force || !tabsLoaded[tab] || tab.indexOf("gm") === 0) {
+      // "assigned" always re-renders too: the assignment set can change between
+      // visits, and rendering it is cheap (no fetch — it reads xrayAssigned).
+      if (force || !tabsLoaded[tab] || tab.indexOf("gm") === 0 || tab === "assigned") {
         tabsLoaded[tab] = true;
         if (tab === "analytics") { loadPace(); loadAnalytics(); loadHistory(); }
         if (tab === "goals") { loadGoalsTab(); }
@@ -2192,6 +2545,7 @@
         if (tab === "documents") { loadDocuments(); }
         if (tab === "invoices") { loadInvoices(); }
         if (tab === "xray") { loadXray(); }
+        if (tab === "assigned") { loadAssigned(); }
         if (tab === "worksched") { loadWorkSettings(); }
         if (tab === "gmcrm") { gmLoadCrm(); }
         if (tab === "gmroadmap") { gmLoadRoadmap(); }
@@ -2222,8 +2576,10 @@
         .then(function(data) {
           var list = (data && data.assessments) || [];
           xrayAssigned = list.some(function(a) { return a.assessment_type === "business_xray"; });
+          // For a lead the X-Ray is reached through the Assigned tab, so it
+          // never gets its own strip button — one entry point, not two.
           var btn = document.getElementById("tabBtnXray");
-          if (btn) { btn.hidden = !xrayAssigned; }
+          if (btn) { btn.hidden = !xrayAssigned || isLead(); }
           return list;
         });
     }
@@ -3737,6 +4093,8 @@
         .then(function(me) {
           clientId = me.client_id;
           clientName = me.name || "";
+          // Live off clients.status, re-read server-side on every portal load.
+          clientStatus = me.status || "active";
           helpRequestTemplate = me.help_request_template || null;
           document.getElementById("headerClientName").textContent = clientName;
           if (PREVIEW_AS) {

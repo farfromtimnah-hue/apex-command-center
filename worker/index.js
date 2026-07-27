@@ -9129,8 +9129,12 @@ async function handleGetPortalMe(request, env) {
         // preview read-only gate in fetch().
         var previewClientId = devPreviewClientId(user, request);
         if (!previewClientId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
+        // status is read fresh on EVERY portal load (never cached in the token
+        // or session) so a lead who converts to 'active' via the Lead Pipeline
+        // Outcome Control sees the full client portal on their very next load,
+        // with no re-login and no migration step — same client_id row throughout.
         var client = await env.DB.prepare(
-            "SELECT id, name, logo_url, industry, location FROM clients WHERE id = ?"
+            "SELECT id, name, logo_url, industry, location, status FROM clients WHERE id = ?"
         ).bind(previewClientId || user.client_id).first();
         if (!client) { return jsonErr("Client not found", 404); }
         var helpTemplateRow = await env.DB.prepare(
@@ -9141,6 +9145,7 @@ async function handleGetPortalMe(request, env) {
             : DEFAULT_WHATSAPP_TEMPLATES.portal_help_request;
         return jsonOk({
             client_id: client.id, name: client.name,
+            status: client.status || "active",
             has_logo: !!client.logo_url,
             industry: client.industry, location: client.location,
             username: user.username || null,

@@ -243,6 +243,30 @@
       flex-wrap: wrap;
     }
 
+    /* ─── Help requests (same-day, always visible) ──────────────────────── */
+    .help-requests-section {
+      margin-bottom: 18px;
+    }
+
+    .help-requests-heading {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: #e8c96a;
+      margin-bottom: 8px;
+    }
+
+    #helpRequestsContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .task-row.help-request {
+      border-left: 3px solid #b44040;
+    }
+
     /* ─── Role tabs (Consultant / Client) — hero dark bg ────────────────── */
     .role-tabs {
       display: flex;
@@ -686,6 +710,15 @@
           </h1>
         </div>
 
+        <!-- Help requests: same-day, always visible, separate from the tabs below -->
+        <div id="helpRequestsSection" class="help-requests-section" hidden>
+          <div class="help-requests-heading">
+            <span class="show-pt">Pedidos de Ajuda — Hoje</span>
+            <span class="show-en">Help Requests — Today</span>
+          </div>
+          <div id="helpRequestsContainer"><!-- Rendered by JS --></div>
+        </div>
+
         <!-- Role tabs -->
         <div class="role-tabs">
           <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
@@ -955,6 +988,9 @@
       applyOverdueParam();
       loadLocalCompletions();
       loadTasks();
+      if (role === "rafa" || role === "alice" || role === "developer") {
+        loadHelpRequests();
+      }
     }
 
     // Deep link from the dashboard's overdue-tasks tile (?overdue=1): lands on the
@@ -1032,6 +1068,58 @@
           document.getElementById("tasksContainer").innerHTML =
             '<div class="tasks-empty" style="color:#b44040;">Erro ao carregar tarefas: ' + escHtml(e.message) + '</div>';
         });
+    }
+
+    // ── Data: fetch today's help-request tasks (D1 `tasks` table, type=consultant) ──
+
+    function loadHelpRequests() {
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/consultant?scope=today", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          var tasks = (data.tasks || []).filter(function(t) { return t.status === "pending"; });
+          renderHelpRequests(tasks);
+        })
+        .catch(function() {
+          // Fail quiet: this section is a same-day-urgency add-on, not the primary
+          // task list — a failed fetch here should not block the rest of the page.
+          document.getElementById("helpRequestsSection").hidden = true;
+        });
+    }
+
+    function renderHelpRequests(tasks) {
+      var section   = document.getElementById("helpRequestsSection");
+      var container = document.getElementById("helpRequestsContainer");
+      if (!tasks.length) { section.hidden = true; return; }
+      section.hidden = false;
+      container.innerHTML = tasks.map(function(t) {
+        return (
+          '<div class="task-row help-request">' +
+            '<button class="task-check" onclick="toggleHelpRequest(\'' + t.id + '\', this)"></button>' +
+            '<div class="task-body">' +
+              '<div class="task-text">' + escHtml(t.description || "") + '</div>' +
+              '<div class="task-meta">' +
+                '<span class="task-client">' + escHtml(t.client_name || "") + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join("");
+    }
+
+    function toggleHelpRequest(taskId, btnEl) {
+      var row = btnEl.closest(".task-row");
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/" + taskId, {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "done" })
+        });
+      }).then(function() {
+        if (row) { row.remove(); }
+        var remaining = document.querySelectorAll("#helpRequestsContainer .task-row").length;
+        if (!remaining) { document.getElementById("helpRequestsSection").hidden = true; }
+      }).catch(function() {});
     }
 
     function user_getToken() {

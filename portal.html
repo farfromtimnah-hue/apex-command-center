@@ -1009,6 +1009,9 @@
         <button class="portal-tab" data-tab="falhasxray" id="tabBtnFalhasXray" hidden onclick="switchTab('falhasxray')">
           <span class="show-pt">Raio X Falhas</span><span class="show-en">Failures X-Ray</span>
         </button>
+        <button class="portal-tab" data-tab="feedback360" id="tabBtnFeedback360" hidden onclick="switchTab('feedback360')">
+          <span class="show-pt">Feedback 360&ordm;</span><span class="show-en">360&ordm; Feedback</span>
+        </button>
         <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
           <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
         </button>
@@ -1188,6 +1191,15 @@
           <div class="section-hero-sub" id="falhasXrayHeroSub"></div>
         </div>
         <div id="falhasXrayBody"></div>
+      </div>
+
+      <div id="tabFeedback360" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title" id="feedback360HeroTitle"></div>
+          <div class="section-hero-sub" id="feedback360HeroSub"></div>
+        </div>
+        <div id="feedback360Body"></div>
       </div>
 
       <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
@@ -2411,6 +2423,24 @@
         introEn: "There are {total} items. For each, rate from 0 to 10 how much it happens in your company today — 0 means it does not happen, 10 that it happens constantly.",
         unitPt: "itens", unitEn: "items",
         donePt: "Raio X Falhas conclu&iacute;do", doneEn: "Failures X-Ray completed"
+      },
+      {
+        key: "feedback360",
+        type: "feedback_360",
+        elPrefix: "feedback360",
+        tabBtnId: "tabBtnFeedback360",
+        report: "feedback-360-report.html",
+        icon: "finance",
+        titlePt: "Feedback 360&ordm;", titleEn: "360&ordm; Feedback",
+        moreLabelPt: "Feedback 360&ordm;", moreLabelEn: "360&ordm; Feedback",
+        subPt: "Avalia&ccedil;&atilde;o de Percep&ccedil;&atilde;o Financeira",
+        subEn: "A financial-perception assessment",
+        descPt: "7 perguntas objetivas sobre a percep&ccedil;&atilde;o financeira da empresa.",
+        descEn: "7 objective questions on how the company's finances are perceived.",
+        introPt: "S&atilde;o {total} perguntas de Sim ou N&atilde;o. Responda com base na sua percep&ccedil;&atilde;o de hoje.",
+        introEn: "There are {total} Yes/No questions. Answer based on how you see things today.",
+        unitPt: "perguntas", unitEn: "questions",
+        donePt: "Feedback 360&ordm; conclu&iacute;do", doneEn: "360&ordm; Feedback completed"
       }
     ];
 
@@ -3523,7 +3553,10 @@
     // indexed by value); the level colour comes from catalog.scale_levels.
     function spaLevelsHtml(key, q) {
       var st = spaState[key];
-      var levels = (st.detail.catalog && st.detail.catalog.scale_levels) || [];
+      var cat = st.detail.catalog || {};
+      // scale_levels (ternary maturity scale) or binary_levels (Sim/Não).
+      // Both are the same descriptor shape: value + hex + PT/EN label.
+      var levels = cat.scale_levels || cat.binary_levels || [];
       var v = st.answers[q.key];
       var html = '<div class="xray-scale" role="group">';
       levels.forEach(function(lvl) {
@@ -3582,6 +3615,8 @@
       var cat = st.detail.catalog || {};
       st.answers[qKey] = v;
       var isScale10 = cat.scale && cat.scale.type === "scale0to10";
+      // Binary levels have no per-value CSS class beyond sel-0/sel-1, which
+      // the shared .xray-scale rules already cover.
       var bands = cat.scale10_bands || [];
       ((cat.scale && cat.scale.values) || []).forEach(function(n) {
         var btn = document.getElementById("sc_" + key + "_" + qKey + "_" + n);

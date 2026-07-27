@@ -10074,7 +10074,8 @@ var ASSESSMENT_TYPES = {
     management_xray: { labelPt: "Raio X de Gestão",  labelEn: "Management X-Ray" },
     leadership_xray: { labelPt: "Raio X Nível de Liderança", labelEn: "Leadership Level X-Ray" },
     permissividade_xray: { labelPt: "Raio X de Permissividade", labelEn: "Permissiveness X-Ray" },
-    falhas_xray: { labelPt: "Raio X Falhas", labelEn: "Failures X-Ray" }
+    falhas_xray: { labelPt: "Raio X Falhas", labelEn: "Failures X-Ray" },
+    feedback_360: { labelPt: "Feedback 360º", labelEn: "360º Feedback" }
 };
 
 // Answer scales. A catalog declares which one it uses and EVERY generic path
@@ -10513,6 +10514,21 @@ function assessmentCatalog(type) {
             questions: FALHAS_QUESTIONS,
             total: FALHAS_QUESTIONS.length,
             scale10_bands: scale10BandLegend(true)
+        };
+    }
+    // Perception surveys (Feedback 360º, Pilares de Crescimento): 7 Sim/Não
+    // questions each, same shape, so they share one catalog branch. The scale
+    // is the SAME binary descriptor the Business X-Ray uses.
+    if (PERCEPTION_SPECS[type]) {
+        var spec = PERCEPTION_SPECS[type];
+        return {
+            assessment_type: type,
+            scale: ASSESSMENT_SCALES.binary,
+            layout: "single_page",
+            categories: spec.questions,
+            questions: spec.questions,
+            total: spec.questions.length,
+            binary_levels: PERCEPTION_BINARY_LEVELS
         };
     }
     return null;
@@ -11570,12 +11586,208 @@ function computeFalhasXrayScore(answers) {
     };
 }
 
+// ---------------------------------------------------------------------------
+// Perception surveys — Feedback 360º and Pilares de Crescimento.
+//
+// Both are the SAME instrument shape: 7 Sim/Não questions, pct = Sim/7, one
+// flat-gray area bar and one Sim/Não doughnut. Only the questions, the area
+// label and the report copy differ, so they share one engine and one spec
+// table rather than two near-identical copies.
+//
+// LEGACY QUIRK, reproduced deliberately (do NOT "fix"): every "Sim" counts as
+// positive toward the percentage regardless of the question's real-world
+// polarity. Feedback 360's question 6 asks whether avoidable waste EXISTS, so
+// a "Sim" there is bad news in reality — but the legacy tool still scores it
+// as a point, and all-Sim → 100% is verified. No polarity-aware inversion.
+// ---------------------------------------------------------------------------
+
+var PERCEPTION_BINARY_LEVELS = [
+    { value: 0, key: "nao", color: "danger",  hex: "#dc3545", labelPt: "Não", labelEn: "No" },
+    { value: 1, key: "sim", color: "success", hex: "#28a745", labelPt: "Sim", labelEn: "Yes" }
+];
+
+var PERCEPTION_SPECS = {
+    feedback_360: {
+        assessment_type: "feedback_360",
+        areaLabelPt: "FINANCEIRO", areaLabelEn: "FINANCIAL",
+        questions: [
+            { key: "q1", namePt: "Organização financeira", nameEn: "Financial organization",
+              labelPt: "Você acredita que a empresa possui organização financeira adequada para crescer?",
+              labelEn: "Do you believe the company has adequate financial organization to grow?" },
+            { key: "q2", namePt: "Controle de custos", nameEn: "Cost control",
+              labelPt: "A empresa demonstra controle sobre custos e desperdícios?",
+              labelEn: "Does the company demonstrate control over costs and waste?" },
+            { key: "q3", namePt: "Eficiência no uso de recursos", nameEn: "Efficient use of resources",
+              labelPt: "Os recursos da empresa são utilizados de forma eficiente?",
+              labelEn: "Are the company's resources used efficiently?" },
+            { key: "q4", namePt: "Clareza na precificação", nameEn: "Pricing clarity",
+              labelPt: "Você percebe clareza na forma como a empresa define preços dos serviços/produtos?",
+              labelEn: "Do you see clarity in how the company sets prices for its services/products?" },
+            { key: "q5", namePt: "Saúde financeira", nameEn: "Financial health",
+              labelPt: "A empresa parece financeiramente saudável e sustentável?",
+              labelEn: "Does the company appear financially healthy and sustainable?" },
+            { key: "q6", namePt: "Desperdícios evitáveis", nameEn: "Avoidable waste",
+              labelPt: "Existem desperdícios financeiros que poderiam ser evitados?",
+              labelEn: "Are there financial wastes that could be avoided?" },
+            { key: "q7", namePt: "Decisões financeiras estratégicas", nameEn: "Strategic financial decisions",
+              labelPt: "Você percebe decisões financeiras sendo tomadas de forma estratégica ou apenas reativa?",
+              labelEn: "Do you see financial decisions being made strategically, or only reactively?" }
+        ],
+        devolutivaPt: "O Feedback 360 Financeiro indica um nível de confiança de {pct}% na gestão dos recursos.",
+        devolutivaEn: "The 360 Financial Feedback indicates a {pct}% level of confidence in how resources are managed.",
+        acaoPerfeitoPt: "Continue monitorando a eficiência do uso de recursos.",
+        acaoPerfeitoEn: "Keep monitoring how efficiently resources are used.",
+        acaoPadraoPt: "Revise os processos de controle de custos e desperdícios imediatamente.",
+        acaoPadraoEn: "Review your cost- and waste-control processes immediately."
+    },
+    pilares_crescimento: {
+        assessment_type: "pilares_crescimento",
+        areaLabelPt: "CRESCIMENTO", areaLabelEn: "GROWTH",
+        questions: [
+            { key: "q1", namePt: "Visão de futuro", nameEn: "Vision for the future",
+              labelPt: "A empresa tem visão clara de futuro?",
+              labelEn: "Does the company have a clear vision for the future?" },
+            { key: "q2", namePt: "Comunicação da visão", nameEn: "Communicating the vision",
+              labelPt: "Os líderes comunicam essa visão de forma clara?",
+              labelEn: "Do the leaders communicate that vision clearly?" },
+            { key: "q3", namePt: "Motivação para crescer", nameEn: "Motivation to grow",
+              labelPt: "Os colaboradores se sentem motivados a crescer dentro da empresa?",
+              labelEn: "Do employees feel motivated to grow within the company?" },
+            { key: "q4", namePt: "Desenvolvimento da equipe", nameEn: "Team development",
+              labelPt: "Existe investimento em desenvolvimento da equipe?",
+              labelEn: "Is there investment in developing the team?" },
+            { key: "q5", namePt: "Inovação e oportunidades", nameEn: "Innovation and opportunities",
+              labelPt: "A empresa busca inovação e novas oportunidades?",
+              labelEn: "Does the company pursue innovation and new opportunities?" },
+            { key: "q6", namePt: "Adaptação ao mercado", nameEn: "Adapting to the market",
+              labelPt: "A empresa se adapta rapidamente às mudanças do mercado?",
+              labelEn: "Does the company adapt quickly to changes in the market?" },
+            { key: "q7", namePt: "Potencial de crescimento", nameEn: "Growth potential",
+              labelPt: "Você acredita que a empresa tem potencial real de crescimento?",
+              labelEn: "Do you believe the company has real growth potential?" }
+        ],
+        devolutivaPt: "Seus Pilares de Crescimento estão em {pct}%. Isso reflete a prontidão da empresa para escalar e sustentar o futuro.",
+        devolutivaEn: "Your Growth Pillars are at {pct}%. That reflects the company's readiness to scale and sustain the future.",
+        acaoPerfeitoPt: "Sua base está sólida para buscar novas parcerias e mercados.",
+        acaoPerfeitoEn: "Your base is solid enough to pursue new partnerships and markets.",
+        acaoPadraoPt: "Foque em comunicar melhor a visão e investir no desenvolvimento do time.",
+        acaoPadraoEn: "Focus on communicating the vision better and investing in developing the team."
+    }
+};
+
+// Band from the Sim percentage. Presentation only — the verified copy has
+// exactly two Ação variants (100% and everything else), so the band drives
+// the colour and label while the ação still branches on the two-way rule.
+var PERCEPTION_CUTOFFS = [
+    { min: 80, level: "forte",   color: "success",
+      labelPt: "Percepção Forte",     labelEn: "Strong Perception" },
+    { min: 50, level: "moderada", color: "warning",
+      labelPt: "Percepção Moderada",  labelEn: "Moderate Perception" },
+    { min: 0,  level: "fragil",   color: "danger",
+      labelPt: "Percepção Frágil",    labelEn: "Fragile Perception" }
+];
+
+// Pure scoring engine, shared by both perception surveys.
+function computePerceptionScore(type, answers) {
+    var spec = PERCEPTION_SPECS[type];
+    if (!spec) { return null; }
+    answers = answers || {};
+
+    var sim = 0, nao = 0, pendente = 0;
+    var questions = spec.questions.map(function(q) {
+        var v = answers[q.key];
+        var answered = (v === 0 || v === 1);
+        if (answered) { if (v === 1) { sim += 1; } else { nao += 1; } }
+        else { pendente += 1; }
+        var lvl = answered ? PERCEPTION_BINARY_LEVELS[v] : null;
+        return {
+            key: q.key, namePt: q.namePt, nameEn: q.nameEn,
+            labelPt: q.labelPt, labelEn: q.labelEn,
+            value: answered ? v : null,
+            band: lvl ? lvl.key : null,
+            color: lvl ? lvl.color : "muted",
+            hex: lvl ? lvl.hex : SCALE10_UNANSWERED_HEX,
+            bandLabelPt: lvl ? lvl.labelPt : null,
+            bandLabelEn: lvl ? lvl.labelEn : null
+        };
+    });
+
+    var total = spec.questions.length;
+    // Every "Sim" is a point regardless of the question's real polarity —
+    // see the LEGACY QUIRK note above. Denominator is the full bank, so an
+    // unanswered question costs a point rather than shrinking the divisor.
+    var pct = total ? Math.round((sim / total) * 100) : 0;
+
+    var band = PERCEPTION_CUTOFFS[PERCEPTION_CUTOFFS.length - 1];
+    for (var i = 0; i < PERCEPTION_CUTOFFS.length; i++) {
+        if (pct >= PERCEPTION_CUTOFFS[i].min) { band = PERCEPTION_CUTOFFS[i]; break; }
+    }
+
+    var perfect = (pct === 100);
+    var devolutivaPt = spec.devolutivaPt.replace("{pct}", pct);
+    var devolutivaEn = spec.devolutivaEn.replace("{pct}", pct);
+
+    // Chart DATA only.
+    //   areaBar: ONE flat-gray bar for this instrument's area.
+    //     NOTE: in the legacy tool this bar did NOT match the headline (both
+    //     surveys scored 4 Sim/3 Não = 57%, yet showed 40 and 50
+    //     respectively). Identical answers producing different bars means the
+    //     legacy value is not a function of the responses at all — almost
+    //     certainly a leftover denominator from another question bank, the
+    //     same copy-paste family as the Sim/Não doughnut it wrongly reuses on
+    //     Falhas. Rather than reproduce an underivable number, the bar is the
+    //     headline percentage. Flagged as an unrecovered formula.
+    //   responseDoughnut: Sim / Não / Não respondidas — verified to match the
+    //     headline exactly (4 Sim/3 Não → [4,3,0] → 57/43/0%).
+    var charts = {
+        areaBar: {
+            titlePt: "Eficiência por Área (%)", titleEn: "Efficiency by Area (%)",
+            yMin: 0, yMax: 100, flatHex: "#6c757d",
+            bars: [{ key: "area", labelPt: spec.areaLabelPt, labelEn: spec.areaLabelEn,
+                     value: pct, hex: "#6c757d" }]
+        },
+        responseDoughnut: {
+            titlePt: "Distribuição das Respostas", titleEn: "Response Distribution",
+            total: total,
+            slices: [
+                { key: "sim",            labelPt: "Sim",             labelEn: "Yes",        count: sim,      hex: "#4bc0c0" },
+                { key: "nao",            labelPt: "Não",             labelEn: "No",         count: nao,      hex: "#dc3545" },
+                { key: "nao_respondido", labelPt: "Não respondidas", labelEn: "Unanswered", count: pendente, hex: SCALE10_UNANSWERED_HEX }
+            ].map(function(s) {
+                return Object.assign(s, { pct: total ? Math.round((s.count / total) * 100) : 0 });
+            })
+        }
+    };
+
+    return {
+        version: 1,
+        assessment_type: spec.assessment_type,
+        score: sim, max_score: total, pct: pct,
+        overall: {
+            level: band.level, color: band.color,
+            labelPt: band.labelPt, labelEn: band.labelEn,
+            devolutivaPt: devolutivaPt, devolutivaEn: devolutivaEn,
+            acaoImediataPt: perfect ? spec.acaoPerfeitoPt : spec.acaoPadraoPt,
+            acaoImediataEn: perfect ? spec.acaoPerfeitoEn : spec.acaoPadraoEn
+        },
+        maturity: {
+            level: band.level, color: band.color,
+            labelPt: band.labelPt, labelEn: band.labelEn
+        },
+        categories: questions,
+        questions: questions,
+        distribution: { sim: sim, nao: nao, nao_respondido: pendente, total: total },
+        charts: charts
+    };
+}
+
 function computeAssessmentScore(type, answers) {
     if (type === "business_xray")   { return computeXrayScore(answers); }
     if (type === "management_xray") { return computeManagementXrayScore(answers); }
     if (type === "leadership_xray") { return computeLeadershipXrayScore(answers); }
     if (type === "permissividade_xray") { return computePermissividadeXrayScore(answers); }
     if (type === "falhas_xray")     { return computeFalhasXrayScore(answers); }
+    if (PERCEPTION_SPECS[type])     { return computePerceptionScore(type, answers); }
     return null;
 }
 

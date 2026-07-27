@@ -4067,6 +4067,19 @@
       return apiFetch("/api/role")
         .then(function(res) { if (!res.ok) { throw new Error("auth"); } return res.json(); })
         .then(function(role) {
+          // ===== TEMPORARY DIAGNOSTIC — REMOVE ONCE PREVIEW-AS BUG IS FIXED =====
+          try {
+            localStorage.setItem("apex_debug_role", JSON.stringify({
+              role: role,
+              previewAs: PREVIEW_AS,
+              url: window.location.href,
+              search: window.location.search,
+              hasClientToken: !!clientToken,
+              hasCurrentUser: !!currentUser,
+              at: new Date().toISOString()
+            }));
+          } catch (e) {}
+          // ===== END TEMPORARY DIAGNOSTIC =====
           if (role.role !== "client") {
             // Developer preview-as: developers with ?previewAs stay here in
             // read-only mode. Every other admin goes to their own dashboard.

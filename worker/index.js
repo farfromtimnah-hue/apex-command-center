@@ -10856,7 +10856,7 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         }
     }
     var strFields = [
-        ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["servico", 80],
+        ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["servico", 400],
         ["observacao", 2000], ["vendedor", 80], ["data_contato", 40],
         ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40]
     ];
@@ -11413,8 +11413,21 @@ async function handlePostReferralLead(slug, request, env) {
             return jsonErr("Telefone inválido / Invalid phone", 400);
         }
         var config = await gmGetConfig(env, partner.client_id);
-        var servico = gmStr(body.servico, 80);
-        if (servico && config.servicos.indexOf(servico) === -1) { servico = null; }
+        // servico may hold SEVERAL services as one comma-separated string
+        // ("Pavers, Lighting") — validate each against the client's catalog,
+        // drop unknowns, store the surviving list re-joined.
+        var servicoRaw = gmStr(body.servico, 400);
+        var servico = null;
+        if (servicoRaw) {
+            var servicoList = [];
+            servicoRaw.split(",").forEach(function(part) {
+                var t = part.trim();
+                if (t && config.servicos.indexOf(t) !== -1 && servicoList.indexOf(t) === -1) {
+                    servicoList.push(t);
+                }
+            });
+            servico = servicoList.length ? servicoList.join(", ") : null;
+        }
 
         var now = gmNyNowParts();
         var mesLead = GM_MONTH_NAMES_PT[Number(now.month) - 1];

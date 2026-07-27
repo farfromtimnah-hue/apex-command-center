@@ -217,11 +217,34 @@ function gmToastRunAction() {
 // choice with ≤5 options renders big chips; >5 renders a native <select>.
 var gmEditorSave = null;
 var gmEditorChoiceValue;
+var gmEditorMultiValue = [];
+
+// servico holds one or MORE services as one comma-separated TEXT value
+// ("Pavers, Lighting"). A pre-multi-select lead with a single value is just
+// a one-item list — same parser everywhere.
+function gmServicoList(v) {
+  if (v === null || v === undefined || v === "") { return []; }
+  var out = [];
+  String(v).split(",").forEach(function(part) {
+    var t = part.trim();
+    if (t) { out.push(t); }
+  });
+  return out;
+}
 
 function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml) {
   gmEditorSave = onSave;
   var inner = "";
-  if (type === "choice") {
+  if (type === "multichoice") {
+    // Independent toggle chips — several can be active at once (servico).
+    gmEditorMultiValue = gmServicoList(value);
+    inner = '<div class="gm-chip-set" id="gmEditorChips">';
+    options.forEach(function(opt, i) {
+      inner += '<button type="button" class="gm-choice-chip' + (gmEditorMultiValue.indexOf(opt) !== -1 ? " gm-chip-sel" : "") +
+        '" data-opt-idx="' + i + '" onclick="gmEditorToggleChip(this)">' + escHtml(opt) + '</button>';
+    });
+    inner += '</div>';
+  } else if (type === "choice") {
     gmEditorChoiceValue = (value === null || value === undefined) ? null : value;
     if ((options || []).length <= 5) {
       inner = '<div class="gm-chip-set" id="gmEditorChips">';
@@ -277,9 +300,23 @@ function gmEditorPickChip(btn) {
   }
 }
 
+function gmEditorToggleChip(btn) {
+  var opt = btn.textContent;
+  var pos = gmEditorMultiValue.indexOf(opt);
+  if (pos === -1) {
+    gmEditorMultiValue.push(opt);
+    btn.classList.add("gm-chip-sel");
+  } else {
+    gmEditorMultiValue.splice(pos, 1);
+    btn.classList.remove("gm-chip-sel");
+  }
+}
+
 function gmEditorCommit(type) {
   var value = null;
-  if (type === "choice") {
+  if (type === "multichoice") {
+    value = gmEditorMultiValue.length ? gmEditorMultiValue.join(", ") : null;
+  } else if (type === "choice") {
     var sel = document.getElementById("gmEditorInput");
     if (sel) { value = sel.value || null; }
     else { value = gmEditorChoiceValue || null; }
@@ -379,7 +416,7 @@ function gmLeadRowHtml(lead) {
   var idx = gmLeadsData.leads.indexOf(lead);
   var parts = [];
   if (lead.valor !== null && lead.valor !== undefined) { parts.push(fmtNum(lead.valor, "currency")); }
-  if (lead.servico) { parts.push(escHtml(lead.servico)); }
+  if (lead.servico) { parts.push(escHtml(gmServicoList(lead.servico).join(", "))); }
   var line2 = parts.join(" · ");
   var line3;
   if (lead.proxima_acao) {
@@ -488,8 +525,8 @@ function gmPickStage(stage) {
   gmRenderCrm();
 }
 
-// ── Quick add: THREE fields (Nome, Telefone, Serviço-as-chips) ──────────
-var gmQuickServico = null;
+// ── Quick add: THREE fields (Nome, Telefone, Serviços-as-chips) ─────────
+var gmQuickServicos = [];
 var GM_QUICKADD_DRAFT_KEY_PREFIX = "apex_gm_quickadd_";
 
 function gmQuickDraftKey() { return GM_QUICKADD_DRAFT_KEY_PREFIX + clientId; }
@@ -497,11 +534,11 @@ function gmQuickDraftKey() { return GM_QUICKADD_DRAFT_KEY_PREFIX + clientId; }
 function gmQuickAddOpen() {
   var draft = {};
   try { draft = JSON.parse(localStorage.getItem(gmQuickDraftKey())) || {}; } catch (e) { draft = {}; }
-  gmQuickServico = draft.servico || null;
+  gmQuickServicos = gmServicoList(draft.servico);
   var servicos = gmConfig.config.servicos;
   var chips = "";
   servicos.forEach(function(s, i) {
-    chips += '<button type="button" class="gm-choice-chip' + (s === gmQuickServico ? " gm-chip-sel" : "") +
+    chips += '<button type="button" class="gm-choice-chip' + (gmQuickServicos.indexOf(s) !== -1 ? " gm-chip-sel" : "") +
       '" data-opt-idx="' + i + '" onclick="gmQuickPickServico(this)">' + escHtml(s) + '</button>';
   });
   var body =
@@ -522,11 +559,16 @@ function gmQuickAddOpen() {
 }
 
 function gmQuickPickServico(btn) {
-  var wrap = document.getElementById("gmQaServicos");
-  var already = btn.classList.contains("gm-chip-sel");
-  wrap.querySelectorAll(".gm-choice-chip").forEach(function(c) { c.classList.remove("gm-chip-sel"); });
-  if (already) { gmQuickServico = null; }
-  else { btn.classList.add("gm-chip-sel"); gmQuickServico = btn.textContent; }
+  // True multi-select: each chip toggles on its own, several can be active.
+  var opt = btn.textContent;
+  var pos = gmQuickServicos.indexOf(opt);
+  if (pos === -1) {
+    gmQuickServicos.push(opt);
+    btn.classList.add("gm-chip-sel");
+  } else {
+    gmQuickServicos.splice(pos, 1);
+    btn.classList.remove("gm-chip-sel");
+  }
   gmQuickDraftSave();
 }
 
@@ -538,7 +580,7 @@ function gmQuickDraftSave() {
     localStorage.setItem(gmQuickDraftKey(), JSON.stringify({
       nome: nomeEl ? nomeEl.value : "",
       telefone: telEl ? telEl.value : "",
-      servico: gmQuickServico
+      servico: gmQuickServicos.length ? gmQuickServicos.join(", ") : null
     }));
   } catch (e) {}
 }
@@ -553,7 +595,7 @@ function gmQuickAddSave() {
   var payload = {
     cliente: nome,
     telefone: tel || null,
-    servico: gmQuickServico,
+    servico: gmQuickServicos.length ? gmQuickServicos.join(", ") : null,
     estagio: "Novo Lead",
     data_lead: gmNowLocalIso(),
     mes_lead: gmCurrentCycleMonth()
@@ -597,7 +639,7 @@ function gmLeadFieldDefs() {
     { key: "followups",      type: "number",   pt: "Nº follow-ups",           en: "# follow-ups" },
     { key: "data_contato",   type: "datetime", pt: "Data/hora 1º contato",    en: "1st contact date/time" },
     { key: "data_estimate",  type: "datetime", pt: "Data/hora estimate",      en: "Estimate date/time" },
-    { key: "servico",        type: "choice",   pt: "Serviço",                 en: "Service",   options: cfg.servicos },
+    { key: "servico",        type: "multichoice", pt: "Serviço(s)",           en: "Service(s)", options: cfg.servicos },
     { key: "vendedor",       type: "choice",   pt: "Vendedor",                en: "Salesperson", options: cfg.vendedores },
     { key: "origem",         type: "choice",   pt: "Origem",                  en: "Source",    options: method.origens },
     { key: "parceiro_id",    type: "partner",  pt: "Parceiro",                en: "Partner" },
@@ -616,6 +658,7 @@ function gmLeadFieldDisplay(lead, def) {
   if (def.type === "currency") { return escHtml(fmtNum(v, "currency")); }
   if (def.type === "datetime") { return escHtml(formatDateTime(v)); }
   if (def.key === "parceiro_id") { return escHtml(lead.parceiro_name || ""); }
+  if (def.type === "multichoice") { return escHtml(gmServicoList(v).join(", ")); }
   return escHtml(String(v));
 }
 

@@ -1012,6 +1012,9 @@
         <button class="portal-tab" data-tab="feedback360" id="tabBtnFeedback360" hidden onclick="switchTab('feedback360')">
           <span class="show-pt">Feedback 360&ordm;</span><span class="show-en">360&ordm; Feedback</span>
         </button>
+        <button class="portal-tab" data-tab="pilares" id="tabBtnPilares" hidden onclick="switchTab('pilares')">
+          <span class="show-pt">Pilares</span><span class="show-en">Growth Pillars</span>
+        </button>
         <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
           <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
         </button>
@@ -1200,6 +1203,15 @@
           <div class="section-hero-sub" id="feedback360HeroSub"></div>
         </div>
         <div id="feedback360Body"></div>
+      </div>
+
+      <div id="tabPilares" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title" id="pilaresHeroTitle"></div>
+          <div class="section-hero-sub" id="pilaresHeroSub"></div>
+        </div>
+        <div id="pilaresBody"></div>
       </div>
 
       <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
@@ -2441,6 +2453,24 @@
         introEn: "There are {total} Yes/No questions. Answer based on how you see things today.",
         unitPt: "perguntas", unitEn: "questions",
         donePt: "Feedback 360&ordm; conclu&iacute;do", doneEn: "360&ordm; Feedback completed"
+      },
+      {
+        key: "pilares",
+        type: "pilares_crescimento",
+        elPrefix: "pilares",
+        tabBtnId: "tabBtnPilares",
+        report: "pilares-crescimento-report.html",
+        icon: "target",
+        titlePt: "Pilares de Crescimento", titleEn: "Growth Pillars",
+        moreLabelPt: "Pilares", moreLabelEn: "Growth Pillars",
+        subPt: "Avalia&ccedil;&atilde;o de Vis&atilde;o de Futuro e Escalabilidade",
+        subEn: "A vision-and-scalability assessment",
+        descPt: "7 perguntas de vis&atilde;o, escala e desenvolvimento de equipe.",
+        descEn: "7 questions on vision, scale and team development.",
+        introPt: "S&atilde;o {total} perguntas de Sim ou N&atilde;o. Responda com base na sua percep&ccedil;&atilde;o de hoje.",
+        introEn: "There are {total} Yes/No questions. Answer based on how you see things today.",
+        unitPt: "perguntas", unitEn: "questions",
+        donePt: "Pilares de Crescimento conclu&iacute;do", doneEn: "Growth Pillars completed"
       }
     ];
 

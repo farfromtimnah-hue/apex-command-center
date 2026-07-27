@@ -10075,7 +10075,8 @@ var ASSESSMENT_TYPES = {
     leadership_xray: { labelPt: "Raio X Nível de Liderança", labelEn: "Leadership Level X-Ray" },
     permissividade_xray: { labelPt: "Raio X de Permissividade", labelEn: "Permissiveness X-Ray" },
     falhas_xray: { labelPt: "Raio X Falhas", labelEn: "Failures X-Ray" },
-    feedback_360: { labelPt: "Feedback 360º", labelEn: "360º Feedback" }
+    feedback_360: { labelPt: "Feedback 360º", labelEn: "360º Feedback" },
+    pilares_crescimento: { labelPt: "Pilares de Crescimento", labelEn: "Growth Pillars" }
 };
 
 // Answer scales. A catalog declares which one it uses and EVERY generic path

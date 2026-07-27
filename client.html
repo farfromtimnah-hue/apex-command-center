@@ -2917,8 +2917,14 @@
     // the client_assessments assignment table. A second assessment type only
     // needs a new entry in ASSESSMENT_TYPES_UI — no new card, no new API.
 
+    // `report` is the page the "Ver Relatório" button opens — each instrument
+    // has its own report layout (areas vs. weighted categories), so the row
+    // carries it rather than the button assuming one file.
     var ASSESSMENT_TYPES_UI = [
-      { type: "business_xray", pt: "Raio X Empresarial", en: "Business X-Ray" }
+      { type: "business_xray",   pt: "Raio X Empresarial", en: "Business X-Ray",
+        report: "xray-report.html" },
+      { type: "management_xray", pt: "Raio X de Gestão", en: "Management X-Ray",
+        report: "management-xray-report.html" }
     ];
     var assessmentsData = null;
 
@@ -2935,6 +2941,16 @@
         });
     }
 
+    // The Business X-Ray's band labels are bare adjectives ("Alta"), so they
+    // need the "Maturidade" prefix to read; the Management X-Ray's are already
+    // full sentences ("GESTÃO CONSOLIDADA") and must be printed as-is.
+    function maturityLabelHtml(a) {
+      var m = a.score_summary.maturity;
+      var bare = (a.assessment_type === "business_xray");
+      return '<span class="show-pt">' + (bare ? "Maturidade " : "") + escHtml(m.labelPt) + '</span>' +
+             '<span class="show-en">' + (bare ? "Maturity " : "") + escHtml(m.labelEn) + '</span>';
+    }
+
     function assessmentStatusHtml(a) {
       if (a.status === "completed") {
         return '<span style="color:#3f7d4e;font-weight:600;">' +
@@ -2944,9 +2960,7 @@
           formatDateTime(a.completed_at) +
           (a.score_summary
             ? ' &middot; ' + a.score_summary.score + '/' + a.score_summary.max_score +
-              ' (' + a.score_summary.pct + '%) &middot; ' +
-              '<span class="show-pt">Maturidade ' + escHtml(a.score_summary.maturity.labelPt) + '</span>' +
-              '<span class="show-en">Maturity ' + escHtml(a.score_summary.maturity.labelEn) + '</span>'
+              ' (' + a.score_summary.pct + '%) &middot; ' + maturityLabelHtml(a)
             : '') +
           '</div>';
       }
@@ -2976,7 +2990,7 @@
             '<span class="show-pt">Ativado em:</span><span class="show-en">Activated on:</span> ' +
             formatDateTime(a.activated_at) + '</div>' +
             (a.status === "completed"
-              ? '<button class="btn-add" style="margin-right:6px;" onclick="openAssessmentReport()">' +
+              ? '<button class="btn-add" style="margin-right:6px;" onclick="openAssessmentReport(\'' + t.report + '\')">' +
                 '<span class="show-pt">Ver Relat&oacute;rio</span><span class="show-en">View Report</span></button>'
               : '') +
             '<button class="btn-add" onclick="deactivateAssessment(\'' + t.type + '\')">' +
@@ -2996,9 +3010,9 @@
       el.innerHTML = html;
     }
 
-    function openAssessmentReport() {
+    function openAssessmentReport(page) {
       var name = (clientData && clientData.name) || "";
-      window.open("xray-report.html?client=" + encodeURIComponent(CLIENT_ID) +
+      window.open((page || "xray-report.html") + "?client=" + encodeURIComponent(CLIENT_ID) +
         "&name=" + encodeURIComponent(name), "_blank");
     }
 

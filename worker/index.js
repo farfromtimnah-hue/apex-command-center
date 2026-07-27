@@ -10070,7 +10070,17 @@ async function handleGetWeeklySummary(id, request, env) {
 // ---------------------------------------------------------------------------
 
 var ASSESSMENT_TYPES = {
-    business_xray: { labelPt: "Raio X Empresarial", labelEn: "Business X-Ray" }
+    business_xray:   { labelPt: "Raio X Empresarial", labelEn: "Business X-Ray" },
+    management_xray: { labelPt: "Raio X de Gestão",  labelEn: "Management X-Ray" }
+};
+
+// Answer scales. A catalog declares which one it uses and EVERY generic path
+// (merge/validation, answered-count, portal rendering) keys off this — never
+// off the type string. A third assessment type only needs a new entry here.
+//   coerceBool: legacy true/false payloads collapse to 1/0 (binary only).
+var ASSESSMENT_SCALES = {
+    binary:  { type: "binary",  values: [0, 1],    coerceBool: true },
+    ternary: { type: "ternary", values: [0, 1, 2], coerceBool: false }
 };
 
 var XRAY_AREAS = [
@@ -10369,16 +10379,45 @@ var XRAY_PROFILE_ACTIVITIES = [
       labelEn: "Current use of AI and automation (whatever is used today, even a little)" }
 ];
 
+// Every catalog declares its `scale`; the generic answer paths (merge,
+// answered-count, portal rendering) read it instead of branching on the type.
+// `layout` tells the portal which flow to render: the 62-question bank needs
+// the multi-section wizard, an 11-question one fits on a single page.
 function assessmentCatalog(type) {
     if (type === "business_xray") {
         return {
+            assessment_type: "business_xray",
+            scale: ASSESSMENT_SCALES.binary,
+            layout: "sections",
             areas: XRAY_AREAS, questions: XRAY_QUESTIONS, total: XRAY_QUESTIONS.length,
             profile_sections: XRAY_PROFILE_SECTIONS,
             profile_activities: XRAY_PROFILE_ACTIVITIES,
             profile_dimensions: XRAY_PROFILE_DIMENSIONS
         };
     }
+    if (type === "management_xray") {
+        // Category === question: the same rows are exposed under `questions`
+        // (what the generic answer paths iterate) and `categories` (what the
+        // report reads), so nothing downstream needs a special case.
+        return {
+            assessment_type: "management_xray",
+            scale: ASSESSMENT_SCALES.ternary,
+            layout: "single_page",
+            categories: MGMT_CATEGORIES,
+            questions: MGMT_CATEGORIES,
+            total: MGMT_CATEGORIES.length,
+            max_score: mgmtMaxScore(),
+            scale_levels: MGMT_SCALE_LEVELS
+        };
+    }
     return null;
+}
+
+// True when `v` is one of the values the catalog's scale declares.
+function assessmentScaleAccepts(catalog, v) {
+    var scale = catalog && catalog.scale;
+    if (!scale) { return false; }
+    return scale.values.indexOf(v) > -1;
 }
 
 // ---------------------------------------------------------------------------
@@ -10523,8 +10562,290 @@ function computeXrayScore(answers) {
     };
 }
 
+// ---------------------------------------------------------------------------
+// Management X-Ray (Raio X de Gestão) — the second assigned assessment.
+//
+// Structurally different from the Business X-Ray and deliberately so:
+//   - 11 CATEGORIES, one question each (category === question), so there is
+//     no area/question split — a category IS the unit of measurement;
+//   - a 0/1/2 maturity scale (Vermelho / Amarelo / Verde) instead of Sim/Não;
+//   - WEIGHTED: each category carries weight 3, 2 or 1, so raw max is
+//     Σ(weight × 2) = 50, not the category count.
+// No practice-profile section here — that is business_xray-only.
+// ---------------------------------------------------------------------------
+
+// The three points on the scale. Index === stored answer value, so
+// MGMT_SCALE_LEVELS[answers[key]] is the whole response descriptor.
+var MGMT_SCALE_LEVELS = [
+    { value: 0, key: "vermelho", color: "danger",  hex: "#dc3545",
+      labelPt: "Crítico",           labelEn: "Critical",
+      shortPt: "Crítico",           shortEn: "Critical" },
+    { value: 1, key: "amarelo",  color: "warning", hex: "#ffc107",
+      labelPt: "Em Desenvolvimento", labelEn: "In Development",
+      shortPt: "Em Dev.",            shortEn: "In Dev." },
+    { value: 2, key: "verde",    color: "success", hex: "#28a745",
+      labelPt: "Alta Performance",   labelEn: "High Performance",
+      shortPt: "Alta Perf.",         shortEn: "High Perf." }
+];
+
+// Priority derives from weight ONLY — never hand-assigned per category.
+var MGMT_WEIGHT_PRIORITY = {
+    3: { pt: "ALTA",  en: "HIGH" },
+    2: { pt: "MÉDIA", en: "MEDIUM" },
+    1: { pt: "BAIXA", en: "LOW" }
+};
+
+// Each category is one question with three verbatim options indexed by value.
+var MGMT_CATEGORIES = [
+    { key: "planejamento_estrategico", weight: 3,
+      namePt: "Planejamento Estratégico", nameEn: "Strategic Planning",
+      labelPt: "O plano estratégico da empresa é claro, comunicado e alinhado a toda a organização?",
+      labelEn: "Is the company's strategic plan clear, communicated and aligned across the whole organization?",
+      optionsPt: ["Não existe ou não é comunicado", "Parcialmente definido e comunicado", "Totalmente definido e alinhado"],
+      optionsEn: ["Does not exist or is not communicated", "Partially defined and communicated", "Fully defined and aligned"] },
+    { key: "estrutura_organizacional", weight: 2,
+      namePt: "Estrutura Organizacional", nameEn: "Organizational Structure",
+      labelPt: "As responsabilidades e hierarquias estão claramente definidas e documentadas?",
+      labelEn: "Are responsibilities and reporting lines clearly defined and documented?",
+      optionsPt: ["Não definidas ou documentadas", "Parcialmente documentadas", "Totalmente documentadas e conhecidas"],
+      optionsEn: ["Not defined or documented", "Partially documented", "Fully documented and known"] },
+    { key: "comunicacao_interna", weight: 2,
+      namePt: "Comunicação Interna", nameEn: "Internal Communication",
+      labelPt: "A comunicação interna é eficiente e há canais abertos para feedback?",
+      labelEn: "Is internal communication efficient, with open channels for feedback?",
+      optionsPt: ["Ineficiente ou inexistente", "Parcialmente eficiente", "Muito eficiente com canais abertos"],
+      optionsEn: ["Inefficient or non-existent", "Partially efficient", "Very efficient with open channels"] },
+    { key: "gestao_metas", weight: 3,
+      namePt: "Gestão de Metas", nameEn: "Goal Management",
+      labelPt: "As metas são mensuráveis, alinhadas e o desempenho é avaliado regularmente?",
+      labelEn: "Are goals measurable, aligned, and is performance reviewed regularly?",
+      optionsPt: ["Não há sistema formal de metas", "Sistema parcial ou inconsistente", "Sistema completo e regularmente avaliado"],
+      optionsEn: ["No formal goal system", "Partial or inconsistent system", "Complete system, regularly reviewed"] },
+    { key: "gestao_reunioes", weight: 1,
+      namePt: "Gestão de Reuniões", nameEn: "Meeting Management",
+      labelPt: "As reuniões são produtivas, com agenda clara e resultam em decisões documentadas?",
+      labelEn: "Are meetings productive, with a clear agenda, resulting in documented decisions?",
+      optionsPt: ["Reuniões desorganizadas", "Parcialmente organizadas", "Bem estruturadas com decisões documentadas"],
+      optionsEn: ["Disorganized meetings", "Partially organized", "Well structured with documented decisions"] },
+    { key: "processos_procedimentos", weight: 3,
+      namePt: "Processos e Procedimentos", nameEn: "Processes & Procedures",
+      labelPt: "Os processos-chave são documentados, padronizados e seguidos consistentemente?",
+      labelEn: "Are key processes documented, standardized and consistently followed?",
+      optionsPt: ["Não documentados ou não padronizados", "Parcialmente documentados", "Completamente documentados e padronizados"],
+      optionsEn: ["Not documented or not standardized", "Partially documented", "Fully documented and standardized"] },
+    { key: "indicadores_desempenho", weight: 3,
+      namePt: "Indicadores de Desempenho", nameEn: "Performance Indicators",
+      labelPt: "Existem KPIs definidos, monitorados e usados para tomada de decisão?",
+      labelEn: "Are there KPIs defined, monitored and used for decision-making?",
+      optionsPt: ["Não existem KPIs formalizados", "Parcialmente implantados", "Completamente implantados e monitorados"],
+      optionsEn: ["No formalized KPIs", "Partially implemented", "Fully implemented and monitored"] },
+    { key: "desenvolvimento_pessoas", weight: 2,
+      namePt: "Desenvolvimento de Pessoas", nameEn: "People Development",
+      labelPt: "Há planos de desenvolvimento profissional e programas de capacitação contínua?",
+      labelEn: "Are there professional development plans and continuous training programs?",
+      optionsPt: ["Não há programa de desenvolvimento", "Programa básico ou ocasional", "Programa robusto e contínuo"],
+      optionsEn: ["No development program", "Basic or occasional program", "Robust and continuous program"] },
+    { key: "avaliacao_desempenho", weight: 2,
+      namePt: "Avaliação de Desempenho", nameEn: "Performance Review",
+      labelPt: "Existe sistema formal de avaliação de desempenho com feedback regular?",
+      labelEn: "Is there a formal performance-review system with regular feedback?",
+      optionsPt: ["Não existe sistema formal", "Sistema informal ou irregular", "Sistema formal com feedback regular"],
+      optionsEn: ["No formal system", "Informal or irregular system", "Formal system with regular feedback"] },
+    { key: "documentacao_registro", weight: 2,
+      namePt: "Documentação e Registro", nameEn: "Documentation & Records",
+      labelPt: "A documentação organizacional é mantida, atualizada e facilmente acessível?",
+      labelEn: "Is organizational documentation maintained, up to date and easily accessible?",
+      optionsPt: ["Desorganizada ou inacessível", "Parcialmente organizada", "Bem organizada e facilmente acessível"],
+      optionsEn: ["Disorganized or inaccessible", "Partially organized", "Well organized and easily accessible"] },
+    { key: "controle_conformidade", weight: 2,
+      namePt: "Controle e Conformidade", nameEn: "Control & Compliance",
+      labelPt: "Existem controles e auditorias para garantir conformidade e qualidade?",
+      labelEn: "Are there controls and audits to ensure compliance and quality?",
+      optionsPt: ["Não existem controles formais", "Parcialmente implantados", "Completamente implantados e auditados"],
+      optionsEn: ["No formal controls", "Partially implemented", "Fully implemented and audited"] }
+];
+
+// Band cutoffs + verbatim band copy — the ONLY place these numbers and this
+// wording live (mirrors XRAY_CUTOFFS). Ordered strongest-first; the first
+// entry whose `min` the percentage clears wins.
+var MGMT_CUTOFFS = [
+    { min: 80, level: "consolidada", color: "success",
+      labelPt: "GESTÃO CONSOLIDADA", labelEn: "CONSOLIDATED MANAGEMENT",
+      rangePt: "80-100%", rangeEn: "80-100%",
+      devolutivaPt: "Sua organização possui processos bem estruturados e uma gestão madura. Os indicadores estão em linha, a comunicação flui, e há clareza nas responsabilidades. O desafio agora é escalar e otimizar continuamente para manter competitividade.",
+      devolutivaEn: "Your organization has well-structured processes and mature management. Indicators are on track, communication flows, and responsibilities are clear. The challenge now is to scale and continuously optimize to stay competitive.",
+      acaoImediataPt: "Mantenha a excelência atual. Foque em otimizar as categorias amarelas. Documente as melhores práticas para replicar em toda a empresa.",
+      acaoImediataEn: "Maintain the current standard. Focus on optimizing the yellow categories. Document best practices to replicate across the company." },
+    { min: 50, level: "transicao", color: "warning",
+      labelPt: "GESTÃO EM TRANSIÇÃO", labelEn: "MANAGEMENT IN TRANSITION",
+      rangePt: "50-79%", rangeEn: "50-79%",
+      devolutivaPt: "Existem boas iniciativas, mas faltam consistência e padronização. Alguns processos estão definidos, mas nem todos são seguidos rigorosamente. Há comunicação, mas pode ser mais clara e fluida. O feedback é ocasional, não rotina. Indicadores existem, mas precisam de maior rigor.",
+      devolutivaEn: "There are good initiatives, but consistency and standardization are missing. Some processes are defined, but not all are strictly followed. Communication exists, but it could be clearer and smoother. Feedback is occasional, not routine. Indicators exist, but need more rigor.",
+      acaoImediataPt: "Priorize implementar os 3 pontos críticos nos próximos 30 dias. Defina responsáveis claros. Estabeleça acompanhamento mensal.",
+      acaoImediataEn: "Prioritize implementing the 3 critical points over the next 30 days. Assign clear owners. Establish monthly follow-up." },
+    { min: 0, level: "desorganizada", color: "danger",
+      labelPt: "GESTÃO DESORGANIZADA", labelEn: "DISORGANIZED MANAGEMENT",
+      rangePt: "0-49%", rangeEn: "0-49%",
+      devolutivaPt: "A organização opera de forma pouco estruturada. Processos não são padronizados. Responsabilidades são difusas. Faltam indicadores e métricas. Comunicação é ineficiente. Há risco significativo de inconsistências, erros e perda de oportunidades. Uma intervenção estruturada é urgente.",
+      devolutivaEn: "The organization operates with little structure. Processes are not standardized. Responsibilities are diffuse. Indicators and metrics are missing. Communication is inefficient. There is significant risk of inconsistencies, errors and lost opportunities. A structured intervention is urgent.",
+      acaoImediataPt: "Crie um plano de ação de 90 dias. Comece pelos 3 processos-chave mais críticos. Designe um responsável pela transformação. Estabeleça check-ins semanais.",
+      acaoImediataEn: "Create a 90-day action plan. Start with the 3 most critical key processes. Appoint an owner for the transformation. Establish weekly check-ins." }
+];
+
+// Action-card templates keyed by tag. {cat} is replaced with the category name.
+var MGMT_ACTION_TEMPLATES = {
+    "URGENTE": {
+        pt: ['Diagnosticar raiz do problema em "{cat}"', "Definir processo padrão documentado",
+             "Treinar equipe e estabelecer responsáveis", "Monitorar com métricas semanais"],
+        en: ['Diagnose the root cause in "{cat}"', "Define a documented standard process",
+             "Train the team and assign owners", "Track with weekly metrics"]
+    },
+    "MELHORIA": {
+        pt: ['Revisar processos atuais em "{cat}"', "Implementar melhorias incrementais",
+             "Validar com usuários finais", "Documentar e comunicar mudanças"],
+        en: ['Review current processes in "{cat}"', "Implement incremental improvements",
+             "Validate with end users", "Document and communicate the changes"]
+    }
+};
+
+// Timeline ladder by action-plan rank (1-indexed), capped at 4 cards.
+var MGMT_ACTION_TIMELINES = [
+    { pt: "2 semanas", en: "2 weeks" },
+    { pt: "1 mês",     en: "1 month" },
+    { pt: "6 semanas", en: "6 weeks" },
+    { pt: "3 meses",   en: "3 months" }
+];
+
+var MGMT_ACTION_SUCCESS_PT = "Implementação completa e primeiro ciclo de melhoria em andamento";
+var MGMT_ACTION_SUCCESS_EN = "Full implementation and first improvement cycle under way";
+
+// Max raw score = Σ(weight × 2). Computed, never hardcoded, so editing a
+// weight above cannot silently desync the denominator.
+function mgmtMaxScore() {
+    return MGMT_CATEGORIES.reduce(function(sum, c) { return sum + c.weight * 2; }, 0);
+}
+
+// Pure scoring engine — answers is a flat { category_key: 0|1|2 } map.
+// Returns the full structured result; NO rendering and NO narrative here.
+function computeManagementXrayScore(answers) {
+    answers = answers || {};
+    var maxScore = mgmtMaxScore();
+    var score = 0;
+    var dist = { vermelho: 0, amarelo: 0, verde: 0, nao_respondido: 0, total: MGMT_CATEGORIES.length };
+    var buckets = { criticos: [], atencao: [], fortes: [] };
+    var BUCKET_BY_LEVEL = { vermelho: "criticos", amarelo: "atencao", verde: "fortes" };
+
+    var categories = MGMT_CATEGORIES.map(function(c) {
+        var v = answers[c.key];
+        var answered = (v === 0 || v === 1 || v === 2);
+        var level = answered ? MGMT_SCALE_LEVELS[v] : null;
+        var weighted = answered ? v * c.weight : 0;
+        score += weighted;
+        if (answered) { dist[level.key] += 1; buckets[BUCKET_BY_LEVEL[level.key]].push(c.key); }
+        else { dist.nao_respondido += 1; }
+        var prio = MGMT_WEIGHT_PRIORITY[c.weight];
+        return {
+            key: c.key, namePt: c.namePt, nameEn: c.nameEn,
+            weight: c.weight,
+            value: answered ? v : null,
+            response: answered
+                ? { key: level.key, labelPt: level.labelPt, labelEn: level.labelEn,
+                    optionPt: c.optionsPt[v], optionEn: c.optionsEn[v] }
+                : null,
+            color: answered ? level.color : "muted",
+            hex: answered ? level.hex : "#c9cbcf",
+            weightedScore: weighted, maxWeighted: c.weight * 2,
+            bucket: answered ? BUCKET_BY_LEVEL[level.key] : null,
+            priorityPt: prio.pt, priorityEn: prio.en
+        };
+    });
+
+    var pct = maxScore ? Math.round((score / maxScore) * 100) : 0;
+
+    // Maturity band (cutoffs live in MGMT_CUTOFFS only).
+    var band = MGMT_CUTOFFS[MGMT_CUTOFFS.length - 1];
+    for (var i = 0; i < MGMT_CUTOFFS.length; i++) {
+        if (pct >= MGMT_CUTOFFS[i].min) { band = MGMT_CUTOFFS[i]; break; }
+    }
+    var maturity = {
+        level: band.level, labelPt: band.labelPt, labelEn: band.labelEn,
+        color: band.color, rangePt: band.rangePt, rangeEn: band.rangeEn,
+        devolutivaPt: band.devolutivaPt, devolutivaEn: band.devolutivaEn,
+        acaoImediataPt: band.acaoImediataPt, acaoImediataEn: band.acaoImediataEn
+    };
+
+    // Plano de Ação Prioritário — max 4 cards, only non-verde categories.
+    // Order: value ascending (vermelho first), then weight descending, then
+    // catalog order (the sort is stable, so equal keys keep catalog order).
+    var orderByKey = {};
+    MGMT_CATEGORIES.forEach(function(c, idx) { orderByKey[c.key] = idx; });
+    var actionable = categories.filter(function(c) { return c.value === 0 || c.value === 1; });
+    actionable.sort(function(x, y) {
+        if (x.value !== y.value) { return x.value - y.value; }
+        if (x.weight !== y.weight) { return y.weight - x.weight; }
+        return orderByKey[x.key] - orderByKey[y.key];
+    });
+    var actionPlan = actionable.slice(0, MGMT_ACTION_TIMELINES.length).map(function(c, idx) {
+        var tag = (c.value === 0) ? "URGENTE" : "MELHORIA";
+        var tpl = MGMT_ACTION_TEMPLATES[tag];
+        var time = MGMT_ACTION_TIMELINES[idx];
+        return {
+            rank: idx + 1,
+            categoryKey: c.key, categoryNamePt: c.namePt, categoryNameEn: c.nameEn,
+            weight: c.weight, value: c.value,
+            priorityPt: c.priorityPt, priorityEn: c.priorityEn,
+            tag: tag, timeframePt: time.pt, timeframeEn: time.en,
+            actionsPt: tpl.pt.map(function(a) { return a.replace("{cat}", c.namePt); }),
+            actionsEn: tpl.en.map(function(a) { return a.replace("{cat}", c.nameEn); }),
+            criterioSucessoPt: MGMT_ACTION_SUCCESS_PT, criterioSucessoEn: MGMT_ACTION_SUCCESS_EN
+        };
+    });
+
+    // Chart DATA only — the report renders it client-side (same discipline as
+    // the Business X-Ray's inline SVG bars: no chart library, no CDN).
+    var charts = {
+        categoryBar: {
+            titlePt: "Nível por Categoria", titleEn: "Level by Category",
+            yMin: 0, yMax: 2,
+            ticks: MGMT_SCALE_LEVELS.map(function(l) {
+                return { value: l.value, labelPt: l.shortPt, labelEn: l.shortEn };
+            }),
+            // FULL category names — never truncated.
+            bars: categories.map(function(c) {
+                return { key: c.key, labelPt: c.namePt, labelEn: c.nameEn,
+                         value: c.value, hex: c.hex };
+            })
+        },
+        responseDoughnut: {
+            titlePt: "Distribuição das Respostas", titleEn: "Response Distribution",
+            total: dist.total,
+            slices: [
+                { key: "vermelho",       labelPt: "Crítico",           labelEn: "Critical",         count: dist.vermelho,       hex: "#dc3545" },
+                { key: "amarelo",        labelPt: "Em Desenvolvimento", labelEn: "In Development",   count: dist.amarelo,        hex: "#ffc107" },
+                { key: "verde",          labelPt: "Alta Performance",   labelEn: "High Performance", count: dist.verde,          hex: "#28a745" },
+                { key: "nao_respondido", labelPt: "Não respondidas",    labelEn: "Unanswered",       count: dist.nao_respondido, hex: "#c9cbcf" }
+            ].map(function(s) {
+                return Object.assign(s, { pct: dist.total ? Math.round((s.count / dist.total) * 100) : 0 });
+            })
+        }
+    };
+
+    return {
+        version: 1,
+        assessment_type: "management_xray",
+        score: score, max_score: maxScore, pct: pct,
+        maturity: maturity,
+        categories: categories,
+        buckets: buckets,
+        distribution: dist,
+        action_plan: actionPlan,
+        charts: charts
+    };
+}
+
 function computeAssessmentScore(type, answers) {
-    if (type === "business_xray") { return computeXrayScore(answers); }
+    if (type === "business_xray")   { return computeXrayScore(answers); }
+    if (type === "management_xray") { return computeManagementXrayScore(answers); }
     return null;
 }
 
@@ -10535,7 +10856,7 @@ function assessmentAnsweredCount(type, answers) {
     if (!catalog) { return 0; }
     var n = 0;
     catalog.questions.forEach(function(q) {
-        if (answers[q.key] === 0 || answers[q.key] === 1) { n += 1; }
+        if (assessmentScaleAccepts(catalog, answers[q.key])) { n += 1; }
     });
     return n;
 }
@@ -10634,8 +10955,11 @@ async function handleGetClientAssessments(id, request, env) {
                 status: r.status,
                 answered: assessmentAnsweredCount(r.assessment_type, answers),
                 total: catalog ? catalog.total : 0,
-                profile_answered: (r.assessment_type === "business_xray") ? xrayProfileAnsweredCount(profile) : 0,
-                profile_required_total: (r.assessment_type === "business_xray") ? xrayProfileRequiredTotal() : 0,
+                // Only the Business X-Ray catalog declares profile activities;
+                // every other type reports a clean 0/0 rather than the
+                // Business X-Ray's totals against an empty profile.
+                profile_answered: (catalog && catalog.profile_activities) ? xrayProfileAnsweredCount(profile) : 0,
+                profile_required_total: (catalog && catalog.profile_activities) ? xrayProfileRequiredTotal() : 0,
                 activated_by: r.activated_by, activated_at: r.activated_at,
                 started_at: r.started_at, completed_at: r.completed_at,
                 score_summary: summary
@@ -10670,8 +10994,13 @@ async function handlePostClientAssessment(id, request, env) {
         await env.DB.prepare(
             "INSERT INTO client_assessments (id, client_id, assessment_type, status, activated_by) VALUES (?, ?, ?, 'not_started', ?)"
         ).bind(crypto.randomUUID(), id, type, user.display_name || user.role).run();
-        // X-Ray assigned to a lead → "Raio X enviado" (no-op for real clients).
-        await advanceLeadStage(env, id, "Raio X enviado");
+        // Business X-Ray assigned to a lead → "Raio X enviado" (no-op for real
+        // clients). Type-scoped on purpose: the lead pipeline's "Raio X" stages
+        // track that instrument only, so assigning any other assessment must
+        // leave the prospect's stage exactly where it was.
+        if (type === "business_xray") {
+            await advanceLeadStage(env, id, "Raio X enviado");
+        }
         return jsonOk({ activated: true, assessment_type: type, status: "not_started" });
     } catch (e) {
         return jsonErr("Error activating assessment: " + e.message, 500);
@@ -10730,8 +11059,8 @@ async function handleGetClientAssessmentDetail(id, type, request, env) {
             answered: assessmentAnsweredCount(type, answers),
             total: catalog.total,
             profile: profile,
-            profile_answered: xrayProfileAnsweredCount(profile),
-            profile_required_total: xrayProfileRequiredTotal(),
+            profile_answered: catalog.profile_activities ? xrayProfileAnsweredCount(profile) : 0,
+            profile_required_total: catalog.profile_activities ? xrayProfileRequiredTotal() : 0,
             catalog: catalog,
             score: score
         });
@@ -10775,21 +11104,29 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
         var prev = {};
         try { prev = JSON.parse(row.answers_json || "{}"); } catch (e) { prev = {}; }
         var merged = Object.assign({}, prev);
+        // Accepted values come from the catalog's declared scale, never from a
+        // hardcoded 0|1 — a ternary instrument stores 2 through the same path.
+        // Legacy true/false payloads still collapse to 1/0 on binary scales.
         Object.keys(incoming).forEach(function(k) {
             if (!validKeys[k]) { return; }
             var v = incoming[k];
-            if (v === true) { v = 1; }
-            if (v === false) { v = 0; }
-            if (v === 1 || v === 0) { merged[k] = v; }
+            if (catalog.scale.coerceBool) {
+                if (v === true)  { v = 1; }
+                if (v === false) { v = 0; }
+            }
+            if (assessmentScaleAccepts(catalog, v)) { merged[k] = v; }
         });
 
         // Practice profile (Part 2): merged and stored in its own column,
-        // NEVER handed to the scoring engine below.
+        // NEVER handed to the scoring engine below. Only the Business X-Ray
+        // declares profile sections — for any other type this stays {} / 0-of-0
+        // so the completion gate below is a no-op rather than an impossible bar.
+        var hasProfile = !!catalog.profile_activities;
         var prevProfile = {};
         try { prevProfile = JSON.parse(row.profile_json || "{}"); } catch (e) { prevProfile = {}; }
-        var mergedProfile = xrayMergeProfile(prevProfile, (body && body.profile) || null);
-        var profileAnswered = xrayProfileAnsweredCount(mergedProfile);
-        var profileTotal = xrayProfileRequiredTotal();
+        var mergedProfile = hasProfile ? xrayMergeProfile(prevProfile, (body && body.profile) || null) : prevProfile;
+        var profileAnswered = hasProfile ? xrayProfileAnsweredCount(mergedProfile) : 0;
+        var profileTotal = hasProfile ? xrayProfileRequiredTotal() : 0;
 
         var answered = assessmentAnsweredCount(type, merged);
         if (isDraft) {
@@ -10818,8 +11155,12 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
             "completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
         ).bind(JSON.stringify(merged), JSON.stringify(mergedProfile), JSON.stringify(score), row.id).run();
         // X-Ray submitted → "Raio X recebido", the stage flagged in the UI as
-        // Alice's cue to act (schedule the meeting).
-        await advanceLeadStage(env, id, "Raio X recebido");
+        // Alice's cue to act (schedule the meeting). The two "Raio X" lead
+        // stages mean the BUSINESS X-Ray specifically, so a Management X-Ray
+        // must never move a lead's pipeline stage.
+        if (type === "business_xray") {
+            await advanceLeadStage(env, id, "Raio X recebido");
+        }
         return jsonOk({ saved: true, completed: true, score: score });
     } catch (e) {
         return jsonErr("Error saving assessment answers: " + e.message, 500);

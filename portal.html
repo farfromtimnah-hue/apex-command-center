@@ -575,6 +575,31 @@
     }
     .xray-yn button.sel-yes { background: var(--green); border-color: var(--green); color: #fff; }
     .xray-yn button.sel-no  { background: var(--red);   border-color: var(--red);   color: #fff; }
+    /* Ternary (0/1/2) scale — same touch target and shape as .xray-yn, but the
+       options carry long descriptive text, so they stack vertically instead of
+       sharing one row. Colour only lands on the SELECTED option: three
+       permanently red/yellow/green buttons would read as a traffic light the
+       client has to decode before answering. */
+    .xray-scale { display: flex; flex-direction: column; gap: 8px; }
+    .xray-scale button {
+      width: 100%; padding: 11px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: #fff;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      color: var(--text); cursor: pointer; min-height: 44px;
+      text-align: left; line-height: 1.35;
+      display: flex; align-items: center; gap: 10px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Leading dot always carries the level colour, so the scale stays readable
+       (and distinguishable without relying on the selection fill alone). */
+    .xray-scale .sc-dot {
+      flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%;
+      border: 1.5px solid rgba(0,0,0,0.12);
+    }
+    .xray-scale button.sel-0 { background: var(--red);   border-color: var(--red);   color: #fff; }
+    .xray-scale button.sel-1 { background: #8a6d1d;      border-color: #8a6d1d;      color: #fff; }
+    .xray-scale button.sel-2 { background: var(--green); border-color: var(--green); color: #fff; }
+    .xray-scale button[class*="sel-"] .sc-dot { border-color: rgba(255,255,255,0.85); }
     /* Practice-profile (Part 2) inputs */
     .xray-activity { padding: 16px 0; border-bottom: 1px solid var(--border); }
     .xray-activity:last-child { border-bottom: none; }
@@ -944,6 +969,9 @@
         <button class="portal-tab" data-tab="xray" id="tabBtnXray" hidden onclick="switchTab('xray')">
           <span class="show-pt">Raio X</span><span class="show-en">X-Ray</span>
         </button>
+        <button class="portal-tab" data-tab="mgmtxray" id="tabBtnMgmtXray" hidden onclick="switchTab('mgmtxray')">
+          <span class="show-pt">Raio X Gest&atilde;o</span><span class="show-en">Mgmt X-Ray</span>
+        </button>
         <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
           <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
         </button>
@@ -1084,6 +1112,15 @@
           <div class="section-hero-sub" id="xrayHeroSub"></div>
         </div>
         <div id="xrayBody"></div>
+      </div>
+
+      <div id="tabMgmtxray" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title" id="mgmtXrayHeroTitle"></div>
+          <div class="section-hero-sub" id="mgmtXrayHeroSub"></div>
+        </div>
+        <div id="mgmtXrayBody"></div>
       </div>
 
       <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
@@ -1729,12 +1766,14 @@
       // the first-time work-schedule popup (entryState.work_schedule_set ===
       // false will still be true for a freshly-converted lead).
       if (isLead()) { showPortal(); return; }
-      // A lead activated for the X-Ray but with no goals configured goes
+      // A lead activated for an assessment but with no goals configured goes
       // straight to the questionnaire — the goal/entry gates below assume a
       // full daily-log client and would dead-end a prospect on first login.
-      if (xrayAssigned && goalState && !goalState.has_any_goals) {
+      // The Business X-Ray wins when both are assigned: it is the deeper
+      // diagnostic and the one the lead pipeline's stages track.
+      if ((xrayAssigned || mgmtAssigned) && goalState && !goalState.has_any_goals) {
         showPortal();
-        switchTab("xray");
+        switchTab(xrayAssigned ? "xray" : "mgmtxray");
         return;
       }
       if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals)) {
@@ -2215,7 +2254,7 @@
     // The only tabs a lead may actually land on. "xray" is here because the
     // Assigned tab opens the real X-Ray; "lockedpreview" is the teaser host
     // (must be allowed or openLockedPreview -> switchTab would recurse).
-    var LEAD_ALLOWED_TABS = ["assigned", "documents", "xray", "lockedpreview"];
+    var LEAD_ALLOWED_TABS = ["assigned", "documents", "xray", "mgmtxray", "lockedpreview"];
 
     // Tools Pr. Rafa can assign to a lead. One entry per tool; `assigned` is
     // re-evaluated on each render against the real assignment data, so adding
@@ -2230,6 +2269,16 @@
         descPt: "Diagn&oacute;stico completo da sua opera&ccedil;&atilde;o, &aacute;rea por &aacute;rea.",
         descEn: "A full diagnostic of your operation, area by area.",
         isAssigned: function() { return xrayAssigned; }
+      },
+      {
+        key: "mgmtxray",
+        tab: "mgmtxray",
+        icon: "list",
+        titlePt: "Raio X de Gest&atilde;o",
+        titleEn: "Management X-Ray",
+        descPt: "11 categorias de gest&atilde;o avaliadas em uma escala de matura&ccedil;&atilde;o.",
+        descEn: "11 management categories scored on a maturity scale.",
+        isAssigned: function() { return mgmtAssigned; }
       }
     ];
 
@@ -2450,6 +2499,9 @@
       if (xrayAssigned) {
         more.push({ tab: "xray", icon: "view", labelPt: "Raio X", labelEn: "X-Ray" });
       }
+      if (mgmtAssigned) {
+        more.push({ tab: "mgmtxray", icon: "list", labelPt: "Raio X Gest&atilde;o", labelEn: "Mgmt X-Ray" });
+      }
       return more;
     }
 
@@ -2531,7 +2583,7 @@
       // (id="tabLockedPreview", capital P) — a casing slip here returns null
       // from getElementById and throws inside the forEach, which aborts
       // showPortal() mid-boot and bounces the whole page.
-      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
+      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Mgmtxray", "Worksched",
        "Gmcrm", "Gmroadmap", "Gmbase", "Gmpartners", "Gmfinance", "Gmjobs",
        "Assigned", "LockedPreview"].forEach(function(t) {
         document.getElementById("tab" + t).hidden = (t.toLowerCase() !== tab);
@@ -2549,6 +2601,7 @@
         if (tab === "documents") { loadDocuments(); }
         if (tab === "invoices") { loadInvoices(); }
         if (tab === "xray") { loadXray(); }
+        if (tab === "mgmtxray") { loadMgmtXray(); }
         if (tab === "assigned") { loadAssigned(); }
         if (tab === "worksched") { loadWorkSettings(); }
         if (tab === "gmcrm") { gmLoadCrm(); }
@@ -2574,16 +2627,30 @@
     var xraySaveTimer = null;
     var XRAY_ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
 
+    // Raio X de Gestão — the second assigned assessment. 11 weighted
+    // categories on a 0/1/2 scale, one question each, so it renders as a
+    // single scrolling page instead of the 62-question wizard above. It
+    // shares the assignment plumbing, the draft/autosave contract and the
+    // submit-locks-immutable rule; only the question rendering differs.
+    var mgmtAssigned  = false;
+    var mgmtDetail    = null;   // GET /assessments/management_xray payload
+    var mgmtAnswers   = {};
+    var mgmtView      = "intro";   // 'intro' | 'questions' | 'done'
+    var mgmtSaveTimer = null;
+
     function loadAssessmentList() {
       return apiFetch("/api/clients/" + clientId + "/assessments")
         .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
         .then(function(data) {
           var list = (data && data.assessments) || [];
           xrayAssigned = list.some(function(a) { return a.assessment_type === "business_xray"; });
-          // For a lead the X-Ray is reached through the Assigned tab, so it
-          // never gets its own strip button — one entry point, not two.
+          mgmtAssigned = list.some(function(a) { return a.assessment_type === "management_xray"; });
+          // For a lead the assessments are reached through the Assigned tab, so
+          // they never get their own strip button — one entry point, not two.
           var btn = document.getElementById("tabBtnXray");
           if (btn) { btn.hidden = !xrayAssigned || isLead(); }
+          var mbtn = document.getElementById("tabBtnMgmtXray");
+          if (mbtn) { mbtn.hidden = !mgmtAssigned || isLead(); }
           return list;
         });
     }
@@ -3080,6 +3147,298 @@
 
     function xrayOpenReport() {
       var href = "xray-report.html?client=" + encodeURIComponent(clientId) +
+        "&name=" + encodeURIComponent(clientName || "");
+      if (PREVIEW_AS) { href += "&previewAs=" + encodeURIComponent(PREVIEW_AS); }
+      window.location.href = href;
+    }
+
+    // ── Raio X de Gestão (Management X-Ray) ────────────────────────────────
+    // Single scrolling page: 11 questions is short enough that a wizard would
+    // add taps without adding clarity. Everything else matches the Business
+    // X-Ray — server-side drafts, debounced autosave, immutable after submit.
+    // The answer widget is driven by catalog.scale, so it is the SCALE that
+    // decides the buttons, not the assessment type.
+
+    function loadMgmtXray() {
+      var body = document.getElementById("mgmtXrayBody");
+      body.innerHTML = '<div class="content-card"><p class="muted">' +
+        (isEn() ? "Loading..." : "Carregando...") + '</p></div>';
+      apiFetch("/api/clients/" + clientId + "/assessments/management_xray")
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(d) {
+          mgmtDetail = d;
+          mgmtAnswers = d.answers || {};
+          mgmtView = (d.status === "completed") ? "done" : "intro";
+          renderMgmtXray();
+        })
+        .catch(function() {
+          body.innerHTML = '<div class="content-card"><p class="muted">' +
+            (isEn() ? "Could not load the assessment." : "Não foi possível carregar a avaliação.") + '</p></div>';
+        });
+    }
+
+    // Scale-driven: a value counts as answered when the catalog's scale
+    // declares it, so this same helper works for a binary or ternary bank.
+    function mgmtScaleValues() {
+      var scale = mgmtDetail && mgmtDetail.catalog && mgmtDetail.catalog.scale;
+      return (scale && scale.values) || [];
+    }
+
+    function mgmtIsAnswered(key) {
+      return mgmtScaleValues().indexOf(mgmtAnswers[key]) > -1;
+    }
+
+    function mgmtTotalAnswered() {
+      var n = 0;
+      (mgmtDetail.catalog.questions || []).forEach(function(q) {
+        if (mgmtIsAnswered(q.key)) { n += 1; }
+      });
+      return n;
+    }
+
+    function mgmtSetHero(titleHtml, subHtml) {
+      document.getElementById("mgmtXrayHeroTitle").innerHTML = titleHtml;
+      document.getElementById("mgmtXrayHeroSub").innerHTML = subHtml;
+    }
+
+    function mgmtProgressHtml() {
+      var answered = mgmtTotalAnswered();
+      var total = mgmtDetail.catalog.total;
+      var pct = total ? Math.round((answered / total) * 100) : 0;
+      return '<div class="xray-progress-label" id="mgmtProgressLabel">' +
+        '<span class="show-pt">' + answered + ' de ' + total + ' respostas preenchidas</span>' +
+        '<span class="show-en">' + answered + ' of ' + total + ' answers filled in</span></div>' +
+        '<div class="progress-track"><div class="progress-fill" id="mgmtProgressFill" style="width:' + pct + '%;"></div></div>';
+    }
+
+    function mgmtUpdateProgressBar() {
+      var answered = mgmtTotalAnswered();
+      var total = mgmtDetail.catalog.total;
+      var label = document.getElementById("mgmtProgressLabel");
+      if (label) {
+        label.innerHTML = '<span class="show-pt">' + answered + ' de ' + total + ' respostas preenchidas</span>' +
+          '<span class="show-en">' + answered + ' of ' + total + ' answers filled in</span>';
+      }
+      var fill = document.getElementById("mgmtProgressFill");
+      if (fill) { fill.style.width = (total ? Math.round((answered / total) * 100) : 0) + "%"; }
+    }
+
+    function renderMgmtXray() {
+      if (!mgmtDetail) { return; }
+      if (mgmtView === "done") { renderMgmtXrayDone(); return; }
+      if (mgmtView === "questions") { renderMgmtXrayQuestions(); return; }
+      renderMgmtXrayIntro();
+    }
+
+    function renderMgmtXrayIntro() {
+      mgmtSetHero(
+        '<span class="show-pt">Raio X de Gest&atilde;o</span><span class="show-en">Management X-Ray</span>',
+        '<span class="show-pt">Diagn&oacute;stico da matura&ccedil;&atilde;o da sua gest&atilde;o</span>' +
+        '<span class="show-en">A diagnostic of your management maturity</span>'
+      );
+      var answered = mgmtTotalAnswered();
+      var total = mgmtDetail.catalog.total;
+      var html = '<div class="content-card">' +
+        '<p class="muted" style="margin-bottom:14px;">' +
+        '<span class="show-pt">S&atilde;o ' + total + ' categorias, uma pergunta cada. Em cada uma, escolha a op&ccedil;&atilde;o que melhor descreve a sua empresa hoje. Suas respostas s&atilde;o salvas automaticamente — voc&ecirc; pode parar e continuar depois.</span>' +
+        '<span class="show-en">There are ' + total + ' categories, one question each. For each, pick the option that best describes your company today. Your answers are saved automatically — you can stop and pick up later.</span></p>' +
+        mgmtProgressHtml() +
+        '<button class="btn-gold" style="width:100%;margin-top:16px;" onclick="mgmtStart()">' +
+        (answered === 0
+          ? '<span class="show-pt">Come&ccedil;ar</span><span class="show-en">Start</span>'
+          : (answered === total
+            ? '<span class="show-pt">Revisar e concluir</span><span class="show-en">Review and finish</span>'
+            : '<span class="show-pt">Continuar</span><span class="show-en">Continue</span>')) +
+        '</button></div>';
+      document.getElementById("mgmtXrayBody").innerHTML = html;
+    }
+
+    function mgmtStart() {
+      mgmtView = "questions";
+      renderMgmtXray();
+      window.scrollTo(0, 0);
+    }
+
+    // One card, all 11 questions. Each question renders its three catalog
+    // options as full-width buttons — the option TEXT is the answer, so the
+    // client never has to map a colour or a number onto a meaning.
+    function renderMgmtXrayQuestions() {
+      var qs = mgmtDetail.catalog.questions || [];
+      mgmtSetHero(
+        '<span class="show-pt">Raio X de Gest&atilde;o</span><span class="show-en">Management X-Ray</span>',
+        '<span class="show-pt">' + qs.length + ' categorias</span>' +
+        '<span class="show-en">' + qs.length + ' categories</span>'
+      );
+      var html = '<div class="content-card">' + mgmtProgressHtml() + '<div style="margin-top:8px;">';
+      qs.forEach(function(q, idx) {
+        html += '<div class="xray-question">' +
+          '<div class="xray-q-label"><strong>' + (idx + 1) + '.</strong> ' +
+          '<span class="show-pt">' + escHtml(q.namePt) + '</span>' +
+          '<span class="show-en">' + escHtml(q.nameEn) + '</span>' +
+          '<div style="margin-top:4px;font-weight:400;">' +
+          '<span class="show-pt">' + escHtml(q.labelPt) + '</span>' +
+          '<span class="show-en">' + escHtml(q.labelEn) + '</span></div>' +
+          xrayHelpIconHtml(q) + '</div>' +
+          xrayHelpBoxHtml(q) +
+          mgmtScaleHtml(q);
+        html += '</div>';
+      });
+      html += '</div>' +
+        '<button class="btn-gold" style="width:100%;margin-top:14px;" onclick="mgmtSubmit()">' +
+        '<span class="show-pt">Concluir</span><span class="show-en">Finish</span></button>' +
+        '<button class="btn-outline" style="width:100%;margin-top:10px;" onclick="mgmtExit()">' +
+        '<span class="show-pt">Salvar e continuar depois</span><span class="show-en">Save and continue later</span></button>' +
+        '<div class="autosave-note" id="mgmtAutosaveNote"></div>' +
+        '</div>';
+      document.getElementById("mgmtXrayBody").innerHTML = html;
+    }
+
+    // The answer widget for one question, built from the catalog's scale.
+    // Option labels come from the catalog (optionsPt/optionsEn indexed by
+    // value); the level colour comes from catalog.scale_levels.
+    function mgmtScaleHtml(q) {
+      var levels = (mgmtDetail.catalog && mgmtDetail.catalog.scale_levels) || [];
+      var v = mgmtAnswers[q.key];
+      var html = '<div class="xray-scale" role="group">';
+      levels.forEach(function(lvl) {
+        var sel = (v === lvl.value);
+        var optPt = (q.optionsPt || [])[lvl.value] || lvl.labelPt;
+        var optEn = (q.optionsEn || [])[lvl.value] || lvl.labelEn;
+        html += '<button type="button" id="msc_' + q.key + '_' + lvl.value + '"' +
+          (sel ? ' class="sel-' + lvl.value + '"' : '') +
+          ' aria-pressed="' + (sel ? "true" : "false") + '"' +
+          ' onclick="answerMgmt(\'' + q.key + '\', ' + lvl.value + ')">' +
+          '<span class="sc-dot" style="background:' + lvl.hex + ';"></span>' +
+          '<span><span class="show-pt">' + escHtml(optPt) + '</span>' +
+          '<span class="show-en">' + escHtml(optEn) + '</span></span>' +
+          '</button>';
+      });
+      return html + '</div>';
+    }
+
+    // Same contract as answerXray: update state + styling in place (no
+    // re-render, so the page never jumps mid-scroll), then debounce a draft.
+    function answerMgmt(key, v) {
+      mgmtAnswers[key] = v;
+      var levels = (mgmtDetail.catalog && mgmtDetail.catalog.scale_levels) || [];
+      levels.forEach(function(lvl) {
+        var btn = document.getElementById("msc_" + key + "_" + lvl.value);
+        if (!btn) { return; }
+        var sel = (lvl.value === v);
+        btn.className = sel ? ("sel-" + lvl.value) : "";
+        btn.setAttribute("aria-pressed", sel ? "true" : "false");
+      });
+      mgmtUpdateProgressBar();
+      if (mgmtSaveTimer) { clearTimeout(mgmtSaveTimer); }
+      mgmtSaveTimer = setTimeout(function() { mgmtSaveDraft(); }, 900);
+    }
+
+    function mgmtSaveDraft() {
+      if (mgmtSaveTimer) { clearTimeout(mgmtSaveTimer); mgmtSaveTimer = null; }
+      if (!mgmtDetail || mgmtDetail.status === "completed") { return Promise.resolve(); }
+      return apiFetch("/api/clients/" + clientId + "/assessments/management_xray/answers",
+        { method: "PUT", body: { draft: true, answers: mgmtAnswers } })
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.saved) {
+            var note = document.getElementById("mgmtAutosaveNote");
+            if (note) {
+              note.textContent = isEn() ? "Answers saved automatically" : "Respostas salvas automaticamente";
+              setTimeout(function() { if (note) { note.textContent = ""; } }, 2500);
+            }
+          }
+        })
+        .catch(function() {});
+    }
+
+    function mgmtExit() {
+      mgmtSaveDraft();
+      mgmtView = "intro";
+      renderMgmtXray();
+      window.scrollTo(0, 0);
+    }
+
+    function mgmtSubmit() {
+      var total = mgmtDetail.catalog.total;
+      var answered = mgmtTotalAnswered();
+      if (answered < total) {
+        var missing = total - answered;
+        window.alert(isEn()
+          ? missing + " question" + (missing === 1 ? "" : "s") + " still unanswered."
+          : "Ainda " + (missing === 1 ? "falta 1 pergunta" : "faltam " + missing + " perguntas") + ".");
+        // Scroll to the first unanswered question rather than making the
+        // client hunt for it down an 11-question page.
+        var first = null;
+        (mgmtDetail.catalog.questions || []).forEach(function(q) {
+          if (!first && !mgmtIsAnswered(q.key)) { first = q.key; }
+        });
+        if (first) {
+          var el = document.getElementById("msc_" + first + "_0");
+          if (el && el.scrollIntoView) { el.scrollIntoView({ block: "center" }); }
+        }
+        return;
+      }
+      if (!window.confirm(isEn()
+        ? "Submit your answers? They cannot be changed after finishing."
+        : "Enviar suas respostas? Após concluir, não será possível alterá-las.")) { return; }
+      apiFetch("/api/clients/" + clientId + "/assessments/management_xray/answers",
+        { method: "PUT", body: { draft: false, answers: mgmtAnswers } })
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          mgmtDetail.status = "completed";
+          mgmtDetail.score = d.score;
+          mgmtDetail.completed_at = new Date().toISOString();
+          mgmtView = "done";
+          renderMgmtXray();
+          window.scrollTo(0, 0);
+        })
+        .catch(function(e) { window.alert("Erro: " + e.message); });
+    }
+
+    function renderMgmtXrayDone() {
+      mgmtSetHero(
+        '<span class="show-pt">Raio X de Gest&atilde;o conclu&iacute;do</span>' +
+        '<span class="show-en">Management X-Ray completed</span>',
+        '<span class="show-pt">Obrigado! Seu diagn&oacute;stico foi enviado.</span>' +
+        '<span class="show-en">Thank you! Your diagnostic has been submitted.</span>'
+      );
+      var s = mgmtDetail.score;
+      var html = '<div class="content-card">';
+      if (s) {
+        var PILL_BY_COLOR = { success: "p-bom", warning: "p-moderado", danger: "p-critico" };
+        html += '<div style="text-align:center;margin-bottom:16px;">' +
+          '<div class="xray-score-big">' + s.pct + '%<span class="of"> · ' + s.score + '/' + s.max_score + '</span></div>' +
+          '<div style="margin-top:8px;">' +
+          '<span class="xray-pill ' + (PILL_BY_COLOR[s.maturity.color] || "p-moderado") + '">' +
+          '<span class="show-pt">' + escHtml(s.maturity.labelPt) + '</span>' +
+          '<span class="show-en">' + escHtml(s.maturity.labelEn) + '</span></span></div></div><div>';
+        (s.categories || []).forEach(function(c) {
+          html += '<div class="xray-section-row" style="cursor:default;">' +
+            '<span class="xray-section-name">' +
+            '<span class="show-pt">' + escHtml(c.namePt) + '</span>' +
+            '<span class="show-en">' + escHtml(c.nameEn) + '</span>' +
+            '<span class="xray-section-count" style="margin-left:8px;">' +
+            c.weightedScore + '/' + c.maxWeighted + '</span></span>' +
+            '<span class="xray-pill ' + (PILL_BY_COLOR[c.color] || "p-moderado") + '">' +
+            (c.response
+              ? '<span class="show-pt">' + escHtml(c.response.labelPt) + '</span>' +
+                '<span class="show-en">' + escHtml(c.response.labelEn) + '</span>'
+              : '—') +
+            '</span></div>';
+        });
+        html += '</div>';
+      }
+      html += '<button class="btn-gold" style="width:100%;margin-top:16px;" onclick="mgmtOpenReport()">' +
+        '<span class="show-pt">Ver relat&oacute;rio completo</span><span class="show-en">View full report</span></button>' +
+        '<p class="muted" style="margin-top:14px;">' +
+        '<span class="show-pt">Seu consultor vai apresentar o relat&oacute;rio completo com o plano de a&ccedil;&atilde;o priorit&aacute;rio.</span>' +
+        '<span class="show-en">Your consultant will walk you through the full report and the priority action plan.</span></p></div>';
+      document.getElementById("mgmtXrayBody").innerHTML = html;
+    }
+
+    function mgmtOpenReport() {
+      var href = "management-xray-report.html?client=" + encodeURIComponent(clientId) +
         "&name=" + encodeURIComponent(clientName || "");
       if (PREVIEW_AS) { href += "&previewAs=" + encodeURIComponent(PREVIEW_AS); }
       window.location.href = href;

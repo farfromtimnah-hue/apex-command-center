@@ -226,6 +226,98 @@
 }
 .gm-row:last-child { border-bottom: none; }
 
+/* ── Parceiros ────────────────────────────────────────────────────────────
+   The Partner tab used to reuse the generic .gm-row / .gm-lead-* classes
+   shared by every other tab, which buried the two numbers that actually
+   matter (referrals sent, revenue generated) in small gray subtext. This
+   family gives Partners the same grouped-card vocabulary the lead detail
+   redesign uses: cards instead of flat rows, a hero value treatment for the
+   numbers, and icon+label+value rows under small uppercase section labels.
+   Naming follows .gm-field-row / .gm-month-card — one family, one prefix. */
+
+/* Partner list: one card per partner */
+.gm-partner-card {
+  display: block; width: 100%; text-align: left;
+  background: var(--card, #fff); border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px 14px; margin-bottom: 10px;
+  font-family: 'Inter', sans-serif; color: var(--text); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-partner-card-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px;
+}
+.gm-partner-card-name {
+  font-size: 15px; font-weight: 800;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gm-partner-card-type { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* The two numbers, given real visual weight instead of subtext */
+.gm-partner-stats {
+  display: flex; gap: 10px;
+  border-top: 1px solid var(--border); padding-top: 10px;
+}
+.gm-partner-stat { flex: 1 1 0; min-width: 0; }
+.gm-partner-stat-label {
+  font-size: 10px; font-weight: 800; color: var(--muted);
+  letter-spacing: 0.07em; text-transform: uppercase;
+}
+.gm-partner-stat-value {
+  font-size: 19px; font-weight: 800; color: var(--text); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gm-partner-stat-value.gm-partner-zero { color: var(--muted); font-weight: 700; }
+
+/* Partner detail: grouped sections of icon rows */
+.gm-partner-section { margin-bottom: 18px; }
+.gm-partner-section-title {
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin: 0 0 8px 2px;
+}
+.gm-partner-group {
+  background: var(--card, #fff); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.gm-partner-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 56px; padding: 11px 13px;
+  background: none; border: none; border-bottom: 1px solid var(--border);
+  font-family: 'Inter', sans-serif; text-align: left; color: var(--text);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gm-partner-row:last-child { border-bottom: none; }
+.gm-partner-row-icon {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: var(--surface, #f9f7f4); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.gm-partner-row-icon svg { width: 15px; height: 15px; color: #8a6f22; }
+.gm-partner-row-body { flex: 1; min-width: 0; }
+.gm-partner-row-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.gm-partner-row-value { font-size: 14px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
+.gm-partner-row-value.gm-empty { color: var(--muted); font-weight: 400; }
+.gm-partner-row-chev { color: var(--gold); font-size: 14px; flex-shrink: 0; }
+
+/* Referral link / QR block — same card treatment, icon buttons */
+.gm-partner-ref-url {
+  font-size: 12px; word-break: break-all; background: var(--surface, #f9f7f4);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
+}
+.gm-partner-ref-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.gm-partner-ref-btn {
+  flex: 1 1 0; min-width: 96px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 48px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--card, #fff);
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
+  color: var(--text); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-partner-ref-btn svg { width: 15px; height: 15px; color: var(--muted); flex-shrink: 0; }
+.gm-partner-qr { text-align: center; margin-top: 12px; }
+
 /* ── Financeiro ───────────────────────────────────────────────────────── */
 .gm-month-card {
   border: 1px solid var(--border); border-radius: 10px;

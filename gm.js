@@ -898,26 +898,62 @@ function gmLoadPartners() {
     });
 }
 
+// Inline SVG icons for the partner screens. Real stroked paths, never unicode
+// glyphs or emoji — those render differently on every platform and cannot take
+// a color token. Sized and colored entirely by CSS (.gm-partner-row-icon svg).
+var GM_ICONS = {
+  person:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  users:    '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  dollar:   '<path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  check:    '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  copy:     '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  share:    '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+  link:     '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+};
+
+function gmIcon(name) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round">' + (GM_ICONS[name] || "") + '</svg>';
+}
+
 function gmRenderPartners() {
   var body = document.getElementById("gmPartnersBody");
   var partners = gmPartnersData.partners;
   var html = '<div class="content-card">' +
     '<div class="card-title">' + gmT("Parceiros de indicação", "Referral partners") + '</div>' +
-    '<p class="muted" style="margin-bottom:8px;" data-tour="partners-attribution">' +
+    '<p class="muted" style="margin-bottom:12px;" data-tour="partners-attribution">' +
     gmT("Leads indicados e receita gerada são calculados automaticamente do CRM pelo vínculo do lead com o parceiro.",
         "Referred leads and revenue are calculated automatically from the CRM via each lead's partner link.") + '</p>';
   if (!partners.length) {
     html += '<p class="muted">' + gmT("Nenhum parceiro cadastrado ainda.", "No partners yet.") + '</p>';
   } else {
     partners.forEach(function(p, i) {
-      html += '<button type="button" class="gm-row" data-tour="partners-row" onclick="gmOpenPartner(' + i + ')">' +
-        '<span class="gm-lead-main">' +
-        '<span class="gm-lead-name">' + escHtml(p.name) + '</span>' +
-        '<div class="gm-lead-sub">' + [p.tipo, p.contato].filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
-        '<div class="gm-lead-sub">' + p.leads_indicados + " " + gmT("leads indicados", "referred leads") +
-        ' · ' + fmtNum(p.receita_gerada, "currency") + " " + gmT("fechados", "closed") + '</div>' +
+      // Card, not a flat row: name + type + status on top, then the two
+      // numbers that answer "is this partner worth the relationship?" at
+      // full size. A zero reads muted rather than shouting a big "0".
+      var leads = p.leads_indicados || 0;
+      var receita = p.receita_gerada || 0;
+      html += '<button type="button" class="gm-partner-card" data-tour="partners-row" onclick="gmOpenPartner(' + i + ')">' +
+        '<span class="gm-partner-card-top">' +
+          '<span class="gm-lead-main">' +
+            '<span class="gm-partner-card-name">' + escHtml(p.name) + '</span>' +
+            (p.tipo ? '<span class="gm-partner-card-type">' + escHtml(p.tipo) + '</span>' : '') +
+          '</span>' +
+          '<span class="gm-lead-side">' + gmPillHtml(p.status, GM_STATUS_PILLS.partner[p.status]) + '</span>' +
         '</span>' +
-        '<span class="gm-lead-side">' + gmPillHtml(p.status, GM_STATUS_PILLS.partner[p.status]) + '</span>' +
+        '<span class="gm-partner-stats">' +
+          '<span class="gm-partner-stat">' +
+            '<span class="gm-partner-stat-label">' + gmT("Leads indicados", "Referrals sent") + '</span>' +
+            '<span class="gm-partner-stat-value' + (leads ? '' : ' gm-partner-zero') + '">' + leads + '</span>' +
+          '</span>' +
+          '<span class="gm-partner-stat">' +
+            '<span class="gm-partner-stat-label">' + gmT("Receita gerada", "Revenue generated") + '</span>' +
+            '<span class="gm-partner-stat-value' + (receita ? '' : ' gm-partner-zero') + '">' + escHtml(fmtNum(receita, "currency")) + '</span>' +
+          '</span>' +
+        '</span>' +
         '</button>';
     });
   }
@@ -1211,6 +1247,84 @@ function gmSimpleFieldDisplay(row, def) {
 
 var gmSheetKind = null;
 
+// One icon+label+value row inside a grouped partner section. Same tap-to-edit
+// contract as gmFieldRowHtml (which every other tab still uses) — this is the
+// partner-specific presentation of it, not a second editing mechanism.
+function gmPartnerRowHtml(icon, label, valueHtml, onclickJs, tourKey) {
+  return '<button type="button" class="gm-partner-row"' +
+    (tourKey ? ' data-tour="' + tourKey + '"' : '') +
+    ' onclick="' + onclickJs + '">' +
+    '<span class="gm-partner-row-icon">' + gmIcon(icon) + '</span>' +
+    '<span class="gm-partner-row-body">' +
+      '<span class="gm-partner-row-label">' + label + '</span>' +
+      '<span class="gm-partner-row-value' + (valueHtml ? "" : " gm-empty") + '">' +
+      (valueHtml || gmT("Toque para preencher", "Tap to fill in")) + '</span>' +
+    '</span>' +
+    '<span class="gm-partner-row-chev">&#9654;</span></button>';
+}
+
+// The Partner detail sheet, grouped into Contact / Activity / Next step
+// instead of one flat run of identical rows. Field indexes are the SAME
+// gmSimpleSpec("partner").fields indexes the generic sheet uses, so editing
+// still goes through gmEditSimpleField — only the presentation differs.
+function gmPartnerSheetBody(row, spec) {
+  var byKey = {};
+  spec.fields.forEach(function(def, i) { byKey[def.key] = { def: def, i: i }; });
+  var f = function(key) { return byKey[key]; };
+  var val = function(key) { return gmSimpleFieldDisplay(row, f(key).def); };
+  var edit = function(key) { return "gmEditSimpleField(" + f(key).i + ")"; };
+
+  var body = "";
+
+  // ── Contact ───────────────────────────────────────────────────────────
+  body += '<div class="gm-partner-section">' +
+    '<p class="gm-partner-section-title">' + gmT("Contato", "Contact") + '</p>' +
+    '<div class="gm-partner-group">' +
+      gmPartnerRowHtml("person", gmT("Parceiro", "Partner"), val("name"), edit("name")) +
+      gmPartnerRowHtml("person", gmT("Contato", "Contact"), val("contato"), edit("contato")) +
+      gmPartnerRowHtml("tag", gmT("Tipo", "Type"), val("tipo"), edit("tipo")) +
+      gmPartnerRowHtml("check", gmT("Status", "Status"), val("status"), edit("status")) +
+    '</div></div>';
+
+  // ── Activity ──────────────────────────────────────────────────────────
+  // The two computed numbers are NOT tap-to-edit: they are derived from the
+  // CRM at read time (never stored), so they are shown as static rows.
+  var leads = row.leads_indicados || 0;
+  var receita = row.receita_gerada || 0;
+  body += '<div class="gm-partner-section">' +
+    '<p class="gm-partner-section-title">' + gmT("Atividade", "Activity") + '</p>' +
+    '<div class="gm-partner-group">' +
+      gmPartnerRowHtml("calendar", gmT("Última interação", "Last interaction"),
+        val("ultima_interacao"), edit("ultima_interacao")) +
+      '<div class="gm-partner-row" style="cursor:default;">' +
+        '<span class="gm-partner-row-icon">' + gmIcon("users") + '</span>' +
+        '<span class="gm-partner-row-body">' +
+          '<span class="gm-partner-row-label">' + gmT("Leads indicados", "Referrals sent") + '</span>' +
+          '<span class="gm-partner-row-value' + (leads ? '' : ' gm-empty') + '">' + leads + '</span>' +
+        '</span></div>' +
+      '<div class="gm-partner-row" style="cursor:default;">' +
+        '<span class="gm-partner-row-icon">' + gmIcon("dollar") + '</span>' +
+        '<span class="gm-partner-row-body">' +
+          '<span class="gm-partner-row-label">' + gmT("Receita gerada", "Revenue generated") + '</span>' +
+          '<span class="gm-partner-row-value' + (receita ? '' : ' gm-empty') + '">' +
+          escHtml(fmtNum(receita, "currency")) + '</span>' +
+        '</span></div>' +
+    '</div></div>';
+
+  // ── Next step ─────────────────────────────────────────────────────────
+  // Same next-step pattern as the Apex-internal pipeline, but this is the
+  // CLIENT's own partner record — one client, one user, so there is no
+  // cross-user attribution to show here. Just the value.
+  body += '<div class="gm-partner-section">' +
+    '<p class="gm-partner-section-title">' + gmT("Próximo passo", "Next step") + '</p>' +
+    '<div class="gm-partner-group">' +
+      gmPartnerRowHtml("check", gmT("Próxima ação", "Next action"),
+        val("proxima_acao"), edit("proxima_acao")) +
+    '</div></div>';
+
+  return body;
+}
+
 function gmRenderSimpleSheet(kind) {
   gmSheetKind = kind;
   var spec = gmSimpleSpec(kind);
@@ -1219,10 +1333,14 @@ function gmRenderSimpleSheet(kind) {
 
   var body = "";
   if (spec.contactTel) { body += gmContactButtonsHtml(row.telefone); }
-  spec.fields.forEach(function(def, i) {
-    body += gmFieldRowHtml(gmT(def.pt, def.en), gmSimpleFieldDisplay(row, def),
-      "gmEditSimpleField(" + i + ")", def.tour || null);
-  });
+  if (kind === "partner") {
+    body += gmPartnerSheetBody(row, spec);
+  } else {
+    spec.fields.forEach(function(def, i) {
+      body += gmFieldRowHtml(gmT(def.pt, def.en), gmSimpleFieldDisplay(row, def),
+        "gmEditSimpleField(" + i + ")", def.tour || null);
+    });
+  }
 
   if (kind === "job") {
     var target = gmJobsData.target_margin;
@@ -1698,25 +1816,28 @@ function gmReferralUrl(row) {
 function gmPartnerReferralHtml(row) {
   var url = gmReferralUrl(row);
   if (!url) { return ""; }
-  return '<div class="gm-month-card" style="margin-top:12px;" data-tour="partners-referral-link">' +
-    '<div class="gm-month-title">' + gmT("Link de indicação", "Referral link") + '</div>' +
-    '<p class="muted" style="font-size:12px;margin:6px 0 8px;">' +
+  // Functionally unchanged (copy / share / QR / download) — restyled into the
+  // same grouped-card language as the rest of the partner sheet, with real
+  // icons on the buttons instead of plain text.
+  return '<div class="gm-partner-section" data-tour="partners-referral-link">' +
+    '<p class="gm-partner-section-title">' + gmT("Link de indicação", "Referral link") + '</p>' +
+    '<div class="gm-partner-group" style="padding:13px 14px;">' +
+    '<p class="muted" style="font-size:12px;margin:0 0 9px;">' +
     gmT("Quem preencher este link vira lead no CRM já vinculado a este parceiro — sem digitação manual.",
         "Anyone who fills in this link becomes a CRM lead already linked to this partner — no manual matching.") + '</p>' +
-    '<div style="font-size:12px;word-break:break-all;background:#fff;border:1px solid var(--border,#e3ded6);border-radius:8px;padding:8px;" id="gmRefUrl">' +
-    escHtml(url) + '</div>' +
-    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">' +
-    '<button type="button" class="btn-outline" style="flex:1;min-height:48px;" onclick="gmCopyReferralLink()">' +
-    gmT("Copiar link", "Copy link") + '</button>' +
-    '<button type="button" class="btn-outline" style="flex:1;min-height:48px;" onclick="gmShareReferralLink()">' +
-    gmT("Compartilhar", "Share") + '</button>' +
+    '<div class="gm-partner-ref-url" id="gmRefUrl">' + escHtml(url) + '</div>' +
+    '<div class="gm-partner-ref-actions">' +
+    '<button type="button" class="gm-partner-ref-btn" onclick="gmCopyReferralLink()">' +
+    gmIcon("copy") + gmT("Copiar", "Copy") + '</button>' +
+    '<button type="button" class="gm-partner-ref-btn" onclick="gmShareReferralLink()">' +
+    gmIcon("share") + gmT("Compartilhar", "Share") + '</button>' +
     '</div>' +
-    '<div style="text-align:center;margin-top:12px;" data-tour="partners-referral-qr" id="gmRefQrBox">' +
+    '<div class="gm-partner-qr" data-tour="partners-referral-qr" id="gmRefQrBox">' +
     gmQrSvg(url, 200) +
     '</div>' +
-    '<button type="button" class="btn-outline gm-add-btn" onclick="gmDownloadReferralQr()">' +
-    gmT("Baixar QR (PNG)", "Download QR (PNG)") + '</button>' +
-    '</div>';
+    '<button type="button" class="gm-partner-ref-btn" style="width:100%;margin-top:12px;" onclick="gmDownloadReferralQr()">' +
+    gmIcon("download") + gmT("Baixar QR (PNG)", "Download QR (PNG)") + '</button>' +
+    '</div></div>';
 }
 
 function gmCopyReferralLink() {

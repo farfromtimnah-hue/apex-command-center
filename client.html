@@ -3831,10 +3831,13 @@
     }
 
     function commitLeadStage(stage) {
+      // apiFetch stringifies opts.body and sets Content-Type itself — pass a
+      // plain object. Pre-stringifying sends a JSON string containing an
+      // escaped JSON string, so the Worker's request.json() yields a string
+      // and every field reads back undefined.
       apiFetch("/api/clients/" + CLIENT_ID + "/lead-stage", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage: stage })
+        body: { stage: stage }
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {
@@ -3894,12 +3897,11 @@
       statusEl.textContent = "Salvando... / Saving...";
       apiFetch("/api/clients/" + CLIENT_ID + "/contact-log", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           method: document.getElementById("clMethod").value,
           result: document.getElementById("clResult").value,
           notes:  document.getElementById("clNotes").value
-        })
+        }
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {
@@ -3974,8 +3976,7 @@
     function postLeadOutcome(payload, statusEl) {
       apiFetch("/api/clients/" + CLIENT_ID + "/lead-outcome", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: payload
       })
         .then(function(res) { return res.json(); })
         .then(function(data) {

@@ -10072,7 +10072,8 @@ async function handleGetWeeklySummary(id, request, env) {
 var ASSESSMENT_TYPES = {
     business_xray:   { labelPt: "Raio X Empresarial", labelEn: "Business X-Ray" },
     management_xray: { labelPt: "Raio X de Gestão",  labelEn: "Management X-Ray" },
-    leadership_xray: { labelPt: "Raio X Nível de Liderança", labelEn: "Leadership Level X-Ray" }
+    leadership_xray: { labelPt: "Raio X Nível de Liderança", labelEn: "Leadership Level X-Ray" },
+    permissividade_xray: { labelPt: "Raio X de Permissividade", labelEn: "Permissiveness X-Ray" }
 };
 
 // Answer scales. A catalog declares which one it uses and EVERY generic path
@@ -10482,6 +10483,17 @@ function assessmentCatalog(type) {
             categories: LEAD_QUESTIONS,
             questions: LEAD_QUESTIONS,
             total: LEAD_QUESTIONS.length,
+            scale10_bands: scale10BandLegend(false)
+        };
+    }
+    if (type === "permissividade_xray") {
+        return {
+            assessment_type: "permissividade_xray",
+            scale: ASSESSMENT_SCALES.scale0to10,
+            layout: "single_page",
+            categories: PERM_QUESTIONS,
+            questions: PERM_QUESTIONS,
+            total: PERM_QUESTIONS.length,
             scale10_bands: scale10BandLegend(false)
         };
     }
@@ -11112,10 +11124,208 @@ function computeLeadershipXrayScore(answers) {
     };
 }
 
+// ---------------------------------------------------------------------------
+// Permissiveness X-Ray (Raio X de Permissividade) — the fourth assigned
+// assessment, and the first scored by a SUBTRACTION rather than a total:
+//
+//   pontos = (CL + CG) − (PR + PC)      → range −20..+20
+//
+// Competence (liderança, gestão) minus permissiveness (tolerated bad results,
+// tolerated bad behaviour). Only four indicators, so the report leans on
+// per-indicator insight paragraphs rather than a long breakdown.
+// ---------------------------------------------------------------------------
+
+var PERM_QUESTIONS = [
+    { key: "CL", side: "competencia",
+      namePt: "Competência de Liderança", nameEn: "Leadership Competence",
+      shortPt: "Comp. Liderança", shortEn: "Leadership Comp.",
+      labelPt: "Qual o nível de competência e influência da liderança atual?",
+      labelEn: "What is the current leadership's level of competence and influence?" },
+    { key: "CG", side: "competencia",
+      namePt: "Competência de Gestão", nameEn: "Management Competence",
+      shortPt: "Comp. Gestão", shortEn: "Management Comp.",
+      labelPt: "Qual o nível de maturidade dos processos e ritos de gestão?",
+      labelEn: "What is the maturity level of your management processes and rituals?" },
+    { key: "PR", side: "permissividade",
+      namePt: "Permissividade de Resultado", nameEn: "Result Permissiveness",
+      shortPt: "Perm. Resultado", shortEn: "Result Perm.",
+      labelPt: "O quanto a empresa tolera resultados abaixo da meta?",
+      labelEn: "How much does the company tolerate results below target?" },
+    { key: "PC", side: "permissividade",
+      namePt: "Permissividade de Comportamento", nameEn: "Behaviour Permissiveness",
+      shortPt: "Perm. Comportamento", shortEn: "Behaviour Perm.",
+      labelPt: "O quanto a empresa tolera comportamentos desalinhados à cultura?",
+      labelEn: "How much does the company tolerate behaviour that is out of line with the culture?" }
+];
+
+// Band cutoffs on `pontos` (NOT a percentage). Ordered strongest-first; the
+// first entry whose `min` the score clears wins. Verified by sweep:
+//   pontos > 10 → Excelente · 0..10 → em Atenção · < 0 → Crítico
+var PERM_CUTOFFS = [
+    { min: 11, level: "excelente", color: "success",
+      labelPt: "Resultado Empresarial Excelente", labelEn: "Excellent Business Result",
+      devolutivaPt: "Sua empresa possui um alto nível de maturidade. A força da sua liderança e gestão é superior à tolerância a falhas, criando um ambiente de alta performance.",
+      devolutivaEn: "Your company has a high level of maturity. The strength of your leadership and management outweighs your tolerance for failure, creating a high-performance environment.",
+      acaoTituloPt: "Manutenção da Excelência", acaoTituloEn: "Maintaining Excellence",
+      acaoImediataPt: "Continue elevando a barra e não permita que o sucesso traga complacência.",
+      acaoImediataEn: "Keep raising the bar and do not let success breed complacency." },
+    { min: 0, level: "atencao", color: "warning",
+      labelPt: "Resultado Empresarial em Atenção", labelEn: "Business Result Needs Attention",
+      devolutivaPt: "O equilíbrio entre competências e permissividade é frágil. Embora existam competências, a tolerância a resultados baixos ou comportamentos desalinhados está começando a comprometer a eficácia do seu negócio.",
+      devolutivaEn: "The balance between competence and permissiveness is fragile. Competence exists, but tolerance for low results or misaligned behaviour is starting to undermine your business's effectiveness.",
+      acaoTituloPt: "Ajuste de Processos", acaoTituloEn: "Process Adjustment",
+      acaoImediataPt: "Reforce os rituais de feedback e cobrança de metas (KPIs).",
+      acaoImediataEn: "Reinforce feedback rituals and hold the team to their targets (KPIs)." },
+    { min: -20, level: "critico", color: "danger",
+      labelPt: "Resultado Empresarial Crítico", labelEn: "Critical Business Result",
+      devolutivaPt: "Situação de alto risco. A permissividade superou a força da liderança e da gestão. Na prática, a cultura está sendo moldada pela mediocridade e pela falta de cobrança, o que compromete a sustentabilidade da empresa.",
+      devolutivaEn: "A high-risk situation. Permissiveness has overtaken the strength of leadership and management. In practice, the culture is being shaped by mediocrity and a lack of accountability, which threatens the company's sustainability.",
+      acaoTituloPt: "Intervenção Estrutural", acaoTituloEn: "Structural Intervention",
+      acaoImediataPt: "Estabeleça o mínimo inegociável: metas com consequência clara e comportamentos que não serão mais tolerados. Comece pelos casos mais visíveis para a equipe.",
+      acaoImediataEn: "Set the non-negotiable minimum: targets with clear consequences and behaviours that will no longer be tolerated. Start with the cases the team can see most clearly." }
+];
+
+// Conditional insight paragraphs. Which ones fire is driven by the SAME 4/7
+// thresholds used everywhere else in this family (low = 0-3, high = 8-10) —
+// the legacy source's exact cutoffs were not recovered, so these reuse the
+// family convention rather than inventing a fourth set of numbers.
+// {CL} {CG} {PR} {PC} are replaced with the raw answers.
+var PERM_INSIGHTS = [
+    { key: "base_fraca",
+      when: function(a) { return scale10Band(a.CL, false) === SCALE10_BANDS.vermelho ||
+                                 scale10Band(a.CG, false) === SCALE10_BANDS.vermelho; },
+      titlePt: "Fortalecimento de Base", titleEn: "Strengthening the Base",
+      textPt: "Suas notas de Competência de Liderança ({CL}) ou Gestão ({CG}) estão baixas. Sem uma base forte, é impossível reduzir a permissividade. Foque em treinar seus líderes e estruturar ritos de gestão.",
+      textEn: "Your Leadership ({CL}) or Management ({CG}) Competence scores are low. Without a strong base it is impossible to reduce permissiveness. Focus on training your leaders and structuring management rituals." },
+    { key: "base_solida",
+      when: function(a) { return scale10Band(a.CL, false) === SCALE10_BANDS.verde &&
+                                 scale10Band(a.CG, false) === SCALE10_BANDS.verde; },
+      titlePt: "Base Sólida", titleEn: "Solid Base",
+      textPt: "Você possui boas notas de Liderança ({CL}) e Gestão ({CG}). Use essa força para ser mais rigoroso com os indicadores de permissividade.",
+      textEn: "You have strong Leadership ({CL}) and Management ({CG}) scores. Use that strength to be stricter with the permissiveness indicators." },
+    { key: "rigor_metas",
+      when: function(a) { return scale10Band(a.PR, false) === SCALE10_BANDS.verde; },
+      titlePt: "Rigor com Metas", titleEn: "Rigor with Targets",
+      textPt: "Sua Permissividade de Resultado ({PR}) está elevada. Isso indica que não atingir as metas é algo \"aceitável\" ou recorrente sem consequências claras. É preciso estabelecer metas inegociáveis.",
+      textEn: "Your Result Permissiveness ({PR}) is high. It signals that missing targets is \"acceptable\", or recurring without clear consequences. Non-negotiable targets need to be established." },
+    { key: "cultura_valores",
+      when: function(a) { return scale10Band(a.PC, false) === SCALE10_BANDS.verde; },
+      titlePt: "Cultura e Valores", titleEn: "Culture and Values",
+      textPt: "Sua Permissividade de Comportamento ({PC}) está alta. Você está tolerando pessoas que performam mas não vivem os valores, ou que simplesmente agem contra a cultura. Isso é um \"câncer\" silencioso para o time.",
+      textEn: "Your Behaviour Permissiveness ({PC}) is high. You are tolerating people who perform but do not live the values, or who simply act against the culture. That is a silent \"cancer\" for the team." }
+];
+
+// Pure scoring engine — answers is a flat { CL, CG, PR, PC: 0..10 } map.
+function computePermissividadeXrayScore(answers) {
+    answers = answers || {};
+    var raw = {};
+    PERM_QUESTIONS.forEach(function(q) {
+        var v = answers[q.key];
+        raw[q.key] = (typeof v === "number" && v >= 0 && v <= 10) ? v : 0;
+    });
+
+    var pontos = (raw.CL + raw.CG) - (raw.PR + raw.PC);
+
+    var band = PERM_CUTOFFS[PERM_CUTOFFS.length - 1];
+    for (var i = 0; i < PERM_CUTOFFS.length; i++) {
+        if (pontos >= PERM_CUTOFFS[i].min) { band = PERM_CUTOFFS[i]; break; }
+    }
+
+    // Each indicator is ALSO banded 0-3/4-7/8-10 for the "Distribuição do
+    // Resultado" display, same as every other instrument in this family.
+    var dist = scale10Distribution(PERM_QUESTIONS, answers, false);
+    var indicators = PERM_QUESTIONS.map(function(q) {
+        var v = answers[q.key];
+        var b = scale10Band(v, false);
+        return {
+            key: q.key, side: q.side,
+            namePt: q.namePt, nameEn: q.nameEn,
+            shortPt: q.shortPt, shortEn: q.shortEn,
+            labelPt: q.labelPt, labelEn: q.labelEn,
+            value: b ? v : null,
+            band: b ? b.key : null,
+            color: b ? b.color : "muted",
+            hex: b ? b.hex : SCALE10_UNANSWERED_HEX,
+            bandLabelPt: b ? b.labelPt : null,
+            bandLabelEn: b ? b.labelEn : null
+        };
+    });
+
+    function fill(s) {
+        return s.replace("{CL}", raw.CL).replace("{CG}", raw.CG)
+                .replace("{PR}", raw.PR).replace("{PC}", raw.PC);
+    }
+
+    // Insight conditions read the RAW ANSWERS, not the zero-filled `raw` map:
+    // an unanswered indicator must not trigger "your score is low". (The
+    // formula above still treats a blank as 0 — only the narrative abstains.)
+    var insights = PERM_INSIGHTS.filter(function(ins) { return ins.when(answers); })
+        .map(function(ins) {
+            return { key: ins.key, titlePt: ins.titlePt, titleEn: ins.titleEn,
+                     textPt: fill(ins.textPt), textEn: fill(ins.textEn) };
+        });
+
+    // Every band restates the raw inputs before its recommendation.
+    var basePt = "Com base nos seus números de hoje (CL:" + raw.CL + ", CG:" + raw.CG +
+                 ", PR:" + raw.PR + ", PC:" + raw.PC + "), sua prioridade deve ser: ";
+    var baseEn = "Based on today's numbers (CL:" + raw.CL + ", CG:" + raw.CG +
+                 ", PR:" + raw.PR + ", PC:" + raw.PC + "), your priority should be: ";
+
+    // Chart DATA only. ONE chart for this instrument — four bars, coloured by
+    // the SAME 0-3/4-7/8-10 rule as everywhere else. Note the permissividade
+    // bars are NOT polarity-inverted: the legacy tool colours a high PR/PC
+    // green even though a low one is the good outcome, and this reproduces
+    // that as observed rather than "fixing" it.
+    var charts = {
+        indicatorBar: {
+            titlePt: "Pontuação (0-10)", titleEn: "Score (0-10)",
+            yMin: 0, yMax: 10,
+            bars: indicators.map(function(c) {
+                return { key: c.key, labelPt: c.shortPt, labelEn: c.shortEn,
+                         value: c.value, hex: c.hex };
+            })
+        }
+    };
+
+    return {
+        version: 1,
+        assessment_type: "permissividade_xray",
+        pontos: pontos, min_pontos: -20, max_pontos: 20,
+        // The headline number IS pontos; score/max_score are the normalized
+        // 0-40 mirror so the generic admin row has something to print.
+        score: pontos + 20, max_score: 40,
+        pct: Math.round(((pontos + 20) / 40) * 100),
+        raw: raw,
+        overall: {
+            level: band.level, color: band.color,
+            labelPt: band.labelPt, labelEn: band.labelEn,
+            // Headline restates the band name WITH the score, e.g.
+            // "Resultado Empresarial em Atenção (1 pontos)." — the legacy
+            // tool's own phrasing, pluralization quirk included.
+            headlinePt: band.labelPt + " (" + pontos + " pontos).",
+            headlineEn: band.labelEn + " (" + pontos + " points).",
+            devolutivaPt: band.devolutivaPt, devolutivaEn: band.devolutivaEn,
+            acaoTituloPt: band.acaoTituloPt, acaoTituloEn: band.acaoTituloEn,
+            acaoImediataPt: basePt + band.acaoImediataPt,
+            acaoImediataEn: baseEn + band.acaoImediataEn
+        },
+        maturity: {
+            level: band.level, color: band.color,
+            labelPt: band.labelPt, labelEn: band.labelEn
+        },
+        categories: indicators,
+        indicators: indicators,
+        insights: insights,
+        distribution: dist,
+        charts: charts
+    };
+}
+
 function computeAssessmentScore(type, answers) {
     if (type === "business_xray")   { return computeXrayScore(answers); }
     if (type === "management_xray") { return computeManagementXrayScore(answers); }
     if (type === "leadership_xray") { return computeLeadershipXrayScore(answers); }
+    if (type === "permissividade_xray") { return computePermissividadeXrayScore(answers); }
     return null;
 }
 

@@ -996,6 +996,9 @@
         <button class="portal-tab" data-tab="leadxray" id="tabBtnLeadXray" hidden onclick="switchTab('leadxray')">
           <span class="show-pt">Raio X Lideran&ccedil;a</span><span class="show-en">Leadership X-Ray</span>
         </button>
+        <button class="portal-tab" data-tab="permxray" id="tabBtnPermXray" hidden onclick="switchTab('permxray')">
+          <span class="show-pt">Permissividade</span><span class="show-en">Permissiveness</span>
+        </button>
         <button class="portal-tab" data-tab="assigned" id="tabBtnAssigned" hidden onclick="switchTab('assigned')">
           <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
         </button>
@@ -1157,6 +1160,15 @@
           <div class="section-hero-sub" id="leadXrayHeroSub"></div>
         </div>
         <div id="leadXrayBody"></div>
+      </div>
+
+      <div id="tabPermxray" hidden>
+        <div class="section-hero">
+          <div class="hero-bg" data-hero-bg></div>
+          <div class="section-hero-title" id="permXrayHeroTitle"></div>
+          <div class="section-hero-sub" id="permXrayHeroSub"></div>
+        </div>
+        <div id="permXrayBody"></div>
       </div>
 
       <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
@@ -2342,6 +2354,24 @@
         introEn: "There are {total} questions. For each, rate your reality today from 0 to 10 — 0 is the worst case, 10 the ideal.",
         unitPt: "perguntas", unitEn: "questions",
         donePt: "Raio X de Lideran&ccedil;a conclu&iacute;do", doneEn: "Leadership X-Ray completed"
+      },
+      {
+        key: "permxray",
+        type: "permissividade_xray",
+        elPrefix: "permXray",
+        tabBtnId: "tabBtnPermXray",
+        report: "permissividade-xray-report.html",
+        icon: "star",
+        titlePt: "Raio X de Permissividade", titleEn: "Permissiveness X-Ray",
+        moreLabelPt: "Permissividade", moreLabelEn: "Permissiveness",
+        subPt: "Identifique atitudes prejudiciais &agrave; cultura e produtividade",
+        subEn: "Identify attitudes that harm culture and productivity",
+        descPt: "4 indicadores de compet&ecirc;ncia e permissividade, de 0 a 10.",
+        descEn: "4 competence and permissiveness indicators, scored 0 to 10.",
+        introPt: "S&atilde;o {total} indicadores. Em cada um, d&ecirc; uma nota de 0 a 10 para a sua realidade de hoje.",
+        introEn: "There are {total} indicators. For each, rate your reality today from 0 to 10.",
+        unitPt: "indicadores", unitEn: "indicators",
+        donePt: "Raio X de Permissividade conclu&iacute;do", doneEn: "Permissiveness X-Ray completed"
       }
     ];
 
@@ -3605,10 +3635,16 @@
       if (s) {
         var PILL_BY_COLOR = { success: "p-bom", warning: "p-moderado", danger: "p-critico" };
         var band = s.maturity || s.overall || null;
+        // Most instruments headline a percentage. One (Permissividade) is
+        // scored on a signed −20..+20 point range where the percentage is only
+        // a normalized mirror, so it headlines `pontos` instead — printing
+        // "52%" for a score of 1 would misread badly.
+        var headline = (s.pontos != null)
+          ? s.pontos + '<span class="of"> ' +
+            (isEn() ? "points" : "pontos") + ' &middot; ' + s.min_pontos + ' a ' + s.max_pontos + '</span>'
+          : s.pct + '%' + (s.max_score ? '<span class="of"> · ' + s.score + '/' + s.max_score + '</span>' : '');
         html += '<div style="text-align:center;margin-bottom:16px;">' +
-          '<div class="xray-score-big">' + s.pct + '%' +
-          (s.max_score ? '<span class="of"> · ' + s.score + '/' + s.max_score + '</span>' : '') +
-          '</div>' +
+          '<div class="xray-score-big">' + headline + '</div>' +
           (band ? '<div style="margin-top:8px;">' +
             '<span class="xray-pill ' + (PILL_BY_COLOR[band.color] || "p-moderado") + '">' +
             '<span class="show-pt">' + escHtml(band.labelPt) + '</span>' +

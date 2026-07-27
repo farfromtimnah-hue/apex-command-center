@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <script src="datetime.js"></script>
-  <title>Relatório Raio X Nível de Liderança — Apex</title>
+  <title>Relatório Raio X de Permissividade — Apex</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -219,7 +219,7 @@
 </head>
 <body class="lang-pt">
   <header>
-    <div class="header-title">RAIO X NÍVEL DE LIDERANÇA</div>
+    <div class="header-title">RAIO X DE PERMISSIVIDADE</div>
     <div class="header-right">
       <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
       <button class="hdr-btn" onclick="toggleLang()">PT / EN</button>
@@ -313,28 +313,33 @@
       document.getElementById("reportBody").hidden = true;
     }
 
-    // ── Chart 1: "Nota por Competência" ────────────────────────────────────
-    // One bar per competency on a fixed 0–10 axis, coloured by the answer's
-    // band (0-3 red / 4-7 yellow / 8-10 green). The axis is fixed rather than
-    // scaled to the max, so a report where nothing clears 4 still LOOKS like it.
+    // ── Chart: "Pontuação (0-10)" ──────────────────────────────────────────
+    // Four bars on a fixed 0–10 axis. This instrument has ONE chart — there is
+    // no doughnut, since four indicators do not make a meaningful distribution
+    // ring the way ten or twenty-seven questions do.
+    //
+    // Colours follow the same 0-3/4-7/8-10 rule as every other instrument,
+    // WITHOUT inverting the two permissiveness bars — the legacy tool renders
+    // a high PR/PC green even though a low one is the good outcome, and this
+    // reproduces that as observed rather than silently "fixing" it. The band
+    // legend under the chart spells the caveat out for the reader.
     function scoreBarSvg(value, hex) {
       var w = (value == null) ? 0 : (value / 10) * 100;
       return '<svg class="bar-svg" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label="' +
         (value == null ? "—" : value + "/10") + '">' +
         '<rect x="0" y="1" width="100" height="10" rx="2" fill="#efeae2"></rect>' +
-        // Ticks at the two band boundaries (3→4 and 7→8) keep the thirds legible.
         '<rect x="39.7" y="1" width="0.6" height="10" fill="#e0d8cc"></rect>' +
         '<rect x="79.7" y="1" width="0.6" height="10" fill="#e0d8cc"></rect>' +
         (w > 0 ? '<rect x="0" y="1" width="' + w + '" height="10" rx="2" fill="' + hex + '"></rect>' : '') +
         '</svg>';
     }
 
-    function competencyBarChartHtml(chart) {
+    function indicatorBarChartHtml(chart) {
       var html = '<div class="report-card">' +
         '<div class="card-title">' + ptEn(escHtml(chart.titlePt), escHtml(chart.titleEn)) + '</div>' +
         '<div class="card-sub">' +
-        ptEn("Nota de cada competência na escala de 0 a 10.",
-             "Each competency's score on the 0 to 10 scale.") + '</div>';
+        ptEn("Nota de cada indicador na escala de 0 a 10.",
+             "Each indicator's score on the 0 to 10 scale.") + '</div>';
       (chart.bars || []).forEach(function(b) {
         html += '<div class="chart-bar-row">' +
           '<span class="chart-bar-name">' + ptEn(escHtml(b.labelPt), escHtml(b.labelEn)) + '</span>' +
@@ -343,49 +348,11 @@
           '</div>';
       });
       html += '<div class="chart-axis" style="margin-left:calc(40% + 8px);">' +
-        '<span>0</span><span>5</span><span>10</span></div></div>';
-      return html;
-    }
-
-    // ── Chart 2: "Distribuição do Resultado" ───────────────────────────────
-    // Doughnut drawn with stroke-dasharray on concentric circle arcs — no
-    // path math, no library. Percentages are printed in the legend labels.
-    function doughnutSvg(slices, total) {
-      var R = 60, C = 2 * Math.PI * R;
-      var offset = 0;
-      var arcs = "";
-      slices.forEach(function(s) {
-        if (!s.count) { return; }
-        var len = (s.count / total) * C;
-        arcs += '<circle cx="75" cy="75" r="' + R + '" fill="none" stroke="' + s.hex + '"' +
-          ' stroke-width="26" stroke-dasharray="' + len + ' ' + (C - len) + '"' +
-          ' stroke-dashoffset="' + (-offset) + '" transform="rotate(-90 75 75)"></circle>';
-        offset += len;
-      });
-      return '<svg class="doughnut-svg" viewBox="0 0 150 150" role="img" aria-label="' +
-        (isEn() ? "Result distribution" : "Distribuição do resultado") + '">' +
-        '<circle cx="75" cy="75" r="' + R + '" fill="none" stroke="#efeae2" stroke-width="26"></circle>' +
-        arcs +
-        '<text x="75" y="80" text-anchor="middle" font-size="22" font-weight="800" fill="#1a1a1d">' +
-        total + '</text></svg>';
-    }
-
-    function doughnutChartHtml(chart) {
-      var slices = chart.slices || [];
-      var html = '<div class="report-card">' +
-        '<div class="card-title">' + ptEn(escHtml(chart.titlePt), escHtml(chart.titleEn)) + '</div>' +
-        '<div class="card-sub">' +
-        ptEn("Como as " + chart.total + " competências se distribuem entre as faixas.",
-             "How the " + chart.total + " competencies spread across the bands.") + '</div>' +
-        '<div class="doughnut-wrap">' + doughnutSvg(slices, chart.total) +
-        '<div class="doughnut-legend">';
-      slices.forEach(function(s) {
-        html += '<div class="legend-row">' +
-          '<span class="legend-swatch" style="background:' + s.hex + ';"></span>' +
-          '<span>' + ptEn(escHtml(s.labelPt), escHtml(s.labelEn)) +
-          ' — <strong>' + s.count + '</strong> (' + s.pct + '%)</span></div>';
-      });
-      html += '</div></div></div>';
+        '<span>0</span><span>5</span><span>10</span></div>' +
+        '<p class="chart-note">' +
+        ptEn("Nas duas linhas de permissividade, uma nota ALTA indica maior tolerância — ou seja, quanto menor, melhor.",
+             "On the two permissiveness rows a HIGH score means more tolerance — the lower the better.") +
+        '</p></div>';
       return html;
     }
 
@@ -396,35 +363,43 @@
 
       // ── Hero ──
       html += '<div class="report-hero">' +
-        '<h1>' + ptEn("Relatório — Raio X Nível de Liderança", "Report — Leadership Level X-Ray") + '</h1>' +
+        '<h1>' + ptEn("Relatório — Raio X de Permissividade", "Report — Permissiveness X-Ray") + '</h1>' +
         (CLIENT_NAME ? '<div class="client">' + escHtml(CLIENT_NAME) + '</div>' : '') +
         '<div class="date">' + ptEn("Concluído em", "Completed on") + ' ' + escHtml(formatDate(d.completed_at)) + '</div>' +
         '</div>';
 
-      // ── Score hero + verdict band ──
-      // The colour is the MAJORITY band across the ten answers, not the
-      // percentage — the percentage is shown as context, never as the verdict.
-      var dist = s.distribution || { verde: 0, amarelo: 0, vermelho: 0, nao_respondido: 0, total: 10 };
+      // ── Score hero + band ──
+      // The headline is `pontos` on a signed −20..+20 range, NOT a percentage.
       html += '<div class="report-card">' +
         '<div class="score-wrap">' +
-        '<div class="score-big">' + s.pct + '%<span class="of"> · ' + s.score + '/' + s.max_score + '</span></div>' +
+        '<div class="score-big">' + (s.pontos > 0 ? "+" : "") + s.pontos +
+        '<span class="of"> ' + ptEn("pontos", "points") + '</span></div>' +
         '<div class="score-sub">' +
-        ptEn(dist.total + " competências avaliadas", dist.total + " competencies assessed") + '</div>' +
+        ptEn("(CL + CG) − (PR + PC) · escala de −20 a +20",
+             "(CL + CG) − (PR + PC) · scale from −20 to +20") + '</div>' +
         '</div>' +
         '<div class="band-card ' + (BAND_CLASS[o.color] || "band-warning") + '">' +
         '<div class="band-title">' + ptEn(escHtml(o.labelPt), escHtml(o.labelEn)) + '</div>' +
         '<div class="band-range" style="margin-bottom:0;">' +
-        ptEn("Resultado pela faixa predominante nas 10 respostas",
-             "Result from the predominant band across the 10 answers") + '</div>' +
+        ptEn(escHtml(o.headlinePt), escHtml(o.headlineEn)) + '</div>' +
         '</div></div>';
 
-      // ── Answered / remaining counters ──
-      var answered = dist.total - dist.nao_respondido;
-      html += '<div class="report-card"><div class="counter-row">' +
-        '<div class="counter-box"><div class="counter-num">' + answered + '</div>' +
-        '<div class="counter-label">' + ptEn("Respondidas", "Answered") + '</div></div>' +
-        '<div class="counter-box"><div class="counter-num">' + dist.nao_respondido + '</div>' +
-        '<div class="counter-label">' + ptEn("Não respondidas", "Unanswered") + '</div></div>' +
+      // ── The four raw inputs, printed as the formula ──
+      var raw = s.raw || {};
+      html += '<div class="report-card">' +
+        '<div class="card-title">' + ptEn("Seus Números", "Your Numbers") + '</div>' +
+        '<div class="card-sub">' +
+        ptEn("Competência menos permissividade — é a diferença entre os dois lados que define o resultado.",
+             "Competence minus permissiveness — the gap between the two sides is what defines the result.") + '</div>' +
+        '<div class="counter-row">' +
+        '<div class="counter-box"><div class="counter-num">' + (raw.CL + raw.CG) + '</div>' +
+        '<div class="counter-label">' + ptEn("Competência (CL+CG)", "Competence (CL+CG)") + '</div></div>' +
+        '<div class="counter-box"><div class="counter-num">' + (raw.PR + raw.PC) + '</div>' +
+        '<div class="counter-label">' + ptEn("Permissividade (PR+PC)", "Permissiveness (PR+PC)") + '</div></div>' +
+        '<div class="counter-box"><div class="counter-num ' +
+        (s.pontos > 0 ? "dist-num-success" : (s.pontos < 0 ? "dist-num-danger" : "dist-num-warning")) + '">' +
+        (s.pontos > 0 ? "+" : "") + s.pontos + '</div>' +
+        '<div class="counter-label">' + ptEn("Resultado", "Result") + '</div></div>' +
         '</div></div>';
 
       // ── Devolutiva + Ação Imediata (verbatim band copy from the Worker) ──
@@ -433,40 +408,58 @@
         '<div class="prose-label">' + ptEn("Devolutiva", "Assessment") + '</div>' +
         '<div class="prose-text">' + ptEn(escHtml(o.devolutivaPt), escHtml(o.devolutivaEn)) + '</div></div>' +
         '<div class="prose-block">' +
-        '<div class="prose-label">' + ptEn("Ação Imediata", "Immediate Action") + '</div>' +
+        '<div class="prose-label">' + ptEn("Ação Imediata", "Immediate Action") + ' — ' +
+        ptEn(escHtml(o.acaoTituloPt), escHtml(o.acaoTituloEn)) + '</div>' +
         '<div class="prose-text">' + ptEn(escHtml(o.acaoImediataPt), escHtml(o.acaoImediataEn)) + '</div></div>' +
         '</div>';
 
+      // ── Conditional insights (only those the answers actually triggered) ──
+      var insights = s.insights || [];
+      if (insights.length > 0) {
+        html += '<div class="report-card">' +
+          '<div class="card-title">' + ptEn("Leitura dos Indicadores", "Reading the Indicators") + '</div>' +
+          '<div class="card-sub">' +
+          ptEn("O que os seus números específicos indicam.",
+               "What your specific numbers point to.") + '</div>';
+        insights.forEach(function(i) {
+          html += '<div class="prose-block">' +
+            '<div class="prose-label">' + ptEn(escHtml(i.titlePt), escHtml(i.titleEn)) + '</div>' +
+            '<div class="prose-text">' + ptEn(escHtml(i.textPt), escHtml(i.textEn)) + '</div></div>';
+        });
+        html += '</div>';
+      }
+
       // ── Distribuição do Resultado (3 counters) ──
+      var dist = s.distribution || { verde: 0, amarelo: 0, vermelho: 0, nao_respondido: 0, total: 4 };
       html += '<div class="report-card">' +
         '<div class="card-title">' + ptEn("Distribuição do Resultado", "Result Distribution") + '</div>' +
         '<div class="card-sub">' +
-        ptEn("Quantas competências caíram em cada faixa.",
-             "How many competencies landed in each band.") + '</div>' +
+        ptEn("Quantos indicadores caíram em cada faixa.",
+             "How many indicators landed in each band.") + '</div>' +
         '<div class="counter-row">' +
         '<div class="counter-box"><div class="counter-num dist-num-success">' + dist.verde + '</div>' +
-        '<div class="counter-label">' + ptEn("Excelência (8-10)", "Excellence (8-10)") + '</div></div>' +
+        '<div class="counter-label">' + ptEn("Adequado (8-10)", "Adequate (8-10)") + '</div></div>' +
         '<div class="counter-box"><div class="counter-num dist-num-warning">' + dist.amarelo + '</div>' +
         '<div class="counter-label">' + ptEn("Atenção (4-7)", "Attention (4-7)") + '</div></div>' +
         '<div class="counter-box"><div class="counter-num dist-num-danger">' + dist.vermelho + '</div>' +
         '<div class="counter-label">' + ptEn("Crítico (0-3)", "Critical (0-3)") + '</div></div>' +
         '</div></div>';
 
-      // ── Charts ──
+      // ── Chart ──
       var charts = s.charts || {};
-      if (charts.competencyBar) { html += competencyBarChartHtml(charts.competencyBar); }
-      if (charts.bandDoughnut)  { html += doughnutChartHtml(charts.bandDoughnut); }
+      if (charts.indicatorBar) { html += indicatorBarChartHtml(charts.indicatorBar); }
 
-      // ── Per-competency breakdown (L1–L10, each with its band) ──
-      html += '<div class="report-card page-break-before">' +
-        '<div class="card-title">' + ptEn("Detalhe por Competência", "Competency Breakdown") + '</div>' +
+      // ── Per-indicator breakdown ──
+      html += '<div class="report-card">' +
+        '<div class="card-title">' + ptEn("Detalhe por Indicador", "Indicator Breakdown") + '</div>' +
         '<div class="card-sub">' +
-        ptEn("Cada pergunta, sua nota e a faixa em que ela caiu.",
-             "Each question, its score and the band it fell into.") + '</div>';
-      (s.categories || []).forEach(function(c, i) {
+        ptEn("Cada indicador, sua nota e a faixa em que ele caiu.",
+             "Each indicator, its score and the band it fell into.") + '</div>';
+      (s.indicators || []).forEach(function(c) {
         html += '<div class="q-row">' +
           '<div class="q-head">' +
-          '<span class="q-name">' + (i + 1) + '. ' + ptEn(escHtml(c.namePt), escHtml(c.nameEn)) + '</span>' +
+          '<span class="q-name">' + escHtml(c.key) + ' — ' +
+          ptEn(escHtml(c.namePt), escHtml(c.nameEn)) + '</span>' +
           '<span class="q-pill ' + (BAND_CLASS[c.color] || "band-warning") + '">' +
           (c.value == null ? "—" : c.value + "/10") +
           (c.bandLabelPt ? ' · ' + ptEn(escHtml(c.bandLabelPt), escHtml(c.bandLabelEn)) : '') +
@@ -477,8 +470,8 @@
       html += '</div>';
 
       html += '<p class="muted" style="font-size:12px;line-height:1.5;">' +
-        ptEn("Relatório gerado pelo Raio X Nível de Liderança. Os resultados refletem as respostas fornecidas na data de conclusão.",
-             "Report generated by the Leadership Level X-Ray. Results reflect the answers given on the completion date.") + '</p>';
+        ptEn("Relatório gerado pelo Raio X de Permissividade. Os resultados refletem as respostas fornecidas na data de conclusão.",
+             "Report generated by the Permissiveness X-Ray. Results reflect the answers given on the completion date.") + '</p>';
 
       document.getElementById("stateMsg").hidden = true;
       var bodyEl = document.getElementById("reportBody");
@@ -487,15 +480,15 @@
     }
 
     function loadReport() {
-      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/assessments/leadership_xray")
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/assessments/permissividade_xray")
         .then(function(res) {
           if (!res.ok) { throw new Error("HTTP " + res.status); }
           return res.json();
         })
         .then(function(d) {
           if (d.status !== "completed" || !d.score) {
-            showMsg("O Raio X Nível de Liderança ainda não foi concluído. O relatório fica disponível após o envio das respostas.",
-                    "The Leadership Level X-Ray has not been completed yet. The report becomes available once the answers are submitted.");
+            showMsg("O Raio X de Permissividade ainda não foi concluído. O relatório fica disponível após o envio das respostas.",
+                    "The Permissiveness X-Ray has not been completed yet. The report becomes available once the answers are submitted.");
             return;
           }
           renderReport(d);

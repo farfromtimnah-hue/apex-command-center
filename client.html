@@ -2417,12 +2417,16 @@
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
             <span class="show-pt">Meio</span><span class="show-en">Method</span>
           </label>
+          <!-- Option TEXT is filled in by renderContactLogOptions() for the
+               active language — an <option> cannot hold nested show-pt/show-en
+               spans. The value attributes are what reaches the database and
+               must never change. -->
           <select id="clMethod" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);">
-            <option value="WhatsApp">WhatsApp</option>
-            <option value="Phone call">Phone call / Ligação</option>
-            <option value="Email">Email</option>
-            <option value="In person">In person / Pessoalmente</option>
-            <option value="Text message">Text message / SMS</option>
+            <option value="WhatsApp"></option>
+            <option value="Phone call"></option>
+            <option value="Email"></option>
+            <option value="In person"></option>
+            <option value="Text message"></option>
           </select>
         </div>
         <div style="margin-bottom:12px;">
@@ -2430,11 +2434,11 @@
             <span class="show-pt">Resultado</span><span class="show-en">Result</span>
           </label>
           <select id="clResult" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);">
-            <option value="No response">No response / Sem resposta</option>
-            <option value="Answered">Answered / Atendeu</option>
-            <option value="Left voicemail">Left voicemail / Deixou recado</option>
-            <option value="Rescheduled">Rescheduled / Remarcado</option>
-            <option value="Not interested">Not interested / Sem interesse</option>
+            <option value="No response"></option>
+            <option value="Answered"></option>
+            <option value="Left voicemail"></option>
+            <option value="Rescheduled"></option>
+            <option value="Not interested"></option>
           </select>
         </div>
         <div style="margin-bottom:12px;">
@@ -3734,6 +3738,8 @@
       sel.value = leadStageCurrent;
       document.getElementById("leadStageFlag").hidden = (leadStageCurrent !== LEAD_STAGE_FLAGGED);
 
+      renderContactLogOptions();   // fill dropdown text for the current language
+      initLeadLangObserver();      // and keep it correct when the user toggles
       loadLeadPipelineState();
       loadContactLog();
     }
@@ -3751,7 +3757,10 @@
         });
     }
 
+    var lastLeadChecklist = null;   // cached so a language toggle can re-render
+
     function renderLeadChecklist(ck) {
+      lastLeadChecklist = ck;
       var en = document.body.classList.contains("lang-en");
       var items = [
         { done: ck.login_created,
@@ -3864,7 +3873,17 @@
         });
     }
 
+    var lastContactLogEntries = null;   // cached so a language toggle can re-render
+
+    // The stored method/result are English database values. Display them
+    // localized, falling back to the raw value if it is ever unrecognized.
+    function contactLabel(labels, value, en) {
+      var lbl = labels[value];
+      return lbl ? (en ? lbl.en : lbl.pt) : (value || "");
+    }
+
     function renderContactLog(entries) {
+      lastContactLogEntries = entries;
       var el = document.getElementById("leadContactLog");
       var en = document.body.classList.contains("lang-en");
       if (!entries.length) {
@@ -3876,7 +3895,8 @@
       for (var i = 0; i < entries.length; i++) {
         var e = entries[i];
         out += '<div style="padding:9px 0;border-bottom:1px solid var(--border);">' +
-          '<div><strong>' + escHtml(e.method) + "</strong> &middot; " + escHtml(e.result) + "</div>" +
+          '<div><strong>' + escHtml(contactLabel(CONTACT_METHOD_LABELS, e.method, en)) + "</strong> &middot; " +
+            escHtml(contactLabel(CONTACT_RESULT_LABELS, e.result, en)) + "</div>" +
           (e.notes ? '<div style="color:var(--text);margin-top:3px;">' + escHtml(e.notes) + "</div>" : "") +
           '<div style="color:var(--muted);font-size:12px;margin-top:3px;">' +
             escHtml(formatDateTime(e.logged_at)) +
@@ -3886,9 +3906,67 @@
       el.innerHTML = out;
     }
 
+    // Display labels for the contact-log dropdowns, keyed by the stored value.
+    // The KEYS are the database values and must never change; only the visible
+    // text is localized. An <option> cannot hold nested show-pt/show-en spans,
+    // so the text is written in JS for the active language — the same approach
+    // renderLeadChecklist() uses.
+    var CONTACT_METHOD_LABELS = {
+      "WhatsApp":     { pt: "WhatsApp",           en: "WhatsApp" },
+      "Phone call":   { pt: "Ligação",            en: "Phone call" },
+      "Email":        { pt: "Email",              en: "Email" },
+      "In person":    { pt: "Pessoalmente",       en: "In person" },
+      "Text message": { pt: "Mensagem de texto",  en: "Text message" }
+    };
+    var CONTACT_RESULT_LABELS = {
+      "No response":    { pt: "Sem resposta",   en: "No response" },
+      "Answered":       { pt: "Atendeu",        en: "Answered" },
+      "Left voicemail": { pt: "Deixou recado",  en: "Left voicemail" },
+      "Rescheduled":    { pt: "Remarcado",      en: "Rescheduled" },
+      "Not interested": { pt: "Sem interesse",  en: "Not interested" }
+    };
+
+    function renderContactLogOptions() {
+      var en = document.body.classList.contains("lang-en");
+      var maps = [
+        { id: "clMethod", labels: CONTACT_METHOD_LABELS },
+        { id: "clResult", labels: CONTACT_RESULT_LABELS }
+      ];
+      for (var m = 0; m < maps.length; m++) {
+        var sel = document.getElementById(maps[m].id);
+        if (!sel) { continue; }
+        for (var i = 0; i < sel.options.length; i++) {
+          var opt = sel.options[i];
+          var lbl = maps[m].labels[opt.value];      // keyed by the stored value
+          if (lbl) { opt.textContent = en ? lbl.en : lbl.pt; }
+        }
+      }
+    }
+
+    // The shared language toggle (apexNavToggleLang in nav.js) only swaps a
+    // body class — CSS handles show-pt/show-en, but text written by JS has no
+    // way to know the language changed. Watch the class attribute so these
+    // dropdowns (and the lead checklist) re-render live on toggle, not just on
+    // page load. Scoped here rather than added to nav.js, which every page shares.
+    var leadLangObserverStarted = false;
+    function initLeadLangObserver() {
+      if (leadLangObserverStarted || !window.MutationObserver) { return; }
+      leadLangObserverStarted = true;
+      var lastEn = document.body.classList.contains("lang-en");
+      new MutationObserver(function() {
+        var nowEn = document.body.classList.contains("lang-en");
+        if (nowEn === lastEn) { return; }            // unrelated class change
+        lastEn = nowEn;
+        renderContactLogOptions();
+        if (lastLeadChecklist) { renderLeadChecklist(lastLeadChecklist); }
+        if (lastContactLogEntries) { renderContactLog(lastContactLogEntries); }
+      }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    }
+
     function openContactLogModal() {
       document.getElementById("clNotes").value = "";
       document.getElementById("clStatus2").textContent = "";
+      renderContactLogOptions();
       document.getElementById("modalContactLog").hidden = false;
     }
 

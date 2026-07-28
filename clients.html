@@ -1116,6 +1116,39 @@
       loadMessageTemplates();
       loadClients();
       loadPendingResources();
+      applyClientsDeepLink();
+    }
+
+    // ── Deep link ──────────────────────────────────────────────────────────
+    //
+    // ?tab=parceiros[&partner=<id>] — the Source row on a client's Overview
+    // links here so "who referred them" taps through to the actual partner.
+    // The roster has no per-partner page of its own, so the link opens the tab
+    // and, when an id is given, that partner's sheet.
+    //
+    // Guarded on role: switchClientsTab('parceiros') calls the admin-only
+    // /api/apex-partners, so a non-admin arriving with the query string stays
+    // on the default tab rather than triggering a 403.
+    function applyClientsDeepLink() {
+      var role = sessionStorage.getItem("apex_role") || "";
+      if (role !== "alice" && role !== "rafa" && role !== "developer") { return; }
+
+      var params = new URLSearchParams(window.location.search || "");
+      if (params.get("tab") !== "parceiros") { return; }
+
+      var partnerId = params.get("partner") || "";
+      var result = switchClientsTab("parceiros");
+      if (!partnerId) { return; }
+
+      // The modal reads from apexPartners, so it can only open once the roster
+      // has actually loaded. A partner deleted since the link was rendered
+      // simply leaves the tab open — openApexPartnerModal would show an empty
+      // sheet, which reads as "new partner" and is worse than nothing.
+      Promise.resolve(result).then(function () {
+        var found = false;
+        apexPartners.forEach(function (p) { if (p.id === partnerId) { found = true; } });
+        if (found) { openApexPartnerModal(partnerId); }
+      }).catch(function () { /* roster failed to load; tab stays open */ });
     }
 
     // ── Pending resource sends strip (Resource Hub) ────────────────────────

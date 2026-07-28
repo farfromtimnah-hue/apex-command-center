@@ -269,36 +269,84 @@
 }
 .gm-partner-stat-value.gm-partner-zero { color: var(--muted); font-weight: 700; }
 
-/* Partner detail: grouped sections of icon rows */
-.gm-partner-section { margin-bottom: 18px; }
-.gm-partner-section-title {
+/* Detail sheets: grouped sections of icon rows.
+   Built for the Partner sheet first, then generalized to .gm-sheet-* when the
+   Lead sheet adopted the same language. The .gm-partner-* names are kept as
+   aliases so the two sheets are ONE system rather than two lookalikes — do
+   not add a third family; extend this one. */
+.gm-sheet-section, .gm-partner-section { margin-bottom: 18px; }
+.gm-sheet-section-title, .gm-partner-section-title {
   font-size: 11px; font-weight: 800; color: var(--muted);
   letter-spacing: 0.08em; text-transform: uppercase;
   margin: 0 0 8px 2px;
 }
-.gm-partner-group {
+/* A section label can carry a quiet "tracked automatically" note beside it. */
+.gm-sheet-section-note {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  letter-spacing: 0; text-transform: none; opacity: 0.85;
+}
+.gm-sheet-group, .gm-partner-group {
   background: var(--card, #fff); border: 1px solid var(--border);
   border-radius: 12px; overflow: hidden;
 }
-.gm-partner-row {
+.gm-sheet-row, .gm-partner-row {
   display: flex; align-items: center; gap: 12px;
   width: 100%; min-height: 56px; padding: 11px 13px;
   background: none; border: none; border-bottom: 1px solid var(--border);
   font-family: 'Inter', sans-serif; text-align: left; color: var(--text);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.gm-partner-row:last-child { border-bottom: none; }
-.gm-partner-row-icon {
+.gm-sheet-row:last-child, .gm-partner-row:last-child { border-bottom: none; }
+.gm-sheet-row-icon, .gm-partner-row-icon {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   background: var(--surface, #f9f7f4); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
 }
-.gm-partner-row-icon svg { width: 15px; height: 15px; color: #8a6f22; }
-.gm-partner-row-body { flex: 1; min-width: 0; }
-.gm-partner-row-label { font-size: 11px; font-weight: 600; color: var(--muted); }
-.gm-partner-row-value { font-size: 14px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
-.gm-partner-row-value.gm-empty { color: var(--muted); font-weight: 400; }
-.gm-partner-row-chev { color: var(--gold); font-size: 14px; flex-shrink: 0; }
+.gm-sheet-row-icon svg, .gm-partner-row-icon svg { width: 15px; height: 15px; color: #8a6f22; }
+.gm-sheet-row-body, .gm-partner-row-body { flex: 1; min-width: 0; }
+.gm-sheet-row-label, .gm-partner-row-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.gm-sheet-row-value, .gm-partner-row-value { font-size: 14px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
+.gm-sheet-row-value.gm-empty, .gm-partner-row-value.gm-empty { color: var(--muted); font-weight: 400; }
+.gm-sheet-row-chev, .gm-partner-row-chev { color: var(--gold); flex-shrink: 0; display: flex; align-items: center; }
+.gm-sheet-row-chev svg, .gm-partner-row-chev svg { width: 14px; height: 14px; }
+/* Secondary text under a value — the exact timestamp beneath a relative age. */
+.gm-sheet-row-sub { font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 1px; }
+
+/* Hero card: the two things asked first — what stage, and how much.
+   Deliberately NOT a row in the list; it is the sheet's headline. */
+.gm-sheet-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--card, #fff); border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px 14px; margin-bottom: 18px;
+}
+.gm-sheet-hero-left { min-width: 0; }
+.gm-sheet-hero-age { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 5px; }
+.gm-sheet-hero-right { text-align: right; flex-shrink: 0; }
+.gm-sheet-hero-label {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.gm-sheet-hero-value { font-size: 20px; font-weight: 800; color: var(--text); margin-top: 2px; }
+.gm-sheet-hero-value.gm-empty { color: var(--muted); font-weight: 600; font-size: 15px; }
+
+/* "More ways to reach out" — SMS/Email collapsed under Call/WhatsApp.
+   Mirrored by .cl-contact-more in client.html so both tiers behave alike. */
+.gm-contact-more { margin: -6px 0 12px; }
+.gm-contact-more-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; padding: 4px 2px;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+  color: var(--muted);
+}
+.gm-contact-more-btn svg { width: 13px; height: 13px; transition: transform 0.15s; }
+.gm-contact-more-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+.gm-contact-more-panel { display: flex; gap: 8px; margin-top: 8px; }
+.gm-contact-more-panel[hidden] { display: none; }
+.gm-contact-btn.gm-sms, .gm-contact-btn.gm-email {
+  background: var(--surface, #f9f7f4); color: var(--text); border: 1px solid var(--border);
+}
+/* An unavailable channel states the reason instead of looking broken. */
+.gm-contact-btn.gm-reason { font-weight: 500; font-size: 12px; }
 
 /* Referral link / QR block — same card treatment, icon buttons */
 .gm-partner-ref-url {

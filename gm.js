@@ -362,9 +362,47 @@ function gmContactButtonsHtml(tel) {
   var digits = gmWaDigits(tel);
   var dis = tel ? "" : ' aria-disabled="true"';
   return '<div class="gm-contact-row" data-tour="crm-detail-contact">' +
-    '<a class="gm-contact-btn gm-call"' + dis + ' href="tel:' + escHtml(tel || "") + '">&#9742; ' + gmT("Ligar", "Call") + '</a>' +
-    '<a class="gm-contact-btn gm-wa"' + dis + ' href="https://wa.me/' + digits + '" target="_blank" rel="noopener">WhatsApp</a>' +
+    '<a class="gm-contact-btn gm-call"' + dis + ' href="tel:' + escHtml(tel || "") + '">' +
+      gmIcon("phone") + gmT("Ligar", "Call") + '</a>' +
+    '<a class="gm-contact-btn gm-wa"' + dis + ' href="https://wa.me/' + digits + '" target="_blank" rel="noopener">' +
+      gmIcon("wa") + 'WhatsApp</a>' +
     '</div>';
+}
+
+// SMS and Email: the rarer channels, collapsed under Call/WhatsApp so they do
+// not compete with the two primary buttons. Same disclosure the Apex-internal
+// Contact Log uses (.cl-contact-more in client.html) — both sides of the app
+// behave identically.
+//
+// A channel with nothing on file does NOT render a dead-looking button: the
+// label becomes the reason, because an unexplained greyed control reads as a
+// bug rather than as missing data.
+function gmContactMoreHtml(tel, email) {
+  var smsDis = tel ? "" : ' aria-disabled="true"';
+  var mailDis = email ? "" : ' aria-disabled="true"';
+  return '<div class="gm-contact-more">' +
+    '<button type="button" class="gm-contact-more-btn" id="gmContactMoreBtn" ' +
+      'aria-expanded="false" aria-controls="gmContactMorePanel" onclick="gmToggleContactMore()">' +
+      gmIcon("chevron") + gmT("Mais formas de contato", "More ways to reach out") + '</button>' +
+    '<div class="gm-contact-more-panel" id="gmContactMorePanel" hidden>' +
+      '<a class="gm-contact-btn gm-sms' + (tel ? "" : " gm-reason") + '"' + smsDis +
+        ' href="sms:' + escHtml(String(tel || "").replace(/[^\d+]/g, "")) + '" onclick="gmLogOutreach(\'Text message\')">' +
+        gmIcon("sms") + (tel ? gmT("Mensagem de texto", "Text message")
+                             : gmT("Nenhum telefone cadastrado", "No phone number on file")) + '</a>' +
+      '<a class="gm-contact-btn gm-email' + (email ? "" : " gm-reason") + '"' + mailDis +
+        ' href="mailto:' + escHtml(email || "") + '" onclick="gmLogOutreach(\'Email\')">' +
+        gmIcon("mail") + (email ? "Email"
+                                : gmT("Nenhum email cadastrado", "No email on file")) + '</a>' +
+    '</div></div>';
+}
+
+function gmToggleContactMore() {
+  var btn = document.getElementById("gmContactMoreBtn");
+  var panel = document.getElementById("gmContactMorePanel");
+  if (!btn || !panel) { return; }
+  var open = btn.getAttribute("aria-expanded") === "true";
+  btn.setAttribute("aria-expanded", open ? "false" : "true");
+  panel.hidden = open;
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -623,6 +661,133 @@ function gmLoadCrmSilent() {
 
 // ── Lead detail: bottom sheet, fields ordered by frequency of use ────────
 var gmDetailLead = null;
+var gmLeadContacts = null;        // cached log rows for the open lead
+
+// ── Outreach logging ─────────────────────────────────────────────────────
+// Tapping Call / WhatsApp / SMS / Email launches the link AND opens the
+// outcome modal with Method already filled in, so only Result is left to
+// pick. Same one-tap contract as the Apex-internal Contact Log.
+//
+// The href does the launching (a real <a>, so the OS handoff is a plain
+// navigation and nothing can be popup-blocked); this only records it. It is
+// called from onclick and must therefore do NO async work before returning.
+var GM_CONTACT_RESULTS = [
+  { key: "Answered",       pt: "Atendeu",        en: "Answered" },
+  { key: "No response",    pt: "Sem resposta",   en: "No response" },
+  { key: "Left voicemail", pt: "Deixou recado",  en: "Left voicemail" },
+  { key: "Rescheduled",    pt: "Remarcado",      en: "Rescheduled" },
+  { key: "Not interested", pt: "Sem interesse",  en: "Not interested" }
+];
+var GM_CONTACT_METHOD_LABELS = {
+  "WhatsApp":     { pt: "WhatsApp",          en: "WhatsApp" },
+  "Phone call":   { pt: "Ligação",           en: "Phone call" },
+  "Email":        { pt: "Email",             en: "Email" },
+  "In person":    { pt: "Pessoalmente",      en: "In person" },
+  "Text message": { pt: "Mensagem de texto", en: "Text message" }
+};
+
+function gmMethodLabel(key) {
+  var m = GM_CONTACT_METHOD_LABELS[key];
+  return m ? gmT(m.pt, m.en) : escHtml(key);
+}
+
+function gmLogOutreach(method) {
+  if (!gmDetailLead) { return; }
+  // Deferred one tick so the browser commits the link navigation first; the
+  // modal is only bookkeeping and must never delay the outreach itself.
+  window.setTimeout(function() { gmOpenOutcomeModal(method); }, 0);
+}
+
+function gmOpenOutcomeModal(method) {
+  var body = '<p class="gm-derived-note">' +
+    gmT("Registrando: ", "Logging: ") + '<strong>' + gmMethodLabel(method) + '</strong>. ' +
+    gmT("Escolha o resultado.", "Pick the outcome.") + '</p>' +
+    '<div class="gm-chip-set" style="flex-direction:column;align-items:stretch;">';
+  GM_CONTACT_RESULTS.forEach(function(r) {
+    body += '<button type="button" class="gm-choice-chip" style="text-align:left;" onclick="gmSaveOutreach(' +
+      "'" + escHtml(method).replace(/'/g, "\\'") + "','" + r.key + "')\">" +
+      gmT(r.pt, r.en) + '</button>';
+  });
+  body += '</div>' +
+    '<button type="button" class="btn-outline gm-add-btn" onclick="gmRenderLeadSheet()">' +
+    gmT("Cancelar", "Cancel") + '</button>';
+  gmSheetOpen(gmT("Resultado do contato", "Contact outcome"), body, "crm-outcome");
+}
+
+function gmSaveOutreach(method, result) {
+  var lead = gmDetailLead;
+  gmApi("leads/" + lead.id + "/contacts", { method: "POST", body: { method: method, result: result } })
+    .then(function(d) {
+      // The server returns the refreshed derived values, so the sheet can
+      // re-render without a second round trip.
+      lead.contatos_count = d.contatos_count;
+      lead.primeiro_contato = d.primeiro_contato;
+      gmLeadContacts = null;                 // force a refetch if the log opens
+      gmRenderLeadSheet();
+      gmToast(gmT("Contato registrado ✓", "Contact logged ✓"));
+    })
+    .catch(function(e) { window.alert(e.message); });
+}
+
+// The follow-up count row opens the LOG, not a number editor: the count is
+// derived from these rows and cannot be typed.
+function gmOpenContactLog() {
+  var lead = gmDetailLead;
+  gmSheetOpen(gmT("Histórico de contatos", "Contact history"),
+    '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>', "crm-contact-log");
+  gmApi("leads/" + lead.id + "/contacts")
+    .then(function(d) {
+      gmLeadContacts = d.contacts || [];
+      var body = "";
+      if (!gmLeadContacts.length) {
+        body = '<p class="gm-derived-note">' +
+          gmT("Nenhum contato registrado ainda. Use Ligar, WhatsApp, SMS ou Email acima — cada contato é registrado aqui.",
+              "No contacts logged yet. Use Call, WhatsApp, SMS or Email above — each one is logged here.") + '</p>';
+      } else {
+        body = '<div class="gm-sheet-group">';
+        gmLeadContacts.forEach(function(c) {
+          var res = "";
+          GM_CONTACT_RESULTS.forEach(function(r) { if (r.key === c.result) { res = gmT(r.pt, r.en); } });
+          body += '<div class="gm-sheet-row" style="cursor:default;">' +
+            '<span class="gm-sheet-row-icon">' + gmIcon(gmMethodIcon(c.method)) + '</span>' +
+            '<span class="gm-sheet-row-body">' +
+              '<span class="gm-sheet-row-label">' + gmMethodLabel(c.method) +
+              (res ? ' · ' + escHtml(res) : "") + '</span>' +
+              '<span class="gm-sheet-row-value">' + escHtml(formatDateTime(c.logged_at)) + '</span>' +
+              (c.notes ? '<span class="gm-sheet-row-sub">' + escHtml(c.notes) + '</span>' : "") +
+            '</span></div>';
+        });
+        body += '</div>';
+      }
+      body += '<button type="button" class="btn-outline gm-add-btn" onclick="gmRenderLeadSheet()">' +
+        gmT("Voltar", "Back") + '</button>';
+      gmSheetOpen(gmT("Histórico de contatos", "Contact history"), body, "crm-contact-log");
+    })
+    .catch(function(e) {
+      gmSheetOpen(gmT("Histórico de contatos", "Contact history"),
+        '<p class="muted">' + escHtml(e.message) + '</p>' +
+        '<button type="button" class="btn-outline gm-add-btn" onclick="gmRenderLeadSheet()">' +
+        gmT("Voltar", "Back") + '</button>', "crm-contact-log");
+    });
+}
+
+function gmMethodIcon(method) {
+  if (method === "WhatsApp") { return "wa"; }
+  if (method === "Phone call") { return "phone"; }
+  if (method === "Email") { return "mail"; }
+  if (method === "Text message") { return "sms"; }
+  return "person";
+}
+
+// "4 days ago" / "há 4 dias" — a relative age reads faster than a timestamp
+// for the question this row answers ("is this lead going cold?").
+function gmRelativeAge(iso) {
+  var days = gmDaysSince(iso);
+  if (days === null) { return ""; }
+  if (days === 0) { return gmT("hoje", "today"); }
+  if (days === 1) { return gmT("ontem", "yesterday"); }
+  return isEn() ? days + " days ago" : "há " + days + " dias";
+}
 
 function gmOpenLead(idx) {
   var lead = gmLeadsData.leads[idx];
@@ -636,14 +801,17 @@ function gmLeadFieldDefs() {
   return [
     { key: "valor",          type: "currency", pt: "Valor estimate ($)",      en: "Estimate value ($)" },
     { key: "proxima_acao",   type: "text",     pt: "Próxima ação",            en: "Next action" },
-    { key: "followups",      type: "number",   pt: "Nº follow-ups",           en: "# follow-ups" },
-    { key: "data_contato",   type: "datetime", pt: "Data/hora 1º contato",    en: "1st contact date/time" },
+    // followups and data_contato are NOT here: both are derived from the
+    // gm_lead_contacts log (contatos_count / primeiro_contato) and rendered
+    // as read-only rows. Leaving them editable would let a typed number
+    // silently disagree with the log it is supposed to summarize.
     { key: "data_estimate",  type: "datetime", pt: "Data/hora estimate",      en: "Estimate date/time" },
     { key: "servico",        type: "multichoice", pt: "Serviço(s)",           en: "Service(s)", options: cfg.servicos },
     { key: "vendedor",       type: "choice",   pt: "Vendedor",                en: "Salesperson", options: cfg.vendedores },
     { key: "origem",         type: "choice",   pt: "Origem",                  en: "Source",    options: method.origens },
     { key: "parceiro_id",    type: "partner",  pt: "Parceiro",                en: "Partner" },
     { key: "telefone",       type: "tel",      pt: "Telefone",                en: "Phone" },
+    { key: "email",          type: "text",     pt: "Email",                   en: "Email" },
     { key: "observacao",     type: "textarea", pt: "Observação do trabalho",  en: "Job notes" },
     { key: "mes_fechamento", type: "choice",   pt: "Mês fechamento",          en: "Closing month", options: cfg.cycle_months },
     { key: "mes_lead",       type: "choice",   pt: "Mês lead",                en: "Lead month",    options: cfg.cycle_months },
@@ -662,19 +830,116 @@ function gmLeadFieldDisplay(lead, def) {
   return escHtml(String(v));
 }
 
+// One icon+label+value row inside a grouped sheet section. Same tap-to-edit
+// contract as gmFieldRowHtml — this is the grouped presentation of it, not a
+// second editing mechanism. Shared with the Partner sheet via .gm-sheet-*.
+function gmSheetRowHtml(icon, label, valueHtml, onclickJs, tourKey, subHtml) {
+  var tag = onclickJs ? "button" : "div";
+  return '<' + tag + (onclickJs ? ' type="button"' : ' style="cursor:default;"') +
+    ' class="gm-sheet-row"' + (tourKey ? ' data-tour="' + tourKey + '"' : '') +
+    (onclickJs ? ' onclick="' + onclickJs + '"' : '') + '>' +
+    '<span class="gm-sheet-row-icon">' + gmIcon(icon) + '</span>' +
+    '<span class="gm-sheet-row-body">' +
+      '<span class="gm-sheet-row-label">' + label + '</span>' +
+      '<span class="gm-sheet-row-value' + (valueHtml ? "" : " gm-empty") + '">' +
+      (valueHtml || (onclickJs ? gmT("Toque para preencher", "Tap to fill in") : "—")) + '</span>' +
+      (subHtml ? '<span class="gm-sheet-row-sub">' + subHtml + '</span>' : "") +
+    '</span>' +
+    (onclickJs ? '<span class="gm-sheet-row-chev">' + gmIcon("chevron") + '</span>' : "") +
+    '</' + tag + '>';
+}
+
+function gmSheetSection(title, rowsHtml, noteHtml) {
+  return '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + title +
+    (noteHtml ? ' <span class="gm-sheet-section-note">' + noteHtml + '</span>' : "") + '</p>' +
+    '<div class="gm-sheet-group">' + rowsHtml + '</div></div>';
+}
+
+// The Lead detail sheet. Field indexes are the SAME gmLeadFieldDefs() indexes
+// the flat sheet used, so editing still goes through gmEditLeadField — only
+// the presentation differs.
 function gmRenderLeadSheet() {
   var lead = gmDetailLead;
   var days = gmDaysSince(lead.stage_changed_at);
+  var byKey = {};
+  gmLeadFieldDefs().forEach(function(def, i) { byKey[def.key] = { def: def, i: i }; });
+  var val = function(key) { return gmLeadFieldDisplay(lead, byKey[key].def); };
+  var edit = function(key) { return "gmEditLeadField(" + byKey[key].i + ")"; };
+
+  // ── Contact actions ───────────────────────────────────────────────────
   var body = gmContactButtonsHtml(lead.telefone);
-  body += '<button type="button" class="gm-field-row" data-tour="crm-stage-change" onclick="gmOpenStagePicker()">' +
-    '<span style="min-width:0;flex:1;"><span class="gm-field-label">' + gmT("Estágio", "Stage") + '</span>' +
-    '<div class="gm-field-value">' + gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) +
-    (days !== null ? ' <span class="muted" style="font-size:11px;">' +
-      (isEn() ? days + " day(s)" : days + " dia(s)") + '</span>' : "") +
-    '</div></span><span class="gm-field-chev">&#9654;</span></button>';
+  body += gmContactMoreHtml(lead.telefone, lead.email);
+
+  // ── Hero: stage + days on the left, estimate value on the right ───────
+  // The two things asked first about any lead, given the sheet's headline
+  // weight instead of being two more rows in a flat list.
+  var valor = gmLeadFieldDisplay(lead, byKey.valor.def);
+  body += '<div class="gm-sheet-hero" data-tour="crm-lead-hero">' +
+    '<div class="gm-sheet-hero-left">' +
+      '<button type="button" style="background:none;border:none;padding:0;cursor:pointer;" ' +
+        'data-tour="crm-stage-change" onclick="gmOpenStagePicker()">' +
+        gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) + '</button>' +
+      (days !== null ? '<div class="gm-sheet-hero-age">' +
+        (isEn() ? days + " day(s) in this stage" : days + " dia(s) neste estágio") + '</div>' : "") +
+    '</div>' +
+    '<button type="button" class="gm-sheet-hero-right" style="background:none;border:none;cursor:pointer;" ' +
+      'onclick="' + edit("valor") + '">' +
+      '<div class="gm-sheet-hero-label">' + gmT("Valor estimate", "Estimate value") + '</div>' +
+      '<div class="gm-sheet-hero-value' + (valor ? "" : " gm-empty") + '">' +
+      (valor || gmT("A definir", "Not set")) + '</div>' +
+    '</button></div>';
+
+  // ── Next action ───────────────────────────────────────────────────────
+  // On its own, because it is the one genuinely manual judgement call on the
+  // sheet — everything else is either a fact or derived.
+  body += gmSheetSection(gmT("Próxima ação", "Next action"),
+    gmSheetRowHtml("check", gmT("Próxima ação", "Next action"),
+      val("proxima_acao"), edit("proxima_acao")));
+
+  // ── Contact activity — derived, never typed ───────────────────────────
+  // Both values come from the gm_lead_contacts log (COUNT and MIN(logged_at),
+  // computed server-side in handleGetGmLeads). Neither is tap-to-edit: the
+  // follow-up row opens the LOG, and first-contacted is auto-stamped by the
+  // first logged contact. COALESCE onto the legacy hand-entered data_contato
+  // keeps leads that predate the log from showing an empty row.
+  var count = lead.contatos_count || 0;
+  var firstAt = lead.primeiro_contato || lead.data_contato || null;
+  body += gmSheetSection(gmT("Atividade de contato", "Contact activity"),
+    gmSheetRowHtml("repeat", gmT("Nº follow-ups", "# follow-ups"),
+      String(count), "gmOpenContactLog()", "crm-followups",
+      gmT("Toque para ver o histórico", "Tap to see the history")) +
+    gmSheetRowHtml("clock", gmT("1º contato", "First contacted"),
+      firstAt ? escHtml(gmRelativeAge(firstAt)) : "",
+      null, null,
+      firstAt ? escHtml(formatDateTime(firstAt)) : ""),
+    gmT("registrado automaticamente", "tracked automatically"));
+
+  // ── Lead details ──────────────────────────────────────────────────────
+  // parceiro is here rather than buried: "who sent me this lead?" is a
+  // question users actively ask, so it gets a labelled row of its own.
+  body += gmSheetSection(gmT("Dados do lead", "Lead details"),
+    gmSheetRowHtml("briefcase", gmT("Serviço(s)", "Service(s)"), val("servico"), edit("servico")) +
+    gmSheetRowHtml("person", gmT("Vendedor", "Salesperson"), val("vendedor"), edit("vendedor")) +
+    gmSheetRowHtml("compass", gmT("Origem", "Source"), val("origem"), edit("origem")) +
+    gmSheetRowHtml("handshake", gmT("Parceiro", "Partner"), val("parceiro_id"), edit("parceiro_id"),
+      "crm-lead-partner") +
+    gmSheetRowHtml("phone", gmT("Telefone", "Phone"), val("telefone"), edit("telefone")) +
+    gmSheetRowHtml("mail", gmT("Email", "Email"), val("email"), edit("email")));
+
+  // ── Everything else, still tap-to-edit ────────────────────────────────
+  // The remaining fields keep the flat treatment: they are lower-frequency,
+  // and promoting all fifteen would defeat the grouping.
+  var shown = { valor: 1, proxima_acao: 1,
+                servico: 1, vendedor: 1, origem: 1, parceiro_id: 1, telefone: 1, email: 1 };
+  var rest = "";
   gmLeadFieldDefs().forEach(function(def, i) {
-    body += gmFieldRowHtml(gmT(def.pt, def.en), gmLeadFieldDisplay(lead, def), "gmEditLeadField(" + i + ")");
+    if (shown[def.key]) { return; }
+    rest += gmSheetRowHtml("tag", gmT(def.pt, def.en),
+      gmLeadFieldDisplay(lead, def), "gmEditLeadField(" + i + ")");
   });
+  body += gmSheetSection(gmT("Outros campos", "Other fields"), rest);
+
   body += '<button type="button" class="btn-outline gm-add-btn" style="color:var(--red);border-color:var(--red);" onclick="gmDeleteLead()">' +
     gmT("Excluir lead", "Delete lead") + '</button>';
   gmSheetOpen(escHtml(lead.cliente), body, "crm-lead-detail");
@@ -911,10 +1176,31 @@ var GM_ICONS = {
   copy:     '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   share:    '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
-  link:     '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+  link:     '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  phone:    '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  sms:      '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
+  mail:     '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+  chevron:  '<polyline points="9 18 15 12 9 6"/>',
+  clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  repeat:   '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  compass:  '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+  handshake: '<path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>'
 };
 
 function gmIcon(name) {
+  // The WhatsApp mark is a filled brand path, not a stroked glyph, so it is
+  // rendered with its own fill/stroke rather than the shared stroked frame.
+  if (name === "wa") {
+    return '<svg viewBox="0 0 24 24" fill="currentColor">' +
+      '<path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.65.07' +
+      '-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5' +
+      '.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48' +
+      '0 1.46 1.06 2.87 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41' +
+      '.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.35z"/>' +
+      '<path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.18-1.14l-.3-.18-3 .78.8-2.92' +
+      '-.2-.31A8.2 8.2 0 1 1 12 20.2z"/></svg>';
+  }
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round">' + (GM_ICONS[name] || "") + '</svg>';
 }

@@ -9020,11 +9020,13 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "config" || gmRest === "leads" || gmRest === "roadmap" ||
                     gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
                     gmRest === "jobs") { return true; }
+                if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
             }
             if (method === "POST") {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
                     gmRest === "partners" || gmRest === "finance" || gmRest === "jobs") { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
+                if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
             }
             if (method === "PUT") {
                 if (gmRest === "config/view-mode") { return true; }
@@ -12547,8 +12549,17 @@ async function handleGetGmLeads(id, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        // contatos_count / primeiro_contato are DERIVED from the outreach log
+        // on every read and never stored on the lead: the sheet shows the
+        // follow-up count and the first-contacted age, and a stored copy of
+        // either would drift the moment a log row is added or removed.
+        // COALESCE keeps the old hand-entered data_contato meaningful for
+        // leads that predate the log — see gmLeadPrimeiroContato in gm.js.
         var rows = await env.DB.prepare(
-            "SELECT l.*, p.name AS parceiro_name FROM gm_leads l " +
+            "SELECT l.*, p.name AS parceiro_name, " +
+            "(SELECT COUNT(*) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS contatos_count, " +
+            "(SELECT MIN(c.logged_at) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS primeiro_contato " +
+            "FROM gm_leads l " +
             "LEFT JOIN gm_partners p ON p.id = l.parceiro_id " +
             "WHERE l.client_id = ? " +
             "ORDER BY COALESCE(l.data_lead, l.created_at) DESC"
@@ -12614,7 +12625,7 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         }
     }
     var strFields = [
-        ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["servico", 400],
+        ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["email", 200], ["servico", 400],
         ["observacao", 2000], ["vendedor", 80], ["data_contato", 40],
         ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40]
     ];
@@ -12640,15 +12651,16 @@ async function gmLeadFields(body, config, partial, env, clientId) {
 async function gmInsertLead(env, clientId, f) {
     var leadId = crypto.randomUUID();
     await env.DB.prepare(
-        "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, origem, parceiro_id, servico, " +
+        "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
         f.data_lead !== undefined ? f.data_lead : null,
         f.cliente,
         f.telefone !== undefined ? f.telefone : null,
+        f.email !== undefined ? f.email : null,
         f.origem !== undefined ? f.origem : null,
         f.parceiro_id !== undefined ? f.parceiro_id : null,
         f.servico !== undefined ? f.servico : null,
@@ -12718,6 +12730,72 @@ async function handlePutGmLead(id, leadId, request, env) {
         return jsonOk({ saved: true, lead: row });
     } catch (e) {
         return jsonErr("Error updating lead: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/POST /api/clients/:id/gm/leads/:leadId/contacts
+//
+// The client-facing CRM's own outreach log. Deliberately a separate table
+// from lead_contact_log: that one keys on clients(id) and is APEX's funnel
+// (a "lead" there is a prospective Apex client); this one keys on gm_leads
+// and is the CLIENT'S funnel. See migrations/gm_lead_contacts.sql.
+//
+// Two lead-sheet fields are derived from these rows and are no longer typed
+// by hand: the follow-up count (COUNT) and first-contacted (MIN logged_at).
+// Both are computed in handleGetGmLeads, never stored.
+//
+// The method/result vocabularies are the SAME constants the Apex side
+// validates against, so one word means one thing across both tiers.
+// ---------------------------------------------------------------------------
+
+async function handleGetGmLeadContacts(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        // Scope through the LEAD, not just client_id: proves this lead belongs
+        // to this tenant before returning anything keyed to it.
+        var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        var rows = await env.DB.prepare(
+            "SELECT id, lead_id, method, result, notes, logged_at FROM gm_lead_contacts " +
+            "WHERE lead_id = ? ORDER BY logged_at DESC"
+        ).bind(leadId).all();
+        return jsonOk({ contacts: (rows.results || []) });
+    } catch (e) {
+        return jsonErr("Error fetching contacts: " + e.message, 500);
+    }
+}
+
+async function handlePostGmLeadContact(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        var body = await request.json();
+        var method = gmStr(body.method, 40);
+        if (LEAD_CONTACT_METHODS.indexOf(method) < 0) { return jsonErr("Invalid method", 400); }
+        var result = gmStr(body.result, 40);
+        if (result && LEAD_CONTACT_RESULTS.indexOf(result) < 0) { return jsonErr("Invalid result", 400); }
+        await env.DB.prepare(
+            "INSERT INTO gm_lead_contacts (id, lead_id, client_id, method, result, notes) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), leadId, id, method, result || null, gmStr(body.notes, 2000) || null).run();
+        // Return the lead's refreshed derived values so the sheet can re-render
+        // without a second round trip.
+        var agg = await env.DB.prepare(
+            "SELECT COUNT(*) AS contatos_count, MIN(logged_at) AS primeiro_contato " +
+            "FROM gm_lead_contacts WHERE lead_id = ?"
+        ).bind(leadId).first();
+        return jsonOk({
+            saved: true,
+            contatos_count: (agg && agg.contatos_count) || 0,
+            primeiro_contato: (agg && agg.primeiro_contato) || null
+        });
+    } catch (e) {
+        return jsonErr("Error saving contact: " + e.message, 500);
     }
 }
 
@@ -14191,6 +14269,11 @@ export default {
                 }
                 if (segs.length === 7 && gmCol === "base-ouro" && segs[6] === "reactivate" && method === "POST") {
                     return handlePostGmBaseOuroReactivate(cid, segs[5], request, env);
+                }
+                // /gm/leads/:leadId/contacts — the client CRM's outreach log
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "contacts") {
+                    if (method === "GET")  { return handleGetGmLeadContacts(cid, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }
                 }
                 if (segs.length === 6 && method === "PUT") {
                     if (gmCol === "leads")     { return handlePutGmLead(cid, segs[5], request, env); }

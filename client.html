@@ -3097,7 +3097,7 @@
             ? ' · <span style="color:var(--muted);"><span class="show-pt">senha tempor&aacute;ria pendente</span><span class="show-en">temp password pending</span></span>'
             : ' · <span style="color:#3f7d4e;"><span class="show-pt">senha definida</span><span class="show-en">password set</span></span>') +
           (s.last_login_at
-            ? '<div style="color:var(--muted);font-size:12px;margin-top:3px;"><span class="show-pt">&Uacute;ltimo acesso:</span><span class="show-en">Last login:</span> ' + formatDateTime(s.last_login_at) + '</div>'
+            ? '<div style="color:var(--muted);font-size:12px;margin-top:3px;"><span class="show-pt">&Uacute;ltimo acesso:</span><span class="show-en">Last login:</span> ' + formatDateTimeUTC(s.last_login_at) + '</div>'
             : '') +
           '</div>';
       } else {
@@ -3210,7 +3210,7 @@
           '<span class="show-pt">Conclu&iacute;do</span><span class="show-en">Completed</span></span>' +
           '<div style="color:var(--muted);font-size:12px;margin-top:3px;">' +
           '<span class="show-pt">Conclu&iacute;do em:</span><span class="show-en">Completed on:</span> ' +
-          formatDateTime(a.completed_at) +
+          formatDateTimeUTC(a.completed_at) +
           (a.score_summary
             ? ' &middot; ' + a.score_summary.score + '/' + a.score_summary.max_score +
               ' (' + a.score_summary.pct + '%) &middot; ' + maturityLabelHtml(a)
@@ -3241,7 +3241,7 @@
           html += '<div style="margin-bottom:8px;">' + assessmentStatusHtml(a) + '</div>' +
             '<div style="color:var(--muted);font-size:12px;margin-bottom:8px;">' +
             '<span class="show-pt">Ativado em:</span><span class="show-en">Activated on:</span> ' +
-            formatDateTime(a.activated_at) + '</div>' +
+            formatDateTimeUTC(a.activated_at) + '</div>' +
             (a.status === "completed"
               ? '<button class="btn-add" style="margin-right:6px;" onclick="openAssessmentReport(\'' + t.report + '\')">' +
                 '<span class="show-pt">Ver Relat&oacute;rio</span><span class="show-en">View Report</span></button>'
@@ -5907,7 +5907,7 @@
 
         var metaEl = document.createElement("div");
         metaEl.className = "note-meta";
-        metaEl.textContent = (n.created_by || "—") + " · " + formatDateTime(n.created_at);
+        metaEl.textContent = (n.created_by || "—") + " · " + formatDateTimeUTC(n.created_at);
 
         item.appendChild(contentEl);
         item.appendChild(metaEl);
@@ -5965,7 +5965,10 @@
             : '<span class="show-pt">Enviado</span><span class="show-en">Uploaded</span>';
 
           var dateSpan = document.createElement("span");
-          dateSpan.textContent = formatDateTime(doc.date);
+          // doc.date is a server timestamp, not a user-entered date: uploads use
+          // client_documents.created_at and generated reports use
+          // sessions.approved_at || sessions.created_at — all datetime('now'), UTC.
+          dateSpan.textContent = formatDateTimeUTC(doc.date);
 
           metaEl.appendChild(badgeEl);
           metaEl.appendChild(dateSpan);
@@ -7220,7 +7223,9 @@
 
       var dateEl = document.createElement("div");
       dateEl.className = "dp-note-date";
-      dateEl.textContent = note.date ? formatDateTime(note.date) : "";
+      // Written as new Date().toISOString() when the note is added — UTC with a
+      // trailing "Z", which formatDateTimeUTC honors rather than re-appending.
+      dateEl.textContent = note.date ? formatDateTimeUTC(note.date) : "";
       entry.appendChild(dateEl);
 
       if (note.working) {

@@ -753,7 +753,7 @@ function gmOpenContactLog() {
             '<span class="gm-sheet-row-body">' +
               '<span class="gm-sheet-row-label">' + gmMethodLabel(c.method) +
               (res ? ' · ' + escHtml(res) : "") + '</span>' +
-              '<span class="gm-sheet-row-value">' + escHtml(formatDateTime(c.logged_at)) + '</span>' +
+              '<span class="gm-sheet-row-value">' + escHtml(formatDateTimeUTC(c.logged_at)) + '</span>' +
               (c.notes ? '<span class="gm-sheet-row-sub">' + escHtml(c.notes) + '</span>' : "") +
             '</span></div>';
         });
@@ -904,7 +904,12 @@ function gmRenderLeadSheet() {
   // first logged contact. COALESCE onto the legacy hand-entered data_contato
   // keeps leads that predate the log from showing an empty row.
   var count = lead.contatos_count || 0;
-  var firstAt = lead.primeiro_contato || lead.data_contato || null;
+  // Two differently-stored sources, so they cannot share one formatter:
+  // primeiro_contato is MIN(gm_lead_contacts.logged_at) — datetime('now'), UTC —
+  // while the legacy data_contato is hand-entered in a local date field.
+  // Converting the legacy value would shift it four hours the wrong way.
+  var firstAt    = lead.primeiro_contato || lead.data_contato || null;
+  var firstAtUtc = !!lead.primeiro_contato;
   body += gmSheetSection(gmT("Atividade de contato", "Contact activity"),
     gmSheetRowHtml("repeat", gmT("Nº follow-ups", "# follow-ups"),
       String(count), "gmOpenContactLog()", "crm-followups",
@@ -912,7 +917,7 @@ function gmRenderLeadSheet() {
     gmSheetRowHtml("clock", gmT("1º contato", "First contacted"),
       firstAt ? escHtml(gmRelativeAge(firstAt)) : "",
       null, null,
-      firstAt ? escHtml(formatDateTime(firstAt)) : ""),
+      firstAt ? escHtml(firstAtUtc ? formatDateTimeUTC(firstAt) : formatDateTime(firstAt)) : ""),
     gmT("registrado automaticamente", "tracked automatically"));
 
   // ── Lead details ──────────────────────────────────────────────────────

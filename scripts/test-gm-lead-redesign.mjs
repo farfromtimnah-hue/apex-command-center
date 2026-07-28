@@ -49,6 +49,9 @@ globalThis.gmT = (pt, _en) => pt;                       // PT is the default
 globalThis.isEn = () => false;
 globalThis.fmtNum = (v, kind) => kind === "currency" ? "$" + Number(v || 0).toFixed(2) : String(v);
 globalThis.formatDateTime = (s) => "[ts:" + s + "]";
+// Distinct marker: stored-UTC values go through the converting formatter, so a
+// site that swaps one for the other shows up in this test's output.
+globalThis.formatDateTimeUTC = (s) => "[tsUTC:" + s + "]";
 globalThis.gmPillHtml = (label, cls) => '<span class="gm-pill ' + (cls || "") + '">' + label + "</span>";
 globalThis.GM_STAGE_PILL = { "Novo Lead": "gm-gold", "Follow-up": "gm-blue", Fechado: "gm-green" };
 globalThis.gmServicoList = (v) => String(v || "").split(",").map((s) => s.trim()).filter(Boolean);

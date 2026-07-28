@@ -3653,8 +3653,8 @@
           '<div style="font-size:13px;font-weight:600;">' + formatMonthLabel(en.month_label) + '</div>' +
           rawLine +
           '<div style="font-size:12px;color:var(--muted);margin-top:1px;">' +
-          '<span class="show-pt">Registrado em ' + formatDate(en.entered_at) + (en.entered_by ? ' por ' + escHtml(en.entered_by) : '') + '</span>' +
-          '<span class="show-en">Entered ' + formatDate(en.entered_at) + (en.entered_by ? ' by ' + escHtml(en.entered_by) : '') + '</span>' +
+          '<span class="show-pt">Registrado em ' + formatDateUTC(en.entered_at) + (en.entered_by ? ' por ' + escHtml(en.entered_by) : '') + '</span>' +
+          '<span class="show-en">Entered ' + formatDateUTC(en.entered_at) + (en.entered_by ? ' by ' + escHtml(en.entered_by) : '') + '</span>' +
           '</div></div>' +
           '<div style="font-size:15px;font-weight:700;' + (neg ? 'color:#b44040;' : 'color:#C9A43A;') + '">' +
           formatGrowthPct(en.growth_percent) + '</div>' +

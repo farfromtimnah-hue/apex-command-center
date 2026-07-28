@@ -26,7 +26,7 @@ function t(name, actual, expected) {
 
 const read = (p) => readFileSync(new URL("../" + p, import.meta.url), "utf8");
 const dt = read("datetime.js");
-const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")();
+const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateUTC, formatDateTime };")();
 
 // ── 1. The real assessment from the incident ─────────────────────────────
 {
@@ -64,6 +64,27 @@ const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")
     fmt.formatDateTimeUTC("not a date"), "not a");
 }
 
+// ── 1b. Date-only UTC -> Eastern, with NO time on screen ─────────────────
+{
+  console.log("\nUTC -> Eastern, date-only");
+
+  // The reported BRAX bug: stored 2026-07-28 02:03:21 UTC is 10:03 PM Eastern
+  // on 07/27 — a date-only render must show the PREVIOUS day, not 07/28.
+  t("date-only UTC past midnight renders the previous Eastern day",
+    fmt.formatDateUTC("2026-07-28 02:03:21"), "07/27/2026");
+
+  // EST (January, -5h) still lands on the correct Eastern date across midnight.
+  t("date-only EST (January) crossing midnight",
+    fmt.formatDateUTC("2026-01-15 02:08:42"), "01/14/2026");
+
+  t("date-only empty stays the em dash", fmt.formatDateUTC(""), "—");
+
+  // The whole point of the new formatter: no time component ever reaches screen.
+  const dOnly = fmt.formatDateUTC("2026-07-28 02:03:21");
+  t("date-only output carries no time component",
+    /^\d{2}\/\d{2}\/\d{4}$/.test(dOnly) && !/[:]|AM|PM/.test(dOnly), true);
+}
+
 // ── 2. Locally-stored values must NOT shift ──────────────────────────────
 {
   console.log("\nlocal-stored values are left alone");
@@ -86,6 +107,7 @@ const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")
 
   const client = read("client.html");
   const gm     = read("gm.js");
+  const portal = read("portal.html");
 
   // Stored UTC -> must be formatDateTimeUTC.
   const utcSites = [
@@ -122,6 +144,21 @@ const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")
     t("no leftover: " + bad, client.includes(bad), false);
   }
   t("no leftover: formatDateTime(c.logged_at)", gm.includes("formatDateTime(c.logged_at)"), false);
+
+  // Stored UTC, displayed date-only -> must be formatDateUTC (datetime('now')
+  // columns: documents.created_at, client_assessments.completed_at, and the
+  // growth entry's entered_at). Date-only render still owes the conversion.
+  t("documents date uses formatDateUTC", portal.includes("formatDateUTC(doc.date)"), true);
+  t("completed assessment date uses formatDateUTC", portal.includes("formatDateUTC(a.completedAt)"), true);
+  t("growth entry entered_at uses formatDateUTC", client.includes("formatDateUTC(en.entered_at)"), true);
+
+  // No stray UTC value left on the plain date formatter.
+  t("no leftover: formatDate((doc.date...",
+    portal.includes('formatDate((doc.date || "").slice(0, 10))'), false);
+  t("no leftover: formatDate((a.completedAt...",
+    portal.includes('formatDate((a.completedAt || "").slice(0, 10))'), false);
+  t("no leftover: formatDate(en.entered_at)",
+    client.includes("formatDate(en.entered_at)"), false);
 }
 
 console.log(fails ? "\n" + fails + " FAILED" : "\nAll passed");

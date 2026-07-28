@@ -72,6 +72,30 @@ function formatDateTimeUTC(str) {
   }
 }
 
+// Date-only sibling of formatDateTimeUTC: converts a stored-UTC timestamp to
+// the Eastern calendar date and returns "MM/DD/YYYY" with no time. Use this for
+// any stored-UTC value rendered as a date alone — feeding such a value to the
+// plain formatDate (string surgery, no conversion) rolls the date forward after
+// ~8 PM Eastern, showing tomorrow. Falls back to formatDate on any failure.
+function formatDateUTC(str) {
+  if (!str) { return "—"; }
+  var s = String(str).replace(" ", "T").split(".")[0];
+  if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+  var d = new Date(s);
+  if (isNaN(d.getTime())) { return formatDate(str); }
+  try {
+    var p = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(d).reduce(function (acc, part) {
+      acc[part.type] = part.value; return acc;
+    }, {});
+    return p.month + "/" + p.day + "/" + p.year;
+  } catch (e) {
+    return formatDate(str);
+  }
+}
+
 // "2026-07-26 14:00:00" / "2026-07-26T14:00:00" -> "07/26/2026 2:00 PM".
 // Date-only input renders the date alone. Empty -> "—".
 //

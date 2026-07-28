@@ -26,7 +26,7 @@ function t(name, actual, expected) {
 
 const read = (p) => readFileSync(new URL("../" + p, import.meta.url), "utf8");
 const dt = read("datetime.js");
-const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")();
+const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime, formatDateUTC };")();
 
 // ── 1. The real assessment from the incident ─────────────────────────────
 {
@@ -64,6 +64,28 @@ const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")
     fmt.formatDateTimeUTC("not a date"), "not a");
 }
 
+// ── 1b. Date-only UTC -> Eastern (formatDateUTC) ─────────────────────────
+// Sibling of formatDateTimeUTC: same parse, date-only output. Three call sites
+// render a stored-UTC timestamp as a DATE, so after ~8 PM Eastern the raw UTC
+// date is already tomorrow — the exact BRAX bug.
+{
+  console.log("\nUTC -> Eastern conversion (date only)");
+
+  // 02:03:21 UTC on 07-28 is 10:03 PM EDT on 07-27: the date must roll BACK.
+  t("date-only UTC past midnight rolls back to the prior Eastern day",
+    fmt.formatDateUTC("2026-07-28 02:03:21"), "07/27/2026");
+
+  // A UTC time still within the same Eastern date must NOT roll back.
+  t("date-only UTC still on the same Eastern day does not roll back",
+    fmt.formatDateUTC("2026-07-28 15:00:00"), "07/28/2026");
+
+  // An ISO string already carrying "Z" must convert, not get a second Z.
+  t("date-only explicit-Z ISO string converts rather than breaking",
+    fmt.formatDateUTC("2026-07-27T23:04:55.123Z"), "07/27/2026");
+
+  t("date-only empty stays the em dash", fmt.formatDateUTC(""), "—");
+}
+
 // ── 2. Locally-stored values must NOT shift ──────────────────────────────
 {
   console.log("\nlocal-stored values are left alone");
@@ -86,6 +108,7 @@ const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")
 
   const client = read("client.html");
   const gm     = read("gm.js");
+  const portal = read("portal.html");
 
   // Stored UTC -> must be formatDateTimeUTC.
   const utcSites = [
@@ -122,6 +145,26 @@ const fmt = new Function(dt + "; return { formatDateTimeUTC, formatDateTime };")
     t("no leftover: " + bad, client.includes(bad), false);
   }
   t("no leftover: formatDateTime(c.logged_at)", gm.includes("formatDateTime(c.logged_at)"), false);
+
+  // Date-only stored-UTC sites -> must be formatDateUTC. These render a UTC
+  // timestamp as a bare date, so the plain formatDate rolled them to tomorrow
+  // after ~8 PM Eastern.
+  const dateUtcSites = [
+    ["documents date (doc.date, portal)",        portal, "formatDateUTC(doc.date)"],
+    ["assessment completedAt (portal)",          portal, "formatDateUTC(a.completedAt)"],
+    ["growth entry entered_at (client)",     client, "formatDateUTC(en.entered_at)"],
+  ];
+  for (const [label, src, needle] of dateUtcSites) {
+    t(label + " uses formatDateUTC", src.includes(needle), true);
+  }
+
+  // No stray UTC value left on the non-converting formatDate.
+  t("no leftover: formatDate((doc.date || \"\").slice(0, 10))",
+    portal.includes('formatDate((doc.date || "").slice(0, 10))'), false);
+  t("no leftover: formatDate((a.completedAt || \"\").slice(0, 10))",
+    portal.includes('formatDate((a.completedAt || "").slice(0, 10))'), false);
+  t("no leftover: formatDate(en.entered_at)",
+    client.includes("formatDate(en.entered_at)"), false);
 }
 
 console.log(fails ? "\n" + fails + " FAILED" : "\nAll passed");

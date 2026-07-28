@@ -4965,7 +4965,7 @@
             documentsCache.forEach(function(doc, i) {
               html += '<div class="list-row"><div class="list-main">' +
                 '<div class="list-title">' + escHtml(doc.title) + '</div>' +
-                '<div class="list-sub">' + formatDate((doc.date || "").slice(0, 10)) +
+                '<div class="list-sub">' + formatDateUTC(doc.date) +
                 (doc.kind === "generated"
                   ? ' · <span class="show-pt">Relatório</span><span class="show-en">Report</span>'
                   : ' · <span class="show-pt">Arquivo</span><span class="show-en">File</span>') + '</div>' +
@@ -5024,7 +5024,7 @@
           '<span class="show-en">' + a.titleEn + '</span></div>' +
           '<div class="list-sub">' +
           (a.completedAt
-            ? formatDate((a.completedAt || "").slice(0, 10)) + ' · '
+            ? formatDateUTC(a.completedAt) + ' · '
             : '') +
           '<span class="show-pt">Conclu&iacute;do</span><span class="show-en">Completed</span>' +
           '</div></div>' +

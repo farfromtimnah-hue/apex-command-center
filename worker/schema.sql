@@ -125,6 +125,22 @@ CREATE TABLE IF NOT EXISTS clients (
 -- Manual-only flag (never automatic) toggled on the client profile page to move a
 -- client from the "Active" tab to the "Consolidados" tab on clients.html.
 
+-- NOTE: source_type and source_detail were added to the live clients table via
+-- migrations/client_source.sql:
+--   ALTER TABLE clients ADD COLUMN source_type TEXT;
+--   ALTER TABLE clients ADD COLUMN source_detail TEXT;
+-- Where the client came from, kept for their whole lifecycle -- set on the lead
+-- and carried through conversion, never reset. source_type is a constrained set
+-- (partner | referral_client | direct | event | social | other) validated in the
+-- worker, because it is what future source-attribution metrics will GROUP BY.
+-- NULL = genuinely unknown, never backfilled to a guessed default.
+-- source_detail is free text for the specifics ("Instagram DM", the name of a
+-- referring client, "Apex Club").
+-- When source_type = 'partner', referred_by_partner_id (added by
+-- migrations/apex_partners.sql) stays AUTHORITATIVE and the partner's name is
+-- resolved by join against apex_partners at read time -- it is never copied
+-- into source_detail. Attribution is by record, never by typed name.
+
 -- NOTE: task_completions was added to the live sessions table via:
 --   ALTER TABLE sessions ADD COLUMN task_completions TEXT;
 -- Stores a JSON object keyed by task key (e.g. "rafa_0", "client_1") → boolean.

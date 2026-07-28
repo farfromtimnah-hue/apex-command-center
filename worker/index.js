@@ -182,6 +182,34 @@ function isAdminRole(user) {
 
 var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
 
+// ---------------------------------------------------------------------------
+// CLIENT SOURCE — where a client came from, kept for their whole lifecycle.
+//
+// Set on the lead and carried through conversion untouched: a client who came
+// from a partner in January is still a partner referral after they convert.
+// NULL is a valid, meaningful value — genuinely unknown, never a guess.
+//
+// A CONSTRAINED set, not free text, because this is what future source-
+// attribution metrics group by (share of clients per source, conversion rate
+// per source, which partners actually convert). Kept short on purpose; the
+// specifics go in the free-text source_detail alongside it.
+//
+// 'partner' is the one type that does NOT use source_detail: it pairs with
+// clients.referred_by_partner_id, which stays authoritative, and the partner's
+// name is resolved by join against apex_partners at read time. Attribution is
+// by record, never by matching a typed name — the same rule the gm_leads
+// partner field and the Apex Partner tab already follow.
+// ---------------------------------------------------------------------------
+
+var CLIENT_SOURCE_TYPES = [
+    "partner",          // an Apex referral partner (apex_partners row)
+    "referral_client",  // an existing client sent them; name goes in detail
+    "direct",           // Rafa/Alice already knew them, or they reached out
+    "event",            // met at an event: Apex Club, a talk, a trade show
+    "social",           // Instagram, LinkedIn, YouTube, an ad
+    "other"             // fits nowhere above; detail explains
+];
+
 // Contact-log vocabularies. Both lists are FINAL — do not extend either.
 var LEAD_CONTACT_METHODS = ["WhatsApp", "Phone call", "Email", "In person", "Text message"];
 var LEAD_CONTACT_RESULTS = ["No response", "Answered", "Left voicemail", "Rescheduled", "Not interested"];
@@ -1585,11 +1613,21 @@ async function handleGetClient(id, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
+        // source_type / source_detail / referred_by_partner_id describe where
+        // this record came from, and travel with it for its whole lifecycle —
+        // set on the lead, still true after conversion. The partner NAME is
+        // resolved by LEFT JOIN rather than stored on the client, the same rule
+        // the Apex Partner tab follows for its counts: attribution is by
+        // record, so a renamed partner renames everywhere at once and a deleted
+        // one leaves the name NULL instead of a stale string.
         var client = await env.DB.prepare(
-            "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, consolidated, lead_stage, " +
-            "stage_changed_at, next_step, next_step_set_by, next_step_set_at, " +
-            "created_at FROM clients WHERE id = ?"
+            "SELECT c.id, c.name, c.owners, c.industry, c.location, c.logo_url, c.profile_pt, c.profile_en, " +
+            "c.package, c.status, c.phone, c.email, c.whatsapp, c.payment_method, c.contacts, c.consolidated, c.lead_stage, " +
+            "c.stage_changed_at, c.next_step, c.next_step_set_by, c.next_step_set_at, " +
+            "c.source_type, c.source_detail, c.referred_by_partner_id, p.name AS referred_by_partner_name, " +
+            "c.created_at FROM clients c " +
+            "LEFT JOIN apex_partners p ON p.id = c.referred_by_partner_id " +
+            "WHERE c.id = ?"
         ).bind(id).first();
 
         if (!client) { return jsonErr("Client not found", 404); }
@@ -2339,6 +2377,50 @@ async function handlePatchClient(id, request, env) {
                 .bind(body.consolidated ? 1 : 0, id).run();
             updated = true;
         }
+
+        // ── Source: where this client came from ──────────────────────────────
+        //
+        // The three source columns are written TOGETHER rather than one at a
+        // time, because they are only meaningful as a set: 'partner' with no
+        // partner id is unattributed, and a partner id left behind after the
+        // type changes to 'social' is a lie the Partner tab would still count.
+        // So a source edit always rewrites all three.
+        if (body.hasOwnProperty("source_type")) {
+            var srcType = body.source_type || null;
+            if (srcType !== null && CLIENT_SOURCE_TYPES.indexOf(srcType) === -1) {
+                return jsonErr("Origem inválida / Invalid source type", 400);
+            }
+
+            var srcPartnerId = null;
+            var srcDetail = null;
+
+            if (srcType === "partner") {
+                // Attribution is BY RECORD, never by typed name — the id must
+                // resolve to a real apex_partners row or the edit is rejected
+                // rather than silently stored as a dangling pointer.
+                srcPartnerId = body.referred_by_partner_id || null;
+                if (!srcPartnerId) {
+                    return jsonErr("Selecione um parceiro / Select a partner", 400);
+                }
+                var partnerRow = await env.DB.prepare(
+                    "SELECT id FROM apex_partners WHERE id = ?"
+                ).bind(srcPartnerId).first();
+                if (!partnerRow) { return jsonErr("Parceiro não encontrado / Partner not found", 404); }
+                // source_detail stays NULL for partners: the name is resolved by
+                // join at read time and must never be duplicated here.
+            } else if (srcType !== null) {
+                srcDetail = body.hasOwnProperty("source_detail") && body.source_detail
+                    ? String(body.source_detail).slice(0, 500)
+                    : null;
+            }
+            // srcType === null clears all three — "unknown" is a real answer.
+
+            await env.DB.prepare(
+                "UPDATE clients SET source_type = ?, source_detail = ?, referred_by_partner_id = ? WHERE id = ?"
+            ).bind(srcType, srcDetail, srcPartnerId, id).run();
+            updated = true;
+        }
+
         return jsonOk({ updated: updated });
     } catch (e) {
         return jsonErr("Error updating client: " + e.message, 500);
@@ -13484,8 +13566,14 @@ async function handlePostApexReferralLead(slug, request, env) {
         // counting from arrival rather than reading as unknown.
         var leadId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id) " +
-            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?)"
+            // source_type is stamped 'partner' here rather than inferred later
+            // from the non-null partner id: the Overview card and the future
+            // attribution metrics read source_type, and a lead that arrived
+            // through a partner's own link is the least ambiguous partner
+            // referral there is. referred_by_partner_id stays authoritative for
+            // WHICH partner — the name is never copied into source_detail.
+            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type) " +
+            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner')"
         ).bind(leadId, nome, telefone, email, partner.id).run();
 
         // Deliberately no id and no data in the public response.

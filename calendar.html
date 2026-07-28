@@ -2597,11 +2597,32 @@
     // and repairable from the detail modal. Never true for external events
     // (they belong to Google) or legacy 'google'/'manual' rows (read-only
     // history, expected to have no link -- not broken).
+    // Returns a Google Meet URL already associated with this session. The
+    // canonical field is google_meet_link, but external Google events and some
+    // manually-entered ones carry the real meet.google.com URL in the location
+    // or notes text instead -- so we scan those too. Returns null when no
+    // usable Meet link is present ("[PENDING_GOOGLE_API]" is a placeholder,
+    // not a real link).
+    var MEET_LINK_RE = /https?:\/\/meet\.google\.com\/[a-z0-9\-]+/i;
+    function existingMeetLink(session) {
+      if (!session) { return null; }
+      var direct = session.google_meet_link;
+      if (direct && direct !== "[PENDING_GOOGLE_API]") { return direct; }
+      var candidates = [session.location, session.notes, session.description];
+      for (var i = 0; i < candidates.length; i++) {
+        var val = candidates[i];
+        if (typeof val === "string") {
+          var match = val.match(MEET_LINK_RE);
+          if (match) { return match[0]; }
+        }
+      }
+      return null;
+    }
     function needsMeetLink(session) {
       if (!isApexSession(session)) { return false; }
       if (session.meeting_category === "event") { return false; }
       if (session.session_type !== "online_meet") { return false; }
-      return !session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]";
+      return !existingMeetLink(session);
     }
 
     // Bilingual "All day" chip text for sessions that legitimately have no
@@ -3478,8 +3499,8 @@
       // a second calendar event and double-book the real calendar.
       var meetRow = document.getElementById("detailMeetRow");
       var meetFixRow = document.getElementById("detailMeetFixRow");
-      var meetLinkVal = session.google_meet_link || null;
-      var hasRealLink = !!(meetLinkVal && meetLinkVal !== "[PENDING_GOOGLE_API]");
+      var meetLinkVal = existingMeetLink(session);
+      var hasRealLink = !!meetLinkVal;
       meetRow.hidden = !hasRealLink;
       meetFixRow.hidden = hasRealLink || !needsMeetLink(session);
       if (hasRealLink) {

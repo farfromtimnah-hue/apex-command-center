@@ -131,6 +131,28 @@
     .cl-contact-btn.cl-wa   { background: #1faa53; color: #fff; }
     .cl-contact-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
 
+    /* Secondary channels, collapsed by default. SMS and Email are the rarer
+       path, so they sit behind a disclosure rather than competing with Call
+       and WhatsApp for the same visual weight. Same pattern as the gm_leads
+       lead sheet (.gm-contact-more in gm.css) so both tiers behave alike. */
+    .cl-contact-more { margin-bottom: 10px; }
+    .cl-contact-more-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: none; border: none; cursor: pointer; padding: 4px 0;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+      color: var(--muted);
+    }
+    .cl-contact-more-btn svg { width: 13px; height: 13px; transition: transform 0.15s; }
+    .cl-contact-more-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+    .cl-contact-more-panel { display: flex; gap: 8px; margin-top: 8px; }
+    .cl-contact-more-panel[hidden] { display: none; }
+    .cl-contact-btn.cl-sms   { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .cl-contact-btn.cl-email { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    /* A disabled channel explains itself instead of looking broken: the label
+       is replaced with the reason, which is the COMMON case today (no lead has
+       an email on file and only one has a phone). */
+    .cl-contact-btn.cl-reason { font-weight: 500; font-size: 12px; }
+
     /* ─── Status badge (sessions table) ─────────────────────────────────── */
     .status-badge {
       display: inline-block;
@@ -1060,6 +1082,35 @@
       outline: none;
     }
 
+    /* Source rows. The type is a fixed vocabulary and the partner is a real
+       record, so both edit as <select> rather than the free-text input the
+       other Overview fields use — but they keep the same inline
+       click-to-edit affordance, sizing and gold focus border. */
+    .overview-value-select {
+      width: 100%;
+      border: 1px solid var(--gold);
+      border-radius: 5px;
+      padding: 3px 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* The partner's name links through to the Parceiros roster. Styled as a
+       link so it reads as a tap target, but it sits inside .overview-value so
+       it inherits the row's empty state and hover. */
+    .overview-partner-link {
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--gold);
+      text-underline-offset: 2px;
+    }
+    .overview-partner-link:hover { color: var(--gold); }
+
     /* ─── Section collapse controls ─────────────────────────────────────── */
     .collapse-btn {
       background: none;
@@ -1757,6 +1808,20 @@
                    because both buttons depend on the phone number being loaded;
                    with none on file they render aria-disabled, as in gm_leads. -->
               <div id="leadContactActions" class="cl-contact-row"></div>
+              <!-- SMS and Email: the rarer channels, collapsed so they do not
+                   compete with Call/WhatsApp. Same disclosure the gm_leads
+                   lead sheet uses, so both sides of the app behave alike. -->
+              <div class="cl-contact-more">
+                <button type="button" class="cl-contact-more-btn" id="leadContactMoreBtn"
+                        aria-expanded="false" aria-controls="leadContactMorePanel"
+                        onclick="toggleLeadContactMore()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  <span class="show-pt">Mais formas de contato</span>
+                  <span class="show-en">More ways to reach out</span>
+                </button>
+                <div class="cl-contact-more-panel" id="leadContactMorePanel" hidden></div>
+              </div>
               <div id="leadContactLog" style="font-size:13px;"></div>
             </div>
 
@@ -4314,11 +4379,26 @@
       '.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.35z"/>' +
       '<path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.18-1.14l-.3-.18-3 .78.8-2.92' +
       '-.2-.31A8.2 8.2 0 1 1 12 20.2z"/></svg>';
+    var CL_ICON_SMS =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 ' +
+      '8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
+    var CL_ICON_MAIL =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>' +
+      '<polyline points="22,6 12,13 2,6"/></svg>';
 
     // Prefer the WhatsApp number when one is on file, exactly as
     // sendLoginViaWhatsapp() does — same client record, same precedence.
     function leadContactPhone() {
       return (clientData && (clientData.whatsapp || clientData.phone)) || "";
+    }
+
+    // Email has no second source to fall back to — clients.email or nothing.
+    function leadContactEmail() {
+      return (clientData && clientData.email) || "";
     }
 
     // 10 digits means a US number typed without the country code; wa.me needs
@@ -4346,6 +4426,39 @@
           (en ? "Call" : "Ligar") + '</button>' +
         '<button type="button" class="cl-contact-btn cl-wa"' + dis + title +
           ' onclick="startLeadWhatsapp()">' + CL_ICON_WA + 'WhatsApp</button>';
+      renderLeadContactMore();
+    }
+
+    // SMS and Email live behind a disclosure below the two primary buttons.
+    // A channel with nothing on file does NOT render a dead-looking button:
+    // the label becomes the reason ("no email on file"), because with no lead
+    // currently holding an email address that is the state most users will see
+    // and an unexplained greyed button reads as a bug.
+    function renderLeadContactMore() {
+      var el = document.getElementById("leadContactMorePanel");
+      if (!el) { return; }
+      var en = document.body.classList.contains("lang-en");
+      var tel = leadContactPhone();
+      var email = leadContactEmail();
+      var smsDis = tel ? "" : ' aria-disabled="true"';
+      var mailDis = email ? "" : ' aria-disabled="true"';
+      el.innerHTML =
+        '<button type="button" class="cl-contact-btn cl-sms' + (tel ? "" : " cl-reason") + '"' + smsDis +
+          ' onclick="startLeadSms()">' + CL_ICON_SMS +
+          (tel ? (en ? "Text message" : "Mensagem de texto")
+               : (en ? "No phone number on file" : "Nenhum telefone cadastrado")) + '</button>' +
+        '<button type="button" class="cl-contact-btn cl-email' + (email ? "" : " cl-reason") + '"' + mailDis +
+          ' onclick="startLeadEmail()">' + CL_ICON_MAIL +
+          (email ? "Email" : (en ? "No email on file" : "Nenhum email cadastrado")) + '</button>';
+    }
+
+    function toggleLeadContactMore() {
+      var btn = document.getElementById("leadContactMoreBtn");
+      var panel = document.getElementById("leadContactMorePanel");
+      if (!btn || !panel) { return; }
+      var open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      panel.hidden = open;
     }
 
     // Both handlers navigate SYNCHRONOUSLY inside the click handler — the URL
@@ -4367,6 +4480,24 @@
         window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
       }
       openContactLogModal("WhatsApp");
+    }
+
+    // sms: and mailto: are same-tab navigations handed to the OS, so they use
+    // location.href like the tel: link rather than window.open — nothing to be
+    // popup-blocked. The URL is still built synchronously from already-loaded
+    // clientData, with no await in front of it.
+    function startLeadSms() {
+      var tel = leadContactPhone();
+      if (!tel) { return; }
+      window.location.href = "sms:" + tel.replace(/[^\d+]/g, "");
+      openContactLogModal("Text message");
+    }
+
+    function startLeadEmail() {
+      var email = leadContactEmail();
+      if (!email) { return; }
+      window.location.href = "mailto:" + email;
+      openContactLogModal("Email");
     }
 
     // `method` is optional: the Call/WhatsApp buttons pass the method just
@@ -5100,6 +5231,48 @@
 
     // ── Render: Overview card (replaces Empresa card) ────────────────────────
 
+    // ── Source vocabulary ──────────────────────────────────────────────────
+    //
+    // Mirrors CLIENT_SOURCE_TYPES in worker/index.js — the worker validates,
+    // this list only labels. Keep the two in step: a value here that the worker
+    // rejects surfaces as a failed save.
+    //
+    // 'partner' is the one type whose value is a RECORD, not text: it pairs
+    // with referred_by_partner_id and is picked from the real apex_partners
+    // roster, never typed. Every other type stores free text in source_detail.
+    var SOURCE_TYPES = [
+      { value: "partner",         labelPt: "Parceiro",              labelEn: "Partner"          },
+      { value: "referral_client", labelPt: "Indicação de cliente",  labelEn: "Client referral"  },
+      { value: "direct",          labelPt: "Direto",                labelEn: "Direct"           },
+      { value: "event",           labelPt: "Evento",                labelEn: "Event"            },
+      { value: "social",          labelPt: "Redes sociais",         labelEn: "Social media"     },
+      { value: "other",           labelPt: "Outro",                 labelEn: "Other"            }
+    ];
+
+    function sourceTypeLabel(value, en) {
+      for (var i = 0; i < SOURCE_TYPES.length; i++) {
+        if (SOURCE_TYPES[i].value === value) {
+          return en ? SOURCE_TYPES[i].labelEn : SOURCE_TYPES[i].labelPt;
+        }
+      }
+      return "";
+    }
+
+    // Apex's own partner roster, loaded lazily the first time the partner
+    // picker is opened. Only admins can edit the Overview, and /api/apex-partners
+    // is admin-only, so the fetch is never attempted for a role that would 403.
+    var apexPartnersCache = null;
+
+    function loadApexPartnersForPicker() {
+      if (apexPartnersCache) { return Promise.resolve(apexPartnersCache); }
+      return apiFetch("/api/apex-partners")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          apexPartnersCache = d.partners || [];
+          return apexPartnersCache;
+        });
+    }
+
     var OVERVIEW_FIELDS = [
       { key: "name",      labelPt: "Empresa",      labelEn: "Business Name", editable: true  },
       { key: "owners",    labelPt: "Sócios",        labelEn: "Owner(s)",      editable: true  },
@@ -5107,6 +5280,12 @@
       { key: "location",  labelPt: "Localização",   labelEn: "Location",      editable: true  },
       { key: "package",   labelPt: "Pacote",        labelEn: "Package",       editable: false },
       { key: "status",    labelPt: "Status",        labelEn: "Status",        editable: false },
+      // Source travels with the record for its whole lifecycle, so it renders
+      // for leads and active clients alike — it is deliberately NOT gated on
+      // status. Two rows, because the type is a constrained vocabulary and the
+      // detail is either a partner record or free text.
+      { key: "_sourceType",   labelPt: "Origem",           labelEn: "Source",        editable: true },
+      { key: "_sourceDetail", labelPt: "Detalhe da origem", labelEn: "Source Detail", editable: true },
       { key: "_nextMeeting", labelPt: "Próx. Reunião", labelEn: "Next Meeting", editable: false }
     ];
 
@@ -5134,8 +5313,10 @@
             '<span class="show-en">' + escHtml(field.labelEn) + '</span>';
           cell.appendChild(labelEl);
 
+          var isSource = (field.key === "_sourceType" || field.key === "_sourceDetail");
+
           var value = "";
-          if (field.key === "_nextMeeting") {
+          if (field.key === "_nextMeeting" || isSource) {
             value = "";
           } else {
             value = client[field.key] || "";
@@ -5147,19 +5328,292 @@
 
           if (field.key === "_nextMeeting") {
             valEl.innerHTML = '<span class="show-pt">Sem reunião agendada</span><span class="show-en">No meeting scheduled</span>';
+          } else if (isSource) {
+            fillSourceValue(field.key, client, valEl);
           } else {
             valEl.textContent = value || "—";
           }
 
           if (canEdit && field.editable) {
             valEl.title = "Clique para editar / Click to edit";
-            valEl.onclick = function() { startOverviewEdit(field.key, client, valEl); };
+            if (field.key === "_sourceType") {
+              valEl.onclick = function() { startSourceTypeEdit(client, valEl); };
+            } else if (field.key === "_sourceDetail") {
+              valEl.onclick = function() { startSourceDetailEdit(client, valEl); };
+            } else {
+              valEl.onclick = function() { startOverviewEdit(field.key, client, valEl); };
+            }
           }
 
           cell.appendChild(valEl);
           grid.appendChild(cell);
         })(OVERVIEW_FIELDS[i]);
       }
+    }
+
+    // ── Source rows: render ────────────────────────────────────────────────
+    //
+    // Both rows read from the client object the detail API already returned —
+    // source_type, source_detail, referred_by_partner_id and the joined
+    // referred_by_partner_name. Nothing is fetched to display them.
+    function fillSourceValue(fieldKey, client, valEl) {
+      var en = document.body.classList.contains("lang-en");
+      var type = client.source_type || "";
+
+      if (fieldKey === "_sourceType") {
+        var label = sourceTypeLabel(type, en);
+        // An unrecognized stored value (a type retired from the vocabulary)
+        // shows its raw value rather than silently reading as "unknown".
+        if (!label && type) { label = type; }
+        valEl.textContent = label || "—";
+        valEl.classList.toggle("is-empty", !label);
+        return;
+      }
+
+      // _sourceDetail: for a partner this is the partner's NAME, resolved by
+      // the API's join — a link through to the Parceiros roster. For every
+      // other type it is the free-text source_detail.
+      valEl.innerHTML = "";
+      if (type === "partner") {
+        if (client.referred_by_partner_name) {
+          var a = document.createElement("a");
+          a.className = "overview-partner-link";
+          a.href = "clients.html?tab=parceiros&partner=" + encodeURIComponent(client.referred_by_partner_id || "");
+          a.textContent = client.referred_by_partner_name;
+          // The row itself is click-to-edit; the link must navigate instead of
+          // opening the picker underneath it.
+          a.onclick = function(e) { e.stopPropagation(); };
+          valEl.appendChild(a);
+          valEl.classList.remove("is-empty");
+        } else {
+          // type='partner' with no resolvable partner — the partner row was
+          // deleted, which nulls the name but not the type. Say so rather than
+          // rendering a bare dash that reads as "never set".
+          valEl.textContent = en ? "(partner removed)" : "(parceiro removido)";
+          valEl.classList.add("is-empty");
+        }
+        return;
+      }
+
+      var detail = client.source_detail || "";
+      valEl.textContent = detail || "—";
+      valEl.classList.toggle("is-empty", !detail);
+    }
+
+    // Re-render both source rows in place after a save, so changing the type
+    // from 'partner' to 'social' updates the detail row in the same beat.
+    function refreshSourceRows(client) {
+      var grid = document.getElementById("overviewGrid");
+      if (!grid) { return; }
+      ["_sourceType", "_sourceDetail"].forEach(function(key) {
+        var el = grid.querySelector('[data-field="' + key + '"]');
+        if (el) { fillSourceValue(key, client, el); }
+      });
+    }
+
+    // ── Source rows: edit ──────────────────────────────────────────────────
+    //
+    // The three source columns are saved TOGETHER in one PATCH, matching the
+    // worker: 'partner' with no partner id is unattributed, and a partner id
+    // left behind after the type changes would still be counted by the Partner
+    // tab. So every source save sends the whole set.
+    function saveSource(client, type, detail, partnerId, onDone, onFail) {
+      var patch = {
+        source_type: type || null,
+        source_detail: type && type !== "partner" ? (detail || null) : null,
+        referred_by_partner_id: type === "partner" ? (partnerId || null) : null
+      };
+      apiFetch("/api/clients/" + CLIENT_ID, { method: "PATCH", body: patch })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          client.source_type = patch.source_type;
+          client.source_detail = patch.source_detail;
+          client.referred_by_partner_id = patch.referred_by_partner_id;
+          // Resolve the name locally from the same roster the picker used, so
+          // the link renders immediately without re-fetching the client.
+          client.referred_by_partner_name = null;
+          if (patch.referred_by_partner_id && apexPartnersCache) {
+            apexPartnersCache.forEach(function(p) {
+              if (p.id === patch.referred_by_partner_id) { client.referred_by_partner_name = p.name; }
+            });
+          }
+          if (onDone) { onDone(); }
+        })
+        .catch(function() { if (onFail) { onFail(); } });
+    }
+
+    function startSourceTypeEdit(client, valEl) {
+      var en = document.body.classList.contains("lang-en");
+      var sel = document.createElement("select");
+      sel.className = "overview-value-select";
+
+      // "Unknown" is a real, selectable answer — clearing a wrong guess back to
+      // nothing must stay possible.
+      var blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = en ? "— unknown —" : "— desconhecida —";
+      sel.appendChild(blank);
+
+      SOURCE_TYPES.forEach(function(t) {
+        var opt = document.createElement("option");
+        opt.value = t.value;
+        opt.textContent = en ? t.labelEn : t.labelPt;
+        if (t.value === (client.source_type || "")) { opt.selected = true; }
+        sel.appendChild(opt);
+      });
+      sel.value = client.source_type || "";
+
+      valEl.replaceWith(sel);
+      sel.focus();
+
+      function restore() {
+        var newEl = document.createElement("div");
+        newEl.className = "overview-value";
+        newEl.setAttribute("data-field", "_sourceType");
+        newEl.title = "Clique para editar / Click to edit";
+        newEl.onclick = function() { startSourceTypeEdit(client, newEl); };
+        fillSourceValue("_sourceType", client, newEl);
+        sel.replaceWith(newEl);
+        refreshSourceRows(client);
+      }
+
+      var settled = false;
+      function commit() {
+        if (settled) { return; }
+        settled = true;
+        var newType = sel.value || null;
+        if (newType === (client.source_type || null)) { return restore(); }
+
+        if (newType === "partner") {
+          // Switching TO partner needs a record, not just a type — go straight
+          // to the picker instead of saving an unattributed 'partner'.
+          restore();
+          return startSourcePartnerPick(client);
+        }
+        // Changing away from any other type drops the old detail: text that
+        // described an Instagram DM is wrong once the type says "event".
+        saveSource(client, newType, null, null, restore, restore);
+      }
+
+      sel.addEventListener("change", commit);
+      sel.addEventListener("blur", commit);
+    }
+
+    // Partner picker: real apex_partners rows only, selected BY RECORD. There
+    // is deliberately no free-text fallback — a typed name is not attribution.
+    function startSourcePartnerPick(client) {
+      var grid = document.getElementById("overviewGrid");
+      if (!grid) { return; }
+      var valEl = grid.querySelector('[data-field="_sourceDetail"]');
+      if (!valEl) { return; }
+
+      var en = document.body.classList.contains("lang-en");
+      valEl.textContent = en ? "Loading…" : "Carregando…";
+
+      loadApexPartnersForPicker().then(function(partners) {
+        var sel = document.createElement("select");
+        sel.className = "overview-value-select";
+
+        var blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = en ? "— select partner —" : "— selecionar parceiro —";
+        sel.appendChild(blank);
+
+        partners.forEach(function(p) {
+          var opt = document.createElement("option");
+          opt.value = p.id;
+          opt.textContent = p.name;
+          if (p.id === client.referred_by_partner_id) { opt.selected = true; }
+          sel.appendChild(opt);
+        });
+        sel.value = client.referred_by_partner_id || "";
+
+        valEl.replaceWith(sel);
+        sel.focus();
+
+        function restore() {
+          var newEl = document.createElement("div");
+          newEl.className = "overview-value";
+          newEl.setAttribute("data-field", "_sourceDetail");
+          newEl.title = "Clique para editar / Click to edit";
+          newEl.onclick = function() { startSourceDetailEdit(client, newEl); };
+          fillSourceValue("_sourceDetail", client, newEl);
+          sel.replaceWith(newEl);
+          refreshSourceRows(client);
+        }
+
+        var settled = false;
+        function commit() {
+          if (settled) { return; }
+          settled = true;
+          var pid = sel.value || "";
+          // No partner chosen and none previously set: leave the source alone
+          // rather than saving a 'partner' type the worker would reject.
+          if (!pid && !client.referred_by_partner_id) { return restore(); }
+          if (!pid) { return restore(); }
+          saveSource(client, "partner", null, pid, restore, restore);
+        }
+
+        sel.addEventListener("change", commit);
+        sel.addEventListener("blur", commit);
+      }).catch(function() {
+        fillSourceValue("_sourceDetail", client, valEl);
+      });
+    }
+
+    function startSourceDetailEdit(client, valEl) {
+      // For a partner the detail row IS the partner, so editing it opens the
+      // record picker — never a text box. This is the rule that keeps
+      // attribution by record.
+      if (client.source_type === "partner") { return startSourcePartnerPick(client); }
+
+      // With no type set there is nothing for a detail to describe yet; send
+      // the click to the type row so the vocabulary is chosen first.
+      if (!client.source_type) {
+        var grid = document.getElementById("overviewGrid");
+        var typeEl = grid ? grid.querySelector('[data-field="_sourceType"]') : null;
+        if (typeEl) { return startSourceTypeEdit(client, typeEl); }
+        return;
+      }
+
+      var current = client.source_detail || "";
+      var input = document.createElement("input");
+      input.type = "text";
+      input.className = "overview-value-input";
+      input.value = current;
+
+      valEl.replaceWith(input);
+      input.focus();
+      input.select();
+
+      function restore() {
+        var newEl = document.createElement("div");
+        newEl.className = "overview-value";
+        newEl.setAttribute("data-field", "_sourceDetail");
+        newEl.title = "Clique para editar / Click to edit";
+        newEl.onclick = function() { startSourceDetailEdit(client, newEl); };
+        fillSourceValue("_sourceDetail", client, newEl);
+        input.replaceWith(newEl);
+      }
+
+      var settled = false;
+      function commit() {
+        if (settled) { return; }
+        settled = true;
+        var newVal = input.value.trim();
+        if (newVal === current) { return restore(); }
+        saveSource(client, client.source_type, newVal, null, restore, restore);
+      }
+
+      input.addEventListener("blur", commit);
+      input.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") { input.blur(); }
+        if (e.key === "Escape") {
+          settled = true;
+          restore();
+        }
+      });
     }
 
     function startOverviewEdit(fieldKey, client, valEl) {

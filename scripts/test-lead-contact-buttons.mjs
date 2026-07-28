@@ -52,9 +52,14 @@ let els, navigations, opened, popupBlocked;
 function makeEl(id) {
   const el = {
     id, innerHTML: "", textContent: "", value: "", hidden: true,
-    className: "", options: [],
-    setAttribute() {}, appendChild() {}
+    className: "", options: [], attrs: {},
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; },
+    appendChild() {}
   };
+  // The disclosure ships collapsed in the static markup; mirror that so the
+  // toggle test starts from the real initial state.
+  if (id === "leadContactMoreBtn") { el.attrs["aria-expanded"] = "false"; }
   if (id === "clMethod") {
     el.options = CL_METHOD_OPTIONS.map((v) => ({ value: v, textContent: "" }));
     let v = CL_METHOD_OPTIONS[0];          // a <select> defaults to option 0
@@ -71,7 +76,7 @@ function resetDom({ en = false, hasContactActions = true } = {}) {
   opened = [];
   popupBlocked = false;
   const ids = ["clNotes", "clStatus2", "clMethod", "clResult", "modalContactLog"];
-  if (hasContactActions) { ids.push("leadContactActions"); }
+  if (hasContactActions) { ids.push("leadContactActions", "leadContactMoreBtn", "leadContactMorePanel"); }
   ids.forEach((id) => { els[id] = makeEl(id); });
 
   globalThis.document = {
@@ -95,7 +100,8 @@ globalThis.renderContactLogOptions = () => {};
 // ── Load the real client.html functions ───────────────────────────────────
 eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()") +
   "\n; Object.assign(globalThis, { renderLeadContactActions, startLeadCall, " +
-  "startLeadWhatsapp, openContactLogModal, leadContactPhone, leadWaDigits });");
+  "startLeadWhatsapp, openContactLogModal, leadContactPhone, leadWaDigits, " +
+  "renderLeadContactMore, toggleLeadContactMore, startLeadSms, startLeadEmail, leadContactEmail });");
 
 // ── Rule 1: the tapped button pre-selects the matching Method ─────────────
 {
@@ -211,6 +217,138 @@ eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()"
   globalThis.clientData = { phone: null };
   renderLeadContactActions();
   t("Portuguese label is 'Ligar'", els.leadContactActions.innerHTML.indexOf(">Ligar<") >= 0, true);
+}
+
+// ── SMS / Email: same three rules, behind the disclosure ─────────────────
+// These are the secondary channels. Rule 1 (right Method per button) matters
+// most here, because both share the panel and a copy-paste slip would send
+// "Email" for an SMS.
+{
+  resetDom();
+  globalThis.clientData = { phone: "(305) 555-0142", email: "lead@example.com" };
+  startLeadSms();
+  t("SMS pre-selects Method 'Text message'", els.clMethod.value, "Text message");
+  t("SMS opens the existing modalContactLog", els.modalContactLog.hidden, false);
+  t("SMS launches an sms: link", navigations, ["sms:3055550142"]);
+  t("SMS opens no popup window", opened.length, 0);
+}
+{
+  resetDom();
+  globalThis.clientData = { phone: "(305) 555-0142", email: "lead@example.com" };
+  startLeadEmail();
+  t("Email pre-selects Method 'Email'", els.clMethod.value, "Email");
+  t("Email opens the existing modalContactLog", els.modalContactLog.hidden, false);
+  t("Email launches a mailto: link", navigations, ["mailto:lead@example.com"]);
+  t("Email opens no popup window", opened.length, 0);
+}
+{
+  // Stale-method overwrite, same rule proven for Call above.
+  resetDom();
+  globalThis.clientData = { phone: "3055550142", email: "lead@example.com" };
+  els.clMethod.value = "In person";
+  startLeadSms();
+  t("SMS overwrites a stale Method", els.clMethod.value, "Text message");
+  resetDom();
+  globalThis.clientData = { phone: "3055550142", email: "lead@example.com" };
+  els.clMethod.value = "In person";
+  startLeadEmail();
+  t("Email overwrites a stale Method", els.clMethod.value, "Email");
+}
+{
+  // SMS follows the SAME phone precedence as Call/WhatsApp — whatsapp||phone.
+  resetDom();
+  globalThis.clientData = { phone: "3055550142", whatsapp: "+55 11 91234-5678" };
+  startLeadSms();
+  t("SMS uses the whatsapp||phone precedence", navigations, ["sms:+5511912345678"]);
+}
+
+// Rule 3 for the secondary channels. This is the COMMON state today: no lead
+// has an email on file and only one has a phone, so the disabled rendering is
+// what most users actually see and it must explain itself.
+{
+  resetDom();
+  globalThis.clientData = { phone: null, whatsapp: null, email: null };
+  renderLeadContactActions();
+  const html = els.leadContactMorePanel.innerHTML;
+  t("both secondary buttons render with nothing on file",
+    (html.match(/cl-contact-btn/g) || []).length, 2);
+  t("both secondary buttons are aria-disabled",
+    (html.match(/aria-disabled="true"/g) || []).length, 2);
+  t("the empty SMS button states the reason rather than a bare label",
+    html.indexOf("Nenhum telefone cadastrado") >= 0, true);
+  t("the empty Email button states the reason rather than a bare label",
+    html.indexOf("Nenhum email cadastrado") >= 0, true);
+  startLeadSms();
+  startLeadEmail();
+  t("no-phone SMS navigates nowhere", navigations.length, 0);
+  t("no-email Email navigates nowhere", navigations.length, 0);
+  t("no-contact taps do not open the modal", els.modalContactLog.hidden, true);
+}
+{
+  // Each channel is gated on ITS OWN field: a phone on file must not enable
+  // the Email button, which is exactly the live data shape today.
+  resetDom();
+  globalThis.clientData = { phone: "3055550142", email: null };
+  renderLeadContactActions();
+  const html = els.leadContactMorePanel.innerHTML;
+  t("a phone on file enables SMS only",
+    (html.match(/aria-disabled="true"/g) || []).length, 1);
+  t("SMS is enabled and labelled, not excused",
+    html.indexOf("Mensagem de texto") >= 0, true);
+  t("Email stays disabled with a phone on file",
+    html.indexOf("Nenhum email cadastrado") >= 0, true);
+  startLeadEmail();
+  t("Email still no-ops with only a phone on file", navigations.length, 0);
+}
+{
+  resetDom({ en: true });
+  globalThis.clientData = { phone: null, email: null };
+  renderLeadContactActions();
+  const html = els.leadContactMorePanel.innerHTML;
+  t("English empty-SMS reason", html.indexOf("No phone number on file") >= 0, true);
+  t("English empty-Email reason", html.indexOf("No email on file") >= 0, true);
+}
+{
+  resetDom();
+  globalThis.clientData = { phone: "3055550142", email: "lead@example.com" };
+  renderLeadContactActions();
+  const html = els.leadContactMorePanel.innerHTML;
+  t("secondary icons are real inline SVG, not glyphs or emoji",
+    (html.match(/<svg /g) || []).length, 2);
+  t("SMS is wired to startLeadSms", html.indexOf("startLeadSms()") >= 0, true);
+  t("Email is wired to startLeadEmail", html.indexOf("startLeadEmail()") >= 0, true);
+}
+{
+  // The disclosure starts collapsed and toggles both the panel and the ARIA
+  // state — the panel is hidden markup, not absent, so the icons stay cached.
+  resetDom();
+  globalThis.clientData = { phone: "3055550142" };
+  t("panel starts collapsed", els.leadContactMorePanel.hidden, true);
+  t("disclosure starts aria-expanded=false",
+    els.leadContactMoreBtn.getAttribute("aria-expanded"), "false");
+  toggleLeadContactMore();
+  t("tapping expands the panel", els.leadContactMorePanel.hidden, false);
+  t("tapping sets aria-expanded=true",
+    els.leadContactMoreBtn.getAttribute("aria-expanded"), "true");
+  toggleLeadContactMore();
+  t("tapping again collapses it", els.leadContactMorePanel.hidden, true);
+  t("tapping again resets aria-expanded",
+    els.leadContactMoreBtn.getAttribute("aria-expanded"), "false");
+}
+{
+  // Non-lead clients never render the container; neither renderer may throw.
+  resetDom({ hasContactActions: false });
+  globalThis.clientData = { phone: "3055550142" };
+  renderLeadContactActions();
+  renderLeadContactMore();
+  toggleLeadContactMore();
+  t("secondary renderer and toggle no-op when the container is absent", true, true);
+}
+{
+  // Both secondary methods must be in the server's allow-list, or the
+  // pre-selected value would be rejected at save time.
+  t("'Text message' and 'Email' are both valid stored methods",
+    CL_METHOD_OPTIONS.indexOf("Text message") >= 0 && CL_METHOD_OPTIONS.indexOf("Email") >= 0, true);
 }
 
 // ── The server invariant: first contact still auto-advances the stage ─────

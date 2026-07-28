@@ -72,6 +72,30 @@ function formatDateTimeUTC(str) {
   }
 }
 
+// Date-only sibling of formatDateTimeUTC, for stored-UTC values that display as
+// a date alone (no time on screen). Same classify-by-how-it's-WRITTEN rule:
+// a datetime('now') / toISOString() value rendered without a time still owes
+// the Eastern conversion, or a 10 PM Eastern write shows tomorrow's date.
+// Returns "07/27/2026" — same MM/DD/YYYY as formatDate, no time component.
+function formatDateUTC(str) {
+  if (!str) { return "—"; }
+  var s = String(str).replace(" ", "T").split(".")[0];
+  if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+  var d = new Date(s);
+  if (isNaN(d.getTime())) { return formatDate(str); }
+  try {
+    var p = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(d).reduce(function (acc, part) {
+      acc[part.type] = part.value; return acc;
+    }, {});
+    return p.month + "/" + p.day + "/" + p.year;
+  } catch (e) {
+    return formatDate(str);   // Intl unavailable: better raw than blank
+  }
+}
+
 // "2026-07-26 14:00:00" / "2026-07-26T14:00:00" -> "07/26/2026 2:00 PM".
 // Date-only input renders the date alone. Empty -> "—".
 //

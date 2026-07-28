@@ -52,6 +52,7 @@ eval(slice("var PORTAL_DOCK_TABS = [", "function populateMobileDock()") +
 // The Documents "completed assessments" section builder.
 globalThis.isEn = () => false;
 globalThis.formatDate = (s) => s;
+globalThis.formatDateUTC = (s) => s;
 eval(slice("function completedAssessmentsList()", "// Called the moment an assessment is submitted") +
   "\n; Object.assign(globalThis, { completedAssessmentsList, completedAssessmentsHtml });");
 

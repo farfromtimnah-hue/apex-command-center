@@ -34,8 +34,48 @@ function formatTime(t) {
   return h12 + ":" + m + suffix;
 }
 
+// D1 stores audit timestamps in UTC (every datetime('now') column: logged_at,
+// created_at, stage_changed_at, next_step_set_at, ...). formatDateTime below
+// does pure string surgery and applies NO timezone conversion, so feeding it a
+// UTC value renders the UTC clock: a contact logged at 10:08 PM Eastern shows
+// as "2:08 AM" the NEXT DAY. That four-hour error is not hypothetical — it has
+// already caused a real timeline to be misread.
+//
+// Use this for any stored-UTC timestamp. formatDateTime stays as-is for values
+// that are already local wall-clock time — session date/time, which are
+// entered and displayed as the time of the meeting itself and must NOT shift.
+//
+// Eastern is hardcoded on purpose: Apex operates on one clock, and the display
+// must not change depending on where the person reading it happens to be.
+// Intl handles EDT/EST, so this is correct across the DST boundary.
+function formatDateTimeUTC(str) {
+  if (!str) { return "—"; }
+  var s = String(str).replace(" ", "T").split(".")[0];
+  // A bare D1 timestamp carries no zone designator; without the "Z" the
+  // browser would parse it as LOCAL time and the conversion would be a no-op
+  // for Eastern users and wrong by the offset for everyone else.
+  if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+  var d = new Date(s);
+  if (isNaN(d.getTime())) { return formatDateTime(str); }
+  try {
+    var p = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "numeric", minute: "2-digit", hour12: true
+    }).formatToParts(d).reduce(function (acc, part) {
+      acc[part.type] = part.value; return acc;
+    }, {});
+    return p.month + "/" + p.day + "/" + p.year + " " +
+           p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase();
+  } catch (e) {
+    return formatDateTime(str);   // Intl unavailable: better raw than blank
+  }
+}
+
 // "2026-07-26 14:00:00" / "2026-07-26T14:00:00" -> "07/26/2026 2:00 PM".
 // Date-only input renders the date alone. Empty -> "—".
+//
+// NO timezone conversion — see formatDateTimeUTC above for stored-UTC values.
 function formatDateTime(str) {
   if (!str) { return "—"; }
   var normalized = String(str).replace("T", " ").split(".")[0];

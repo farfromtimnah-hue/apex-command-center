@@ -141,6 +141,49 @@ CREATE TABLE IF NOT EXISTS clients (
 -- resolved by join against apex_partners at read time -- it is never copied
 -- into source_detail. Attribution is by record, never by typed name.
 
+-- NOTE: stage_changed_by and stage_change_source were added to the live clients
+-- table via migrations/lead_pipeline_actor_attribution.sql:
+--   ALTER TABLE clients ADD COLUMN stage_changed_by TEXT;
+--   ALTER TABLE clients ADD COLUMN stage_change_source TEXT;
+-- WHO last moved the lead's stage, and whether a human chose to. Written by
+-- both writers in the same statement as lead_stage/stage_changed_at, so the
+-- four can never drift apart. stage_changed_by holds the DISPLAY NAME
+-- ('Alice' / 'Rafa'), matching client_assessments.activated_by,
+-- lead_contact_log.logged_by and clients.next_step_set_by -- always
+-- server-derived, never trusted from a request body.
+-- stage_change_source is a stable machine token the UI maps to PT/EN prose:
+--   manual | auto:contact_logged | auto:xray_assigned | auto:xray_submitted
+--   | auto:session_scheduled
+-- The 'auto:' prefix is the load-bearing distinction: an automatic advance
+-- reading as somebody's deliberate decision is what made one stage change
+-- impossible to attribute after the fact. On an auto row the name is the person
+-- whose action TRIGGERED the bump, not someone who picked the stage.
+-- On auto:xray_submitted the actor is normally the CLIENT (that handler is
+-- requireClientAccess, not admin), recorded as the literal 'client'.
+-- NULL = a row predating the migration, never backfilled to a guess.
+-- Untouched when a write is a no-op (advanceLeadStage's forward-only early
+-- return, or re-picking the current stage): the columns describe the last REAL
+-- change, so a second session booked by Rafa on a lead already at "Agendamento"
+-- leaves Alice's name on the move that actually happened.
+
+-- NOTE: created_by was added to the live sessions table via
+-- migrations/lead_pipeline_actor_attribution.sql:
+--   ALTER TABLE sessions ADD COLUMN created_by TEXT;
+-- Who created the booking. Three writers, only one of them a person:
+-- the schedule endpoint stores the authenticated admin's display name, while
+-- the Fireflies transcript ingest stores 'fireflies' and the Google Calendar
+-- sync stores 'google_calendar'. The machine paths are named honestly rather
+-- than left NULL because we DO know what created those rows; NULL stays
+-- reserved for the genuinely unknown pre-migration rows and is never
+-- backfilled.
+
+-- NOTE: created_by was added to the live client_logins table via
+-- migrations/lead_pipeline_actor_attribution.sql:
+--   ALTER TABLE client_logins ADD COLUMN created_by TEXT;
+-- The admin display name stamped when a portal login is CREATED. Deliberately
+-- not re-stamped on a password reset: the column answers "who let this client
+-- in", which a later reset by someone else does not change. Not backfilled.
+
 -- NOTE: task_completions was added to the live sessions table via:
 --   ALTER TABLE sessions ADD COLUMN task_completions TEXT;
 -- Stores a JSON object keyed by task key (e.g. "rafa_0", "client_1") → boolean.

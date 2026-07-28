@@ -66,7 +66,7 @@ eval(slice(worker, "function isAdminRole(user)", "// ---------------------------
   "\n; globalThis.isAdminRole = isAdminRole;");
 
 eval(slice(worker, "var LEAD_STAGES = [", "// ---------------------------------------------------------------------------\n// Route: GET /api/role") +
-  "\n; Object.assign(globalThis, { LEAD_STAGES, leadStageIndex, advanceLeadStage });");
+  "\n; Object.assign(globalThis, { LEAD_STAGES, leadStageIndex, advanceLeadStage, actorName });");
 
 eval(slice(worker, "async function handlePatchLeadStage(", "// ---------------------------------------------------------------------------\n// Route: PATCH /api/clients/:id/lead-next-step") +
   "\n; globalThis.handlePatchLeadStage = handlePatchLeadStage;");

@@ -219,6 +219,16 @@ function leadStageIndex(stage) {
     return i < 0 ? 0 : i;
 }
 
+// The display name to record as the actor for a server-side write, following
+// the convention set by client_assessments.activated_by, lead_contact_log
+// .logged_by, resources.created_by and clients.next_step_set_by: the human's
+// DISPLAY NAME, never a user id, always derived from the authenticated user
+// rather than from anything in the request body.
+function actorName(user) {
+    if (!user) { return null; }
+    return user.display_name || user.role || null;
+}
+
 // Auto-advance a lead's stage as a side effect of a real action elsewhere
 // (first contact logged, X-Ray assigned/submitted, session scheduled).
 //
@@ -229,7 +239,18 @@ function leadStageIndex(stage) {
 //     active client is a no-op;
 //   - never throws, because it is a side effect of the caller's real work —
 //     a stage bump must not fail an X-Ray submission or a calendar booking.
-async function advanceLeadStage(env, clientId, targetStage) {
+//
+// ATTRIBUTION: `actor` is the display name of the person whose action
+// triggered this bump, and `source` is the machine token naming that action
+// ('auto:session_scheduled' and friends — see migrations/
+// lead_pipeline_actor_attribution.sql). Every call site has an authenticated
+// user in hand, so both are always passable; the parameters stay optional only
+// so a future caller without a user degrades to NULL rather than throwing.
+//
+// The pair records that a HUMAN's deliberate action moved the lead while the
+// stage change itself was automatic — the exact distinction whose absence made
+// one such move impossible to attribute after the fact.
+async function advanceLeadStage(env, clientId, targetStage, actor, source) {
     if (!clientId) { return; }
     try {
         var row = await env.DB.prepare(
@@ -240,8 +261,16 @@ async function advanceLeadStage(env, clientId, targetStage) {
         // The early return above is what keeps stage_changed_at honest: this
         // line is only ever reached when the stage genuinely moves, so the
         // "days in stage" clock never resets on a re-run of the same action.
-        await env.DB.prepare("UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now') WHERE id = ?")
-            .bind(targetStage, clientId).run();
+        //
+        // It is what keeps the ATTRIBUTION honest too, and for the same
+        // reason: the three columns describe the last REAL change together, so
+        // a no-op re-run must not overwrite them with today's actor. A second
+        // session booked by Rafa on a lead already at "Agendamento" leaves
+        // Alice's name on the move that actually happened.
+        await env.DB.prepare(
+            "UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now'), " +
+            "stage_changed_by = ?, stage_change_source = ? WHERE id = ?"
+        ).bind(targetStage, actor || null, source || null, clientId).run();
     } catch (e) {
         // Swallow: never let a stage bump break the action that triggered it.
     }
@@ -514,8 +543,10 @@ async function ingestFirefliesTranscript(env, meta) {
     var sessionId = crypto.randomUUID();
     var fireflyMeta = JSON.stringify({ fireflies_id: meta.id });
     await env.DB.prepare(
-        "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at) " +
-        "VALUES (?, ?, ?, 'inbox', ?, ?, datetime('now'))"
+        // created_by 'fireflies', not a person: this row is created by the
+        // transcript-ingestion machine, and naming it honestly is the point.
+        "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at, created_by) " +
+        "VALUES (?, ?, ?, 'inbox', ?, ?, datetime('now'), 'fireflies')"
     ).bind(sessionId, displayTitle, firefliesDateToYMD(meta.date), meta.transcript_text, fireflyMeta).run();
     return { session_id: sessionId, duplicate: false };
 }
@@ -1082,8 +1113,8 @@ async function handlePostTranscript(request, env) {
         var sessionDate = body.date || new Date().toISOString().split("T")[0];
 
         await env.DB.prepare(
-            "INSERT INTO sessions (id, client_name, client_id, date, status, raw_transcript) VALUES (?, ?, ?, ?, 'pending', ?)"
-        ).bind(sessionId, clientName, clientId, sessionDate, body.transcript).run();
+            "INSERT INTO sessions (id, client_name, client_id, date, status, raw_transcript, created_by) VALUES (?, ?, ?, ?, 'pending', ?, ?)"
+        ).bind(sessionId, clientName, clientId, sessionDate, body.transcript, actorName(user)).run();
 
         return jsonOk({ session_id: sessionId, client_name: clientName, client_id: clientId, date: sessionDate });
     } catch (e) {
@@ -1623,7 +1654,8 @@ async function handleGetClient(id, request, env) {
         var client = await env.DB.prepare(
             "SELECT c.id, c.name, c.owners, c.industry, c.location, c.logo_url, c.profile_pt, c.profile_en, " +
             "c.package, c.status, c.phone, c.email, c.whatsapp, c.payment_method, c.contacts, c.consolidated, c.lead_stage, " +
-            "c.stage_changed_at, c.next_step, c.next_step_set_by, c.next_step_set_at, " +
+            "c.stage_changed_at, c.stage_changed_by, c.stage_change_source, " +
+            "c.next_step, c.next_step_set_by, c.next_step_set_at, " +
             "c.source_type, c.source_detail, c.referred_by_partner_id, p.name AS referred_by_partner_name, " +
             "c.created_at FROM clients c " +
             "LEFT JOIN apex_partners p ON p.id = c.referred_by_partner_id " +
@@ -1770,7 +1802,7 @@ async function handlePostLeadContactLog(id, request, env) {
         ).bind(entryId, id, method, result, notes, loggedBy).run();
 
         // First contact logged → "Contato inicial" (forward-only, lead-only).
-        await advanceLeadStage(env, id, "Contato inicial");
+        await advanceLeadStage(env, id, "Contato inicial", actorName(user), "auto:contact_logged");
 
         var entry = await env.DB.prepare(
             "SELECT id, client_id, method, result, notes, logged_by, logged_at FROM lead_contact_log WHERE id = ?"
@@ -1867,7 +1899,9 @@ async function handlePatchLeadStage(id, request, env) {
         var stage = (body.stage || "").trim();
         if (LEAD_STAGES.indexOf(stage) < 0) { return jsonErr("Invalid stage", 400); }
 
-        var client = await env.DB.prepare("SELECT id, status, lead_stage, stage_changed_at FROM clients WHERE id = ?").bind(id).first();
+        var client = await env.DB.prepare(
+            "SELECT id, status, lead_stage, stage_changed_at, stage_changed_by, stage_change_source FROM clients WHERE id = ?"
+        ).bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
         if ((client.status || "") !== "lead") { return jsonErr("Not a lead", 400); }
 
@@ -1877,17 +1911,37 @@ async function handlePatchLeadStage(id, request, env) {
         // in — stage_changed_at answers "when did it last MOVE", so it is only
         // stamped when the value actually changes. A NULL lead_stage reads as
         // the first stage ("Lead"), matching leadStageIndex().
+        // A no-op re-pick leaves the attribution alone for the same reason it
+        // leaves the clock alone: all three columns describe the last change
+        // that actually happened.
         var currentStage = client.lead_stage || "Lead";
         if (currentStage === stage) {
-            return jsonOk({ lead_stage: stage, stage_changed_at: client.stage_changed_at || null, unchanged: true });
+            return jsonOk({
+                lead_stage: stage,
+                stage_changed_at: client.stage_changed_at || null,
+                stage_changed_by: client.stage_changed_by || null,
+                stage_change_source: client.stage_change_source || null,
+                unchanged: true
+            });
         }
 
+        // source 'manual' is what separates a deliberate pick from an
+        // automatic advance in the UI. Written in the SAME statement as the
+        // stage and the clock so the four can never drift apart.
         await env.DB.prepare(
-            "UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now') WHERE id = ?"
-        ).bind(stage, id).run();
+            "UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now'), " +
+            "stage_changed_by = ?, stage_change_source = 'manual' WHERE id = ?"
+        ).bind(stage, actorName(user), id).run();
 
-        var stamped = await env.DB.prepare("SELECT stage_changed_at FROM clients WHERE id = ?").bind(id).first();
-        return jsonOk({ lead_stage: stage, stage_changed_at: stamped ? stamped.stage_changed_at : null });
+        var stamped = await env.DB.prepare(
+            "SELECT stage_changed_at, stage_changed_by, stage_change_source FROM clients WHERE id = ?"
+        ).bind(id).first();
+        return jsonOk({
+            lead_stage: stage,
+            stage_changed_at: stamped ? stamped.stage_changed_at : null,
+            stage_changed_by: stamped ? stamped.stage_changed_by : null,
+            stage_change_source: stamped ? stamped.stage_change_source : null
+        });
     } catch (e) {
         return jsonErr("Error updating lead stage: " + e.message, 500);
     }
@@ -2734,14 +2788,14 @@ async function handlePostSessionsSchedule(request, env) {
             var occDate = recurFreq ? recurOccurrenceDate(body.date, recurFreq, i) : body.date;
             var sessionId = crypto.randomUUID();
             await env.DB.prepare(
-                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?)"
-            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId).run();
+                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, created_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?)"
+            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, actorName(user)).run();
             sessionIds.push(sessionId);
         }
 
         // Session scheduled for a lead → "Agendamento" (no-op for real clients).
-        await advanceLeadStage(env, clientId, "Agendamento");
+        await advanceLeadStage(env, clientId, "Agendamento", actorName(user), "auto:session_scheduled");
 
         var session = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, series_id, created_at " +
@@ -4073,8 +4127,11 @@ async function handleGetGoogleCalendarEvents(request, env) {
             }
 
             await env.DB.prepare(
-                "INSERT INTO sessions (id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, html_link, end_time, attendees) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, 'google_external', 'scheduled', ?, ?, ?)"
+                // created_by 'google_calendar': mirrored in from an external
+                // calendar, so no Apex person created it. Named rather than
+                // left NULL, which stays reserved for genuinely unknown rows.
+                "INSERT INTO sessions (id, client_name, date, time, session_type, google_meet_link, google_event_id, calendar_provider, status, html_link, end_time, attendees, created_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 'google_external', 'scheduled', ?, ?, ?, 'google_calendar')"
             ).bind(
                 crypto.randomUUID(),
                 title,
@@ -9203,10 +9260,14 @@ async function handlePostClientLoginCreate(id, request, env) {
                 if (!taken) { break; }
                 username = base + n;
             }
+            // created_by is stamped on CREATION only. The reset branch above
+            // deliberately does not touch it: this column answers "who let
+            // this client in", and a later password reset by someone else
+            // does not change who did.
             await env.DB.prepare(
-                "INSERT INTO client_logins (username, client_id, password_hash, must_change_password, tracking_start) " +
-                "VALUES (?, ?, ?, 1, date('now'))"
-            ).bind(username, id, passwordHash).run();
+                "INSERT INTO client_logins (username, client_id, password_hash, must_change_password, tracking_start, created_by) " +
+                "VALUES (?, ?, ?, 1, date('now'), ?)"
+            ).bind(username, id, passwordHash, actorName(user)).run();
         }
 
         // Google sign-in link: if the client has an email on file and it isn't
@@ -12204,7 +12265,7 @@ async function handlePostClientAssessment(id, request, env) {
         // (Gestão, Liderança, Permissividade, Falhas, Feedback 360, Pilares)
         // must leave the prospect's stage exactly where it was.
         if (assessmentAdvancesLeadStage(type)) {
-            await advanceLeadStage(env, id, "Raio X enviado");
+            await advanceLeadStage(env, id, "Raio X enviado", actorName(user), "auto:xray_assigned");
         }
         return jsonOk({ activated: true, assessment_type: type, status: "not_started" });
     } catch (e) {
@@ -12363,8 +12424,17 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
         // Alice's cue to act (schedule the meeting). The two "Raio X" lead
         // stages mean the BUSINESS X-Ray specifically, so no other instrument
         // may move a lead's pipeline stage.
+        //
+        // ATTRIBUTION CAVEAT: this handler is requireClientAccess, not
+        // isAdminRole — the person submitting is normally the CLIENT filling in
+        // their own X-Ray, not Alice or Rafa. So the actor recorded here is
+        // 'client' for a client-role submitter, and only a real Apex name when
+        // an admin submits on their behalf. Stamping an Apex name on every
+        // submission would be exactly the confident-wrong-answer this whole
+        // build exists to prevent.
         if (assessmentAdvancesLeadStage(type)) {
-            await advanceLeadStage(env, id, "Raio X recebido");
+            var xrayActor = user.role === "client" ? "client" : actorName(user);
+            await advanceLeadStage(env, id, "Raio X recebido", xrayActor, "auto:xray_submitted");
         }
         return jsonOk({ saved: true, completed: true, score: score });
     } catch (e) {

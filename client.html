@@ -73,6 +73,13 @@
     }
     .ld-hero-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
     .ld-hero-days { font-size: 11px; color: var(--muted); margin-top: 6px; }
+    /* Stage provenance — one step quieter than .ld-hero-days, which is itself
+       secondary to the pill. Icon is muted, never gold: gold is the stage's. */
+    .ld-hero-by {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+    }
+    .ld-hero-by svg { width: 12px; height: 12px; flex-shrink: 0; }
     .ld-hero-right { text-align: right; }
     .ld-hero-label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
     .ld-hero-value { font-size: 22px; font-weight: 800; color: var(--text); }
@@ -1734,6 +1741,13 @@
               <div>
                 <div class="ld-hero-stage"><span class="ld-hero-dot"></span><span id="leadStagePill">&nbsp;</span></div>
                 <div class="ld-hero-days" id="leadStageDays"></div>
+                <!-- Provenance: who last moved the stage, and whether a person
+                     chose it or it advanced automatically. Deliberately quiet
+                     and secondary — it answers the question when asked, it
+                     does not compete with the stage itself. Hidden entirely
+                     when unknown (a lead predating the attribution columns)
+                     rather than showing an empty label. -->
+                <div class="ld-hero-by" id="leadStageBy" hidden></div>
               </div>
               <div class="ld-hero-right" style="flex:1;min-width:180px;">
                 <div class="ld-hero-label">
@@ -3992,6 +4006,8 @@
       document.getElementById("leadStageFlag").hidden = (leadStageCurrent !== LEAD_STAGE_FLAGGED);
 
       leadStageChangedAt = client.stage_changed_at || null;
+      leadStageChangedBy = client.stage_changed_by || null;
+      leadStageSource    = client.stage_change_source || null;
       leadNextStep = {
         next_step:        client.next_step || null,
         next_step_set_by: client.next_step_set_by || null,
@@ -4009,6 +4025,8 @@
 
     // ── Stage hero: the pill + "X day(s) in this stage" ────────────────────
     var leadStageChangedAt = null;   // when the lead last MOVED stage
+    var leadStageChangedBy = null;   // display name of who moved it (may be null)
+    var leadStageSource    = null;   // 'manual' | 'auto:*' | null (unknown)
     var leadNextStep = null;         // { next_step, next_step_set_by, next_step_set_at }
 
     // Whole days elapsed since an ISO/SQLite datetime, or null when unknown.
@@ -4042,6 +4060,10 @@
     function renderLeadHero() {
       var en = document.body.classList.contains("lang-en");
       document.getElementById("leadStagePill").textContent = leadStageCurrent || "Lead";
+      // Before the early return below: provenance is known independently of
+      // the day count, so a lead with an unknown clock can still show who
+      // moved it (and vice versa).
+      renderStageProvenance();
       var d = daysSince(leadStageChangedAt);
       var el = document.getElementById("leadStageDays");
       if (d === null) {
@@ -4053,6 +4075,62 @@
       el.textContent = en
         ? d + (d === 1 ? " day in this stage" : " days in this stage")
         : d + (d === 1 ? " dia nesta etapa" : " dias nesta etapa");
+    }
+
+    // What each automatic advance actually was, in prose. Keyed by the machine
+    // token the worker stores, so the wording can change here without touching
+    // stored data. An unrecognised 'auto:*' token (a source added later and
+    // deployed ahead of this page) falls back to a bare "automatically".
+    var STAGE_SOURCE_TEXT = {
+      "auto:contact_logged":    { pt: "automaticamente ao registrar o contato",
+                                  en: "automatically when contact was logged" },
+      "auto:xray_assigned":     { pt: "automaticamente ao enviar o Raio X",
+                                  en: "automatically when the X-Ray was sent" },
+      "auto:xray_submitted":    { pt: "automaticamente ao receber o Raio X",
+                                  en: "automatically when the X-Ray came back" },
+      "auto:session_scheduled": { pt: "automaticamente ao agendar a reunião",
+                                  en: "automatically when a session was scheduled" }
+    };
+
+    // "moved by Alice" vs "moved automatically when a session was scheduled".
+    //
+    // The manual/automatic split is the whole point: a stage that advanced as a
+    // side effect must never read as somebody's deliberate decision. On an
+    // automatic row the name is still shown — it is the person whose action
+    // triggered the advance — but the sentence says the move was automatic.
+    function renderStageProvenance() {
+      var en  = document.body.classList.contains("lang-en");
+      var el  = document.getElementById("leadStageBy");
+      var who = leadStageChangedBy;
+      var src = leadStageSource;
+
+      // Nothing known: a lead whose stage last moved before these columns
+      // existed. Say nothing rather than guess — unknown is the honest answer.
+      if (!who && !src) { el.hidden = true; return; }
+
+      var text;
+      if (src && src.indexOf("auto:") === 0) {
+        var phrase = STAGE_SOURCE_TEXT[src];
+        var how = phrase ? (en ? phrase.en : phrase.pt) : (en ? "automatically" : "automaticamente");
+        text = (en ? "Moved " : "Movido ") + how;
+        // 'client' is a role, not a person: the X-Ray was submitted by the
+        // client themselves, so it is named as such in both languages.
+        if (who === "client") { text += en ? " by the client" : " pelo cliente"; }
+        else if (who)         { text += (en ? ", by " : ", por ") + who; }
+      } else if (who) {
+        text = (en ? "Moved by " : "Movido por ") + who;
+      } else {
+        // 'manual' with no name — shouldn't happen, but never render "by null".
+        text = en ? "Moved manually" : "Movido manualmente";
+      }
+
+      el.hidden = false;
+      el.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>' +
+        '<circle cx="12" cy="7" r="4"/></svg>' +
+        '<span>' + escHtml(text) + "</span>";
     }
 
     // ── Next step (with attribution) ───────────────────────────────────────
@@ -4231,6 +4309,15 @@
           if (typeof data.stage_changed_at !== "undefined") {
             leadStageChangedAt = data.stage_changed_at;
           }
+          // Same contract for the attribution: trust the server's echo rather
+          // than assuming this user's name, and on an unchanged no-op the echo
+          // is the PREVIOUS mover — which is the correct thing to keep showing.
+          if (typeof data.stage_changed_by !== "undefined") {
+            leadStageChangedBy = data.stage_changed_by;
+          }
+          if (typeof data.stage_change_source !== "undefined") {
+            leadStageSource = data.stage_change_source;
+          }
           renderLeadHero();
           document.getElementById("leadStageFlag").hidden = (stage !== LEAD_STAGE_FLAGGED);
         })
@@ -4289,7 +4376,10 @@
             escHtml(contactLabel(CONTACT_RESULT_LABELS, e.result, en)) + "</div>" +
           (e.notes ? '<div style="color:var(--text);margin-top:3px;">' + escHtml(e.notes) + "</div>" : "") +
           '<div style="color:var(--muted);font-size:12px;margin-top:3px;">' +
-            escHtml(formatDateTime(e.logged_at)) +
+            // logged_at is stored UTC (datetime('now')), so it MUST go through
+            // the UTC-aware formatter — plain formatDateTime rendered the UTC
+            // clock and showed a 10pm Eastern contact as 2am the next day.
+            escHtml(formatDateTimeUTC(e.logged_at)) +
             (e.logged_by ? " &middot; " + escHtml(e.logged_by) : "") +
           "</div></div>";
       }

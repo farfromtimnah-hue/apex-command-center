@@ -9,7 +9,7 @@
 //
 // The 07-28 audit missed the seeds because it grepped for display formatting.
 // This test greps for SEEDS AND COMPARISONS, which is where the last three
-// lived. See rule 23 in the universal rules.
+// lived. See rule 21 in the universal rules.
 //
 // The failure is invisible for most of the month: west of UTC, toISOString()
 // only disagrees with the local calendar during the local evening, and only

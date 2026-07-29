@@ -14,7 +14,7 @@
 // local evening. In Brazil (UTC-3) that is every day from 21:00; on the last
 // day of a month it also rolls the MONTH. The failure is invisible for most of
 // the month and shows up only late on the final day — it will not appear in
-// casual testing. See rule 23 in the universal rules; this exact bug has
+// casual testing. See rule 21 in the universal rules; this exact bug has
 // shipped three times.
 //
 // For a real UTC instant (a stored timestamp, an outbound API payload)

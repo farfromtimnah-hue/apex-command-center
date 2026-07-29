@@ -362,9 +362,11 @@ function gmContactButtonsHtml(tel) {
   var digits = gmWaDigits(tel);
   var dis = tel ? "" : ' aria-disabled="true"';
   return '<div class="gm-contact-row" data-tour="crm-detail-contact">' +
-    '<a class="gm-contact-btn gm-call"' + dis + ' href="tel:' + escHtml(tel || "") + '">' +
+    '<a class="gm-contact-btn gm-call"' + dis + ' href="tel:' + escHtml(tel || "") + '"' +
+      ' onclick="gmLogOutreach(\'Phone call\')">' +
       gmIcon("phone") + gmT("Ligar", "Call") + '</a>' +
-    '<a class="gm-contact-btn gm-wa"' + dis + ' href="https://wa.me/' + digits + '" target="_blank" rel="noopener">' +
+    '<a class="gm-contact-btn gm-wa"' + dis + ' href="https://wa.me/' + digits + '" target="_blank" rel="noopener"' +
+      ' onclick="gmLogOutreach(\'WhatsApp\')">' +
       gmIcon("wa") + 'WhatsApp</a>' +
     '</div>';
 }

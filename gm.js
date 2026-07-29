@@ -406,11 +406,92 @@ function gmToggleContactMore() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 1 — CRM PIPELINE
+// TAB 1 — PIPELINE (Leads · Parceiros · Base de Ouro)
 // ═════════════════════════════════════════════════════════════════════════
+// One tab, three sub-sections. They are one workflow: a reactivated Base de
+// Ouro customer re-enters as a lead with origin "Base de Clientes", and
+// partner scores are computed FROM the CRM. As separate tabs the latter two
+// sat in "Mais" on every phone, since .portal-tabs is hidden below 769px and
+// the dock holds only four.
+//
+// This is a CONTAINER around gmRenderCrm() / gmRenderPartners() /
+// gmRenderBase() — their bodies are unchanged, and each still owns its own
+// #gm*Body div. Only one body is visible at a time.
+
+var GM_PIPELINE_SECTIONS = ["leads", "partners", "base"];
+var GM_PIPELINE_KEY_PREFIX = "apex_gm_pipeline_section_";
+var gmPipelineSection = "leads";
+
+function gmPipelineKey() { return GM_PIPELINE_KEY_PREFIX + clientId; }
+
+// Per client id, so a coach previewing several clients does not carry one
+// client's section into the next.
+function gmPipelineRestore() {
+  var saved = null;
+  try { saved = localStorage.getItem(gmPipelineKey()); } catch (e) {}
+  if (GM_PIPELINE_SECTIONS.indexOf(saved) !== -1) { gmPipelineSection = saved; }
+  return gmPipelineSection;
+}
+
+function gmSetPipelineSection(section) {
+  if (GM_PIPELINE_SECTIONS.indexOf(section) === -1) { section = "leads"; }
+  gmPipelineSection = section;
+  try { localStorage.setItem(gmPipelineKey(), section); } catch (e) {}
+}
+
+// Called by the pills. Loads the section's data on first visit, then just
+// swaps which body is visible — the three renderers keep their own caches.
+function gmPipelineGo(section) {
+  gmSetPipelineSection(section);
+  gmLoadPipeline();
+}
+
+// One row of three pills, in normal flow — NOT sticky, and nothing is
+// reserved above it. finance.html / sessions.html / documents.html nest a
+// sticky sub-nav inside a scrolling panel (status file item #27, abandoned
+// rather than resolved); that nesting is deliberately not copied.
+function gmRenderPipelineSubnav() {
+  var nav = document.getElementById("gmPipelineSubnav");
+  if (!nav) { return; }
+  var labels = {
+    leads:    gmT("Leads", "Leads"),
+    partners: gmT("Parceiros", "Partners"),
+    base:     gmT("Base de Ouro", "Golden Base")
+  };
+  var html = "";
+  GM_PIPELINE_SECTIONS.forEach(function(s) {
+    var active = s === gmPipelineSection;
+    html += '<button type="button" role="tab" aria-selected="' + (active ? "true" : "false") +
+      '" class="gm-stage-chip' + (active ? " gm-chip-active" : "") +
+      '" data-pipeline-section="' + s + '" onclick="gmPipelineGo(\'' + s + '\')">' +
+      escHtml(labels[s]) + '</button>';
+  });
+  nav.innerHTML = html;
+}
+
+// The single entry point switchTab('gmcrm') calls. Shows the selected body,
+// hides the other two, and loads that section's data.
+function gmLoadPipeline() {
+  gmCurrentTab = "gmcrm";
+  gmPipelineRestore();
+  gmRenderPipelineSubnav();
+
+  var bodies = {
+    leads:    document.getElementById("gmCrmBody"),
+    partners: document.getElementById("gmPartnersBody"),
+    base:     document.getElementById("gmBaseBody")
+  };
+  GM_PIPELINE_SECTIONS.forEach(function(s) {
+    if (bodies[s]) { bodies[s].hidden = s !== gmPipelineSection; }
+  });
+
+  if (gmPipelineSection === "leads")    { gmLoadCrm(); }
+  if (gmPipelineSection === "partners") { gmLoadPartners(); }
+  if (gmPipelineSection === "base")     { gmLoadBase(); }
+}
 
 function gmLoadCrm() {
-  gmCurrentTab = "gmcrm";
+  gmCurrentTab = "gmcrm";   // the Pipeline container; section is gmPipelineSection
   var body = document.getElementById("gmCrmBody");
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
   Promise.all([gmLoadConfig(), gmApi("leads")])
@@ -1086,7 +1167,7 @@ function gmOpenRoadmap(idx) {
 // ═════════════════════════════════════════════════════════════════════════
 
 function gmLoadBase() {
-  gmCurrentTab = "gmbase";
+  gmCurrentTab = "gmcrm";   // Base de Ouro is a Pipeline sub-section now
   var body = document.getElementById("gmBaseBody");
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
   Promise.all([gmLoadConfig(), gmApi("base-ouro")])
@@ -1158,7 +1239,7 @@ function gmLoadPartnersList() {
 }
 
 function gmLoadPartners() {
-  gmCurrentTab = "gmpartners";
+  gmCurrentTab = "gmcrm";   // Parceiros is a Pipeline sub-section now
   var body = document.getElementById("gmPartnersBody");
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
   Promise.all([gmLoadConfig(), gmLoadPartnersList()])
@@ -2185,10 +2266,15 @@ function gmDownloadReferralQr() {
 
 // ── Language toggle re-render (called from portal.html's toggleLang) ─────
 function gmOnLangChange() {
-  if (gmCurrentTab === "gmcrm" && gmLeadsData) { gmRenderCrm(); }
+  // Pipeline: the pills carry labels too, and only the visible section needs
+  // re-rendering — the other two re-render when their pill is next tapped.
+  if (gmCurrentTab === "gmcrm") {
+    gmRenderPipelineSubnav();
+    if (gmPipelineSection === "leads" && gmLeadsData) { gmRenderCrm(); }
+    if (gmPipelineSection === "partners" && gmPartnersData) { gmRenderPartners(); }
+    if (gmPipelineSection === "base" && gmBaseData) { gmRenderBase(); }
+  }
   if (gmCurrentTab === "gmroadmap" && gmRoadmapData) { gmRenderRoadmap(); }
-  if (gmCurrentTab === "gmbase" && gmBaseData) { gmRenderBase(); }
-  if (gmCurrentTab === "gmpartners" && gmPartnersData) { gmRenderPartners(); }
   if (gmCurrentTab === "gmfinance" && gmFinanceData) { gmRenderFinance(); }
   if (gmCurrentTab === "gmjobs" && gmJobsData) { gmRenderJobs(); }
 }

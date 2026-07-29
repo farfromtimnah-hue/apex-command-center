@@ -89,6 +89,15 @@ const listed = LOCKED_PREVIEWS.filter(p => leadMenu.includes(`portalMoreGo('${p.
 ok(listed.length === LOCKED_PREVIEWS.length,
    `lead's Mais lists all ${LOCKED_PREVIEWS.length} locked previews (found ${listed.length})`);
 ok(/Ritmo/.test(leadMenu), "the lead's locked-preview list shows Ritmo, not Metas");
+// The merged tab no longer offers Golden Base / Partners as menu entries.
+globalThis.isLead = () => false;
+globalThis.xrayAssigned = false;
+globalThis.xrayStatus = null;
+populateMobileDock();
+const menu = els["mobile-more-menu"].innerHTML;
+ok(!/portalMoreGo\('gmbase'/.test(menu) && !/portalMoreGo\('gmpartners'/.test(menu),
+   "Golden Base and Partners are gone from Mais (they are Pipeline sub-sections)");
+ok(/Pipeline/.test(els["mobile-tab-bar"].innerHTML), "the dock label reads Pipeline");
 
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ ALL PASS");
 process.exit(fail ? 1 : 0);

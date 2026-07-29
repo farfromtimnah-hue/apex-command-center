@@ -31,9 +31,10 @@ eval(slice("var PORTAL_TABS = [", "function populateMobileDock()") +
 
 // The canonical order, spelled out independently of the file so a reorder has
 // to be deliberate in two places.
-const CANONICAL = ["analytics", "goals", "gmcrm", "gmbase", "gmpartners",
-                   "gmjobs", "gmfinance", "gmroadmap", "tasks", "documents",
-                   "invoices", "worksched"];
+// Golden Base and Partners are NOT here: they are sub-sections of Pipeline
+// (tab id "gmcrm") now, still addressable but out of the strip/dock/Mais.
+const CANONICAL = ["analytics", "goals", "gmcrm", "gmjobs", "gmfinance",
+                   "gmroadmap", "tasks", "documents", "invoices", "worksched"];
 
 eq(PORTAL_TABS.map(t => t.tab), CANONICAL, "PORTAL_TABS is in canonical order");
 ok(!PORTAL_TABS.some(t => t.tab === "assigned"),
@@ -59,13 +60,24 @@ eq(stripTabs.slice(1), CANONICAL, "the desktop strip markup is in canonical orde
 
 // ---- dock ----
 eq(PORTAL_DOCK_TABS.map(t => t.tab), ["analytics", "goals", "gmcrm", "gmfinance"],
-   "dock is Analytics · Ritmo · Sales · Finances");
+   "dock is Analytics · Ritmo · Pipeline · Finances");
+eq(PORTAL_DOCK_TABS[2].labelPt, "Pipeline", "the merged commercial tab is labelled Pipeline in PT");
+eq(PORTAL_DOCK_TABS[2].labelEn, "Pipeline", "…and Pipeline in EN (same word, both spans still emitted)");
+ok(!PORTAL_TABS.some(t => t.tab === "gmbase" || t.tab === "gmpartners"),
+   "gmbase and gmpartners have left PORTAL_TABS (they are Pipeline sub-sections)");
+ok(!/data-tab="gmbase"/.test(strip) && !/data-tab="gmpartners"/.test(strip),
+   "…and have left the desktop strip markup too");
+// They must stay ADDRESSABLE: switchTab() maps them onto the gmcrm container.
+ok(/var GM_PIPELINE_ALIASES = \{ gmbase: "base", gmpartners: "partners" \};/.test(src),
+   "gmbase / gmpartners still resolve, via GM_PIPELINE_ALIASES, to the Pipeline container");
+ok(/if \(GM_PIPELINE_ALIASES\[tab\] && !isLead\(\)\) \{/.test(src),
+   "switchTab() resolves those aliases before anything else can drop them");
 ok(PORTAL_DOCK_TABS.every(Boolean), "every docked key resolves to a real PORTAL_TABS entry");
 eq(PORTAL_DOCK_TABS[1].labelPt, "Ritmo", "Ritmo is second in the dock (highest-frequency action)");
 
 // ---- More ----
 eq(portalMoreTabs().map(t => t.tab),
-   ["gmbase", "gmpartners", "gmjobs", "gmroadmap", "tasks", "documents", "invoices", "worksched"],
+   ["gmjobs", "gmroadmap", "tasks", "documents", "invoices", "worksched"],
    "More is everything undocked, in canonical order");
 
 // ---- the displaced-tab bug ----
@@ -77,9 +89,9 @@ eq(dockedNow, ["assigned", "analytics", "goals", "gmcrm"],
    "Assigned leads the dock and displaces the last fixed tab");
 const moreNow = portalMoreTabs().map(t => t.tab);
 ok(moreNow.includes("gmfinance"), "the displaced tab (Finances) is still reachable under More");
-eq(moreNow.indexOf("gmfinance"), 3,
+eq(moreNow.indexOf("gmfinance"), 1,
    "the displaced tab lands at its CANONICAL position, not appended after Settings");
-eq(moreNow, ["gmbase", "gmpartners", "gmjobs", "gmfinance", "gmroadmap", "tasks",
+eq(moreNow, ["gmjobs", "gmfinance", "gmroadmap", "tasks",
              "documents", "invoices", "worksched"],
    "More stays in canonical order once a tab is displaced");
 ok(moreNow[moreNow.length - 1] === "worksched", "Settings is still last in More");

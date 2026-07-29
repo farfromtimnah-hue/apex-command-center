@@ -55,6 +55,11 @@ globalThis.gmRoadmapData = { items: [] };
 globalThis.gmBaseData    = { items: [] };
 globalThis.gmFinanceData = { entries: [] };
 globalThis.gmJobsData    = { jobs: [] };
+// Partners is a Pipeline sub-section now, so its renderer emits the shared
+// FAB. This file tests the partner CARD layout, not the FAB — stub it out
+// rather than dragging the Pipeline container into the slice.
+globalThis.gmPipelineSection = "partners";
+globalThis.gmPipelineFabHtml = () => "";
 
 // ── Load the real render code ─────────────────────────────────────────────
 eval(slice(js, "var GM_ICONS = {", "function gmOpenPartner(") +

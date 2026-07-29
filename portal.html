@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1785203837">
+  <link rel="stylesheet" href="gm.css?v=1785298347">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -746,6 +746,7 @@
         margin-left: auto; font-size: 12px; opacity: 0.7;
       }
     }
+
   </style>
 </head>
 <body class="lang-pt">
@@ -1027,14 +1028,15 @@
                its boot gate, so this is how a pending backlog is announced. -->
           <span class="assigned-dot" id="goalsTabDot" hidden aria-hidden="true"></span>
         </button>
+        <!-- "Pipeline" in both languages. It replaces "Vendas / Sales", which
+             named the wrong thing: this is a lead pipeline, not a sales report
+             — revenue lives in Financeiro. The source spreadsheet calls it
+             "CRM — PIPELINE COMERCIAL"; "CRM" was rejected as jargon for an
+             audience of contractors and shop owners. Both spans are still
+             emitted so every label in the strip reads the same way.
+             Golden Base and Partners are sub-sections of this tab now. -->
         <button class="portal-tab" data-tab="gmcrm" onclick="switchTab('gmcrm')">
-          <span class="show-pt">Vendas</span><span class="show-en">Sales</span>
-        </button>
-        <button class="portal-tab" data-tab="gmbase" onclick="switchTab('gmbase')">
-          <span class="show-pt">Base de Ouro</span><span class="show-en">Golden Base</span>
-        </button>
-        <button class="portal-tab" data-tab="gmpartners" onclick="switchTab('gmpartners')">
-          <span class="show-pt">Parceiros</span><span class="show-en">Partners</span>
+          <span class="show-pt">Pipeline</span><span class="show-en">Pipeline</span>
         </button>
         <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
           <span class="show-pt">Obras</span><span class="show-en">Jobs</span>
@@ -1232,11 +1234,32 @@
         </div>
       </div>
 
-      <!-- ══ Growth Management (six data tabs) — rendered by gm.js ══ -->
-      <div id="tabGmcrm" hidden><div id="gmCrmBody"></div></div>
+      <!-- ══ Growth Management — rendered by gm.js ══
+           Pipeline (tab id stays "gmcrm") holds three sub-sections behind a
+           pill sub-nav: Leads, Parceiros, Base de Ouro. They are one workflow —
+           a reactivated Base de Ouro customer re-enters as a lead with origin
+           "Base de Clientes", and partner scores are computed FROM the CRM —
+           and below 769px .portal-tabs is hidden, so as separate tabs the
+           latter two sat in "Mais" on every phone.
+
+           gmbase and gmpartners stay valid tab ids: switchTab() maps them onto
+           this container with the matching sub-section preselected, so a stale
+           deep link or an old cached dock still lands somewhere sane. They just
+           no longer appear in PORTAL_TABS (strip / dock / Mais) — the same
+           retire-but-keep-addressable move the assessment tab buttons got.
+
+           The sub-nav is NOT sticky. finance.html / sessions.html /
+           documents.html nest a sticky sub-nav bar inside a scrolling panel
+           (status file item #27, abandoned rather than resolved); that pattern
+           is deliberately not copied here. This is one plain row of three
+           pills in normal flow — nothing is reserved above the fold. -->
+      <div id="tabGmcrm" hidden>
+        <div class="gm-subnav" id="gmPipelineSubnav" role="tablist"></div>
+        <div id="gmCrmBody"></div>
+        <div id="gmPartnersBody" hidden></div>
+        <div id="gmBaseBody" hidden></div>
+      </div>
       <div id="tabGmroadmap" hidden><div id="gmRoadmapBody"></div></div>
-      <div id="tabGmbase" hidden><div id="gmBaseBody"></div></div>
-      <div id="tabGmpartners" hidden><div id="gmPartnersBody"></div></div>
       <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
       <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
 
@@ -2988,7 +3011,11 @@
     var LOCKED_PREVIEWS = [
       { key: "analytics",  icon: "home",      labelPt: "Analytics",              labelEn: "Analytics" },
       { key: "goals",      icon: "target",    labelPt: "Ritmo",                  labelEn: "Pace" },
-      { key: "gmcrm",      icon: "trend",     labelPt: "Vendas",                 labelEn: "Sales" },
+      // Same relabel as the real tab (Vendas/Sales named the wrong thing).
+      // Base de Ouro and Parceiros stay SEPARATE teaser entries even though
+      // they are sub-sections of Pipeline for a real client: this list is a
+      // shop window for a prospect, and each shows off a distinct capability.
+      { key: "gmcrm",      icon: "trend",     labelPt: "Pipeline",               labelEn: "Pipeline" },
       { key: "gmroadmap",  icon: "list",      labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
       { key: "gmbase",     icon: "star",      labelPt: "Base de Ouro",           labelEn: "Golden Base" },
       { key: "gmpartners", icon: "users",     labelPt: "Parceiros",              labelEn: "Partners" },
@@ -3149,9 +3176,9 @@
     var PORTAL_TABS = [
       { tab: "analytics",  icon: "home",         labelPt: "Analytics",              labelEn: "Analytics" },
       { tab: "goals",      icon: "target",       labelPt: "Ritmo",                  labelEn: "Pace" },
-      { tab: "gmcrm",      icon: "trend",        labelPt: "Vendas",                 labelEn: "Sales" },
-      { tab: "gmbase",     icon: "star",         labelPt: "Base de Ouro",           labelEn: "Golden Base" },
-      { tab: "gmpartners", icon: "users",        labelPt: "Parceiros",              labelEn: "Partners" },
+      // Golden Base and Partners are no longer here: they are sub-sections of
+      // Pipeline (see #tabGmcrm). They remain valid tab ids for deep links.
+      { tab: "gmcrm",      icon: "trend",        labelPt: "Pipeline",               labelEn: "Pipeline" },
       { tab: "gmjobs",     icon: "briefcase",    labelPt: "Obras",                  labelEn: "Jobs" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
@@ -3165,8 +3192,10 @@
     // longer than English). Ritmo is second: it is the highest-frequency action
     // in the app, and it just lost the boot gate that used to force clients
     // into it. Finances is pulled into the dock ahead of the strictly canonical
-    // 4th (Golden Base) because it is the number a client opens the portal to
-    // check; everything skipped stays one tap away under "Mais".
+    // 4th (Obras) because it is the number a client opens the portal to check;
+    // everything skipped stays one tap away under "Mais". Merging Golden Base
+    // and Partners into Pipeline shortened the canonical list, but the dock
+    // still holds the same four.
     var PORTAL_DOCK_ORDER = ["analytics", "goals", "gmcrm", "gmfinance"];
 
     function portalTabByKey(tab) {
@@ -3301,7 +3330,21 @@
       });
     }
 
+    // Retired tab ids that are now sub-sections of Pipeline. They stay
+    // addressable — a stale deep link, a bookmark, an old cached dock or an
+    // existing switchTab('gmbase') call site must still land somewhere sane —
+    // so they resolve to the gmcrm container with their section preselected
+    // rather than being dropped. Resolved BEFORE the lead guard below, so a
+    // lead aiming at one is still measured against LEAD_ALLOWED_TABS and
+    // bounced to Assigned exactly as before.
+    var GM_PIPELINE_ALIASES = { gmbase: "base", gmpartners: "partners" };
+
     function switchTab(tab, force) {
+      if (GM_PIPELINE_ALIASES[tab] && !isLead()) {
+        gmSetPipelineSection(GM_PIPELINE_ALIASES[tab]);
+        tab = "gmcrm";
+        force = true;
+      }
       // Lead safety net: even if a stale deep-link or an old cached dock aims
       // at a client-only tab, a lead can never land on real client data. The
       // teaser tabs go to their preview; anything else falls back to Assigned.
@@ -3321,8 +3364,12 @@
       // assessments are appended from the registry (each key capitalized to
       // its tabXxx id) so registering a type cannot desync this list; the
       // null-guard keeps a missing element from taking the boot down with it.
+      // Gmbase and Gmpartners are deliberately absent: there are no
+      // #tabGmbase / #tabGmpartners elements any more, only the sub-section
+      // bodies inside #tabGmcrm. Both ids reach that container through
+      // GM_PIPELINE_ALIASES above.
       ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
-       "Gmcrm", "Gmroadmap", "Gmbase", "Gmpartners", "Gmfinance", "Gmjobs",
+       "Gmcrm", "Gmroadmap", "Gmfinance", "Gmjobs",
        "Assigned", "LockedPreview"]
         .concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) {
           return t.key.charAt(0).toUpperCase() + t.key.slice(1);
@@ -3347,10 +3394,10 @@
         if (spaConf(tab)) { loadSinglePageAssessment(tab); }
         if (tab === "assigned") { loadAssigned(); }
         if (tab === "worksched") { loadWorkSettings(); }
-        if (tab === "gmcrm") { gmLoadCrm(); }
+        // One entry point for all three Pipeline sub-sections: it loads
+        // whichever section is currently selected (and only that one).
+        if (tab === "gmcrm") { gmLoadPipeline(); }
         if (tab === "gmroadmap") { gmLoadRoadmap(); }
-        if (tab === "gmbase") { gmLoadBase(); }
-        if (tab === "gmpartners") { gmLoadPartners(); }
         if (tab === "gmfinance") { gmLoadFinance(); }
         if (tab === "gmjobs") { gmLoadJobs(); }
       }
@@ -5464,7 +5511,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785207461"></script>
+  <script src="gm.js?v=1785298347"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

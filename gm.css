@@ -103,6 +103,33 @@
 }
 .gm-view-toggle .btn-outline { min-height: 48px; }
 
+/* ── Pipeline sub-nav (Leads · Parceiros · Base de Ouro) ──────────────────
+   Built on .gm-stage-chip / .gm-chip-active rather than a new component, so
+   the pills read as the same control the stage rail already uses.
+
+   Deliberately NOT sticky and NOT position-anything: it is one row in normal
+   flow, so it costs its own height and nothing more — the pipeline summary
+   directly below it must not be pushed under the fold on a phone. (The stage
+   rail IS sticky; this is not, and must not inherit that.) It also does not
+   nest inside a scrolling panel the way finance.html / sessions.html /
+   documents.html do — see status file item #27.
+
+   Three fixed pills, so no horizontal scroll: they wrap rather than overflow
+   if a translation ever outgrows the row. */
+.gm-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.gm-subnav .gm-stage-chip {
+  /* Slightly tighter than a stage chip: three of these must fit 375px with
+     the longest PT label ("Base de Ouro") and still clear the 44px tap
+     target. No count badge here, so the padding can come in. */
+  min-height: 44px;
+  padding: 9px 13px;
+}
+
 /* ── Quick-add FAB ────────────────────────────────────────────────────── */
 .gm-fab {
   position: fixed;

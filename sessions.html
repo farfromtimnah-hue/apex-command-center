@@ -2429,7 +2429,10 @@
               sessions = d.sessions || [];
               renderSessionList();
               updateSessionStats();
-              switchTab("sessions");
+              // The detail view (#detailContent) lives inside the inbox panel —
+              // there is no "sessions" tab, and switchTab() would have cleared
+              // the active class from every real tab, blanking the page.
+              switchTab("inbox");
               selectSession(session.id);
             });
         })

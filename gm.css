@@ -360,7 +360,13 @@
   display: flex; align-items: center; justify-content: center;
 }
 .gm-sheet-row-icon svg, .gm-partner-row-icon svg { width: 15px; height: 15px; color: #8a6f22; }
-.gm-sheet-row-body, .gm-partner-row-body { flex: 1; min-width: 0; }
+/* Label, value and sub are <span>s — inline by default, which ran them
+   together ("OrigemParceiro"). Stack them so each occupies its own line and
+   the existing margin-top on the value/sub takes effect. */
+.gm-sheet-row-body, .gm-partner-row-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
 .gm-sheet-row-label, .gm-partner-row-label { font-size: 11px; font-weight: 600; color: var(--muted); }
 .gm-sheet-row-value, .gm-partner-row-value { font-size: 14px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
 .gm-sheet-row-value.gm-empty, .gm-partner-row-value.gm-empty { color: var(--muted); font-weight: 400; }

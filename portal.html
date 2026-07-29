@@ -515,6 +515,106 @@
     .badge.done, .badge.paid { background: rgba(63,125,78,0.12); color: var(--green); }
     .badge.pending, .badge.unpaid { background: rgba(180,64,64,0.1); color: var(--red); }
 
+    /* ---------- Support ("Ajuda") ---------- */
+    /* Deliberately NOT a bottom-right FAB — that corner belongs to .gm-fab on
+       every Pipeline sub-section. This sits in the hero shell, which renders on
+       all tabs, so support is one tap away everywhere. Apex tokens, never
+       WhatsApp green: the fork means this is not purely a WhatsApp action. */
+    .hero-support {
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 7px;
+      min-height: 40px; padding: 0 15px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.13);
+      border: 1px solid rgba(255,255,255,0.30);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      color: #fff;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .hero-support:hover { background: rgba(255,255,255,0.21); border-color: rgba(255,255,255,0.45); }
+    /* Life-ring: reads as "support" without borrowing the WhatsApp mark. */
+    .hero-support-ico {
+      width: 17px; height: 17px; flex-shrink: 0;
+      background-repeat: no-repeat; background-position: center; background-size: contain;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cline x1='4.93' y1='4.93' x2='9.17' y2='9.17'/%3E%3Cline x1='14.83' y1='14.83' x2='19.07' y2='19.07'/%3E%3Cline x1='14.83' y1='9.17' x2='19.07' y2='4.93'/%3E%3Cline x1='4.93' y1='19.07' x2='9.17' y2='14.83'/%3E%3C/svg%3E");
+    }
+    /* Narrow phones: the hero shell is already tight with logo + name, so drop
+       to an icon-only circle rather than letting the pill squeeze the title.
+       The shell is also allowed to wrap here — when a meeting is scheduled the
+       row carries a gold "Entrar" button too, and logo + title + Entrar + Ajuda
+       will not fit 375px on one line. Wrapping puts the two buttons on a second
+       row instead of overflowing the card. */
+    @media (max-width: 600px) {
+      .hero-shell { flex-wrap: wrap; }
+      .hero-idblock { min-width: 130px; }
+      .hero-support { padding: 0; width: 40px; justify-content: center; border-radius: 50%; gap: 0; }
+      .hero-support .show-pt, .hero-support .show-en { display: none; }
+      #portalMeetingJoin { margin-left: auto; }
+    }
+
+    /* Support modal. Its own overlay rather than .modal-overlay: this one has
+       to survive the iOS keyboard opening over a required textarea, so it pins
+       to the visual viewport and scrolls internally instead of centering. */
+    .support-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(20,18,16,0.55); z-index: 1100;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .support-overlay[hidden] { display: none; }
+    .support-box {
+      background: #fff; width: 100%; max-width: 460px;
+      border-radius: 16px 16px 0 0;
+      /* Caps at the visible viewport so the send button is never stranded
+         under the keyboard; the body scrolls if content exceeds it. */
+      max-height: 92vh; display: flex; flex-direction: column;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.3);
+    }
+    @media (min-width: 601px) {
+      .support-overlay { align-items: center; padding: 16px; }
+      .support-box { border-radius: 16px; max-height: 88vh; }
+    }
+    .support-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 16px 18px 10px; border-bottom: 1px solid var(--border);
+    }
+    .support-body {
+      padding: 14px 18px; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1;
+    }
+    .support-foot {
+      padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border);
+    }
+    .support-choice {
+      display: flex; align-items: flex-start; gap: 10px; width: 100%;
+      text-align: left; padding: 12px 13px; margin-bottom: 8px;
+      border: 1.5px solid var(--border); border-radius: 11px;
+      background: #fff; cursor: pointer; font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .support-choice[aria-pressed="true"] { border-color: var(--gold); background: rgba(201,164,58,0.07); }
+    .support-choice-dot {
+      width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+      border: 1.5px solid var(--border); background: #fff;
+    }
+    .support-choice[aria-pressed="true"] .support-choice-dot {
+      border-color: var(--gold); background: var(--gold);
+      box-shadow: inset 0 0 0 3px #fff;
+    }
+    .support-choice-title { font-size: 14px; font-weight: 600; }
+    .support-choice-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    /* Captured context is SHOWN, never hidden — the client sees exactly what
+       is attached to their message before it is sent. */
+    .support-ctx {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; margin-top: 12px;
+      font-size: 12px; color: var(--muted); line-height: 1.65;
+    }
+    .support-ctx-row { display: flex; gap: 6px; }
+    .support-ctx-key { font-weight: 600; color: var(--text); flex-shrink: 0; }
+    .support-ctx-val { min-width: 0; overflow-wrap: anywhere; }
+    #supportSendBtn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
     /* Modal */
     .modal-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -1004,7 +1104,7 @@
               </div>
             </div>
             <input type="file" id="logoFileInput" accept="image/*" hidden onchange="uploadLogo(this)">
-            <div style="flex:1;min-width:0;">
+            <div class="hero-idblock" style="flex:1;min-width:0;">
               <div class="hero-eyebrow">
                 <span class="show-pt">Portal do Cliente</span>
                 <span class="show-en">Client Portal</span>
@@ -1013,6 +1113,17 @@
               <div class="hero-sub" id="portalMeetingLine"></div>
             </div>
             <div id="portalMeetingJoin"></div>
+            <!-- Support entry point. Lives in the hero rather than bottom-right
+                 on purpose: .gm-fab already owns that corner on all three
+                 Pipeline sub-sections, and a second circular glyph beside a "+"
+                 that already means two things would make that corner a guessing
+                 game. The hero renders on every tab, so this is reachable
+                 everywhere without being buried in "Mais". See supportOpen(). -->
+            <button type="button" class="hero-support" id="heroSupportBtn"
+                    onclick="supportOpen()" aria-haspopup="dialog">
+              <span class="hero-support-ico" aria-hidden="true"></span>
+              <span class="show-pt">Ajuda</span><span class="show-en">Help</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1371,6 +1482,79 @@
   </main>
 
   <!-- Day-off modal -->
+  <!-- ══ Support modal ══
+       The description is captured HERE, before any WhatsApp handoff — a
+       prefilled template alone gets sent blank. Send stays disabled until the
+       textarea has real content, and the click handler does nothing but
+       window.open() on a string built entirely from local state. -->
+  <div class="support-overlay" id="supportModal" hidden role="dialog" aria-modal="true"
+       aria-labelledby="supportModalTitle">
+    <div class="support-box">
+      <div class="support-head">
+        <div class="modal-title" id="supportModalTitle" style="margin:0;">
+          <span class="show-pt">Precisa de ajuda?</span>
+          <span class="show-en">Need help?</span>
+        </div>
+        <button class="mm-close" type="button" onclick="supportClose()" aria-label="Fechar"
+                style="background:none;border:none;font-size:26px;line-height:1;color:var(--muted);cursor:pointer;">&times;</button>
+      </div>
+      <div class="support-body">
+        <label class="field-label">
+          <span class="show-pt">Qual &eacute; o tipo de problema?</span>
+          <span class="show-en">What kind of problem is it?</span>
+        </label>
+        <!-- Routed by ISSUE TYPE, never by company. A client does not know
+             Resonate and Apex are different companies and should not have to. -->
+        <button type="button" class="support-choice" id="supportKindTechnical"
+                aria-pressed="false" onclick="supportSetKind('technical')">
+          <span class="support-choice-dot" aria-hidden="true"></span>
+          <span>
+            <span class="support-choice-title">
+              <span class="show-pt">Algo n&atilde;o est&aacute; funcionando</span>
+              <span class="show-en">Something isn't working</span>
+            </span>
+            <span class="support-choice-sub">
+              <span class="show-pt">Erro, tela em branco, bot&atilde;o que n&atilde;o responde</span>
+              <span class="show-en">An error, a blank screen, a button that does nothing</span>
+            </span>
+          </span>
+        </button>
+        <button type="button" class="support-choice" id="supportKindBusiness"
+                aria-pressed="false" onclick="supportSetKind('business')">
+          <span class="support-choice-dot" aria-hidden="true"></span>
+          <span>
+            <span class="support-choice-title">
+              <span class="show-pt">Preciso de ajuda com o meu neg&oacute;cio</span>
+              <span class="show-en">I need help with my business</span>
+            </span>
+            <span class="support-choice-sub">
+              <span class="show-pt">D&uacute;vida de consultoria, metas, estrat&eacute;gia</span>
+              <span class="show-en">A consulting question — goals, strategy</span>
+            </span>
+          </span>
+        </button>
+
+        <label class="field-label" for="supportDesc" style="margin-top:14px;">
+          <span class="show-pt">Descreva o que aconteceu</span>
+          <span class="show-en">Describe what happened</span>
+        </label>
+        <textarea id="supportDesc" rows="4" maxlength="1200"
+                  oninput="supportSyncSend()"
+                  placeholder="..."></textarea>
+
+        <div class="support-ctx" id="supportCtxBox" aria-live="polite"></div>
+      </div>
+      <div class="support-foot">
+        <button class="btn-gold" id="supportSendBtn" style="width:100%;min-height:48px;"
+                disabled onclick="supportSend()">
+          <span class="show-pt">Enviar pelo WhatsApp</span>
+          <span class="show-en">Send via WhatsApp</span>
+        </button>
+        <p class="muted" id="supportRouteHint" style="margin:8px 0 0;text-align:center;font-size:12px;"></p>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modalDayOff" hidden>
     <div class="modal-box">
       <div class="modal-title">
@@ -3227,6 +3411,176 @@
         if (PORTAL_TABS[i].tab === tab) { return PORTAL_TABS[i]; }
       }
       return null;
+    }
+
+    // ══ Support ═══════════════════════════════════════════════════════════
+    //
+    // Routed by ISSUE TYPE, never by company. Clients do not know Resonate
+    // Business Systems and Apex are different companies and should not have to;
+    // they pick what kind of problem they have and the app decides who gets it.
+    //
+    // Both numbers are hardcoded to a PERSON, deliberately — unlike the app's
+    // other WhatsApp buttons, which target Apex's shared group chat because
+    // several people there work with clients. Meeting links and day-to-day
+    // messages keep going to the group; these two do not.
+    //
+    // WARNING: Rafa's number is one digit from Pra. Alice's (hers ends 5917,
+    // his ends 7559 — same area code AND same prefix). Verify the last four
+    // before touching either line.
+    var SUPPORT_ROUTES = {
+      technical: { phone: "14016514117", toPt: "Nicole", toEn: "Nicole" },   // +1 401 651 4117
+      business:  { phone: "12144487559", toPt: "Pr. Rafa", toEn: "Pr. Rafa" } // +1 214 448 7559
+    };
+
+    // These two strings are intentionally NOT in message_templates. That system
+    // exists for CLIENT-FACING copy (invoice links, login credentials, meeting
+    // notices) where wording matters to a client and a stale hardcoded string
+    // once sent real clients a dead URL. This message travels the other way —
+    // captured context going to Nicole or Rafa — so there is no copy to tune.
+    // They keep the same {token} substitution shape as the template path, so
+    // nothing structural changes if they ever do become editable.
+    var SUPPORT_MESSAGES = {
+      technical:
+        "[Portal Apex] Algo nao esta funcionando\n\n" +
+        "Cliente: {clientName}\n" +
+        "Aba: {tab}\n" +
+        "Dispositivo: {device}\n" +
+        "Quando: {timestamp}\n\n" +
+        "Descricao:\n{description}",
+      business:
+        "[Portal Apex] Pedido de ajuda com o negocio\n\n" +
+        "Cliente: {clientName}\n" +
+        "Aba: {tab}\n" +
+        "Dispositivo: {device}\n" +
+        "Quando: {timestamp}\n\n" +
+        "Descricao:\n{description}"
+    };
+
+    var supportKind = null;   // "technical" | "business" — required before send
+    var supportCtx  = null;   // frozen at open() so what is shown is what is sent
+
+    // Coarse, readable device string — enough for Nicole to reproduce, without
+    // shipping the whole UA. Order matters: Edge/Chrome both claim "Safari".
+    function supportDeviceLabel() {
+      var ua = navigator.userAgent || "";
+      var os = /iPhone|iPad|iPod/.test(ua) ? "iOS"
+             : /Android/.test(ua)          ? "Android"
+             : /Macintosh/.test(ua)        ? "macOS"
+             : /Windows/.test(ua)          ? "Windows"
+             : "Desconhecido";
+      var br = /Edg\//.test(ua)                        ? "Edge"
+             : /OPR\//.test(ua)                        ? "Opera"
+             : /Chrome\//.test(ua)                     ? "Chrome"
+             : /Firefox\//.test(ua)                    ? "Firefox"
+             : /Safari\//.test(ua)                     ? "Safari"
+             : "Navegador desconhecido";
+      // Standalone matters: the white-screen bug only reproduces in the PWA.
+      var pwa = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+                window.navigator.standalone === true;
+      return os + " · " + br + (pwa ? " · PWA" : "");
+    }
+
+    function supportTabLabel() {
+      var key = currentTab || "analytics";
+      var meta = portalTabByKey(key);
+      if (!meta) { return key; }
+      // These labels carry HTML entities (Execu&ccedil;&atilde;o) — decode so
+      // the WhatsApp message reads as text, not as markup.
+      var raw = isEn() ? meta.labelEn : meta.labelPt;
+      var d = document.createElement("textarea");
+      d.innerHTML = raw;
+      return d.value;
+    }
+
+    function supportTimestamp() {
+      var d = new Date();
+      function p(n) { return (n < 10 ? "0" : "") + n; }
+      // Local wall-clock, never toISOString() — that would report a UTC date
+      // (see rule 21) and Nicole needs the client's own time to correlate.
+      return p(d.getMonth() + 1) + "/" + p(d.getDate()) + "/" + d.getFullYear() +
+             " " + p(d.getHours()) + ":" + p(d.getMinutes());
+    }
+
+    function supportOpen() {
+      supportKind = null;
+      supportCtx = {
+        clientName: clientName || "—",
+        tab: supportTabLabel(),
+        device: supportDeviceLabel(),
+        timestamp: supportTimestamp()
+      };
+      document.getElementById("supportDesc").value = "";
+      document.getElementById("supportDesc").placeholder = isEn()
+        ? "Tell us what you were doing and what went wrong."
+        : "Conte o que você estava fazendo e o que deu errado.";
+      ["technical", "business"].forEach(function(k) {
+        document.getElementById("supportKind" + k.charAt(0).toUpperCase() + k.slice(1))
+          .setAttribute("aria-pressed", "false");
+      });
+      // Context is SHOWN, not hidden — the client sees exactly what is attached.
+      var L = isEn()
+        ? { c: "Client", t: "Tab", d: "Device", w: "When", h: "Sent with your message:" }
+        : { c: "Cliente", t: "Aba", d: "Dispositivo", w: "Quando", h: "Enviado junto com sua mensagem:" };
+      document.getElementById("supportCtxBox").innerHTML =
+        '<div style="font-weight:600;color:var(--text);margin-bottom:5px;">' + escHtml(L.h) + '</div>' +
+        [[L.c, supportCtx.clientName], [L.t, supportCtx.tab],
+         [L.d, supportCtx.device], [L.w, supportCtx.timestamp]]
+          .map(function(r) {
+            return '<div class="support-ctx-row"><span class="support-ctx-key">' + escHtml(r[0]) +
+                   ':</span><span class="support-ctx-val">' + escHtml(r[1]) + '</span></div>';
+          }).join("");
+      document.getElementById("supportRouteHint").textContent = "";
+      supportSyncSend();
+      document.getElementById("supportModal").hidden = false;
+    }
+
+    function supportClose() {
+      document.getElementById("supportModal").hidden = true;
+    }
+
+    function supportSetKind(kind) {
+      supportKind = kind;
+      ["technical", "business"].forEach(function(k) {
+        document.getElementById("supportKind" + k.charAt(0).toUpperCase() + k.slice(1))
+          .setAttribute("aria-pressed", k === kind ? "true" : "false");
+      });
+      var to = isEn() ? SUPPORT_ROUTES[kind].toEn : SUPPORT_ROUTES[kind].toPt;
+      document.getElementById("supportRouteHint").textContent = isEn()
+        ? "Goes to " + to + " on WhatsApp."
+        : "Vai para " + to + " no WhatsApp.";
+      supportSyncSend();
+    }
+
+    // Send stays disabled until BOTH a type is chosen and the description has
+    // real content — a prefilled template alone gets sent blank, which is the
+    // exact failure this modal exists to prevent.
+    function supportSyncSend() {
+      var desc = (document.getElementById("supportDesc").value || "").trim();
+      document.getElementById("supportSendBtn").disabled = !(supportKind && desc.length >= 3);
+    }
+
+    // CRITICAL: window.open() must be the synchronous result of this click.
+    // No await, no .then(), no alert() before it. This app has been bitten
+    // twice — once by a popup silently blocked after an await (fixed 2026-07-06),
+    // and once by an unresolved white-screen wedge in the iOS PWA whose working
+    // theory is window.alert() running in the handler's async chain after the
+    // handoff. Everything below is synchronous string work on local state.
+    function supportSend() {
+      var desc = (document.getElementById("supportDesc").value || "").trim();
+      if (!supportKind || desc.length < 3) { return; }
+      var route = SUPPORT_ROUTES[supportKind];
+      var ctx = supportCtx || { clientName: clientName || "—", tab: "", device: "", timestamp: "" };
+      var text = SUPPORT_MESSAGES[supportKind]
+        .split("{clientName}").join(ctx.clientName)
+        .split("{tab}").join(ctx.tab)
+        .split("{device}").join(ctx.device)
+        .split("{timestamp}").join(ctx.timestamp)
+        .split("{description}").join(desc);
+      window.open("https://wa.me/" + route.phone + "?text=" + encodeURIComponent(text), "_blank");
+      // After the handoff only. Deliberately no alert() on a null return: a
+      // blocked-popup alert here is the suspected cause of the white-screen
+      // wedge, and this is a SUPPORT button — the worst place to strand someone.
+      supportClose();
     }
 
     var PORTAL_DOCK_TABS = PORTAL_DOCK_ORDER.map(portalTabByKey);

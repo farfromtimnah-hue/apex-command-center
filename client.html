@@ -6196,7 +6196,8 @@
     // ── New session modal ──────────────────────────────────────────────────
 
     function openNewSessionModal() {
-      var today = new Date().toISOString().split("T")[0];
+      // Local calendar date: a UTC seed pre-fills tomorrow in the evening.
+      var today = localDateStr();
       document.getElementById("nsDate").value       = today;
       document.getElementById("nsTranscript").value = "";
       document.getElementById("nsStatus").textContent = "";
@@ -7379,7 +7380,10 @@
           if (task.due_date) {
             var dueEl = document.createElement("span");
             dueEl.className = "task-due";
-            var today = new Date().toISOString().split("T")[0];
+            // due_date is a local calendar date, so "is it overdue?" must
+            // compare against a local one — a UTC today marks tasks due today
+            // as overdue all evening.
+            var today = localDateStr();
             if (task.due_date < today && task.status !== "done") {
               dueEl.classList.add("is-overdue");
             }

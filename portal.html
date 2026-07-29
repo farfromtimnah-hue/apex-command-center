@@ -1441,7 +1441,13 @@
     var currentSectionIdx = 0;
     var formSections = [];        // applicable sections for this client
     var savedSections = {};       // sections state for currentEntryDate
-    var analyticsMonth = new Date().toISOString().slice(0, 7);
+    // Month shown on the Analytics tab. Seeded from todayStr() (LOCAL date),
+    // never toISOString() (UTC) — see the note on goalsMonth. This one has no
+    // server-side month to disagree with, so it fails quietly rather than
+    // loudly: on the evening of the last day of the month, west of UTC, it
+    // would open on NEXT month, showing that month's label and fetching its
+    // (empty) entries-summary instead of the month the client just finished.
+    var analyticsMonth = todayStr().slice(0, 7);
     var dayOffTargetDate = null;
     var auth = null;
     var goalState = null;         // from /goal-state (gate driver)

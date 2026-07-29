@@ -3563,7 +3563,11 @@
     // "nothing captured yet" for something that hasn't happened.
     function isPastEvent(session) {
       if (!session.date) { return false; }
-      var todayStr = new Date().toISOString().slice(0, 10);
+      // Local: this is compared against session.date (a local calendar date)
+      // and, below, against local getHours()/getMinutes(). A UTC today would
+      // mix clocks inside one comparison and call today's events "past" from
+      // 21:00 onward.
+      var todayStr = localDateStr();
       if (session.date < todayStr) { return true; }
       if (session.date > todayStr) { return false; }
       if (!session.time) { return true; } // today, all-day / no time -> treat as past once the day itself has data

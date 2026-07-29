@@ -3190,7 +3190,9 @@
       if (fields) { fields.hidden = !(cb && cb.checked); }
       if (cb && cb.checked) {
         if (startDateEl && !startDateEl.value) {
-          startDateEl.value = new Date().toISOString().slice(0, 10);
+          // Local calendar date, not toISOString() — a UTC seed defaults this
+          // input to TOMORROW during the local evening (see localDateStr).
+          startDateEl.value = localDateStr();
         }
         // Apex's default billing cadence: every 3 months (quarterly).
         if (intervalEl && !intervalEl.value) { intervalEl.value = 3; }
@@ -3625,7 +3627,7 @@
       if (!area) { return; }
       var d = fiscalData;
       var html = '<h1>Apex Business &amp; Leadership</h1>';
-      html += '<div class="print-sub">Resumo Anual para Impostos — ' + d.year + ' / Annual Tax Summary — ' + d.year + '<br>Gerado em / Generated: ' + new Date().toISOString().slice(0, 10) + ' &middot; Valores em USD. Sem imposto sobre vendas. / Amounts in USD. No sales tax.</div>';
+      html += '<div class="print-sub">Resumo Anual para Impostos — ' + d.year + ' / Annual Tax Summary — ' + d.year + '<br>Gerado em / Generated: ' + localDateStr() + ' &middot; Valores em USD. Sem imposto sobre vendas. / Amounts in USD. No sales tax.</div>';
       html += '<div class="print-gold-rule"></div>';
       html += '<table>';
       html += '<tr><th>Descricao / Description</th><th class="num">Valor / Amount</th></tr>';

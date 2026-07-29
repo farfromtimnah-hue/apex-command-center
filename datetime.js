@@ -4,6 +4,31 @@
 // value. Display only — stored data and outbound API payloads (D1, Google
 // Calendar, Zoho) stay ISO dates and 24-hour times.
 
+// ── Local calendar date / month ────────────────────────────────────────────
+// TODAY, on the viewer's own calendar, as "YYYY-MM-DD".
+//
+// Use these ANY time you need a local calendar date or month — a month-picker
+// seed, a date-input default, an overdue comparison, a "generated on" stamp.
+// NEVER `new Date().toISOString().slice(0, 10)` for that purpose:
+// toISOString() is UTC, so west of UTC it rolls to tomorrow's date during the
+// local evening. In Brazil (UTC-3) that is every day from 21:00; on the last
+// day of a month it also rolls the MONTH. The failure is invisible for most of
+// the month and shows up only late on the final day — it will not appear in
+// casual testing. See rule 23 in knowledge/claude-code-universal-rules.md;
+// this exact bug has shipped three times.
+//
+// For a real UTC instant (a stored timestamp, an outbound API payload)
+// toISOString() is correct — keep using it there.
+function localDateStr(d) {
+  var x = d || new Date();
+  return x.getFullYear() + "-" +
+    String(x.getMonth() + 1).padStart(2, "0") + "-" +
+    String(x.getDate()).padStart(2, "0");
+}
+
+// This month, on the viewer's own calendar, as "YYYY-MM".
+function localMonthStr(d) { return localDateStr(d).slice(0, 7); }
+
 // "2026-07-26" -> "07/26/2026". Also accepts a full ISO datetime and
 // formats its date portion. Empty -> "—"; unparseable -> input unchanged.
 function formatDate(str) {

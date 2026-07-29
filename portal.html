@@ -305,6 +305,22 @@
     }
     .portal-tab.active { background: var(--header); color: var(--gold); border-color: var(--header); }
 
+    /* On a phone the pill strip and #mobile-tab-bar were both on screen doing
+       the same job, and the strip scrolls horizontally — so most destinations
+       were off-screen on load, which is exactly the anti-pattern the bottom
+       dock exists to avoid. Below 769px (mobile.css's breakpoint for the dock,
+       kept in sync deliberately) the dock is the sole navigation.
+
+       The CONTAINER is hidden, never the buttons: refreshAssignedEntryPoint()
+       sets .hidden on tabBtnAssigned/assignedTabDot, applyPortalShape()
+       iterates .portal-tab for the lead shape, and switchTab() toggles .active
+       across them. Removing the markup would break all three. Everything in
+       the strip is reachable from the dock — its 4 tabs plus "Mais", including
+       the lead's locked-preview list that portalLeadMoreBtn opens on desktop. */
+    @media (max-width: 768px) {
+      .portal-tabs { display: none; }
+    }
+
     /* Next meeting */
     .meeting-card {
       display: flex; align-items: center; justify-content: space-between;

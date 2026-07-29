@@ -1129,22 +1129,48 @@
         </div>
       </div>
 
+      <!-- Ritmo: the daily log and the monthly goals, in that order. The daily
+           log is the frequent action and sits on top, always expanded. The
+           goals sit below, collapsible but expanded by default — "you can't hit
+           a target you can't see" (Nicole), so the month's numbers must be on
+           screen when the tab opens, not behind a tap. Tab id stays `goals`
+           everywhere in code; only the visible label is Ritmo/Pace. -->
       <div id="tabGoals" hidden>
         <div class="content-card">
           <div class="card-title">
-            <span class="show-pt">Suas metas mensais</span>
-            <span class="show-en">Your monthly goals</span>
+            <span class="show-pt">Registro di&aacute;rio</span>
+            <span class="show-en">Daily Log</span>
           </div>
-          <div class="month-nav">
-            <button onclick="changeGoalsMonth(-1)">&lsaquo;</button>
-            <div class="month-label" id="goalsMonthLabel"></div>
-            <button onclick="changeGoalsMonth(1)">&rsaquo;</button>
-          </div>
-          <div id="goalsTabBody"></div>
-          <button class="btn-gold" id="btnEditGoalsMonth" style="width:100%;margin-top:14px;" onclick="startGoalsFromTab()">
-            <span class="show-pt">Definir / editar metas deste m&ecirc;s</span>
-            <span class="show-en">Set / edit this month's goals</span>
+          <div id="dailyLogTabBody"></div>
+        </div>
+
+        <div class="content-card">
+          <button class="kpi-section-head" id="goalsCollapseBtn" onclick="toggleGoalsSection()"
+                  aria-expanded="true" aria-controls="goalsSectionBody" style="margin:0;">
+            <div class="card-title" style="margin:0;">
+              <span class="show-pt">Suas metas mensais</span>
+              <span class="show-en">Your monthly goals</span>
+            </div>
+            <span class="section-head-right">
+              <span class="section-chevron" id="goalsCollapseChevron">&#9650;</span>
+            </span>
           </button>
+          <div id="goalsSectionBody" style="margin-top:12px;">
+            <div class="month-nav">
+              <button onclick="changeGoalsMonth(-1)">&lsaquo;</button>
+              <div class="month-label" id="goalsMonthLabel"></div>
+              <button onclick="changeGoalsMonth(1)">&rsaquo;</button>
+            </div>
+            <div id="goalsTabBody"></div>
+            <!-- Next month has no goals and the month is nearly over: surface it
+                 here rather than showing only the current month and letting the
+                 1st arrive ungoaled. Same daysLeftInMonth() rule as the soft gate. -->
+            <div id="nextMonthGoalRow" hidden></div>
+            <button class="btn-gold" id="btnEditGoalsMonth" style="width:100%;margin-top:14px;" onclick="startGoalsFromTab()">
+              <span class="show-pt">Definir / editar metas deste m&ecirc;s</span>
+              <span class="show-en">Set / edit this month's goals</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2474,7 +2500,95 @@
       loadGoalsTab();
     }
 
+    // ── Ritmo tab: daily-log section (top, always expanded) ──
+    // Renders the CURRENT state of the daily log and hands off to the existing
+    // views — showEntryHome() for a backlog, entryStartFromBoot() for today.
+    // There is deliberately no second entry form here.
+    function loadDailyLogSection() {
+      var body = document.getElementById("dailyLogTabBody");
+      if (!body) { return; }
+      var pending = (entryState && entryState.pending) || [];
+      if (!pending.length) {
+        body.innerHTML = '<p class="muted" style="margin:0;">' +
+          (isEn() ? "All caught up — no pending days. ✔" : "Tudo em dia — nenhum dia pendente. ✔") + '</p>';
+        return;
+      }
+      var today = null;
+      pending.forEach(function(p) { if (p.is_today) { today = p; } });
+      var missed = pending.length - (today ? 1 : 0);
+
+      var lines = "";
+      if (today) {
+        lines += '<div class="goal-row"><span>' +
+          '<span class="show-pt">Hoje</span><span class="show-en">Today</span>' +
+          '</span><span><strong>' + escHtml(formatDate(today.date)) + '</strong></span></div>';
+      }
+      if (missed > 0) {
+        lines += '<div class="goal-row"><span>' +
+          '<span class="show-pt">Dias em atraso</span><span class="show-en">Days behind</span>' +
+          '</span><span><span class="goal-pending-badge">' + missed + '</span></span></div>';
+      }
+      // One pending day goes straight into that day's form; several go to the
+      // backlog screen where each day can be filled or marked as a day off.
+      var single = pending.length === 1;
+      body.innerHTML = lines +
+        '<button class="btn-gold" style="width:100%;margin-top:14px;" onclick="' +
+        (single ? "entryStartFromBoot()" : "showEntryHome()") + '">' +
+        (single
+          ? '<span class="show-pt">Preencher hoje</span><span class="show-en">Fill in today</span>'
+          : '<span class="show-pt">Preencher dias pendentes</span><span class="show-en">Fill in pending days</span>') +
+        '</button>';
+    }
+
+    // ── Ritmo tab: goals collapse state ──
+    // A preference, not a session thing, so localStorage and keyed per client
+    // (two clients sharing a browser must not inherit each other's choice).
+    // Default is EXPANDED — the month's numbers are the point of the section.
+    function goalsCollapseKey() { return "apex_goals_collapsed_" + clientId; }
+    function applyGoalsCollapse() {
+      var collapsed = false;
+      try { collapsed = localStorage.getItem(goalsCollapseKey()) === "1"; } catch (e) {}
+      var body = document.getElementById("goalsSectionBody");
+      var btn = document.getElementById("goalsCollapseBtn");
+      var chev = document.getElementById("goalsCollapseChevron");
+      if (body) { body.hidden = collapsed; }
+      if (btn) { btn.setAttribute("aria-expanded", collapsed ? "false" : "true"); }
+      if (chev) { chev.innerHTML = collapsed ? "&#9660;" : "&#9650;"; }
+    }
+    function toggleGoalsSection() {
+      var collapsed = false;
+      try { collapsed = localStorage.getItem(goalsCollapseKey()) === "1"; } catch (e) {}
+      try { localStorage.setItem(goalsCollapseKey(), collapsed ? "0" : "1"); } catch (e) {}
+      applyGoalsCollapse();
+    }
+
+    // Next month has no goals and this month is nearly over — a small row, not
+    // a gate. Only meaningful while looking at the current month.
+    function renderNextMonthGoalRow() {
+      var row = document.getElementById("nextMonthGoalRow");
+      if (!row) { return; }
+      var show = goalState && goalState.today && goalState.next_month &&
+        goalsMonth === goalState.current_month &&
+        !goalState.next_month_has_goals &&
+        daysLeftInMonth(goalState.today) < 8;
+      row.hidden = !show;
+      if (!show) { row.innerHTML = ""; return; }
+      var label = monthLabelText(goalState.next_month);
+      row.innerHTML = '<div class="goal-row">' +
+        '<span>' + escHtml(label) + ' &middot; ' +
+        '<span class="show-pt">sem metas</span><span class="show-en">no goals</span></span>' +
+        '<span><button class="btn-outline" style="padding:4px 12px;min-height:0;" onclick="startGoalsForNextMonth()">' +
+        '<span class="show-pt">Definir</span><span class="show-en">Set</span>' +
+        '</button></span></div>';
+    }
+    function startGoalsForNextMonth() {
+      startGoals(goalState.next_month, false, "tab");
+    }
+
     function loadGoalsTab() {
+      loadDailyLogSection();
+      applyGoalsCollapse();
+      renderNextMonthGoalRow();
       document.getElementById("goalsMonthLabel").textContent = monthLabelText(goalsMonth);
       var body = document.getElementById("goalsTabBody");
       body.innerHTML = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
@@ -2844,7 +2958,7 @@
     // are absent entirely rather than teased.
     var LOCKED_PREVIEWS = [
       { key: "analytics",  icon: "home",      labelPt: "Analytics",              labelEn: "Analytics" },
-      { key: "goals",      icon: "target",    labelPt: "Metas",                  labelEn: "Goals" },
+      { key: "goals",      icon: "target",    labelPt: "Ritmo",                  labelEn: "Pace" },
       { key: "gmcrm",      icon: "trend",     labelPt: "Vendas",                 labelEn: "Sales" },
       { key: "gmroadmap",  icon: "list",      labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
       { key: "gmbase",     icon: "star",      labelPt: "Base de Ouro",           labelEn: "Golden Base" },
@@ -2993,7 +3107,7 @@
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
       { tab: "gmbase",     icon: "star",         labelPt: "Base de Ouro", labelEn: "Golden Base" },
       { tab: "gmpartners", icon: "users",        labelPt: "Parceiros",    labelEn: "Partners" },
-      { tab: "goals",      icon: "target",       labelPt: "Metas",        labelEn: "Goals" },
+      { tab: "goals",      icon: "target",       labelPt: "Ritmo",        labelEn: "Pace" },
       { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",      labelEn: "Tasks" },
       { tab: "documents",  icon: "file",         labelPt: "Documentos",   labelEn: "Documents" },
       { tab: "invoices",   icon: "finance",      labelPt: "Faturas",      labelEn: "Invoices" },

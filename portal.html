@@ -992,7 +992,10 @@
         </button>
         <button class="portal-tab active" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
         <button class="portal-tab" data-tab="goals" onclick="switchTab('goals')">
-          <span class="show-pt">Metas</span><span class="show-en">Goals</span>
+          <span class="show-pt">Ritmo</span><span class="show-en">Pace</span>
+          <!-- Same dot component as Assigned, same owner: the daily log lost
+               its boot gate, so this is how a pending backlog is announced. -->
+          <span class="assigned-dot" id="goalsTabDot" hidden aria-hidden="true"></span>
         </button>
         <button class="portal-tab" data-tab="tasks" onclick="switchTab('tasks')">
           <span class="show-pt">Tarefas</span><span class="show-en">Tasks</span>
@@ -2209,7 +2212,7 @@
           return loadEntryState().catch(function() {});
         })
         .then(function() {
-          document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
+          refreshPendingAffordances();
           renderWorkSettings();
         })
         .catch(function(e) { err.textContent = e.message; });
@@ -2233,7 +2236,7 @@
           return loadEntryState().catch(function() {});
         })
         .then(function() {
-          document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
+          refreshPendingAffordances();
           loadWorkSettings();
         })
         .catch(function(e) { err.textContent = e.message; });
@@ -2247,21 +2250,21 @@
         .catch(function() { loadWorkSettings(); });
     }
 
-    // The pre-existing post-login behavior, unchanged.
+    // Post-login landing. Pending daily entries NO LONGER take over the screen
+    // (Rafa, 2026-07-28): a client with a backlog used to be dropped straight
+    // into entryStartFromBoot() with no escape at all, which is the first thing
+    // a prospect met on login. The daily log is now pulled, not pushed — the
+    // #pendingBanner on Analytics and the gold dot on the Ritmo tab are how a
+    // pending backlog announces itself. Only the one-time work-schedule setup
+    // still blocks: it is genuinely first-login-only and the daily log cannot
+    // compute pending days without it.
     function proceedToEntries() {
       // One-time schedule setup comes before the daily log ever renders.
       if (entryState && entryState.work_schedule_set === false && !PREVIEW_AS) {
         showScheduleSetup();
         return;
       }
-      var pending = (entryState && entryState.pending) || [];
-      if (pending.length === 1) {
-        entryStartFromBoot();
-      } else if (pending.length > 1) {
-        showEntryHome();
-      } else {
-        showPortal();
-      }
+      showPortal();
     }
 
     // ── Soft gate ──
@@ -2502,9 +2505,31 @@
       refreshAssignedEntryPoint();
     }
 
+    // True when the daily log has days waiting to be filled. Single source of
+    // truth for every "you have a backlog" affordance — the Analytics banner,
+    // the desktop Ritmo dot and the dock's Ritmo dot all read this, so they
+    // cannot disagree.
+    function anyPendingEntries() {
+      return !!(entryState && entryState.pending && entryState.pending.length);
+    }
+
+    // Re-render every "you have a pending backlog" affordance from entryState.
+    // Call this after anything that can change the pending set (a saved entry,
+    // a day-off, a schedule or blocked-range edit) — it replaces the three
+    // hand-rolled #pendingBanner assignments that existed before, which each
+    // knew about the banner and nothing about the dots.
+    function refreshPendingAffordances() {
+      var banner = document.getElementById("pendingBanner");
+      if (banner) { banner.hidden = !anyPendingEntries(); }
+      var gdot = document.getElementById("goalsTabDot");
+      if (gdot) { gdot.hidden = !anyPendingEntries(); }
+      populateMobileDock();
+    }
+
     // Single owner of the Assigned tab button's visibility + badge, for leads
-    // and clients alike. Called from applyPortalShape() and from the existing
-    // loadAssessmentList() refresh cycle — no second polling mechanism.
+    // and clients alike, and of the Ritmo tab's pending-entries dot. Called
+    // from applyPortalShape() and from the existing loadAssessmentList()
+    // refresh cycle — no second polling mechanism.
     function refreshAssignedEntryPoint() {
       var on = anyIncompleteAssigned();
       var btn = document.getElementById("tabBtnAssigned");
@@ -2513,12 +2538,14 @@
       if (btn) { btn.hidden = !on; }
       var dot = document.getElementById("assignedTabDot");
       if (dot) { dot.hidden = !on; }
+      var gdot = document.getElementById("goalsTabDot");
+      if (gdot) { gdot.hidden = !anyPendingEntries(); }
       populateMobileDock();
     }
 
     function showPortal() {
       document.getElementById("portalClientName").textContent = clientName;
-      document.getElementById("pendingBanner").hidden = !(entryState && entryState.pending && entryState.pending.length);
+      refreshPendingAffordances();
       loadPortalLogo();
       loadNextMeeting();
       applyPortalShape();
@@ -2991,9 +3018,12 @@
       var html = "";
       portalDockTabs().forEach(function(t) {
         html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
+        // Dots are state-derived, same rule as the desktop strip: Assigned dots
+        // on an incomplete assessment, Ritmo dots on a pending daily backlog.
+        var dot = (t.tab === "assigned" && anyIncompleteAssigned()) ||
+                  (t.tab === "goals" && anyPendingEntries());
         html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) +
-          (t.tab === "assigned" && anyIncompleteAssigned()
-            ? '<span class="m-tab-dot" aria-hidden="true"></span>' : '') + '</span>';
+          (dot ? '<span class="m-tab-dot" aria-hidden="true"></span>' : '') + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
         html += '</button>';
       });

@@ -130,6 +130,14 @@
   padding: 9px 13px;
 }
 
+/* ── Pipeline create menu (the FAB's three-way sheet) ─────────────────── */
+.gm-create-menu { display: flex; flex-direction: column; gap: 10px; }
+.gm-create-menu .gm-create-choice {
+  width: 100%;
+  min-height: 52px;
+  justify-content: center;
+}
+
 /* ── Quick-add FAB ────────────────────────────────────────────────────── */
 .gm-fab {
   position: fixed;

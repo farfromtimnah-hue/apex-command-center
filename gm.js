@@ -490,6 +490,40 @@ function gmLoadPipeline() {
   if (gmPipelineSection === "base")     { gmLoadBase(); }
 }
 
+// The FAB, emitted by all three sub-section renderers so it does not vanish
+// when the user switches pills.
+//
+// On Leads it goes STRAIGHT to gmQuickAddOpen() with no menu. gmQuickAddOpen()
+// exists so a lead can be captured in ten seconds from a truck, and putting a
+// chooser in front of it would cost every single lead capture an extra tap.
+// The three-way sheet appears only on Parceiros and Base de Ouro, where
+// creation is a deskbound, occasional act rather than a timed one. That is a
+// deliberate asymmetry: the speed of lead capture wins over menu consistency.
+function gmPipelineFabHtml() {
+  var onLeads = gmPipelineSection === "leads";
+  return '<button type="button" class="gm-fab" data-tour="crm-quick-add" aria-label="' +
+    (onLeads ? gmT("Adicionar lead", "Add lead") : gmT("Adicionar registro", "Add record")) +
+    '" onclick="' + (onLeads ? "gmQuickAddOpen()" : "gmPipelineCreateOpen()") + '">+</button>';
+}
+
+// Three-way create sheet. Shown only off the Leads section (see above).
+function gmPipelineCreateOpen() {
+  var opts = [
+    { fn: "gmQuickAddOpen()",  pt: "Novo lead",           en: "New lead" },
+    { fn: "gmOpenPartner(-1)", pt: "Novo parceiro",       en: "New partner" },
+    { fn: "gmOpenBase(-1)",    pt: "Novo cliente antigo", en: "New dormant customer" }
+  ];
+  var body = '<div class="gm-create-menu">';
+  opts.forEach(function(o) {
+    // gmSheetOpen replaces any open sheet, so each target can be called
+    // directly — the create sheet is torn down as the target sheet opens.
+    body += '<button type="button" class="btn-outline gm-create-choice" onclick="' + o.fn + '">' +
+      gmT(o.pt, o.en) + '</button>';
+  });
+  body += '</div>';
+  gmSheetOpen(gmT("Criar", "Create"), body, "pipeline-create");
+}
+
 function gmLoadCrm() {
   gmCurrentTab = "gmcrm";   // the Pipeline container; section is gmPipelineSection
   var body = document.getElementById("gmCrmBody");
@@ -632,9 +666,7 @@ function gmRenderCrm() {
     html += '</div>';
   }
 
-  // Quick-add FAB: a lead must be capturable in ten seconds from a truck.
-  html += '<button type="button" class="gm-fab" data-tour="crm-quick-add" aria-label="' +
-    gmT("Adicionar lead", "Add lead") + '" onclick="gmQuickAddOpen()">+</button>';
+  html += gmPipelineFabHtml();
 
   body.innerHTML = html;
 }
@@ -1203,6 +1235,9 @@ function gmRenderBase() {
   }
   html += '<button type="button" class="btn-gold gm-add-btn" data-tour="base-ouro-add" onclick="gmOpenBase(-1)">' +
     gmT("+ Novo cliente antigo", "+ New dormant customer") + '</button></div>';
+  // This in-card button stays; the FAB is an additional, always-reachable
+  // entry point that can also create the other two record types.
+  html += gmPipelineFabHtml();
   body.innerHTML = html;
 }
 
@@ -1331,6 +1366,9 @@ function gmRenderPartners() {
   }
   html += '<button type="button" class="btn-gold gm-add-btn" data-tour="partners-add" onclick="gmOpenPartner(-1)">' +
     gmT("+ Novo parceiro", "+ New partner") + '</button></div>';
+  // This in-card button stays; the FAB is an additional, always-reachable
+  // entry point that can also create the other two record types.
+  html += gmPipelineFabHtml();
   body.innerHTML = html;
 }
 

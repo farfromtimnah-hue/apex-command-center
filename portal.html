@@ -1385,7 +1385,33 @@
       <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
       <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
 
-      <div id="tabWorksched" hidden><div id="workschedBody"></div></div>
+      <!-- Ajustes. The support card is STATIC markup outside #workschedBody on
+           purpose: renderWorkSettings() early-returns when workSettings is null,
+           and loadWorkSettings()'s .catch replaces workschedBody.innerHTML with
+           a "could not load" card. Both paths would erase a support entry point
+           built in there — i.e. it would vanish exactly when the API is broken
+           and the client most needs to report it. Sits after the body so the
+           settings a client came here to change stay first. -->
+      <div id="tabWorksched" hidden>
+        <div id="workschedBody"></div>
+        <div class="content-card">
+          <div class="card-title">
+            <span class="show-pt">Precisa de ajuda?</span>
+            <span class="show-en">Need help?</span>
+          </div>
+          <p class="muted" style="margin-bottom:12px;">
+            <span class="show-pt">Fale com a gente pelo WhatsApp. Escolha o tipo de problema e n&oacute;s direcionamos para a pessoa certa.</span>
+            <span class="show-en">Talk to us on WhatsApp. Choose the kind of problem and we'll route it to the right person.</span>
+          </p>
+          <!-- Same modal, same routing, same captured context as the hero pill.
+               One implementation — this is only a second door into it. -->
+          <button class="btn-outline" style="width:100%;min-height:48px;"
+                  onclick="supportOpen()" aria-haspopup="dialog">
+            <span class="show-pt">Falar com o suporte</span>
+            <span class="show-en">Contact support</span>
+          </button>
+        </div>
+      </div>
 
       <div id="tabXray" hidden>
         <div class="section-hero">

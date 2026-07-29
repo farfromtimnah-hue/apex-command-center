@@ -45,8 +45,12 @@ eval(slice("var SINGLE_PAGE_ASSESSMENTS = [", "function loadAssigned()") +
 // Dock + More-menu builders. They call isLead(); stub it as "client", which is
 // the role this whole change is about.
 globalThis.isLead = () => false;
-eval(slice("var PORTAL_DOCK_TABS = [", "function populateMobileDock()") +
-  "\n; Object.assign(globalThis, { PORTAL_DOCK_TABS, PORTAL_MORE_TABS," +
+// PORTAL_DOCK_TABS and PORTAL_MORE_TABS are now DERIVED from the canonical
+// PORTAL_TABS array rather than hand-listed, so the slice starts there.
+// Order itself is asserted by test-portal-tab-order.mjs; this file only cares
+// that Assigned's insertion keeps everything reachable.
+eval(slice("var PORTAL_TABS = [", "function populateMobileDock()") +
+  "\n; Object.assign(globalThis, { PORTAL_TABS, PORTAL_DOCK_TABS, PORTAL_MORE_TABS," +
   " ASSIGNED_DOCK_TAB, portalDockTabs, portalMoreTabs });");
 
 // The Documents "completed assessments" section builder.

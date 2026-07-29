@@ -1015,12 +1015,35 @@
           <span class="show-pt">Atribu&iacute;dos</span><span class="show-en">Assigned</span>
           <span class="assigned-dot" id="assignedTabDot" hidden aria-hidden="true"></span>
         </button>
+        <!-- Canonical order, matching PORTAL_TABS. Golden Base and Partners
+             feed the CRM, the CRM feeds Jobs, Jobs feeds Finances; Execution is
+             the playbook rather than scorecard data, so it follows the money.
+             scripts/test-portal-tab-order.mjs asserts this markup against
+             PORTAL_TABS so the strip cannot drift from the dock and "Mais". -->
         <button class="portal-tab active" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
         <button class="portal-tab" data-tab="goals" onclick="switchTab('goals')">
           <span class="show-pt">Ritmo</span><span class="show-en">Pace</span>
           <!-- Same dot component as Assigned, same owner: the daily log lost
                its boot gate, so this is how a pending backlog is announced. -->
           <span class="assigned-dot" id="goalsTabDot" hidden aria-hidden="true"></span>
+        </button>
+        <button class="portal-tab" data-tab="gmcrm" onclick="switchTab('gmcrm')">
+          <span class="show-pt">Vendas</span><span class="show-en">Sales</span>
+        </button>
+        <button class="portal-tab" data-tab="gmbase" onclick="switchTab('gmbase')">
+          <span class="show-pt">Base de Ouro</span><span class="show-en">Golden Base</span>
+        </button>
+        <button class="portal-tab" data-tab="gmpartners" onclick="switchTab('gmpartners')">
+          <span class="show-pt">Parceiros</span><span class="show-en">Partners</span>
+        </button>
+        <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
+          <span class="show-pt">Obras</span><span class="show-en">Jobs</span>
+        </button>
+        <button class="portal-tab" data-tab="gmfinance" onclick="switchTab('gmfinance')">
+          <span class="show-pt">Financeiro</span><span class="show-en">Finances</span>
+        </button>
+        <button class="portal-tab" data-tab="gmroadmap" onclick="switchTab('gmroadmap')">
+          <span class="show-pt">Execu&ccedil;&atilde;o</span><span class="show-en">Execution</span>
         </button>
         <button class="portal-tab" data-tab="tasks" onclick="switchTab('tasks')">
           <span class="show-pt">Tarefas</span><span class="show-en">Tasks</span>
@@ -1030,24 +1053,6 @@
         </button>
         <button class="portal-tab" data-tab="invoices" onclick="switchTab('invoices')">
           <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
-        </button>
-        <button class="portal-tab" data-tab="gmcrm" onclick="switchTab('gmcrm')">
-          <span class="show-pt">Vendas</span><span class="show-en">Sales</span>
-        </button>
-        <button class="portal-tab" data-tab="gmroadmap" onclick="switchTab('gmroadmap')">
-          <span class="show-pt">Execu&ccedil;&atilde;o</span><span class="show-en">Execution</span>
-        </button>
-        <button class="portal-tab" data-tab="gmbase" onclick="switchTab('gmbase')">
-          <span class="show-pt">Base de Ouro</span><span class="show-en">Golden Base</span>
-        </button>
-        <button class="portal-tab" data-tab="gmpartners" onclick="switchTab('gmpartners')">
-          <span class="show-pt">Parceiros</span><span class="show-en">Partners</span>
-        </button>
-        <button class="portal-tab" data-tab="gmfinance" onclick="switchTab('gmfinance')">
-          <span class="show-pt">Financeiro</span><span class="show-en">Finances</span>
-        </button>
-        <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
-          <span class="show-pt">Obras</span><span class="show-en">Jobs</span>
         </button>
         <!-- Per-assessment tab buttons. These are NEVER shown in the strip
              (or the More menu) any more, for leads or clients: seven of them
@@ -3113,22 +3118,61 @@
       switchTab("lockedpreview");
     }
 
-    var PORTAL_DOCK_TABS = [
-      { tab: "analytics", icon: "home",      labelPt: "Analytics",  labelEn: "Analytics" },
-      { tab: "gmcrm",     icon: "trend",     labelPt: "Vendas",     labelEn: "Sales" },
-      { tab: "gmfinance", icon: "finance",   labelPt: "Financeiro", labelEn: "Finances" },
-      { tab: "gmjobs",    icon: "briefcase", labelPt: "Obras",      labelEn: "Jobs" }
-    ];
-    var PORTAL_MORE_TABS = [
+    // ── Canonical tab order — ONE ordered list, three views ────────────────
+    // The desktop strip, the dock and the "Mais" overflow used to be three
+    // hand-maintained lists and they had drifted: Partners sat far from Sales,
+    // and Goals was stranded in the middle of the overflow.
+    //
+    // The order follows the data flow in the growth system, so the nav reads
+    // the way the business actually works: Golden Base and Partners feed the
+    // CRM, the CRM feeds Jobs, Jobs feeds Finances. Partner scores are computed
+    // FROM the CRM, not into it, which is why Partners sits before it rather
+    // than after. Execution is the playbook, not scorecard data, so it follows
+    // the money rather than sitting among it.
+    //
+    // Same "derive from one array" pattern as SINGLE_PAGE_ASSESSMENTS above:
+    // the dock takes the first PORTAL_DOCK_SIZE entries and "Mais" takes the
+    // remainder, so the three lists are structurally incapable of disagreeing.
+    // The desktop strip's markup is checked against this array by
+    // scripts/test-portal-tab-order.mjs.
+    //
+    // Assigned is deliberately NOT here: it is inserted dynamically, and only
+    // when something is actually assigned (see portalDockTabs).
+    var PORTAL_TABS = [
+      { tab: "analytics",  icon: "home",         labelPt: "Analytics",              labelEn: "Analytics" },
+      { tab: "goals",      icon: "target",       labelPt: "Ritmo",                  labelEn: "Pace" },
+      { tab: "gmcrm",      icon: "trend",        labelPt: "Vendas",                 labelEn: "Sales" },
+      { tab: "gmbase",     icon: "star",         labelPt: "Base de Ouro",           labelEn: "Golden Base" },
+      { tab: "gmpartners", icon: "users",        labelPt: "Parceiros",              labelEn: "Partners" },
+      { tab: "gmjobs",     icon: "briefcase",    labelPt: "Obras",                  labelEn: "Jobs" },
+      { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
-      { tab: "gmbase",     icon: "star",         labelPt: "Base de Ouro", labelEn: "Golden Base" },
-      { tab: "gmpartners", icon: "users",        labelPt: "Parceiros",    labelEn: "Partners" },
-      { tab: "goals",      icon: "target",       labelPt: "Ritmo",        labelEn: "Pace" },
-      { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",      labelEn: "Tasks" },
-      { tab: "documents",  icon: "file",         labelPt: "Documentos",   labelEn: "Documents" },
-      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",      labelEn: "Invoices" },
-      { tab: "worksched",  icon: "settings",     labelPt: "Ajustes",      labelEn: "Settings" }
+      { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",                labelEn: "Tasks" },
+      { tab: "documents",  icon: "file",         labelPt: "Documentos",             labelEn: "Documents" },
+      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",                labelEn: "Invoices" },
+      { tab: "worksched",  icon: "settings",     labelPt: "Ajustes",                labelEn: "Settings" }
     ];
+
+    // The bar holds 4 + "Mais" (MD3 / Apple HIG; Portuguese labels run ~30%
+    // longer than English). Ritmo is second: it is the highest-frequency action
+    // in the app, and it just lost the boot gate that used to force clients
+    // into it. Finances is pulled into the dock ahead of the strictly canonical
+    // 4th (Golden Base) because it is the number a client opens the portal to
+    // check; everything skipped stays one tap away under "Mais".
+    var PORTAL_DOCK_ORDER = ["analytics", "goals", "gmcrm", "gmfinance"];
+
+    function portalTabByKey(tab) {
+      for (var i = 0; i < PORTAL_TABS.length; i++) {
+        if (PORTAL_TABS[i].tab === tab) { return PORTAL_TABS[i]; }
+      }
+      return null;
+    }
+
+    var PORTAL_DOCK_TABS = PORTAL_DOCK_ORDER.map(portalTabByKey);
+    // Everything not docked, in canonical order — derived, never hand-listed.
+    var PORTAL_MORE_TABS = PORTAL_TABS.filter(function(t) {
+      return PORTAL_DOCK_ORDER.indexOf(t.tab) === -1;
+    });
 
     // A lead's dock: only the two real tabs. Everything else lives in "Mais"
     // as a locked teaser (see portalMoreTabs).
@@ -3165,17 +3209,18 @@
       // The per-assessment entries used to be appended here, one per assigned
       // type — up to seven, on top of the eight fixed ones, which is what made
       // this menu scroll. They are gone: Assigned is the one entry point, and
-      // it lives in the dock proper, not in the overflow. The only thing added
-      // back is whichever fixed dock tab Assigned displaced, so nothing
-      // becomes unreachable.
-      var more = PORTAL_MORE_TABS.slice();
+      // it lives in the dock proper, not in the overflow.
+      //
+      // Derived straight from PORTAL_TABS rather than patched: "Mais" is simply
+      // everything that is not currently docked, in canonical order. The old
+      // version push()ed a displaced dock tab onto the END, so when Assigned
+      // appeared and bumped the last dock tab, that tab landed after Settings
+      // regardless of how important it was. Filtering the canonical array puts
+      // it back where it belongs with no special case at all.
       var docked = portalDockTabs();
-      PORTAL_DOCK_TABS.forEach(function(t) {
-        var stillDocked = docked.some(function(d) { return d.tab === t.tab; });
-        var alreadyListed = more.some(function(m) { return m.tab === t.tab; });
-        if (!stillDocked && !alreadyListed) { more.push(t); }
+      return PORTAL_TABS.filter(function(t) {
+        return !docked.some(function(d) { return d.tab === t.tab; });
       });
-      return more;
     }
 
     function populateMobileDock() {

@@ -10876,15 +10876,35 @@ function assessmentScaleAccepts(catalog, v) {
 }
 
 // ---------------------------------------------------------------------------
-// Band cutoffs — the ONLY place these numbers live. Placeholder values
-// pending the consultant's real thresholds; everything downstream (portal,
-// report) keys off the computed labels, never off raw numbers.
+// Band cutoffs — the ONLY place these numbers live. Everything downstream
+// (portal, report) keys off the computed labels, never off raw numbers.
 //   maturity: pct >= alta → Alta; pct >= media → Média; else Baixa
 //   area:     pct >= bom → Bom; >= moderado → Moderado; >= atencao → Atenção;
 //             else Crítico
+//
+// MATURITY (confirmed): from Pr. Rafa's own scoring page for the Business
+// X-Ray, converted — not guessed — onto Apex's scale. Two differences had to
+// be reconciled:
+//   1. Ceiling: his page tops out at 42, ours at 62 questions. His bands are
+//      therefore read as proportions of his own ceiling, not as raw counts.
+//   2. Polarity: he scores 1 point per "não" (higher = worse); computeXrayScore
+//      scores 1 point per "sim" (higher = better). The inversion below is
+//      deliberate — a raw copy of his numbers would band every client
+//      backwards.
+//   His Good 0–18 = 0–43% of 42, Medium 19–31 = 45–74%, Urgent 29–42 = 69–100%.
+//   Inverted onto percentage-of-"sim": Alta ≥ 57, Média 26–56, Baixa < 26.
+//   (43%/74% land within rounding of the old 41/71 placeholders, which is why
+//   the ceiling difference is not a blocker.)
+//   CAVEAT: his source document contradicts itself — medium is 19–31 while
+//   urgent starts at 29, so 29/30/31 fall in both bands. This conversion reads
+//   medium as ending at 28. Revisit if Rafa ever clarifies that overlap.
+//
+// AREA (still placeholder): invented pending the consultant's real thresholds.
+// Rafa's page addresses the overall result only and says nothing about
+// per-area bands, so these remain unconfirmed.
 // ---------------------------------------------------------------------------
 var XRAY_CUTOFFS = {
-    maturity: { alta: 71, media: 41 },
+    maturity: { alta: 57, media: 26 },
     area:     { bom: 80, moderado: 60, atencao: 40 }
 };
 

@@ -157,6 +157,24 @@
   .gm-fab { bottom: calc(78px + env(safe-area-inset-bottom)); }
 }
 
+/* The menu variant of the FAB (Parceiros / Base de Ouro): same circle, same
+   size and position, but a small caret marks it as "opens a chooser" rather
+   than "fires immediately". Only the glyph changes — nothing about the
+   button's footprint does, so the two cannot be told apart by position and
+   a user never has to hunt for a moved control. */
+.gm-fab-menu {
+  /* The "+" plus caret is wider than a lone "+", so pull the pair in a little
+     and let them sit as one unit rather than stretching the circle. */
+  font-size: 26px;
+  gap: 1px;
+}
+.gm-fab-caret {
+  font-size: 13px;
+  line-height: 1;
+  /* Optically centered against the "+" rather than baseline-aligned. */
+  margin-top: 3px;
+}
+
 /* ── Bottom sheets ────────────────────────────────────────────────────── */
 .gm-sheet-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;

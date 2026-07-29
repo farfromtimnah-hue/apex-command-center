@@ -61,6 +61,7 @@ globalThis.gmJobsData    = { jobs: [] };
 globalThis.gmPipelineSection = "partners";
 globalThis.gmPipelineFabHtml = () => "";
 
+
 // ── Load the real render code ─────────────────────────────────────────────
 eval(slice(js, "var GM_ICONS = {", "function gmOpenPartner(") +
   "\n; Object.assign(globalThis, { GM_ICONS, gmIcon, gmRenderPartners });");
@@ -148,6 +149,36 @@ t("a partner with no slug renders no referral block", gmPartnerReferralHtml(part
  ".gm-partner-group", ".gm-partner-row", ".gm-partner-row-icon", ".gm-partner-ref-btn"].forEach((sel) => {
   t("gm.css defines " + sel, css.includes(sel + " ") || css.includes(sel + ","), true);
 });
+
+// ── The FAB's two glyphs ────────────────────────────────────────────────
+// The split behavior (straight-to-quick-add on Leads, chooser elsewhere) is
+// only safe if the two buttons are visually distinguishable. An identical
+// "+" that sometimes fires instantly and sometimes opens a menu is the
+// actual hazard — not the split itself.
+{
+  const real = slice(js, "function gmPipelineFabHtml() {", "// Three-way create sheet.");
+  const run = (section) => {
+    const box = { gmT: (pt) => pt, section };
+    new Function("g",
+      "var gmT = g.gmT; var gmPipelineSection = g.section;" + real +
+      "\ng.out = gmPipelineFabHtml();")(box);
+    return box.out;
+  };
+  const leads = run("leads");
+  const menu = run("partners");
+  t("on Leads the FAB is a bare + (quick-add, no menu)", />\+<\/button>$/.test(leads), true);
+  t("the Leads FAB carries no menu class", /gm-fab-menu/.test(leads), false);
+  t("off Leads the FAB carries the gm-fab-menu class", /gm-fab-menu/.test(menu), true);
+  t("...and a caret glyph, so the two are not identical", /&#9662;/.test(menu), true);
+  t("...and aria-haspopup, so the affordance is not caret-only",
+    /aria-haspopup="menu"/.test(menu), true);
+  t("the two FAB variants render differently", leads !== menu, true);
+  t("both still route to their own handler",
+    [/gmQuickAddOpen\(\)/.test(leads), /gmPipelineCreateOpen\(\)/.test(menu)], [true, true]);
+  const fabCss = readFileSync(new URL("../gm.css", import.meta.url), "utf8");
+  t("gm.css styles the menu FAB and its caret",
+    [/\.gm-fab-menu\s*\{/.test(fabCss), /\.gm-fab-caret\s*\{/.test(fabCss)], [true, true]);
+}
 
 console.log(fails ? "\n" + fails + " FAILED" : "\nAll checks passed.");
 process.exit(fails ? 1 : 0);

@@ -499,11 +499,28 @@ function gmLoadPipeline() {
 // The three-way sheet appears only on Parceiros and Base de Ouro, where
 // creation is a deskbound, occasional act rather than a timed one. That is a
 // deliberate asymmetry: the speed of lead capture wins over menu consistency.
+// Two behaviors, so two glyphs — the previous version used a bare "+" for
+// both, which is the actual problem with the split: identical button, one
+// fires instantly and one opens a chooser, with nothing on screen to say
+// which. Leads keeps the bare "+" ("add a lead, right now"). The menu
+// version carries a small caret after it, the standard "this opens
+// something" affordance, so the two are distinguishable at a glance without
+// changing the FAB's size, color or position.
+//
+// The caret is &#9662; (▾), the same geometric-glyph family as the &#9650;
+// and &#9654; already shipping in portal.html — those render via system
+// fallback, since Google Fonts subsets Inter and these sit outside its Latin
+// range. Proven in production here, unlike a novel codepoint would be.
 function gmPipelineFabHtml() {
   var onLeads = gmPipelineSection === "leads";
-  return '<button type="button" class="gm-fab" data-tour="crm-quick-add" aria-label="' +
-    (onLeads ? gmT("Adicionar lead", "Add lead") : gmT("Adicionar registro", "Add record")) +
-    '" onclick="' + (onLeads ? "gmQuickAddOpen()" : "gmPipelineCreateOpen()") + '">+</button>';
+  return '<button type="button" class="gm-fab' + (onLeads ? "" : " gm-fab-menu") +
+    '" data-tour="crm-quick-add" aria-label="' +
+    (onLeads ? gmT("Adicionar lead", "Add lead")
+             : gmT("Adicionar registro", "Add record")) +
+    '"' + (onLeads ? "" : ' aria-haspopup="menu"') +
+    ' onclick="' + (onLeads ? "gmQuickAddOpen()" : "gmPipelineCreateOpen()") + '">' +
+    (onLeads ? "+" : '+<span class="gm-fab-caret" aria-hidden="true">&#9662;</span>') +
+    '</button>';
 }
 
 // Three-way create sheet. Shown only off the Leads section (see above).

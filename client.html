@@ -3281,9 +3281,20 @@
 
     function deactivateAssessment(type) {
       var isEnLang = document.body.classList.contains("lang-en");
+      // Deactivating is destructive, not just an un-assign: the server deletes
+      // every answer the client already saved, and a completed assessment takes
+      // its report with it. Spell that out — "are you sure?" would not.
       var msg = isEnLang
-        ? "Deactivate this assessment? Saved answers will be deleted."
-        : "Desativar esta avaliação? As respostas salvas serão apagadas.";
+        ? "Deactivate this assessment?\n\n" +
+          "Every answer the client has already saved will be DELETED. " +
+          "This cannot be undone.\n\n" +
+          "If the client has already finished it, the completed assessment and " +
+          "its report are deleted too."
+        : "Desativar esta avaliação?\n\n" +
+          "Todas as respostas que o cliente já salvou serão APAGADAS. " +
+          "Isso não pode ser desfeito.\n\n" +
+          "Se o cliente já tiver concluído, a avaliação concluída e o " +
+          "relatório dela também serão apagados.";
       if (!window.confirm(msg)) { return; }
       apiFetch("/api/clients/" + CLIENT_ID + "/assessments/" + type, { method: "DELETE" })
         .then(function(res) { return res.json(); })

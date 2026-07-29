@@ -1913,7 +1913,15 @@
     // indicator whether it's a direct approved write (first-time / unchanged)
     // or a pending proposal (edit of an approved goal).
 
-    var goalsMonth = new Date().toISOString().slice(0, 7);   // month shown in the Metas tab
+    // Month shown in the Metas tab. Derived from todayStr() (LOCAL date), not
+    // toISOString() (UTC). Those two disagree for the last hours of every month
+    // west of UTC — in Brazil (UTC-3) any evening after 21:00 on the last day
+    // rolled this to the NEXT month while goal-state's current_month, computed
+    // from the todayStr() we send it, stayed on the current one. That skew
+    // silently suppressed renderNextMonthGoalRow()'s
+    // `goalsMonth === goalState.current_month` guard at exactly the time of
+    // month the row exists to fire.
+    var goalsMonth = todayStr().slice(0, 7);   // month shown in the Metas tab
     var goalsFormMonth = null;    // month being edited in viewGoals
     var goalsFormConfig = null;   // field-config for goalsFormMonth
     var goalsFormSections = [];

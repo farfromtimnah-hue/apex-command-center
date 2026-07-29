@@ -36,6 +36,11 @@ eval(slice("var PORTAL_TABS = [", "function populateMobileDock()") +
 const CANONICAL = ["analytics", "goals", "gmcrm", "gmjobs", "gmfinance",
                    "gmroadmap", "tasks", "documents", "invoices", "worksched"];
 
+// The Apex-owned group: the client's relationship with Apex rather than tools
+// for running their own business. The More menu draws a hairline before the
+// first of these.
+const APEX_OWNED = ["tasks", "documents", "invoices"];
+
 eq(PORTAL_TABS.map(t => t.tab), CANONICAL, "PORTAL_TABS is in canonical order");
 ok(!PORTAL_TABS.some(t => t.tab === "assigned"),
    "Assigned is NOT in PORTAL_TABS (it is inserted dynamically)");
@@ -80,6 +85,15 @@ eq(portalMoreTabs().map(t => t.tab),
    ["gmjobs", "gmroadmap", "tasks", "documents", "invoices", "worksched"],
    "More is everything undocked, in canonical order");
 
+// ---- the Apex-owned divider ----
+eq(PORTAL_TABS.filter(t => t.apexOwned).map(t => t.tab), APEX_OWNED,
+   "exactly Tasks / Documents / Invoices carry the apexOwned flag");
+// The three must be CONTIGUOUS and last-but-Settings in the canonical order,
+// or a single divider could not express the grouping at all.
+const ownedIdx = APEX_OWNED.map(t => CANONICAL.indexOf(t));
+ok(ownedIdx.every((v, i) => i === 0 || v === ownedIdx[i - 1] + 1),
+   "the Apex-owned tabs are contiguous in the canonical order");
+
 // ---- the displaced-tab bug ----
 // With Assigned shown, the last dock tab yields its slot. It must reappear at
 // its CANONICAL position in More, not appended after Settings.
@@ -95,6 +109,27 @@ eq(moreNow, ["gmjobs", "gmfinance", "gmroadmap", "tasks",
              "documents", "invoices", "worksched"],
    "More stays in canonical order once a tab is displaced");
 ok(moreNow[moreNow.length - 1] === "worksched", "Settings is still last in More");
+
+// The divider is derived from the flag, never a fixed index. With Assigned
+// shown, a displaced dock tab (Finances) lands mid-list — the line must still
+// sit at the true group boundary, immediately before Tasks.
+const dividerIndex = (list) => {
+  for (let i = 0; i < list.length; i++) if (list[i].apexOwned) return i;
+  return -1;
+};
+const dNow = dividerIndex(portalMoreTabs());
+eq(moreNow[dNow], "tasks",
+   "with a displaced tab in the list, the divider still sits immediately before Tasks");
+ok(moreNow.slice(0, dNow).every(t => !APEX_OWNED.includes(t)),
+   "nothing above the divider is Apex-owned");
+ok(moreNow.slice(dNow).filter(t => t !== "worksched").every(t => APEX_OWNED.includes(t)),
+   "everything below the divider is Apex-owned (Settings excepted — it is last by rule)");
+
+globalThis.anyIncompleteAssigned = () => false;
+const dPlain = dividerIndex(portalMoreTabs());
+eq(portalMoreTabs()[dPlain].tab, "tasks",
+   "without a displaced tab the divider also sits immediately before Tasks");
+globalThis.anyIncompleteAssigned = () => true;
 
 // Nothing may become unreachable: every canonical tab is in the dock or More.
 const reachable = new Set([...dockedNow, ...moreNow]);

@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1785298365">
+  <link rel="stylesheet" href="gm.css?v=1785298270">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -747,6 +747,17 @@
       }
     }
 
+    /* Separates the Apex-owned group (Tarefas / Documentos / Faturas) from the
+       tools a client runs their own business with. A line only — no heading,
+       no label. Same hairline token the .mm-item borders already use, so no
+       new colour enters the palette. Declared outside the media queries
+       because the More menu is used at BOTH breakpoints (mobile.css below
+       769px, the portal's own restyle above it). */
+    #mobile-more-menu .mm-divider {
+      height: 0;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      margin: 6px 2px;
+    }
   </style>
 </head>
 <body class="lang-pt">
@@ -3182,9 +3193,16 @@
       { tab: "gmjobs",     icon: "briefcase",    labelPt: "Obras",                  labelEn: "Jobs" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
-      { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",                labelEn: "Tasks" },
-      { tab: "documents",  icon: "file",         labelPt: "Documentos",             labelEn: "Documents" },
-      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",                labelEn: "Invoices" },
+      // apexOwned: the client's relationship with APEX rather than a tool for
+      // running their own business — the invoice they owe *us*, the documents
+      // *we* exchange, the tasks *we* set. Sitting undifferentiated in one
+      // list, "Faturas" read as though Apex were selling them an invoicing
+      // product. The More menu draws a hairline before the FIRST entry
+      // carrying this flag, so the line follows the canonical order instead of
+      // living at a hardcoded index that a future reorder could strand.
+      { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",                labelEn: "Tasks",      apexOwned: true },
+      { tab: "documents",  icon: "file",         labelPt: "Documentos",             labelEn: "Documents",  apexOwned: true },
+      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",                labelEn: "Invoices",   apexOwned: true },
       { tab: "worksched",  icon: "settings",     labelPt: "Ajustes",                labelEn: "Settings" }
     ];
 
@@ -3287,7 +3305,20 @@
           '<span class="mm-title"><span class="show-pt">Mais</span><span class="show-en">More</span></span>' +
           '<button type="button" class="mm-close" onclick="portalMoreToggle()" aria-label="Fechar">&times;</button>' +
           '</div><nav class="mm-list">';
-        portalMoreTabs().forEach(function(t) {
+        // A hairline before the Apex-owned group (Tarefas / Documentos /
+        // Faturas). A line only — no heading, no label. Its position is derived
+        // from the apexOwned flag on the rendered list, not from a fixed index,
+        // so if a dock-displaced tab lands between the groups the divider still
+        // sits at the true boundary. Drawn before the FIRST flagged entry that
+        // is actually rendered, so it never appears when the whole group is
+        // docked or absent (a lead's menu carries no flagged entries at all).
+        var moreTabs = portalMoreTabs();
+        var dividerAt = -1;
+        for (var mi = 0; mi < moreTabs.length; mi++) {
+          if (moreTabs[mi].apexOwned) { dividerAt = mi; break; }
+        }
+        moreTabs.forEach(function(t, idx) {
+          if (idx === dividerAt) { menuHtml += '<div class="mm-divider" role="separator"></div>'; }
           menuHtml += '<button type="button" class="mm-item"' + (t.locked ? ' style="opacity:0.6;"' : '') +
             ' onclick="portalMoreGo(\'' + t.tab + '\',' + (t.locked ? "true" : "false") + ')">';
           menuHtml += '<span class="mm-item-ico">' + window.apexNavSvg(t.icon) + '</span>';
@@ -5511,7 +5542,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785298365"></script>
+  <script src="gm.js?v=1785298270"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

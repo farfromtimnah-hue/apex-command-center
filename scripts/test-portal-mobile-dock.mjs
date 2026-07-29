@@ -89,15 +89,45 @@ const listed = LOCKED_PREVIEWS.filter(p => leadMenu.includes(`portalMoreGo('${p.
 ok(listed.length === LOCKED_PREVIEWS.length,
    `lead's Mais lists all ${LOCKED_PREVIEWS.length} locked previews (found ${listed.length})`);
 ok(/Ritmo/.test(leadMenu), "the lead's locked-preview list shows Ritmo, not Metas");
-// The merged tab no longer offers Golden Base / Partners as menu entries.
+// A lead's menu is all locked teasers — none carry apexOwned, so no stray
+// hairline should be drawn in it.
+ok(!/mm-divider/.test(leadMenu), "no divider in the lead's Mais (nothing there is Apex-owned)");
+
+// ---------- 4. the Apex-owned divider renders, once, in the right place ----------
 globalThis.isLead = () => false;
 globalThis.xrayAssigned = false;
 globalThis.xrayStatus = null;
 populateMobileDock();
 const menu = els["mobile-more-menu"].innerHTML;
+ok((menu.match(/mm-divider/g) || []).length === 1, "exactly one divider is rendered in Mais");
+// A line only: no heading, no label text inside it.
+ok(/<div class="mm-divider" role="separator"><\/div>/.test(menu),
+   "the divider is an empty hairline — no heading, no label");
+// It must sit immediately before the first Apex-owned item (Tarefas).
+const beforeDivider = menu.slice(0, menu.indexOf("mm-divider"));
+const afterDivider = menu.slice(menu.indexOf("mm-divider"));
+ok(!/portalMoreGo\('tasks'/.test(beforeDivider), "Tarefas is below the divider");
+ok(!/portalMoreGo\('documents'/.test(beforeDivider), "Documentos is below the divider");
+ok(!/portalMoreGo\('invoices'/.test(beforeDivider), "Faturas is below the divider");
+ok(/portalMoreGo\('gmjobs'/.test(beforeDivider), "Obras is above the divider");
+ok(/portalMoreGo\('gmroadmap'/.test(beforeDivider), "Execucao is above the divider");
+ok(/portalMoreGo\('tasks'/.test(afterDivider), "…and Tarefas is the first item after it");
+// The merged tab no longer offers Golden Base / Partners as menu entries.
 ok(!/portalMoreGo\('gmbase'/.test(menu) && !/portalMoreGo\('gmpartners'/.test(menu),
    "Golden Base and Partners are gone from Mais (they are Pipeline sub-sections)");
 ok(/Pipeline/.test(els["mobile-tab-bar"].innerHTML), "the dock label reads Pipeline");
+
+// With a displaced tab in the list the line must still sit at the boundary.
+globalThis.xrayAssigned = true;
+globalThis.xrayStatus = "in_progress";
+populateMobileDock();
+const menu2 = els["mobile-more-menu"].innerHTML;
+ok((menu2.match(/mm-divider/g) || []).length === 1,
+   "still exactly one divider once Assigned displaces a dock tab");
+const before2 = menu2.slice(0, menu2.indexOf("mm-divider"));
+ok(/portalMoreGo\('gmfinance'/.test(before2),
+   "the displaced tab (Financeiro) sits ABOVE the divider, at the true group boundary");
+ok(!/portalMoreGo\('tasks'/.test(before2), "Tarefas is still below the divider");
 
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ ALL PASS");
 process.exit(fail ? 1 : 0);

@@ -217,6 +217,10 @@
   font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
   border: none; cursor: pointer;
 }
+/* gmIcon() emits a viewBox-only <svg> with no width/height. Without an
+   explicit size here it stretches to fill the flex button (~200px) and
+   pushes the label off the edge. Matches the other icon treatments. */
+.gm-contact-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 .gm-contact-btn.gm-call { background: var(--header); color: #fff; }
 .gm-contact-btn.gm-wa   { background: #1faa53; color: #fff; }
 .gm-contact-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }

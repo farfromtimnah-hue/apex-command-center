@@ -7279,14 +7279,16 @@ async function handleGetReconciliationCategoryTotals(request, env) {
 // Route: GET /api/clients/:id/invoices
 // Returns that client's invoices split into unpaid and paid arrays,
 // matched via the client's zoho_customer_id.
-// Auth: alice / rafa / developer only.
+// Auth: admins for any client; a client for their own record only
+// (requireClientAccess — same contract as handleGetGoalState). The portal
+// "Faturas" tab is a client-facing read, so the client branch is required.
 // ---------------------------------------------------------------------------
 
 async function handleGetClientInvoices(clientId, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
 
         var clientRow = await env.DB.prepare(
             "SELECT id, name, zoho_customer_id FROM clients WHERE id = ?"

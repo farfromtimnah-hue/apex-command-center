@@ -914,6 +914,15 @@
           <span class="show-en">Continue &rarr;</span>
         </button>
       </div>
+      <!-- Hard-gate escape. Shown ONLY when the form is the boot gate (see
+           renderGoalsSection); worded like the soft prompt's "Later" so the two
+           read as the same choice. Skipping is remembered for the calendar day. -->
+      <div id="goalsSkipRow" hidden style="margin-top:12px;">
+        <button class="btn-outline" style="width:100%;" onclick="skipGoalsHard()">
+          <span class="show-pt">Deixar para depois</span>
+          <span class="show-en">Later</span>
+        </button>
+      </div>
     </section>
 
     <!-- ══ Soft gate: next month's goals prompt (skippable) ══ -->
@@ -1914,8 +1923,11 @@
         switchTab(xrayOpen() ? "xray" : firstSpa);
         return;
       }
-      if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals)) {
-        // Hard gate: no goals at all, or none set for the current month.
+      if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals) &&
+          !goalHardSkipped()) {
+        // Hard gate: no goals at all, or none set for the current month. Still
+        // shown first, but it is skippable now (see skipGoalsHard) — the form
+        // is long and this used to be a wall on the 1st of every month.
         startGoals(goalState.current_month, true, "boot");
         return;
       }
@@ -2287,6 +2299,24 @@
       proceedToEntries();
     }
 
+    // ── Hard gate skip (current month has no goals) ──
+    // localStorage, not sessionStorage, and keyed by the calendar DAY rather
+    // than the month. The soft gate's sessionStorage key reappears on the very
+    // next login, which on a hard gate would leave a wall with a button on it —
+    // the client would face the long form again every time they open the
+    // portal. Day-scoped means "not again today", and the prompt returns
+    // tomorrow so the month does not silently go ungoaled.
+    function goalHardSkipKey() {
+      return "apex_goal_hard_skip_" + (goalState && goalState.today ? goalState.today : "");
+    }
+    function goalHardSkipped() {
+      try { return !!localStorage.getItem(goalHardSkipKey()); } catch (e) { return false; }
+    }
+    function skipGoalsHard() {
+      try { localStorage.setItem(goalHardSkipKey(), "1"); } catch (e) {}
+      showPortal();
+    }
+
     // ── Multi-step goals form ──
     function startGoals(month, hard, returnTo) {
       goalsFormMonth = month;
@@ -2356,6 +2386,12 @@
           '</div>';
       });
       document.getElementById("goalsTiles").innerHTML = html;
+
+      // The skip only exists on the boot gate. Reached from the Ritmo tab the
+      // form already has a way out (the dock / the strip), and offering "Later"
+      // there would be a second, confusing exit.
+      var skipRow = document.getElementById("goalsSkipRow");
+      if (skipRow) { skipRow.hidden = !(goalsFormHard && goalsReturnTo === "boot"); }
 
       document.getElementById("btnGoalsPrev").style.visibility = goalsFormIdx === 0 ? "hidden" : "visible";
       document.getElementById("btnGoalsNext").innerHTML = goalsFormIdx === goalsFormSections.length - 1

@@ -184,6 +184,42 @@ window.addEventListener("popstate", function() {
   }
 });
 
+// Escape closes the topmost open layer — registered once here rather than
+// wired per sheet, so anything opened later inherits it for free. gm.js is
+// shared by portal.html, client.html and clients.html, so each layer is
+// probed defensively: a page that lacks one simply falls through.
+//
+// Order matches the z-index stack, closing only ONE layer per press:
+//   .support-overlay (1100) → .gm-sheet-overlay (1000) → .modal-overlay (100)
+document.addEventListener("keydown", function(ev) {
+  if (ev.key !== "Escape" || ev.defaultPrevented) { return; }
+
+  // Support modal — highest layer. Its own overlay, closed via supportClose().
+  var support = document.getElementById("supportModal");
+  if (support && !support.hidden) {
+    if (typeof supportClose === "function") { supportClose(); }
+    else { support.hidden = true; }
+    ev.preventDefault();
+    return;
+  }
+
+  // GM bottom sheet. gmSheetClose() also unwinds the history entry it pushed,
+  // so Escape and the Back gesture leave identical state.
+  if (gmSheetEl) {
+    gmSheetClose();
+    ev.preventDefault();
+    return;
+  }
+
+  // Generic .modal-overlay boxes (day-off, and any future one). Last visible
+  // wins: later in document order sits on top when z-index ties.
+  var overlays = document.querySelectorAll(".modal-overlay:not([hidden])");
+  if (overlays.length) {
+    overlays[overlays.length - 1].hidden = true;
+    ev.preventDefault();
+  }
+});
+
 // ── Toast / snackbar ─────────────────────────────────────────────────────
 var gmToastEl = null, gmToastTimer = null, gmToastAction = null;
 

@@ -376,15 +376,39 @@
 .gm-sheet-row-sub { font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 1px; }
 
 /* Hero card: the two things asked first — what stage, and how much.
-   Deliberately NOT a row in the list; it is the sheet's headline. */
+   Deliberately NOT a row in the list; it is the sheet's headline.
+
+   Both halves are STACKED full-width buttons rather than a left/right split.
+   Advancing the stage is the most important action in the CRM and it used to
+   hide behind a bare pill that read as a status badge: no chevron, no hint,
+   no accessible name. Stacking gives each half the same full-width hit target
+   and same right-edge chevron as .gm-sheet-row, so the hero now announces
+   itself as tappable the way every other row on the sheet does. */
 .gm-sheet-hero {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: var(--card, #fff); border: 1px solid var(--border);
-  border-radius: 12px; padding: 13px 14px; margin-bottom: 18px;
+  border-radius: 12px; margin-bottom: 18px; overflow: hidden;
 }
-.gm-sheet-hero-left { min-width: 0; }
+.gm-sheet-hero-half {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 60px; padding: 12px 14px;
+  background: none; border: none; border-bottom: 1px solid var(--border);
+  font-family: 'Inter', sans-serif; text-align: left; color: var(--text);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gm-sheet-hero-half:last-child { border-bottom: none; }
+.gm-sheet-hero-body { flex: 1; min-width: 0; }
+.gm-sheet-hero-chev { color: var(--gold); flex-shrink: 0; display: flex; align-items: center; }
+.gm-sheet-hero-chev svg { width: 14px; height: 14px; }
+/* All spans, not divs: these live inside a <button>, which only accepts
+   phrasing content. display:block makes them stack — .gm-sheet-hero-body is
+   a plain block, so inline spans would all share one line. Same reason
+   gmSheetRowHtml builds its rows out of spans. */
+.gm-sheet-hero-pill, .gm-sheet-hero-age,
+.gm-sheet-hero-hint, .gm-sheet-hero-label,
+.gm-sheet-hero-value { display: block; }
+.gm-sheet-hero-pill { margin-top: 5px; }
 .gm-sheet-hero-age { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 5px; }
-.gm-sheet-hero-right { text-align: right; flex-shrink: 0; }
+.gm-sheet-hero-hint { font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 3px; }
 .gm-sheet-hero-label {
   font-size: 10px; font-weight: 700; color: var(--muted);
   letter-spacing: 0.06em; text-transform: uppercase;

@@ -1039,23 +1039,39 @@ function gmRenderLeadSheet() {
   var body = gmContactButtonsHtml(lead.telefone);
   body += gmContactMoreHtml(lead.telefone, lead.email);
 
-  // ── Hero: stage + days on the left, estimate value on the right ───────
+  // ── Hero: stage above, estimate value below ───────────────────────────
   // The two things asked first about any lead, given the sheet's headline
   // weight instead of being two more rows in a flat list.
+  //
+  // Both are full-width buttons carrying the chevron and hint that
+  // gmSheetRowHtml gives every other row. Advancing the stage is the single
+  // most important action in the CRM, and it previously hid behind a bare
+  // pill: it looked exactly like the read-only status badges used elsewhere,
+  // the hit target was the pill alone, and the button had no accessible name.
+  // The pill's colour coding is untouched — this only adds the affordance.
   var valor = gmLeadFieldDisplay(lead, byKey.valor.def);
   body += '<div class="gm-sheet-hero" data-tour="crm-lead-hero">' +
-    '<div class="gm-sheet-hero-left">' +
-      '<button type="button" style="background:none;border:none;padding:0;cursor:pointer;" ' +
-        'data-tour="crm-stage-change" onclick="gmOpenStagePicker()">' +
-        gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) + '</button>' +
-      (days !== null ? '<div class="gm-sheet-hero-age">' +
-        (isEn() ? days + " day(s) in this stage" : days + " dia(s) neste estágio") + '</div>' : "") +
-    '</div>' +
-    '<button type="button" class="gm-sheet-hero-right" style="background:none;border:none;cursor:pointer;" ' +
+    '<button type="button" class="gm-sheet-hero-half" data-tour="crm-stage-change" ' +
+      'aria-label="' + gmT("Mudar estágio", "Change stage") + '" onclick="gmOpenStagePicker()">' +
+      '<span class="gm-sheet-hero-body">' +
+        '<span class="gm-sheet-hero-label">' + gmT("Estágio", "Stage") + '</span>' +
+        '<span class="gm-sheet-hero-pill">' +
+        gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) + '</span>' +
+        (days !== null ? '<span class="gm-sheet-hero-age">' +
+          (isEn() ? days + " day(s) in this stage" : days + " dia(s) neste estágio") + '</span>' : "") +
+        '<span class="gm-sheet-hero-hint">' + gmT("Toque para mudar", "Tap to change") + '</span>' +
+      '</span>' +
+      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
+    '</button>' +
+    '<button type="button" class="gm-sheet-hero-half" ' +
+      'aria-label="' + gmT("Mudar valor estimado", "Change estimate value") + '" ' +
       'onclick="' + edit("valor") + '">' +
-      '<div class="gm-sheet-hero-label">' + gmT("Valor estimate", "Estimate value") + '</div>' +
-      '<div class="gm-sheet-hero-value' + (valor ? "" : " gm-empty") + '">' +
-      (valor || gmT("A definir", "Not set")) + '</div>' +
+      '<span class="gm-sheet-hero-body">' +
+        '<span class="gm-sheet-hero-label">' + gmT("Valor estimate", "Estimate value") + '</span>' +
+        '<span class="gm-sheet-hero-value' + (valor ? "" : " gm-empty") + '">' +
+        (valor || gmT("A definir", "Not set")) + '</span>' +
+      '</span>' +
+      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
     '</button></div>';
 
   // ── Next action ───────────────────────────────────────────────────────

@@ -9153,8 +9153,10 @@ function clientRequestAllowed(path, method, clientId) {
         if (method === "PUT" && /^assessments\/[a-z_]+\/answers$/.test(rest)) { return true; }
         // Growth Management — the client business's own data (their leads,
         // roadmap, dormant customers, partners, ledger, jobs). Full CRUD for
-        // the client's own client_id; PUT gm/config (list/threshold admin) is
-        // deliberately NOT here — only the consultancy configures lists.
+        // the client's own client_id. PUT gm/config is allowed, but the handler
+        // narrows a client to the four presentation lists (servicos, vendedores,
+        // partner_types, cycle_months) — finance_categories, target_margin and
+        // pipeline_view_threshold stay consultancy-only there.
         if (rest.indexOf("gm/") === 0) {
             var gmRest = rest.slice(3);
             if (method === "GET") {
@@ -9171,6 +9173,10 @@ function clientRequestAllowed(path, method, clientId) {
             }
             if (method === "PUT") {
                 if (gmRest === "config/view-mode") { return true; }
+                // The client's own referral/sheet lists. Their own record only —
+                // requireClientAccess in the handler enforces it, and the handler
+                // ignores the admin-only keys.
+                if (gmRest === "config") { return true; }
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
             if (method === "DELETE") {
@@ -12631,14 +12637,24 @@ async function handleGetGmConfig(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Route: PUT /api/clients/:id/gm/config — ADMIN ONLY (per-client lists/settings)
+// Route: PUT /api/clients/:id/gm/config — per-client lists/settings.
+//
+// Mixed gate. A client may write ONLY the four presentation lists for their
+// own client_id (servicos, vendedores, partner_types, cycle_months) — these
+// are theirs: their services are what their partners' customers see on the
+// public referral page, and the other three are optional rows on their own
+// sheets. Everything else stays admin-only: finance_categories drives the
+// Entrada/Saída derivation, and target_margin / pipeline_view_threshold are
+// consultancy settings. A client sending those is not an error — the keys are
+// simply ignored, so a client UI can PUT the whole config object safely.
 // ---------------------------------------------------------------------------
 
 async function handlePutGmConfig(id, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        var isAdmin = isAdminRole(user);
+        if (!isAdmin && !requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         await gmGetConfig(env, id);   // ensure the row exists
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
@@ -12650,17 +12666,24 @@ async function handlePutGmConfig(id, request, env) {
                 var s = gmStr(v[i], 80);
                 if (s) { out.push(s); }
             }
-            return out.length ? out : null;
+            return out;
         }
-        var servicos = listOfStrings(body.servicos);
-        if (servicos) { sets.push("servicos_json = ?"); binds.push(JSON.stringify(servicos)); }
-        var vendedores = listOfStrings(body.vendedores);
-        if (vendedores) { sets.push("vendedores_json = ?"); binds.push(JSON.stringify(vendedores)); }
-        var partnerTypes = listOfStrings(body.partner_types);
-        if (partnerTypes) { sets.push("partner_types_json = ?"); binds.push(JSON.stringify(partnerTypes)); }
-        var cycleMonths = listOfStrings(body.cycle_months);
-        if (cycleMonths) { sets.push("cycle_months_json = ?"); binds.push(JSON.stringify(cycleMonths)); }
-        if (Object.prototype.toString.call(body.finance_categories) === "[object Array]") {
+        // Key absent → leave the list alone. Key present but empty → clear it.
+        // Turning a list off IS the empty case, so an empty array must store []
+        // rather than being silently ignored (which used to return success and
+        // change nothing). Applies to admins too, which is the same intent.
+        function setList(key, column) {
+            if (typeof body[key] === "undefined") { return; }
+            var list = listOfStrings(body[key]);
+            if (list === null) { return; }   // present but not an array — ignore
+            sets.push(column + " = ?");
+            binds.push(JSON.stringify(list));
+        }
+        setList("servicos", "servicos_json");
+        setList("vendedores", "vendedores_json");
+        setList("partner_types", "partner_types_json");
+        setList("cycle_months", "cycle_months_json");
+        if (isAdmin && Object.prototype.toString.call(body.finance_categories) === "[object Array]") {
             var cats = [];
             for (var i = 0; i < body.finance_categories.length; i++) {
                 var c = body.finance_categories[i] || {};
@@ -12670,9 +12693,9 @@ async function handlePutGmConfig(id, request, env) {
             }
             if (cats.length) { sets.push("finance_categories_json = ?"); binds.push(JSON.stringify(cats)); }
         }
-        var tm = gmNum(body.target_margin);
+        var tm = isAdmin ? gmNum(body.target_margin) : null;
         if (tm !== null && tm >= 0 && tm <= 100) { sets.push("target_margin = ?"); binds.push(tm); }
-        var thr = gmNum(body.pipeline_view_threshold);
+        var thr = isAdmin ? gmNum(body.pipeline_view_threshold) : null;
         if (thr !== null && thr >= 1) { sets.push("pipeline_view_threshold = ?"); binds.push(Math.round(thr)); }
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
         sets.push("updated_at = datetime('now')");

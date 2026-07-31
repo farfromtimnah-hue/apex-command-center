@@ -2523,11 +2523,16 @@
           : (en ? "No logo yet — the page shows your business name as text. Add one by tapping the logo at the top of the Home tab."
                 : "Sem logo ainda — a página mostra o nome do seu negócio como texto. Para adicionar, toque no logo no topo da aba Início.")) + '</p>' +
 
-        '<div class="err-msg" id="rsErr"></div>' +
-        '<button class="btn-gold" style="width:100%;margin-top:6px;min-height:48px;" onclick="rsSave()">' +
-        (en ? "Save referral page" : "Salvar página de indicação") + '</button>' +
-
         gmListEditorsHtml() +
+
+        // One save button for the whole card. The two halves are two tables
+        // behind two endpoints, but to the client this is one thing — how their
+        // referral link looks and what it offers. Two buttons meant a client
+        // could edit their lists, tap the colors' button, and silently lose the
+        // list edits.
+        '<div class="err-msg" id="rsErr"></div>' +
+        '<button class="btn-gold" style="width:100%;margin-top:6px;min-height:48px;" onclick="referralSettingsSave()">' +
+        (en ? "Save settings" : "Salvar ajustes") + '</button>' +
         '</div>';
     }
 
@@ -2601,9 +2606,9 @@
           (en ? "+ Add" : "+ Adicionar") + '</button>';
       });
 
-      html += '<div class="err-msg" id="gmListsErr"></div>' +
-        '<button class="btn-gold" style="width:100%;min-height:48px;" onclick="gmListsSave()">' +
-        (en ? "Save lists" : "Salvar listas") + '</button></div>';
+      // No save button here — the card's single one at the bottom covers this
+      // section too. See referralSettingsSave().
+      html += '</div>';
       return html;
     }
 
@@ -2650,10 +2655,12 @@
       renderWorkSettings();
     }
 
-    function gmListsSave() {
-      if (!gmListDraft) { return; }
-      var err = document.getElementById("gmListsErr");
-      if (err) { err.textContent = ""; }
+    // The lists half of the card's save. Returns a promise that resolves when
+    // the config has been re-read from the server, or rejects on failure — the
+    // caller owns the error message and the re-render, because a re-render here
+    // would wipe the other half's in-progress state.
+    function gmListsSaveRequest() {
+      if (!gmListDraft) { return Promise.resolve(); }
       var payload = {};
       // Blank slots are dropped, not saved: an empty "+ Add" row the client
       // never filled in is not a list entry. An intentionally emptied list
@@ -2666,20 +2673,24 @@
         });
         payload[d.key] = out;
       });
-      gmApi("config", { method: "PUT", body: payload })
+      return gmApi("config", { method: "PUT", body: payload })
         .then(function() {
-          // Reload the config so any open sheet picks up the new lists.
+          // Reload the config so any open sheet picks up the new lists, and so
+          // the editors redraw from what the server actually stored rather than
+          // from the local draft.
+          var stale = gmConfig;
           gmConfig = null;
           gmConfigPromise = null;
-          return gmLoadConfig();
-        })
-        .then(function() {
-          gmListDraft = null;
-          renderWorkSettings();
-          gmToast(isEn() ? "Lists saved ✓" : "Listas salvas ✓");
-        })
-        .catch(function(e) {
-          if (err) { err.textContent = e.message; }
+          return gmLoadConfig()
+            .then(function() { gmListDraft = null; })
+            .catch(function() {
+              // The write landed — only the re-read failed. Keep the old config
+              // so the editors still render (gmListEditorsHtml bails on a null
+              // config and the whole section would disappear), and keep the
+              // draft so it redraws the values the client just saved.
+              gmConfig = stale;
+              gmConfigPromise = null;
+            });
         });
     }
 
@@ -2706,23 +2717,30 @@
       renderWorkSettings();     // re-render so the selected chip updates
     }
 
-    function rsSave() {
-      var err = document.getElementById("rsErr");
-      err.textContent = "";
+    // Validation for the referral-page half. Returns an error message, or ""
+    // when the fields are good. Runs BEFORE either request is sent, so a
+    // malformed hex saves nothing at all — not even the lists.
+    function rsValidate() {
       var bg   = document.getElementById("rsBgHex").value.trim();
       var text = document.getElementById("rsTextHex").value.trim();
       var hex  = /^#[0-9a-fA-F]{6}$/;
       // Empty means "back to the Apex default" and is sent as "" so the
       // server clears the column; anything else must be a real hex.
       if (bg && !hex.test(bg)) {
-        err.textContent = isEn() ? "Background color must look like #1a1a1d." : "A cor de fundo deve ser como #1a1a1d.";
-        return;
+        return isEn() ? "Background color must look like #1a1a1d." : "A cor de fundo deve ser como #1a1a1d.";
       }
       if (text && !hex.test(text)) {
-        err.textContent = isEn() ? "Accent color must look like #C9A43A." : "A cor de destaque deve ser como #C9A43A.";
-        return;
+        return isEn() ? "Accent color must look like #C9A43A." : "A cor de destaque deve ser como #C9A43A.";
       }
-      apiFetch("/api/clients/" + clientId + "/referral-settings", {
+      return "";
+    }
+
+    // The referral-page half of the card's save. Like the lists half, it
+    // applies its own result and leaves the message and re-render to the caller.
+    function rsSaveRequest() {
+      var bg   = document.getElementById("rsBgHex").value.trim();
+      var text = document.getElementById("rsTextHex").value.trim();
+      return apiFetch("/api/clients/" + clientId + "/referral-settings", {
         method: "PUT",
         body: { language: referralSettings.language, referral_bg_color: bg, referral_text_color: text }
       })
@@ -2733,9 +2751,58 @@
           referralSettings.language            = r.data.language;
           referralSettings.referral_bg_color   = r.data.referral_bg_color;
           referralSettings.referral_text_color = r.data.referral_text_color;
-          renderWorkSettings();
-        })
-        .catch(function(e) { err.textContent = e.message; });
+        });
+    }
+
+    // One button, two endpoints, two tables. Both requests go out together and
+    // we wait for both to settle, because either can fail on its own. A half
+    // that succeeded really is stored, so it is applied and kept even when the
+    // other half fails — and the message then has to name WHICH half failed,
+    // or the client redoes work that is already saved.
+    function referralSettingsSave() {
+      var err = document.getElementById("rsErr");
+      if (err) { err.textContent = ""; }
+      var en = isEn();
+
+      var invalid = rsValidate();
+      if (invalid) {
+        if (err) { err.textContent = invalid; }
+        return;                       // nothing sent — neither half is written
+      }
+
+      var settle = function(p) {
+        return p.then(
+          function() { return { ok: true }; },
+          function(e) { return { ok: false, message: e.message }; }
+        );
+      };
+
+      Promise.all([settle(rsSaveRequest()), settle(gmListsSaveRequest())])
+        .then(function(res) {
+          var page = res[0], lists = res[1];
+          renderWorkSettings();       // both halves applied whatever they got
+
+          if (page.ok && lists.ok) {
+            gmToast(en ? "Settings saved ✓" : "Ajustes salvos ✓");
+            return;
+          }
+
+          var msg;
+          if (!page.ok && !lists.ok) {
+            msg = (en ? "Nothing was saved. " : "Nada foi salvo. ") + (page.message || "Error");
+          } else if (!page.ok) {
+            msg = en
+              ? "Your lists were saved, but the referral page settings were not: " + (page.message || "Error")
+              : "Suas listas foram salvas, mas os ajustes da página de indicação não: " + (page.message || "Error");
+          } else {
+            msg = en
+              ? "The referral page settings were saved, but your lists were not: " + (lists.message || "Error")
+              : "Os ajustes da página de indicação foram salvos, mas suas listas não: " + (lists.message || "Error");
+          }
+          // renderWorkSettings() rebuilt the card, so re-grab the element.
+          var e2 = document.getElementById("rsErr");
+          if (e2) { e2.textContent = msg; }
+        });
     }
 
     function wsSaveSchedule() {

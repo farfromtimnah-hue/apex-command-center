@@ -12527,11 +12527,28 @@ var GM_DEFAULT_FINANCE_CATEGORIES = [
     { name: "Outros",                     tipo: "Saída" }
 ];
 
+// The four client-editable lists (servicos, vendedores, partner_types, cycle_months).
+// An empty stored array is a REAL value: the client deliberately cleared the list, and
+// clearing it must stick. Only a genuinely unconfigured column — NULL, empty string,
+// unparseable JSON, or a non-array — falls back to the seed defaults. The write side
+// (setList in handlePutGmConfig) already stores [] faithfully; this is the matching
+// read side.
 function gmParseJsonList(s, fallback) {
     try {
         var v = JSON.parse(s);
-        if (Object.prototype.toString.call(v) === "[object Array]" && v.length) { return v; }
+        if (Object.prototype.toString.call(v) === "[object Array]") { return v; }
     } catch (e) {}
+    return fallback;
+}
+
+// finance_categories deliberately differs from the four lists above: it is admin-only
+// (handlePutGmConfig gates it behind isAdmin) and it drives the Entrada/Saída derivation
+// for every finance entry, so an empty list would leave a client unable to categorise
+// anything. An empty stored array is therefore treated as "unset" here and falls back to
+// GM_DEFAULT_FINANCE_CATEGORIES.
+function gmParseJsonListNonEmpty(s, fallback) {
+    var v = gmParseJsonList(s, null);
+    if (v && v.length) { return v; }
     return fallback;
 }
 
@@ -12555,7 +12572,7 @@ async function gmGetConfig(env, clientId) {
     return {
         servicos:            gmParseJsonList(row.servicos_json, GM_DEFAULT_SERVICOS),
         vendedores:          gmParseJsonList(row.vendedores_json, GM_DEFAULT_VENDEDORES),
-        finance_categories:  gmParseJsonList(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
+        finance_categories:  gmParseJsonListNonEmpty(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
         partner_types:       gmParseJsonList(row.partner_types_json, GM_DEFAULT_PARTNER_TYPES),
         cycle_months:        gmParseJsonList(row.cycle_months_json, GM_DEFAULT_CYCLE_MONTHS),
         target_margin:       row.target_margin,

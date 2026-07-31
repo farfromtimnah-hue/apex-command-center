@@ -72,6 +72,29 @@ function gmNowLocalIso() {
 
 function gmTodayLocal() { return gmNowLocalIso().slice(0, 10); }
 
+// Three of the config lists are optional — a client with no sales team, no
+// partner types, or (most of them, working year-round in Florida) no seasonal
+// cycle window. An empty list means the field is not part of how they work, so
+// its row is left off the sheet entirely rather than offering a picker with
+// nothing in it. Field INDEXES are untouched: rows are omitted at render time,
+// never removed from the spec arrays that gmEditSimpleField indexes into.
+function gmListEmpty(list) {
+  return !list || !list.length;
+}
+
+// True when a gmSimpleSpec field is backed by an optional list that is now
+// empty, so the row should not be rendered. Keyed on the field key rather than
+// on options.length: a choice whose list is genuinely fixed (status, frente)
+// must never disappear.
+function gmSpecFieldHidden(def) {
+  if (!gmConfig || !gmConfig.config) { return false; }
+  var cfg = gmConfig.config;
+  if (def.key === "tipo") { return gmListEmpty(cfg.partner_types); }
+  if (def.key === "vendedor") { return gmListEmpty(cfg.vendedores); }
+  if (def.key === "mes" || def.key === "mes_entrega") { return gmListEmpty(cfg.cycle_months); }
+  return false;
+}
+
 var GM_MONTH_NAMES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 function gmCurrentCycleMonth() {
   var name = GM_MONTH_NAMES_PT[new Date().getMonth()];
@@ -1109,7 +1132,8 @@ function gmRenderLeadSheet() {
   // question users actively ask, so it gets a labelled row of its own.
   body += gmSheetSection(gmT("Dados do lead", "Lead details"),
     gmSheetRowHtml("briefcase", gmT("Serviço(s)", "Service(s)"), val("servico"), edit("servico")) +
-    gmSheetRowHtml("person", gmT("Vendedor", "Salesperson"), val("vendedor"), edit("vendedor")) +
+    (gmListEmpty(gmConfig.config.vendedores) ? "" :
+      gmSheetRowHtml("person", gmT("Vendedor", "Salesperson"), val("vendedor"), edit("vendedor"))) +
     gmSheetRowHtml("compass", gmT("Origem", "Source"), val("origem"), edit("origem")) +
     gmSheetRowHtml("handshake", gmT("Parceiro", "Partner"), val("parceiro_id"), edit("parceiro_id"),
       "crm-lead-partner") +
@@ -1121,9 +1145,13 @@ function gmRenderLeadSheet() {
   // and promoting all fifteen would defeat the grouping.
   var shown = { valor: 1, proxima_acao: 1,
                 servico: 1, vendedor: 1, origem: 1, parceiro_id: 1, telefone: 1, email: 1 };
+  var noCycle = gmListEmpty(gmConfig.config.cycle_months);
   var rest = "";
   gmLeadFieldDefs().forEach(function(def, i) {
     if (shown[def.key]) { return; }
+    // With no cycle months configured the two month pickers have nothing to
+    // offer, so they are left off rather than opening an empty list.
+    if (noCycle && (def.key === "mes_fechamento" || def.key === "mes_lead")) { return; }
     rest += gmSheetRowHtml("tag", gmT(def.pt, def.en),
       gmLeadFieldDisplay(lead, def), "gmEditLeadField(" + i + ")");
   });
@@ -1763,7 +1791,8 @@ function gmPartnerSheetBody(row, spec) {
     '<div class="gm-partner-group">' +
       gmPartnerRowHtml("person", gmT("Parceiro", "Partner"), val("name"), edit("name")) +
       gmPartnerRowHtml("person", gmT("Contato", "Contact"), val("contato"), edit("contato")) +
-      gmPartnerRowHtml("tag", gmT("Tipo", "Type"), val("tipo"), edit("tipo")) +
+      (gmListEmpty(gmConfig.config.partner_types) ? "" :
+        gmPartnerRowHtml("tag", gmT("Tipo", "Type"), val("tipo"), edit("tipo"))) +
       gmPartnerRowHtml("check", gmT("Status", "Status"), val("status"), edit("status")) +
     '</div></div>';
 
@@ -1806,6 +1835,105 @@ function gmPartnerSheetBody(row, spec) {
   return body;
 }
 
+// The Job detail sheet. Same grouped language as Partner and Lead: a hero for
+// the two things asked first, then Costs and Schedule. Field indexes are the
+// SAME gmSimpleSpec("job").fields indexes the flat sheet used — the array is
+// not reordered, a key→index map drives the grouping — so editing still goes
+// through gmEditSimpleField and only the presentation differs.
+function gmJobSheetBody(row, spec) {
+  var byKey = {};
+  spec.fields.forEach(function(def, i) { byKey[def.key] = { def: def, i: i }; });
+  var val  = function(key) { return gmSimpleFieldDisplay(row, byKey[key].def); };
+  var edit = function(key) { return "gmEditSimpleField(" + byKey[key].i + ")"; };
+
+  // ── Hero: the job and its status ──────────────────────────────────────
+  var obra = val("obra");
+  var body = '<div class="gm-sheet-hero">' +
+    '<button type="button" class="gm-sheet-hero-half" ' +
+      'aria-label="' + gmT("Mudar cliente / obra", "Change client / job") + '" ' +
+      'onclick="' + edit("obra") + '">' +
+      '<span class="gm-sheet-hero-body">' +
+        '<span class="gm-sheet-hero-label">' + gmT("Cliente / obra", "Client / job") + '</span>' +
+        '<span class="gm-sheet-hero-value' + (obra ? "" : " gm-empty") + '">' +
+        (obra || gmT("A definir", "Not set")) + '</span>' +
+      '</span>' +
+      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
+    '</button>' +
+    '<button type="button" class="gm-sheet-hero-half" ' +
+      'aria-label="' + gmT("Mudar status", "Change status") + '" ' +
+      'onclick="' + edit("status") + '">' +
+      '<span class="gm-sheet-hero-body">' +
+        '<span class="gm-sheet-hero-label">' + gmT("Status", "Status") + '</span>' +
+        '<span class="gm-sheet-hero-pill">' + val("status") + '</span>' +
+        '<span class="gm-sheet-hero-hint">' + gmT("Toque para mudar", "Tap to change") + '</span>' +
+      '</span>' +
+      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
+    '</button></div>';
+
+  // ── Costs ─────────────────────────────────────────────────────────────
+  body += gmSheetSection(gmT("Valores", "Costs"),
+    gmSheetRowHtml("dollar", gmT("Valor ($)", "Value ($)"), val("valor"), edit("valor")) +
+    gmSheetRowHtml("tag", gmT("Material ($)", "Materials ($)"), val("material"), edit("material")) +
+    gmSheetRowHtml("users", gmT("Mão de obra ($)", "Labor ($)"), val("mao_de_obra"), edit("mao_de_obra")) +
+    gmSheetRowHtml("tag", gmT("Outros ($)", "Other ($)"), val("outros"), edit("outros")));
+
+  // ── Schedule ──────────────────────────────────────────────────────────
+  body += gmSheetSection(gmT("Prazos", "Schedule"),
+    (gmListEmpty(gmConfig.config.cycle_months) ? "" :
+      gmSheetRowHtml("calendar", gmT("Mês entrega", "Delivery month"),
+        val("mes_entrega"), edit("mes_entrega"))) +
+    gmSheetRowHtml("calendar", gmT("Início", "Start"), val("inicio"), edit("inicio")) +
+    gmSheetRowHtml("clock", gmT("Prazo previsto", "Deadline"), val("prazo_previsto"), edit("prazo_previsto")) +
+    gmSheetRowHtml("check", gmT("Entrega real", "Actual delivery"), val("entrega_real"), edit("entrega_real")));
+
+  return body;
+}
+
+// The Finance detail sheet. Hero carries the amount and the category — the two
+// things you look for first — and the rest groups under Details. Same
+// key→index mapping rule as the Job sheet above.
+function gmFinanceSheetBody(row, spec) {
+  var byKey = {};
+  spec.fields.forEach(function(def, i) { byKey[def.key] = { def: def, i: i }; });
+  var val  = function(key) { return gmSimpleFieldDisplay(row, byKey[key].def); };
+  var edit = function(key) { return "gmEditSimpleField(" + byKey[key].i + ")"; };
+
+  var valor = val("valor");
+  var categoria = val("categoria");
+  var body = '<div class="gm-sheet-hero">' +
+    '<button type="button" class="gm-sheet-hero-half" ' +
+      'aria-label="' + gmT("Mudar valor", "Change amount") + '" ' +
+      'onclick="' + edit("valor") + '">' +
+      '<span class="gm-sheet-hero-body">' +
+        '<span class="gm-sheet-hero-label">' + gmT("Valor", "Amount") + '</span>' +
+        '<span class="gm-sheet-hero-value' + (valor ? "" : " gm-empty") + '">' +
+        (valor || gmT("A definir", "Not set")) + '</span>' +
+      '</span>' +
+      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
+    '</button>' +
+    '<button type="button" class="gm-sheet-hero-half" data-tour="finance-category" ' +
+      'aria-label="' + gmT("Mudar categoria", "Change category") + '" ' +
+      'onclick="' + edit("categoria") + '">' +
+      '<span class="gm-sheet-hero-body">' +
+        '<span class="gm-sheet-hero-label">' + gmT("Categoria", "Category") + '</span>' +
+        '<span class="gm-sheet-hero-value' + (categoria ? "" : " gm-empty") + '">' +
+        (categoria || gmT("A definir", "Not set")) + '</span>' +
+        '<span class="gm-sheet-hero-hint">' + gmT("Toque para mudar", "Tap to change") + '</span>' +
+      '</span>' +
+      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
+    '</button></div>';
+
+  body += gmSheetSection(gmT("Detalhes", "Details"),
+    gmSheetRowHtml("tag", gmT("Descrição", "Description"), val("descricao"), edit("descricao")) +
+    gmSheetRowHtml("calendar", gmT("Data", "Date"), val("data"), edit("data")) +
+    (gmListEmpty(gmConfig.config.cycle_months) ? "" :
+      gmSheetRowHtml("calendar", gmT("Mês", "Month"), val("mes"), edit("mes"))) +
+    gmSheetRowHtml("briefcase", gmT("Obra vinculada", "Linked job"), val("obra_id"), edit("obra_id")) +
+    gmSheetRowHtml("tag", gmT("Obs", "Notes"), val("obs"), edit("obs")));
+
+  return body;
+}
+
 function gmRenderSimpleSheet(kind) {
   gmSheetKind = kind;
   var spec = gmSimpleSpec(kind);
@@ -1816,27 +1944,38 @@ function gmRenderSimpleSheet(kind) {
   if (spec.contactTel) { body += gmContactButtonsHtml(row.telefone); }
   if (kind === "partner") {
     body += gmPartnerSheetBody(row, spec);
+  } else if (kind === "job") {
+    body += gmJobSheetBody(row, spec);
+  } else if (kind === "finance") {
+    body += gmFinanceSheetBody(row, spec);
   } else {
     spec.fields.forEach(function(def, i) {
+      if (gmSpecFieldHidden(def)) { return; }
       body += gmFieldRowHtml(gmT(def.pt, def.en), gmSimpleFieldDisplay(row, def),
         "gmEditSimpleField(" + i + ")", def.tour || null);
     });
   }
 
   if (kind === "job") {
+    // Derived at read time from the cost fields and the target margin — never
+    // stored, so these are static rows (no onclick) in the same grouped
+    // language as the sections above, rather than a differently-styled card.
     var target = gmJobsData.target_margin;
-    body += '<div class="gm-month-card" style="margin-top:12px;">' +
-      '<div class="gm-month-title">' + gmT("Calculado automaticamente", "Calculated automatically") + '</div>' +
-      '<div class="gm-month-line"><span>' + gmT("Custo total", "Total cost") + '</span><span>' + fmtNum(row.custo_total, "currency") + '</span></div>' +
-      '<div class="gm-month-line"><span>' + gmT("Lucro", "Profit") + '</span><span>' + (row.lucro === null ? "--" : fmtNum(row.lucro, "currency")) + '</span></div>' +
-      '<div class="gm-month-line"><span>' + gmT("Margem", "Margin") + '</span><span>' +
-      (row.margem_pct === null ? "--"
-        : (row.alvo_ok ? '<span class="gm-ok">✓ ' : '<span class="gm-warn">⚠ ') + fmtNum(row.margem_pct, "percent") +
-          (row.alvo_ok ? "" : " " + gmT("abaixo do alvo de ", "below the target of ") + fmtNum(target, "percent")) + '</span>') +
-      '</span></div>' +
-      '<div class="gm-month-line"><span>' + gmT("No prazo?", "On time?") + '</span><span>' +
-      (row.no_prazo === null ? "--" : (row.no_prazo ? '<span class="gm-ok">✓ ' + gmT("Sim", "Yes") + '</span>' : '<span class="gm-warn">! ' + gmT("Não", "No") + '</span>')) +
-      '</span></div></div>';
+    var marginHtml = row.margem_pct === null ? ""
+      : (row.alvo_ok ? '<span class="gm-ok">✓ ' : '<span class="gm-warn">⚠ ') + fmtNum(row.margem_pct, "percent") + '</span>';
+    var marginSub = (row.margem_pct === null || row.alvo_ok) ? ""
+      : gmT("abaixo do alvo de ", "below the target of ") + fmtNum(target, "percent");
+    var onTimeHtml = row.no_prazo === null ? ""
+      : (row.no_prazo ? '<span class="gm-ok">✓ ' + gmT("Sim", "Yes") + '</span>'
+                      : '<span class="gm-warn">! ' + gmT("Não", "No") + '</span>');
+    body += gmSheetSection(gmT("Resultado", "Result"),
+      gmSheetRowHtml("dollar", gmT("Custo total", "Total cost"),
+        escHtml(fmtNum(row.custo_total, "currency"))) +
+      gmSheetRowHtml("dollar", gmT("Lucro", "Profit"),
+        row.lucro === null ? "" : escHtml(fmtNum(row.lucro, "currency"))) +
+      gmSheetRowHtml("compass", gmT("Margem", "Margin"), marginHtml, null, null, marginSub) +
+      gmSheetRowHtml("clock", gmT("No prazo?", "On time?"), onTimeHtml),
+      gmT("calculado automaticamente", "calculated automatically"));
   }
   if (kind === "base") {
     if (row.reactivated_lead_id) {

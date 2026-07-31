@@ -1015,6 +1015,15 @@
           <span class="show-en">Continue &rarr;</span>
         </button>
       </div>
+      <!-- Way out of the multi-step form. On its own row, below the nav and
+           full width, so it never reads as the primary Continue action. The
+           section stays a draft — this does not submit anything. -->
+      <div style="margin-top:12px;">
+        <button class="btn-outline" style="width:100%;" onclick="saveAndExitEntry()">
+          <span class="show-pt">Salvar e sair</span>
+          <span class="show-en">Save and exit</span>
+        </button>
+      </div>
       <div class="autosave-note" id="autosaveNote"></div>
     </section>
 
@@ -1040,6 +1049,17 @@
         <button class="btn-gold" id="btnGoalsNext" onclick="nextGoalsSection()">
           <span class="show-pt">Continuar &rarr;</span>
           <span class="show-en">Continue &rarr;</span>
+        </button>
+      </div>
+      <!-- Way out of the goals form. Goals live in memory until the final save,
+           so this cannot save — it only collects the current section back into
+           goalsFormValues so nothing typed is lost if they return in the same
+           session. Hidden when goalsSkipRow is shown: that row is the exit
+           there, and two exits on one screen read as a choice that isn't one. -->
+      <div id="goalsExitRow" hidden style="margin-top:12px;">
+        <button class="btn-outline" style="width:100%;" onclick="exitGoalsForm()">
+          <span class="show-pt">Sair</span>
+          <span class="show-en">Exit</span>
         </button>
       </div>
       <!-- Hard-gate escape. Shown ONLY when the form is the boot gate (see
@@ -2097,6 +2117,23 @@
         .catch(function() {});
     }
 
+    // Way out of the daily form. The 900ms autosave debounce means a value
+    // typed a moment ago may still be pending, so cancel the timer and flush
+    // the section explicitly before leaving. Navigation happens either way:
+    // a failed request must never trap someone inside the form.
+    function saveAndExitEntry() {
+      if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+      var done = false;
+      function leave() {
+        if (done) { return; }
+        done = true;
+        showPortal();
+      }
+      var p;
+      try { p = saveDraft(formSections[currentSectionIdx]); } catch (e) { p = null; }
+      if (p && typeof p.then === "function") { p.then(leave, leave); } else { leave(); }
+    }
+
     function prevSection() {
       if (autosaveTimer) { clearTimeout(autosaveTimer); }
       saveDraft(formSections[currentSectionIdx]);
@@ -2696,7 +2733,12 @@
       // form already has a way out (the dock / the strip), and offering "Later"
       // there would be a second, confusing exit.
       var skipRow = document.getElementById("goalsSkipRow");
-      if (skipRow) { skipRow.hidden = !(goalsFormHard && goalsReturnTo === "boot"); }
+      var onBootGate = goalsFormHard && goalsReturnTo === "boot";
+      if (skipRow) { skipRow.hidden = !onBootGate; }
+      // The plain exit covers every other way in (the Ritmo tab, the soft
+      // prompt), where the form otherwise has no way out at all.
+      var exitRow = document.getElementById("goalsExitRow");
+      if (exitRow) { exitRow.hidden = onBootGate; }
 
       document.getElementById("btnGoalsPrev").style.visibility = goalsFormIdx === 0 ? "hidden" : "visible";
       document.getElementById("btnGoalsNext").innerHTML = goalsFormIdx === goalsFormSections.length - 1
@@ -2723,6 +2765,18 @@
         goalsFormValues[inds[i].key] = num;
       }
       return true;
+    }
+
+    // Way out of the goals form (Ritmo tab entry). Goals are only persisted by
+    // the final save, so there is nothing to flush to the server — collect the
+    // section so the in-memory draft keeps what was typed, then leave. A blank
+    // or invalid field must not block the exit, so the validation result is
+    // ignored and the error line cleared.
+    function exitGoalsForm() {
+      try { collectGoalsSection(goalsFormSections[goalsFormIdx]); } catch (e) {}
+      var errEl = document.getElementById("goalsErr");
+      if (errEl) { errEl.textContent = ""; }
+      showPortal();
     }
 
     function prevGoalsSection() {

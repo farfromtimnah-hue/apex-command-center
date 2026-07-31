@@ -2895,24 +2895,39 @@
       applyGoalsCollapse();
     }
 
-    // Next month has no goals and this month is nearly over — a small row, not
-    // a gate. Only meaningful while looking at the current month.
+    // Entry point for next month's goals. Available on ANY day of the month:
+    // gating it on "fewer than 8 days left" made the reminder the only path in,
+    // so for three weeks of every month there was no way to enter next month's
+    // numbers at all. Only meaningful while looking at the current month.
+    //
+    // Three states:
+    //   - no goals, < 8 days left → the reminder, worded as a prompt
+    //   - no goals, earlier in the month → a calm, available action
+    //   - goals already set → review/edit, rather than vanishing
     function renderNextMonthGoalRow() {
       var row = document.getElementById("nextMonthGoalRow");
       if (!row) { return; }
       var show = goalState && goalState.today && goalState.next_month &&
-        goalsMonth === goalState.current_month &&
-        !goalState.next_month_has_goals &&
-        daysLeftInMonth(goalState.today) < 8;
+        goalsMonth === goalState.current_month;
       row.hidden = !show;
       if (!show) { row.innerHTML = ""; return; }
       var label = monthLabelText(goalState.next_month);
+      var hasGoals = !!goalState.next_month_has_goals;
+      var urgent = !hasGoals && daysLeftInMonth(goalState.today) < 8;
+      var statusHtml, btnHtml;
+      if (hasGoals) {
+        statusHtml = '<span class="show-pt">metas definidas</span>' +
+          '<span class="show-en">goals set</span>';
+        btnHtml = '<span class="show-pt">Revisar</span><span class="show-en">Review</span>';
+      } else {
+        statusHtml = '<span class="show-pt">sem metas</span><span class="show-en">no goals</span>';
+        btnHtml = '<span class="show-pt">Definir</span><span class="show-en">Set</span>';
+      }
       row.innerHTML = '<div class="goal-row">' +
-        '<span>' + escHtml(label) + ' &middot; ' +
-        '<span class="show-pt">sem metas</span><span class="show-en">no goals</span></span>' +
+        '<span' + (urgent ? '' : ' class="muted"') + '>' + escHtml(label) + ' &middot; ' +
+        statusHtml + '</span>' +
         '<span><button class="btn-outline" style="padding:4px 12px;min-height:0;" onclick="startGoalsForNextMonth()">' +
-        '<span class="show-pt">Definir</span><span class="show-en">Set</span>' +
-        '</button></span></div>';
+        btnHtml + '</button></span></div>';
     }
     function startGoalsForNextMonth() {
       startGoals(goalState.next_month, false, "tab");

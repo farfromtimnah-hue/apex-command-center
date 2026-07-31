@@ -487,3 +487,12 @@
 /* Warning line (ALVO?, SLA) */
 .gm-warn { color: var(--red); font-weight: 700; }
 .gm-ok   { color: var(--green); font-weight: 700; }
+
+/* Deep-link highlight. A client sent to the referral settings from the partner
+   sheet or the first-partner prompt lands part-way down a long page, so the
+   card announces itself briefly instead of leaving them to hunt for it. */
+.gm-flash { animation: gmFlash 2s ease-out; }
+@keyframes gmFlash {
+  0%, 60% { box-shadow: 0 0 0 2px var(--gold); }
+  100%    { box-shadow: 0 0 0 2px transparent; }
+}

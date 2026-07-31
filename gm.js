@@ -1377,10 +1377,40 @@ function gmLoadPartners() {
   var body = document.getElementById("gmPartnersBody");
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
   Promise.all([gmLoadConfig(), gmLoadPartnersList()])
-    .then(function() { gmRenderPartners(); })
+    .then(function() { gmRenderPartners(); gmMaybePromptReferralSetup(); })
     .catch(function(e) {
       body.innerHTML = '<div class="content-card"><p class="muted">' + escHtml(e.message) + '</p></div>';
     });
+}
+
+// ── One-time nudge: check the referral page before sharing it ─────────────
+// Every client is seeded with another client's services, and those services are
+// what a partner's customer sees on the public referral page. So the first time
+// a client has a partner, point them at the settings once.
+//
+// Gated on "never dismissed AND has at least one partner" rather than on
+// account age, because the nine client logins that already exist were seeded
+// the same way and none of them would think to go looking. Keyed per client
+// (same convention as goalsCollapseKey) so two clients sharing a browser do not
+// inherit each other's state. Once dismissed or acted on, it never returns.
+function gmReferralSetupKey() { return "apex_referral_setup_seen_" + clientId; }
+function gmReferralSetupSeen() {
+  try { return localStorage.getItem(gmReferralSetupKey()) === "1"; } catch (e) { return false; }
+}
+function gmDismissReferralSetup() {
+  try { localStorage.setItem(gmReferralSetupKey(), "1"); } catch (e) {}
+}
+function gmMaybePromptReferralSetup() {
+  if (gmReferralSetupSeen()) { return; }
+  var partners = (gmPartnersData && gmPartnersData.partners) || [];
+  if (!partners.length) { return; }
+  gmDismissReferralSetup();   // shown once, whether or not they act on it
+  gmToast(
+    gmT("Antes de compartilhar seu link, confira como ele aparece e quais serviços ele oferece.",
+        "Before sharing your link, check how it looks and what services it offers."),
+    gmT("Ver ajustes", "Review"),
+    function() { gmSheetClose(); openReferralSettings(); }
+  );
 }
 
 // Inline SVG icons for the partner screens. Real stroked paths, never unicode
@@ -2457,6 +2487,12 @@ function gmPartnerReferralHtml(row) {
     '</div>' +
     '<button type="button" class="gm-partner-ref-btn" style="width:100%;margin-top:12px;" onclick="gmDownloadReferralQr()">' +
     gmIcon("download") + gmT("Baixar QR (PNG)", "Download QR (PNG)") + '</button>' +
+    // The client is already looking at what their customer will see, so this is
+    // where they are most likely to notice the services list is not theirs.
+    '<button type="button" class="gm-partner-ref-btn" ' +
+    'style="width:100%;margin-top:8px;border:none;background:none;color:var(--gold);" ' +
+    'onclick="gmSheetClose(); openReferralSettings();">' +
+    gmT("Personalizar aparência", "Customize appearance") + '</button>' +
     '</div></div>';
 }
 

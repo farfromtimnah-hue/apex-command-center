@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1785375063">
+  <link rel="stylesheet" href="gm.css?v=1785461238">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -2341,11 +2341,14 @@
     }
 
     // ── Ajustes tab: schedule editor + blocked ranges ──
+    // Returns the load promise so a deep link into one of these cards can wait
+    // for the DOM to exist: the cards are built as a string here and do not
+    // exist until this resolves, so a plain #anchor would land on nothing.
     function loadWorkSettings() {
       var body = document.getElementById("workschedBody");
       body.innerHTML = '<div class="content-card"><p class="muted">' +
         (isEn() ? "Loading…" : "Carregando…") + '</p></div>';
-      apiFetch("/api/clients/" + clientId + "/work-settings")
+      return apiFetch("/api/clients/" + clientId + "/work-settings")
         .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
         .then(function(d) {
           workSettings = d;
@@ -2356,6 +2359,11 @@
           // referral card when the payload never arrived.
           return loadReferralSettings().catch(function() { referralSettings = null; });
         })
+        // The list editors live in the referral card and need gmConfig, which
+        // is otherwise only loaded when a Growth Management tab is opened —
+        // reaching Ajustes first would render the card without them. Same
+        // tolerance as above: a failure here must not blank out the tab.
+        .then(function() { return gmLoadConfig().catch(function() {}); })
         .then(function() { renderWorkSettings(); })
         .catch(function() {
           body.innerHTML = '<div class="content-card"><p class="muted">' +
@@ -2491,7 +2499,162 @@
 
         '<div class="err-msg" id="rsErr"></div>' +
         '<button class="btn-gold" style="width:100%;margin-top:6px;min-height:48px;" onclick="rsSave()">' +
-        (en ? "Save referral page" : "Salvar página de indicação") + '</button></div>';
+        (en ? "Save referral page" : "Salvar página de indicação") + '</button>' +
+
+        gmListEditorsHtml() +
+        '</div>';
+    }
+
+    // ── The four client-editable lists ──────────────────────────────────────
+    // Every client is seeded with one client's lists (Pavers, Travertine, a
+    // salesperson named Anderson) and until now nothing could change them. The
+    // services list is the worst of the four because it is PUBLIC — it renders
+    // as the checkboxes on the referral page. So these live in the referral
+    // card: it is one concern, how the client's referral link looks and behaves.
+    //
+    // Three of the four are optional. Empty is a real, saveable state, not a
+    // validation error — see handlePutGmConfig, which stores [] rather than
+    // ignoring an empty list.
+    var gmListDraft = null;   // { servicos: [], vendedores: [], ... } while editing
+
+    var GM_LIST_DEFS = [
+      { key: "servicos", pt: "Serviços", en: "Services",
+        notePt: "Aparecem como opções na sua página pública de indicação.",
+        noteEn: "These appear as checkboxes on your public referral page." },
+      { key: "vendedores", pt: "Vendedores", en: "Salespeople",
+        notePt: "Opcional. Se ficar vazio, a linha \"Vendedor\" não aparece nos leads.",
+        noteEn: "Optional. If empty, the \"Salesperson\" row does not appear on leads." },
+      { key: "partner_types", pt: "Tipos de parceiro", en: "Partner types",
+        notePt: "Opcional. Se ficar vazio, a linha \"Tipo\" não aparece nos parceiros.",
+        noteEn: "Optional. If empty, the \"Type\" row does not appear on partners." },
+      { key: "cycle_months", pt: "Meses do ciclo", en: "Cycle months",
+        notePt: "Opcional — é uma janela sazonal de planejamento. Quem trabalha o ano todo pode deixar vazio: " +
+                "os campos de mês somem dos leads, do financeiro e das obras, e o gráfico mensal do Financeiro " +
+                "agrupa os lançamentos em \"—\" em vez de por mês.",
+        noteEn: "Optional — this is a seasonal planning window. If you work year-round, leave it empty: " +
+                "the month fields disappear from leads, finance entries and jobs, and the Financeiro monthly " +
+                "chart groups entries under \"—\" instead of by month." }
+    ];
+
+    function gmListEditorsHtml() {
+      if (!gmConfig || !gmConfig.config) { return ""; }
+      var en = isEn();
+      if (!gmListDraft) {
+        gmListDraft = {};
+        GM_LIST_DEFS.forEach(function(d) {
+          gmListDraft[d.key] = ((gmConfig.config[d.key] || []).slice());
+        });
+      }
+      var html = '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px;" id="gmListsBlock">' +
+        '<div class="card-title" style="font-size:15px;">' +
+        (en ? "Your lists" : "Suas listas") + '</div>' +
+        '<p class="muted" style="margin-bottom:14px;">' +
+        (en
+          ? "The options you pick from across the app. Change them to match how your business actually works."
+          : "As opções que você escolhe no app. Ajuste para o jeito que o seu negócio realmente funciona.") + '</p>';
+
+      GM_LIST_DEFS.forEach(function(d) {
+        var items = gmListDraft[d.key] || [];
+        html += '<label class="field-label">' + escHtml(en ? d.en : d.pt) + '</label>' +
+          '<p class="muted" style="font-size:12px;margin:0 0 8px;">' + escHtml(en ? d.noteEn : d.notePt) + '</p>';
+        if (!items.length) {
+          html += '<p class="muted" style="font-size:12px;margin:0 0 8px;font-style:italic;">' +
+            (en ? "Empty — this field is turned off." : "Vazio — este campo fica desligado.") + '</p>';
+        }
+        items.forEach(function(v, i) {
+          html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">' +
+            '<input type="text" maxlength="80" value="' + escHtml(v) + '" ' +
+              'oninput="gmListSet(\'' + d.key + '\', ' + i + ', this.value)" style="flex:1;">' +
+            '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 12px;" ' +
+              'aria-label="' + (en ? "Remove" : "Remover") + '" ' +
+              'onclick="gmListRemove(\'' + d.key + '\', ' + i + ')">&times;</button>' +
+            '</div>';
+        });
+        html += '<button type="button" class="btn-outline" style="width:100%;margin-bottom:16px;min-height:44px;" ' +
+          'onclick="gmListAdd(\'' + d.key + '\')">' +
+          (en ? "+ Add" : "+ Adicionar") + '</button>';
+      });
+
+      html += '<div class="err-msg" id="gmListsErr"></div>' +
+        '<button class="btn-gold" style="width:100%;min-height:48px;" onclick="gmListsSave()">' +
+        (en ? "Save lists" : "Salvar listas") + '</button></div>';
+      return html;
+    }
+
+    // ── Deep link into the referral card ────────────────────────────────────
+    // The card is built as a string inside renderWorkSettings() and does not
+    // exist in the DOM until loadWorkSettings() resolves, so this cannot be a
+    // plain #anchor — it would land on nothing from a cold load. Switch to the
+    // tab, wait for the load, then scroll and briefly highlight so the client
+    // knows what they were sent to look at rather than being dumped at the top
+    // of a long settings page.
+    function openReferralSettings() {
+      switchTab("worksched", true);
+      var done = function() {
+        // renderWorkSettings() runs inside the same promise chain, so the node
+        // exists by the time this runs; the rAF just lets layout settle first.
+        window.requestAnimationFrame(function() {
+          var card = document.getElementById("gmListsBlock");
+          var target = card ? card.closest(".content-card") || card : null;
+          if (!target) { return; }
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          target.classList.add("gm-flash");
+          setTimeout(function() { target.classList.remove("gm-flash"); }, 2000);
+        });
+      };
+      var p = loadWorkSettings();
+      if (p && typeof p.then === "function") { p.then(done, done); } else { done(); }
+    }
+
+    // The draft is edited in memory and only re-rendered on add/remove — typing
+    // must not re-render, or the field would lose focus on every keystroke.
+    function gmListSet(key, idx, value) {
+      if (!gmListDraft || !gmListDraft[key]) { return; }
+      gmListDraft[key][idx] = value;
+    }
+    function gmListAdd(key) {
+      if (!gmListDraft) { return; }
+      gmListDraft[key] = gmListDraft[key] || [];
+      gmListDraft[key].push("");
+      renderWorkSettings();
+    }
+    function gmListRemove(key, idx) {
+      if (!gmListDraft || !gmListDraft[key]) { return; }
+      gmListDraft[key].splice(idx, 1);
+      renderWorkSettings();
+    }
+
+    function gmListsSave() {
+      if (!gmListDraft) { return; }
+      var err = document.getElementById("gmListsErr");
+      if (err) { err.textContent = ""; }
+      var payload = {};
+      // Blank slots are dropped, not saved: an empty "+ Add" row the client
+      // never filled in is not a list entry. An intentionally emptied list
+      // still sends [], which the Worker now stores instead of ignoring.
+      GM_LIST_DEFS.forEach(function(d) {
+        var out = [];
+        (gmListDraft[d.key] || []).forEach(function(v) {
+          var s = String(v == null ? "" : v).trim();
+          if (s) { out.push(s.slice(0, 80)); }
+        });
+        payload[d.key] = out;
+      });
+      gmApi("config", { method: "PUT", body: payload })
+        .then(function() {
+          // Reload the config so any open sheet picks up the new lists.
+          gmConfig = null;
+          gmConfigPromise = null;
+          return gmLoadConfig();
+        })
+        .then(function() {
+          gmListDraft = null;
+          renderWorkSettings();
+          gmToast(isEn() ? "Lists saved ✓" : "Listas salvas ✓");
+        })
+        .catch(function(e) {
+          if (err) { err.textContent = e.message; }
+        });
     }
 
     // Keep the native picker and the hex text field showing one value. Only a
@@ -5997,7 +6160,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785461037"></script>
+  <script src="gm.js?v=1785461238"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

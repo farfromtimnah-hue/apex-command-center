@@ -1388,29 +1388,47 @@ function gmLoadPartners() {
 // what a partner's customer sees on the public referral page. So the first time
 // a client has a partner, point them at the settings once.
 //
-// Gated on "never dismissed AND has at least one partner" rather than on
+// Gated on "never answered AND has at least one partner" rather than on
 // account age, because the nine client logins that already exist were seeded
 // the same way and none of them would think to go looking. Keyed per client
 // (same convention as goalsCollapseKey) so two clients sharing a browser do not
-// inherit each other's state. Once dismissed or acted on, it never returns.
-function gmReferralSetupKey() { return "apex_referral_setup_seen_" + clientId; }
+// inherit each other's state.
+//
+// This is a modal (#modalReferralSetup in portal.html), not a toast: gmToast()
+// auto-dismisses on a timer, which gave the client a couple of seconds to read
+// a sentence and act. The modal waits for an explicit button.
+//
+// New storage key. The old one (apex_referral_setup_seen_*) was written on
+// render by the toast version, so at least one client is already marked seen
+// without ever having read the prompt; reusing it would lock them out forever.
+function gmReferralSetupKey() { return "apex_referral_setup_answered_" + clientId; }
 function gmReferralSetupSeen() {
   try { return localStorage.getItem(gmReferralSetupKey()) === "1"; } catch (e) { return false; }
 }
-function gmDismissReferralSetup() {
+// Only the two buttons call this. Escape (handled generically in the keydown
+// listener above) just hides the overlay without marking it answered — it is
+// not an explicit choice, and showing this prompt one extra time costs far less
+// than a client never seeing it and shipping an empty referral page.
+function gmAnswerReferralSetup() {
   try { localStorage.setItem(gmReferralSetupKey(), "1"); } catch (e) {}
+  var modal = document.getElementById("modalReferralSetup");
+  if (modal) { modal.hidden = true; }
+}
+function gmReferralSetupNow() {
+  gmAnswerReferralSetup();
+  gmSheetClose();
+  openReferralSettings();
+}
+function gmReferralSetupLater() {
+  gmAnswerReferralSetup();
 }
 function gmMaybePromptReferralSetup() {
   if (gmReferralSetupSeen()) { return; }
   var partners = (gmPartnersData && gmPartnersData.partners) || [];
   if (!partners.length) { return; }
-  gmDismissReferralSetup();   // shown once, whether or not they act on it
-  gmToast(
-    gmT("Antes de compartilhar seu link, confira como ele aparece e quais serviços ele oferece.",
-        "Before sharing your link, check how it looks and what services it offers."),
-    gmT("Ver ajustes", "Review"),
-    function() { gmSheetClose(); openReferralSettings(); }
-  );
+  var modal = document.getElementById("modalReferralSetup");
+  if (!modal) { return; }
+  modal.hidden = false;
 }
 
 // Inline SVG icons for the partner screens. Real stroked paths, never unicode

@@ -1626,6 +1626,32 @@
     </div>
   </div>
 
+  <!-- One-time referral-setup prompt. Opened by gmMaybePromptReferralSetup()
+       in gm.js; no timer and no click-outside-to-close, so it stays until one
+       of the two buttons is pressed. -->
+  <div class="modal-overlay" id="modalReferralSetup" hidden>
+    <div class="modal-box">
+      <div class="modal-title">
+        <span class="show-pt">Configure sua página de indicação</span>
+        <span class="show-en">Set up your referral page</span>
+      </div>
+      <p class="muted" style="margin-bottom:12px;">
+        <span class="show-pt">Antes de compartilhar seu link, confira como ele aparece e quais serviços ele oferece.</span>
+        <span class="show-en">Before sharing your link, check how it looks and what services it offers.</span>
+      </p>
+      <div class="modal-actions">
+        <button class="btn-outline" onclick="gmReferralSetupLater()">
+          <span class="show-pt">Depois</span>
+          <span class="show-en">Later</span>
+        </button>
+        <button class="btn-gold" onclick="gmReferralSetupNow()">
+          <span class="show-pt">Configurar agora</span>
+          <span class="show-en">Set up now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -6160,7 +6186,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785462000"></script>
+  <script src="gm.js?v=1785463123"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

@@ -434,6 +434,26 @@
       font-size: 13px;
     }
     .goal-row:last-child { border-bottom: none; }
+    /* Next-month prompt, directly under the month navigator. Calm by default;
+       .urgent only in the last week of the month. */
+    .goal-next-note {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; margin-bottom: 14px; font-size: 13px;
+      background: #faf8f3;
+    }
+    .goal-next-note.urgent {
+      border-color: var(--gold); background: rgba(201,164,58,0.10);
+    }
+    .goal-next-note .goal-next-text { color: var(--muted); }
+    .goal-next-note.urgent .goal-next-text { color: var(--text); font-weight: 600; }
+    /* Viewing a month with nothing set: say so instead of a table of "--". */
+    .goal-empty {
+      text-align: center; padding: 18px 12px;
+      border: 1px dashed var(--border); border-radius: 8px;
+      color: var(--muted); font-size: 13px;
+    }
     .goal-pending-badge {
       display: inline-block; font-size: 10px; font-weight: 700;
       letter-spacing: 0.4px; text-transform: uppercase;
@@ -1326,14 +1346,15 @@
               <div class="month-label" id="goalsMonthLabel"></div>
               <button onclick="changeGoalsMonth(1)">&rsaquo;</button>
             </div>
-            <div id="goalsTabBody"></div>
-            <!-- Next month has no goals and the month is nearly over: surface it
-                 here rather than showing only the current month and letting the
-                 1st arrive ungoaled. Same daysLeftInMonth() rule as the soft gate. -->
+            <!-- Sits ABOVE the indicator table on purpose. Below it, this row
+                 was a dozen-plus rows down the card and nobody scrolled that
+                 far — next month stayed ungoaled. Its button pages the
+                 navigator to next month rather than opening the form itself,
+                 so the gold button below stays the one primary action. -->
             <div id="nextMonthGoalRow" hidden></div>
+            <div id="goalsTabBody"></div>
             <button class="btn-gold" id="btnEditGoalsMonth" style="width:100%;margin-top:14px;" onclick="startGoalsFromTab()">
-              <span class="show-pt">Definir / editar metas deste m&ecirc;s</span>
-              <span class="show-en">Set / edit this month's goals</span>
+              <span id="btnEditGoalsMonthLabel"></span>
             </button>
           </div>
         </div>
@@ -3151,15 +3172,19 @@
       applyGoalsCollapse();
     }
 
-    // Entry point for next month's goals. Available on ANY day of the month:
-    // gating it on "fewer than 8 days left" made the reminder the only path in,
-    // so for three weeks of every month there was no way to enter next month's
-    // numbers at all. Only meaningful while looking at the current month.
+    // Next month's prompt. Available on ANY day of the month: gating it on
+    // "fewer than 8 days left" made the reminder the only path in, so for three
+    // weeks of every month there was no way to enter next month's numbers at
+    // all. It renders directly under the month navigator — below the indicator
+    // table it was a dozen-plus rows down and effectively invisible.
     //
-    // Three states:
-    //   - no goals, < 8 days left → the reminder, worded as a prompt
-    //   - no goals, earlier in the month → a calm, available action
-    //   - goals already set → review/edit, rather than vanishing
+    // Only shown while looking at the current month; on next month itself the
+    // empty state and the gold button already say everything.
+    //
+    // The button PAGES THE NAVIGATOR to next month rather than opening the form
+    // directly. That keeps the gold button the single primary action instead of
+    // adding a competing one, and the client lands on next month's card seeing
+    // what they are about to fill in.
     function renderNextMonthGoalRow() {
       var row = document.getElementById("nextMonthGoalRow");
       if (!row) { return; }
@@ -3169,30 +3194,70 @@
       if (!show) { row.innerHTML = ""; return; }
       var label = monthLabelText(goalState.next_month);
       var hasGoals = !!goalState.next_month_has_goals;
-      var urgent = !hasGoals && daysLeftInMonth(goalState.today) < 8;
-      var statusHtml, btnHtml;
+      var left = daysLeftInMonth(goalState.today);
+      var urgent = !hasGoals && left < 8;
+      var textHtml, btnHtml;
       if (hasGoals) {
-        statusHtml = '<span class="show-pt">metas definidas</span>' +
-          '<span class="show-en">goals set</span>';
+        textHtml = '<span class="show-pt">' + escHtml(label) + ' j&aacute; tem metas definidas.</span>' +
+          '<span class="show-en">' + escHtml(label) + ' already has goals set.</span>';
         btnHtml = '<span class="show-pt">Revisar</span><span class="show-en">Review</span>';
+      } else if (urgent) {
+        // left === 0 is the last day of the month — "0 dia(s) restantes" reads
+        // as a bug, and it is the one day the message matters most.
+        textHtml = left === 0
+          ? '<span class="show-pt">&Uacute;ltimo dia do m&ecirc;s e ' + escHtml(label) +
+              ' ainda n&atilde;o tem metas.</span>' +
+            '<span class="show-en">Last day of the month and ' + escHtml(label) +
+              ' has no goals yet.</span>'
+          : '<span class="show-pt">Faltam ' + left + (left === 1 ? ' dia' : ' dias') +
+              ' para o fim do m&ecirc;s e ' + escHtml(label) + ' ainda n&atilde;o tem metas.</span>' +
+            '<span class="show-en">' + left + (left === 1 ? ' day' : ' days') +
+              ' left in this month and ' + escHtml(label) + ' has no goals yet.</span>';
+        btnHtml = '<span class="show-pt">Definir metas de ' + escHtml(label) + '</span>' +
+          '<span class="show-en">Set ' + escHtml(label) + ' goals</span>';
       } else {
-        statusHtml = '<span class="show-pt">sem metas</span><span class="show-en">no goals</span>';
-        btnHtml = '<span class="show-pt">Definir</span><span class="show-en">Set</span>';
+        textHtml = '<span class="show-pt">' + escHtml(label) + ' ainda n&atilde;o tem metas.</span>' +
+          '<span class="show-en">' + escHtml(label) + ' has no goals yet.</span>';
+        btnHtml = '<span class="show-pt">Definir metas de ' + escHtml(label) + '</span>' +
+          '<span class="show-en">Set ' + escHtml(label) + ' goals</span>';
       }
-      row.innerHTML = '<div class="goal-row">' +
-        '<span' + (urgent ? '' : ' class="muted"') + '>' + escHtml(label) + ' &middot; ' +
-        statusHtml + '</span>' +
-        '<span><button class="btn-outline" style="padding:4px 12px;min-height:0;" onclick="startGoalsForNextMonth()">' +
-        btnHtml + '</button></span></div>';
+      row.innerHTML = '<div class="goal-next-note' + (urgent ? ' urgent' : '') + '">' +
+        '<span class="goal-next-text">' + textHtml + '</span>' +
+        '<button class="btn-outline" style="padding:4px 12px;min-height:0;" onclick="showNextMonthGoals()">' +
+        btnHtml + '</button></div>';
     }
-    function startGoalsForNextMonth() {
-      startGoals(goalState.next_month, false, "tab");
+    // Pages the navigator to next month. Deliberately not startGoals() — the
+    // gold button on that month's card is the one that opens the form.
+    function showNextMonthGoals() {
+      goalsMonth = goalState.next_month;
+      loadGoalsTab();
+    }
+
+    // The gold button acts on the month CURRENTLY BEING VIEWED (that is what
+    // startGoalsFromTab passes), so its label has to name that month rather
+    // than always saying "this month".
+    function renderGoalsMonthButtonLabel(hasGoals) {
+      var span = document.getElementById("btnEditGoalsMonthLabel");
+      if (!span) { return; }
+      var label = monthLabelText(goalsMonth);
+      var isCurrent = !goalState || goalsMonth === goalState.current_month;
+      if (isCurrent && hasGoals) {
+        span.innerHTML = '<span class="show-pt">Definir / editar metas deste m&ecirc;s</span>' +
+          '<span class="show-en">Set / edit this month\'s goals</span>';
+      } else if (hasGoals) {
+        span.innerHTML = '<span class="show-pt">Editar metas de ' + escHtml(label) + '</span>' +
+          '<span class="show-en">Edit ' + escHtml(label) + ' goals</span>';
+      } else {
+        span.innerHTML = '<span class="show-pt">Definir metas de ' + escHtml(label) + '</span>' +
+          '<span class="show-en">Set ' + escHtml(label) + ' goals</span>';
+      }
     }
 
     function loadGoalsTab() {
       loadDailyLogSection();
       applyGoalsCollapse();
       renderNextMonthGoalRow();
+      renderGoalsMonthButtonLabel(true);
       document.getElementById("goalsMonthLabel").textContent = monthLabelText(goalsMonth);
       var body = document.getElementById("goalsTabBody");
       body.innerHTML = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
@@ -3200,9 +3265,15 @@
         .then(function(res) { return res.json(); })
         .then(function(cfg) {
           var html = "";
+          var anyGoalable = false;
+          var anySet = false;
           SECTION_ORDER.forEach(function(sec) {
             var list = cfg.indicators.filter(function(ind) { return ind.section === sec && isGoalableInd(ind); });
             if (!list.length) { return; }
+            anyGoalable = true;
+            list.forEach(function(ind) {
+              if (ind.meta_mensal !== null && ind.meta_mensal !== undefined) { anySet = true; }
+            });
             html += '<div class="kpi-section-title">' + escHtml(isEn() ? SECTION_LABELS[sec].en : SECTION_LABELS[sec].pt) + '</div>';
             list.forEach(function(ind) {
               var pctType = (ind.key === "margem_lucro" || ind.key === "taxa_conversao") ? "percent" : ind.type;
@@ -3218,11 +3289,27 @@
                 '</span></div>';
             });
           });
-          body.innerHTML = html ||
-            '<p class="muted">' + (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
+          var isPast = goalsMonth < todayStr().slice(0, 7);
+          if (!anyGoalable) {
+            body.innerHTML = '<p class="muted">' +
+              (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
+          } else if (!anySet) {
+            // A table of "--" explains nothing. Say the month is empty, and let
+            // the gold button below be the action (it already targets this month).
+            body.innerHTML = '<div class="goal-empty">' +
+              '<span class="show-pt">' + escHtml(monthLabelText(goalsMonth)) +
+              ' ainda n&atilde;o tem metas definidas.' +
+              (isPast ? '' : ' Use o bot&atilde;o abaixo para defini-las.') + '</span>' +
+              '<span class="show-en">' + escHtml(monthLabelText(goalsMonth)) +
+              ' has no goals set yet.' +
+              (isPast ? '' : ' Use the button below to set them.') + '</span></div>';
+          } else {
+            body.innerHTML = html;
+          }
+          renderGoalsMonthButtonLabel(anySet);
           // Past months are read-only history — hide the edit button there.
           var editBtn = document.getElementById("btnEditGoalsMonth");
-          if (editBtn) { editBtn.style.display = (goalsMonth < todayStr().slice(0, 7)) ? "none" : ""; }
+          if (editBtn) { editBtn.style.display = isPast ? "none" : ""; }
         })
         .catch(function() {
           body.innerHTML = '<p class="muted">' + (isEn() ? "Could not load goals." : "Não foi possível carregar as metas.") + '</p>';

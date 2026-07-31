@@ -1,15 +1,22 @@
-// The Ritmo tab's inline "next month has no goals" row must fire under the
-// SAME conditions as decideBootView()'s soft gate, plus "the user is looking at
-// the current month".
+// The Ritmo tab's "next month has no goals" prompt.
 //
-// The regression this guards: goalsMonth was seeded from
+// Contract (deliberately NOT the soft gate's): the prompt is visible on ANY day
+// of the month while the client is looking at the current month. Gating it on
+// "fewer than 8 days left" — the soft gate's rule — made the boot reminder the
+// only way in, so for three weeks of every month there was no path to next
+// month's numbers at all. The 8-day rule now controls URGENCY (wording +
+// .urgent styling), never visibility.
+//
+// It is also rendered ABOVE the indicator table. Below it, the prompt sat a
+// dozen-plus rows down the card and clients never scrolled to it.
+//
+// The other regression guarded here: goalsMonth was seeded from
 // `new Date().toISOString().slice(0, 7)` — UTC — while goal-state's
 // current_month is derived from todayStr(), the LOCAL date the portal sends it.
 // West of UTC those disagree for the last hours of every month: in Brazil
 // (UTC-3), from 21:00 on the last day, goalsMonth was already next month and
-// the row's `goalsMonth === goalState.current_month` guard silently suppressed
-// it — at exactly the point in the month the row exists to fire. The boot
-// prompt has no such guard, which is why it fired and the row did not.
+// the prompt's `goalsMonth === goalState.current_month` guard silently
+// suppressed it — at exactly the point in the month it exists to fire.
 import { readFileSync } from "node:fs";
 
 const src = readFileSync(new URL("../portal.html", import.meta.url), "utf8");
@@ -28,84 +35,132 @@ ok(/var goalsMonth = todayStr\(\)\.slice\(0, 7\);/.test(src),
 ok(!/var goalsMonth = new Date\(\)\.toISOString\(\)/.test(src),
    "goalsMonth no longer uses toISOString()");
 
-// ---- 2. run the real functions against a stubbed DOM + clock ----
+// ---- 2. the prompt renders above the indicator table ----
+ok(src.indexOf('id="nextMonthGoalRow"') < src.indexOf('id="goalsTabBody"'),
+   "the prompt is placed ABOVE the indicator table, not below it");
+ok(src.indexOf('id="nextMonthGoalRow"') < src.indexOf('id="btnEditGoalsMonth"'),
+   "the prompt is placed above the gold button too");
+
+// ---- 3. run the real functions against a stubbed DOM + clock ----
 const els = {};
 const mkEl = (id) => ({ id, innerHTML: "", hidden: false, textContent: "", style: {} });
-for (const id of ["nextMonthGoalRow"]) els[id] = mkEl(id);
+for (const id of ["nextMonthGoalRow", "btnEditGoalsMonthLabel"]) els[id] = mkEl(id);
 globalThis.document = { getElementById: (id) => els[id] || null };
 globalThis.escHtml = (s) => String(s);
 globalThis.monthLabelText = (m) => m;
 globalThis.isEn = () => false;
 
-// Pull in todayStr(), daysLeftInMonth(), renderNextMonthGoalRow() and the
-// goalsMonth seed exactly as they appear in portal.html.
+// Pull in todayStr(), daysLeftInMonth(), renderNextMonthGoalRow(),
+// renderGoalsMonthButtonLabel() and the goalsMonth seed exactly as they appear
+// in portal.html.
 eval(slice("    function todayStr() {", "    function weekdayName(ds)") +
   "\n; globalThis.todayStr = todayStr;");
 eval(slice("    function daysLeftInMonth(ds) {", "    function loadGoalState()") +
   "\n; globalThis.daysLeftInMonth = daysLeftInMonth;");
 eval(slice("    var goalsMonth = todayStr().slice(0, 7);", "    var goalsFormMonth") +
   "\n; globalThis.goalsMonth = goalsMonth;");
-eval(slice("    function renderNextMonthGoalRow() {", "    function startGoalsForNextMonth()") +
+eval(slice("    function renderNextMonthGoalRow() {", "    // Pages the navigator") +
   "\n; globalThis.renderNextMonthGoalRow = renderNextMonthGoalRow;");
+eval(slice("    function renderGoalsMonthButtonLabel(hasGoals) {", "    function loadGoalsTab()") +
+  "\n; globalThis.renderGoalsMonthButtonLabel = renderGoalsMonthButtonLabel;");
 
-// The soft gate's own condition, lifted from decideBootView(), so the two
-// paths are compared rather than each asserted against a hand-copied rule.
-const softGateFires = (gs) =>
-  !!gs && daysLeftInMonth(gs.today) < 8 && !gs.next_month_has_goals;
-
-const scenarios = [
-  { name: "late in the month, next month ungoaled",
-    gs: { today: "2026-07-31", current_month: "2026-07", next_month: "2026-08",
-          next_month_has_goals: false } },
-  { name: "late in the month but next month already has goals",
-    gs: { today: "2026-07-31", current_month: "2026-07", next_month: "2026-08",
-          next_month_has_goals: true } },
-  { name: "mid-month (plenty of days left)",
-    gs: { today: "2026-07-10", current_month: "2026-07", next_month: "2026-08",
-          next_month_has_goals: false },
-    viewing: "2026-07" },
-  { name: "February's short month (21st is inside the window)",
-    gs: { today: "2028-02-22", current_month: "2028-02", next_month: "2028-03",
-          next_month_has_goals: false } },
-];
-
-for (const s of scenarios) {
-  globalThis.goalState = s.gs;
-  globalThis.goalsMonth = s.viewing || s.gs.current_month;
+const render = (gs, viewing) => {
+  globalThis.goalState = gs;
+  globalThis.goalsMonth = viewing || gs.current_month;
   renderNextMonthGoalRow();
-  const shown = !els.nextMonthGoalRow.hidden;
-  const expected = softGateFires(s.gs);
-  ok(shown === expected,
-     `${s.name}: row ${shown ? "shows" : "hidden"}, soft gate ${expected ? "fires" : "does not"} — they agree`);
+  return { shown: !els.nextMonthGoalRow.hidden, html: els.nextMonthGoalRow.innerHTML };
+};
+
+// ---- 4. visibility: any day of the month, while viewing the current month ----
+const ungoaled = (today) => ({ today, current_month: today.slice(0, 7),
+  next_month: today.slice(0, 7) === "2026-07" ? "2026-08" : "2028-03",
+  next_month_has_goals: false });
+
+const days = ["2026-07-01", "2026-07-10", "2026-07-20", "2026-07-25", "2026-07-31"];
+for (const d of days) {
+  const r = render(ungoaled(d));
+  ok(r.shown, `${d}: prompt is visible (${daysLeftInMonth(d)} days left) — no 8-day visibility gate`);
 }
 
-// ---- 3. the specific regression: viewing the current month, late in it ----
-// Reproduce the old UTC seed and assert it would NOT have matched, so this
-// test fails if someone reintroduces it.
+// ---- 5. urgency: the 8-day rule styles the prompt, it does not hide it ----
+const early = render(ungoaled("2026-07-10"));
+ok(!/goal-next-note urgent/.test(early.html),
+   "mid-month: prompt renders calm (no .urgent)");
+ok(/ainda n/.test(early.html) && !/Faltam/.test(early.html),
+   "mid-month: wording is the calm one, not the countdown");
+
+const late = render(ungoaled("2026-07-31"));
+ok(/goal-next-note urgent/.test(late.html),
+   "last day: prompt renders .urgent");
+// "Faltam 0 dia(s)" reads as a bug on the one day the message matters most.
+ok(/ltimo dia do m/.test(late.html) && !/Faltam 0/.test(late.html),
+   "last day: says 'último dia do mês', never 'Faltam 0 dia(s)'");
+
+const oneLeft = render(ungoaled("2026-07-30"));
+ok(/Faltam 1 dia /.test(oneLeft.html) && !/1 dias/.test(oneLeft.html),
+   "one day left: singular 'dia', not 'dia(s)'");
+const someLeft = render(ungoaled("2026-07-28"));
+ok(/Faltam 3 dias/.test(someLeft.html),
+   "several days left: plural 'dias', not 'dia(s)'");
+
+const feb = render(ungoaled("2028-02-22"));
+ok(/goal-next-note urgent/.test(feb.html),
+   "February's short month: the 22nd is inside the urgency window (real month length)");
+
+// ---- 6. already-set next month: still shown, worded as review ----
+const done = render({ today: "2026-07-31", current_month: "2026-07",
+                      next_month: "2026-08", next_month_has_goals: true });
+ok(done.shown, "next month already has goals: prompt still shows (review, not vanish)");
+ok(!/goal-next-note urgent/.test(done.html),
+   "next month already has goals: never urgent");
+ok(/Revisar/.test(done.html), "next month already has goals: offers Review");
+
+// ---- 7. the UTC regression ----
 globalThis.goalState = { today: "2026-07-31", current_month: "2026-07",
                          next_month: "2026-08", next_month_has_goals: false };
 globalThis.goalsMonth = new Date("2026-07-31T23:30:00-03:00").toISOString().slice(0, 7);
 renderNextMonthGoalRow();
 ok(els.nextMonthGoalRow.hidden,
-   "sanity: the OLD UTC-derived month (2026-08) does suppress the row — this was the bug");
+   "sanity: the OLD UTC-derived month (2026-08) does suppress the prompt — this was the bug");
 ok(globalThis.goalsMonth !== goalState.current_month,
    "sanity: UTC and local months genuinely diverge at 23:30 on the last day (UTC-3)");
-
-// And with the fixed seed, at that same instant, it shows.
 globalThis.goalsMonth = "2026-07";   // what todayStr().slice(0,7) yields locally
 renderNextMonthGoalRow();
 ok(!els.nextMonthGoalRow.hidden,
-   "with the local-derived month the row SHOWS at 23:30 on the last day of the month");
+   "with the local-derived month the prompt SHOWS at 23:30 on the last day of the month");
 
-// ---- 4. the row stays scoped to the current month ----
-globalThis.goalsMonth = "2026-05";   // browsing history via the month picker
-renderNextMonthGoalRow();
-ok(els.nextMonthGoalRow.hidden,
-   "the row stays hidden while browsing a PAST month in the picker");
-globalThis.goalsMonth = "2026-08";
-renderNextMonthGoalRow();
-ok(els.nextMonthGoalRow.hidden,
-   "the row stays hidden while browsing a FUTURE month in the picker");
+// ---- 8. the prompt stays scoped to the current month ----
+// On next month itself the empty state and the gold button already say it all;
+// on a past month it is meaningless.
+ok(!render(ungoaled("2026-07-20"), "2026-05").shown,
+   "hidden while browsing a PAST month in the navigator");
+ok(!render(ungoaled("2026-07-20"), "2026-08").shown,
+   "hidden while browsing next month itself (the card already says it)");
 
-console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ NEXT-MONTH GOAL ROW CONSISTENT WITH THE SOFT GATE");
+// ---- 9. the gold button's label follows the month being viewed ----
+const label = (viewing, gs, hasGoals) => {
+  globalThis.goalState = gs;
+  globalThis.goalsMonth = viewing;
+  renderGoalsMonthButtonLabel(hasGoals);
+  return els.btnEditGoalsMonthLabel.innerHTML;
+};
+const gs = { today: "2026-07-20", current_month: "2026-07",
+             next_month: "2026-08", next_month_has_goals: false };
+
+ok(/deste m/.test(label("2026-07", gs, true)),
+   "viewing the current month WITH goals: label is the familiar 'this month' wording");
+ok(/Definir metas de 2026-08/.test(label("2026-08", gs, false)),
+   "viewing next month with NO goals: label names that month and says Definir");
+ok(/Editar metas de 2026-08/.test(label("2026-08", gs, true)),
+   "viewing next month WITH goals: label names that month and says Editar");
+ok(/Definir metas de 2026-07/.test(label("2026-07", gs, false)),
+   "viewing the current month with NO goals: label says Definir, not edit");
+
+// ---- 10. the standalone entry point is gone, not left dangling ----
+ok(!/startGoalsForNextMonth/.test(src),
+   "the old standalone next-month launcher is removed, not left as a dead reference");
+ok(/onclick="showNextMonthGoals\(\)"/.test(src) || /showNextMonthGoals\(\)/.test(src),
+   "the prompt's button pages the navigator instead of opening a competing form");
+
+console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ NEXT-MONTH GOAL PROMPT: VISIBLE ANY DAY, ABOVE THE TABLE, BUTTON FOLLOWS THE MONTH");
 process.exit(fail ? 1 : 0);

@@ -12605,18 +12605,19 @@ var GM_JOB_STATUSES = ["Em andamento", "Concluída", "Atrasada", "Pausada"];
 
 // Seed defaults for the per-client configurable lists.
 //
-// servicos and cycle_months are generic vocabulary — a plausible starting
-// point for a new client, and an empty app on first open reads as broken.
+// servicos is the ONLY list that is seeded. It is generic vocabulary — a
+// plausible starting point for a new client, and an empty app on first open
+// reads as broken.
 //
-// vendedores and partner_types deliberately have NO seed. They used to be
-// seeded from LIRA OUTDOOR LIVING's real data, which meant six unrelated
-// live clients were displaying LIRA's actual employees (Anderson, Ana) as
-// their own sales staff. Seeding invented service categories is helpful;
-// seeding real human names from another company is a data leak. Both lists
-// now start empty and stay empty until the client fills them in — see the
-// matching [] read fallbacks in gmGetConfig().
+// vendedores, partner_types and cycle_months deliberately have NO seed. Each
+// used to be seeded from LIRA OUTDOOR LIVING's real data, which meant unrelated
+// live clients were displaying LIRA's actual employees (Anderson, Ana) as their
+// own sales staff and LIRA's seasonal planning window as their own cycle.
+// Seeding invented service categories is helpful; seeding another company's
+// real people or real planning cycle is a data leak. All three now start empty
+// and stay empty until the client fills them in — see the matching [] read
+// fallbacks in gmGetConfig().
 var GM_DEFAULT_SERVICOS = ["Pavers", "Pergola", "Outdoor Kitchen", "Fire Pit", "Turf", "Travertine", "Lighting", "Landscape", "Living Area", "Combo", "Sealer"];
-var GM_DEFAULT_CYCLE_MONTHS = ["Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro", "Janeiro"];
 // The Entrada/Saída derivation table — tipo comes from HERE (or a client's
 // configured copy), never from a request body.
 var GM_DEFAULT_FINANCE_CATEGORIES = [
@@ -12639,7 +12640,8 @@ var GM_DEFAULT_FINANCE_CATEGORIES = [
 // The four client-editable lists (servicos, vendedores, partner_types, cycle_months).
 // An empty stored array is a REAL value: the client deliberately cleared the list, and
 // clearing it must stick. Only a genuinely unconfigured column — NULL, empty string,
-// unparseable JSON, or a non-array — falls back to the seed defaults. The write side
+// unparseable JSON, or a non-array — falls back to the caller's fallback (a seed list
+// for servicos, an empty array for the other three). The write side
 // (setList in handlePutGmConfig) already stores [] faithfully; this is the matching
 // read side.
 function gmParseJsonList(s, fallback) {
@@ -12661,7 +12663,8 @@ function gmParseJsonListNonEmpty(s, fallback) {
     return fallback;
 }
 
-// Load (and lazily seed with the LIRA defaults) a client's gm_config row.
+// Load (and lazily seed) a client's gm_config row. Only servicos and the
+// admin-only finance_categories get seeded values; every other list starts empty.
 async function gmGetConfig(env, clientId) {
     var row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
     if (!row) {
@@ -12674,21 +12677,22 @@ async function gmGetConfig(env, clientId) {
             "[]",   // vendedores — never seeded; real people's names are not a default
             JSON.stringify(GM_DEFAULT_FINANCE_CATEGORIES),
             "[]",   // partner_types — never seeded, same reason
-            JSON.stringify(GM_DEFAULT_CYCLE_MONTHS)
+            "[]"    // cycle_months — never seeded; LIRA's planning window is not a default
         ).run();
         row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
     }
     return {
         servicos:            gmParseJsonList(row.servicos_json, GM_DEFAULT_SERVICOS),
-        // vendedores and partner_types fall back to [] , never to a seed list.
-        // gmParseJsonList only reaches the fallback for a genuinely unconfigured
-        // column (NULL / unparseable / non-array), but pointing that fallback at
-        // a constant is exactly how the LIRA names would come back on every read
-        // even after the stored rows were cleared. Keep these two literal.
+        // vendedores, partner_types and cycle_months fall back to [], never to a
+        // seed list. gmParseJsonList only reaches the fallback for a genuinely
+        // unconfigured column (NULL / unparseable / non-array), but pointing that
+        // fallback at a constant is exactly how LIRA's names and planning window
+        // would come back on every read even after the stored rows were cleared.
+        // Keep all three literal.
         vendedores:          gmParseJsonList(row.vendedores_json, []),
         finance_categories:  gmParseJsonListNonEmpty(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
         partner_types:       gmParseJsonList(row.partner_types_json, []),
-        cycle_months:        gmParseJsonList(row.cycle_months_json, GM_DEFAULT_CYCLE_MONTHS),
+        cycle_months:        gmParseJsonList(row.cycle_months_json, []),
         target_margin:       row.target_margin,
         pipeline_view_threshold: row.pipeline_view_threshold,
         pipeline_view_override:  row.pipeline_view_override || null

@@ -127,22 +127,45 @@ async function sha256Hex(str) {
 
 async function authenticateClientToken(token, env) {
     var tokenHash = await sha256Hex(token);
+    // The join is on USERNAME, not client_id. It used to be client_id, which
+    // was unambiguous only while client_logins.client_id was UNIQUE. Salesperson
+    // seats removed that constraint, so a client_id join now fans out to every
+    // login at the business and picks an arbitrary one — a seller's token would
+    // resolve to the owner's row and inherit the owner's must_change_password
+    // and role. username is the PRIMARY KEY and is what the token was minted
+    // against, so it identifies exactly one login.
     var row = await env.DB.prepare(
-        "SELECT t.client_id, t.username, t.expires_at, l.must_change_password, c.name AS client_name " +
+        "SELECT t.client_id, t.username, t.expires_at, l.must_change_password, " +
+        "l.role AS login_role, l.seller_name, c.name AS client_name " +
         "FROM client_auth_tokens t " +
-        "JOIN client_logins l ON l.client_id = t.client_id " +
+        "JOIN client_logins l ON l.username = t.username " +
         "LEFT JOIN clients c ON c.id = t.client_id " +
         "WHERE t.token_hash = ?"
     ).bind(tokenHash).first();
     if (!row) { return null; }
     if (!row.expires_at || row.expires_at <= new Date().toISOString()) { return null; }
+    // A salesperson is still role "client" to every existing caller — they are
+    // a client-tier session and go through the same client gate. seller_name is
+    // the discriminator, and it is the ONLY source of truth for row-level lead
+    // filtering: it comes from the login row via the token, never from a header,
+    // a query param or a request body.
+    var isSeller = row.login_role === "seller" && !!row.seller_name;
     return {
         email: null, role: "client",
-        display_name: row.client_name || row.username, avatar_url: null,
+        display_name: isSeller ? row.seller_name : (row.client_name || row.username),
+        avatar_url: null,
         client_id: row.client_id, username: row.username,
+        login_role: isSeller ? "seller" : "client",
+        seller_name: isSeller ? row.seller_name : null,
         must_change_password: !!row.must_change_password,
         auth_method: "password", token_hash: tokenHash
     };
+}
+
+// The session's salesperson name, or null for an owner/admin session. Every
+// lead read and write keys off this. Google-auth sessions never carry it.
+function sessionSellerName(user) {
+    return (user && user.login_role === "seller" && user.seller_name) ? user.seller_name : null;
 }
 
 // Admin roles pass for any client; a client-role user only for their own.
@@ -288,6 +311,11 @@ async function handleGetRole(request, env) {
             role: user.role, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url,
             client_id: user.client_id || null,
             must_change_password: !!user.must_change_password,
+            // 'seller' for a salesperson seat, 'client' for a business owner.
+            // The portal shapes its nav off this; the access rules themselves
+            // are enforced server-side and do not depend on it.
+            login_role: user.login_role || "client",
+            seller_name: user.seller_name || null,
             auth_method: user.auth_method || "google"
         });
     } catch (e) {
@@ -1864,7 +1892,7 @@ async function handleGetLeadPipeline(id, request, env) {
         if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
 
         var login = await env.DB.prepare(
-            "SELECT username, password_changed_at FROM client_logins WHERE client_id = ?"
+            "SELECT username, password_changed_at FROM client_logins WHERE client_id = ? AND role = 'client'"
         ).bind(id).first();
 
         var assessment = await env.DB.prepare(
@@ -8728,7 +8756,7 @@ function parseWorkScheduleJson(s) {
 
 async function loadWorkContext(env, clientId, fromDate, toDate) {
     var login = await env.DB.prepare(
-        "SELECT work_schedule FROM client_logins WHERE client_id = ?"
+        "SELECT work_schedule FROM client_logins WHERE client_id = ? AND role = 'client'"
     ).bind(clientId).first();
     var schedule = parseWorkScheduleJson(login && login.work_schedule);
     var ranges = await env.DB.prepare(
@@ -8791,7 +8819,7 @@ async function handleGetWorkSettings(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var login = await env.DB.prepare(
-            "SELECT work_schedule FROM client_logins WHERE client_id = ?"
+            "SELECT work_schedule FROM client_logins WHERE client_id = ? AND role = 'client'"
         ).bind(id).first();
         var ranges = await env.DB.prepare(
             "SELECT id, start_date, end_date, reason FROM client_blocked_ranges " +
@@ -8818,7 +8846,7 @@ async function handlePutWorkSettings(id, request, env) {
             return jsonErr("Selecione pelo menos um dia de trabalho / Select at least one working day", 400);
         }
         var res = await env.DB.prepare(
-            "UPDATE client_logins SET work_schedule = ? WHERE client_id = ?"
+            "UPDATE client_logins SET work_schedule = ? WHERE client_id = ? AND role = 'client'"
         ).bind(JSON.stringify(schedule), id).run();
         if (!res.meta || res.meta.changes === 0) {
             return jsonErr("Client login not found", 404);
@@ -9184,6 +9212,48 @@ function usernameFromBusinessName(name) {
 }
 
 // ---------------------------------------------------------------------------
+// Salesperson seat provisioning \u2014 the ONE path that creates a role='seller'
+// row in client_logins. Used by the approval route.
+//
+// Deliberately reuses generateTempPassword() and hashPassword() (the same
+// PBKDF2 helper POST /api/clients/:id/login uses: pbkdf2$<iterations>$<b64
+// salt>$<b64 hash>, 100000 iterations). Password hashing is never hand-rolled
+// a second time.
+//
+// Returns { username, temp_password }. The plaintext password is returned
+// exactly once and never stored \u2014 only the hash goes to the database.
+// ---------------------------------------------------------------------------
+
+async function createSellerLogin(env, clientId, clientName, sellerName, createdBy) {
+    // Username derives from business + salesperson so it reads as a real
+    // identity rather than a random string. username is the PRIMARY KEY and is
+    // global across every business, so a collision is not merely possible, it
+    // is expected the moment two clients both employ a "Joao" \u2014 hence the
+    // numeric suffix loop, mirroring the client-login generator.
+    var base = usernameFromBusinessName(clientName) + "." + usernameFromBusinessName(sellerName);
+    var username = base;
+    for (var n = 2; n < 1000; n++) {
+        var taken = await env.DB.prepare("SELECT username FROM client_logins WHERE username = ?")
+            .bind(username).first();
+        if (!taken) { break; }
+        username = base + n;
+    }
+
+    var tempPassword = generateTempPassword();
+    var passwordHash = await hashPassword(tempPassword);
+
+    // tracking_start is left NULL: it drives the OWNER's daily-log tracking
+    // window, and a salesperson has no daily log. must_change_password=1 forces
+    // the same first-login password change every client gets.
+    await env.DB.prepare(
+        "INSERT INTO client_logins (username, client_id, password_hash, must_change_password, created_by, role, seller_name) " +
+        "VALUES (?, ?, ?, 1, ?, 'seller', ?)"
+    ).bind(username, clientId, passwordHash, createdBy || null, sellerName).run();
+
+    return { username: username, temp_password: tempPassword };
+}
+
+// ---------------------------------------------------------------------------
 // Central client-role gate — runs in fetch() before any route dispatch.
 // A client-role user can ONLY reach the whitelist below, and parameterized
 // paths are matched against THEIR OWN client_id, so ID manipulation in any
@@ -9210,6 +9280,10 @@ function clientRequestAllowed(path, method, clientId) {
                 rest === "goal-state" || rest === "indicator-history" ||
                 rest === "work-settings" || rest === "working-days" ||
                 rest === "referral-settings" ||
+                // Read-only roster of their own salespeople's active logins,
+                // shown on their Ajustes card. Creating and revoking seats is
+                // Rafa/Alice only — there is no client-reachable write here.
+                rest === "seller-logins" ||
                 rest === "assessments") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
             if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }
@@ -9264,6 +9338,67 @@ function clientRequestAllowed(path, method, clientId) {
     return false;
 }
 
+// ---------------------------------------------------------------------------
+// Salesperson gate — a STRICT ALLOWLIST, deliberately not a denylist bolted
+// onto clientRequestAllowed.
+//
+// A salesperson works FOR the client business. They see the Pipeline and
+// nothing else: not Analytics, Ritmo, Obras, Financeiro, Execução, Tarefas,
+// Documentos, Faturas or Ajustes, and within the Pipeline only the leads they
+// created or that are assigned to them (that second half is row-level and is
+// enforced in the lead handlers, not here).
+//
+// This is written as its own list rather than "the client list minus some
+// entries" on purpose: a denylist fails OPEN. The next endpoint someone adds
+// to the client surface would be reachable by every salesperson at every
+// client business until somebody remembered to deny it. Here, a new endpoint
+// is invisible to sellers until it is explicitly named.
+//
+// Parceiros and Base de Ouro are NOT here — they are the business's own asset
+// lists, not the salesperson's pipeline. The portal therefore renders the
+// Pipeline tab without those two sub-pills, so there is no pill that 403s.
+//
+// PUT gm/config is absent and must stay absent: a salesperson must not be able
+// to edit the business's services, salespeople or partner-type lists. Only the
+// GET is allowed, because the lead form's dropdowns read it.
+// ---------------------------------------------------------------------------
+
+function sellerRequestAllowed(path, method, clientId) {
+    if (path === "/api/role" && method === "GET") { return true; }
+    if (path === "/api/auth/client-change-password" && method === "POST") { return true; }
+    if (path === "/api/auth/client-logout" && method === "POST") { return true; }
+    if (path === "/api/portal/me" && method === "GET") { return true; }
+
+    var base = "/api/clients/" + clientId;
+    // The portal shell reads the client record to boot (name, logo, industry).
+    if (path === base && method === "GET") { return true; }
+    if (path.indexOf(base + "/") !== 0) { return false; }
+    var rest = path.slice(base.length + 1);
+
+    if (method === "GET") {
+        // Dropdown vocabularies for the lead form (servicos, vendedores,
+        // partner_types). Read-only.
+        if (rest === "gm/config") { return true; }
+        // The lead list itself. Row-level filtering to this seller's own rows
+        // happens in handleGetGmLeads off the session's seller_name.
+        if (rest === "gm/leads") { return true; }
+        // The outreach log of a lead. handleGetGmLeadContacts re-checks that
+        // the lead is this seller's before returning anything.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        return false;
+    }
+    if (method === "POST") {
+        if (rest === "gm/leads") { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        return false;
+    }
+    if (method === "PUT") {
+        if (/^gm\/leads\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        return false;
+    }
+    return false;
+}
+
 async function enforceClientRoleGate(request, env, path, method) {
     var auth = request.headers.get("Authorization") || "";
     if (!auth.startsWith("Bearer ")) { return null; }   // unauthenticated flows unchanged
@@ -9278,6 +9413,14 @@ async function enforceClientRoleGate(request, env, path, method) {
         return jsonErr("Password change required", 403);
     }
     if (!user.client_id) { return jsonErr("Forbidden", 403); }
+    // A salesperson session goes through its own strict allowlist and never
+    // touches the client one. Owners (login_role 'client', and every
+    // Google-auth client session, which has no login_role at all) are
+    // unaffected — same list, same behavior as before this feature.
+    if (sessionSellerName(user)) {
+        if (!sellerRequestAllowed(path, method, user.client_id)) { return jsonErr("Forbidden", 403); }
+        return null;
+    }
     if (!clientRequestAllowed(path, method, user.client_id)) { return jsonErr("Forbidden", 403); }
     return null;
 }
@@ -9293,7 +9436,7 @@ async function handleGetClientLoginStatus(id, request, env) {
         if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
         var row = await env.DB.prepare(
             "SELECT username, must_change_password, tracking_start, last_login_at, password_changed_at, created_at " +
-            "FROM client_logins WHERE client_id = ?"
+            "FROM client_logins WHERE client_id = ? AND role = 'client'"
         ).bind(id).first();
         if (!row) { return jsonOk({ exists: false }); }
         return jsonOk({
@@ -9326,7 +9469,7 @@ async function handlePostClientLoginCreate(id, request, env) {
 
         var tempPassword = generateTempPassword();
         var passwordHash = await hashPassword(tempPassword);
-        var existing = await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ?").bind(id).first();
+        var existing = await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ? AND role = 'client'").bind(id).first();
         var username;
 
         if (existing) {
@@ -9334,9 +9477,9 @@ async function handlePostClientLoginCreate(id, request, env) {
             // and revoke any live sessions.
             username = existing.username;
             await env.DB.prepare(
-                "UPDATE client_logins SET password_hash = ?, must_change_password = 1 WHERE client_id = ?"
+                "UPDATE client_logins SET password_hash = ?, must_change_password = 1 WHERE client_id = ? AND role = 'client'"
             ).bind(passwordHash, id).run();
-            await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ?").bind(id).run();
+            await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ? AND username = ?").bind(id, username).run();
         } else {
             var base = usernameFromBusinessName(client.name);
             username = base;
@@ -9350,8 +9493,8 @@ async function handlePostClientLoginCreate(id, request, env) {
             // this client in", and a later password reset by someone else
             // does not change who did.
             await env.DB.prepare(
-                "INSERT INTO client_logins (username, client_id, password_hash, must_change_password, tracking_start, created_by) " +
-                "VALUES (?, ?, ?, 1, date('now'), ?)"
+                "INSERT INTO client_logins (username, client_id, password_hash, must_change_password, tracking_start, created_by, role, seller_name) " +
+                "VALUES (?, ?, ?, 1, date('now'), ?, 'client', NULL)"
             ).bind(username, id, passwordHash, actorName(user)).run();
         }
 
@@ -9470,8 +9613,8 @@ async function handlePostClientChangePassword(request, env) {
             "UPDATE client_logins SET password_hash = ?, must_change_password = 0, password_changed_at = datetime('now') " +
             "WHERE username = ?"
         ).bind(passwordHash, user.username).run();
-        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ? AND token_hash != ?")
-            .bind(user.client_id, user.token_hash).run();
+        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE username = ? AND token_hash != ?")
+            .bind(user.username, user.token_hash).run();
 
         return jsonOk({ changed: true });
     } catch (e) {
@@ -10149,7 +10292,7 @@ async function handleGetEntryState(id, request, env) {
         var today = url.searchParams.get("today");
         if (!isValidDateStr(today)) { today = new Date().toISOString().slice(0, 10); }
 
-        var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ?").bind(id).first();
+        var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ? AND role = 'client'").bind(id).first();
         var start = (login && login.tracking_start && isValidDateStr(login.tracking_start)) ? login.tracking_start : today;
         var cap = new Date(new Date(today + "T12:00:00Z").getTime() - 13 * 24 * 3600 * 1000).toISOString().slice(0, 10);
         if (start < cap) { start = cap; }
@@ -10459,7 +10602,7 @@ async function handleGetWeeklySummary(id, request, env) {
         var missed = await env.DB.prepare(
             "SELECT missed_date, status, reason FROM client_missed_days WHERE client_id = ? AND missed_date >= ? AND missed_date <= ?"
         ).bind(id, start, endDate).all();
-        var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ?").bind(id).first();
+        var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ? AND role = 'client'").bind(id).first();
         var trackingStart = login ? login.tracking_start : null;
 
         var entryByDate = {}, missedByDate = {};
@@ -12887,15 +13030,31 @@ async function handleGetGmLeads(id, request, env) {
         // either would drift the moment a log row is added or removed.
         // COALESCE keeps the old hand-entered data_contato meaningful for
         // leads that predate the log — see gmLeadPrimeiroContato in gm.js.
+        // Row-level scope for a salesperson session: they see ONLY leads whose
+        // vendedor is their own name. Enforced HERE, in the SQL, off the name
+        // carried on the session — never off a query param or body field, and
+        // never in the frontend (a hidden row is not a protected row).
+        //
+        // The comparison is exact, not COALESCE'd: a lead with vendedor NULL or
+        // '' belongs to the OWNER and is invisible to every seller. NULL is not
+        // "everyone's".
+        //
+        // The same predicate is applied to the summary aggregate below. If it
+        // were applied only to the row list, a seller would still learn the
+        // size, value and close rate of the whole business's pipeline from the
+        // metric tiles.
+        var sellerName = sessionSellerName(user);
+        var sellerFilter = sellerName ? " AND l.vendedor = ?" : "";
+        var leadBinds = sellerName ? [id, sellerName] : [id];
         var rows = await env.DB.prepare(
             "SELECT l.*, p.name AS parceiro_name, " +
             "(SELECT COUNT(*) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS contatos_count, " +
             "(SELECT MIN(c.logged_at) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS primeiro_contato " +
             "FROM gm_leads l " +
             "LEFT JOIN gm_partners p ON p.id = l.parceiro_id " +
-            "WHERE l.client_id = ? " +
+            "WHERE l.client_id = ?" + sellerFilter + " " +
             "ORDER BY COALESCE(l.data_lead, l.created_at) DESC"
-        ).bind(id).all();
+        ).bind(...leadBinds).all();
         var summary = await env.DB.prepare(
             "SELECT COUNT(*) AS leads_totais, " +
             "SUM(CASE WHEN estagio IN ('Estimate Enviado','Follow-up','Negociação') THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
@@ -12906,8 +13065,8 @@ async function handleGetGmLeads(id, request, env) {
             "SUM(CASE WHEN data_lead IS NOT NULL AND data_estimate IS NOT NULL " +
             "AND (julianday(data_estimate) - julianday(data_lead)) > 1.0 THEN 1 ELSE 0 END) AS fora_sla_estimate, " +
             "SUM(CASE WHEN estagio NOT IN ('Fechado','Perdido') THEN 1 ELSE 0 END) AS live_count " +
-            "FROM gm_leads WHERE client_id = ?"
-        ).bind(id).first();
+            "FROM gm_leads WHERE client_id = ?" + (sellerName ? " AND vendedor = ?" : "")
+        ).bind(...leadBinds).first();
         var leadsTotais = (summary && summary.leads_totais) || 0;
         var fechados = (summary && summary.fechados) || 0;
         return jsonOk({
@@ -13019,6 +13178,12 @@ async function handlePostGmLead(id, request, env) {
         var config = await gmGetConfig(env, id);
         var parsed = await gmLeadFields(body, config, false, env, id);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
+        // A salesperson can only create leads that belong to them. vendedor is
+        // FORCED to the session's name and any value in the request body is
+        // discarded — a seller cannot file a lead under a colleague's name,
+        // including by hand-crafting the JSON.
+        var postSeller = sessionSellerName(user);
+        if (postSeller) { parsed.fields.vendedor = postSeller; }
         var leadId = await gmInsertLead(env, id, parsed.fields);
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ created: true, lead: row });
@@ -13039,12 +13204,25 @@ async function handlePutGmLead(id, leadId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var existing = await gmOwnedRow(env, "gm_leads", leadId, id);
         if (!existing) { return jsonErr("Lead not found", 404); }
+        // Ownership is checked EXPLICITLY against the fetched row before any
+        // write, and answers 403. Relying on a WHERE clause to silently no-op
+        // would report success for an edit that never happened, and would tell
+        // a seller nothing about whether the id exists — this is an auth
+        // boundary, so it fails loudly.
+        //
+        // A lead with vendedor NULL/'' is the owner's and is not editable by
+        // any seller, which falls out of the exact comparison.
+        var putSeller = sessionSellerName(user);
+        if (putSeller && existing.vendedor !== putSeller) { return jsonErr("Forbidden", 403); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var config = await gmGetConfig(env, id);
         var parsed = await gmLeadFields(body, config, true, env, id);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
+        // ...and they cannot hand the lead off to someone else on update
+        // either, which would make it vanish from their own list.
+        if (putSeller) { delete f.vendedor; }
         var sets = [], binds = [];
         Object.keys(f).forEach(function(k) {
             sets.push(k + " = ?");
@@ -13090,6 +13268,10 @@ async function handleGetGmLeadContacts(id, leadId, request, env) {
         // to this tenant before returning anything keyed to it.
         var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
         if (!lead) { return jsonErr("Lead not found", 404); }
+        // Same row-level rule as the lead itself: a seller reads the outreach
+        // log only for their own leads.
+        var cSeller = sessionSellerName(user);
+        if (cSeller && lead.vendedor !== cSeller) { return jsonErr("Forbidden", 403); }
         var rows = await env.DB.prepare(
             "SELECT id, lead_id, method, result, notes, logged_at FROM gm_lead_contacts " +
             "WHERE lead_id = ? ORDER BY logged_at DESC"
@@ -13107,6 +13289,8 @@ async function handlePostGmLeadContact(id, leadId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
         if (!lead) { return jsonErr("Lead not found", 404); }
+        var cSeller = sessionSellerName(user);
+        if (cSeller && lead.vendedor !== cSeller) { return jsonErr("Forbidden", 403); }
         var body = await request.json();
         var method = gmStr(body.method, 40);
         if (LEAD_CONTACT_METHODS.indexOf(method) < 0) { return jsonErr("Invalid method", 400); }
@@ -14266,7 +14450,9 @@ async function handleGetGmSellerLoginRequests(request, env) {
     }
 }
 
-// Records the decision and nothing else. Approving does NOT provision a login.
+// Approving PROVISIONS A REAL LOGIN: a role='seller' row in client_logins with
+// a generated username and a temporary password, returned here exactly once.
+// Rejecting stamps status and creates nothing, as it always has.
 async function handlePostGmSellerLoginDecision(reqId, decision, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -14275,18 +14461,111 @@ async function handlePostGmSellerLoginDecision(reqId, decision, request, env) {
         if (decision !== "approve" && decision !== "reject") { return jsonErr("Invalid decision", 400); }
 
         var row = await env.DB.prepare(
-            "SELECT id, status FROM gm_seller_login_requests WHERE id = ?"
+            "SELECT id, client_id, seller_name, status FROM gm_seller_login_requests WHERE id = ?"
         ).bind(reqId).first();
         if (!row) { return jsonErr("Not found", 404); }
 
         var status = decision === "approve" ? "approved" : "rejected";
+        var credentials = null;
+
+        if (decision === "approve") {
+            var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
+                .bind(row.client_id).first();
+            if (!client) { return jsonErr("Client not found", 404); }
+
+            // Re-approving a request that already has a live seat must not mint
+            // a second login for the same person — UNIQUE (client_id,
+            // seller_name) would reject it anyway, but a clear message beats a
+            // constraint error.
+            var seat = await env.DB.prepare(
+                "SELECT username FROM client_logins WHERE client_id = ? AND role = 'seller' AND seller_name = ?"
+            ).bind(row.client_id, row.seller_name).first();
+            if (seat) {
+                return jsonOk({
+                    saved: true, status: "approved", provisioned: false,
+                    already: true, username: seat.username
+                });
+            }
+
+            credentials = await createSellerLogin(
+                env, row.client_id, client.name, row.seller_name, actorName(user)
+            );
+        }
+
         await env.DB.prepare(
             "UPDATE gm_seller_login_requests SET status = ?, resolved_at = datetime('now'), resolved_by = ? WHERE id = ?"
         ).bind(status, user.username || user.email || "admin", reqId).run();
 
-        return jsonOk({ saved: true, status: status, provisioned: false });
+        // temp_password travels back to the admin UI ONCE. Only its hash was
+        // stored, so it is unrecoverable after this response.
+        return jsonOk({
+            saved: true, status: status,
+            provisioned: !!credentials,
+            seller_name: row.seller_name,
+            username: credentials ? credentials.username : null,
+            temp_password: credentials ? credentials.temp_password : null
+        });
     } catch (e) {
         return jsonErr("Error resolving salesperson login request: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/seller-logins — active salesperson seats.
+//
+// Admin (the client.html profile card) and the client themselves (their own
+// Ajustes card, read-only, so an owner knows who can see their pipeline).
+// ---------------------------------------------------------------------------
+
+async function handleGetSellerLogins(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        // A salesperson does not get the roster of their colleagues.
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT username, seller_name, last_login_at, must_change_password, created_at " +
+            "FROM client_logins WHERE client_id = ? AND role = 'seller' ORDER BY seller_name"
+        ).bind(id).all();
+        return jsonOk({ seats: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching salesperson logins: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: DELETE /api/clients/:id/seller-logins/:username — revoke a seat.
+//
+// Deletes the login row and its live sessions. Their LEADS ARE NOT TOUCHED:
+// gm_leads.vendedor is a plain text name, the rows stay with the business, and
+// the work history is preserved. Revoking access is not the same as erasing
+// what someone did. Admin only.
+// ---------------------------------------------------------------------------
+
+async function handleDeleteSellerLogin(id, username, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        // role='seller' in the WHERE is load-bearing: without it a crafted
+        // username could delete the business OWNER's login through this route.
+        var seat = await env.DB.prepare(
+            "SELECT username, seller_name FROM client_logins WHERE client_id = ? AND username = ? AND role = 'seller'"
+        ).bind(id, username).first();
+        if (!seat) { return jsonErr("Seat not found", 404); }
+        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE username = ?").bind(username).run();
+        await env.DB.prepare(
+            "DELETE FROM client_logins WHERE client_id = ? AND username = ? AND role = 'seller'"
+        ).bind(id, username).run();
+        // The request row goes back to a clean slate so the owner can ask
+        // again later; leaving it 'approved' would strand the button.
+        await env.DB.prepare(
+            "DELETE FROM gm_seller_login_requests WHERE client_id = ? AND seller_name = ?"
+        ).bind(id, seat.seller_name).run();
+        return jsonOk({ revoked: true, username: username });
+    } catch (e) {
+        return jsonErr("Error revoking salesperson login: " + e.message, 500);
     }
 }
 
@@ -14653,6 +14932,12 @@ export default {
             if (segs.length === 4 && segs[3] === "login") {
                 if (method === "GET")  { return handleGetClientLoginStatus(cid, request, env); }
                 if (method === "POST") { return handlePostClientLoginCreate(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "seller-logins" && method === "GET") {
+                return handleGetSellerLogins(cid, request, env);
+            }
+            if (segs.length === 5 && segs[3] === "seller-logins" && method === "DELETE") {
+                return handleDeleteSellerLogin(cid, decodeURIComponent(segs[4]), request, env);
             }
             if (segs.length === 4 && segs[3] === "field-config") {
                 if (method === "GET") { return handleGetClientFieldConfig(cid, request, env); }

@@ -2290,6 +2290,10 @@
     // pending-days logic). Preview mode skips every gate.
     function decideBootView() {
       if (PREVIEW_AS) { showPortal(); return; }
+      // A seller has no goals, no daily log and no assessments, so every gate
+      // below is meaningless to them — and the goals hard gate would be a wall
+      // they could not get past, i.e. a broken login. Straight to the Pipeline.
+      if (isSeller()) { showPortal(); return; }
       // A lead never sees the goal or daily-entry gates — those belong to the
       // full client engagement. They land on Assigned (showPortal picks it).
       // The moment clients.status flips to 'active', this branch stops firing
@@ -2585,6 +2589,26 @@
     // only appears next to a name that is already saved on the server (a name
     // still being typed has nothing to request against yet).
     var gmSellerRequests = null;   // { "<name lowercased>": "pending" | "approved" | ... }
+    // { "<name lowercased>": { username, last_login_at } } — salespeople who
+    // currently HAVE a login, as opposed to those who have merely asked for
+    // one. Read-only for the client: it answers "who can see my pipeline right
+    // now". Only Rafa and Alice create or revoke seats.
+    var gmSellerSeats = null;
+
+    function gmLoadSellerSeats() {
+      return apiFetch("/api/clients/" + clientId + "/seller-logins")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          gmSellerSeats = {};
+          (d.seats || []).forEach(function(x) {
+            if (x.seller_name) {
+              gmSellerSeats[String(x.seller_name).trim().toLowerCase()] = x;
+            }
+          });
+          return gmSellerSeats;
+        })
+        .catch(function() { gmSellerSeats = gmSellerSeats || {}; });
+    }
 
     function gmLoadSellerRequests() {
       return gmApi("seller-login-requests")
@@ -2615,6 +2639,16 @@
         if (!n) { return ""; }
         return '<span class="muted" style="font-size:11px;white-space:nowrap;">' +
           (en ? "Save to request" : "Salve para solicitar") + '</span>';
+      }
+      // An ACTIVE seat outranks the request status: once the login exists,
+      // "who can actually see my pipeline right now" is the question the owner
+      // is asking, and the username is the answer. Read-only — only Rafa and
+      // Alice create or revoke seats.
+      var seat = gmSellerSeats ? gmSellerSeats[n.toLowerCase()] : null;
+      if (seat) {
+        return '<span style="font-size:11px;font-weight:700;color:#3f7d4e;white-space:nowrap;" ' +
+          'title="' + escHtml(seat.username) + '">' +
+          (en ? "Login active" : "Login ativo") + ' &middot; ' + escHtml(seat.username) + '</span>';
       }
       var status = gmSellerRequests ? gmSellerRequests[n.toLowerCase()] : null;
       if (status === "approved") {
@@ -2680,7 +2714,9 @@
       // re-renders with the real pending/approved states. Loaded once per view.
       if (gmSellerRequests === null) {
         gmSellerRequests = {};
-        gmLoadSellerRequests().then(function() { renderWorkSettings(); });
+        gmSellerSeats = {};
+        Promise.all([gmLoadSellerRequests(), gmLoadSellerSeats()])
+          .then(function() { renderWorkSettings(); });
       }
       if (!gmListDraft) {
         gmListDraft = {};
@@ -3437,6 +3473,25 @@
     // strip and the teaser list is the whole point of the lead experience.
     function applyPortalShape() {
       var lead = isLead();
+      // Seller: the tabs they cannot reach are REMOVED from the document, not
+      // hidden. The desktop strip is static markup (unlike the dock, which is
+      // built from portalTabs()), so this is where that list is pruned. A
+      // hidden button is still in the DOM, still focusable by keyboard, and
+      // still one devtools attribute away from being clickable — and while the
+      // Worker would 403 every call behind it, the honest shape of this
+      // session is "that tab does not exist".
+      //
+      // The "Mais" overflow trigger and the assessment buttons inside it go
+      // too: every one of those surfaces is denied to a seller.
+      if (isSeller()) {
+        document.querySelectorAll(".portal-tab").forEach(function(b) {
+          var t = b.getAttribute("data-tab");
+          if (SELLER_TABS.indexOf(t) === -1 && b.parentNode) { b.parentNode.removeChild(b); }
+        });
+        var leadMore = document.getElementById("portalLeadMoreBtn");
+        if (leadMore && leadMore.parentNode) { leadMore.parentNode.removeChild(leadMore); }
+        return;
+      }
       document.querySelectorAll(".portal-tab").forEach(function(b) {
         var t = b.getAttribute("data-tab");
         if (!lead) {
@@ -3494,11 +3549,17 @@
     function showPortal() {
       document.getElementById("portalClientName").textContent = clientName;
       refreshPendingAffordances();
-      loadPortalLogo();
-      loadNextMeeting();
+      // The logo and the next-meeting line are the BUSINESS's relationship with
+      // Apex, not the salesperson's: /logo-image and /api/portal/next-meeting
+      // are both outside the seller allowlist and would 403. Skipped rather
+      // than allowlisted — a seller has no meeting with Rafa.
+      if (!isSeller()) {
+        loadPortalLogo();
+        loadNextMeeting();
+      }
       applyPortalShape();
       populateMobileDock();
-      switchTab(isLead() ? "assigned" : "analytics", true);
+      switchTab(isSeller() ? "gmcrm" : (isLead() ? "assigned" : "analytics"), true);
       showView("viewPortal");
     }
 
@@ -3523,6 +3584,24 @@
     // flips a row to 'active' the next load is the full client portal.
     var clientStatus = "active";
     function isLead() { return clientStatus === "lead"; }
+
+    // ── Salesperson session ────────────────────────────────────────────────
+    // A salesperson works FOR the client business: they log in through the
+    // same form, land in the same portal, and see the Pipeline's Leads view
+    // and nothing else — not Analytics, Ritmo, Obras, Financeiro, Execução,
+    // Tarefas, Documentos, Faturas or Ajustes, and within Leads only the rows
+    // they created or that carry their name.
+    //
+    // This flag drives PRESENTATION ONLY. Every one of those restrictions is
+    // enforced server-side (sellerRequestAllowed + the vendedor predicate in
+    // the lead handlers) and holds whether or not this flag is set correctly —
+    // a hidden tab is not a protected tab. It is set from /api/role, which
+    // reads it off the login row via the session token, so it cannot be
+    // spoofed by editing localStorage.
+    //
+    // window.PORTAL_IS_SELLER is the same value, published for gm.js.
+    var isSellerSession = false;
+    function isSeller() { return isSellerSession === true; }
 
     // ── Single-page assessments registry ───────────────────────────────────
     // Every assigned assessment EXCEPT the Business X-Ray renders as one
@@ -3951,6 +4030,19 @@
     // still holds the same four.
     var PORTAL_DOCK_ORDER = ["analytics", "goals", "gmcrm", "gmfinance"];
 
+    // A seller's entire navigable surface: the Pipeline, alone. Derived from
+    // the canonical array by filter rather than written out as a second list,
+    // so it inherits the label, icon and ordering of the real entry and cannot
+    // drift from it. The dock and the "Mais" overflow both build from
+    // portalTabs() too, so they follow automatically — there is no third place
+    // to keep in sync.
+    var SELLER_TABS = ["gmcrm"];
+
+    function portalTabs() {
+      if (!isSeller()) { return PORTAL_TABS; }
+      return PORTAL_TABS.filter(function(t) { return SELLER_TABS.indexOf(t.tab) !== -1; });
+    }
+
     function portalTabByKey(tab) {
       for (var i = 0; i < PORTAL_TABS.length; i++) {
         if (PORTAL_TABS[i].tab === tab) { return PORTAL_TABS[i]; }
@@ -4146,6 +4238,9 @@
     };
 
     function portalDockTabs() {
+      // Seller: one tab, so the dock is that one tab. No "Mais", no Assigned,
+      // no lead teasers — none of those surfaces exist for this session.
+      if (isSeller()) { return portalTabs(); }
       if (isLead()) { return LEAD_DOCK_TABS; }
       // Client: Assigned leads the dock whenever something is waiting, and is
       // absent entirely when there is nothing to do — same rule as the desktop
@@ -4157,6 +4252,9 @@
     }
 
     function portalMoreTabs() {
+      // Seller: everything they can reach is already in the dock, so the
+      // overflow is empty and populateMobileDock() omits the "Mais" button.
+      if (isSeller()) { return []; }
       // Lead: the More menu is entirely locked teasers. Invoices and Tasks are
       // absent by design — not locked, not listed.
       if (isLead()) {
@@ -4198,10 +4296,15 @@
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
         html += '</button>';
       });
-      html += '<button type="button" class="m-tab" data-dock-tab="mais" data-tour="portal-more-menu" onclick="portalMoreToggle()">';
-      html += '<span class="m-tab-ico">' + window.apexNavSvg("more") + '</span>';
-      html += '<span class="m-tab-label"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
-      html += '</button>';
+      // "Mais" only when there is actually something behind it. A seller's
+      // overflow is empty (their one tab is docked), and an empty full-screen
+      // menu is worse than no button.
+      if (portalMoreTabs().length) {
+        html += '<button type="button" class="m-tab" data-dock-tab="mais" data-tour="portal-more-menu" onclick="portalMoreToggle()">';
+        html += '<span class="m-tab-ico">' + window.apexNavSvg("more") + '</span>';
+        html += '<span class="m-tab-label"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
+        html += '</button>';
+      }
       bar.innerHTML = html;
 
       var menu = document.getElementById("mobile-more-menu");
@@ -4281,6 +4384,11 @@
         tab = "gmcrm";
         force = true;
       }
+      // Seller safety net, the same shape as the lead one below: a stale deep
+      // link, a bookmark or an old cached dock aiming at an owner tab falls
+      // back to the Pipeline instead of firing that tab's loader and painting
+      // a screen of 403s.
+      if (isSeller() && SELLER_TABS.indexOf(tab) === -1) { tab = "gmcrm"; }
       // Lead safety net: even if a stale deep-link or an old cached dock aims
       // at a client-only tab, a lead can never land on real client data. The
       // teaser tabs go to their preview; anything else falls back to Assigned.
@@ -6379,6 +6487,10 @@
             window.location.href = "portal.html";
             throw new Error("redirect");
           }
+          // Set BEFORE the must_change_password branch so that even the forced
+          // password-change screen knows which kind of session it belongs to.
+          isSellerSession = (role.login_role === "seller");
+          window.PORTAL_IS_SELLER = isSellerSession;
           if (role.role === "client" && role.must_change_password) {
             document.getElementById("loadingScreen").hidden = true;
             document.getElementById("appMain").hidden = false;
@@ -6400,6 +6512,17 @@
           if (PREVIEW_AS) {
             document.getElementById("previewClientLabel").textContent = clientName;
             document.getElementById("previewBanner").hidden = false;
+          }
+          // A seller reaches none of these: field-config, the daily-entry
+          // state, goals and assessments are all owner surfaces and the Worker
+          // denies every one of them. Fetching them anyway would 403 four
+          // times and the awaited field-config rejection would bounce the
+          // seller back to the login screen on every load.
+          if (isSeller()) {
+            fieldConfig = null;
+            goalState = null;
+            xrayAssigned = false;
+            return [null];
           }
           return Promise.all([
             apiFetch("/api/clients/" + clientId + "/field-config").then(function(r) { return r.json(); }),
@@ -6447,7 +6570,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785463123"></script>
+  <script src="gm.js?v=1785708867"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

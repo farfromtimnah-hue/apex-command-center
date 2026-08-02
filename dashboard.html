@@ -1369,6 +1369,26 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) {
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          // Approving provisions a real login and returns the temp password
+          // ONCE — only its hash is stored, so it is unrecoverable after this.
+          // It MUST be surfaced here rather than silently dropped.
+          //
+          // This queue has no client record loaded (it spans every client), so
+          // there is no phone number to build a wa.me link from. The send lives
+          // on the client's own page, where clientData supplies the owner's
+          // number; this alert carries the credentials and says where to go.
+          if (r.data.provisioned && r.data.temp_password) {
+            var en = document.body.classList.contains("lang-en");
+            window.alert(
+              (en ? "Salesperson login created.\n\n" : "Login de vendedor criado.\n\n") +
+              (en ? "Salesperson: " : "Vendedor: ") + (r.data.seller_name || "") + "\n" +
+              (en ? "Username: " : "Usuário: ") + r.data.username + "\n" +
+              (en ? "Temp password: " : "Senha temporária: ") + r.data.temp_password + "\n\n" +
+              (en
+                ? "Save this now — the password cannot be shown again. To send it to the business owner over WhatsApp, open the client's page."
+                : "Anote agora — a senha não poderá ser vista novamente. Para enviar ao dono do negócio por WhatsApp, abra a página do cliente.")
+            );
+          }
           loadSellerLoginRequests();
         })
         .catch(function(e) {

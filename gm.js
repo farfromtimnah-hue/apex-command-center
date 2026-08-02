@@ -90,7 +90,10 @@ function gmSpecFieldHidden(def) {
   if (!gmConfig || !gmConfig.config) { return false; }
   var cfg = gmConfig.config;
   if (def.key === "tipo") { return gmListEmpty(cfg.partner_types); }
-  if (def.key === "vendedor") { return gmListEmpty(cfg.vendedores); }
+  // A salesperson never picks the Vendedor: the Worker forces every lead they
+  // create to their own name and refuses to let them reassign one, so an
+  // editable picker here would offer a choice the server discards.
+  if (def.key === "vendedor") { return (window.PORTAL_IS_SELLER === true) || gmListEmpty(cfg.vendedores); }
   if (def.key === "mes" || def.key === "mes_entrega") { return gmListEmpty(cfg.cycle_months); }
   return false;
 }
@@ -480,6 +483,18 @@ function gmToggleContactMore() {
 // #gm*Body div. Only one body is visible at a time.
 
 var GM_PIPELINE_SECTIONS = ["leads", "partners", "base"];
+
+// A salesperson's Pipeline is the Leads section ALONE. Parceiros and Base de
+// Ouro are the business's own asset lists and their endpoints are denied to a
+// seller by the Worker, so rendering those pills would put two chips on screen
+// that 403 the moment they are tapped.
+//
+// Every consumer of the section list goes through this function rather than
+// the constant, so the restore path cannot resurrect a denied section from a
+// stale localStorage value either.
+function gmPipelineSections() {
+  return (window.PORTAL_IS_SELLER === true) ? ["leads"] : GM_PIPELINE_SECTIONS;
+}
 var GM_PIPELINE_KEY_PREFIX = "apex_gm_pipeline_section_";
 var gmPipelineSection = "leads";
 
@@ -490,12 +505,13 @@ function gmPipelineKey() { return GM_PIPELINE_KEY_PREFIX + clientId; }
 function gmPipelineRestore() {
   var saved = null;
   try { saved = localStorage.getItem(gmPipelineKey()); } catch (e) {}
-  if (GM_PIPELINE_SECTIONS.indexOf(saved) !== -1) { gmPipelineSection = saved; }
+  if (gmPipelineSections().indexOf(saved) !== -1) { gmPipelineSection = saved; }
+  else { gmPipelineSection = "leads"; }
   return gmPipelineSection;
 }
 
 function gmSetPipelineSection(section) {
-  if (GM_PIPELINE_SECTIONS.indexOf(section) === -1) { section = "leads"; }
+  if (gmPipelineSections().indexOf(section) === -1) { section = "leads"; }
   gmPipelineSection = section;
   try { localStorage.setItem(gmPipelineKey(), section); } catch (e) {}
 }
@@ -514,13 +530,16 @@ function gmPipelineGo(section) {
 function gmRenderPipelineSubnav() {
   var nav = document.getElementById("gmPipelineSubnav");
   if (!nav) { return; }
+  // A seller has exactly one section, so the pill row would be a single chip
+  // that navigates nowhere. Render nothing rather than a decorative control.
+  if (window.PORTAL_IS_SELLER === true) { nav.innerHTML = ""; nav.hidden = true; return; }
   var labels = {
     leads:    gmT("Leads", "Leads"),
     partners: gmT("Parceiros", "Partners"),
     base:     gmT("Base de Ouro", "Golden Base")
   };
   var html = "";
-  GM_PIPELINE_SECTIONS.forEach(function(s) {
+  gmPipelineSections().forEach(function(s) {
     var active = s === gmPipelineSection;
     html += '<button type="button" role="tab" aria-selected="' + (active ? "true" : "false") +
       '" class="gm-stage-chip' + (active ? " gm-chip-active" : "") +
@@ -542,6 +561,9 @@ function gmLoadPipeline() {
     partners: document.getElementById("gmPartnersBody"),
     base:     document.getElementById("gmBaseBody")
   };
+  // Hide the bodies of sections this session does not have, not just the
+  // inactive one — otherwise a seller whose stored section was "partners"
+  // would briefly show a panel they cannot load.
   GM_PIPELINE_SECTIONS.forEach(function(s) {
     if (bodies[s]) { bodies[s].hidden = s !== gmPipelineSection; }
   });
@@ -1132,7 +1154,7 @@ function gmRenderLeadSheet() {
   // question users actively ask, so it gets a labelled row of its own.
   body += gmSheetSection(gmT("Dados do lead", "Lead details"),
     gmSheetRowHtml("briefcase", gmT("Serviço(s)", "Service(s)"), val("servico"), edit("servico")) +
-    (gmListEmpty(gmConfig.config.vendedores) ? "" :
+    ((window.PORTAL_IS_SELLER === true) || gmListEmpty(gmConfig.config.vendedores) ? "" :
       gmSheetRowHtml("person", gmT("Vendedor", "Salesperson"), val("vendedor"), edit("vendedor"))) +
     gmSheetRowHtml("compass", gmT("Origem", "Source"), val("origem"), edit("origem")) +
     gmSheetRowHtml("handshake", gmT("Parceiro", "Partner"), val("parceiro_id"), edit("parceiro_id"),

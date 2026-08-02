@@ -2027,10 +2027,19 @@
           </div>
           <div id="sellerLoginClientBody" style="padding:16px 20px;">
             <p class="muted" style="font-size:12px;margin:0 0 10px;">
-              <span class="show-pt">Solicita&ccedil;&otilde;es deste cliente para dar login do portal a um vendedor. Aprovar apenas registra a decis&atilde;o &mdash; nenhum login &eacute; criado e nenhum acesso &eacute; concedido. Um vendedor com login ver&aacute; apenas os registros do pipeline que ele criar ou que forem atribu&iacute;dos a ele, nunca o restante dos dados do cliente.</span>
-              <span class="show-en">This client's requests to give a salesperson a portal login. Approving only records the decision &mdash; no login is created and no access is granted. A salesperson with a login will only see the pipeline records they create or that are assigned to them, never the rest of the client's data.</span>
+              <span class="show-pt">Solicita&ccedil;&otilde;es deste cliente para dar login do portal a um vendedor. <strong>Aprovar cria o login de verdade</strong> e mostra a senha tempor&aacute;ria uma &uacute;nica vez. O vendedor ver&aacute; apenas o Pipeline, e dentro dele apenas os leads que ele criar ou que estiverem no nome dele &mdash; nunca o restante dos dados do cliente nem os leads dos outros vendedores.</span>
+              <span class="show-en">This client's requests to give a salesperson a portal login. <strong>Approving creates a real login</strong> and shows the temporary password once. The salesperson sees only the Pipeline, and within it only the leads they create or that carry their name &mdash; never the rest of the client's data and never another salesperson's leads.</span>
             </p>
+            <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">
+              <span class="show-pt">Solicita&ccedil;&otilde;es pendentes</span><span class="show-en">Pending requests</span>
+            </div>
             <div id="sellerLoginClientList">
+              <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin:16px 0 4px;">
+              <span class="show-pt">Logins ativos</span><span class="show-en">Active logins</span>
+            </div>
+            <div id="sellerSeatsList">
               <div style="color:var(--muted);font-size:13px;">Carregando...</div>
             </div>
           </div>
@@ -2832,6 +2841,47 @@
     </div>
   </div>
 
+  <!-- Salesperson credentials — deliberately the SAME shape as
+       #modalClientLogin above: same one-time warning, same code blocks, same
+       synchronous WhatsApp handoff. A second visual pattern for the same job
+       (here is a password you can never see again) would be a trap. -->
+  <div id="modalSellerLogin" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Login de Vendedor</span>
+          <span class="show-en">Salesperson Login</span>
+        </h3>
+        <button class="modal-close" onclick="closeModalById('modalSellerLogin')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+          <span class="show-pt">Anote ou envie estas credenciais agora &mdash; a senha tempor&aacute;ria n&atilde;o poder&aacute; ser vista novamente. No primeiro acesso o vendedor ser&aacute; obrigado a criar uma senha nova.</span>
+          <span class="show-en">Save or send these credentials now &mdash; the temporary password cannot be viewed again. On first login the salesperson must create a new password.</span>
+        </p>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;font-size:14px;">
+          <div style="margin-bottom:8px;"><strong><span class="show-pt">Vendedor:</span><span class="show-en">Salesperson:</span></strong> <span id="slLoginSeller"></span></div>
+          <div style="margin-bottom:8px;"><strong><span class="show-pt">Usu&aacute;rio:</span><span class="show-en">Username:</span></strong> <code id="slLoginUsername" style="font-size:14px;"></code></div>
+          <div><strong><span class="show-pt">Senha tempor&aacute;ria:</span><span class="show-en">Temp password:</span></strong> <code id="slLoginPassword" style="font-size:14px;"></code></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+          <span class="show-pt">O WhatsApp vai para o <strong>dono do neg&oacute;cio</strong>, que repassa os dados ao vendedor.</span>
+          <span class="show-en">The WhatsApp message goes to the <strong>business owner</strong>, who passes the credentials on to the salesperson.</span>
+        </p>
+        <button class="btn-primary" id="btnSendSellerLoginWhatsapp" onclick="sendSellerLoginViaWhatsapp()" style="width:100%;">
+          <span class="show-pt">Enviar via WhatsApp</span>
+          <span class="show-en">Send via WhatsApp</span>
+        </button>
+        <div style="text-align:center;margin-top:8px;">
+          <button onclick="closeModalById('modalSellerLogin')" style="background:none;border:none;color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;cursor:pointer;text-decoration:underline;">
+            <span class="show-pt">Fechar</span>
+            <span class="show-en">Close</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ MODAL: Campos do Registro Diário ════════════════════ -->
   <div id="modalFieldConfig" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()" style="max-width:640px;">
@@ -3065,6 +3115,7 @@
       loadClientNeighbors();
       loadPortalAccess();
       loadSellerLoginRequestsForClient();
+      loadSellerSeats();
       loadAssessments();
       loadWeeklySummary();
       initCollapseStates();
@@ -3074,6 +3125,8 @@
 
     var portalLoginStatus = null;
     var generatedCredentials = null;   // { username, temp_password } — shown once
+    // { seller_name, username, temp_password } — shown once, same rule.
+    var generatedSellerCredentials = null;
 
     // Pre-fetched at page load (see loadMessageTemplates) so sendLoginViaWhatsapp()
     // can build the wa.me URL and call window.open() synchronously in the click
@@ -3153,12 +3206,132 @@
         });
     }
 
+    // Approving PROVISIONS a real seat and returns the temp password once.
+    // The credentials are stashed BEFORE the modal opens so that the WhatsApp
+    // button, when tapped, has everything it needs synchronously — see
+    // sendSellerLoginViaWhatsapp().
     function decideSellerLoginForClient(reqId, decision, btn) {
       if (btn) { btn.disabled = true; }
       apiFetch("/api/gm/seller-login-requests/" + encodeURIComponent(reqId) + "/" + decision, { method: "POST" })
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) {
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          if (r.data.provisioned && r.data.temp_password) {
+            generatedSellerCredentials = {
+              seller_name: r.data.seller_name,
+              username: r.data.username,
+              temp_password: r.data.temp_password
+            };
+            document.getElementById("slLoginSeller").textContent = r.data.seller_name || "";
+            document.getElementById("slLoginUsername").textContent = r.data.username;
+            document.getElementById("slLoginPassword").textContent = r.data.temp_password;
+            document.getElementById("modalSellerLogin").hidden = false;
+          }
+          loadSellerLoginRequestsForClient();
+          loadSellerSeats();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          window.alert("Erro: " + e.message);
+        });
+    }
+
+    // Modelled on sendLoginViaWhatsapp() — same synchronous-open rule, same
+    // popup-blocked fallback, same template-with-inline-fallback source.
+    //
+    // RECIPIENT: the BUSINESS OWNER, not the salesperson. Rafa has no
+    // relationship with these companies' employees and no salesperson phone
+    // number is captured anywhere in this feature (the request is name-only).
+    // The owner asked for the seat and the owner hands the credentials to
+    // their own staff, so the number read here is the client's own — exactly
+    // the clientData.whatsapp/phone precedence the client_login send uses.
+    function sendSellerLoginViaWhatsapp() {
+      if (!generatedSellerCredentials) { return; }
+      // window.open must run synchronously in the click handler — any await
+      // gap before it lets the popup blocker fire (confirmed project lesson:
+      // on iOS an async gap yields a blank about:blank tab). The credentials
+      // were fetched at approval time, before this button was shown, so
+      // nothing needs awaiting here.
+      var loginUrl = "https://apex.resonateai.online/index.html";
+      var tpl = (messageTemplates && messageTemplates.seller_login) ||
+        "Olá! O acesso de vendedor para {sellerName} está pronto.\n\n" +
+        "Repasse estes dados para {sellerName}:\n\n" +
+        "Link: {loginUrl}\n" +
+        "Usuário: {username}\n" +
+        "Senha temporária: {tempPassword}\n\n" +
+        "No primeiro acesso ele(a) vai criar uma senha nova.\n\n" +
+        "Importante: {sellerName} verá apenas os leads do funil que ele(a) criar ou que estiverem no nome dele(a).";
+      var msg = tpl
+        .split("{loginUrl}").join(loginUrl)
+        .split("{sellerName}").join(generatedSellerCredentials.seller_name || "")
+        .split("{username}").join(generatedSellerCredentials.username)
+        .split("{tempPassword}").join(generatedSellerCredentials.temp_password);
+      var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+                  "?text=" + encodeURIComponent(msg);
+      var waTab = window.open(waUrl, "_blank");
+      if (!waTab) {
+        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+      }
+    }
+
+    // Active seats: who at this business currently HAS a login, as opposed to
+    // who has asked for one. Rendered under the pending requests in the same
+    // card, because "pending" and "live" are the two halves of one question.
+    function loadSellerSeats() {
+      var el = document.getElementById("sellerSeatsList");
+      if (!el) { return; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/seller-logins")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var seats = data.seats || [];
+          if (!seats.length) {
+            el.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
+              '<span class="show-pt">Nenhum vendedor com login ativo.</span>' +
+              '<span class="show-en">No salesperson has an active login.</span></div>';
+            return;
+          }
+          var html = "";
+          seats.forEach(function(x) {
+            var last = x.last_login_at
+              ? formatDateTimeUTC(x.last_login_at)
+              : (document.body.classList.contains("lang-en") ? "never signed in" : "nunca acessou");
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);">' +
+              '<div style="flex:1;min-width:180px;">' +
+              '<div style="font-size:14px;font-weight:600;">' + escHtml(x.seller_name || "") + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+              '<code>' + escHtml(x.username) + '</code> &middot; ' + escHtml(last) +
+              (x.must_change_password
+                ? ' &middot; <span class="show-pt">senha tempor&aacute;ria pendente</span><span class="show-en">temp password pending</span>'
+                : '') +
+              '</div></div>' +
+              '<button class="btn-add" onclick="revokeSellerSeat(\'' + escHtml(x.username) + '\',this)">' +
+              '<span class="show-pt">Revogar</span><span class="show-en">Revoke</span></button>' +
+              '</div>';
+          });
+          el.innerHTML = html;
+        })
+        .catch(function() {
+          el.innerHTML = '<div style="color:var(--muted);font-size:13px;">--</div>';
+        });
+    }
+
+    // Revoking deletes the login row and its sessions. It does NOT touch their
+    // leads: gm_leads.vendedor keeps their name, the rows stay with the
+    // business, and the pipeline history is preserved. The confirm text says so
+    // explicitly, because "revoke" could reasonably be read either way.
+    function revokeSellerSeat(username, btn) {
+      var en = document.body.classList.contains("lang-en");
+      var msg = en
+        ? "Revoke this salesperson's login?\n\nThey lose access immediately. Their leads are NOT deleted and stay with the business."
+        : "Revogar o login deste vendedor?\n\nEle perde o acesso imediatamente. Os leads dele NÃO são apagados e continuam com o cliente.";
+      if (!window.confirm(msg)) { return; }
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/seller-logins/" + encodeURIComponent(username), { method: "DELETE" })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          loadSellerSeats();
           loadSellerLoginRequestsForClient();
         })
         .catch(function(e) {

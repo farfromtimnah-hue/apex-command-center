@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title>Apex &mdash; An&aacute;lise de Clientes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --brown:    #7a5c2e;
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
+      /* The portal's status colors, so the shared view renders identically. */
+      --red:      #b44040;
+      --green:    #3f7d4e;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Bilingual */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* Header */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge {
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .btn-header {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
+      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn {
+      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* Layout */
+    #pageWrapper { flex: 1; display: flex; min-height: 0; }
+    #contentArea { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    #loadingScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #appMain { flex: 1; overflow-y: auto; padding: 28px 32px 60px; }
+    #appMain[hidden] { display: none !important; }
+
+    .page-heading { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+
+    /* Mode tabs */
+    .mode-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .mode-tab {
+      min-height: 42px; padding: 10px 18px; border-radius: 999px;
+      border: 1px solid var(--border); background: #fff; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--text);
+    }
+    .mode-tab.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+
+    .client-picker-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+    select.client-picker {
+      flex: 1; min-width: 240px; border: 1px solid var(--border); border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 15px; padding: 10px 12px;
+      background: #fff; color: var(--text);
+    }
+
+    /* ── The two layers, visually separated ────────────────────────────────
+       "What the client sees" is framed in gold; the admin-only deeper layer
+       is framed in slate with its own banner, so in a meeting it is never
+       ambiguous which half Rafa is looking at. */
+    .layer { border-radius: 12px; padding: 18px; margin-bottom: 24px; }
+    .layer-client {
+      border: 2px solid var(--gold);
+      background: rgba(201,164,58,0.05);
+    }
+    .layer-admin {
+      border: 2px solid #5b6b7a;
+      background: rgba(91,107,122,0.06);
+    }
+    .layer-banner {
+      font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .layer-client .layer-banner { color: var(--brown); }
+    .layer-admin  .layer-banner { color: #40515f; }
+    .layer-banner-note { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 12px; color: var(--muted); }
+
+    /* ── Sample size, rendered ON the number (never a tooltip) ──────────── */
+    .agg-value { font-size: 40px; font-weight: 800; line-height: 1; }
+    .agg-sample {
+      font-size: 12px; font-weight: 700; color: var(--brown);
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4);
+      border-radius: 999px; padding: 4px 10px; display: inline-block; margin-top: 8px;
+    }
+    .suppress-box {
+      border: 2px dashed #b44040; border-radius: 12px; padding: 20px;
+      background: rgba(180,64,64,0.05);
+    }
+    .suppress-title { font-size: 15px; font-weight: 800; color: #a03636; margin-bottom: 8px; }
+    .suppress-body { font-size: 13px; color: var(--text); line-height: 1.6; }
+
+    .agg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+
+    /* ── Coverage (logged vs missed) ───────────────────────────────────── */
+    .cov-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 10px 0; }
+    .cov-key { display: inline-flex; align-items: center; gap: 6px; }
+    .cov-swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1px solid var(--border); }
+    .cov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+    .cov-day {
+      aspect-ratio: 1; border-radius: 6px; border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: var(--muted); background: #fff;
+    }
+    .cov-day.completed { background: rgba(63,125,78,0.18); border-color: rgba(63,125,78,0.5); color: #2f6b3e; }
+    .cov-day.partial   { background: rgba(201,164,58,0.2);  border-color: rgba(201,164,58,0.55); color: #8a6d1d; }
+    .cov-day.day_off   { background: rgba(107,102,96,0.14); border-color: rgba(107,102,96,0.35); }
+    .cov-day.missing   { background: #fff; }
+
+    .warn-banner {
+      border: 1px solid rgba(180,64,64,0.5); background: rgba(180,64,64,0.07);
+      color: #a03636; border-radius: 10px; padding: 12px 14px;
+      font-size: 13px; font-weight: 600; margin-bottom: 14px;
+    }
+
+    .empty-state { color: var(--muted); font-size: 14px; padding: 18px 0; }
+    .error-msg { color: #a03636; font-size: 13px; padding: 12px 0; }
+
+    /* ── Shared analytics view styles (copied from portal.html so the shared
+         view renders identically here). ──────────────────────────────────── */
+    /* ---------- Cards ---------- */
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .section-hero {
+      position: relative; overflow: hidden;
+      border-radius: 14px; padding: 20px 18px 18px;
+      background: #211d18;
+      margin-bottom: 14px;
+    }
+    .section-hero .hero-bg { opacity: 0.5; }
+    .section-hero-title {
+      position: relative; z-index: 2;
+      color: #fff; font-size: 17px; font-weight: 700;
+    }
+    .section-hero-sub { position: relative; z-index: 2; color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 3px; }
+    /* Analytics */
+    .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .month-nav button {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border); background: #fff; cursor: pointer;
+      font-size: 16px; color: var(--text);
+    }
+    .month-nav .month-label { font-size: 15px; font-weight: 700; min-width: 150px; text-align: center; }
+    .kpi-section-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--gold);
+      margin: 18px 0 10px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+    }
+    .kpi-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px;
+      min-width: 0; /* grid items default to min-width:auto and refuse to shrink below content */
+    }
+    .kpi-card .kpi-name { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+    .kpi-card .kpi-value { font-size: 22px; font-weight: 800; }
+    .kpi-meta-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .kpi-bar { height: 6px; border-radius: 3px; background: var(--border); margin-top: 6px; overflow: hidden; }
+    .kpi-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
+    .kpi-bar-fill.done { background: var(--green); }
+    /* Attainment pill — color + glyph + numeric %, so status never rides on
+       color alone (WCAG 1.4.1): ▼ red, ● yellow, ▲ green. Uncapped. */
+    .att-pill {
+      display: inline-block; font-size: 11px; font-weight: 800;
+      padding: 3px 9px; border-radius: 12px; white-space: nowrap;
+    }
+    .att-pill.red    { background: rgba(180,64,64,0.12); color: var(--red); }
+    .att-pill.yellow { background: rgba(201,164,58,0.2);  color: #8a6d1d; }
+    .att-pill.green  { background: rgba(63,125,78,0.12);  color: var(--green); }
+    .kpi-pending-note { font-size: 11px; color: #8a6d1d; margin-top: 6px; }
+    /* Chart A — attainment bars, one indicator per row, mobile-first */
+    .chart-a-summary { font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+    .chart-a-row { padding: 10px 0 8px; border-bottom: 1px solid var(--border); }
+    .chart-a-row:last-child { border-bottom: none; }
+    .chart-a-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .chart-a-label { font-size: 13px; font-weight: 600; min-width: 0; }
+    .chart-a-track { height: 10px; border-radius: 5px; background: var(--border); overflow: hidden; margin-top: 6px; }
+    .chart-a-fill { height: 100%; border-radius: 5px; }
+    .chart-a-fill.red    { background: var(--red); }
+    .chart-a-fill.yellow { background: var(--gold); }
+    .chart-a-fill.green  { background: var(--green); }
+    .chart-a-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    /* Overview header — headline count + full-width bar */
+    .overview-count { font-size: 16px; font-weight: 800; margin: 12px 0 8px; }
+    .overview-pct { font-size: 13px; font-weight: 700; margin-top: 5px; }
+    /* Wins strip — green-forward chips, top 3 by attainment */
+    .wins-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--green); margin: 16px 0 8px;
+    }
+    .wins-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+    .win-chip {
+      background: rgba(63,125,78,0.12); color: var(--green);
+      border-radius: 16px; padding: 6px 12px;
+      font-size: 12px; font-weight: 700; white-space: nowrap;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Collapsible section header — whole row is the toggle button */
+    .kpi-section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; width: 100%; margin: 18px 0 10px; padding: 0;
+      background: none; border: none; cursor: pointer; text-align: left;
+      font-family: 'Inter', sans-serif;
+    }
+    .kpi-section-head .kpi-section-title { margin: 0; min-width: 0; }
+    .kpi-section-head .section-chevron { color: var(--gold); font-size: 11px; }
+    .kpi-section-head .section-head-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    /* Needs-attention focus list */
+    .attention-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--red); margin: 22px 0 2px;
+    }
+    .attention-sub { font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+    /* Chart B — one-indicator trend */
+    .chart-b-svg { width: 100%; height: auto; display: block; }
+    .chart-b-summary { font-size: 13px; margin-top: 8px; }
+    select.chart-b-picker {
+      width: 100%; border: 1px solid var(--border); border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 15px; padding: 10px 12px;
+      background: #fff; color: var(--text); margin-bottom: 10px;
+    }
+    .btn-expand {
+      background: none; border: none; cursor: pointer;
+      color: var(--gold); font-weight: 700; font-size: 12px;
+      font-family: 'Inter', sans-serif;
+    }
+    /* ── "Como estou indo?" pace summary (GM Part 2) ──
+       Four tiles per category; Hoje + Média por dia are the two prominent
+       ones (the side-by-side comparison IS the "am I on track" answer).
+       Status is always color + glyph + word together. */
+    .pace-rail { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; -webkit-overflow-scrolling: touch; }
+    .pace-chip {
+      flex-shrink: 0; min-height: 48px; padding: 10px 14px; border-radius: 999px;
+      border: 1px solid var(--border); background: #fff; font-size: 13px;
+      font-weight: 600; cursor: pointer;
+    }
+    .pace-chip.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .pace-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .pace-tile { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; }
+    .pace-tile-big { background: rgba(201,164,58,0.07); border-color: rgba(201,164,58,0.45); }
+    .pace-tile-label { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+    .pace-tile-value { font-size: 22px; font-weight: 800; margin-top: 4px; word-break: break-word; }
+    .pace-tile-big .pace-tile-value { font-size: 26px; }
+    .pace-tile-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .pace-emph { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+    .pace-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; margin-top: 10px; padding: 6px 12px; border-radius: 999px; }
+    .pace-status.ok   { background: rgba(63,125,78,0.12);  color: #2f6b3e; }
+    .pace-status.warn { background: rgba(201,164,58,0.16); color: #8a6d1d; }
+    .pace-status.bad  { background: rgba(180,64,64,0.12);  color: #a03636; }
+    .pace-head-line { font-size: 15px; font-weight: 600; margin: 4px 0 10px; }
+
+    @media (max-width: 720px) {
+      #appMain { padding: 18px 16px 80px; }
+      .kpi-grid { grid-template-columns: 1fr; }
+      .kpi-card .kpi-value { font-size: 19px; }
+      .layer { padding: 12px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+      <div id="loadingScreen">
+        <div class="spinner"></div>
+        <span class="show-pt">Carregando...</span>
+        <span class="show-en">Loading...</span>
+      </div>
+      <main id="appMain" hidden>
+
+        <div class="page-heading">
+          <span class="show-pt">An&aacute;lise de Clientes</span>
+          <span class="show-en">Client Analytics</span>
+        </div>
+        <div class="page-sub">
+          <span class="show-pt">Os mesmos n&uacute;meros que o cliente v&ecirc;, mais uma camada s&oacute; sua.</span>
+          <span class="show-en">The same numbers your clients see, plus a layer only you get.</span>
+        </div>
+
+        <div class="mode-tabs">
+          <button type="button" class="mode-tab active" id="tabAverage" onclick="switchMode('average')">
+            <span class="show-pt">M&eacute;dia dos clientes</span>
+            <span class="show-en">Client average</span>
+          </button>
+          <button type="button" class="mode-tab" id="tabClient" onclick="switchMode('client')">
+            <span class="show-pt">Por cliente</span>
+            <span class="show-en">Per client</span>
+          </button>
+        </div>
+
+        <!-- ══ Cross-client average ══════════════════════════════════════ -->
+        <section id="modeAverage">
+          <div class="client-picker-row">
+            <label class="muted" for="avgMonth">
+              <span class="show-pt">M&ecirc;s</span><span class="show-en">Month</span>
+            </label>
+            <input type="month" id="avgMonth" onchange="loadAverage()"
+                   style="border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:14px;">
+          </div>
+          <div id="averageBody">
+            <div class="empty-state">
+              <span class="show-pt">Carregando...</span><span class="show-en">Loading...</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ Per-client ════════════════════════════════════════════════ -->
+        <section id="modeClient" hidden>
+          <div class="client-picker-row">
+            <select class="client-picker" id="clientPicker" onchange="onClientPicked()">
+              <option value="">--</option>
+            </select>
+            <a id="profileLink" class="mode-tab" style="text-decoration:none;display:none;" href="#">
+              <span class="show-pt">Abrir perfil</span>
+              <span class="show-en">Open profile</span>
+            </a>
+          </div>
+
+          <div id="clientPanels" hidden>
+            <!-- Layer 1: byte-for-byte what the client sees -->
+            <div class="layer layer-client">
+              <div class="layer-banner">
+                <span>&#9679;
+                  <span class="show-pt">Exatamente o que o cliente v&ecirc;</span>
+                  <span class="show-en">Exactly what the client sees</span>
+                </span>
+                <span class="layer-banner-note">
+                  <span class="show-pt">mesma tela, mesmos c&aacute;lculos, mesmo c&oacute;digo</span>
+                  <span class="show-en">same screen, same math, same code</span>
+                </span>
+              </div>
+              <div id="clientViewRoot"></div>
+            </div>
+
+            <!-- Layer 2: admin-only -->
+            <div class="layer layer-admin">
+              <div class="layer-banner">
+                <span>&#9670;
+                  <span class="show-pt">Camada extra &mdash; s&oacute; voc&ecirc; v&ecirc; isto</span>
+                  <span class="show-en">Extra layer &mdash; only you see this</span>
+                </span>
+                <span class="layer-banner-note">
+                  <span class="show-pt">o cliente n&atilde;o tem acesso a nada abaixo</span>
+                  <span class="show-en">the client cannot reach anything below</span>
+                </span>
+              </div>
+
+              <div class="content-card">
+                <div class="card-title">
+                  <span class="show-pt">Dias registrados vs. perdidos</span>
+                  <span class="show-en">Days logged vs. missed</span>
+                </div>
+                <div id="coverageBody">
+                  <div class="empty-state">
+                    <span class="show-pt">Carregando...</span><span class="show-en">Loading...</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="content-card">
+                <div class="card-title">
+                  <span class="show-pt">Hist&oacute;rico do indicador (m&ecirc;s a m&ecirc;s)</span>
+                  <span class="show-en">Indicator history (month over month)</span>
+                </div>
+                <select class="chart-b-picker" id="histPicker" onchange="loadIndicatorHistory()"></select>
+                <div id="histBody"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="clientEmpty" class="empty-state">
+            <span class="show-pt">Escolha um cliente acima.</span>
+            <span class="show-en">Pick a client above.</span>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script src="nav.js"></script>
+  <!-- The SINGLE implementation of the client Analytics view, shared with
+       portal.html. This page must never re-implement the attainment or pace
+       math: that is the whole point of the shared module. -->
+  <script src="analytics-view.js"></script>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var auth        = null;
+    var currentUser = null;
+    var clientsList = [];
+    var currentView = null;      // ApexAnalyticsView instance
+    var currentClientId = null;
+    var histIndicators = [];
+
+    function escHtml(s) {
+      return String(s === null || s === undefined ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    function isEn() { return document.body.classList.contains("lang-en"); }
+
+    function handleSignOut() {
+      auth.signOut().then(function () {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        sessionStorage.removeItem("apex_display_name");
+        sessionStorage.removeItem("apex_avatar_url");
+        window.location.href = "index.html";
+      });
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function apiFetch(path) {
+      return getToken().then(function (token) {
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+      });
+    }
+
+    function currentMonthStr() {
+      var d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    }
+
+    // ── Mode switching ────────────────────────────────────────────────────
+    function switchMode(mode) {
+      document.getElementById("tabAverage").classList.toggle("active", mode === "average");
+      document.getElementById("tabClient").classList.toggle("active", mode === "client");
+      document.getElementById("modeAverage").hidden = mode !== "average";
+      document.getElementById("modeClient").hidden  = mode !== "client";
+    }
+
+    // ══ B3: cross-client average ═══════════════════════════════════════════
+    //
+    // Honesty rules, enforced by the Worker and rendered here:
+    //  · sample size is printed ON every aggregate, never in a tooltip;
+    //  · below the minimum contributing clients the average is SUPPRESSED and
+    //    we say plainly how many clients have logged anything;
+    //  · an average of one client is never shown as a cross-client average.
+    function loadAverage() {
+      var month = document.getElementById("avgMonth").value || currentMonthStr();
+      var box = document.getElementById("averageBody");
+      box.innerHTML = '<div class="empty-state">' +
+        (isEn() ? "Loading..." : "Carregando...") + '</div>';
+      apiFetch("/api/clients-average?month=" + encodeURIComponent(month))
+        .then(function (res) {
+          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          return res.json();
+        })
+        .then(renderAverage)
+        .catch(function (e) {
+          box.innerHTML = '<div class="error-msg">' + escHtml(e.message) + '</div>';
+        });
+    }
+
+    var CAT_LABELS = {
+      financeiro:       { pt: "Financeiro",         en: "Financial" },
+      clientes_mercado: { pt: "Clientes &amp; Mercado", en: "Clients &amp; Market" },
+      processos:        { pt: "Processos",          en: "Processes" },
+      crescimento:      { pt: "Crescimento",        en: "Growth" }
+    };
+
+    function sampleChip(contrib, active) {
+      var noData = active - contrib;
+      return '<div class="agg-sample">' +
+        '<span class="show-pt">' + contrib + ' de ' + active + ' clientes com dados &middot; ' +
+          noData + ' sem nenhum registro</span>' +
+        '<span class="show-en">' + contrib + ' of ' + active + ' clients contributed &middot; ' +
+          noData + ' logged nothing</span></div>';
+    }
+
+    function renderAverage(d) {
+      var box = document.getElementById("averageBody");
+      var html = "";
+
+      if (d.suppressed) {
+        // Not enough clients have logged anything for "average" to mean
+        // anything. Say so plainly and name the number.
+        html += '<div class="suppress-box">' +
+          '<div class="suppress-title">' +
+          '<span class="show-pt">Dados insuficientes para uma m&eacute;dia</span>' +
+          '<span class="show-en">Not enough data for an average</span></div>' +
+          '<div class="suppress-body">' +
+          '<span class="show-pt">Apenas <strong>' + d.contributing_clients + '</strong> de <strong>' +
+            d.active_clients + '</strong> clientes ativos registraram algum dia neste m&ecirc;s. ' +
+            'S&atilde;o necess&aacute;rios pelo menos <strong>' + d.min_contributing_clients +
+            '</strong> para calcular uma m&eacute;dia entre clientes. ' +
+            'Mostrar uma m&eacute;dia agora seria apresentar o n&uacute;mero de um ou dois clientes ' +
+            'como se fosse a m&eacute;dia de todos.</span>' +
+          '<span class="show-en">Only <strong>' + d.contributing_clients + '</strong> of <strong>' +
+            d.active_clients + '</strong> active clients logged any day this month. ' +
+            'At least <strong>' + d.min_contributing_clients +
+            '</strong> are needed to compute a cross-client average. ' +
+            'Showing one now would present one or two clients\' numbers as if they were everyone\'s.</span>' +
+          '</div></div>';
+      } else {
+        html += '<div class="content-card">' +
+          '<div class="card-title">' +
+          '<span class="show-pt">M&eacute;dia geral (composto)</span>' +
+          '<span class="show-en">Overall average (composite)</span></div>' +
+          '<div class="agg-value">' +
+            (d.composite_average === null ? "--" : d.composite_average + "%") + '</div>' +
+          sampleChip(d.contributing_clients, d.active_clients) +
+          '</div>';
+
+        html += '<div class="agg-grid">';
+        Object.keys(CAT_LABELS).forEach(function (cat) {
+          var c = d.categories && d.categories[cat];
+          var val = c && c.average !== null && c.average !== undefined ? c.average + "%" : "--";
+          html += '<div class="content-card">' +
+            '<div class="card-title">' +
+            '<span class="show-pt">' + CAT_LABELS[cat].pt + '</span>' +
+            '<span class="show-en">' + CAT_LABELS[cat].en + '</span></div>' +
+            '<div class="agg-value">' + val + '</div>' +
+            '<div class="agg-sample">' +
+            '<span class="show-pt">' + (c ? c.n : 0) + ' cliente(s) com esta &aacute;rea</span>' +
+            '<span class="show-en">' + (c ? c.n : 0) + ' client(s) track this area</span></div>' +
+            '</div>';
+        });
+        html += '</div>';
+      }
+
+      // Who counted and who did not — always visible, suppressed or not.
+      html += '<div class="content-card">' +
+        '<div class="card-title">' +
+        '<span class="show-pt">Quem entrou nesta conta</span>' +
+        '<span class="show-en">Who counted toward this</span></div>';
+      if (d.contributors.length) {
+        html += '<div class="muted" style="margin-bottom:6px;">' +
+          '<span class="show-pt">Com registros:</span><span class="show-en">With entries:</span></div>';
+        d.contributors.forEach(function (c) {
+          html += '<div style="font-size:13px;padding:4px 0;">' +
+            '<a href="client-analytics.html?client=' + encodeURIComponent(c.client_id) + '" ' +
+            'style="color:var(--text);font-weight:600;text-decoration:none;">' + escHtml(c.name) + '</a> ' +
+            '<span class="muted">&middot; ' + c.completed_days +
+            '<span class="show-pt"> dia(s)</span><span class="show-en"> day(s)</span></span></div>';
+        });
+      } else {
+        html += '<div class="muted">' +
+          '<span class="show-pt">Nenhum cliente ativo registrou nada neste m&ecirc;s.</span>' +
+          '<span class="show-en">No active client logged anything this month.</span></div>';
+      }
+      if (d.no_data.length) {
+        html += '<div class="muted" style="margin:12px 0 6px;">' +
+          '<span class="show-pt">Sem nenhum registro (' + d.no_data.length + '):</span>' +
+          '<span class="show-en">No entries at all (' + d.no_data.length + '):</span></div>' +
+          '<div style="font-size:13px;color:var(--muted);line-height:1.7;">' +
+          d.no_data.map(function (c) { return escHtml(c.name); }).join(" &middot; ") + '</div>';
+      }
+      html += '</div>';
+
+      box.innerHTML = html;
+    }
+
+    // ══ B1 + B2: per-client ════════════════════════════════════════════════
+    function loadClients() {
+      return apiFetch("/api/clients")
+        .then(function (res) { return res.json(); })
+        .then(function (d) {
+          var all = d.clients || d || [];
+          clientsList = all.filter(function (c) {
+            return c.status === "active" || c.status === null || c.status === undefined;
+          });
+          var sel = document.getElementById("clientPicker");
+          sel.innerHTML = '<option value="">' +
+            (isEn() ? "-- pick a client --" : "-- escolha um cliente --") + '</option>';
+          clientsList.forEach(function (c) {
+            var o = document.createElement("option");
+            o.value = c.id;
+            o.textContent = c.name;
+            sel.appendChild(o);
+          });
+        });
+    }
+
+    function onClientPicked() {
+      var id = document.getElementById("clientPicker").value;
+      selectClient(id);
+    }
+
+    function selectClient(id) {
+      currentClientId = id || null;
+      document.getElementById("clientPicker").value = id || "";
+      var panels = document.getElementById("clientPanels");
+      var empty  = document.getElementById("clientEmpty");
+      var link   = document.getElementById("profileLink");
+
+      if (currentView) { currentView.destroy(); currentView = null; }
+
+      if (!id) {
+        panels.hidden = true;
+        empty.hidden = false;
+        link.style.display = "none";
+        return;
+      }
+      panels.hidden = false;
+      empty.hidden = true;
+      link.style.display = "";
+      link.href = "client.html?id=" + encodeURIComponent(id);
+
+      // Keep the URL shareable/refreshable and let client.html deep-link in.
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set("client", id);
+        window.history.replaceState({}, "", u.toString());
+      } catch (e) {}
+
+      // THE identical view — same module the client portal renders.
+      currentView = ApexAnalyticsView.create({
+        clientId: id,
+        fetch: apiFetch,
+        isEn: isEn,
+        root: document.getElementById("clientViewRoot"),
+        showPace: true,
+        showChartB: true,
+        // No helpRequest: the "ask for help" CTA is client-only.
+        onMonthChange: function (m) { loadCoverage(m); }
+      });
+      currentView.load();
+
+      loadCoverage(currentView.getMonth());
+      loadHistIndicators();
+    }
+
+    // ── B2: which days were logged vs missed ──────────────────────────────
+    function loadCoverage(month) {
+      var box = document.getElementById("coverageBody");
+      box.innerHTML = '<div class="empty-state">' + (isEn() ? "Loading..." : "Carregando...") + '</div>';
+      apiFetch("/api/clients/" + currentClientId + "/entry-coverage?month=" + encodeURIComponent(month))
+        .then(function (res) {
+          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          return res.json();
+        })
+        .then(renderCoverage)
+        .catch(function (e) {
+          box.innerHTML = '<div class="error-msg">' + escHtml(e.message) + '</div>';
+        });
+    }
+
+    function renderCoverage(d) {
+      var box = document.getElementById("coverageBody");
+      var byDate = {};
+      d.entries.forEach(function (e) { byDate[e.date] = e.completed ? "completed" : "partial"; });
+      d.missed.forEach(function (m) { if (!byDate[m.date]) { byDate[m.date] = m.status; } });
+
+      var html = "";
+      // The headline warning: without this, every percentage above is noise.
+      if (d.completed_days === 0) {
+        html += '<div class="warn-banner">' +
+          '<span class="show-pt">&#9888; Nenhum dia completo neste m&ecirc;s. Todos os n&uacute;meros acima s&atilde;o zero por falta de registro, n&atilde;o por desempenho.</span>' +
+          '<span class="show-en">&#9888; No completed days this month. Every number above is zero for lack of logging, not performance.</span>' +
+          '</div>';
+      } else if (d.completed_days < 5) {
+        html += '<div class="warn-banner">' +
+          '<span class="show-pt">&#9888; Apenas ' + d.completed_days + ' dia(s) completo(s) em ' + d.days_in_month +
+            '. Leia as porcentagens acima com cuidado.</span>' +
+          '<span class="show-en">&#9888; Only ' + d.completed_days + ' completed day(s) out of ' + d.days_in_month +
+            '. Read the percentages above with care.</span>' +
+          '</div>';
+      }
+
+      html += '<div class="agg-value" style="font-size:28px;">' + d.completed_days + ' / ' + d.days_in_month + '</div>' +
+        '<div class="agg-sample">' +
+        '<span class="show-pt">dias completos &middot; ' + d.partial_days + ' parcial(is) &middot; ' +
+          d.day_off_days + ' folga(s)</span>' +
+        '<span class="show-en">days completed &middot; ' + d.partial_days + ' partial &middot; ' +
+          d.day_off_days + ' day(s) off</span></div>';
+
+      html += '<div class="cov-legend">' +
+        '<span class="cov-key"><span class="cov-swatch" style="background:rgba(63,125,78,0.18);border-color:rgba(63,125,78,0.5);"></span>' +
+        '<span class="show-pt">completo</span><span class="show-en">complete</span></span>' +
+        '<span class="cov-key"><span class="cov-swatch" style="background:rgba(201,164,58,0.2);border-color:rgba(201,164,58,0.55);"></span>' +
+        '<span class="show-pt">parcial</span><span class="show-en">partial</span></span>' +
+        '<span class="cov-key"><span class="cov-swatch" style="background:rgba(107,102,96,0.14);"></span>' +
+        '<span class="show-pt">folga</span><span class="show-en">day off</span></span>' +
+        '<span class="cov-key"><span class="cov-swatch"></span>' +
+        '<span class="show-pt">sem registro</span><span class="show-en">nothing logged</span></span>' +
+        '</div>';
+
+      html += '<div class="cov-grid">';
+      for (var day = 1; day <= d.days_in_month; day++) {
+        var ds = d.month + "-" + String(day).padStart(2, "0");
+        var cls = byDate[ds] || "missing";
+        html += '<div class="cov-day ' + cls + '" title="' + ds + '">' + day + '</div>';
+      }
+      html += '</div>';
+
+      box.innerHTML = html;
+    }
+
+    // ── B2: indicator history across months ───────────────────────────────
+    function loadHistIndicators() {
+      apiFetch("/api/clients/" + currentClientId + "/entries-summary?month=" + currentMonthStr())
+        .then(function (res) { return res.json(); })
+        .then(function (d) {
+          histIndicators = d.indicators || [];
+          var sel = document.getElementById("histPicker");
+          sel.innerHTML = "";
+          histIndicators.forEach(function (ind) {
+            var o = document.createElement("option");
+            o.value = ind.key;
+            o.textContent = isEn() ? ind.label_en : ind.label_pt;
+            sel.appendChild(o);
+          });
+          if (sel.value) { loadIndicatorHistory(); }
+        })
+        .catch(function () {});
+    }
+
+    function loadIndicatorHistory() {
+      var sel = document.getElementById("histPicker");
+      var body = document.getElementById("histBody");
+      if (!sel.value) { body.innerHTML = ""; return; }
+      body.innerHTML = '<p class="muted">' + (isEn() ? "Loading..." : "Carregando...") + '</p>';
+      apiFetch("/api/clients/" + currentClientId + "/indicator-history?indicator=" +
+               encodeURIComponent(sel.value) + "&months=12")
+        .then(function (res) { return res.json(); })
+        .then(function (d) { body.innerHTML = renderHistTable(d); })
+        .catch(function () {
+          body.innerHTML = '<p class="muted">' + (isEn() ? "No data yet." : "Sem dados ainda.") + '</p>';
+        });
+    }
+
+    function renderHistTable(d) {
+      var pts = (d.points || []).filter(function (p) {
+        return p.realizado !== null && p.realizado !== undefined;
+      });
+      if (!pts.length) {
+        return '<p class="muted">' +
+          (isEn() ? "No months with completed entries for this indicator."
+                  : "Nenhum m&ecirc;s com registros completos para este indicador.") + '</p>';
+      }
+      var P = ApexAnalyticsView.pure;
+      var pctType = (d.indicator === "margem_lucro" || d.indicator === "taxa_conversao" ||
+                     d.indicator === "metas_batidas") ? "percent" : d.type;
+      var html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+        '<thead><tr>' +
+        '<th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">' +
+        (isEn() ? "Month" : "M&ecirc;s") + '</th>' +
+        '<th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">' +
+        (isEn() ? "Actual" : "Realizado") + '</th>' +
+        '<th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">Meta</th>' +
+        '<th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">%</th>' +
+        '</tr></thead><tbody>';
+      pts.forEach(function (p) {
+        // Reuses the shared attainment math — never a second formula.
+        var pct = P.attainmentPct({
+          meta_mensal: p.meta, realizado: p.realizado, inverse: d.inverse
+        });
+        html += '<tr>' +
+          '<td style="padding:9px 10px;border-bottom:1px solid var(--border);font-weight:600;">' + escHtml(p.month) + '</td>' +
+          '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;">' + P.fmtNum(p.realizado, pctType) + '</td>' +
+          '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;color:var(--muted);">' + P.fmtNum(p.meta, pctType) + '</td>' +
+          '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;">' + (pct === null ? "--" : P.pillHtml(pct)) + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────
+    function fetchAndApplyRole() {
+      return getToken().then(function (token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function (data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    // Admin-only page. Non-admin roles are bounced to the dashboard; the
+    // Worker independently 403s every route this page calls, so this is a
+    // UX guard, not the security boundary.
+    function isAdminRole(role) {
+      return role === "alice" || role === "rafa" || role === "developer";
+    }
+
+    function setupPage(role) {
+      if (!isAdminRole(role)) {
+        window.location.href = "dashboard.html";
+        return;
+      }
+      var roleEl = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      populateHeaderUser(email,
+        sessionStorage.getItem("apex_display_name") || null,
+        sessionStorage.getItem("apex_avatar_url") || null);
+      if (roleEl) { roleEl.textContent = role; }
+
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden = false;
+
+      window.initNav && window.initNav();
+
+      document.getElementById("avgMonth").value = currentMonthStr();
+
+      loadClients().then(function () {
+        // B4: client.html links here with ?client=<id>, landing with that
+        // client already selected and its per-client view open.
+        var pre = null;
+        try { pre = new URL(window.location.href).searchParams.get("client"); } catch (e) {}
+        if (pre) {
+          switchMode("client");
+          selectClient(pre);
+        } else {
+          loadAverage();
+        }
+      }).catch(function () {});
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function (user) {
+        if (!user) {
+          if (sessionStorage.getItem("apex_role")) {
+            setTimeout(function () {
+              if (!auth.currentUser) { window.location.href = "index.html"; }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) { setupPage(cached); }
+        fetchAndApplyRole().then(function (data) {
+          if (!cached) { setupPage(data.role); }
+          else if (!isAdminRole(data.role)) { window.location.href = "dashboard.html"; }
+        }).catch(function () {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+    }
+
+    window.onload = function () { init(); };
+  </script>
+
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

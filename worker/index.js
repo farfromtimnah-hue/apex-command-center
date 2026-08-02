@@ -10589,6 +10589,198 @@ async function handleGetLeaderboard(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients-average?month=YYYY-MM — alice/rafa/developer ONLY.
+// The cross-client average, for Rafa to spot an area every client struggles in.
+//
+// Built ON handleGetLeaderboard's per-client category scoring rather than a
+// second aggregation pass, so the averages can never disagree with the ranking
+// on the same screen.
+//
+// HONESTY IS THE WHOLE POINT OF THIS ENDPOINT. Verified live 2026-08-02: of
+// the 16 active clients, ZERO have a single completed daily entry. (The only
+// client with real entries is test-client-temp-001, which is status='closed'
+// and therefore already excluded by the leaderboard's active-only filter; the
+// one active client with an entry, PRIME GROUP BUILDS, has completed=0 on it,
+// and computeMonthlySummary counts only completed=1.) An average computed from
+// that is noise, and a confident "47%" would be read as signal and acted on.
+//
+// So this endpoint ALWAYS reports its sample size, and suppresses the averages
+// entirely below MIN_CONTRIBUTING_CLIENTS. Threshold = 3: with one client an
+// "average" is just that client (never a cross-client claim); with two, one
+// outlier moves it ~50%. Three is the smallest n where the word "average"
+// starts to mean anything across a roster, and it is still low enough that
+// this page becomes useful as soon as a few clients start logging — no
+// rewrite needed, the suppression simply stops firing.
+// ---------------------------------------------------------------------------
+
+var MIN_CONTRIBUTING_CLIENTS = 3;
+
+async function handleGetClientsAverage(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+
+        // Same active-only filter the leaderboard uses. Test clients are
+        // status='closed', so they never enter the aggregate.
+        var clients = await env.DB.prepare(
+            "SELECT id, name FROM clients WHERE status = 'active' OR status IS NULL ORDER BY name"
+        ).all();
+        var list = clients.results || [];
+
+        var CATEGORIES = ["financeiro", "clientes_mercado", "processos", "crescimento"];
+        var perCategory = {};
+        CATEGORIES.forEach(function (c) { perCategory[c] = []; });
+        var composites = [];
+        var contributing = [];   // clients with >= 1 completed day this month
+        var noData = [];
+
+        for (var i = 0; i < list.length; i++) {
+            var c = list[i];
+            var summary = await computeMonthlySummary(env, c.id, month);
+
+            // "Contributed data" means actually logged a completed day this
+            // month. A client with goals but no entries must NOT be averaged
+            // in as a zero — that would silently invent failure.
+            if (!summary.completed_days) {
+                noData.push({ client_id: c.id, name: c.name });
+                continue;
+            }
+
+            var catScores = {};
+            CATEGORIES.forEach(function (cat) {
+                var pcts = [];
+                summary.indicators.forEach(function (ind) {
+                    if (ind.section !== cat) { return; }
+                    var meta = ind.meta_mensal;
+                    if (meta === null || meta === undefined || meta === 0 || ind.realizado === null) { return; }
+                    var pct;
+                    if (ind.inverse) {
+                        pct = ind.realizado <= meta ? 100 : Math.round((meta / ind.realizado) * 10000) / 100;
+                    } else {
+                        // Capped at 150, identical to the leaderboard.
+                        pct = Math.min(150, Math.round((ind.realizado / meta) * 10000) / 100);
+                    }
+                    pcts.push(pct);
+                });
+                catScores[cat] = pcts.length
+                    ? Math.round((pcts.reduce(function (a, b) { return a + b; }, 0) / pcts.length) * 10) / 10
+                    : null;
+                if (catScores[cat] !== null) { perCategory[cat].push(catScores[cat]); }
+            });
+
+            var present = CATEGORIES.map(function (cat) { return catScores[cat]; })
+                .filter(function (v) { return v !== null; });
+            var composite = present.length
+                ? Math.round((present.reduce(function (a, b) { return a + b; }, 0) / present.length) * 10) / 10
+                : null;
+            if (composite !== null) { composites.push(composite); }
+
+            contributing.push({
+                client_id: c.id, name: c.name,
+                completed_days: summary.completed_days,
+                composite: composite, categories: catScores
+            });
+        }
+
+        function mean(arr) {
+            if (!arr.length) { return null; }
+            return Math.round((arr.reduce(function (a, b) { return a + b; }, 0) / arr.length) * 10) / 10;
+        }
+
+        var enough = contributing.length >= MIN_CONTRIBUTING_CLIENTS;
+        var categoryAverages = null;
+        if (enough) {
+            categoryAverages = {};
+            CATEGORIES.forEach(function (cat) {
+                categoryAverages[cat] = {
+                    average: mean(perCategory[cat]),
+                    // Per-category n: a category only some clients track must
+                    // not borrow the headline sample size.
+                    n: perCategory[cat].length
+                };
+            });
+        }
+
+        return jsonOk({
+            month: month,
+            // Sample size travels WITH the numbers, always — the UI renders it
+            // on the face of every aggregate, never in a tooltip.
+            active_clients: list.length,
+            contributing_clients: contributing.length,
+            no_data_clients: noData.length,
+            min_contributing_clients: MIN_CONTRIBUTING_CLIENTS,
+            suppressed: !enough,
+            composite_average: enough ? mean(composites) : null,
+            categories: categoryAverages,
+            contributors: contributing.map(function (r) {
+                return { client_id: r.client_id, name: r.name, completed_days: r.completed_days };
+            }),
+            no_data: noData
+        });
+    } catch (e) {
+        return jsonErr("Error computing client average: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/entry-coverage?month=YYYY-MM — admin ONLY.
+// Which days were logged vs missed. A client who logged 1 day out of 30 makes
+// every percentage on the page meaningless, and Rafa needs to see that at a
+// glance instead of reading an attainment figure as real.
+// ---------------------------------------------------------------------------
+
+async function handleGetEntryCoverage(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        // Admin-only on purpose: this is the deeper layer the client does not
+        // get. Not requireClientAccess — a client must never reach it.
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+
+        var entriesRes = await env.DB.prepare(
+            "SELECT entry_date, completed FROM client_daily_entries " +
+            "WHERE client_id = ? AND entry_date LIKE ? ORDER BY entry_date"
+        ).bind(id, month + "-%").all();
+
+        var missedRes = await env.DB.prepare(
+            "SELECT missed_date, status, reason FROM client_missed_days " +
+            "WHERE client_id = ? AND missed_date LIKE ? ORDER BY missed_date"
+        ).bind(id, month + "-%").all();
+
+        var entries = entriesRes.results || [];
+        var missed = missedRes.results || [];
+        var completed = entries.filter(function (e) { return e.completed; });
+
+        return jsonOk({
+            month: month,
+            days_in_month: new Date(
+                Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0
+            ).getDate(),
+            completed_days: completed.length,
+            partial_days: entries.length - completed.length,
+            day_off_days: missed.filter(function (m) { return m.status === "day_off"; }).length,
+            entries: entries.map(function (e) {
+                return { date: e.entry_date, completed: !!e.completed };
+            }),
+            missed: missed.map(function (m) {
+                return { date: m.missed_date, status: m.status, reason: m.reason || null };
+            })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching entry coverage: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/weekly-summary?start=YYYY-MM-DD (Monday) —
 // alice/rafa/developer ONLY. Current-week day-by-day status for the profile.
 // ---------------------------------------------------------------------------
@@ -14716,6 +14908,7 @@ export default {
         if (path === "/api/portal/me"                   && method === "GET")  { return handleGetPortalMe(request, env); }
         if (path === "/api/portal/next-meeting"         && method === "GET")  { return handleGetPortalNextMeeting(request, env); }
         if (path === "/api/leaderboard"                 && method === "GET")  { return handleGetLeaderboard(request, env); }
+        if (path === "/api/clients-average"             && method === "GET")  { return handleGetClientsAverage(request, env); }
         if (path === "/api/goal-approvals"              && method === "GET")  { return handleGetGoalApprovals(request, env); }
 
         // Salesperson login requests. POST is the client asking (client_id from
@@ -14966,6 +15159,12 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "indicator-history" && method === "GET") {
                 return handleGetIndicatorHistory(cid, request, env);
+            }
+            // Admin-only (isAdminRole inside the handler). Deliberately NOT in
+            // the client-reachable allowlist above — this is the deeper
+            // logged-vs-missed layer the client does not get.
+            if (segs.length === 4 && segs[3] === "entry-coverage" && method === "GET") {
+                return handleGetEntryCoverage(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "entry-state" && method === "GET") {
                 return handleGetEntryState(cid, request, env);

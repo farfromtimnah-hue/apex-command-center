@@ -8,6 +8,9 @@
     { key: "clients",   href: "clients.html",   icon: "users",
       labelPt: "Clientes",                     labelEn: "Clients",
       tipPt: "Clientes",                       tipEn: "Clients" },
+    { key: "clientanalytics", href: "client-analytics.html", icon: "target",
+      labelPt: "An&aacute;lise de Clientes",   labelEn: "Client Analytics",
+      tipPt: "Analise de Clientes",            tipEn: "Client Analytics" },
     { key: "sessions",  href: "sessions.html",  icon: "calendar",
       labelPt: "Sess&otilde;es",               labelEn: "Sessions",
       tipPt: "Sessoes",                        tipEn: "Sessions" },
@@ -38,6 +41,9 @@
     { key: "clients",   href: "clients.html",   icon: "users",
       labelPt: "Meus Clientes",                labelEn: "My Clients",
       tipPt: "Meus Clientes",                  tipEn: "My Clients" },
+    { key: "clientanalytics", href: "client-analytics.html", icon: "target",
+      labelPt: "An&aacute;lise de Clientes",   labelEn: "Client Analytics",
+      tipPt: "Analise de Clientes",            tipEn: "Client Analytics" },
     { key: "sales",     href: "sales.html",     icon: "trend",
       labelPt: "Vendas",                       labelEn: "Sales",
       tipPt: "Vendas",                         tipEn: "Sales" },
@@ -413,24 +419,25 @@
   var MTAB_DOCUMENTOS = mobileTabDef("documents", "documents.html", "file",         "Documentos",                   "Documents");
   var MTAB_CONFIG     = mobileTabDef("settings",  "settings.html",  "settings",     "Configura&ccedil;&otilde;es",  "Settings");
   var MTAB_ADDUSER    = mobileTabDef("adduser",   "add-user.html",  "user-plus",    "Adicionar Usu&aacute;rio",     "Add User");
+  var MTAB_CLIENTANALYTICS = mobileTabDef("clientanalytics", "client-analytics.html", "target", "An&aacute;lise de Clientes", "Client Analytics");
 
   function getMobileNavConfig(navRole) {
     if (navRole === "rafa") {
       return {
         tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_VENDAS, MTAB_TAREFAS],
-        more: [MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG]
+        more: [MTAB_CLIENTANALYTICS, MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG]
       };
     }
     if (navRole === "developer") {
       return {
         tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES],
-        more: [MTAB_VENDAS, MTAB_TAREFAS, MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG, MTAB_ADDUSER]
+        more: [MTAB_CLIENTANALYTICS, MTAB_VENDAS, MTAB_TAREFAS, MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG, MTAB_ADDUSER]
       };
     }
     // alice (default)
     return {
       tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_FINANCEIRO, MTAB_CALENDARIO],
-      more: [MTAB_VENDAS, MTAB_TAREFAS, MTAB_DOCUMENTOS, MTAB_CONFIG]
+      more: [MTAB_CLIENTANALYTICS, MTAB_VENDAS, MTAB_TAREFAS, MTAB_DOCUMENTOS, MTAB_CONFIG]
     };
   }
 

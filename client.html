@@ -1551,6 +1551,14 @@
               <span class="show-pt">Anexar Recurso</span>
               <span class="show-en">Attach Resource</span>
             </button>
+            <!-- Straight into THIS client's analytics, pre-selected. The
+                 meeting case: Rafa is on the profile and clicks over to the
+                 numbers the client is looking at. Admin-only page. -->
+            <a class="btn-action" id="btnClientAnalytics" href="#"
+               style="text-decoration:none;display:inline-flex;align-items:center;">
+              <span class="show-pt">Ver An&#225;lise</span>
+              <span class="show-en">View Analytics</span>
+            </a>
             <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
               <span class="show-pt">Gerar PDF</span>
               <span class="show-en">Generate PDF</span>
@@ -4965,6 +4973,12 @@
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
       document.title = "Apex — " + (client.name || "Cliente");
+
+      // Deep link into this client's analytics with them pre-selected.
+      var caBtn = document.getElementById("btnClientAnalytics");
+      if (caBtn) {
+        caBtn.href = "client-analytics.html?client=" + encodeURIComponent(CLIENT_ID || "");
+      }
 
       // Header logo thumbnail
       if (client.logo_url) {

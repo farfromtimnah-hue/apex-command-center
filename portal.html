@@ -2573,6 +2573,83 @@
     // ignoring an empty list.
     var gmListDraft = null;   // { servicos: [], vendedores: [], ... } while editing
 
+    // ── Salesperson login requests ──────────────────────────────────────────
+    // Next to each SAVED name in the Vendedores list sits a button that asks us
+    // for a portal login for that person. It only records the ask: no login is
+    // created and no access is granted here. Nothing about how names are typed,
+    // edited, saved or deleted changes — the button is purely additive, and it
+    // only appears next to a name that is already saved on the server (a name
+    // still being typed has nothing to request against yet).
+    var gmSellerRequests = null;   // { "<name lowercased>": "pending" | "approved" | ... }
+
+    function gmLoadSellerRequests() {
+      return gmApi("seller-login-requests")
+        .then(function(d) {
+          gmSellerRequests = {};
+          (d.requests || []).forEach(function(r) {
+            gmSellerRequests[String(r.seller_name).trim().toLowerCase()] = r.status;
+          });
+          return gmSellerRequests;
+        })
+        .catch(function() { gmSellerRequests = gmSellerRequests || {}; });
+    }
+
+    // Only names that are already persisted server-side can be requested.
+    function gmSellerIsSaved(name) {
+      var saved = (gmConfig && gmConfig.config && gmConfig.config.vendedores) || [];
+      var n = String(name || "").trim().toLowerCase();
+      if (!n) { return false; }
+      return saved.some(function(v) { return String(v).trim().toLowerCase() === n; });
+    }
+
+    function gmSellerRequestBtnHtml(name) {
+      var en = isEn();
+      var n = String(name || "").trim();
+      if (!gmSellerIsSaved(n)) {
+        // Unsaved / blank row: no button, and a nudge to save first so the
+        // absence of the button is explained rather than just missing.
+        if (!n) { return ""; }
+        return '<span class="muted" style="font-size:11px;white-space:nowrap;">' +
+          (en ? "Save to request" : "Salve para solicitar") + '</span>';
+      }
+      var status = gmSellerRequests ? gmSellerRequests[n.toLowerCase()] : null;
+      if (status === "approved") {
+        return '<span style="font-size:11px;font-weight:700;color:#3f7d4e;white-space:nowrap;">' +
+          (en ? "Login approved" : "Login aprovado") + '</span>';
+      }
+      if (status === "pending") {
+        // Not cancellable by the client in this pass.
+        return '<span style="font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;">' +
+          (en ? "Requested" : "Solicitado") + '</span>';
+      }
+      if (status === "rejected") {
+        return '<span style="font-size:11px;font-weight:700;color:#b44040;white-space:nowrap;">' +
+          (en ? "Not approved" : "Não aprovado") + '</span>';
+      }
+      return '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:11px;white-space:nowrap;" ' +
+        'onclick="gmRequestSellerLogin(' + JSON.stringify(n).replace(/"/g, "&quot;") + ', this)">' +
+        (en ? "Request Login" : "Solicitar Login") + '</button>';
+    }
+
+    function gmRequestSellerLogin(name, btn) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/gm/seller-login-requests", {
+        method: "POST",
+        body: { seller_name: name }
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Erro"); }
+          gmSellerRequests = gmSellerRequests || {};
+          gmSellerRequests[String(name).trim().toLowerCase()] = r.data.status || "pending";
+          renderWorkSettings();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          window.alert("Erro: " + e.message);
+        });
+    }
+
     var GM_LIST_DEFS = [
       { key: "servicos", pt: "Serviços", en: "Services",
         notePt: "Aparecem como opções na sua página pública de indicação.",
@@ -2595,6 +2672,12 @@
     function gmListEditorsHtml() {
       if (!gmConfig || !gmConfig.config) { return ""; }
       var en = isEn();
+      // First paint renders the buttons in their default state; the fetch then
+      // re-renders with the real pending/approved states. Loaded once per view.
+      if (gmSellerRequests === null) {
+        gmSellerRequests = {};
+        gmLoadSellerRequests().then(function() { renderWorkSettings(); });
+      }
       if (!gmListDraft) {
         gmListDraft = {};
         GM_LIST_DEFS.forEach(function(d) {
@@ -2617,10 +2700,26 @@
           html += '<p class="muted" style="font-size:12px;margin:0 0 8px;font-style:italic;">' +
             (en ? "Empty — this field is turned off." : "Vazio — este campo fica desligado.") + '</p>';
         }
+        // The Vendedores list alone carries the login-request affordance. The
+        // explanation of what a salesperson would (and would not) see sits
+        // above the rows so it is read before anything is requested.
+        if (d.key === "vendedores") {
+          html += '<p class="muted" style="font-size:12px;margin:0 0 8px;">' +
+            (en
+              ? "You can ask us for a portal login for a salesperson. A salesperson with a login will only see " +
+                "the pipeline records they create or that are assigned to them — never the rest of your data " +
+                "(finance, jobs, goals, or the other salespeople's leads). Requesting does not create the login: " +
+                "our team reviews it first."
+              : "Você pode solicitar um login do portal para um vendedor. Um vendedor com login verá apenas os " +
+                "registros do pipeline que ele criar ou que forem atribuídos a ele — nunca o restante dos seus " +
+                "dados (financeiro, obras, metas ou os leads dos outros vendedores). Solicitar não cria o login: " +
+                "nossa equipe analisa antes.") + '</p>';
+        }
         items.forEach(function(v, i) {
           html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">' +
             '<input type="text" maxlength="80" value="' + escHtml(v) + '" ' +
               'oninput="gmListSet(\'' + d.key + '\', ' + i + ', this.value)" style="flex:1;">' +
+            (d.key === "vendedores" ? gmSellerRequestBtnHtml(v) : '') +
             '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 12px;" ' +
               'aria-label="' + (en ? "Remove" : "Remover") + '" ' +
               'onclick="gmListRemove(\'' + d.key + '\', ' + i + ')">&times;</button>' +

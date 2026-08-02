@@ -934,6 +934,27 @@
       </div>
     </div>
 
+    <!-- Salesperson login requests: a client asking for a portal login for one
+         of their salespeople. Approving here RECORDS the decision only — it
+         provisions no login and grants no access. Shown to every admin role;
+         hidden while empty. -->
+    <div class="below-section" id="sellerLoginRequestsSection" hidden>
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Solicita&ccedil;&otilde;es de Login de Vendedor</span>
+            <span class="show-en">Salesperson Login Requests</span>
+            <span id="sellerLoginRequestsBadge" style="display:inline-block;margin-left:8px;background:rgba(180,64,64,0.12);color:#b44040;font-size:12px;font-weight:800;padding:2px 10px;border-radius:12px;vertical-align:middle;"></span>
+          </h2>
+        </div>
+        <p class="muted" style="font-size:12px;margin:0 0 10px;">
+          <span class="show-pt">Aprovar aqui apenas registra a decis&atilde;o &mdash; nenhum login &eacute; criado e nenhum acesso &eacute; concedido. Um vendedor com login ver&aacute; apenas os registros do pipeline que ele criar ou que forem atribu&iacute;dos a ele, nunca o restante dos dados do cliente.</span>
+          <span class="show-en">Approving here only records the decision &mdash; no login is created and no access is granted. A salesperson with a login will only see the pipeline records they create or that are assigned to them, never the rest of the client's data.</span>
+        </p>
+        <div id="sellerLoginRequestsList"></div>
+      </div>
+    </div>
+
   </main><!-- /appMain -->
 
     </div><!-- /contentArea -->
@@ -1153,6 +1174,7 @@
       window.initNav && window.initNav();
 
       loadGoalApprovals();
+      loadSellerLoginRequests();
 
       if (role === "alice") {
         var aliceDash = document.getElementById("aliceDash");
@@ -1290,6 +1312,64 @@
         .then(function(r) {
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
           loadGoalApprovals();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          window.alert("Erro: " + e.message);
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // SALESPERSON LOGIN REQUESTS
+    //
+    // A client asking for a portal login for one of their salespeople. This
+    // queue RECORDS decisions and provisions nothing: approving stamps the row
+    // and stops there. Actual salesperson seats are a separate future build.
+    // ══════════════════════════════════════════════════════════════════════
+
+    function loadSellerLoginRequests() {
+      apiFetch("/api/gm/seller-login-requests")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var section = document.getElementById("sellerLoginRequestsSection");
+          var listEl  = document.getElementById("sellerLoginRequestsList");
+          var badge   = document.getElementById("sellerLoginRequestsBadge");
+          if (!section || !listEl) { return; }
+          var pending = data.pending || [];
+          if (!pending.length) { section.hidden = true; return; }
+          badge.textContent = pending.length;
+          var isEnLang = document.body.classList.contains("lang-en");
+          var html = "";
+          pending.forEach(function(p) {
+            var when = p.requested_at ? p.requested_at.slice(0, 10) : "";
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
+              '<div style="flex:1;min-width:220px;">' +
+              '<div style="font-size:14px;font-weight:600;">' + escHtml(p.client_name) + ' &middot; ' + escHtml(p.seller_name) + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+              (isEnLang ? 'Salesperson login requested' : 'Login de vendedor solicitado') +
+              (when ? ' &middot; ' + when : '') +
+              (p.requested_by ? ' &middot; ' + escHtml(p.requested_by) : '') +
+              '</div></div>' +
+              '<div style="display:flex;gap:8px;">' +
+              '<button style="background:transparent;border:1px solid #3f7d4e;color:#3f7d4e;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideSellerLoginRequest(\'' + p.id + '\',\'approve\',this)">' +
+              (isEnLang ? 'Approve' : 'Aprovar') + '</button>' +
+              '<button style="background:transparent;border:1px solid #b44040;color:#b44040;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideSellerLoginRequest(\'' + p.id + '\',\'reject\',this)">' +
+              (isEnLang ? 'Reject' : 'Rejeitar') + '</button>' +
+              '</div></div>';
+          });
+          listEl.innerHTML = html;
+          section.hidden = false;
+        })
+        .catch(function() {});
+    }
+
+    function decideSellerLoginRequest(reqId, decision, btn) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/gm/seller-login-requests/" + encodeURIComponent(reqId) + "/" + decision, { method: "POST" })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          loadSellerLoginRequests();
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; }

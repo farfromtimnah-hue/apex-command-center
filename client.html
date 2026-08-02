@@ -2015,6 +2015,27 @@
           </div>
         </div>
 
+        <!-- Salesperson login requests from THIS client. Recording a decision
+             here provisions nothing — see the worker route comment. -->
+        <div class="content-card" id="sec-sellerLogins">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Logins de Vendedor</span>
+              <span class="show-en">Salesperson Logins</span>
+              <span id="sellerLoginClientBadge" style="display:none;margin-left:8px;background:rgba(180,64,64,0.12);color:#b44040;font-size:12px;font-weight:800;padding:2px 10px;border-radius:12px;vertical-align:middle;"></span>
+            </h2>
+          </div>
+          <div id="sellerLoginClientBody" style="padding:16px 20px;">
+            <p class="muted" style="font-size:12px;margin:0 0 10px;">
+              <span class="show-pt">Solicita&ccedil;&otilde;es deste cliente para dar login do portal a um vendedor. Aprovar apenas registra a decis&atilde;o &mdash; nenhum login &eacute; criado e nenhum acesso &eacute; concedido. Um vendedor com login ver&aacute; apenas os registros do pipeline que ele criar ou que forem atribu&iacute;dos a ele, nunca o restante dos dados do cliente.</span>
+              <span class="show-en">This client's requests to give a salesperson a portal login. Approving only records the decision &mdash; no login is created and no access is granted. A salesperson with a login will only see the pipeline records they create or that are assigned to them, never the rest of the client's data.</span>
+            </p>
+            <div id="sellerLoginClientList">
+              <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Assessments (Business X-Ray + future types) -->
         <div class="content-card" id="sec-assessments">
           <div class="content-card-header">
@@ -3043,6 +3064,7 @@
       loadClientGrowth();
       loadClientNeighbors();
       loadPortalAccess();
+      loadSellerLoginRequestsForClient();
       loadAssessments();
       loadWeeklySummary();
       initCollapseStates();
@@ -3081,6 +3103,67 @@
         .catch(function() {
           var el = document.getElementById("portalAccessBody");
           if (el) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">--</div>'; }
+        });
+    }
+
+    // ── Salesperson login requests for THIS client ────────────────────────
+    // Recording a decision provisions nothing; see the worker route comment.
+    function loadSellerLoginRequestsForClient() {
+      apiFetch("/api/gm/seller-login-requests?client_id=" + encodeURIComponent(CLIENT_ID))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var listEl = document.getElementById("sellerLoginClientList");
+          var badge  = document.getElementById("sellerLoginClientBadge");
+          if (!listEl) { return; }
+          var pending = data.pending || [];
+          if (badge) {
+            badge.textContent = pending.length;
+            badge.style.display = pending.length ? "inline-block" : "none";
+          }
+          if (!pending.length) {
+            listEl.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
+              '<span class="show-pt">Nenhuma solicita&ccedil;&atilde;o pendente.</span>' +
+              '<span class="show-en">No pending requests.</span></div>';
+            return;
+          }
+          var isEnLang = document.body.classList.contains("lang-en");
+          var html = "";
+          pending.forEach(function(p) {
+            var when = p.requested_at ? p.requested_at.slice(0, 10) : "";
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);">' +
+              '<div style="flex:1;min-width:180px;">' +
+              '<div style="font-size:14px;font-weight:600;">' + escHtml(p.seller_name) + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+              (isEnLang ? 'Pending' : 'Pendente') +
+              (when ? ' &middot; ' + when : '') +
+              (p.requested_by ? ' &middot; ' + escHtml(p.requested_by) : '') +
+              '</div></div>' +
+              '<div style="display:flex;gap:8px;">' +
+              '<button class="btn-add" onclick="decideSellerLoginForClient(\'' + p.id + '\',\'approve\',this)">' +
+              '<span class="show-pt">Aprovar</span><span class="show-en">Approve</span></button>' +
+              '<button class="btn-add" onclick="decideSellerLoginForClient(\'' + p.id + '\',\'reject\',this)">' +
+              '<span class="show-pt">Rejeitar</span><span class="show-en">Reject</span></button>' +
+              '</div></div>';
+          });
+          listEl.innerHTML = html;
+        })
+        .catch(function() {
+          var listEl = document.getElementById("sellerLoginClientList");
+          if (listEl) { listEl.innerHTML = '<div style="color:var(--muted);font-size:13px;">--</div>'; }
+        });
+    }
+
+    function decideSellerLoginForClient(reqId, decision, btn) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/gm/seller-login-requests/" + encodeURIComponent(reqId) + "/" + decision, { method: "POST" })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          loadSellerLoginRequestsForClient();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          window.alert("Erro: " + e.message);
         });
     }
 

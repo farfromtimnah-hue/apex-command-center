@@ -12603,10 +12603,19 @@ var GM_BASE_OURO_STATUSES = ["Não contatado", "Contatado", "Interessado", "Reat
 var GM_PARTNER_STATUSES = ["Prospectando", "Ativo", "Inativo"];
 var GM_JOB_STATUSES = ["Em andamento", "Concluída", "Atrasada", "Pausada"];
 
-// LIRA seed defaults for the per-client configurable lists.
+// Seed defaults for the per-client configurable lists.
+//
+// servicos and cycle_months are generic vocabulary — a plausible starting
+// point for a new client, and an empty app on first open reads as broken.
+//
+// vendedores and partner_types deliberately have NO seed. They used to be
+// seeded from LIRA OUTDOOR LIVING's real data, which meant six unrelated
+// live clients were displaying LIRA's actual employees (Anderson, Ana) as
+// their own sales staff. Seeding invented service categories is helpful;
+// seeding real human names from another company is a data leak. Both lists
+// now start empty and stay empty until the client fills them in — see the
+// matching [] read fallbacks in gmGetConfig().
 var GM_DEFAULT_SERVICOS = ["Pavers", "Pergola", "Outdoor Kitchen", "Fire Pit", "Turf", "Travertine", "Lighting", "Landscape", "Living Area", "Combo", "Sealer"];
-var GM_DEFAULT_VENDEDORES = ["Anderson", "Ana"];
-var GM_DEFAULT_PARTNER_TYPES = ["Pool", "Screen", "Realtor", "Builder", "Landscaper", "Designer", "Arquiteto", "Outro"];
 var GM_DEFAULT_CYCLE_MONTHS = ["Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro", "Janeiro"];
 // The Entrada/Saída derivation table — tipo comes from HERE (or a client's
 // configured copy), never from a request body.
@@ -12662,18 +12671,23 @@ async function gmGetConfig(env, clientId) {
         ).bind(
             clientId,
             JSON.stringify(GM_DEFAULT_SERVICOS),
-            JSON.stringify(GM_DEFAULT_VENDEDORES),
+            "[]",   // vendedores — never seeded; real people's names are not a default
             JSON.stringify(GM_DEFAULT_FINANCE_CATEGORIES),
-            JSON.stringify(GM_DEFAULT_PARTNER_TYPES),
+            "[]",   // partner_types — never seeded, same reason
             JSON.stringify(GM_DEFAULT_CYCLE_MONTHS)
         ).run();
         row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
     }
     return {
         servicos:            gmParseJsonList(row.servicos_json, GM_DEFAULT_SERVICOS),
-        vendedores:          gmParseJsonList(row.vendedores_json, GM_DEFAULT_VENDEDORES),
+        // vendedores and partner_types fall back to [] , never to a seed list.
+        // gmParseJsonList only reaches the fallback for a genuinely unconfigured
+        // column (NULL / unparseable / non-array), but pointing that fallback at
+        // a constant is exactly how the LIRA names would come back on every read
+        // even after the stored rows were cleared. Keep these two literal.
+        vendedores:          gmParseJsonList(row.vendedores_json, []),
         finance_categories:  gmParseJsonListNonEmpty(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
-        partner_types:       gmParseJsonList(row.partner_types_json, GM_DEFAULT_PARTNER_TYPES),
+        partner_types:       gmParseJsonList(row.partner_types_json, []),
         cycle_months:        gmParseJsonList(row.cycle_months_json, GM_DEFAULT_CYCLE_MONTHS),
         target_margin:       row.target_margin,
         pipeline_view_threshold: row.pipeline_view_threshold,
@@ -14156,6 +14170,139 @@ async function handlePutGmJob(id, rowId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// SALESPERSON LOGIN REQUESTS (gm_seller_login_requests)
+//
+// A client asking us to give one of their salespeople a portal login. THESE
+// ROUTES GRANT NOTHING. They write a queue row that Rafa and Alice work by
+// hand. No login is created, client_logins is not touched, and approving a
+// request only stamps status/resolved_at/resolved_by. The actual salesperson
+// seat — authentication and the scoped, pipeline-only reads described in the
+// portal copy — is a separate future build.
+//
+// Route: POST /api/gm/seller-login-requests   — the client asks. The client_id
+//   comes from the authenticated session ONLY; a body-supplied client_id is
+//   ignored, so a client can never queue a request against another company.
+// Route: GET  /api/gm/seller-login-requests   — admin queue (alice/rafa/dev),
+//   optionally filtered to one client with ?client_id= for the client.html card.
+// Route: POST /api/gm/seller-login-requests/:id/:decision — admin approve/reject.
+// ---------------------------------------------------------------------------
+
+async function handlePostGmSellerLoginRequest(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        // The client_id is the session's, never the body's. An admin acting on
+        // a client's behalf may pass one; a client role may not.
+        var clientId = user.client_id || null;
+        if (isAdminRole(user)) { clientId = gmStr(body.client_id, 80) || clientId; }
+        if (!clientId) { return jsonErr("No client context for this request", 400); }
+
+        var sellerName = gmStr(body.seller_name, 80);
+        if (!sellerName) { return jsonErr("Nome do vendedor obrigatório / Salesperson name is required", 400); }
+
+        // The name must currently be in the client's own Vendedores list. This
+        // keeps the queue tied to a real configured salesperson rather than any
+        // arbitrary string a caller invents.
+        var config = await gmGetConfig(env, clientId);
+        var known = (config.vendedores || []).some(function(v) {
+            return String(v).trim().toLowerCase() === sellerName.toLowerCase();
+        });
+        if (!known) {
+            return jsonErr("Vendedor não está na sua lista / Salesperson is not in your list", 400);
+        }
+
+        var existing = await env.DB.prepare(
+            "SELECT id, status FROM gm_seller_login_requests WHERE client_id = ? AND seller_name = ?"
+        ).bind(clientId, sellerName).first();
+        // UNIQUE (client_id, seller_name) — a second tap is a no-op, not an error.
+        if (existing) { return jsonOk({ requested: true, already: true, status: existing.status }); }
+
+        await env.DB.prepare(
+            "INSERT INTO gm_seller_login_requests (id, client_id, seller_name, status, requested_by) " +
+            "VALUES (?, ?, ?, 'pending', ?) ON CONFLICT (client_id, seller_name) DO NOTHING"
+        ).bind(crypto.randomUUID(), clientId, sellerName, user.username || user.email || "client").run();
+
+        return jsonOk({ requested: true, status: "pending" });
+    } catch (e) {
+        return jsonErr("Error requesting salesperson login: " + e.message, 500);
+    }
+}
+
+async function handleGetGmSellerLoginRequests(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var filterClient = new URL(request.url).searchParams.get("client_id");
+        var sql =
+            "SELECT r.id, r.client_id, c.name AS client_name, r.seller_name, r.status, " +
+            "r.requested_at, r.requested_by FROM gm_seller_login_requests r " +
+            "LEFT JOIN clients c ON c.id = r.client_id WHERE r.status = 'pending'";
+        var stmt;
+        if (filterClient) {
+            stmt = env.DB.prepare(sql + " AND r.client_id = ? ORDER BY r.requested_at ASC").bind(filterClient);
+        } else {
+            stmt = env.DB.prepare(sql + " ORDER BY r.requested_at ASC");
+        }
+        var rows = await stmt.all();
+        var out = (rows.results || []).map(function(r) {
+            return {
+                id: r.id, client_id: r.client_id, client_name: r.client_name || r.client_id,
+                seller_name: r.seller_name, status: r.status,
+                requested_at: r.requested_at, requested_by: r.requested_by
+            };
+        });
+        return jsonOk({ pending: out });
+    } catch (e) {
+        return jsonErr("Error fetching salesperson login requests: " + e.message, 500);
+    }
+}
+
+// Records the decision and nothing else. Approving does NOT provision a login.
+async function handlePostGmSellerLoginDecision(reqId, decision, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        if (decision !== "approve" && decision !== "reject") { return jsonErr("Invalid decision", 400); }
+
+        var row = await env.DB.prepare(
+            "SELECT id, status FROM gm_seller_login_requests WHERE id = ?"
+        ).bind(reqId).first();
+        if (!row) { return jsonErr("Not found", 404); }
+
+        var status = decision === "approve" ? "approved" : "rejected";
+        await env.DB.prepare(
+            "UPDATE gm_seller_login_requests SET status = ?, resolved_at = datetime('now'), resolved_by = ? WHERE id = ?"
+        ).bind(status, user.username || user.email || "admin", reqId).run();
+
+        return jsonOk({ saved: true, status: status, provisioned: false });
+    } catch (e) {
+        return jsonErr("Error resolving salesperson login request: " + e.message, 500);
+    }
+}
+
+// The portal's own read: every request for the caller's client, so the button
+// next to each salesperson can show not-requested / pending / approved.
+async function handleGetGmSellerLoginRequestsForClient(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT seller_name, status, requested_at FROM gm_seller_login_requests WHERE client_id = ?"
+        ).bind(id).all();
+        return jsonOk({ requests: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching salesperson login requests: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: DELETE /api/clients/:id/gm/<collection>/:rowId
 // FK-referenced rows are protected with a clear message instead of a raw
 // constraint error; a deleted lead first releases its base-ouro back-link.
@@ -14272,6 +14419,11 @@ export default {
         if (path === "/api/portal/next-meeting"         && method === "GET")  { return handleGetPortalNextMeeting(request, env); }
         if (path === "/api/leaderboard"                 && method === "GET")  { return handleGetLeaderboard(request, env); }
         if (path === "/api/goal-approvals"              && method === "GET")  { return handleGetGoalApprovals(request, env); }
+
+        // Salesperson login requests. POST is the client asking (client_id from
+        // session); GET is the admin queue. Neither provisions any access.
+        if (path === "/api/gm/seller-login-requests"    && method === "POST") { return handlePostGmSellerLoginRequest(request, env); }
+        if (path === "/api/gm/seller-login-requests"    && method === "GET")  { return handleGetGmSellerLoginRequests(request, env); }
 
         if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
         if (path === "/api/google/oauth/start"        && method === "GET")  { return handleGoogleOAuthStart(request, env); }
@@ -14584,6 +14736,10 @@ export default {
                 if (segs.length === 5 && gmCol === "config" && method === "PUT") {
                     return handlePutGmConfig(cid, request, env);   // admin only
                 }
+                // The portal's button-state read for its own salespeople.
+                if (segs.length === 5 && gmCol === "seller-login-requests" && method === "GET") {
+                    return handleGetGmSellerLoginRequestsForClient(cid, request, env);
+                }
                 if (segs.length === 6 && gmCol === "config" && segs[5] === "view-mode" && method === "PUT") {
                     return handlePutGmViewMode(cid, request, env);
                 }
@@ -14607,6 +14763,13 @@ export default {
                     return handleDeleteGmRow(cid, gmCol, segs[5], request, env);
                 }
             }
+        }
+
+        // /api/gm/seller-login-requests/:id/approve|reject — admin decision only.
+        // Records status + resolved_at + resolved_by. Provisions nothing.
+        if (segs[0] === "api" && segs[1] === "gm" && segs[2] === "seller-login-requests" &&
+            segs[3] && segs[4] && method === "POST") {
+            return handlePostGmSellerLoginDecision(decodeURIComponent(segs[3]), segs[4], request, env);
         }
 
         // /api/finance/reconciliation/:transaction_id/match-invoice|categorize|exclude|restore|unmatch

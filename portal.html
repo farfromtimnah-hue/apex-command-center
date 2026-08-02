@@ -2562,11 +2562,15 @@
     }
 
     // ── The four client-editable lists ──────────────────────────────────────
-    // Every client is seeded with one client's lists (Pavers, Travertine, a
-    // salesperson named Anderson) and until now nothing could change them. The
-    // services list is the worst of the four because it is PUBLIC — it renders
-    // as the checkboxes on the referral page. So these live in the referral
-    // card: it is one concern, how the client's referral link looks and behaves.
+    // The services list is PUBLIC — it renders as the checkboxes on the
+    // referral page — so these live in the referral card: it is one concern,
+    // how the client's referral link looks and behaves.
+    //
+    // servicos and cycle_months are seeded with generic starting values, since
+    // an empty app on first open reads as broken. Vendedores and partner types
+    // are NOT seeded and never should be: they used to inherit one real
+    // client's data, which put that company's actual employees on six other
+    // companies' screens. Both start empty. See gmGetConfig() in the Worker.
     //
     // Three of the four are optional. Empty is a real, saveable state, not a
     // validation error — see handlePutGmConfig, which stores [] rather than

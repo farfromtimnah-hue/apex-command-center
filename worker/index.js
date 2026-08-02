@@ -9268,6 +9268,14 @@ function clientRequestAllowed(path, method, clientId) {
     if (path === "/api/auth/client-logout" && method === "POST") { return true; }
     if (path === "/api/portal/me" && method === "GET") { return true; }
     if (path === "/api/portal/next-meeting" && method === "GET") { return true; }
+    // The owner asks for a portal seat for one of their own salespeople. This
+    // route lives outside /api/clients/:id/ but is client-reachable: the handler
+    // takes client_id from the session and only an admin role may override it
+    // from the body, so an owner can only ever queue against their own company.
+    // Exact path + method only — GET on this same path is the ADMIN queue across
+    // every client, and the :id/approve|reject decision route is admin-only too.
+    // Both must stay unreachable here, so no prefix match on /api/gm/.
+    if (path === "/api/gm/seller-login-requests" && method === "POST") { return true; }
     var base = "/api/clients/" + clientId;
     if (path === base && method === "GET") { return true; }
     if (path.indexOf(base + "/") === 0) {
@@ -9284,6 +9292,13 @@ function clientRequestAllowed(path, method, clientId) {
                 // shown on their Ajustes card. Creating and revoking seats is
                 // Rafa/Alice only — there is no client-reachable write here.
                 rest === "seller-logins" ||
+                // The portal's own button-state read: which of THEIR OWN
+                // salespeople have a pending/approved request, so the row can
+                // show "Requested" instead of offering the button again. Scoped
+                // by requireClientAccess to the caller's client_id — this is not
+                // the admin queue, which is GET /api/gm/seller-login-requests
+                // across all clients and stays denied here.
+                rest === "gm/seller-login-requests" ||
                 rest === "assessments") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
             if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }

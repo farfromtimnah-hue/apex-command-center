@@ -2560,7 +2560,7 @@
         // could edit their lists, tap the colors' button, and silently lose the
         // list edits.
         '<div class="err-msg" id="rsErr"></div>' +
-        '<button class="btn-gold" style="width:100%;margin-top:6px;min-height:48px;" onclick="referralSettingsSave()">' +
+        '<button class="btn-gold" id="rsSaveBtn" style="width:100%;margin-top:6px;min-height:48px;" onclick="referralSettingsSave()">' +
         (en ? "Save settings" : "Salvar ajustes") + '</button>' +
         '</div>';
     }
@@ -2634,11 +2634,25 @@
       var en = isEn();
       var n = String(name || "").trim();
       if (!gmSellerIsSaved(n)) {
-        // Unsaved / blank row: no button, and a nudge to save first so the
-        // absence of the button is explained rather than just missing.
+        // Unsaved row — either a brand-new name or one whose text has been
+        // edited since load (gmSellerIsSaved compares against what the server
+        // actually stored, so both cases land here). Previously this rendered
+        // nothing but a bare "Save to request" label, and on a returning client
+        // adding ONE new hire the button was simply absent with no way to act on
+        // it. Now the control is still there, visibly disabled, next to a link
+        // that takes them to the card's one save button. No auto-save: the write
+        // stays the client's explicit action.
         if (!n) { return ""; }
-        return '<span class="muted" style="font-size:11px;white-space:nowrap;">' +
-          (en ? "Save to request" : "Salve para solicitar") + '</span>';
+        return '<span style="display:inline-flex;flex-direction:column;gap:2px;align-items:flex-start;">' +
+          '<button type="button" class="btn-outline" disabled ' +
+            'style="min-height:44px;padding:4px 10px;font-size:11px;white-space:nowrap;opacity:0.5;cursor:default;">' +
+            (en ? "Request Login" : "Solicitar Login") + '</button>' +
+          '<span class="muted" style="font-size:11px;white-space:nowrap;">' +
+            (en ? "Save first &middot; " : "Salve primeiro &middot; ") +
+            '<a href="#" onclick="gmFocusSaveButton(event)" style="color:inherit;text-decoration:underline;">' +
+            (en ? "go to Save" : "ir para Salvar") + '</a>' +
+          '</span>' +
+        '</span>';
       }
       // An ACTIVE seat outranks the request status: once the login exists,
       // "who can actually see my pipeline right now" is the question the owner
@@ -2667,6 +2681,20 @@
       return '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:11px;white-space:nowrap;" ' +
         'onclick="gmRequestSellerLogin(' + JSON.stringify(n).replace(/"/g, "&quot;") + ', this)">' +
         (en ? "Request Login" : "Solicitar Login") + '</button>';
+    }
+
+    // Bounce the client from an unsaved salesperson row down to the card's one
+    // save button. Scroll it into view and actually focus it, so on a long
+    // settings page the target is unambiguous rather than "somewhere below".
+    // The flash reuses gm.css's .gm-flash, same cue openReferralSettings() uses.
+    function gmFocusSaveButton(ev) {
+      if (ev) { ev.preventDefault(); }
+      var btn = document.getElementById("rsSaveBtn");
+      if (!btn) { return; }
+      btn.scrollIntoView({ behavior: "smooth", block: "center" });
+      btn.focus({ preventScroll: true });
+      btn.classList.add("gm-flash");
+      setTimeout(function() { btn.classList.remove("gm-flash"); }, 2000);
     }
 
     function gmRequestSellerLogin(name, btn) {

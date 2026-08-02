@@ -934,8 +934,8 @@
           <span class="show-en">For security, you must create a personal password before continuing.</span>
         </p>
         <label class="field-label">
-          <span class="show-pt">Nova senha (m&iacute;nimo 8 caracteres)</span>
-          <span class="show-en">New password (minimum 8 characters)</span>
+          <span class="show-pt">Nova senha (m&iacute;nimo 10 caracteres)</span>
+          <span class="show-en">New password (minimum 10 characters)</span>
         </label>
         <input type="password" id="newPassword" autocomplete="new-password" style="margin-bottom:12px;">
         <label class="field-label">
@@ -1879,8 +1879,12 @@
       var p2 = document.getElementById("newPassword2").value;
       var err = document.getElementById("pwErr");
       err.textContent = "";
-      if (p1.length < 8) {
-        err.textContent = isEn() ? "Password must be at least 8 characters." : "A senha deve ter pelo menos 8 caracteres.";
+      // Client-side pre-check mirrors the server floor (10 chars) so the user
+      // fails fast. The server is still the authority — it also rejects common
+      // and username-equal passwords and returns a bilingual message we surface
+      // in the .catch below.
+      if (p1.length < 10) {
+        err.textContent = isEn() ? "Password must be at least 10 characters." : "A senha deve ter pelo menos 10 caracteres.";
         return;
       }
       if (p1 !== p2) {

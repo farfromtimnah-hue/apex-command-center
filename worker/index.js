@@ -1318,6 +1318,25 @@ async function handlePostSummarize(request, env) {
         if (!session)              { return jsonErr("Session not found", 404); }
         if (!session.raw_transcript) { return jsonErr("No transcript for this session", 400); }
 
+        // ABUSE-01: cap Claude-backed summarize calls per user. The endpoint is
+        // already staff-only (checked above), so this is cost control against a
+        // runaway loop or a compromised staff session, not open-internet abuse.
+        // 20/hour per user is well above any real review pace. Same ledger and
+        // pattern as the client-login limiter.
+        var uidKey = "summarize:" + (user.email || "unknown");
+        await env.DB.prepare(
+            "DELETE FROM client_login_attempts WHERE created_at < datetime('now', '-2 days')"
+        ).run();
+        var sumHits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM client_login_attempts WHERE username = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(uidKey).first();
+        if (sumHits && sumHits.c >= 20) {
+            return jsonErr("Muitas gerações de resumo em pouco tempo. Tente novamente mais tarde. / Too many summaries in a short time. Try again later.", 429);
+        }
+        await env.DB.prepare(
+            "INSERT INTO client_login_attempts (id, username, ip) VALUES (?, ?, ?)"
+        ).bind(crypto.randomUUID(), uidKey, null).run();
+
         // Only sections whose checkbox is enabled are requested from the model.
         // The summary is generated via two concurrent Claude calls instead of one —
         // internal-review keys in call A, pdf_data + structured sections (+ custom
@@ -9083,6 +9102,64 @@ async function verifyPassword(password, stored) {
     return diff === 0;
 }
 
+// ---------------------------------------------------------------------------
+// Password policy — enforced on every path that SETS a client password
+// (forced first-login change and any later change). Length-plus-blocklist,
+// not character-class complexity: current NIST guidance, and far kinder for
+// clients typing on a phone. All clients are pt-BR, so the blocklist and the
+// error copy are Portuguese-first, with an English gloss.
+//
+// Returns a bilingual error string if the password is unacceptable, or null
+// if it passes. Callers return jsonErr(msg, 400) on a non-null result.
+// ---------------------------------------------------------------------------
+
+var PASSWORD_MIN_LENGTH = 10;
+
+// Common/guessable passwords — pt-BR first (what this client base actually
+// picks), then the universal top offenders, then Apex-specific terms. Compared
+// case-insensitively; keep every entry lowercase. This is a floor, not a
+// cracking dictionary — it stops the obvious, the rate limiter stops the rest.
+var COMMON_PASSWORDS = [
+    // Portuguese-common
+    "senha", "senha123", "senha1234", "minhasenha", "mudar123", "mudar@123",
+    "123mudar", "brasil", "brasil123", "futebol", "flamengo", "corinthians",
+    "deusefiel", "deusnocontrole", "amordeus", "familia", "familia123",
+    "teamo", "euteamo", "princesa", "gatinha", "amor123", "senhaforte",
+    // Universal top offenders
+    "password", "password1", "password123", "12345678", "123456789",
+    "1234567890", "qwerty", "qwerty123", "111111", "000000", "abc123",
+    "iloveyou", "admin", "administrator", "letmein", "welcome", "monkey",
+    "1q2w3e4r", "qwertyuiop", "aaaaaaaa",
+    // Apex / product specific
+    "apex", "apex123", "apexbrasil", "resonate", "gestao", "gestao123",
+    "commandcenter", "raiox"
+];
+
+// Returns a bilingual error message if newPassword is unacceptable, else null.
+// username is optional; when given, the password may not equal it.
+function passwordPolicyError(newPassword, username) {
+    var pw = newPassword || "";
+    if (pw.length < PASSWORD_MIN_LENGTH) {
+        return "A senha deve ter pelo menos " + PASSWORD_MIN_LENGTH +
+            " caracteres. / Password must be at least " + PASSWORD_MIN_LENGTH + " characters.";
+    }
+    var lower = pw.toLowerCase();
+    if (COMMON_PASSWORDS.indexOf(lower) !== -1) {
+        return "Essa senha é muito comum. Escolha algo mais difícil de adivinhar. / " +
+            "That password is too common. Choose something harder to guess.";
+    }
+    if (username && lower === (username || "").toLowerCase()) {
+        return "A senha não pode ser igual ao seu usuário. / Password cannot be the same as your username.";
+    }
+    // Reject a single repeated character (e.g. "aaaaaaaaaa"), which passes the
+    // length gate but is trivially guessable and not in the list above.
+    if (/^(.)\1+$/.test(pw)) {
+        return "Essa senha é muito simples. Escolha algo mais difícil de adivinhar. / " +
+            "That password is too simple. Choose something harder to guess.";
+    }
+    return null;
+}
+
 // Unambiguous alphabet (no 0/O/1/l/I) — sent over WhatsApp, typed on phones.
 function generateTempPassword() {
     var alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -9319,6 +9396,28 @@ async function handlePostClientLogin(request, env) {
         var password = body.password || "";
         if (!username || !password) { return jsonErr("Usuário e senha são obrigatórios", 400); }
 
+        // Rate limit BEFORE the password check so failed attempts still count —
+        // otherwise a brute-force run never trips the counter. 10/hour per
+        // username stops guessing one account; 30/hour per IP stops one host
+        // spraying many usernames. Every attempt is a hit, valid or not. Old
+        // rows pruned opportunistically. Mirrors the gm_referral_hits pattern.
+        var ip = request.headers.get("CF-Connecting-IP") || "";
+        await env.DB.prepare(
+            "DELETE FROM client_login_attempts WHERE created_at < datetime('now', '-2 days')"
+        ).run();
+        var userHits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM client_login_attempts WHERE username = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(username).first();
+        var ipHits = ip ? await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM client_login_attempts WHERE ip = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(ip).first() : { c: 0 };
+        if ((userHits && userHits.c >= 10) || (ipHits && ipHits.c >= 30)) {
+            return jsonErr("Muitas tentativas de login. Tente novamente mais tarde. / Too many login attempts. Try again later.", 429);
+        }
+        await env.DB.prepare(
+            "INSERT INTO client_login_attempts (id, username, ip) VALUES (?, ?, ?)"
+        ).bind(crypto.randomUUID(), username, ip || null).run();
+
         var row = await env.DB.prepare(
             "SELECT l.username, l.client_id, l.password_hash, l.must_change_password, c.name AS client_name " +
             "FROM client_logins l LEFT JOIN clients c ON c.id = l.client_id WHERE l.username = ?"
@@ -9363,7 +9462,8 @@ async function handlePostClientChangePassword(request, env) {
 
         var body = await request.json();
         var newPassword = body.new_password || "";
-        if (newPassword.length < 8) { return jsonErr("A nova senha deve ter pelo menos 8 caracteres", 400); }
+        var policyErr = passwordPolicyError(newPassword, user.username);
+        if (policyErr) { return jsonErr(policyErr, 400); }
 
         var passwordHash = await hashPassword(newPassword);
         await env.DB.prepare(

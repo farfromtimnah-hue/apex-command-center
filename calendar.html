@@ -2891,7 +2891,11 @@
         var h = HOURS[hi];
         var timeLabel = document.createElement("div");
         timeLabel.className = "cal-week-time-label";
-        timeLabel.textContent = padZ(h) + ":00";
+        // 12-hour, via the shared datetime.js helper. The f04bcb7 conversion
+        // that moved this app to MM/DD/YYYY and 12-hour AM/PM missed both hour
+        // gutters, so the week and day grids showed "13:00" beside chips
+        // reading "1:00 PM" -- two conventions on one screen (spotted 2026-08-03).
+        timeLabel.textContent = formatTime(padZ(h) + ":00");
         grid.appendChild(timeLabel);
 
         for (var dw = 0; dw < 7; dw++) {
@@ -2992,7 +2996,7 @@
         var h = HOURS[hi];
         var timeLabel = document.createElement("div");
         timeLabel.className = "cal-day-time-label";
-        timeLabel.textContent = padZ(h) + ":00";
+        timeLabel.textContent = formatTime(padZ(h) + ":00");   // 12-hour -- see the week gutter above
         grid.appendChild(timeLabel);
 
         var slotSess = daySessions.filter(function(s) {

@@ -18,24 +18,27 @@
 #   ?v= JS / CSS         immutable, 1 year        cache-first
 #   icons / fonts        immutable, 1 year        cache-first
 #
-# Rule count: 8 of the 100-rule limit.
+# Rule count: 10 of the 100-rule limit (verified against the documented cap).
 
 # --- Always-fresh: the three files that control everything else -------------
-# sw.js is the update entry point. If it is cached, no fix can ever ship.
-/sw.js
-  Cache-Control: no-cache, no-store, must-revalidate
-
-# version.json is polled by pwa.js on load and every 10 minutes; a cached copy
-# would defeat the self-heal reload that is our safety net for all of this.
-/version.json
-  Cache-Control: no-cache, no-store, must-revalidate
+# sw.js (the update entry point — if it is cached, no fix can ever ship) and
+# version.json (polled by pwa.js on load and every 10 minutes; a cached copy
+# would defeat the self-heal reload) are both covered by the `/*` rule below,
+# which is no-store. They are called out here only as documentation; adding
+# explicit rules would duplicate the value, since matching rules combine.
 
 # HTML shells carry the ?v= stamps that retire old JS/CSS. Stale HTML pins
 # stale asset URLs, so the shell must always be fetched fresh.
-/
-  Cache-Control: no-cache, no-store, must-revalidate
-
-/*.html
+#
+# NOTE: Pages 308-redirects /portal.html to the extensionless /portal, so the
+# canonical URL a user actually lands on matches NEITHER `/` nor `/*.html`.
+# Verified by curl: with only those two rules, /portal, /client, /dashboard and
+# every other page came back with NO Cache-Control header at all. So the guard
+# is a catch-all `/*` (no-store by default), and each genuinely cacheable path
+# below re-opts into caching. Because overlapping rules COMBINE their headers,
+# those rules must first `! Cache-Control` to drop the inherited no-store —
+# otherwise they would emit "no-store, ..., immutable" and cache nothing.
+/*
   Cache-Control: no-cache, no-store, must-revalidate
 
 # --- Immutable: URLs that change identity when their content changes --------
@@ -48,28 +51,37 @@
 # `Cache-Control: no-cache, no-store, must-revalidate, public, max-age=31536000`
 # — silently un-fixing the exact bug this file exists to fix.
 /nav.js
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /gm.js
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /pwa.js
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /datetime.js
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /analytics-view.js
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /*.css
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /icons/*
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /assets/*
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
 /manifest.json
+  ! Cache-Control
   Cache-Control: public, max-age=604800

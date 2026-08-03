@@ -58,7 +58,16 @@ const src = [
   slice(worker, "async function loadSeriesContext", "// Maps the app's frequency options"),
   slice(worker, "function resolveScope", "// ---------------------------------------------------------------------------\n// Route: POST /api/sessions/:id/cancel"),
   slice(worker, "function plusOneHourHHMM", "// The client's email as a Google Calendar attendee"),
+  // Series-wide date moves regenerate each occurrence's date through the same
+  // helper the create/reschedule paths use.
+  slice(worker, "function recurOccurrenceDate", "async function handlePostSessionsSchedule"),
+  // The 'following' split creates a new recurring event and reads its Meet
+  // link back off the response.
+  slice(worker, "function extractGoogleEventMeetLink", "\n// ---------------------------------------------------------------------------\n// Route: GET /api/google/calendar/events"),
   slice(worker, "async function handlePatchSessionDetails", "\n// ---------------------------------------------------------------------------\n// Route: GET /api/google/oauth/start"),
+  // Cancel shares the scope resolver with edit, and must stamp the same
+  // attribution columns on the rows it keeps as history.
+  slice(worker, "async function handlePostSessionCancel", "\n// ---------------------------------------------------------------------------\n// Route: POST /api/sessions/:id/reschedule"),
 ].join("\n");
 
 // Mutable stubs the harness swaps per scenario.
@@ -113,8 +122,8 @@ const scope = {
   async findGoogleInstanceId() { return INSTANCE_PLAN; },
 };
 
-const factory = new Function(...Object.keys(scope), src + "\n;return { handlePatchSessionDetails, resolveScope };");
-const { handlePatchSessionDetails, resolveScope } = factory(...Object.values(scope));
+const factory = new Function(...Object.keys(scope), src + "\n;return { handlePatchSessionDetails, resolveScope, handlePostSessionCancel };");
+const { handlePatchSessionDetails, resolveScope, handlePostSessionCancel } = factory(...Object.values(scope));
 
 const APEX_IN_PERSON = {
   id: "s1", client_id: "c1", client_name: "TEST CLIENT", date: "2026-09-07", time: "14:00",
@@ -254,13 +263,87 @@ console.log("\n── 8. Series scope applies to the right rows ──");
   t("location applies series-wide", setsOf(other).includes("location"), true);
 }
 
-console.log("\n── 9. Series date/time moves are refused, not half-done ──");
+console.log("\n── 9. Series date/time moves are APPLIED, not refused ──");
+// Edit used to return 400 here and point at Reschedule -- but Reschedule was
+// retired from the UI in the same commit, so a series could not be moved
+// anywhere in Apex. Edit now honours the scope the dialog asked for.
 {
-  const seriesRows = [{ id: "s1", date: "2026-09-07" }, { id: "s2", date: "2026-09-14" }];
-  reset({ ...APEX_IN_PERSON, series_id: "ser1" }, { seriesRows });
-  const r = await call({ date: "2026-10-01", scope: "all" });
-  t("series-wide date move refused", r.__err, true);
-  t("  → nothing written", DB_WRITES.length, 0);
+  const seriesRows = [{ id: "s1", date: "2026-09-06" }, { id: "s2", date: "2026-09-13" }, { id: "s3", date: "2026-09-20" }];
+  reset({ ...APEX_IN_PERSON, date: "2026-09-06", series_id: "ser1" }, { seriesRows });
+  const r = await call({ date: "2026-09-07", scope: "all" });
+  t("series-wide date move now succeeds", r.ok, true);
+  t("  → every row in the series moved", DB_WRITES.length, 3);
+  // 'all' shifts the whole series by this occurrence's delta (+1 day), each
+  // row landing on its own recomputed weekly occurrence.
+  t("  → row 1 date", DB_WRITES[0].binds[0], "2026-09-07");
+  t("  → row 2 date (cadence preserved)", DB_WRITES[1].binds[0], "2026-09-14");
+  t("  → row 3 date (cadence preserved)", DB_WRITES[2].binds[0], "2026-09-21");
+}
+{
+  // 'following' from the middle moves only this occurrence onward.
+  const seriesRows = [{ id: "s1", date: "2026-09-06" }, { id: "s2", date: "2026-09-13" }, { id: "s3", date: "2026-09-20" }];
+  reset({ ...APEX_IN_PERSON, id: "s2", date: "2026-09-13", series_id: "ser1" }, { seriesRows });
+  const r = await call({ date: "2026-09-14", scope: "following" });
+  t("'following' move succeeds", r.ok, true);
+  t("  → only this and later rows moved", DB_WRITES.length, 2);
+  t("  → first moved row", DB_WRITES[0].binds[0], "2026-09-14");
+  t("  → next row follows the cadence", DB_WRITES[1].binds[0], "2026-09-21");
+}
+{
+  // 'single' on a series row stays per-occurrence: the others must not move.
+  const seriesRows = [{ id: "s1", date: "2026-09-06" }, { id: "s2", date: "2026-09-13" }];
+  reset({ ...APEX_IN_PERSON, date: "2026-09-06", series_id: "ser1" }, { seriesRows });
+  const r = await call({ date: "2026-09-07", scope: "single" });
+  t("'single' move succeeds", r.ok, true);
+  t("  → exactly one row written", DB_WRITES.length, 1);
+  t("  → it is the opened occurrence", DB_WRITES[0].binds[DB_WRITES[0].binds.length - 1], "s1");
+}
+{
+  // THE ATOMICITY RULE: changing the date AND another field in one save must
+  // stay ONE Google write. Two sequential writes could move the event and
+  // then fail the field update, leaving a half-applied edit on the client's
+  // calendar. Asserted by counting real calls, not by reading the code.
+  // In-person, so location is a real field (online meetings null it out) and
+  // the row still carries a Google event to write to.
+  const seriesRows = [{ id: "s1", date: "2026-09-06" }, { id: "s2", date: "2026-09-13" }];
+  reset({ ...APEX_IN_PERSON, date: "2026-09-06", series_id: "ser1", google_event_id: "gev123" },
+        { seriesRows, google: [{ ok: true, status: 200, data: {} }] });
+  const r = await call({ date: "2026-09-07", location: "500 Somewhere", scope: "all" });
+  t("date + location in one save succeeds", r.ok, true);
+  t("  → EXACTLY ONE Google write", CALLS.length, 1);
+  t("  → that write is a PATCH", CALLS[0].method, "PATCH");
+  t("  → carrying the new start", CALLS[0].body.start.dateTime.slice(0, 10), "2026-09-07");
+  t("  → and the new location together", CALLS[0].body.location, "500 Somewhere");
+  t("  → with the Apex timezone", CALLS[0].body.start.timeZone, "America/New_York");
+}
+{
+  // A failed Google write on a series move must leave D1 completely untouched.
+  const seriesRows = [{ id: "s1", date: "2026-09-06" }, { id: "s2", date: "2026-09-13" }];
+  reset({ ...APEX_ONLINE, date: "2026-09-06", series_id: "ser1" },
+        { seriesRows, google: [{ ok: false, status: 500, data: { error: { message: "Backend Error" } } }] });
+  const r = await call({ date: "2026-09-07", scope: "all" });
+  t("failed Google series move → error", r.__err, true);
+  t("  → NO rows moved in D1", DB_WRITES.length, 0);
+}
+{
+  // 'following' on a Google-backed series splits the event the way Google's
+  // own UI does (truncate the old rule, create one new recurring event), and
+  // the moved rows repoint at the new master.
+  const seriesRows = [{ id: "s1", date: "2026-09-06" }, { id: "s2", date: "2026-09-13" }, { id: "s3", date: "2026-09-20" }];
+  reset({ ...APEX_ONLINE, id: "s2", date: "2026-09-13", series_id: "ser1" }, {
+    seriesRows,
+    google: [
+      { ok: true, status: 200, data: { summary: "TEST - RDE", recurrence: ["RRULE:FREQ=WEEKLY;COUNT=3"] } },
+      { ok: true, status: 200, data: {} },
+      { ok: true, status: 200, data: { id: "gev_new", conferenceData: { entryPoints: [{ entryPointType: "video", uri: "https://meet.google.com/new-link" }] } } },
+    ],
+  });
+  const r = await call({ date: "2026-09-14", scope: "following" });
+  t("'following' split succeeds", r.ok, true);
+  t("  → old rule truncated with UNTIL", /UNTIL=20260912/.test(CALLS[1].body.recurrence[0]), true);
+  t("  → a new recurring event is created", CALLS[2].method, "POST");
+  t("  → covering the remaining occurrences", /COUNT=2/.test(CALLS[2].body.recurrence[0]), true);
+  t("  → moved rows repoint at the new master", setsOf(DB_WRITES[0]).includes("google_event_id"), true);
 }
 
 console.log("\n── 10. Provider gating (legacy + external stay read-only) ──");
@@ -309,6 +392,29 @@ console.log("\n── 12. Title convention pushed to Google matches create ─�
   t("prospective gets NO suffix", CALLS[0].body.summary, "NEW CLIENT NAME");
 }
 
+console.log("\n── 12b. Cancel records WHO cancelled (same question updated_by answers) ──");
+{
+  // A cancelled row is kept as history, so it must carry attribution. These
+  // columns were stamped on edit but left NULL on cancel.
+  reset({ ...APEX_IN_PERSON, series_id: null });
+  const r = await handlePostSessionCancel("s1", { json: async () => ({ mode: "cancelled" }) }, makeEnv());
+  t("cancel succeeds", r.ok, true);
+  t("  → one row updated", DB_WRITES.length, 1);
+  const sets = setsOf(DB_WRITES[0]);
+  t("  → status set to cancelled", sets.includes("status"), true);
+  t("  → updated_at stamped", sets.includes("updated_at"), true);
+  t("  → updated_by stamped", sets.includes("updated_by"), true);
+  t("  → created_by NOT re-stamped", sets.includes("created_by"), false);
+  t("  → actor is the caller", DB_WRITES[0].binds[1], "Alice");
+}
+{
+  // 'mistake' hard-deletes the row, so there is nothing to attribute.
+  reset({ ...APEX_IN_PERSON, series_id: null });
+  const r = await handlePostSessionCancel("s1", { json: async () => ({ mode: "mistake" }) }, makeEnv());
+  t("delete-as-mistake succeeds", r.ok, true);
+  t("  → no UPDATE (the row is gone)", DB_WRITES.length, 0);
+}
+
 console.log("\n── 13. Frontend contract (calendar.html) ──");
 {
   t("edit modal has client field", /id="edClient"/.test(html), true);
@@ -318,6 +424,17 @@ console.log("\n── 13. Frontend contract (calendar.html) ──");
   t("edit modal has start time", /id="edTime"/.test(html), true);
   t("edit modal has type toggle", /id="edTypeVal"/.test(html), true);
   t("edit wires the series scope dialog", /openSeriesScope\(function\(scope\)\s*\{[\s\S]{0,200}submitEdit/.test(html), true);
+  // Bug 2: Edit used to skip the scope question for date/time changes, so a
+  // series move silently hit one occurrence. Any series session must now ask.
+  t("edit no longer skips the scope question for date/time moves",
+    /if \(session\.series_id && !movesDateOrTime\)/.test(html), false);
+  // Bug 3: the scope dialog opens ON TOP of cancel/edit, so it needs a
+  // z-index above them -- equal z-index let DOM order bury it under Edit.
+  t("scope dialog has its own z-index above the modals",
+    /#modalSeriesScope\s*\{[^}]*z-index:\s*(1[0-9][0-9]|[2-9][0-9][0-9])/.test(html), true);
+  // The 409 from resolveScope is the one error Alice can hit by answering
+  // "all meetings?" on a stale calendar -- it must read in Portuguese too.
+  t("stale-series 409 is localized", /nao faz parte ativa da sua serie/.test(html), true);
   // Strip HTML comments, CSS/JS block comments and // line comments before
   // the style checks -- prose legitimately contains backticks and arrows.
   const code = html

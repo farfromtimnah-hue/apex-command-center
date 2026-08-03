@@ -3430,11 +3430,18 @@ async function handlePostSessionCancel(sessionId, request, env) {
 
         // Phase 2: D1 -- reached only when Google verifiably succeeded (or
         // there was no Google event to remove).
+        // A cancelled row is kept as history, so "who cancelled this meeting?"
+        // is the same question updated_by answers on the edit path. created_by
+        // is deliberately NOT re-stamped -- it answers a different question.
+        var cancelledAt = new Date().toISOString();
+        var cancelledBy = actorName(user);
         for (var i = 0; i < scopeRows.length; i++) {
             if (mode === "mistake") {
                 await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(scopeRows[i].id).run();
             } else {
-                await env.DB.prepare("UPDATE sessions SET status = 'cancelled' WHERE id = ?").bind(scopeRows[i].id).run();
+                await env.DB.prepare(
+                    "UPDATE sessions SET status = 'cancelled', updated_at = ?, updated_by = ? WHERE id = ?"
+                ).bind(cancelledAt, cancelledBy, scopeRows[i].id).run();
             }
         }
 
@@ -3818,14 +3825,17 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         scope = resolvedEd.scope;
         var scopeRows = resolvedEd.rows;
 
-        // Moving a whole series in date/time is exactly what the reschedule
-        // route already does (RRULE truncation, regeneration, per-occurrence
-        // date recomputation). Refuse rather than reimplement it badly here.
         var movesDateOrTime = (hasDate && newDate !== session.date) ||
                               (hasTime && newTime !== (session.time ? session.time.slice(0, 5) : null));
-        if (scope !== "single" && movesDateOrTime) {
-            return jsonErr("Changing the date or time of a whole series is done from Reschedule, not Edit. Edit the other fields here, or change this occurrence only.", 400);
-        }
+
+        // A series-wide date/time move reuses the reschedule route's proven
+        // algorithm (RRULE truncation for 'following', master-start shift for
+        // 'all', per-occurrence date recomputation for both) -- but inlined
+        // here rather than delegated, so a save that changes the date AND
+        // another field stays ONE Google write. Two sequential writes could
+        // commit the move and then fail the field update, leaving the client's
+        // calendar holding a half-applied edit.
+        var seriesMove = movesDateOrTime && scope !== "single";
 
         // ---- Phase 1: Google (authoritative) -------------------------------
         // ONE events.patch carrying every field visible on the client's
@@ -3835,6 +3845,11 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         var googleWarning = null;
         var droppedMeetLink = false;
         var patchBody = {};
+        // Set only by the 'following' split below: the new master every moved
+        // row must repoint at, and its fresh Meet link (if the series is online).
+        var splitMasterId = undefined;
+        var splitMeetLink = null;
+        var skipGenericPatch = false;
 
         var titleChanged = (newClientName !== session.client_name) || (newCategory !== session.meeting_category);
         if (titleChanged) {
@@ -3845,11 +3860,24 @@ async function handlePatchSessionDetails(sessionId, request, env) {
                 ? newClientName + " - RDE"
                 : newClientName;
         }
+        // Where the Google event's start must land. For scope 'all' the master
+        // carries the FIRST occurrence, so it shifts by this occurrence's delta
+        // rather than to this occurrence's own new date. 'following' builds a
+        // brand-new event starting at this occurrence, so it uses newDate.
+        var seriesFreq   = seriesCtx ? seriesCtx.freq : null;
+        var googleDate   = newDate;
+        var newFirstDate = newDate;
+        if (seriesMove && scope === "all" && seriesCtx && seriesCtx.rows.length) {
+            var deltaDays = daysBetweenDateStr(session.date, newDate);
+            newFirstDate  = addDaysToDateStr(seriesCtx.rows[0].date, deltaDays);
+            googleDate    = newFirstDate;
+        }
+
         if (newTime && (movesDateOrTime || (hasEnd && newEnd))) {
-            patchBody.start = { dateTime: newDate + "T" + newTime + ":00", timeZone: APEX_TIMEZONE };
+            patchBody.start = { dateTime: googleDate + "T" + newTime + ":00", timeZone: APEX_TIMEZONE };
             var gEnd = newEnd;
             if (!gEnd || gEnd <= newTime) { gEnd = plusOneHourHHMM(newTime); }
-            patchBody.end = { dateTime: newDate + "T" + gEnd + ":00", timeZone: APEX_TIMEZONE };
+            patchBody.end = { dateTime: googleDate + "T" + gEnd + ":00", timeZone: APEX_TIMEZONE };
         }
         if (hasLocation || (hasType && newType !== session.session_type)) {
             patchBody.location = newLocation || "";
@@ -3895,9 +3923,75 @@ async function handlePatchSessionDetails(sessionId, request, env) {
                     // propagates to every instance it still owns.
                 }
             }
-            var patchRes = await googleCalendarApiCall(accessToken, "PATCH",
+
+            // 'following' + a date/time move cannot be expressed as a patch of
+            // the master: Google has no native this-and-following operation.
+            // Same split its own UI performs -- truncate the original rule with
+            // UNTIL just before this occurrence, then create ONE new recurring
+            // event for the remainder carrying every edited field. That pair is
+            // the single atomic unit of this operation, not two separate saves.
+            if (seriesMove && scope === "following") {
+                var masterRes = await googleCalendarApiCall(accessToken, "GET",
+                    "/events/" + encodeURIComponent(session.google_event_id), null);
+                if (!masterRes.ok || !masterRes.data) {
+                    if (masterRes.status === 404 || masterRes.status === 410) {
+                        googleWarning = "The Google Calendar series no longer exists -- only the Apex side was updated.";
+                        splitMasterId = null;
+                    } else {
+                        return jsonErr(googleApiErrMessage(masterRes), 502);
+                    }
+                } else {
+                    var master0   = masterRes.data;
+                    var oldRule0  = (master0.recurrence && master0.recurrence[0]) || buildRecurrenceRule(seriesFreq, seriesCtx.rows.length);
+                    var truncated = oldRule0
+                        .replace(/;COUNT=\d+/i, "")
+                        .replace(/;UNTIL=[0-9TZ]+/i, "")
+                        + ";UNTIL=" + addDaysToDateStr(session.date, -1).split("-").join("") + "T235959Z";
+                    var truncRes = await googleCalendarApiCall(accessToken, "PATCH",
+                        "/events/" + encodeURIComponent(session.google_event_id), { recurrence: [truncated] });
+                    if (!truncRes.ok && truncRes.status !== 404 && truncRes.status !== 410) {
+                        return jsonErr(googleApiErrMessage(truncRes), 502);
+                    }
+                    var gEndF = newEnd;
+                    if (!gEndF || !newTime || gEndF <= newTime) { gEndF = plusOneHourHHMM(newTime || "09:00"); }
+                    var splitBody = {
+                        summary:     patchBody.summary || master0.summary || newClientName,
+                        description: master0.description || undefined,
+                        start:       { dateTime: newDate + "T" + newTime + ":00", timeZone: APEX_TIMEZONE },
+                        end:         { dateTime: newDate + "T" + gEndF + ":00", timeZone: APEX_TIMEZONE },
+                        recurrence:  [buildRecurrenceRule(seriesFreq, scopeRows.length)]
+                    };
+                    // Edited location wins over the old master's; an edit that
+                    // cleared it must not resurrect the previous address.
+                    var splitLoc = Object.prototype.hasOwnProperty.call(patchBody, "location")
+                        ? patchBody.location
+                        : (master0.location || "");
+                    if (splitLoc) { splitBody.location = splitLoc; }
+                    if (master0.attendees && master0.attendees.length) {
+                        splitBody.attendees = master0.attendees.map(function(a) { return { email: a.email }; });
+                    }
+                    if (newType === "online_meet") {
+                        splitBody.conferenceData = {
+                            createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+                        };
+                    }
+                    var createRes = await googleCalendarApiCall(accessToken, "POST",
+                        "/events?conferenceDataVersion=1", splitBody);
+                    if (!createRes.ok || !createRes.data) {
+                        return jsonErr(googleApiErrMessage(createRes), 502);
+                    }
+                    splitMasterId = createRes.data.id;
+                    splitMeetLink = extractGoogleEventMeetLink(createRes.data);
+                    // The new event already carries every edited field, so the
+                    // generic patch below must not fire a second write.
+                    patchBody = {};
+                }
+            }
+
+            if (Object.keys(patchBody).length === 0) { skipGenericPatch = true; }
+            var patchRes = skipGenericPatch ? null : await googleCalendarApiCall(accessToken, "PATCH",
                 "/events/" + encodeURIComponent(targetId) + "?conferenceDataVersion=1", patchBody);
-            if (!patchRes.ok) {
+            if (patchRes && !patchRes.ok) {
                 if (patchRes.status === 404 || patchRes.status === 410) {
                     // Already gone is the desired end state, not a failure.
                     googleWarning = "The Google Calendar event no longer exists -- only the Apex side was updated.";
@@ -3916,10 +4010,25 @@ async function handlePatchSessionDetails(sessionId, request, env) {
             var isTarget = rowId === sessionId;
             var sets = [];
             var binds = [];
-            // Date/time/notes are per-occurrence and only ever touch the row
-            // Alice actually opened; identity/type/location apply series-wide.
-            if (isTarget && hasDate)  { sets.push("date = ?");     binds.push(newDate); }
-            if (isTarget && hasTime)  { sets.push("time = ?");     binds.push(newTime); }
+            // Notes stay per-occurrence; identity/type/location apply
+            // series-wide. Date/time normally touch only the row Alice opened
+            // -- EXCEPT on a series-wide move, where every row in scope shifts
+            // to its own recomputed occurrence date (the cadence is regenerated
+            // exactly the way the reschedule route does it).
+            if (seriesMove) {
+                var occDate = (scope === "all")
+                    ? recurOccurrenceDate(newFirstDate, seriesFreq, ri)
+                    : recurOccurrenceDate(newDate, seriesFreq, ri);
+                if (hasDate) { sets.push("date = ?"); binds.push(occDate); }
+                if (hasTime) { sets.push("time = ?"); binds.push(newTime); }
+                if (splitMasterId !== undefined) {
+                    sets.push("google_event_id = ?"); binds.push(splitMasterId);
+                    if (splitMeetLink) { sets.push("google_meet_link = ?"); binds.push(splitMeetLink); }
+                }
+            } else {
+                if (isTarget && hasDate)  { sets.push("date = ?");     binds.push(newDate); }
+                if (isTarget && hasTime)  { sets.push("time = ?");     binds.push(newTime); }
+            }
             if (hasEnd)               { sets.push("end_time = ?"); binds.push(newEnd); }
             if (hasLocation || (hasType && newType !== session.session_type)) {
                 sets.push("location = ?"); binds.push(newLocation);

@@ -699,6 +699,17 @@
     }
     .modal-overlay[hidden] { display: none !important; }
 
+    /* The series-scope dialog is the ONE modal that opens ON TOP of another
+       modal (cancel, reschedule and edit all ask the scope question while
+       their own modal stays open behind it). With every overlay at z-index
+       100, DOM order decided the winner: it painted above #modalCancelSession
+       (DOM index 4) but below #modalEdit (DOM index 7), so editing a series
+       session deadlocked -- the dialog was open but buried, leaving a dimmed
+       screen with no way forward. Verified in a real browser 2026-08-03.
+       A z-index of its own fixes it independently of markup order, so adding
+       a modal later cannot silently bury it again. */
+    #modalSeriesScope { z-index: 200; }
+
     .modal-box {
       background: var(--card);
       border-radius: 12px;
@@ -4279,13 +4290,13 @@
       var body = buildEditBody();
       if (!body) { return; }
 
-      // Series sessions get the scope question first -- the SAME shared
-      // dialog cancel and reschedule use. Date/time moves are per-occurrence
-      // only (the worker refuses a series-wide move and points at
-      // Reschedule), so those skip the question entirely.
-      var movesDateOrTime = Object.prototype.hasOwnProperty.call(body, "date")
-                         || Object.prototype.hasOwnProperty.call(body, "time");
-      if (session.series_id && !movesDateOrTime) {
+      // Series sessions ALWAYS get the scope question first -- the SAME shared
+      // dialog cancel uses. Date/time moves included: Edit now honours a
+      // series-wide move (the worker routes it through the same logic the
+      // retired Reschedule modal used), so there is nothing left to opt out of.
+      // Skipping the question for date/time is what silently moved a single
+      // occurrence when Alice meant the whole series.
+      if (session.series_id) {
         openSeriesScope(function(scope) {
           if (!scope) { return; } // backed out; edit modal is still open
           submitEdit(body, scope);
@@ -4293,6 +4304,22 @@
         return;
       }
       submitEdit(body, "single");
+    }
+
+    // The worker's 409 for a session that is no longer an active part of its
+    // own series is English-only. It is the one error Alice can actually hit
+    // by answering "all meetings?" on a stale calendar, so it gets a real PT
+    // sentence rather than a raw worker string. resolveScope returns this
+    // instead of silently downgrading to a single occurrence -- the silent
+    // downgrade is the exact symptom this whole area exists to eliminate.
+    function localizeSessionError(msg) {
+      if (!msg) { return msg; }
+      if (msg.indexOf("no longer an active part of its series") !== -1) {
+        return isEn()
+          ? "This meeting is no longer an active part of its series, so 'this and following' / 'all meetings' cannot be applied. Reload the calendar and try again."
+          : "Esta reuniao ja nao faz parte ativa da sua serie, portanto 'esta e todas as seguintes' / 'todas as reunioes' nao pode ser aplicado. Recarregue o calendario e tente novamente.";
+      }
+      return msg;
     }
 
     function submitEdit(body, scope) {
@@ -4335,9 +4362,10 @@
           // The meeting was NOT changed -- say so plainly. A silent failure
           // here is how Apex and the client's calendar drift apart.
           if (st) {
+            var emsg = localizeSessionError(e.message);
             st.textContent = en
-              ? "The meeting was NOT changed: " + e.message
-              : "A reuniao NAO foi alterada: " + e.message;
+              ? "The meeting was NOT changed: " + emsg
+              : "A reuniao NAO foi alterada: " + emsg;
             st.className = "pull-status is-error";
           }
           if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }

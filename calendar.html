@@ -709,6 +709,26 @@
        A z-index of its own fixes it independently of markup order, so adding
        a modal later cannot silently bury it again. */
     #modalSeriesScope { z-index: 200; }
+    /* Sits above the create/edit modal that raised it, and above the scope
+       dialog, since the warning is the last thing shown before committing. */
+    #modalWarning { z-index: 210; }
+    .sync-conflict-notice {
+      background: rgba(217, 119, 6, 0.08);
+      border: 1px solid rgba(217, 119, 6, 0.35);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .sync-conflict-head { font-weight: 600; margin-bottom: 6px; }
+    .sync-conflict-notice .btn-cancel-link { margin-top: 8px; }
+    .warning-body { margin-bottom: 16px; }
+    .warning-line {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      margin: 0 0 4px 0;
+      white-space: pre-wrap;
+    }
 
     .modal-box {
       background: var(--card);
@@ -1021,21 +1041,6 @@
       margin: 0;
     }
 
-    /* Small unobtrusive reveal link for the collapsed end-time field on
-       client/prospective meetings. */
-    .ns-endtime-link {
-      background: none;
-      border: none;
-      padding: 0;
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      color: var(--muted);
-      text-decoration: underline;
-      cursor: pointer;
-      align-self: flex-start;
-      text-align: left;
-    }
-    .ns-endtime-link:hover { color: var(--text); }
     .recur-preview {
       font-size: 12px;
       color: var(--muted);
@@ -1282,6 +1287,17 @@
 
     <!-- Below-hero content -->
     <div class="below-hero-section">
+      <!-- Conflicts found by the sync itself, not by a booking. This catches
+           double-bookings created directly in Google Calendar, which no
+           submit-time warning can see. Informational and dismissable -- never
+           blocks. -->
+      <div id="syncConflictNotice" class="sync-conflict-notice" hidden>
+        <div id="syncConflictBody"></div>
+        <button class="btn-cancel-link" onclick="dismissSyncConflicts()">
+          <span class="show-pt">Entendi, dispensar</span>
+          <span class="show-en">Got it, dismiss</span>
+        </button>
+      </div>
       <!-- Calendar content area -->
       <div id="calendarContent">
         <!-- Rendered by JS -->
@@ -1366,24 +1382,23 @@
           </div>
           <!-- Options built by populateTimeSelects() from NS_TIME_OPTS so
                the start and end lists never drift apart. -->
-          <select id="nsTime"></select>
+          <select id="nsTime" onchange="syncNsEndTimeDefault()"></select>
         </div>
-        <!-- End time: required (and always visible) for events, where
-             duration genuinely varies. Client/prospective meetings have
-             always been one hour -- the select stays collapsed behind a
-             small "Change end time" link and, when never revealed, no
-             end_time is sent so the start-plus-one-hour default applies. -->
+        <!-- End time: always visible and always populated, defaulting to
+             start + 1 hour. It used to hide behind a "Change end time" link
+             and, when never revealed, sent no end_time at all -- which is how
+             four real client sessions booked on 2026-08-03 landed with
+             end_time NULL. A missing end time silently disables the
+             travel-time warning (a session with no end can't be shown to run
+             tight against the next one), so the default is now always sent.
+             The default follows the start time until the user edits it. -->
         <div class="field-group" id="nsEndTimeGroup">
-          <button type="button" class="ns-endtime-link" id="nsEndTimeReveal" onclick="revealNsEndTime()">
-            <span class="show-pt">Alterar horário de término</span>
-            <span class="show-en">Change end time</span>
-          </button>
-          <div id="nsEndTimeField" hidden>
+          <div id="nsEndTimeField">
             <div class="field-label">
               <span class="show-pt">Hora de término</span>
               <span class="show-en">End time</span>
             </div>
-            <select id="nsEndTime"></select>
+            <select id="nsEndTime" onchange="markNsEndTimeEdited()"></select>
           </div>
         </div>
         <!-- Session type toggle -->
@@ -1707,6 +1722,15 @@
             <span class="show-pt">Cancelar reuniao</span>
             <span class="show-en">Cancel meeting</span>
           </button>
+          <!-- External rows are mirrors of Google events, so they are not
+               "cancelled" -- there is nothing of Apex's to cancel. This
+               removes a mirror whose Google event no longer exists. The
+               worker asks Google first and refuses if the event is still
+               there, so this can never hide a live meeting. -->
+          <button class="btn-danger-outline" id="btnDetailRemoveStale" onclick="handleRemoveStaleExternal()" hidden>
+            <span class="show-pt">Remover cópia obsoleta</span>
+            <span class="show-en">Remove stale copy</span>
+          </button>
           <button class="btn-close-detail" onclick="closeModal('modalDetail')">
             <span class="show-pt">Fechar</span>
             <span class="show-en">Close</span>
@@ -1840,6 +1864,34 @@
         <button class="btn-cancel-link" onclick="cancelSeriesScope()">
           <span class="show-pt">Cancelar</span>
           <span class="show-en">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Aviso de conflito / deslocamento ══════════════ -->
+  <!-- Warns, never blocks. Names every conflicting item and its times so the
+       warning carries real information -- a vague "there is a conflict" is
+       what trains people to click straight through. ONE shared dialog for
+       create and edit, via openWarningDialog()'s callback. -->
+  <div id="modalWarning" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Verifique antes de agendar</span>
+          <span class="show-en">Check before booking</span>
+        </h3>
+        <button class="modal-close" onclick="cancelWarningDialog()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="warningBody" class="warning-body"></div>
+        <button class="btn-submit" onclick="acceptWarningDialog()">
+          <span class="show-pt">Agendar mesmo assim</span>
+          <span class="show-en">Book anyway</span>
+        </button>
+        <button class="btn-cancel-link" onclick="cancelWarningDialog()">
+          <span class="show-pt">Escolher outro horário</span>
+          <span class="show-en">Choose a different time</span>
         </button>
       </div>
     </div>
@@ -2437,6 +2489,7 @@
             .then(function(calData) {
               calSessions = calData.sessions || [];
               renderCalendar();
+              reportSyncConflicts(calSessions);
             });
         })
         .catch(function(e) { /* sync trigger failed silently -- calSessions already rendered from the initial load */ });
@@ -2473,6 +2526,7 @@
               calSessions = calData.sessions || [];
               renderCalendar();
               updateCalendarHeroTiles();
+              reportSyncConflicts(calSessions);
               showToast(isEn() ? "Calendar synced" : "Calendario sincronizado");
             });
         })
@@ -3144,6 +3198,388 @@
       if (calView === "month" || calView === "week") { renderCalendar(); }
     });
 
+    // ── Safety warnings: conflicts and travel time ─────────────────────────
+    //
+    // Two checks over the same pass, sharing one suppression rule:
+    //   * conflict   -- two things genuinely overlapping in time
+    //   * travel     -- a type change with a <=30 minute gap, where he
+    //                   physically has to get somewhere
+    //
+    // Both WARN and never block. Both name the other item and its times: a
+    // warning that just says "there is a conflict" trains people to click
+    // through without reading, which is worse than no warning.
+    //
+    // THE SUPPRESSION PROBLEM: an Apex-created online session usually also
+    // exists as a google_external row carrying a DIFFERENT google_event_id
+    // (the sync dedupes on event id alone, so Rafa's own Google entry and
+    // Apex's copy coexist). Warning on those twins would fire on nearly every
+    // online booking, against itself. But suppressing every same-time pair
+    // would hide real double-bookings -- verified live: Jul 30 6:00 PM held
+    // BOTH "Diego"/"Diego RDE" (same meeting) and "APEX - PRODUWALL RDE"
+    // (a genuine double-booking, PRODUWALL being a different client).
+    //
+    // So a pair is treated as the same meeting only on hard evidence:
+    //   1. same google_event_id, or
+    //   2. same google_meet_link, or
+    //   3. the other title contains a person's name from the client's
+    //      `owners` / `contacts`.
+    // Rule 3 exists because Apex stores COMPANY names while Rafa and Alice
+    // type PEOPLE's names into Google -- "BRAX FACILITIES" and "Igor Raio - x"
+    // share no text at all, but `owners` = "IGOR BRAIANI" bridges them.
+    // Anything without such evidence warns: a false warning beats a missed
+    // double-booking.
+
+    var TRAVEL_GAP_MINUTES = 30;
+
+    function hhmmToMinutes(hhmm) {
+      if (!hhmm) { return null; }
+      var p = hhmm.split(":");
+      var h = parseInt(p[0], 10), m = parseInt(p[1], 10);
+      if (isNaN(h) || isNaN(m)) { return null; }
+      return h * 60 + m;
+    }
+
+    // Start/end in minutes for any session shape. end_time is stored either
+    // as "HH:MM" (Apex) or as a full ISO datetime (Google sync) -- endTimeHHMM
+    // normalizes both. With no end time we assume one hour purely so the
+    // overlap maths has something to work with; the travel check refuses to
+    // guess and skips such rows instead.
+    function sessionSpan(session) {
+      var start = hhmmToMinutes((session.time || "").slice(0, 5));
+      if (start === null) { return null; }
+      var endHHMM = endTimeHHMM(session);
+      var end = hhmmToMinutes(endHHMM);
+      if (end === null || end <= start) { end = start + 60; }
+      return { start: start, end: end, hasRealEnd: !!endHHMM };
+    }
+
+    // Every person-name we know for a session's client, lowercased. Reads the
+    // clients array already loaded for the dropdowns.
+    function clientPersonNames(clientId) {
+      var out = [];
+      if (!clientId) { return out; }
+      for (var i = 0; i < clients.length; i++) {
+        if (clients[i].id !== clientId) { continue; }
+        var owners = clients[i].owners;
+        if (owners) {
+          // "Nicolas & Iasmin" / "Diego Lima" -- split so a title holding just
+          // one of the two names still matches.
+          var parts = String(owners).split(/[&,\/]+| e /);
+          for (var p = 0; p < parts.length; p++) {
+            var whole = parts[p].trim();
+            if (whole.length > 2) { out.push(whole.toLowerCase()); }
+            var words = whole.split(/\s+/);
+            for (var w = 0; w < words.length; w++) {
+              if (words[w].length > 2) { out.push(words[w].toLowerCase()); }
+            }
+          }
+        }
+        var contacts = clients[i].contacts;
+        if (contacts) {
+          var arr = null;
+          try { arr = typeof contacts === "string" ? JSON.parse(contacts) : contacts; }
+          catch (e) { arr = null; }
+          if (arr && arr.length) {
+            for (var c = 0; c < arr.length; c++) {
+              var nm = (arr[c] && arr[c].name) ? String(arr[c].name).trim() : "";
+              if (nm.length > 2) { out.push(nm.toLowerCase()); }
+            }
+          }
+        }
+      }
+      return out;
+    }
+
+    // True when two rows at the same time are really the same meeting seen
+    // twice (Apex's row plus Google's), not a genuine double-booking.
+    function isSameMeeting(a, b) {
+      if (a.google_event_id && b.google_event_id &&
+          a.google_event_id === b.google_event_id) { return true; }
+      if (a.google_meet_link && b.google_meet_link &&
+          a.google_meet_link === b.google_meet_link) { return true; }
+      // Name bridge: one side is Apex-owned with a client, the other is the
+      // external twin whose title carries a person from that client.
+      var pairs = [[a, b], [b, a]];
+      for (var i = 0; i < pairs.length; i++) {
+        var owner = pairs[i][0], other = pairs[i][1];
+        if (!owner.client_id) { continue; }
+        var title = (other.client_name || other.title || "").toLowerCase();
+        if (!title) { continue; }
+        var names = clientPersonNames(owner.client_id);
+        for (var n = 0; n < names.length; n++) {
+          if (title.indexOf(names[n]) !== -1) { return true; }
+        }
+      }
+      return false;
+    }
+
+    function sessionDisplayName(session) {
+      return session.client_name || session.title || (isEn() ? "(No title)" : "(Sem titulo)");
+    }
+
+    // "8:00 AM - 10:00 AM" through the shared formatter (never toLocale*).
+    function spanLabel(session, span) {
+      var startLbl = formatTime((session.time || "").slice(0, 5));
+      var endHHMM  = endTimeHHMM(session);
+      if (!endHHMM) { return startLbl; }
+      return startLbl + " - " + formatTime(endHHMM);
+    }
+
+    // Core pass. `candidate` is the session being booked/edited (may have no
+    // id yet); `others` are the rows to test it against. Returns
+    // { conflicts: [], travel: [] } of plain description objects.
+    function findWarnings(candidate, others) {
+      var out = { conflicts: [], travel: [] };
+      var mySpan = sessionSpan(candidate);
+      if (!mySpan) { return out; }
+
+      for (var i = 0; i < others.length; i++) {
+        var other = others[i];
+        if (!other || !other.date || other.date !== candidate.date) { continue; }
+        if (candidate.id && other.id === candidate.id) { continue; }
+        if (other.status === "cancelled" || other.status === "discarded") { continue; }
+        // A series edit moves every occurrence together -- its siblings are
+        // not conflicts with each other.
+        if (candidate.series_id && other.series_id &&
+            candidate.series_id === other.series_id) { continue; }
+        var otherSpan = sessionSpan(other);
+        if (!otherSpan) { continue; }
+        if (isSameMeeting(candidate, other)) { continue; }
+
+        var overlaps = mySpan.start < otherSpan.end && otherSpan.start < mySpan.end;
+        if (overlaps) {
+          out.conflicts.push({
+            name:  sessionDisplayName(other),
+            times: spanLabel(other, otherSpan)
+          });
+          continue;
+        }
+
+        // Travel time: only meaningful across a type change, and only when
+        // both ends of the gap are known. A row with no real end time is
+        // skipped rather than guessed at -- guessing would invent gaps.
+        var gap = otherSpan.start >= mySpan.end
+          ? otherSpan.start - mySpan.end
+          : mySpan.start - otherSpan.end;
+        if (gap < 0 || gap > TRAVEL_GAP_MINUTES) { continue; }
+        var earlier = otherSpan.start >= mySpan.end ? candidate : other;
+        if (!sessionSpan(earlier).hasRealEnd) { continue; }
+        if (!travelTypeChange(candidate, other)) { continue; }
+        out.travel.push({
+          name:  sessionDisplayName(other),
+          times: spanLabel(other, otherSpan),
+          gap:   gap
+        });
+      }
+      return out;
+    }
+
+    // A tight gap only matters when he has to physically move: online to
+    // in-person, in-person to online, or two in-person meetings at different
+    // addresses. Back-to-back online meetings need no travel at all.
+    function travelTypeChange(a, b) {
+      var aIn = a.session_type === "in_person";
+      var bIn = b.session_type === "in_person";
+      if (!aIn && !bIn) { return false; }
+      if (aIn !== bIn)  { return true; }
+      var locA = (a.location || "").trim().toLowerCase();
+      var locB = (b.location || "").trim().toLowerCase();
+      // Two in-person meetings: only a KNOWN different address warrants it.
+      if (!locA || !locB) { return false; }
+      return locA !== locB;
+    }
+
+    // Renders findWarnings() output as bilingual lines for a confirm dialog.
+    function warningLines(w) {
+      var en = isEn();
+      var lines = [];
+      if (w.conflicts.length) {
+        lines.push(en
+          ? (w.conflicts.length === 1 ? "This overlaps with:" : "This overlaps with " + w.conflicts.length + " items:")
+          : (w.conflicts.length === 1 ? "Isto se sobrepoe a:" : "Isto se sobrepoe a " + w.conflicts.length + " itens:"));
+        for (var i = 0; i < w.conflicts.length; i++) {
+          lines.push("  • " + w.conflicts[i].name + " (" + w.conflicts[i].times + ")");
+        }
+      }
+      if (w.travel.length) {
+        if (lines.length) { lines.push(""); }
+        for (var t = 0; t < w.travel.length; t++) {
+          var tw = w.travel[t];
+          lines.push(en
+            ? tw.name + " (" + tw.times + ") is " + tw.gap + " minutes away — he may not have time to arrive."
+            : tw.name + " (" + tw.times + ") esta a " + tw.gap + " minutos — ele pode nao ter tempo de chegar.");
+        }
+      }
+      return lines;
+    }
+
+    // ── Sync-time conflict notice ──────────────────────────────────────────
+    //
+    // A submit-time warning only catches what is booked THROUGH Apex. The
+    // Jul 30 Diego / PRODUWALL double-booking was created by typing straight
+    // into Google Calendar, so nothing in the New Session modal could ever
+    // have seen it. This scan runs on the way IN, after each sync, over
+    // upcoming sessions only.
+    //
+    // DISMISSAL: keyed by the two session ids PLUS the times that made them
+    // conflict ("idA|idB|startA|endA|startB|endB"). That matters -- a
+    // dismissal must not become a permanent blindfold over the same pair. If
+    // either side later moves, the key changes and a genuinely new conflict
+    // surfaces again. And when the conflict is actually resolved (in Apex OR
+    // in Google), the pair simply stops being reported, so the notice clears
+    // itself with no dismissal involved. Stored in localStorage; a lost
+    // dismissal just means one extra notice, never a missed conflict.
+
+    var CONFLICT_DISMISS_KEY = "apexDismissedConflicts";
+
+    function loadDismissedConflicts() {
+      try {
+        var raw = window.localStorage.getItem(CONFLICT_DISMISS_KEY);
+        return raw ? (JSON.parse(raw) || {}) : {};
+      } catch (e) { return {}; }
+    }
+
+    function saveDismissedConflicts(map) {
+      try { window.localStorage.setItem(CONFLICT_DISMISS_KEY, JSON.stringify(map)); }
+      catch (e) { /* storage unavailable -- notice simply reappears */ }
+    }
+
+    function todayISO() {
+      var d = new Date();
+      return d.getFullYear() + "-" + padZ(d.getMonth() + 1) + "-" + padZ(d.getDate());
+    }
+
+    // Pair key: session ids sorted (order must not matter) plus both spans, so
+    // any time change invalidates a previous dismissal.
+    function conflictPairKey(a, b, spanA, spanB) {
+      var first  = a.id < b.id ? a : b;
+      var second = a.id < b.id ? b : a;
+      var fs     = a.id < b.id ? spanA : spanB;
+      var ss     = a.id < b.id ? spanB : spanA;
+      return first.id + "|" + second.id + "|" + first.date + "|" +
+             fs.start + "-" + fs.end + "|" + ss.start + "-" + ss.end;
+    }
+
+    // Every unsuppressed conflict and tight-travel gap among upcoming
+    // sessions. Each pair is reported once.
+    function scanUpcomingConflicts(sessions) {
+      var today = todayISO();
+      var upcoming = [];
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        if (!s.date || s.date < today) { continue; }
+        if (s.status === "cancelled" || s.status === "discarded") { continue; }
+        if (!s.time) { continue; }
+        upcoming.push(s);
+      }
+
+      var found = [];
+      for (var a = 0; a < upcoming.length; a++) {
+        for (var b = a + 1; b < upcoming.length; b++) {
+          var sa = upcoming[a], sb = upcoming[b];
+          if (sa.date !== sb.date) { continue; }
+          if (sa.series_id && sb.series_id && sa.series_id === sb.series_id) { continue; }
+          var spanA = sessionSpan(sa), spanB = sessionSpan(sb);
+          if (!spanA || !spanB) { continue; }
+          if (isSameMeeting(sa, sb)) { continue; }
+
+          var overlaps = spanA.start < spanB.end && spanB.start < spanA.end;
+          var kind = null, gap = 0;
+          if (overlaps) {
+            kind = "conflict";
+          } else {
+            gap = spanB.start >= spanA.end ? spanB.start - spanA.end : spanA.start - spanB.end;
+            var earlierSpan = spanB.start >= spanA.end ? spanA : spanB;
+            if (gap >= 0 && gap <= TRAVEL_GAP_MINUTES &&
+                earlierSpan.hasRealEnd && travelTypeChange(sa, sb)) {
+              kind = "travel";
+            }
+          }
+          if (!kind) { continue; }
+
+          found.push({
+            key:   conflictPairKey(sa, sb, spanA, spanB),
+            kind:  kind,
+            gap:   gap,
+            date:  sa.date,
+            aName: sessionDisplayName(sa), aTimes: spanLabel(sa, spanA),
+            bName: sessionDisplayName(sb), bTimes: spanLabel(sb, spanB)
+          });
+        }
+      }
+      return found;
+    }
+
+    // Shows the notice for any conflict not already dismissed at these exact
+    // times. Never blocks -- it is informational and dismissable.
+    function reportSyncConflicts(sessions) {
+      var all = scanUpcomingConflicts(sessions || []);
+      var dismissed = loadDismissedConflicts();
+      var fresh = [];
+      for (var i = 0; i < all.length; i++) {
+        if (!dismissed[all[i].key]) { fresh.push(all[i]); }
+      }
+      if (!fresh.length) {
+        var banner = document.getElementById("syncConflictNotice");
+        if (banner) { banner.hidden = true; }
+        return;
+      }
+      renderSyncConflictNotice(fresh);
+    }
+
+    function renderSyncConflictNotice(items) {
+      var en = isEn();
+      var banner = document.getElementById("syncConflictNotice");
+      var body   = document.getElementById("syncConflictBody");
+      if (!banner || !body) { return; }
+      body.innerHTML = "";
+
+      var head = document.createElement("p");
+      head.className = "warning-line sync-conflict-head";
+      head.textContent = en
+        ? (items.length === 1
+            ? "The sync found 1 scheduling problem in upcoming meetings:"
+            : "The sync found " + items.length + " scheduling problems in upcoming meetings:")
+        : (items.length === 1
+            ? "A sincronizacao encontrou 1 problema de agenda nas proximas reunioes:"
+            : "A sincronizacao encontrou " + items.length + " problemas de agenda nas proximas reunioes:");
+      body.appendChild(head);
+
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var p = document.createElement("p");
+        p.className = "warning-line";
+        var when = formatDate(it.date);
+        if (it.kind === "conflict") {
+          p.textContent = en
+            ? when + ": " + it.aName + " (" + it.aTimes + ") overlaps " + it.bName + " (" + it.bTimes + ")"
+            : when + ": " + it.aName + " (" + it.aTimes + ") se sobrepoe a " + it.bName + " (" + it.bTimes + ")";
+        } else {
+          p.textContent = en
+            ? when + ": " + it.aName + " (" + it.aTimes + ") and " + it.bName + " (" + it.bTimes + ") are " + it.gap + " minutes apart — he may not have time to arrive."
+            : when + ": " + it.aName + " (" + it.aTimes + ") e " + it.bName + " (" + it.bTimes + ") estao a " + it.gap + " minutos — ele pode nao ter tempo de chegar.";
+        }
+        body.appendChild(p);
+      }
+
+      // Dismiss stores exactly the keys shown, so a later change to either
+      // side produces a new key and surfaces again.
+      banner.dataset.keys = items.map(function(x) { return x.key; }).join(",");
+      banner.hidden = false;
+    }
+
+    function dismissSyncConflicts() {
+      var banner = document.getElementById("syncConflictNotice");
+      if (!banner) { return; }
+      var keys = (banner.dataset.keys || "").split(",");
+      var dismissed = loadDismissedConflicts();
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i]) { dismissed[keys[i]] = 1; }
+      }
+      saveDismissedConflicts(dismissed);
+      banner.hidden = true;
+    }
+
     // ── New Session modal ──────────────────────────────────────────────────
 
     // Shared half-hour list (07:00-21:00) for both the start and end time
@@ -3189,25 +3625,42 @@
       }
     }
 
-    // Whether the user asked to see the end-time select this time around.
-    // Reset on every modal open: routine client bookings never show it.
-    var nsEndTimeRevealed = false;
+    // Whether the user has deliberately chosen an end time this time around.
+    // Once true, changing the start time no longer moves the end time -- a
+    // deliberate 2-hour booking must not silently snap back to 1 hour.
+    // Reset on every modal open.
+    var nsEndTimeEdited = false;
 
-    // Events always show (and require) the end time; client/prospective
-    // meetings keep it collapsed behind the "Change end time" link unless
-    // revealed. Collapsing clears the value so a hidden field can never
-    // carry state into the submit.
-    function updateNsEndTimeVisibility() {
-      var show = nsIsEvent() || nsEndTimeRevealed;
-      document.getElementById("nsEndTimeField").hidden  = !show;
-      document.getElementById("nsEndTimeReveal").hidden = show;
-      if (!show) { document.getElementById("nsEndTime").value = ""; }
+    function markNsEndTimeEdited() {
+      nsEndTimeEdited = true;
     }
 
-    function revealNsEndTime() {
-      nsEndTimeRevealed = true;
-      updateNsEndTimeVisibility();
-      clearNsStatus();
+    // Start + 1 hour, snapped to the shared half-hour list. Returns "" when
+    // there is no start time yet, or when start + 1h runs past the end of the
+    // list (21:00) -- the user picks one explicitly in that corner.
+    function plusOneHourOpt(startHHMM) {
+      if (!startHHMM) { return ""; }
+      var parts = startHHMM.split(":");
+      var h = parseInt(parts[0], 10) + 1;
+      var candidate = padZ(h) + ":" + parts[1];
+      for (var i = 0; i < NS_TIME_OPTS.length; i++) {
+        if (NS_TIME_OPTS[i] === candidate) { return candidate; }
+      }
+      return "";
+    }
+
+    // Keeps the end time at start + 1 hour while the user has not chosen one
+    // themselves. Called on every start-time change and on modal open.
+    function syncNsEndTimeDefault() {
+      if (nsEndTimeEdited) { return; }
+      var start = document.getElementById("nsTime").value;
+      document.getElementById("nsEndTime").value = plusOneHourOpt(start);
+    }
+
+    // The end-time select is always visible now; this remains as the single
+    // hook the type/category toggles call when the modal's shape changes.
+    function updateNsEndTimeVisibility() {
+      syncNsEndTimeDefault();
     }
 
     function openNewSessionModal() {
@@ -3217,7 +3670,7 @@
       document.getElementById("nsDate").value     = "";
       document.getElementById("nsTime").value     = "";
       document.getElementById("nsEndTime").value  = "";
-      nsEndTimeRevealed = false;
+      nsEndTimeEdited = false;
       document.getElementById("nsNotes").value    = "";
       document.getElementById("nsLocation").value = "";
       document.getElementById("nsLocation").placeholder = isEn() ? "Street address" : "Endereço completo";
@@ -3379,15 +3832,34 @@
         return;
       }
 
+      // Safety warnings run HERE: after validation, before anything is
+      // created on Google or in D1. Only the first occurrence of a series is
+      // checked -- warning about all 26 at once would be unreadable, and the
+      // first is the one being placed by hand.
+      withWarnings({
+        id:           null,
+        client_id:    isEvent ? null : clientId,
+        client_name:  isEvent ? eventName : null,
+        date:         date,
+        time:         time,
+        end_time:     endTime || null,
+        session_type: type,
+        location:     location || null,
+        series_id:    null
+      }, function() { submitNewSession(); });
+
+      function submitNewSession() {
       btn.disabled = true;
 
-      function baseBody(dateStr, meetLink, googleEventId) {
+      function baseBody(dateStr, meetLink, googleEventId, htmlLink) {
         var body = { date: dateStr, time: time, session_type: type, notes: notes || null, meeting_category: category };
         if (isEvent) { body.event_name = eventName; } else { body.client_id = clientId; }
         if (endTime)  { body.end_time = endTime; }
         if (location) { body.location = location; }
         if (meetLink) { body.google_meet_link = meetLink; }
         if (googleEventId) { body.google_event_id = googleEventId; }
+        // Google's own event URL, so the detail modal can link straight to it.
+        if (htmlLink) { body.html_link = htmlLink; }
         return body;
       }
 
@@ -3407,10 +3879,10 @@
         loadCalendar();
       }
 
-      function scheduleSession(meetLink, googleEventId) {
+      function scheduleSession(meetLink, googleEventId, htmlLink) {
         statusEl.textContent = en ? "Scheduling session..." : "Agendando sessao...";
         statusEl.className = "pull-status";
-        postSchedule(baseBody(date, meetLink, googleEventId))
+        postSchedule(baseBody(date, meetLink, googleEventId, htmlLink))
           .then(function() { finishOk(en ? "Session scheduled!" : "Sessao agendada!"); })
           .catch(function(e) {
             btn.disabled = false;
@@ -3511,7 +3983,7 @@
               statusEl.className = "pull-status is-error";
               return;
             }
-            scheduleSession(result.calData.google_meet_link, result.calData.google_event_id || null);
+            scheduleSession(result.calData.google_meet_link, result.calData.google_event_id || null, result.calData.html_link || null);
           })
           .catch(function(e) {
             btn.disabled = false;
@@ -3521,6 +3993,7 @@
       } else {
         scheduleSession(null, null);
       }
+      } // end submitNewSession
     }
 
     // The client's email for Google Calendar invites, only when it actually
@@ -3639,8 +4112,12 @@
         locationRow.hidden = true;
       }
 
+      // Any session with a real Google event URL -- Apex-created ones now
+      // store html_link too, so "Abrir evento" works for them as well. It was
+      // previously gated to external rows only, which is why the link was
+      // dead exactly on the sessions Apex itself had just created.
       var htmlLinkRow = document.getElementById("detailHtmlLinkRow");
-      if (isExternal && session.html_link) {
+      if (session.html_link) {
         htmlLinkRow.hidden = false;
         document.getElementById("detailHtmlLink").href = safeUrl(session.html_link);
       } else {
@@ -3686,6 +4163,7 @@
       document.getElementById("btnDetailReschedule").hidden = true;
       document.getElementById("btnDetailEdit").hidden       = !canModify;
       document.getElementById("btnDetailCancel").hidden     = isExternal;
+      document.getElementById("btnDetailRemoveStale").hidden = !isExternal;
 
       var st2 = document.getElementById("detailStatus2");
       if (st2) { st2.textContent = ""; st2.className = "pull-status"; }
@@ -3905,6 +4383,48 @@
       openModal("modalCancelSession");
     }
 
+    // ONE shared conflict/travel warning dialog for create and edit. The
+    // caller passes a callback receiving true (book anyway) or false (back
+    // out). Always warns, never blocks.
+    var warningCb = null;
+
+    function openWarningDialog(w, cb) {
+      warningCb = cb;
+      var body = document.getElementById("warningBody");
+      body.innerHTML = "";
+      var lines = warningLines(w);
+      for (var i = 0; i < lines.length; i++) {
+        var p = document.createElement("p");
+        p.className = "warning-line";
+        // textContent, never innerHTML -- these strings carry client and
+        // event names straight from the calendar.
+        p.textContent = lines[i];
+        if (lines[i] === "") { p.innerHTML = "&nbsp;"; }
+        body.appendChild(p);
+      }
+      openModal("modalWarning");
+    }
+    function acceptWarningDialog() {
+      closeModal("modalWarning");
+      var cb = warningCb;
+      warningCb = null;
+      if (cb) { cb(true); }
+    }
+    function cancelWarningDialog() {
+      closeModal("modalWarning");
+      var cb = warningCb;
+      warningCb = null;
+      if (cb) { cb(false); }
+    }
+
+    // Runs the checks and either proceeds straight away (nothing found) or
+    // shows the dialog. `proceed` runs only if the user accepts.
+    function withWarnings(candidate, proceed) {
+      var w = findWarnings(candidate, calSessions || []);
+      if (!w.conflicts.length && !w.travel.length) { proceed(); return; }
+      openWarningDialog(w, function(ok) { if (ok) { proceed(); } });
+    }
+
     // ONE shared series-scope dialog for cancel and reschedule. The caller
     // passes a callback; it receives 'single'|'following'|'all', or null when
     // the user backs out.
@@ -3924,6 +4444,56 @@
       var cb = seriesScopeCb;
       seriesScopeCb = null;
       if (cb) { cb(null); }
+    }
+
+    // Removes an external row whose Google event is gone. The worker verifies
+    // against Google first and refuses while the event still exists, so the
+    // worst case here is a clear error rather than a vanished meeting.
+    function handleRemoveStaleExternal() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var en  = isEn();
+      var btn = document.getElementById("btnDetailRemoveStale");
+      var st  = document.getElementById("detailStatus2");
+      btn.disabled = true;
+      if (st) {
+        st.textContent = en ? "Checking Google..." : "Verificando o Google...";
+        st.className = "pull-status";
+      }
+      apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/cancel", {
+        method: "POST",
+        body: { mode: "mistake" }
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          btn.disabled = false;
+          if (!r.ok || r.data.error) {
+            if (st) {
+              st.textContent = localizeSessionError(r.data.error) ||
+                (en ? "Could not remove it." : "Nao foi possivel remover.");
+              st.className = "pull-status is-error";
+            }
+            return;
+          }
+          if (r.data.ok === false) {
+            if (st) {
+              st.textContent = (en ? "Google check failed: " : "Falha ao verificar no Google: ") +
+                (r.data.google_error || "");
+              st.className = "pull-status is-error";
+            }
+            return;
+          }
+          closeModal("modalDetail");
+          showToast(en ? "Stale copy removed" : "Copia obsoleta removida");
+          loadCalendar();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          if (st) {
+            st.textContent = (en ? "Error: " : "Erro: ") + e.message;
+            st.className = "pull-status is-error";
+          }
+        });
     }
 
     function handleCancelSession(mode) {
@@ -4290,20 +4860,41 @@
       var body = buildEditBody();
       if (!body) { return; }
 
-      // Series sessions ALWAYS get the scope question first -- the SAME shared
-      // dialog cancel uses. Date/time moves included: Edit now honours a
-      // series-wide move (the worker routes it through the same logic the
-      // retired Reschedule modal used), so there is nothing left to opt out of.
-      // Skipping the question for date/time is what silently moved a single
-      // occurrence when Alice meant the whole series.
-      if (session.series_id) {
-        openSeriesScope(function(scope) {
-          if (!scope) { return; } // backed out; edit modal is still open
-          submitEdit(body, scope);
-        });
-        return;
-      }
-      submitEdit(body, "single");
+      // Same safety warnings as create, against the session AS IT WOULD BE
+      // after the edit -- an edit that moves a meeting onto a conflict is
+      // exactly as damaging as booking one there. Runs before the scope
+      // question so the user sees the problem before choosing how widely to
+      // apply it.
+      var after = {
+        id:           session.id,
+        client_id:    body.client_id    !== undefined ? body.client_id    : (session.client_id || null),
+        client_name:  session.client_name || null,
+        date:         body.date         !== undefined ? body.date         : session.date,
+        time:         body.time         !== undefined ? body.time         : (session.time || "").slice(0, 5),
+        end_time:     body.end_time     !== undefined ? body.end_time     : endTimeHHMM(session),
+        session_type: body.session_type !== undefined ? body.session_type : session.session_type,
+        location:     body.location     !== undefined ? body.location     : (session.location || null),
+        series_id:    session.series_id || null,
+        google_event_id:  session.google_event_id  || null,
+        google_meet_link: session.google_meet_link || null
+      };
+
+      withWarnings(after, function() {
+        // Series sessions ALWAYS get the scope question -- the SAME shared
+        // dialog cancel uses. Date/time moves included: Edit now honours a
+        // series-wide move (the worker routes it through the same logic the
+        // retired Reschedule modal used), so there is nothing left to opt out
+        // of. Skipping the question for date/time is what silently moved a
+        // single occurrence when Alice meant the whole series.
+        if (session.series_id) {
+          openSeriesScope(function(scope) {
+            if (!scope) { return; } // backed out; edit modal is still open
+            submitEdit(body, scope);
+          });
+          return;
+        }
+        submitEdit(body, "single");
+      });
     }
 
     // The worker's 409 for a session that is no longer an active part of its
@@ -4314,6 +4905,12 @@
     // downgrade is the exact symptom this whole area exists to eliminate.
     function localizeSessionError(msg) {
       if (!msg) { return msg; }
+      // The worker sends these already bilingual (PT -- EN in one string);
+      // show only the half matching the current language.
+      if (msg.indexOf(" / ") !== -1 && msg.indexOf("Google Calendar") !== -1) {
+        var halves = msg.split(" / ");
+        return isEn() ? halves[0] : (halves[1] || halves[0]);
+      }
       if (msg.indexOf("no longer an active part of its series") !== -1) {
         return isEn()
           ? "This meeting is no longer an active part of its series, so 'this and following' / 'all meetings' cannot be applied. Reload the calendar and try again."

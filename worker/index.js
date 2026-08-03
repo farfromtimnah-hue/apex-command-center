@@ -2752,6 +2752,12 @@ async function handlePostSessionsSchedule(request, env) {
             endTime = body.end_time;
         }
         var location = body.location || null;
+        // Google's create response carries htmlLink (the "open in Google
+        // Calendar" URL). It used to be returned to the browser and then
+        // dropped on the floor, leaving html_link NULL on every Apex-created
+        // session -- so the detail modal's "Abrir evento" link had nothing to
+        // open, exactly when a one-click look at Google would have helped most.
+        var htmlLink = body.html_link || null;
 
         var clientId, clientName, sessionType;
         if (meetingCategory === "event") {
@@ -2822,6 +2828,7 @@ async function handlePostSessionsSchedule(request, env) {
                     googleEventId = seriesRes.data.id;
                     var seriesMeet = extractGoogleEventMeetLink(seriesRes.data);
                     if (seriesMeet) { meetLink = seriesMeet; }
+                    if (seriesRes.data.htmlLink) { htmlLink = seriesRes.data.htmlLink; }
                 } else {
                     gcalError = googleApiErrMessage(seriesRes);
                 }
@@ -2835,9 +2842,9 @@ async function handlePostSessionsSchedule(request, env) {
             var occDate = recurFreq ? recurOccurrenceDate(body.date, recurFreq, i) : body.date;
             var sessionId = crypto.randomUUID();
             await env.DB.prepare(
-                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, created_by) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?)"
-            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, actorName(user)).run();
+                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, html_link, created_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?, ?)"
+            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, htmlLink, actorName(user)).run();
             sessionIds.push(sessionId);
         }
 
@@ -3342,8 +3349,54 @@ async function handlePostSessionCancel(sessionId, request, env) {
         ).bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
 
+        // Externally-synced rows belong to Google, so Apex still refuses to
+        // cancel one that Google actually still holds -- that must be done in
+        // Google. But the old blanket refusal also trapped rows whose Google
+        // event was ALREADY deleted: it told Alice to go remove it in Google,
+        // which is precisely what she had already done, leaving no way out and
+        // a phantom blocking the slot (real report, 2026-08-03).
+        //
+        // So: ask Google. If the event is verifiably gone (404/410), the row
+        // is a stale mirror of nothing and Apex removes it. If Google still
+        // has it, the refusal stands and now says something true.
         if (session.calendar_provider === "google_external") {
-            return jsonErr("Externally-synced Google Calendar events cannot be cancelled from Apex -- remove them in Google Calendar itself.", 400);
+            if (!session.google_event_id) {
+                // No event id at all -- nothing to verify against, and nothing
+                // in Google can be harmed by dropping a pure display row.
+                await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sessionId).run();
+                return jsonOk({ ok: true, google_event_removed: null, removed_stale_external: true });
+            }
+            var extToken;
+            try {
+                extToken = await getGoogleAccessToken(env);
+            } catch (tokenErr) {
+                return jsonOk({ ok: false, google_event_removed: false, google_error: tokenErr.message });
+            }
+            var extRes;
+            try {
+                extRes = await googleCalendarApiCall(extToken, "GET",
+                    "/events/" + encodeURIComponent(session.google_event_id), null);
+            } catch (extErr) {
+                return jsonOk({ ok: false, google_event_removed: false, google_error: extErr.message });
+            }
+            var goneFromGoogle = extRes.status === 404 || extRes.status === 410 ||
+                (extRes.ok && extRes.data && extRes.data.status === "cancelled");
+            if (!goneFromGoogle) {
+                if (!extRes.ok) {
+                    return jsonOk({ ok: false, google_event_removed: false, google_error: googleApiErrMessage(extRes) });
+                }
+                return jsonErr("This event still exists on the Google Calendar -- remove it there and sync. / Este evento ainda existe no Google Calendar -- remova-o la e sincronize.", 400);
+            }
+            // Keep anything that somehow had real data attached to it.
+            var extRow = await env.DB.prepare(
+                "SELECT client_id, raw_transcript IS NOT NULL AS has_transcript, " +
+                "summary_json IS NOT NULL AS has_summary FROM sessions WHERE id = ?"
+            ).bind(sessionId).first();
+            if (extRow && (extRow.client_id || extRow.has_transcript || extRow.has_summary)) {
+                return jsonErr("This event has Apex data attached and was not removed. / Este evento tem dados do Apex anexados e nao foi removido.", 409);
+            }
+            await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sessionId).run();
+            return jsonOk({ ok: true, google_event_removed: true, removed_stale_external: true });
         }
 
         var series = await loadSeriesContext(env, session);
@@ -4433,7 +4486,8 @@ async function handleGetGoogleCalendarEvents(request, env) {
         // 'google_external').
         var knownRows = await env.DB.prepare(
             "SELECT id, google_event_id, calendar_provider, client_name, date, time, session_type, " +
-            "google_meet_link, html_link, end_time, attendees " +
+            "google_meet_link, html_link, end_time, attendees, client_id, status, " +
+            "raw_transcript IS NOT NULL AS has_transcript, summary_json IS NOT NULL AS has_summary " +
             "FROM sessions WHERE google_event_id IS NOT NULL AND google_event_id != ''"
         ).all();
         var known = {};
@@ -4441,9 +4495,28 @@ async function handleGetGoogleCalendarEvents(request, env) {
             known[knownRows.results[k].google_event_id] = knownRows.results[k];
         }
 
+        // Every event id Google actually returned this pass. Used after the
+        // insert/update loop to find rows whose Google event is GONE -- absence
+        // is invisible to an insert-and-update sync, which is why events Rafa
+        // deleted in Google stayed in Apex forever, blocking time slots Alice
+        // could not clear from either side (real report, 2026-08-03).
+        var seenGoogleIds = {};
+        // Apex-owned rows whose Google copy disagrees. Never silently
+        // overwritten in either direction -- reported so a human decides.
+        var divergences = [];
+
         for (var i = 0; i < items.length; i++) {
             var ev = items[i];
             if (!ev.id) { continue; }
+            // Mark presence BEFORE any skip below, so an event that Google
+            // still holds is never mistaken for a deleted one by the
+            // absence sweep. A 'cancelled' event is deliberately NOT marked:
+            // Google saying "cancelled" is exactly the deletion signal the
+            // sweep should act on.
+            if (ev.status !== "cancelled") {
+                seenGoogleIds[ev.id] = 1;
+                if (ev.recurringEventId) { seenGoogleIds[ev.recurringEventId] = 1; }
+            }
             if (ev.status === "cancelled") { continue; }
 
             // Instances of a recurring event Apex itself created must never be
@@ -4480,9 +4553,40 @@ async function handleGetGoogleCalendarEvents(request, env) {
 
             var existing = known[ev.id];
             if (existing) {
-                // Only reconcile events we originally synced from Google. Apex-created
-                // sessions that happen to carry a google_event_id are left untouched.
-                if (existing.calendar_provider !== "google_external") { continue; }
+                // Apex-created sessions are never overwritten from Google --
+                // Apex owns their data. But "don't overwrite" was implemented
+                // as "don't look", which left the sync structurally blind to
+                // Apex/Google divergence: the exact failure that stranded
+                // three real events in July 2026, where pressing Sincronizar
+                // could not have detected the problem. Compare and REPORT,
+                // still without writing to either side.
+                if (existing.calendar_provider !== "google_external") {
+                    if (existing.status !== "cancelled" && existing.status !== "discarded") {
+                        var apexEndHHMM = existing.end_time ? String(existing.end_time).slice(0, 5) : null;
+                        var googleEndHHMM = (endVal && endVal.indexOf("T") !== -1) ? endVal.slice(11, 16) : null;
+                        var diffs = [];
+                        if ((existing.date || null) !== (datePart || null)) {
+                            diffs.push({ field: "date", apex: existing.date || null, google: datePart || null });
+                        }
+                        if ((existing.time || null) !== (timePart || null)) {
+                            diffs.push({ field: "time", apex: existing.time || null, google: timePart || null });
+                        }
+                        // Only compare end times when BOTH sides have one --
+                        // a missing Apex end_time is a gap, not a disagreement.
+                        if (apexEndHHMM && googleEndHHMM && apexEndHHMM !== googleEndHHMM) {
+                            diffs.push({ field: "end_time", apex: apexEndHHMM, google: googleEndHHMM });
+                        }
+                        if (diffs.length) {
+                            divergences.push({
+                                session_id:      existing.id,
+                                google_event_id: ev.id,
+                                client_name:     existing.client_name || null,
+                                differences:     diffs
+                            });
+                        }
+                    }
+                    continue;
+                }
 
                 var changed =
                     (existing.client_name      || null) !== (title         || null) ||
@@ -4538,11 +4642,56 @@ async function handleGetGoogleCalendarEvents(request, env) {
             known[ev.id] = { id: null, calendar_provider: "google_external" };
         }
 
+        var minDate = timeMin.slice(0, 10);
+        var maxDate = timeMax.slice(0, 10);
+
+        // ── Absence sweep: external rows whose Google event is gone ────────
+        // Scoped strictly to the window Google was actually asked about --
+        // a row outside [minDate, maxDate] was never in the response and its
+        // absence means nothing. Only 'google_external' rows are eligible:
+        // they are pure calendar display rows (verified 2026-08-03: all 134
+        // have client_id NULL, no transcript and no summary), so deleting one
+        // destroys no history. Marking them 'cancelled' instead would leave a
+        // greyed-out phantom of something already deleted in Google -- the
+        // very clutter that prompted this.
+        //
+        // The guard below is the safety net: if anything ever DID get attached
+        // to an external row (a client, a transcript, a summary), it is kept
+        // and reported rather than deleted.
+        var deletedExternal = [];
+        var keptExternal    = [];
+        var staleRows = await env.DB.prepare(
+            "SELECT id, google_event_id, client_name, date, client_id, " +
+            "raw_transcript IS NOT NULL AS has_transcript, summary_json IS NOT NULL AS has_summary " +
+            "FROM sessions WHERE calendar_provider = 'google_external' AND date >= ? AND date <= ?"
+        ).bind(minDate, maxDate).all();
+
+        for (var s = 0; s < staleRows.results.length; s++) {
+            var row = staleRows.results[s];
+            if (!row.google_event_id) { continue; }
+            if (seenGoogleIds[row.google_event_id]) { continue; }
+            // A recurring instance id ("<master>_20260726T140000Z") is present
+            // whenever its master is -- covered by seenGoogleIds above.
+            if (row.client_id || row.has_transcript || row.has_summary) {
+                keptExternal.push({
+                    session_id:  row.id,
+                    client_name: row.client_name || null,
+                    reason:      "has attached data"
+                });
+                continue;
+            }
+            await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(row.id).run();
+            deletedExternal.push({
+                session_id:      row.id,
+                google_event_id: row.google_event_id,
+                client_name:     row.client_name || null,
+                date:            row.date || null
+            });
+        }
+
         // Return every externally-sourced row currently in D1 for this window,
         // read back from the table (not the live fetch) so this endpoint
         // reflects persisted state.
-        var minDate = timeMin.slice(0, 10);
-        var maxDate = timeMax.slice(0, 10);
         var extRows = await env.DB.prepare(
             "SELECT id, client_name, date, time, session_type, google_meet_link, google_event_id, html_link, end_time, status, attendees " +
             "FROM sessions WHERE calendar_provider = 'google_external' AND date >= ? AND date <= ? " +
@@ -4565,10 +4714,116 @@ async function handleGetGoogleCalendarEvents(request, env) {
             };
         });
 
-        return jsonOk({ events: externalEvents });
+        return jsonOk({
+            events: externalEvents,
+            // Reconcile results. `divergences` is the one thing the sync could
+            // never see before: an Apex-owned session whose Google copy says
+            // something different. Reported, never auto-resolved -- a human
+            // decides which side is right.
+            removed_external:  deletedExternal,
+            kept_external:     keptExternal,
+            divergences:       divergences
+        });
     } catch (e) {
         if (e.name === "AbortError") { return jsonErr("Google API request timed out", 504); }
         return jsonErr("Error listing calendar events: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google/calendar/event/:googleEventId
+// Auth: any role. READ-ONLY. Fetches one event straight from Google and
+// returns what GOOGLE says about it -- never D1's copy. Writes nothing.
+//
+// This exists because there was previously no way to ask Google anything
+// about an Apex-owned event: the only list route returns 'google_external'
+// rows exclusively, so an Apex-created event was invisible to every available
+// check. On 2026-08-03 that made a live edit unverifiable -- the delete could
+// be confirmed (absence shows up in a sync) but the edit could not.
+//
+// When the session is known to Apex, the response also carries Apex's own
+// values and an `agrees` flag, so "Apex says 4:00 PM, Google says 2:00 PM" is
+// a single call rather than an inference.
+// ---------------------------------------------------------------------------
+
+async function handleGetGoogleCalendarEvent(googleEventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!googleEventId) { return jsonErr("google_event_id is required", 400); }
+
+        var accessToken;
+        try {
+            accessToken = await getGoogleAccessToken(env);
+        } catch (tokenErr) {
+            var code = tokenErr.message === "Google Calendar not connected" ? 400 : 502;
+            return jsonErr(tokenErr.message, code);
+        }
+
+        var res = await googleCalendarApiCall(
+            accessToken, "GET", "/events/" + encodeURIComponent(googleEventId), null
+        );
+        accessToken = null;
+
+        // 404/410 is a real answer, not an error: Google does not have it.
+        if (res.status === 404 || res.status === 410) {
+            return jsonOk({
+                found:           false,
+                google_event_id: googleEventId,
+                google:          null
+            });
+        }
+        if (!res.ok) {
+            return jsonErr("Google Calendar API error: " + googleApiErrMessage(res), res.status || 502);
+        }
+
+        var ev = res.data || {};
+        var startVal = (ev.start && (ev.start.dateTime || ev.start.date)) || null;
+        var endVal   = (ev.end   && (ev.end.dateTime   || ev.end.date))   || null;
+        var google = {
+            id:                 ev.id || googleEventId,
+            status:             ev.status || null,
+            summary:            ev.summary || null,
+            start:              startVal,
+            end:                endVal,
+            date:               startVal ? startVal.slice(0, 10) : null,
+            time:               (startVal && startVal.indexOf("T") !== -1) ? startVal.slice(11, 16) : null,
+            end_time:           (endVal   && endVal.indexOf("T")   !== -1) ? endVal.slice(11, 16)   : null,
+            recurring_event_id: ev.recurringEventId || null,
+            recurrence:         ev.recurrence || null,
+            meet_link:          extractGoogleEventMeetLink(ev),
+            html_link:          ev.htmlLink || null
+        };
+
+        // Apex's own copy, when it has one, plus a straight comparison.
+        var apexRow = await env.DB.prepare(
+            "SELECT id, client_name, date, time, end_time, status, calendar_provider, google_meet_link, html_link " +
+            "FROM sessions WHERE google_event_id = ? LIMIT 1"
+        ).bind(googleEventId).first();
+
+        var apex = null;
+        var agrees = null;
+        if (apexRow) {
+            var apexEnd = apexRow.end_time ? String(apexRow.end_time).slice(0, 5) : null;
+            apex = {
+                session_id:        apexRow.id,
+                client_name:       apexRow.client_name || null,
+                date:              apexRow.date || null,
+                time:              apexRow.time || null,
+                end_time:          apexEnd,
+                status:            apexRow.status || null,
+                calendar_provider: apexRow.calendar_provider || null
+            };
+            agrees = (apexRow.date || null) === (google.date || null) &&
+                     (apexRow.time || null) === (google.time || null) &&
+                     // end_time only counts when both sides actually have one
+                     (!apexEnd || !google.end_time || apexEnd === google.end_time);
+        }
+
+        return jsonOk({ found: true, google_event_id: googleEventId, google: google, apex: apex, agrees: agrees });
+    } catch (e) {
+        if (e.name === "AbortError") { return jsonErr("Google API request timed out", 504); }
+        return jsonErr("Error reading calendar event: " + e.message, 500);
     }
 }
 
@@ -15263,6 +15518,12 @@ export default {
         if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
         if (path === "/api/google/calendar/event"     && method === "POST") { return handlePostGoogleCalendarEvent(request, env); }
         if (path === "/api/google/calendar/events"    && method === "GET")  { return handleGetGoogleCalendarEvents(request, env); }
+        // Read-only single-event lookup straight from Google. Declared AFTER
+        // the two routes above so neither literal path is shadowed by it.
+        var gcalEventMatch = path.match(/^\/api\/google\/calendar\/event\/(.+)$/);
+        if (gcalEventMatch && method === "GET") {
+            return handleGetGoogleCalendarEvent(decodeURIComponent(gcalEventMatch[1]), request, env);
+        }
         if (path === "/api/zoho/oauth/start"          && method === "GET")  { return handleZohoOAuthStart(request, env); }
         if (path === "/api/zoho/oauth/callback"       && method === "GET")  { return handleZohoOAuthCallback(request, env); }
         if (path === "/api/zoho/oauth/status"         && method === "GET")  { return handleZohoOAuthStatus(request, env); }

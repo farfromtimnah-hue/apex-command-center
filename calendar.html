@@ -493,6 +493,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       overflow: auto;
+      position: relative;   /* positioning context for the timed-block overlay */
     }
 
     .cal-week-grid {
@@ -545,6 +546,89 @@
     .cal-week-slot:last-child { border-right: none; }
     .cal-week-slot:hover { background: #f6f4f0; }
 
+    /* ─── Timed-block overlay (week + day) ───────────────────────────────────
+       Timed sessions are NOT children of the hour slots -- they are absolutely
+       positioned in a per-day overlay stacked on top of the hour grid, sized by
+       real start/end time. The hour slots below stay as the empty ruled
+       background. See layoutTimedBlocks() for the geometry. */
+    .cal-day-col-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;   /* the empty grid underneath stays hoverable */
+    }
+
+    /* The overlay host mirrors the hour-grid columns exactly: same 52px gutter
+       and same 7 equal day columns, offset from the top by the header and
+       "no time" rows so row 0 of the overlay lines up with the first hour. Its
+       top offset is set from measured geometry in JS -- the header height is
+       content-dependent and cannot be hard-coded. */
+    .cal-week-overlay-host {
+      position: absolute;
+      left: 0; right: 0;
+      display: grid;
+      grid-template-columns: 52px repeat(7, 1fr);
+      pointer-events: none;
+    }
+    .cal-week-overlay-host > .cal-week-overlay-col:first-child { grid-column: 1; }
+    .cal-week-overlay-col {
+      position: relative;
+      pointer-events: none;
+    }
+
+    .cal-day-overlay-host {
+      position: absolute;
+      left: 0; right: 0;
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      pointer-events: none;
+    }
+    .cal-day-overlay-col {
+      position: relative;
+      pointer-events: none;
+    }
+
+    .cal-block {
+      position: absolute;
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      pointer-events: auto;
+      box-sizing: border-box;
+      line-height: 1.25;
+    }
+    .cal-block.online      { background: var(--cal-online);      color: var(--cal-online-text); }
+    .cal-block.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
+    .cal-block.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
+    .cal-block.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
+    .cal-block.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
+    .cal-block:hover { opacity: 0.88; }
+    .cal-block.cancelled { opacity: 0.55; text-decoration: line-through; }
+
+    .cal-block-week { padding: 2px 5px; font-size: 11px; }
+    .cal-block-day  { padding: 4px 9px; font-size: 12px; }
+
+    /* A block whose real duration is short cannot fit two lines -- the time
+       drops out rather than overflowing into the next block. */
+    .cal-block.is-short .cal-block-time { display: none; }
+    .cal-block-title { font-weight: 700; }
+    .cal-block-time  { font-weight: 400; opacity: 0.85; }
+
+    /* A narrow block (one of several sharing an hour) has no room to wrap a
+       long client name onto three lines -- clamp the title to one line and let
+       the tooltip carry the full text. Without this, "GENERAL TILE SERVICES"
+       in a half-width column pushes its own time out of the block. */
+    .cal-block.is-narrow .cal-block-title {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cal-block.is-narrow .cal-block-time { white-space: nowrap; }
+
+    /* Marks a block that actually starts before, or ends after, the visible
+       7am-9pm window, so a clipped block is not misread as a short one. */
+    .cal-block-clip { opacity: 0.75; font-weight: 700; }
+
     .cal-week-chip {
       border-radius: 4px;
       padding: 3px 6px;
@@ -566,6 +650,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       overflow: auto;
+      position: relative;   /* positioning context for the timed-block overlay */
     }
 
     .cal-day-grid {
@@ -2839,6 +2924,178 @@
     var HOURS = [];
     (function() { for (var h = 7; h <= 21; h++) { HOURS.push(h); } })();
 
+    // Pixel height of one hour row. Must stay equal to the min-height on
+    // .cal-week-slot / .cal-day-slot / the time labels -- the absolutely
+    // positioned blocks are placed against this number, so if the CSS and this
+    // constant disagree the blocks drift away from their hour lines.
+    var HOUR_PX = 52;
+
+    // ── Timed-block geometry ───────────────────────────────────────────────
+    //
+    // Until 2026-08-03 both timed views filtered sessions into hour slots by
+    // START HOUR ONLY:  parseInt(s.time.split(":")[0], 10) === h
+    // so a session appeared in exactly one hour no matter how long it ran.
+    // JM LUXURY POOL - RDE on 2026-08-04 runs 10:00 AM - 4:00 PM and rendered
+    // in the 10:00 row alone, leaving 11, 12, 1, 2 and 3 looking free. The
+    // calendar was reporting open time in the middle of a six-hour booking --
+    // which is exactly how something gets booked on top of it.
+    //
+    // Sessions are now laid out as proportional blocks against the hour grid,
+    // the way Google Calendar does it: position and height come from the real
+    // start and end time, so a six-hour block is six hours tall.
+
+    // Minutes since midnight, or null when the value is unusable.
+    function hhmmToMinutes(hhmm) {
+      if (!hhmm) { return null; }
+      var parts = String(hhmm).split(":");
+      var h = parseInt(parts[0], 10);
+      var m = parseInt(parts[1], 10);
+      if (isNaN(h) || isNaN(m)) { return null; }
+      return h * 60 + m;
+    }
+
+    // The [start, end) minute span a session occupies on its own date.
+    // Rules, all of which come from real rows in D1:
+    //   - no end_time            -> one hour (the create path's own default)
+    //   - end <= start           -> crosses midnight; clamp to end of day
+    //                               rather than render a negative-height block
+    // Returns null for untimed sessions, which the "no time" row handles.
+    function sessionMinuteSpan(session) {
+      var startMin = hhmmToMinutes(session.time);
+      if (startMin === null) { return null; }
+      var endMin = hhmmToMinutes(endTimeHHMM(session));
+      if (endMin === null)   { endMin = startMin + 60; }
+      if (endMin <= startMin) { endMin = 24 * 60; }
+      return { start: startMin, end: endMin };
+    }
+
+    // Places sessions into non-overlapping columns so that two meetings in the
+    // same hour sit side by side and BOTH stay visible and clickable, rather
+    // than one hiding the other. Classic interval-graph column packing: walk
+    // the sessions in start order, drop each into the first column whose last
+    // block has already ended, and open a new column when none has.
+    //
+    // Every block in a mutually-overlapping cluster is given the same column
+    // count, so widths line up instead of each block picking its own.
+    function layoutTimedBlocks(sessions) {
+      var items = [];
+      for (var i = 0; i < sessions.length; i++) {
+        var span = sessionMinuteSpan(sessions[i]);
+        if (!span) { continue; }
+        items.push({ session: sessions[i], start: span.start, end: span.end, col: 0, cols: 1 });
+      }
+      items.sort(function(a, b) {
+        if (a.start !== b.start) { return a.start - b.start; }
+        return b.end - a.end;         // longest first on an equal start
+      });
+
+      var cluster    = [];   // items in the current overlapping run
+      var clusterEnd = -1;   // latest end time seen in this cluster
+      var colEnds    = [];   // per-column end time within the cluster
+
+      function closeCluster() {
+        for (var c = 0; c < cluster.length; c++) { cluster[c].cols = colEnds.length || 1; }
+        cluster = [];
+        colEnds = [];
+        clusterEnd = -1;
+      }
+
+      for (var j = 0; j < items.length; j++) {
+        var it = items[j];
+        // A gap with nothing running means the previous cluster is finished and
+        // its width can be fixed.
+        if (cluster.length && it.start >= clusterEnd) { closeCluster(); }
+
+        var placed = false;
+        for (var k = 0; k < colEnds.length; k++) {
+          if (it.start >= colEnds[k]) { it.col = k; colEnds[k] = it.end; placed = true; break; }
+        }
+        if (!placed) { it.col = colEnds.length; colEnds.push(it.end); }
+
+        cluster.push(it);
+        if (it.end > clusterEnd) { clusterEnd = it.end; }
+      }
+      closeCluster();
+      return items;
+    }
+
+    // Builds the absolutely-positioned overlay for one day column.
+    // gridStartMin/gridEndMin are the visible window (HOURS[0] .. HOURS[last]+1).
+    // Blocks reaching outside it are clipped to the edge and flagged, so a
+    // session that genuinely starts at 6:00 AM is not silently dropped.
+    function buildTimedOverlay(sessions, variant) {
+      var gridStartMin = HOURS[0] * 60;
+      var gridEndMin   = (HOURS[HOURS.length - 1] + 1) * 60;
+      var overlay = document.createElement("div");
+      overlay.className = "cal-day-col-overlay";
+
+      var laid = layoutTimedBlocks(sessions);
+      for (var i = 0; i < laid.length; i++) {
+        var it = laid[i];
+        if (it.end <= gridStartMin || it.start >= gridEndMin) { continue; }  // fully outside
+
+        var clippedTop    = it.start < gridStartMin;
+        var clippedBottom = it.end   > gridEndMin;
+        var top    = Math.max(it.start, gridStartMin);
+        var bottom = Math.min(it.end,   gridEndMin);
+
+        var topPx    = ((top - gridStartMin) / 60) * HOUR_PX;
+        var heightPx = Math.max(((bottom - top) / 60) * HOUR_PX, 18);   // stay clickable
+
+        var widthPct = 100 / it.cols;
+        var block = makeTimedBlock(it.session, variant, clippedTop, clippedBottom,
+                                   (bottom - top) < 45, it.cols > 1);
+        block.style.top    = topPx + "px";
+        block.style.height = (heightPx - 2) + "px";
+        block.style.left   = (it.col * widthPct) + "%";
+        block.style.width  = "calc(" + widthPct + "% - 3px)";
+        overlay.appendChild(block);
+      }
+      return overlay;
+    }
+
+    // Aligns an overlay host to the top of the first hour row. The header and
+    // "no time" rows above the grid are content-sized (they carry bilingual
+    // labels that wrap differently per language), so the offset is measured
+    // rather than assumed. Called after the grid is in the document, because
+    // offsetTop reads 0 on a detached node.
+    function alignOverlayHost(overlayHost, wrap, firstHourLabel) {
+      if (!overlayHost || !wrap || !firstHourLabel) { return; }
+      // wrap is position:relative, so offsetTop is already measured against it
+      // and scrolls with it -- no scroll correction belongs here.
+      overlayHost.style.top = firstHourLabel.offsetTop + "px";
+    }
+
+    // One positioned session block. `variant` is "week" or "day" -- the only
+    // difference is padding and font size.
+    function makeTimedBlock(session, variant, clippedTop, clippedBottom, isShort, isNarrow) {
+      var block = document.createElement("div");
+      block.className = "cal-block cal-block-" + variant + " " + sessionTypeCls(session) +
+                        (isShort  ? " is-short"  : "") +
+                        (isNarrow ? " is-narrow" : "") +
+                        (session.status === "cancelled" ? " cancelled" : "");
+
+      var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
+      if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
+      // ↑/↓ mark a block that runs past the edge of the visible window.
+      if (clippedTop)    { badgeHtml += '<span class="cal-block-clip">↑</span> '; }
+
+      var html = badgeHtml +
+                 '<span class="cal-block-title">' + escHtml(session.client_name || "—") + '</span>';
+      var timeText = chipTimeText(session);
+      if (timeText) {
+        html += '<br><span class="cal-block-time">' + timeText +
+                (clippedBottom ? ' <span class="cal-block-clip">↓</span>' : '') + '</span>';
+      }
+      block.innerHTML = html;
+
+      // The full range always reaches the user, even on a block too short to
+      // print it.
+      block.title = (session.client_name || "—") + (timeText ? " · " + timeText : "");
+      (function(s) { block.onclick = function(e) { e.stopPropagation(); openDetail(s); }; })(session);
+      return block;
+    }
+
     function renderWeek() {
       var content    = document.getElementById("calendarContent");
       var todayStr   = (function() { var t = new Date(); return t.getFullYear() + "-" + padZ(t.getMonth()+1) + "-" + padZ(t.getDate()); })();
@@ -2886,7 +3143,10 @@
         grid.appendChild(untimedSlot);
       }
 
-      // Time slot rows
+      // Time slot rows. The slots are now only the ruled background -- every
+      // timed session is drawn in the per-day overlay below, positioned by its
+      // real start and end time.
+      var firstHourLabel = null;
       for (var hi = 0; hi < HOURS.length; hi++) {
         var h = HOURS[hi];
         var timeLabel = document.createElement("div");
@@ -2897,28 +3157,37 @@
         // reading "1:00 PM" -- two conventions on one screen (spotted 2026-08-03).
         timeLabel.textContent = formatTime(padZ(h) + ":00");
         grid.appendChild(timeLabel);
+        if (hi === 0) { firstHourLabel = timeLabel; }
 
         for (var dw = 0; dw < 7; dw++) {
-          var slotKey  = weekDates[dw];
-          var hourVal  = h;
-          var slotSess = (map[slotKey] || []).filter(function(s) {
-            if (!s.time) { return false; }
-            return parseInt(s.time.split(":")[0], 10) === hourVal;
-          });
-
           var slot = document.createElement("div");
           slot.className = "cal-week-slot";
-
-          for (var si = 0; si < slotSess.length; si++) {
-            slot.appendChild(makeWeekChip(slotSess[si]));
-          }
           grid.appendChild(slot);
         }
       }
 
       wrap.appendChild(grid);
+
+      // Overlay layer: one absolutely positioned column per day, sitting on top
+      // of the hour grid and aligned to it. Appended after the grid is in the
+      // DOM so the columns can be measured against the real slot geometry.
+      var overlayHost = document.createElement("div");
+      overlayHost.className = "cal-week-overlay-host";
+      overlayHost.style.height = (HOURS.length * HOUR_PX) + "px";
+      // Column 1 is the time gutter -- an empty spacer keeps the 7 day columns
+      // in the same tracks as the grid underneath.
+      overlayHost.appendChild(document.createElement("div"));
+      for (var dov = 0; dov < 7; dov++) {
+        var timedSess = (map[weekDates[dov]] || []).filter(function(s) { return !!s.time; });
+        var col = document.createElement("div");
+        col.className = "cal-week-overlay-col";
+        col.appendChild(buildTimedOverlay(timedSess, "week"));
+        overlayHost.appendChild(col);
+      }
+      wrap.appendChild(overlayHost);
       content.innerHTML = "";
       content.appendChild(wrap);
+      alignOverlayHost(overlayHost, wrap, firstHourLabel);
 
       // Check if no sessions exist this week
       var weekSessions = 0;
@@ -2992,30 +3261,40 @@
       }
       grid.appendChild(dayUntimedSlot);
 
+      // Hour rows are the ruled background only -- timed sessions are drawn in
+      // the overlay below, positioned by real start/end time. See
+      // layoutTimedBlocks().
+      var dayFirstHourLabel = null;
       for (var hi = 0; hi < HOURS.length; hi++) {
         var h = HOURS[hi];
         var timeLabel = document.createElement("div");
         timeLabel.className = "cal-day-time-label";
         timeLabel.textContent = formatTime(padZ(h) + ":00");   // 12-hour -- see the week gutter above
         grid.appendChild(timeLabel);
-
-        var slotSess = daySessions.filter(function(s) {
-          if (!s.time) { return false; }
-          return parseInt(s.time.split(":")[0], 10) === h;
-        });
+        if (hi === 0) { dayFirstHourLabel = timeLabel; }
 
         var slot = document.createElement("div");
         slot.className = "cal-day-slot";
-
-        for (var si = 0; si < slotSess.length; si++) {
-          slot.appendChild(makeDayChip(slotSess[si]));
-        }
         grid.appendChild(slot);
       }
 
       wrap.appendChild(grid);
+
+      var dayOverlayHost = document.createElement("div");
+      dayOverlayHost.className = "cal-day-overlay-host";
+      dayOverlayHost.style.height = (HOURS.length * HOUR_PX) + "px";
+      dayOverlayHost.appendChild(document.createElement("div"));   // time-gutter spacer
+      var dayTimedCol = document.createElement("div");
+      dayTimedCol.className = "cal-day-overlay-col";
+      dayTimedCol.appendChild(buildTimedOverlay(
+        daySessions.filter(function(s) { return !!s.time; }), "day"
+      ));
+      dayOverlayHost.appendChild(dayTimedCol);
+      wrap.appendChild(dayOverlayHost);
+
       content.innerHTML = "";
       content.appendChild(wrap);
+      alignOverlayHost(dayOverlayHost, wrap, dayFirstHourLabel);
 
       if (daySessions.length === 0) {
         var emptyEl = document.createElement("div");

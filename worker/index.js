@@ -2800,14 +2800,20 @@ async function handlePostSessionsSchedule(request, env) {
         var googleEventId = body.google_event_id || null;
         var gcalError     = null;
 
-        // Recurring online series: ONE Google Calendar event carrying a
-        // native RRULE (Google generates the instances; the whole series
-        // shares one Meet link), then N local rows below. One API call, so
-        // there is no per-occurrence partial-failure problem. If Google
-        // fails, the rows are still created with the placeholder link so the
-        // series exists and is repairable from the detail modal; the
+        // Recurring series: ONE Google Calendar event carrying a native RRULE
+        // (Google generates the instances), then N local rows below. One API
+        // call, so there is no per-occurrence partial-failure problem. If
+        // Google fails, the rows are still created with the placeholder link so
+        // the series exists and is repairable from the detail modal; the
         // WhatsApp 409 guard keeps the placeholder away from clients.
-        if (recurFreq && sessionType === "online_meet") {
+        //
+        // An in-person series gets the same treatment WITHOUT conferenceData:
+        // no Meet link, but a real event on Rafa's calendar so he is reminded
+        // and nobody working in Google books over it. Before 2026-08-03 this
+        // was gated to online_meet, so a recurring in-person engagement was
+        // invisible to everyone outside Apex.
+        if (recurFreq) {
+            var seriesWantsMeet = (sessionType === "online_meet");
             var seriesEndHHMM = endTime || plusOneHourHHMM(body.time);
             var seriesTitle = meetingCategory === "prospective" ? clientName : clientName + " - RDE";
             var attendeeEmail = meetingCategory === "event" ? null : await lookupClientAttendeeEmail(env, clientId);
@@ -2817,13 +2823,21 @@ async function handlePostSessionsSchedule(request, env) {
                     summary: seriesTitle,
                     start: { dateTime: body.date + "T" + body.time + ":00", timeZone: APEX_TIMEZONE },
                     end:   { dateTime: body.date + "T" + seriesEndHHMM + ":00", timeZone: APEX_TIMEZONE },
-                    recurrence: [buildRecurrenceRule(recurFreq, recurCount)],
-                    conferenceData: {
-                        createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
-                    }
+                    recurrence: [buildRecurrenceRule(recurFreq, recurCount)]
                 };
+                if (seriesWantsMeet) {
+                    seriesEventBody.conferenceData = {
+                        createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+                    };
+                } else if (location) {
+                    seriesEventBody.location = String(location).slice(0, 1024);
+                }
                 if (attendeeEmail) { seriesEventBody.attendees = [{ email: attendeeEmail }]; }
-                var seriesRes = await googleCalendarApiCall(seriesToken, "POST", "/events?conferenceDataVersion=1", seriesEventBody);
+                var seriesRes = await googleCalendarApiCall(
+                    seriesToken, "POST",
+                    seriesWantsMeet ? "/events?conferenceDataVersion=1" : "/events",
+                    seriesEventBody
+                );
                 if (seriesRes.ok && seriesRes.data) {
                     googleEventId = seriesRes.data.id;
                     var seriesMeet = extractGoogleEventMeetLink(seriesRes.data);
@@ -3078,7 +3092,7 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: PATCH /api/sessions/:id/meet-link
-// Body: { google_meet_link, google_event_id? }
+// Body: { google_meet_link?, google_event_id?, html_link? }
 // Attaches a Google Meet link to an EXISTING session -- every other code
 // path only ever sets google_meet_link at creation time, which left
 // sessions stuck on the "[PENDING_GOOGLE_API]" placeholder unrepairable
@@ -3086,6 +3100,12 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
 // The calendar detail modal's "Generate Meet link" button calls this after
 // creating the calendar event. Refuses to store the placeholder itself:
 // this route exists to replace it, never to write it.
+//
+// An IN-PERSON session has no Meet link by design but still needs a Google
+// event, so Rafa's phone reminds him and nobody working in Google books over
+// it (2026-08-03: in-person sessions never reached Google at all). For that
+// case the body carries google_event_id with NO google_meet_link, and the
+// meet link is left untouched rather than overwritten with null.
 // ---------------------------------------------------------------------------
 
 async function handlePatchSessionMeetLink(sessionId, request, env) {
@@ -3096,8 +3116,15 @@ async function handlePatchSessionMeetLink(sessionId, request, env) {
 
         var body = await request.json();
         var meetLink = body.google_meet_link;
-        if (!meetLink || typeof meetLink !== "string") {
-            return jsonErr("google_meet_link is required", 400);
+        var hasMeetLink = meetLink !== undefined && meetLink !== null && meetLink !== "";
+
+        // One of the two must be present -- an empty PATCH would silently do
+        // nothing and report success.
+        if (!hasMeetLink && !body.google_event_id) {
+            return jsonErr("google_meet_link or google_event_id is required", 400);
+        }
+        if (hasMeetLink && typeof meetLink !== "string") {
+            return jsonErr("google_meet_link must be a string", 400);
         }
         if (meetLink === "[PENDING_GOOGLE_API]") {
             return jsonErr("Refusing to store the placeholder link", 400);
@@ -3108,11 +3135,24 @@ async function handlePatchSessionMeetLink(sessionId, request, env) {
         ).bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
 
-        await env.DB.prepare(
-            "UPDATE sessions SET google_meet_link = ?, google_event_id = ? WHERE id = ?"
-        ).bind(meetLink, body.google_event_id || null, sessionId).run();
+        // Build the SET list from what was actually supplied, so an in-person
+        // attach cannot blank out a link and a link repair cannot blank out an
+        // html_link.
+        var sets = [];
+        var binds = [];
+        if (hasMeetLink)          { sets.push("google_meet_link = ?"); binds.push(meetLink); }
+        if (body.google_event_id) { sets.push("google_event_id = ?");  binds.push(body.google_event_id); }
+        if (body.html_link)       { sets.push("html_link = ?");        binds.push(body.html_link); }
+        binds.push(sessionId);
 
-        return jsonOk({ ok: true, google_meet_link: meetLink, google_event_id: body.google_event_id || null });
+        var stmt = env.DB.prepare("UPDATE sessions SET " + sets.join(", ") + " WHERE id = ?");
+        await stmt.bind.apply(stmt, binds).run();
+
+        return jsonOk({
+            ok: true,
+            google_meet_link: hasMeetLink ? meetLink : null,
+            google_event_id:  body.google_event_id || null
+        });
     } catch (e) {
         return jsonErr("Error updating Meet link: " + e.message, 500);
     }
@@ -3944,8 +3984,53 @@ async function handlePatchSessionDetails(sessionId, request, env) {
             patchBody.conferenceData = null;
             droppedMeetLink = true;
         }
+        // in_person -> online_meet: the session now needs a real Meet link.
+        // Before 2026-08-03 only the reverse direction was coded, so flipping
+        // an in-person session to Google Meet left google_event_id NULL and no
+        // link at all -- the type changed and nothing else did.
+        var switchedToOnline = session.session_type === "in_person" && newType === "online_meet";
+        var addedMeetLink = null;
+        if (switchedToOnline) {
+            patchBody.conferenceData = {
+                createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+            };
+        }
 
         var hasGoogleEvent = !!session.google_event_id;
+
+        // An in-person row that predates in-person Google sync has no event to
+        // patch. Switching it to online must still produce a real Meet link, so
+        // create the event outright rather than silently doing nothing.
+        var createdEventId = null;
+        if (!hasGoogleEvent && switchedToOnline) {
+            var newToken = null;
+            try {
+                newToken = await getGoogleAccessToken(env);
+            } catch (tokenErr2) {
+                return jsonErr("Cannot edit while Google Calendar is not connected: " + tokenErr2.message, 502);
+            }
+            var gEndN = newEnd;
+            if (!gEndN || !newTime || gEndN <= newTime) { gEndN = plusOneHourHHMM(newTime || "09:00"); }
+            var newEventBody2 = {
+                summary: (newCategory === "client") ? newClientName + " - RDE" : newClientName,
+                start: { dateTime: newDate + "T" + (newTime || "09:00") + ":00", timeZone: APEX_TIMEZONE },
+                end:   { dateTime: newDate + "T" + gEndN + ":00", timeZone: APEX_TIMEZONE },
+                conferenceData: {
+                    createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+                }
+            };
+            var attendee2 = newCategory === "event" ? null : await lookupClientAttendeeEmail(env, newClientId);
+            if (attendee2) { newEventBody2.attendees = [{ email: attendee2 }]; }
+            var createRes2 = await googleCalendarApiCall(newToken, "POST",
+                "/events?conferenceDataVersion=1", newEventBody2);
+            // Google is authoritative: no verified event means no Apex change.
+            if (!createRes2.ok || !createRes2.data || !createRes2.data.id) {
+                return jsonErr(googleApiErrMessage(createRes2), 502);
+            }
+            createdEventId = createRes2.data.id;
+            addedMeetLink  = extractGoogleEventMeetLink(createRes2.data);
+            patchBody = {};   // the new event already carries every edited field
+        }
         if (hasGoogleEvent && Object.keys(patchBody).length > 0) {
             var accessToken = null;
             try {
@@ -4052,6 +4137,12 @@ async function handlePatchSessionDetails(sessionId, request, env) {
                     return jsonErr(googleApiErrMessage(patchRes), 502);
                 }
             }
+            // A switch to online asked Google for a conference -- take the real
+            // link back off the patch response so D1 stores it rather than
+            // leaving the session marked online with no link.
+            if (switchedToOnline && patchRes && patchRes.ok && patchRes.data) {
+                addedMeetLink = extractGoogleEventMeetLink(patchRes.data);
+            }
         }
 
         // ---- Phase 2: D1 (reached only on verified Google success) ---------
@@ -4093,6 +4184,10 @@ async function handlePatchSessionDetails(sessionId, request, env) {
                 sets.push("client_name = ?"); binds.push(newClientName);
             }
             if (droppedMeetLink) { sets.push("google_meet_link = ?"); binds.push(null); }
+            // Switched to online: store the link Google just created, and the
+            // event id too when the event itself was created here.
+            if (addedMeetLink)  { sets.push("google_meet_link = ?"); binds.push(addedMeetLink); }
+            if (createdEventId) { sets.push("google_event_id = ?");  binds.push(createdEventId); }
             if (isTarget && hasNotes) {
                 sets.push("raw_transcript = ?");
                 binds.push((body.notes && String(body.notes).trim()) || null);
@@ -4113,6 +4208,7 @@ async function handlePatchSessionDetails(sessionId, request, env) {
             scope: scope,
             updated: updated,
             meet_link_removed: droppedMeetLink,
+            meet_link_added:   addedMeetLink || null,
             google_warning: googleWarning
         });
     } catch (e) {
@@ -4330,10 +4426,13 @@ async function handlePostGoogleCalendarEvent(request, env) {
             return jsonErr(tokenErr.message, code);
         }
 
-        // Build event body
+        // Build event body. `location` is Google's own field -- an in-person
+        // event carrying it can be navigated to straight from the reminder on
+        // Rafa's phone.
         var eventBody = {
             summary:     body.summary,
             description: body.description || undefined,
+            location:    body.location ? String(body.location).slice(0, 1024) : undefined,
             start: { dateTime: body.start_datetime, timeZone: APEX_TIMEZONE },
             end:   { dateTime: body.end_datetime,   timeZone: APEX_TIMEZONE }
         };

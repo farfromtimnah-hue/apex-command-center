@@ -1316,8 +1316,8 @@
           </div>
           <div class="glass-tile">
             <div class="glass-tile-label">
-              <span class="show-pt">AGUARDANDO LINK</span>
-              <span class="show-en">AWAITING MEET LINK</span>
+              <span class="show-pt">FORA DO GOOGLE</span>
+              <span class="show-en">NOT ON GOOGLE</span>
             </div>
             <div class="glass-tile-value" id="calStatAwaitLink">--</div>
           </div>
@@ -1714,6 +1714,18 @@
           <button class="btn-fix-meet" id="btnFixMeet" onclick="handleFixMeetLink()">
             <span class="show-pt">Gerar link do Meet</span>
             <span class="show-en">Generate Meet link</span>
+          </button>
+        </div>
+
+        <!-- Shown when an Apex-created IN-PERSON session or event never reached
+             Google. Creates a real Google event with NO Meet link, so Rafa's
+             phone reminds him and nobody working in Google books over it.
+             See handleAddToGoogle(). -->
+        <div id="detailGcalFixRow" class="detail-row" hidden>
+          <span class="detail-row-label">Google</span>
+          <button class="btn-fix-meet" id="btnAddToGcal" onclick="handleAddToGoogle()">
+            <span class="show-pt">Adicionar ao Google Calendar</span>
+            <span class="show-en">Add to Google Calendar</span>
           </button>
         </div>
 
@@ -2650,14 +2662,14 @@
           }
         }
 
-        if (s.session_type === "online_meet") {
-          countOnline++;
-          // Same gate as the ⚠ marker: only Apex-created sessions can be
-          // "awaiting" a link -- external and legacy rows are not broken.
-          if (needsMeetLink(s)) { countAwaitLink++; }
-        }
+        if (s.session_type === "online_meet") { countOnline++; }
+        if (s.session_type === "in_person")   { countInPerson++; }
 
-        if (s.session_type === "in_person") { countInPerson++; }
+        // Same gate as the ⚠ marker: only Apex-created sessions can be broken
+        // this way -- external and legacy rows are not. Counts BOTH failure
+        // modes: an online session with no Meet link, and (since 2026-08-03)
+        // an in-person session that never reached Google at all.
+        if (needsGoogleFix(s)) { countAwaitLink++; }
       }
 
       var elTotal     = document.getElementById("calStatTotal");
@@ -2876,6 +2888,26 @@
       return !session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]";
     }
 
+    // An Apex-created IN-PERSON session (or event) that never reached Google.
+    // Rafa is reminded by Google, not by Apex -- Apex has no notification
+    // system -- and everyone except Alice still works in Google, so a session
+    // missing from it is both unremindable and bookable-over. Flagged on the
+    // calendar and repairable from the detail modal, exactly like a missing
+    // Meet link. Never true for external rows (they came FROM Google) or for
+    // legacy 'google'/'manual' rows (read-only history).
+    function needsGoogleEvent(session) {
+      if (!isApexSession(session)) { return false; }
+      if (session.session_type === "online_meet") { return false; }  // needsMeetLink covers those
+      if (session.status === "cancelled") { return false; }
+      return !session.google_event_id;
+    }
+
+    // Either kind of "this is not properly on Google" problem -- what the ⚠
+    // on a chip means.
+    function needsGoogleFix(session) {
+      return needsMeetLink(session) || needsGoogleEvent(session);
+    }
+
     // Bilingual "All day" chip text for sessions that legitimately have no
     // time (legacy transcript-ingested rows, Google all-day events) -- an
     // empty slot would read as a rendering failure.
@@ -2896,7 +2928,7 @@
         badge.textContent = isEn() ? "EXT" : "EXT";
         nameSpan.appendChild(badge);
       }
-      if (needsMeetLink(session)) {
+      if (needsGoogleFix(session)) {
         var warn = document.createElement("span");
         warn.className = "cal-chip-warn";
         warn.textContent = "⚠";
@@ -3076,7 +3108,7 @@
                         (session.status === "cancelled" ? " cancelled" : "");
 
       var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
-      if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
+      if (needsGoogleFix(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       // ↑/↓ mark a block that runs past the edge of the visible window.
       if (clippedTop)    { badgeHtml += '<span class="cal-block-clip">↑</span> '; }
 
@@ -3209,7 +3241,7 @@
       var typeCls = sessionTypeCls(session);
       chip.className = "cal-week-chip " + typeCls;
       var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
-      if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
+      if (needsGoogleFix(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + (chipTimeText(session) || allDayHtml()) + '</span>';
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
@@ -3311,7 +3343,7 @@
       var typeCls = sessionTypeCls(session);
       chip.className = "cal-day-chip " + typeCls;
       var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
-      if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
+      if (needsGoogleFix(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
       chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + (chipTimeText(session) || allDayHtml()) + '</span>';
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
@@ -4192,13 +4224,27 @@
         return (endHour < 10 ? "0" : "") + endHour + ":" + timeParts[1];
       }
 
-      function createMeetEvent(dateStr) {
+      // Creates the Google Calendar event for this session.
+      //
+      // withMeet=false is the IN-PERSON case: a real Google event with NO
+      // conferenceData, so there is no Meet link but the meeting still exists
+      // on Rafa's calendar. Until 2026-08-03 in-person sessions skipped Google
+      // entirely, which meant (a) Rafa got no phone reminder, since Apex has no
+      // notification system of its own, and (b) anyone working in Google -- so
+      // far, everyone but Alice -- could book straight over it. That is the
+      // likely root of the real 2026-07-30 18:00 double-booking, where the same
+      // client existed twice: once as an Apex online_meet and once as an
+      // in_person row that had come back from Google.
+      function createCalendarEvent(dateStr, withMeet) {
         var body = {
           summary: meetTitle(),
           start_datetime: dateStr + "T" + time + ":00",
           end_datetime: dateStr + "T" + calcEndTime() + ":00",
-          add_meet_link: true
+          add_meet_link: !!withMeet
         };
+        // The physical address goes in Google's own location field, so the
+        // event on Rafa's phone can navigate to it.
+        if (!withMeet && location) { body.location = location; }
         // Invite the client when their record has an email -- Google then
         // sends a real invite and the meeting lands in their own calendar.
         // No email on file is normal and adds no attendee, no warning.
@@ -4230,9 +4276,16 @@
             if (data.gcal_error) {
               btn.disabled = false;
               loadCalendar();
-              statusEl.textContent = en
-                ? recurCount + " meetings scheduled, but the Meet link could NOT be created — repair it from the meeting details."
-                : recurCount + " reunioes agendadas, mas o link do Meet NAO pode ser criado — repare nos detalhes da reuniao.";
+              // An in-person series has no Meet link to fail -- what failed is
+              // the Google event itself, so say that instead of naming a link
+              // Alice would then go looking for.
+              statusEl.textContent = (type === "online_meet")
+                ? (en
+                    ? recurCount + " meetings scheduled, but the Meet link could NOT be created — repair it from the meeting details."
+                    : recurCount + " reunioes agendadas, mas o link do Meet NAO pode ser criado — repare nos detalhes da reuniao.")
+                : (en
+                    ? recurCount + " meetings scheduled, but they are NOT on Google Calendar — add them from the meeting details."
+                    : recurCount + " reunioes agendadas, mas NAO estao no Google Calendar — adicione nos detalhes da reuniao.");
               statusEl.className = "pull-status is-error";
               if (isGcalNotConnectedError(data.gcal_error)) { promptConnectGcal(); }
               return;
@@ -4246,37 +4299,51 @@
         return;
       }
 
-      if (type === "online_meet") {
-        statusEl.textContent = en ? "Creating Meet event..." : "Criando evento Meet...";
-        statusEl.className = "pull-status";
+      // BOTH session types now create a real Google Calendar event -- online
+      // with a Meet link, in-person without one. Google stays authoritative in
+      // both directions: if the Google call does not verifiably succeed, Apex
+      // does not commit the session.
+      var wantsMeet = (type === "online_meet");
+      statusEl.textContent = wantsMeet
+        ? (en ? "Creating Meet event..."     : "Criando evento Meet...")
+        : (en ? "Creating calendar event..." : "Criando evento no calendario...");
+      statusEl.className = "pull-status";
 
-        createMeetEvent(date)
-          .then(function(result) {
-            if (!result.ok || !result.calData || !result.calData.google_meet_link) {
-              var errMsg = (result.calData && result.calData.error) ? result.calData.error : "";
-              btn.disabled = false;
-              if (isGcalNotConnectedError(errMsg)) {
-                statusEl.textContent = en ? "Session NOT scheduled — Google Calendar needs to be reconnected." : "Sessao NAO agendada — o Google Calendar precisa ser reconectado.";
-                statusEl.className = "pull-status is-error";
-                promptConnectGcal();
-                return;
-              }
-              statusEl.textContent = (en
-                ? "Could not create the Google Meet link (" + (errMsg || "unknown error") + "). Session was NOT scheduled — try again."
-                : "Nao foi possivel criar o link do Google Meet (" + (errMsg || "erro desconhecido") + "). A sessao NAO foi agendada — tente novamente.");
+      createCalendarEvent(date, wantsMeet)
+        .then(function(result) {
+          // Success means Google returned an event id. A Meet link is
+          // additionally required for online sessions, and must NOT be
+          // required for in-person ones -- they legitimately have none.
+          var calData = result.calData || {};
+          var okNow = result.ok && calData.google_event_id &&
+                      (!wantsMeet || calData.google_meet_link);
+          if (!okNow) {
+            var errMsg = calData.error || "";
+            btn.disabled = false;
+            if (isGcalNotConnectedError(errMsg)) {
+              statusEl.textContent = en ? "Session NOT scheduled — Google Calendar needs to be reconnected." : "Sessao NAO agendada — o Google Calendar precisa ser reconectado.";
               statusEl.className = "pull-status is-error";
+              promptConnectGcal();
               return;
             }
-            scheduleSession(result.calData.google_meet_link, result.calData.google_event_id || null, result.calData.html_link || null);
-          })
-          .catch(function(e) {
-            btn.disabled = false;
-            statusEl.textContent = (en ? "Could not create the Google Meet link (" : "Nao foi possivel criar o link do Google Meet (") + e.message + (en ? "). Session was NOT scheduled." : "). A sessao NAO foi agendada.");
+            var what = wantsMeet
+              ? (en ? "Could not create the Google Meet link (" : "Nao foi possivel criar o link do Google Meet (")
+              : (en ? "Could not create the Google Calendar event (" : "Nao foi possivel criar o evento no Google Calendar (");
+            statusEl.textContent = what + (errMsg || (en ? "unknown error" : "erro desconhecido")) +
+              (en ? "). Session was NOT scheduled — try again." : "). A sessao NAO foi agendada — tente novamente.");
             statusEl.className = "pull-status is-error";
-          });
-      } else {
-        scheduleSession(null, null);
-      }
+            return;
+          }
+          scheduleSession(calData.google_meet_link || null, calData.google_event_id || null, calData.html_link || null);
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          var what = wantsMeet
+            ? (en ? "Could not create the Google Meet link (" : "Nao foi possivel criar o link do Google Meet (")
+            : (en ? "Could not create the Google Calendar event (" : "Nao foi possivel criar o evento no Google Calendar (");
+          statusEl.textContent = what + e.message + (en ? "). Session was NOT scheduled." : "). A sessao NAO foi agendada.");
+          statusEl.className = "pull-status is-error";
+        });
       } // end submitNewSession
     }
 
@@ -4395,6 +4462,17 @@
         var fixBtn = document.getElementById("btnFixMeet");
         fixBtn.disabled = false;
         fixBtn.innerHTML = '<span class="show-pt">Gerar link do Meet</span><span class="show-en">Generate Meet link</span>';
+      }
+
+      // In-person repair: an Apex-created in-person session or event with no
+      // Google event at all. Mutually exclusive with the Meet rows above by
+      // construction -- needsGoogleEvent() ignores online_meet entirely.
+      var gcalFixRow = document.getElementById("detailGcalFixRow");
+      gcalFixRow.hidden = !needsGoogleEvent(session);
+      if (!gcalFixRow.hidden) {
+        var gcalBtn = document.getElementById("btnAddToGcal");
+        gcalBtn.disabled = false;
+        gcalBtn.innerHTML = '<span class="show-pt">Adicionar ao Google Calendar</span><span class="show-en">Add to Google Calendar</span>';
       }
 
       // Location row only with a real non-empty value; the Directions button
@@ -4662,6 +4740,81 @@
               openDetail(session);
               loadCalendar();
               showToast(en ? "Meet link created!" : "Link do Meet criado!");
+            });
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          if (st2) { st2.textContent = (en ? "Error: " : "Erro: ") + e.message; st2.className = "pull-status is-error"; }
+          if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }
+        });
+    }
+
+    // Puts an in-person session (or event) that never reached Google onto
+    // Rafa's calendar: a real Google event with NO conferenceData, so there is
+    // no Meet link but he gets a phone reminder and nobody working in Google
+    // can book over it. The repair path for rows created before in-person
+    // sessions started syncing (2026-08-03) and for any later Google failure.
+    function handleAddToGoogle() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var en  = isEn();
+      var btn = document.getElementById("btnAddToGcal");
+      var st2 = document.getElementById("detailStatus2");
+
+      var name = session.client_name || "Consultoria";
+      // Events carry their own name; a client session takes the same title
+      // convention the create path uses.
+      var title = (session.meeting_category === "event" || session.meeting_category === "prospective")
+        ? name : name + " - RDE";
+
+      var startTime = session.time ? session.time.slice(0, 5) : "09:00";
+      var endHHMM = endTimeHHMM(session);
+      if (!endHHMM) {
+        var tp = startTime.split(":");
+        var eh = parseInt(tp[0], 10) + 1;
+        if (eh > 23) { eh = 23; }
+        endHHMM = (eh < 10 ? "0" : "") + eh + ":" + tp[1];
+      }
+
+      btn.disabled = true;
+      if (st2) { st2.textContent = en ? "Creating calendar event..." : "Criando evento no calendario..."; st2.className = "pull-status"; }
+
+      var addBody = {
+        summary: title,
+        start_datetime: session.date + "T" + startTime + ":00",
+        end_datetime:   session.date + "T" + endHHMM + ":00",
+        add_meet_link: false
+      };
+      if (session.location) { addBody.location = session.location; }
+      var addAttendee = session.meeting_category === "event" ? null : clientEmailById(session.client_id);
+      if (addAttendee) { addBody.attendee_email = addAttendee; }
+
+      apiFetch("/api/google/calendar/event", { method: "POST", body: addBody })
+        .then(function(res) {
+          return res.json().then(function(calData) { return { ok: res.ok, calData: calData }; });
+        })
+        .then(function(result) {
+          if (!result.ok || !result.calData || !result.calData.google_event_id) {
+            throw new Error((result.calData && result.calData.error) || "unknown error");
+          }
+          var gEventId = result.calData.google_event_id;
+          var gHtmlLink = result.calData.html_link || null;
+          if (st2) { st2.textContent = en ? "Saving..." : "Salvando..."; }
+          // No google_meet_link in this body -- the route leaves the column
+          // alone rather than blanking it.
+          return apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/meet-link", {
+            method: "PATCH",
+            body: { google_event_id: gEventId, html_link: gHtmlLink }
+          })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data.error) { throw new Error(data.error); }
+              session.google_event_id = gEventId;
+              if (gHtmlLink) { session.html_link = gHtmlLink; }
+              if (st2) { st2.textContent = ""; }
+              openDetail(session);
+              loadCalendar();
+              showToast(en ? "Added to Google Calendar!" : "Adicionado ao Google Calendar!");
             });
         })
         .catch(function(e) {

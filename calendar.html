@@ -2822,8 +2822,9 @@
 
       var timeSpan = document.createElement("span");
       timeSpan.className = "cal-chip-time";
-      if (session.time) {
-        timeSpan.textContent = " " + formatTime(session.time);
+      var chipTime = chipTimeText(session);
+      if (chipTime) {
+        timeSpan.textContent = " " + chipTime;
       } else {
         timeSpan.innerHTML = " " + allDayHtml();
       }
@@ -2937,7 +2938,7 @@
       var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
       if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
-      chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + (session.time ? formatTime(session.time) : allDayHtml()) + '</span>';
+      chip.innerHTML += ' <span style="font-size:10px;opacity:0.85;">' + (chipTimeText(session) || allDayHtml()) + '</span>';
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
     }
@@ -3029,7 +3030,7 @@
       var badgeHtml = isExternalSession(session) ? '<span class="cal-chip-badge">EXT</span>' : "";
       if (needsMeetLink(session)) { badgeHtml += '<span class="cal-chip-warn">⚠</span>'; }
       chip.innerHTML = badgeHtml + '<strong>' + escHtml(session.client_name || "—") + '</strong>';
-      chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + (session.time ? formatTime(session.time) : allDayHtml()) + '</span>';
+      chip.innerHTML += ' <span style="font-size:11px;opacity:0.85;font-weight:400;">' + (chipTimeText(session) || allDayHtml()) + '</span>';
       (function(s) { chip.onclick = function() { openDetail(s); }; })(session);
       return chip;
     }
@@ -4021,6 +4022,21 @@
       if (!v) { return null; }
       if (v.indexOf("T") !== -1) { return v.slice(11, 16); }
       return v.slice(0, 5);
+    }
+
+    // The time text every calendar chip shows. Includes the end time whenever
+    // there is one, because without it a 6-hour block and a 30-minute call are
+    // visually identical -- so Alice cannot see the real shape of Rafa's day
+    // and books into time that is already gone. Real case that surfaced this
+    // (2026-08-03): JM LUXURY POOL 10:00 AM - 4:00 PM rendered exactly like a
+    // one-hour meeting. No view sizes chips by duration yet; until they do,
+    // this text is the only duration signal on the calendar.
+    function chipTimeText(session) {
+      if (!session.time) { return null; }        // caller renders the all-day pill
+      var start = formatTime(session.time);
+      var endHHMM = endTimeHHMM(session);
+      if (!endHHMM) { return start; }
+      return start + " – " + formatTime(endHHMM);
     }
 
     function openDetail(session) {

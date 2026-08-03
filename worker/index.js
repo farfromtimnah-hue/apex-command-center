@@ -4980,6 +4980,7 @@ async function handleGetGoogleCalendarEvent(googleEventId, request, env) {
 
         var apex = null;
         var agrees = null;
+        var statusAgrees = null;
         if (apexRow) {
             var apexEnd = apexRow.end_time ? String(apexRow.end_time).slice(0, 5) : null;
             apex = {
@@ -4991,13 +4992,37 @@ async function handleGetGoogleCalendarEvent(googleEventId, request, env) {
                 status:            apexRow.status || null,
                 calendar_provider: apexRow.calendar_provider || null
             };
-            agrees = (apexRow.date || null) === (google.date || null) &&
+            // Google's own status is part of agreement, and is the single most
+            // important disagreement there is: an event CANCELLED on Google
+            // while Apex still says 'scheduled' means Rafa has a meeting on his
+            // Apex calendar that no longer exists for the client. Comparing
+            // date and time alone returned agrees:true for exactly that case,
+            // found on this endpoint's first real call against a live client
+            // meeting three days out (2026-08-03).
+            //
+            // Apex's own cancelled/discarded states are the mirror image: the
+            // meeting is gone in Apex but still confirmed on Google, which is a
+            // real disagreement too.
+            var googleCancelled = (google.status === "cancelled");
+            var apexGone = (apexRow.status === "cancelled" || apexRow.status === "discarded");
+            statusAgrees = (googleCancelled === apexGone);
+
+            agrees = statusAgrees &&
+                     (apexRow.date || null) === (google.date || null) &&
                      (apexRow.time || null) === (google.time || null) &&
                      // end_time only counts when both sides actually have one
                      (!apexEnd || !google.end_time || apexEnd === google.end_time);
         }
 
-        return jsonOk({ found: true, google_event_id: googleEventId, google: google, apex: apex, agrees: agrees });
+        return jsonOk({
+            found: true, google_event_id: googleEventId,
+            google: google, apex: apex,
+            agrees: agrees,
+            // Broken out so a disagreement says WHICH kind it is: a status
+            // mismatch (cancelled on one side) reads very differently from a
+            // time mismatch, and needs a different response.
+            status_agrees: statusAgrees
+        });
     } catch (e) {
         if (e.name === "AbortError") { return jsonErr("Google API request timed out", 504); }
         return jsonErr("Error reading calendar event: " + e.message, 500);

@@ -1961,14 +1961,17 @@
             <span class="show-pt">Hora</span>
             <span class="show-en">Time</span>
           </div>
-          <select id="rsTime"></select>
+          <select id="rsTime" onchange="syncRsEndTimeDefault()"></select>
         </div>
         <div class="field-group">
           <div class="field-label">
             <span class="show-pt">Hora de término</span>
             <span class="show-en">End time</span>
           </div>
-          <select id="rsEndTime"></select>
+          <!-- Follows the start until edited -- same behaviour as New Session
+               and Edit. Rescheduling is the most common way to move a start
+               time, so it had the same trap. -->
+          <select id="rsEndTime" onchange="markRsEndTimeEdited()"></select>
         </div>
         <button class="btn-submit" id="btnRescheduleSubmit" onclick="handleRescheduleSubmit()">
           <span class="show-pt">Salvar</span>
@@ -2114,14 +2117,19 @@
             <span class="show-pt">Hora de início</span>
             <span class="show-en">Start time</span>
           </div>
-          <select id="edTime"></select>
+          <select id="edTime" onchange="syncEdEndTimeDefault()"></select>
         </div>
         <div class="field-group">
           <div class="field-label">
             <span class="show-pt">Hora de término</span>
             <span class="show-en">End time</span>
           </div>
-          <select id="edEndTime"></select>
+          <!-- Follows the start time until the user edits it, exactly like the
+               New Session form. Without this, moving the start to 5:00 PM
+               while the end still read 3:00 PM produced "a hora de termino
+               deve ser depois da hora de inicio" and refused to save --
+               correct, but it made the user fix a field they had not touched. -->
+          <select id="edEndTime" onchange="markEdEndTimeEdited()"></select>
         </div>
         <!-- Type: forced to in-person for events (they never carry a Meet
              link), so the toggle hides in that state exactly like create. -->
@@ -5270,6 +5278,37 @@
         });
     }
 
+    // Edit form: the end time follows the start until the user edits it,
+    // mirroring the New Session form. Moving the start to 5:00 PM with the end
+    // still at 3:00 PM used to be refused with "a hora de termino deve ser
+    // depois da hora de inicio" -- the safe direction, but it asked the user to
+    // repair a field they never touched. Refusal still stands for a genuinely
+    // invalid pair the user chose themselves.
+    var edEndTimeEdited = false;
+
+    function markEdEndTimeEdited() {
+      edEndTimeEdited = true;
+    }
+
+    function syncEdEndTimeDefault() {
+      if (edEndTimeEdited) { return; }
+      var start = document.getElementById("edTime").value;
+      document.getElementById("edEndTime").value = plusOneHourOpt(start);
+    }
+
+    // Same follow-until-edited behaviour on the Reschedule modal.
+    var rsEndTimeEdited = false;
+
+    function markRsEndTimeEdited() {
+      rsEndTimeEdited = true;
+    }
+
+    function syncRsEndTimeDefault() {
+      if (rsEndTimeEdited) { return; }
+      var start = document.getElementById("rsTime").value;
+      document.getElementById("rsEndTime").value = plusOneHourOpt(start);
+    }
+
     // Shared populate for the reschedule/edit end-time selects (same
     // half-hour list the New Session modal uses).
     function populateHHMMSelect(sel, allowEmpty) {
@@ -5297,6 +5336,9 @@
       document.getElementById("rsDate").value = session.date || "";
       document.getElementById("rsTime").value = session.time ? session.time.slice(0, 5) : "";
       document.getElementById("rsEndTime").value = endTimeHHMM(session) || "";
+      // The session's own stored end time, not a user edit -- follow-the-start
+      // starts enabled and stops once they change the end themselves.
+      rsEndTimeEdited = false;
       var st = document.getElementById("rescheduleStatus");
       if (st) { st.textContent = ""; st.className = "pull-status"; }
       document.getElementById("btnRescheduleSubmit").disabled = false;
@@ -5472,6 +5514,10 @@
       document.getElementById("edDate").value      = session.date || "";
       document.getElementById("edTime").value      = session.time ? session.time.slice(0, 5) : "";
       document.getElementById("edEndTime").value   = endTimeHHMM(session) || "";
+      // The stored end time is the session's own value, not something the user
+      // typed in this dialog -- so the follow-the-start behaviour starts
+      // enabled. It stops the moment they change the end time themselves.
+      edEndTimeEdited = false;
       document.getElementById("edLocation").value  = session.location || "";
       document.getElementById("edNotes").value     = session.notes || "";
 

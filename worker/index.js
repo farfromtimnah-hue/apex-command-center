@@ -3865,8 +3865,21 @@ async function handleGoogleOAuthStatus(request, env) {
         var row = await env.DB.prepare(
             "SELECT id FROM oauth_tokens WHERE id = 'google_calendar'"
         ).first();
+        if (!row) { return jsonOk({ connected: false, reason: "no_token" }); }
 
-        return jsonOk({ connected: !!row });
+        // A row existing is NOT the same as a working connection. Google
+        // expires refresh tokens for OAuth apps still in "Testing" publishing
+        // status after 7 days, so this row can sit here looking healthy while
+        // every Calendar call fails -- which is exactly what happened
+        // 2026-08-03: the token was 12 days old, every booking was refused,
+        // and this endpoint still reported connected. Actually exchange it.
+        try {
+            await getGoogleAccessToken(env);
+        } catch (tokenErr) {
+            return jsonOk({ connected: false, reason: "token_rejected", error: tokenErr.message });
+        }
+
+        return jsonOk({ connected: true });
     } catch (e) {
         return jsonErr("Error checking OAuth status: " + e.message, 500);
     }

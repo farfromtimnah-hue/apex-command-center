@@ -1942,7 +1942,17 @@
       if (!message) { return false; }
       return message.indexOf("not connected") !== -1
           || message.indexOf("no Google Meet link") !== -1
-          || message.indexOf("reconnect Google Calendar") !== -1;
+          || message.indexOf("reconnect Google Calendar") !== -1
+          // An expired/revoked refresh token needs exactly the same fix as a
+          // missing connection, but Google's own wording carries none of the
+          // strings above -- so the reconnect modal never opened and Alice was
+          // left with a dead-end error (real report 2026-08-03). These match
+          // the message getGoogleAccessToken surfaces from Google's token
+          // endpoint: "Failed to refresh access token: Token has been expired
+          // or revoked."
+          || message.indexOf("expired or revoked") !== -1
+          || message.indexOf("Failed to refresh access token") !== -1
+          || message.indexOf("invalid_grant") !== -1;
     }
 
     function promptConnectGcal() {
@@ -2296,7 +2306,20 @@
 
     function loadExternalEvents() {
       apiFetch("/api/google/calendar/events")
-        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          return res.json().then(function(data) {
+            // A dead/expired Google connection surfaces here on EVERY page
+            // load, long before anyone tries to book anything -- this call
+            // previously ignored res.ok entirely and swallowed the failure,
+            // which is how the connection stayed broken for days with no
+            // signal at all (real report 2026-08-03). Prompt to reconnect
+            // right here instead of waiting for a booking to fail.
+            if (!res.ok && isGcalNotConnectedError(data.error || "")) {
+              promptConnectGcal();
+            }
+            return data;
+          });
+        })
         .then(function(data) {
           var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
           return apiFetch("/api/sessions/calendar?month=" + monthStr)

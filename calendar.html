@@ -1666,6 +1666,13 @@
             <span class="show-pt">Enviar WhatsApp</span>
             <span class="show-en">Send WhatsApp</span>
           </button>
+          <!-- Reschedule is no longer a separate action: Edit now changes
+               date and start time along with every other field, so Alice has
+               one modal instead of two. The modal markup, openReschedule()
+               and the /reschedule route are all deliberately KEPT -- the
+               edit route delegates series-wide date/time moves to it (RRULE
+               truncation + regeneration lives there and is not duplicated).
+               Only this entry point is retired. -->
           <button class="btn-fix-meet" id="btnDetailReschedule" onclick="openReschedule()" hidden>
             <span class="show-pt">Reagendar</span>
             <span class="show-en">Reschedule</span>
@@ -1826,13 +1833,61 @@
         </h3>
         <button class="modal-close" onclick="closeModal('modalEdit')">×</button>
       </div>
+      <!-- Full parity with the New Session modal (minus recurrence, which is
+           a series-restructuring problem, not an edit). Same field order,
+           same show/hide rules, same validation -- so whatever Alice can set
+           when creating a meeting she can change afterwards, without ever
+           opening Google Calendar. -->
       <div class="modal-body">
-        <div class="field-group" id="edLocationGroup">
+        <!-- Client: events have none (their name lives in edEventName). -->
+        <div class="field-group" id="edClientGroup">
           <div class="field-label">
-            <span class="show-pt">Local</span>
-            <span class="show-en">Location</span>
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
           </div>
-          <input type="text" id="edLocation">
+          <select id="edClient" onchange="onEdClientChange()"></select>
+        </div>
+        <!-- Event name: non-client entries (events / Apex Club). Stored in
+             the client_name column server-side, same as create. -->
+        <div class="field-group" id="edEventNameGroup" hidden>
+          <div class="field-label">
+            <span class="show-pt">Nome do evento</span>
+            <span class="show-en">Event name</span>
+          </div>
+          <input type="text" id="edEventName">
+        </div>
+        <!-- Category: client (real, paying) vs prospective (lead). Hidden
+             for events, which are their own category. -->
+        <div class="field-group" id="edCategoryGroup">
+          <div class="field-label">
+            <span class="show-pt">Categoria</span>
+            <span class="show-en">Category</span>
+          </div>
+          <div class="type-toggle">
+            <button class="type-toggle-btn active" id="edCategoryClient" onclick="setEditCategory('client')">
+              <span class="show-pt">Cliente</span>
+              <span class="show-en">Client</span>
+            </button>
+            <button class="type-toggle-btn" id="edCategoryProspective" onclick="setEditCategory('prospective')">
+              <span class="show-pt">Prospectivo</span>
+              <span class="show-en">Prospective</span>
+            </button>
+          </div>
+          <input type="hidden" id="edCategoryVal" value="client">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Data</span>
+            <span class="show-en">Date</span>
+          </div>
+          <input type="date" id="edDate">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Hora de início</span>
+            <span class="show-en">Start time</span>
+          </div>
+          <select id="edTime"></select>
         </div>
         <div class="field-group">
           <div class="field-label">
@@ -1840,6 +1895,39 @@
             <span class="show-en">End time</span>
           </div>
           <select id="edEndTime"></select>
+        </div>
+        <!-- Type: forced to in-person for events (they never carry a Meet
+             link), so the toggle hides in that state exactly like create. -->
+        <div class="field-group" id="edTypeGroup">
+          <div class="field-label">
+            <span class="show-pt">Tipo</span>
+            <span class="show-en">Type</span>
+          </div>
+          <div class="type-toggle">
+            <button class="type-toggle-btn active" id="edTypeMeet" onclick="setEditType('online_meet')">Google Meet</button>
+            <button class="type-toggle-btn" id="edTypeInPerson" onclick="setEditType('in_person')">
+              <span class="show-pt">Presencial</span>
+              <span class="show-en">In-Person</span>
+            </button>
+          </div>
+          <input type="hidden" id="edTypeVal" value="online_meet">
+          <!-- Switching an online meeting to in-person keeps the Google
+               event (the client keeps a calendar entry) but removes the Meet
+               link, so warn before it happens rather than after. -->
+          <div class="meet-info-wrap" id="edMeetDropWarn" hidden style="margin-top:8px;">
+            <div class="meet-info-text">
+              <span class="show-pt">O link do Meet será removido do evento no Google Calendar.</span>
+              <span class="show-en">The Meet link will be removed from the Google Calendar event.</span>
+            </div>
+          </div>
+        </div>
+        <!-- Location: in-person sessions and events only, same as create. -->
+        <div class="field-group" id="edLocationGroup">
+          <div class="field-label">
+            <span class="show-pt">Local</span>
+            <span class="show-en">Location</span>
+          </div>
+          <input type="text" id="edLocation">
         </div>
         <div class="field-group" id="edNotesGroup">
           <div class="field-label">
@@ -3566,12 +3654,14 @@
       waBtn.disabled = false;
       waBtn.innerHTML = '<span class="show-pt">Enviar WhatsApp</span><span class="show-en">Send WhatsApp</span>';
 
-      // Session actions: Reschedule/Edit only for Apex-created sessions.
+      // Session actions: Edit only for Apex-created sessions.
       // Cancel also covers legacy 'google'/'manual' rows (Apex-side history
       // with no Google event). Externally-synced events get none -- they
       // belong to Google and deleting Apex's row would just re-sync it back.
+      // Reschedule stays permanently hidden (Edit absorbed it) -- see the
+      // note on the button itself.
       var canModify = isApexSession(session);
-      document.getElementById("btnDetailReschedule").hidden = !canModify;
+      document.getElementById("btnDetailReschedule").hidden = true;
       document.getElementById("btnDetailEdit").hidden       = !canModify;
       document.getElementById("btnDetailCancel").hidden     = isExternal;
 
@@ -3980,46 +4070,228 @@
         });
     }
 
+    // The session as it was when the modal opened -- every submitted field
+    // is diffed against this so an untouched field is never sent (and so a
+    // no-op save never fires a pointless Google write).
+    var editOriginal = null;
+
+    // Populates the Edit modal's own client dropdown. Deliberately WITHOUT
+    // the "+ Add New Client" / "+ Event" / "+ Apex Club" pinned options the
+    // create dropdown carries: converting an existing meeting into an event
+    // is done with the category toggle, and adding a client mid-edit would
+    // orphan the pending changes.
+    function populateEditClientDropdown() {
+      var sel = document.getElementById("edClient");
+      if (!sel) { return; }
+      var en = isEn();
+      sel.innerHTML = "";
+      var placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = en ? "— select client —" : "— selecionar cliente —";
+      sel.appendChild(placeholder);
+      for (var i = 0; i < clients.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = clients[i].id;
+        opt.textContent = clients[i].name;
+        opt.dataset.status = clients[i].status || "";
+        sel.appendChild(opt);
+      }
+    }
+
+    function onEdClientChange() {
+      // Category is only auto-defaulted from the client's status on an
+      // actual client change, never on open -- the stored category is the
+      // truth for an existing meeting.
+      var sel = document.getElementById("edClient");
+      var opt = sel.options[sel.selectedIndex];
+      var status = opt ? opt.dataset.status : "";
+      if (document.getElementById("edCategoryVal").value !== "event") {
+        setEditCategory(status === "lead" ? "prospective" : "client");
+      }
+    }
+
+    function setEditCategory(cat) {
+      document.getElementById("edCategoryClient").className =
+        "type-toggle-btn" + (cat === "client" ? " active" : "");
+      document.getElementById("edCategoryProspective").className =
+        "type-toggle-btn" + (cat === "prospective" ? " active" : "");
+      document.getElementById("edCategoryVal").value = cat;
+      updateEditFieldVisibility();
+    }
+
+    function setEditType(type) {
+      document.getElementById("edTypeMeet").className     = "type-toggle-btn" + (type === "online_meet" ? " active" : "");
+      document.getElementById("edTypeInPerson").className = "type-toggle-btn" + (type === "in_person"   ? " active" : "");
+      document.getElementById("edTypeVal").value          = type;
+      updateEditFieldVisibility();
+    }
+
+    // Same show/hide rules the create modal applies, driven off the same two
+    // values (category + type) so the two modals cannot drift:
+    //   event      -> event name shown, client/category/type hidden
+    //   in-person  -> location shown
+    //   online     -> location hidden and cleared
+    function updateEditFieldVisibility() {
+      var cat  = document.getElementById("edCategoryVal").value;
+      var type = document.getElementById("edTypeVal").value;
+      var isEvent = cat === "event";
+
+      document.getElementById("edClientGroup").hidden    = isEvent;
+      document.getElementById("edCategoryGroup").hidden  = isEvent;
+      document.getElementById("edTypeGroup").hidden      = isEvent;
+      document.getElementById("edEventNameGroup").hidden = !isEvent;
+
+      var showLoc = isEvent || type === "in_person";
+      var locGroup = document.getElementById("edLocationGroup");
+      locGroup.hidden = !showLoc;
+      if (!showLoc) { document.getElementById("edLocation").value = ""; }
+
+      // Warn only when this specific edit will strip a Meet link that
+      // actually exists today.
+      var willDrop = editOriginal
+        && editOriginal.session_type === "online_meet"
+        && (isEvent || type === "in_person")
+        && !!editOriginal.google_event_id;
+      document.getElementById("edMeetDropWarn").hidden = !willDrop;
+    }
+
     function openEditSession() {
       var session = activeDetailSession;
       if (!session) { return; }
+      editOriginal = session;
+
+      populateEditClientDropdown();
+      populateHHMMSelect(document.getElementById("edTime"), false);
       populateHHMMSelect(document.getElementById("edEndTime"), true);
-      document.getElementById("edLocation").value = session.location || "";
-      document.getElementById("edEndTime").value = endTimeHHMM(session) || "";
-      document.getElementById("edNotes").value = session.notes || "";
-      // Location is only meaningful where something happens at a physical
-      // address; notes live in raw_transcript and are only editable while
-      // the session is still just scheduled.
+
       var isEventCat = session.meeting_category === "event";
-      document.getElementById("edLocationGroup").hidden =
-        !(session.session_type === "in_person" || isEventCat);
+      document.getElementById("edClient").value    = session.client_id || "";
+      document.getElementById("edEventName").value = isEventCat ? (session.client_name || "") : "";
+      document.getElementById("edDate").value      = session.date || "";
+      document.getElementById("edTime").value      = session.time ? session.time.slice(0, 5) : "";
+      document.getElementById("edEndTime").value   = endTimeHHMM(session) || "";
+      document.getElementById("edLocation").value  = session.location || "";
+      document.getElementById("edNotes").value     = session.notes || "";
+
+      // Set the hidden values directly rather than through the setters, so
+      // opening the modal never looks like an edit-in-progress.
+      document.getElementById("edCategoryVal").value = session.meeting_category || "client";
+      document.getElementById("edTypeVal").value     = session.session_type || "online_meet";
+      setEditCategory(session.meeting_category || "client");
+      setEditType(session.session_type || "online_meet");
+      if (isEventCat) { document.getElementById("edCategoryVal").value = "event"; }
+      updateEditFieldVisibility();
+
+      // Notes live in raw_transcript and are only editable while the session
+      // is still just scheduled -- never once a real transcript may exist.
       document.getElementById("edNotesGroup").hidden = session.status !== "scheduled";
+
       var st = document.getElementById("editStatus");
       if (st) { st.textContent = ""; st.className = "pull-status"; }
       document.getElementById("btnEditSubmit").disabled = false;
       openModal("modalEdit");
     }
 
+    // Builds the PATCH body from the form, including ONLY fields that
+    // actually changed. Returns null (after showing the reason) when the
+    // form is invalid. Validation mirrors handleNewSession() exactly.
+    function buildEditBody() {
+      var session = editOriginal;
+      var en = isEn();
+      var st = document.getElementById("editStatus");
+      function fail(msg) {
+        if (st) { st.textContent = msg; st.className = "pull-status is-error"; }
+        return null;
+      }
+
+      var cat     = document.getElementById("edCategoryVal").value;
+      var isEvent = cat === "event";
+      var type    = isEvent ? "in_person" : document.getElementById("edTypeVal").value;
+      var date    = document.getElementById("edDate").value;
+      var time    = document.getElementById("edTime").value;
+      var endT    = document.getElementById("edEndTime").value;
+      var clientId  = document.getElementById("edClient").value;
+      var eventName = (document.getElementById("edEventName").value || "").trim();
+
+      if (isEvent) {
+        if (!eventName || !date || !time) {
+          return fail(en ? "Event name, date and time are required." : "Nome do evento, data e hora sao obrigatorios.");
+        }
+        if (!endT) {
+          return fail(en ? "End time is required for events." : "Hora de termino e obrigatoria para eventos.");
+        }
+      } else if (!clientId || !date || !time) {
+        return fail(en ? "Client, date and time are required." : "Cliente, data e hora sao obrigatorios.");
+      }
+      if (endT && time && endT <= time) {
+        return fail(en ? "End time must be after start time." : "A hora de termino deve ser depois da hora de inicio.");
+      }
+
+      var body = {};
+      var origTime = session.time ? session.time.slice(0, 5) : "";
+      var origCat  = session.meeting_category || "client";
+
+      if (date !== (session.date || ""))                 { body.date = date; }
+      if (time !== origTime)                             { body.time = time; }
+      if ((endT || null) !== (endTimeHHMM(session) || null)) { body.end_time = endT || null; }
+      if (cat !== origCat)                               { body.meeting_category = cat; }
+      if (!isEvent && type !== session.session_type)     { body.session_type = type; }
+      if (isEvent) {
+        if (eventName !== (session.client_name || "") || origCat !== "event") { body.event_name = eventName; }
+      } else if (clientId !== (session.client_id || "")) {
+        body.client_id = clientId;
+      }
+      if (!document.getElementById("edLocationGroup").hidden) {
+        var loc = document.getElementById("edLocation").value.trim() || null;
+        if (loc !== (session.location || null)) { body.location = loc; }
+      } else if (session.location) {
+        // Location field is hidden in the new state but the row still holds
+        // one -- clear it rather than leaving a stale address behind.
+        body.location = null;
+      }
+      if (!document.getElementById("edNotesGroup").hidden) {
+        var notes = document.getElementById("edNotes").value.trim() || null;
+        if (notes !== (session.notes || null)) { body.notes = notes; }
+      }
+
+      var changed = false;
+      for (var k in body) { if (Object.prototype.hasOwnProperty.call(body, k)) { changed = true; break; } }
+      if (!changed) {
+        return fail(en ? "Nothing changed." : "Nada foi alterado.");
+      }
+      return body;
+    }
+
     function handleEditSubmit() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var body = buildEditBody();
+      if (!body) { return; }
+
+      // Series sessions get the scope question first -- the SAME shared
+      // dialog cancel and reschedule use. Date/time moves are per-occurrence
+      // only (the worker refuses a series-wide move and points at
+      // Reschedule), so those skip the question entirely.
+      var movesDateOrTime = Object.prototype.hasOwnProperty.call(body, "date")
+                         || Object.prototype.hasOwnProperty.call(body, "time");
+      if (session.series_id && !movesDateOrTime) {
+        openSeriesScope(function(scope) {
+          if (!scope) { return; } // backed out; edit modal is still open
+          submitEdit(body, scope);
+        });
+        return;
+      }
+      submitEdit(body, "single");
+    }
+
+    function submitEdit(body, scope) {
       var session = activeDetailSession;
       if (!session) { return; }
       var en = isEn();
       var st = document.getElementById("editStatus");
       var btn = document.getElementById("btnEditSubmit");
-      var endT = document.getElementById("edEndTime").value;
-      if (endT && session.time && endT <= session.time.slice(0, 5)) {
-        if (st) { st.textContent = en ? "End time must be after start time." : "A hora de termino deve ser depois da hora de inicio."; st.className = "pull-status is-error"; }
-        return;
-      }
 
-      var body = { end_time: endT || null };
-      if (!document.getElementById("edLocationGroup").hidden) {
-        body.location = document.getElementById("edLocation").value.trim() || null;
-      }
-      if (!document.getElementById("edNotesGroup").hidden) {
-        body.notes = document.getElementById("edNotes").value.trim() || null;
-      }
-
+      body.scope = scope;
       btn.disabled = true;
       if (st) { st.textContent = en ? "Saving..." : "Salvando..."; st.className = "pull-status"; }
 
@@ -4030,21 +4302,33 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          session.end_time = body.end_time;
-          if (Object.prototype.hasOwnProperty.call(body, "location")) { session.location = body.location; }
-          if (Object.prototype.hasOwnProperty.call(body, "notes"))    { session.notes = body.notes; }
           closeModal("modalEdit");
+          closeModal("modalDetail");
           loadCalendar();
-          openDetail(session);
+          var msg;
           if (data.google_warning) {
-            showToast((en ? "Saved. " : "Salvo. ") + data.google_warning);
+            msg = (en ? "Saved. " : "Salvo. ") + data.google_warning;
+          } else if (data.meet_link_removed) {
+            msg = en
+              ? "Session updated — the Meet link was removed."
+              : "Sessao atualizada — o link do Meet foi removido.";
+          } else if (data.updated > 1) {
+            msg = en ? data.updated + " meetings updated." : data.updated + " reunioes atualizadas.";
           } else {
-            showToast(en ? "Session updated." : "Sessao atualizada.");
+            msg = en ? "Session updated." : "Sessao atualizada.";
           }
+          showToast(msg);
         })
         .catch(function(e) {
           btn.disabled = false;
-          if (st) { st.textContent = (en ? "Error: " : "Erro: ") + e.message; st.className = "pull-status is-error"; }
+          // The meeting was NOT changed -- say so plainly. A silent failure
+          // here is how Apex and the client's calendar drift apart.
+          if (st) {
+            st.textContent = en
+              ? "The meeting was NOT changed: " + e.message
+              : "A reuniao NAO foi alterada: " + e.message;
+            st.className = "pull-status is-error";
+          }
           if (isGcalNotConnectedError(e.message)) { promptConnectGcal(); }
         });
     }

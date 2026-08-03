@@ -3188,10 +3188,17 @@ async function findGoogleInstanceId(accessToken, masterEventId, dateStr) {
     return { ok: true, instanceId: null, error: null };
 }
 
-// Shared scope resolution for the cancel and reschedule routes: the series
+// Shared scope resolution for the cancel/reschedule/edit routes: the series
 // rows this session belongs to (active only), its position, and the derived
-// cadence. ONE implementation so the two routes can never drift on which
-// rows are "in scope". Returns null for non-series sessions.
+// cadence. ONE implementation so the routes can never drift on which rows
+// are "in scope". Returns null for non-series sessions.
+//
+// thisIdx === -1 means the session is NOT among its own series' active rows
+// -- normally because it is itself already cancelled. Callers must treat
+// that as an error for 'following'/'all', NEVER as a reason to quietly fall
+// back to 'single': Alice answered the scope question with "all meetings"
+// and silently acting on one is the exact failure that made the scope
+// dialog look broken. resolveScope() below is the shared enforcement.
 async function loadSeriesContext(env, session) {
     if (!session.series_id) { return null; }
     var sr = await env.DB.prepare(
@@ -3205,6 +3212,27 @@ async function loadSeriesContext(env, session) {
         if (rows[i].id === session.id) { idx = i; }
     }
     return { rows: rows, thisIdx: idx, freq: deriveSeriesFrequency(dates) };
+}
+
+// Shared scope narrowing for cancel/reschedule/edit. Returns
+// { ok:true, scope, rows } or { ok:false, error } -- never a silent
+// downgrade of a series-wide scope to a single occurrence.
+//   - non-series session            -> 'single' (the dialog never asked)
+//   - series row missing from its own active set -> hard error for
+//     'following'/'all'; 'single' still works so a stray row stays fixable
+//   - 'following' from the first occurrence IS the whole series -> 'all'
+function resolveScope(scope, session, series) {
+    if (!session.series_id || !series) {
+        return { ok: true, scope: "single", rows: [session] };
+    }
+    if (series.thisIdx === -1) {
+        if (scope === "single") { return { ok: true, scope: "single", rows: [session] }; }
+        return { ok: false, error: "This meeting is no longer an active part of its series, so 'this and following' / 'all meetings' cannot be applied. Reload the calendar and try again." };
+    }
+    if (scope === "following" && series.thisIdx === 0) { scope = "all"; }
+    if (scope === "all")       { return { ok: true, scope: "all",       rows: series.rows }; }
+    if (scope === "following") { return { ok: true, scope: "following", rows: series.rows.slice(series.thisIdx) }; }
+    return { ok: true, scope: "single", rows: [session] };
 }
 
 // Maps the app's frequency options onto a native Google RRULE:
@@ -3319,13 +3347,10 @@ async function handlePostSessionCancel(sessionId, request, env) {
         }
 
         var series = await loadSeriesContext(env, session);
-        if (!series || series.thisIdx === -1) { scope = "single"; }
-        // "Following" from the first occurrence IS the whole series.
-        if (scope === "following" && series && series.thisIdx === 0) { scope = "all"; }
-
-        var scopeRows = [session];
-        if (scope === "all")       { scopeRows = series.rows; }
-        if (scope === "following") { scopeRows = series.rows.slice(series.thisIdx); }
+        var resolved = resolveScope(scope, session, series);
+        if (!resolved.ok) { return jsonErr(resolved.error, 409); }
+        scope = resolved.scope;
+        var scopeRows = resolved.rows;
 
         // Phase 1: Google. Any outcome other than verified-removed /
         // verified-already-gone returns WITHOUT touching D1.
@@ -3493,12 +3518,12 @@ async function handlePostSessionReschedule(sessionId, request, env) {
         // Load the series rows once for any series-aware path (same shared
         // resolver the cancel route uses).
         var series = await loadSeriesContext(env, session);
+        var resolvedRs = resolveScope(scope, session, series);
+        if (!resolvedRs.ok) { return jsonErr(resolvedRs.error, 409); }
+        scope = resolvedRs.scope;
         var seriesRows = series ? series.rows : null;
         var seriesFreq = series ? series.freq : null;
         var thisIdx    = series ? series.thisIdx : -1;
-        if (!session.series_id || thisIdx === -1) { scope = "single"; }
-        // "Following" from the first occurrence IS the whole series.
-        if (scope === "following" && thisIdx === 0) { scope = "all"; }
 
         if (scope === "single") {
             if (hasGoogle) {
@@ -3633,12 +3658,33 @@ async function handlePostSessionReschedule(sessionId, request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: PATCH /api/sessions/:id
-// Body: { location?, notes?, end_time? } -- only supplied fields change.
-// Edit of location / notes / end time. Apex-created sessions only (legacy
-// rows are read-only history; external rows belong to Google).
-// Google side: an end-time change PATCHes the event's end so the calendar
-// duration stays right; a location change PATCHes the event's location so
-// the client's own calendar entry carries the address.
+// Body: { client_id?, event_name?, meeting_category?, date?, time?, end_time?,
+//         session_type?, location?, notes?, scope? }
+// Only supplied fields change (presence-checked, so null/"" clears a field
+// rather than being mistaken for "not sent").
+//
+// Full-parity edit of an Apex-created session -- the same field set the New
+// Session modal writes, minus recurrence restructuring. Legacy 'google' /
+// 'manual' rows are read-only history; 'google_external' rows belong to
+// Google and are refused here.
+//
+// ORDERING IS THE CONTRACT (same as cancel/reschedule): Google is
+// authoritative. Every field that shows on the client's calendar entry --
+// date, time, end time, title, location -- goes into ONE events.patch, and
+// the D1 write runs ONLY after that call verifiably succeeds. events.patch,
+// never delete+recreate: it preserves the Meet link and lets Google notify
+// attendees. A 404/410 means the event is already gone, which is a settled
+// end state rather than a failure, so it downgrades to a warning.
+//
+// Type switch online_meet -> in_person patches the event to drop the Meet
+// link and carry the address; the event itself is deliberately KEPT so the
+// client's calendar still shows the meeting. No delete path runs here.
+//
+// scope ('single'|'following'|'all') applies a series edit to the chosen
+// rows via the shared resolveScope(); date/time moves for 'following'/'all'
+// are delegated to the reschedule route, which already implements RRULE
+// truncation and regeneration.
+//
 // Notes live in raw_transcript for scheduled sessions (that is where the
 // schedule route writes them) -- refuse to touch that column once a real
 // transcript may have replaced them.
@@ -3651,15 +3697,29 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var body = await request.json();
-        var hasLocation = Object.prototype.hasOwnProperty.call(body, "location");
-        var hasNotes    = Object.prototype.hasOwnProperty.call(body, "notes");
-        var hasEnd      = Object.prototype.hasOwnProperty.call(body, "end_time");
-        if (!hasLocation && !hasNotes && !hasEnd) {
-            return jsonErr("Nothing to update -- provide location, notes and/or end_time", 400);
+        var has = function(k) { return Object.prototype.hasOwnProperty.call(body, k); };
+        var hasLocation = has("location");
+        var hasNotes    = has("notes");
+        var hasEnd      = has("end_time");
+        var hasDate     = has("date");
+        var hasTime     = has("time");
+        var hasType     = has("session_type");
+        var hasCategory = has("meeting_category");
+        var hasClient   = has("client_id");
+        var hasEventName = has("event_name");
+        if (!hasLocation && !hasNotes && !hasEnd && !hasDate && !hasTime &&
+            !hasType && !hasCategory && !hasClient && !hasEventName) {
+            return jsonErr("Nothing to update", 400);
+        }
+
+        var scope = body.scope || "single";
+        if (scope !== "single" && scope !== "following" && scope !== "all") {
+            return jsonErr("scope must be single, following or all", 400);
         }
 
         var session = await env.DB.prepare(
-            "SELECT id, date, time, end_time, location, session_type, google_event_id, calendar_provider, series_id, status " +
+            "SELECT id, client_id, client_name, date, time, end_time, location, session_type, meeting_category, " +
+            "google_event_id, google_meet_link, calendar_provider, series_id, status " +
             "FROM sessions WHERE id = ?"
         ).bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
@@ -3670,33 +3730,149 @@ async function handlePatchSessionDetails(sessionId, request, env) {
             return jsonErr("Legacy sessions are read-only history and cannot be edited.", 400);
         }
 
-        var newLocation = hasLocation ? ((body.location && String(body.location).trim()) || null) : session.location;
-        var newEnd = null;
+        // ---- Resolve every field to its post-edit value -------------------
+        var newCategory = session.meeting_category || "client";
+        if (hasCategory) {
+            if (["client", "prospective", "event"].indexOf(body.meeting_category) === -1) {
+                return jsonErr("meeting_category must be client, prospective or event", 400);
+            }
+            newCategory = body.meeting_category;
+        }
+
+        // Events never carry a Meet link (same rule the schedule route
+        // enforces), so switching a meeting to 'event' forces in_person.
+        var newType = session.session_type;
+        if (hasType) {
+            if (body.session_type !== "online_meet" && body.session_type !== "in_person") {
+                return jsonErr("session_type must be online_meet or in_person", 400);
+            }
+            newType = body.session_type;
+        }
+        if (newCategory === "event") { newType = "in_person"; }
+
+        // Client vs event identity. An event has no client_id and stores its
+        // name in the NOT NULL client_name column; a client/prospective
+        // meeting must resolve to a real client row.
+        var newClientId   = session.client_id;
+        var newClientName = session.client_name;
+        if (newCategory === "event") {
+            if (hasEventName) {
+                var evName = (body.event_name && String(body.event_name).trim()) || "";
+                if (!evName) { return jsonErr("event_name is required for events", 400); }
+                newClientName = evName;
+            } else if (session.meeting_category !== "event" && !session.client_name) {
+                return jsonErr("event_name is required for events", 400);
+            }
+            newClientId = null;
+        } else if (hasClient || session.meeting_category === "event") {
+            var wantClientId = hasClient ? body.client_id : null;
+            if (!wantClientId) { return jsonErr("client_id is required", 400); }
+            var clientRow = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
+                .bind(wantClientId).first();
+            if (!clientRow) { return jsonErr("Client not found", 404); }
+            newClientId   = clientRow.id;
+            newClientName = clientRow.name;
+        }
+
+        var newDate = session.date;
+        if (hasDate) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date || "")) { return jsonErr("date must be YYYY-MM-DD", 400); }
+            newDate = body.date;
+        }
+        // sessions.time is nullable by design (transcript ingestion inserts
+        // rows without it) -- only validate a value actually supplied.
+        var newTime = session.time ? session.time.slice(0, 5) : null;
+        if (hasTime) {
+            if (body.time === null || body.time === "") {
+                newTime = null;
+            } else {
+                if (!/^\d{2}:\d{2}$/.test(body.time)) { return jsonErr("time must be HH:MM", 400); }
+                newTime = body.time;
+            }
+        }
+        var newEnd = hasEnd ? null : endTimeHHMMFromRow(session.end_time);
         if (hasEnd && body.end_time) {
             if (!/^\d{2}:\d{2}$/.test(body.end_time)) { return jsonErr("end_time must be HH:MM", 400); }
-            if (session.time && body.end_time <= session.time.slice(0, 5)) {
-                return jsonErr("end_time must be after the session's start time", 400);
-            }
             newEnd = body.end_time;
         }
+        if (newEnd && newTime && newEnd <= newTime) {
+            return jsonErr("end_time must be after the session's start time", 400);
+        }
+        if (newCategory === "event" && !newEnd) {
+            return jsonErr("end_time is required for events", 400);
+        }
+
+        var newLocation = hasLocation ? ((body.location && String(body.location).trim()) || null) : session.location;
+        // Location only means something where the meeting has a physical
+        // address -- mirrors the create modal's show/hide rule.
+        if (newType === "online_meet" && newCategory !== "event") { newLocation = null; }
+
         if (hasNotes && session.status !== "scheduled") {
             return jsonErr("Notes can only be edited while the session is still scheduled.", 400);
         }
 
-        // Google event PATCH when the change affects the calendar entry.
-        var googleWarning = null;
-        var patchBody = {};
-        if (hasEnd && newEnd && session.time) {
-            patchBody.end = { dateTime: session.date + "T" + newEnd + ":00", timeZone: APEX_TIMEZONE };
+        // ---- Series scope --------------------------------------------------
+        var seriesCtx = await loadSeriesContext(env, session);
+        var resolvedEd = resolveScope(scope, session, seriesCtx);
+        if (!resolvedEd.ok) { return jsonErr(resolvedEd.error, 409); }
+        scope = resolvedEd.scope;
+        var scopeRows = resolvedEd.rows;
+
+        // Moving a whole series in date/time is exactly what the reschedule
+        // route already does (RRULE truncation, regeneration, per-occurrence
+        // date recomputation). Refuse rather than reimplement it badly here.
+        var movesDateOrTime = (hasDate && newDate !== session.date) ||
+                              (hasTime && newTime !== (session.time ? session.time.slice(0, 5) : null));
+        if (scope !== "single" && movesDateOrTime) {
+            return jsonErr("Changing the date or time of a whole series is done from Reschedule, not Edit. Edit the other fields here, or change this occurrence only.", 400);
         }
-        if (hasLocation) {
+
+        // ---- Phase 1: Google (authoritative) -------------------------------
+        // ONE events.patch carrying every field visible on the client's
+        // calendar entry. Anything other than success / 404 / 410 returns
+        // WITHOUT touching D1, so Apex can never claim a meeting moved while
+        // the client still holds the old invite.
+        var googleWarning = null;
+        var droppedMeetLink = false;
+        var patchBody = {};
+
+        var titleChanged = (newClientName !== session.client_name) || (newCategory !== session.meeting_category);
+        if (titleChanged) {
+            // Same title convention the create path uses: real clients get
+            // the "- RDE" suffix, prospective (lead) meetings and events do
+            // not. This string is visible to the client in Google Meet.
+            patchBody.summary = (newCategory === "client")
+                ? newClientName + " - RDE"
+                : newClientName;
+        }
+        if (newTime && (movesDateOrTime || (hasEnd && newEnd))) {
+            patchBody.start = { dateTime: newDate + "T" + newTime + ":00", timeZone: APEX_TIMEZONE };
+            var gEnd = newEnd;
+            if (!gEnd || gEnd <= newTime) { gEnd = plusOneHourHHMM(newTime); }
+            patchBody.end = { dateTime: newDate + "T" + gEnd + ":00", timeZone: APEX_TIMEZONE };
+        }
+        if (hasLocation || (hasType && newType !== session.session_type)) {
             patchBody.location = newLocation || "";
         }
-        if (session.google_event_id && (patchBody.end || hasLocation)) {
+        // online_meet -> in_person: keep the event (the meeting still
+        // happens, just at an address) but drop the Meet link so the client
+        // is not handed a dead conference room. conferenceData is removed
+        // via the dedicated version header on the patch call below.
+        var switchedToInPerson = session.session_type === "online_meet" && newType === "in_person";
+        if (switchedToInPerson) {
+            patchBody.conferenceData = null;
+            droppedMeetLink = true;
+        }
+
+        var hasGoogleEvent = !!session.google_event_id;
+        if (hasGoogleEvent && Object.keys(patchBody).length > 0) {
             var accessToken = null;
             try {
                 accessToken = await getGoogleAccessToken(env);
             } catch (tokenErr) {
+                // Pass Google's real message through: the frontend's
+                // isGcalNotConnectedError() matches on it to open the
+                // reconnect modal instead of showing a dead-end error.
                 return jsonErr("Cannot edit while Google Calendar is not connected: " + tokenErr.message, 502);
             }
             var targetId = session.google_event_id;
@@ -3705,35 +3881,78 @@ async function handlePatchSessionDetails(sessionId, request, env) {
                     "SELECT COUNT(*) AS n FROM sessions WHERE google_event_id = ? AND id != ? AND status != 'cancelled'"
                 ).bind(session.google_event_id, sessionId).first();
                 if (others && others.n > 0) {
-                    var lookup = await findGoogleInstanceId(accessToken, session.google_event_id, session.date);
-                    if (!lookup.ok) { return jsonErr(lookup.error, 502); }
-                    targetId = lookup.instanceId;
-                    if (!targetId) { googleWarning = "No matching Google Calendar instance was found -- only the Apex side was updated."; }
+                    if (scope === "single") {
+                        var lookup = await findGoogleInstanceId(accessToken, session.google_event_id, session.date);
+                        // A FAILED lookup is not "already gone" -- refuse
+                        // rather than commit against unknown Google state.
+                        if (!lookup.ok) { return jsonErr(lookup.error, 502); }
+                        targetId = lookup.instanceId;
+                        if (!targetId) {
+                            return jsonErr("This occurrence no longer exists on Google Calendar, so it was NOT changed. Reload the calendar and try again.", 409);
+                        }
+                    }
+                    // 'following'/'all' patch the master, which Google
+                    // propagates to every instance it still owns.
                 }
             }
-            if (targetId) {
-                var patchRes = await googleCalendarApiCall(accessToken, "PATCH",
-                    "/events/" + encodeURIComponent(targetId), patchBody);
-                if (!patchRes.ok) {
-                    if (patchRes.status === 404 || patchRes.status === 410) {
-                        googleWarning = "The Google Calendar event no longer exists -- only the Apex side was updated.";
-                    } else {
-                        return jsonErr(googleApiErrMessage(patchRes), 502);
-                    }
+            var patchRes = await googleCalendarApiCall(accessToken, "PATCH",
+                "/events/" + encodeURIComponent(targetId) + "?conferenceDataVersion=1", patchBody);
+            if (!patchRes.ok) {
+                if (patchRes.status === 404 || patchRes.status === 410) {
+                    // Already gone is the desired end state, not a failure.
+                    googleWarning = "The Google Calendar event no longer exists -- only the Apex side was updated.";
+                } else {
+                    return jsonErr(googleApiErrMessage(patchRes), 502);
                 }
             }
         }
 
-        var sets = [];
-        var binds = [];
-        if (hasLocation) { sets.push("location = ?");       binds.push(newLocation); }
-        if (hasEnd)      { sets.push("end_time = ?");       binds.push(newEnd); }
-        if (hasNotes)    { sets.push("raw_transcript = ?"); binds.push((body.notes && String(body.notes).trim()) || null); }
-        binds.push(sessionId);
-        var stmt = env.DB.prepare("UPDATE sessions SET " + sets.join(", ") + " WHERE id = ?");
-        await stmt.bind.apply(stmt, binds).run();
+        // ---- Phase 2: D1 (reached only on verified Google success) ---------
+        var editedAt = new Date().toISOString();
+        var editedBy = actorName(user);
+        var updated = 0;
+        for (var ri = 0; ri < scopeRows.length; ri++) {
+            var rowId = scopeRows[ri].id;
+            var isTarget = rowId === sessionId;
+            var sets = [];
+            var binds = [];
+            // Date/time/notes are per-occurrence and only ever touch the row
+            // Alice actually opened; identity/type/location apply series-wide.
+            if (isTarget && hasDate)  { sets.push("date = ?");     binds.push(newDate); }
+            if (isTarget && hasTime)  { sets.push("time = ?");     binds.push(newTime); }
+            if (hasEnd)               { sets.push("end_time = ?"); binds.push(newEnd); }
+            if (hasLocation || (hasType && newType !== session.session_type)) {
+                sets.push("location = ?"); binds.push(newLocation);
+            }
+            if (hasType)     { sets.push("session_type = ?");     binds.push(newType); }
+            if (hasCategory) { sets.push("meeting_category = ?");  binds.push(newCategory); }
+            if (hasClient || hasEventName || newClientId !== session.client_id) {
+                sets.push("client_id = ?");   binds.push(newClientId);
+                sets.push("client_name = ?"); binds.push(newClientName);
+            }
+            if (droppedMeetLink) { sets.push("google_meet_link = ?"); binds.push(null); }
+            if (isTarget && hasNotes) {
+                sets.push("raw_transcript = ?");
+                binds.push((body.notes && String(body.notes).trim()) || null);
+            }
+            if (!sets.length) { continue; }
+            // Attribution: who changed this meeting, and when. created_by is
+            // deliberately NOT re-stamped -- it answers a different question.
+            sets.push("updated_at = ?"); binds.push(editedAt);
+            sets.push("updated_by = ?"); binds.push(editedBy);
+            binds.push(rowId);
+            var stmt = env.DB.prepare("UPDATE sessions SET " + sets.join(", ") + " WHERE id = ?");
+            await stmt.bind.apply(stmt, binds).run();
+            updated++;
+        }
 
-        return jsonOk({ ok: true, google_warning: googleWarning });
+        return jsonOk({
+            ok: true,
+            scope: scope,
+            updated: updated,
+            meet_link_removed: droppedMeetLink,
+            google_warning: googleWarning
+        });
     } catch (e) {
         return jsonErr("Error editing session: " + e.message, 500);
     }

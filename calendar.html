@@ -865,6 +865,17 @@
       color: var(--muted);
     }
 
+    /* An explicit `display` here beats the UA stylesheet's [hidden]{display:none},
+       so every openDetail() call that set .hidden = true on a .detail-row was
+       silently ignored and the row rendered anyway. Found by looking at a real
+       screen 2026-08-03: an Apex-owned in-person session was showing "Evento
+       externo do Google Calendar (nao rastreado pelo Apex)", a "Gerar link do
+       Meet" button, a Directions button with no address, and an "Abrir evento"
+       link with no html_link. The JS gates were all correct -- isExternalSession()
+       returned false for that row -- the hiding mechanism just never worked.
+       Same guard already exists for #loadingScreen and .modal-overlay. */
+    .detail-row[hidden] { display: none !important; }
+
     .detail-row-label {
       min-width: 70px;
       font-weight: 600;

@@ -1781,7 +1781,22 @@
           if (m.time) {
             var timeSpan = document.createElement("span");
             timeSpan.className = "list-row-meta-item";
-            timeSpan.textContent = formatTime(m.time);
+            // Full range, not just the start. This is Rafa's own landing-page
+            // meeting card -- the one with the Join / Directions buttons -- so
+            // it is where he checks what his day looks like. A start time alone
+            // makes a 30-minute call and a six-hour block look identical
+            // (real case: JM LUXURY POOL 10:00 AM - 4:00 PM). Same treatment the
+            // calendar chips got in 9503a01. `end_time` arrives from
+            // /api/sessions/calendar in two shapes -- plain "HH:MM" on
+            // Apex-created rows, full ISO datetime on Google-synced ones.
+            var endRaw = m.end_time;
+            var endHHMM = null;
+            if (endRaw) {
+              endHHMM = endRaw.indexOf("T") !== -1 ? endRaw.slice(11, 16) : endRaw.slice(0, 5);
+            }
+            timeSpan.textContent = endHHMM
+              ? formatTime(m.time) + " – " + formatTime(endHHMM)
+              : formatTime(m.time);
             meta.appendChild(timeSpan);
           }
 

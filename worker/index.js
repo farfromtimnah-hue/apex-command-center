@@ -1617,6 +1617,53 @@ async function handleGetClients(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/clients/engagement-dates
+// Auth: any role. READ-ONLY.
+//
+// Everything the calendar's recurrence dialog needs to turn "how long is this
+// engagement?" into a bounded occurrence count, for every client in one call:
+//
+//   package_started_at  -- when the engagement actually began, stamped at
+//                          lead conversion / package change. NULL for every
+//                          client that predates the stamping (2026-08-03) --
+//                          deliberately not backfilled and not guessed.
+//   first_session_on_file -- MIN(date) over real sessions, the fallback.
+//                          Labelled honestly as "first session on file", NOT
+//                          "contract start": a lead meets Rafa before becoming
+//                          a client, and that meeting does not count toward
+//                          the package. Excludes discarded/cancelled rows --
+//                          METZ has discarded sessions (2026-07-03, 07-04)
+//                          that would otherwise poison the number.
+//   duration_days       -- from packages, NULL where the vault does not state
+//                          one (GROWTH, Executivo, Raio-X) or where the
+//                          package is legacy and maps to nothing (Premium).
+// ---------------------------------------------------------------------------
+
+async function handleGetClientEngagementDates(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        // Matched on clients.package, which stores the package's plain-text
+        // short_name (both current and legacy values live there).
+        var res = await env.DB.prepare(
+            "SELECT c.id, c.name, c.package, c.package_started_at, " +
+            "       p.duration_days, " +
+            "       (SELECT MIN(s.date) FROM sessions s " +
+            "          WHERE s.client_id = c.id " +
+            "            AND s.status NOT IN ('discarded','cancelled')) AS first_session_on_file " +
+            "FROM clients c " +
+            "LEFT JOIN packages p ON p.short_name = c.package " +
+            "ORDER BY c.name ASC"
+        ).all();
+
+        return jsonOk({ clients: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching engagement dates: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/clients
 // Body: { name, owners?, industry?, location?, logo_url?, profile_pt?, profile_en? }
 // ---------------------------------------------------------------------------
@@ -2087,10 +2134,22 @@ async function handlePostLeadOutcome(id, request, env) {
         if (outcome === "converted") {
             var pkg = (body.package || "").trim();
             if (!pkg) { return jsonErr("A package is required to convert a lead into a client", 400); }
+            // THIS is the moment the engagement begins, and until 2026-08-03
+            // nothing recorded it. The package clock cannot be recovered from
+            // the session history: a lead meets Rafa BEFORE becoming a client,
+            // and that sales/diagnostic meeting does not count toward the
+            // package because the package did not exist yet -- so MIN(date)
+            // starts the clock too early on any converted lead.
+            // Also stamps the stage-change attribution, which was silently
+            // left NULL on conversion (verified on DELICIE CAKES, converted
+            // through the live UI on 2026-08-03).
+            var startedAt = localDateStrForTZ();
             await env.DB.prepare(
-                "UPDATE clients SET status = 'active', package = ?, lead_stage = NULL WHERE id = ?"
-            ).bind(pkg, id).run();
-            return jsonOk({ status: "active", package: pkg });
+                "UPDATE clients SET status = 'active', package = ?, lead_stage = NULL, " +
+                "package_started_at = ?, stage_changed_at = datetime('now'), " +
+                "stage_changed_by = ?, stage_change_source = 'lead_outcome:converted' WHERE id = ?"
+            ).bind(pkg, startedAt, actorName(user), id).run();
+            return jsonOk({ status: "active", package: pkg, package_started_at: startedAt });
         }
 
         if (outcome === "dormant") {
@@ -2464,8 +2523,20 @@ async function handlePatchClient(id, request, env) {
             updated = true;
         }
         if (body.hasOwnProperty("package")) {
-            await env.DB.prepare("UPDATE clients SET package = ? WHERE id = ?")
-                .bind(body.package || null, id).run();
+            // Assigning or changing a package restarts the engagement clock, so
+            // package_started_at is re-stamped -- but only when the package
+            // actually CHANGES. Re-saving the same package from an edit form
+            // must not silently move the start date and shorten the engagement.
+            var prevPkg = await env.DB.prepare("SELECT package FROM clients WHERE id = ?").bind(id).first();
+            var newPkg  = body.package || null;
+            var pkgChanged = ((prevPkg && prevPkg.package) || null) !== newPkg;
+            if (pkgChanged && newPkg) {
+                await env.DB.prepare("UPDATE clients SET package = ?, package_started_at = ? WHERE id = ?")
+                    .bind(newPkg, localDateStrForTZ(), id).run();
+            } else {
+                await env.DB.prepare("UPDATE clients SET package = ? WHERE id = ?")
+                    .bind(newPkg, id).run();
+            }
             updated = true;
         }
         if (body.hasOwnProperty("status")) {
@@ -3171,6 +3242,13 @@ var ATTENDEE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // (A previous hardcoded "America/Sao_Paulo" here landed events an hour off:
 // Sao Paulo has no DST and sits at UTC-3 while Florida summer is UTC-4.)
 var APEX_TIMEZONE = "America/New_York";
+
+// Today's date as YYYY-MM-DD in the app's timezone. UTC would roll the date
+// over at 8pm Florida time, so an evening conversion would stamp an
+// engagement as starting tomorrow.
+function localDateStrForTZ() {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE }).format(new Date());
+}
 
 // Minimal Google Calendar API call against the primary calendar. Returns
 // { ok, status, data } -- never throws on HTTP errors (callers decide what
@@ -6656,9 +6734,17 @@ async function handlePutClientPackageTerms(id, request, env) {
         ).run();
 
         // Keep clients.package (plain text) in sync so existing readers don't break.
+        // A genuine package CHANGE restarts the engagement clock (see the
+        // clients PATCH route); re-saving the same package must not move it.
         if (pkgRow) {
-            await env.DB.prepare("UPDATE clients SET package = ? WHERE id = ?")
-                .bind(pkgRow.short_name, id).run();
+            var prevTermsPkg = await env.DB.prepare("SELECT package FROM clients WHERE id = ?").bind(id).first();
+            if (((prevTermsPkg && prevTermsPkg.package) || null) !== pkgRow.short_name) {
+                await env.DB.prepare("UPDATE clients SET package = ?, package_started_at = ? WHERE id = ?")
+                    .bind(pkgRow.short_name, localDateStrForTZ(), id).run();
+            } else {
+                await env.DB.prepare("UPDATE clients SET package = ? WHERE id = ?")
+                    .bind(pkgRow.short_name, id).run();
+            }
         }
 
         var saved = await env.DB.prepare(
@@ -15636,6 +15722,9 @@ export default {
         if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }
         if (path === "/api/fireflies/dismiss"     && method === "POST") { return handlePostFirefliesDismiss(request, env); }
         if (path === "/api/clients"              && method === "GET")  { return handleGetClients(request, env); }
+        // Must precede the /api/clients/:id segment matcher below, or
+        // "engagement-dates" is read as a client id.
+        if (path === "/api/clients/engagement-dates" && method === "GET") { return handleGetClientEngagementDates(request, env); }
         if (path === "/api/clients"              && method === "POST") { return handlePostClients(request, env); }
         if (path === "/api/transcript"           && method === "POST") { return handlePostTranscript(request, env); }
         if (path === "/api/summarize"            && method === "POST") { return handlePostSummarize(request, env); }

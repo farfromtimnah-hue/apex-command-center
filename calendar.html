@@ -1132,6 +1132,29 @@
       margin-top: 6px;
     }
 
+    /* Duration presets sit on one row; Custom carries a word so it is wider. */
+    .recur-duration-toggle { display: flex; gap: 6px; }
+    .recur-duration-toggle .type-toggle-btn { flex: 1 1 auto; white-space: nowrap; }
+
+    /* The selected client's real engagement dates, shown so the duration
+       choice is made against actual data instead of a generic guess. */
+    .recur-engagement-hint {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .recur-engagement-hint .hint-label { color: var(--muted); }
+    /* Marks a date Apex inferred rather than recorded -- see the "first
+       session on file" caveat in renderNsEngagementHint(). */
+    .recur-engagement-hint .hint-soft { color: var(--muted); font-style: italic; }
+    .recur-engagement-hint .hint-dates { margin-top: 4px; }
+    .recur-engagement-hint .hint-date-opt { display: inline-block; margin-right: 12px; white-space: nowrap; }
+
     .btn-close-detail {
       background: transparent;
       border: 1px solid var(--border);
@@ -1534,18 +1557,51 @@
               <span class="show-pt">Frequência</span>
               <span class="show-en">Frequency</span>
             </div>
-            <select id="nsRecurFreq" onchange="updateNsRecurPreview()">
+            <select id="nsRecurFreq" onchange="onNsRecurFreqChange()">
               <option value="weekly" data-pt="Semanal" data-en="Weekly"></option>
               <option value="biweekly" data-pt="Quinzenal" data-en="Every 2 weeks"></option>
               <option value="monthly" data-pt="Mensal" data-en="Monthly"></option>
             </select>
+            <!-- Duration, not "how many meetings?".
+                 Three client series on Rafa's Google Calendar are weekly with
+                 NO end -- no COUNT, no UNTIL -- because the old question
+                 required converting a package length and a start date into a
+                 week count in your head, while booking. Alice had no way to
+                 know how many weeks an engagement runs, so she set them to
+                 repeat forever. Apex computes the count instead. -->
             <div class="field-label" style="margin-top:10px;">
-              <span class="show-pt">Número de reuniões</span>
-              <span class="show-en">Number of meetings</span>
+              <span class="show-pt">Duração</span>
+              <span class="show-en">Duration</span>
             </div>
-            <!-- max 26 is a deliberate guard: each occurrence can fire a
-                 real Google Calendar event into the client's account. -->
-            <input type="number" id="nsRecurCount" value="4" min="2" max="26" oninput="updateNsRecurPreview()">
+            <div class="type-toggle recur-duration-toggle">
+              <button type="button" class="type-toggle-btn" id="nsDur30"  onclick="setNsDuration(30)">30d</button>
+              <button type="button" class="type-toggle-btn" id="nsDur90"  onclick="setNsDuration(90)">90d</button>
+              <button type="button" class="type-toggle-btn" id="nsDur180" onclick="setNsDuration(180)">180d</button>
+              <button type="button" class="type-toggle-btn" id="nsDurCustom" onclick="setNsDuration('custom')">
+                <span class="show-pt">Personalizado</span>
+                <span class="show-en">Custom</span>
+              </button>
+            </div>
+            <input type="hidden" id="nsDurationVal" value="">
+
+            <!-- The client's own dates, so the choice is made against real
+                 data rather than a generic guess. Filled by
+                 renderNsEngagementHint() when a client is selected. -->
+            <div class="recur-engagement-hint" id="nsEngagementHint" hidden></div>
+
+            <!-- Custom is REQUIRED, not a nicety: for every client that
+                 predates engagement-start stamping, Alice reads the first
+                 session on file, adds a week or two from her own knowledge,
+                 and enters the count herself. -->
+            <div id="nsRecurCountGroup" hidden>
+              <div class="field-label" style="margin-top:10px;">
+                <span class="show-pt">Número de reuniões</span>
+                <span class="show-en">Number of meetings</span>
+              </div>
+              <!-- max 26 is a deliberate guard: each occurrence can fire a
+                   real Google Calendar event into the client's account. -->
+              <input type="number" id="nsRecurCount" value="4" min="2" max="26" oninput="onNsRecurCountInput()">
+            </div>
             <div class="recur-preview" id="nsRecurPreview"></div>
           </div>
         </div>
@@ -2346,6 +2402,7 @@
       window.initNav && window.initNav();
       initHeroBg('calendarHeroBg', 'calendarHeroScrim');
       loadClients();
+      loadEngagementDates();
       loadCalendar();
     }
 
@@ -2466,6 +2523,10 @@
       var opt = sel.options[sel.selectedIndex];
       var status = opt ? opt.dataset.status : "";
       setNewSessionCategory(status === "lead" ? "prospective" : "client");
+      // Show this client's own engagement dates and preselect the duration
+      // matching their package, where one is known.
+      renderNsEngagementHint();
+      applyNsDurationDefault();
     }
 
     function nsIsEvent() {
@@ -3998,6 +4059,12 @@
       document.getElementById("nsRecurFreq").value  = "weekly";
       document.getElementById("nsRecurCount").value = "4";
       document.getElementById("nsRecurPreview").textContent = "";
+      // No duration preselected until a client is chosen -- the right default
+      // comes from their package.
+      document.getElementById("nsDurationVal").value = "";
+      setNsDurationButtonsInactive();
+      document.getElementById("nsRecurCountGroup").hidden = true;
+      document.getElementById("nsEngagementHint").hidden = true;
       var st = document.getElementById("nsStatus");
       if (st) { st.textContent = ""; st.className = "pull-status"; }
       document.getElementById("modalNewSession").hidden = false;
@@ -4048,6 +4115,182 @@
       return out.getUTCFullYear() + "-" + padZ(out.getUTCMonth() + 1) + "-" + padZ(out.getUTCDate());
     }
 
+    // ── Recurrence duration ────────────────────────────────────────────────
+    //
+    // Engagement dates for every client, keyed by client id. Loaded once per
+    // page load from /api/clients/engagement-dates. An empty map is not an
+    // error -- the dialog simply shows the three presets with none highlighted.
+    var engagementDates = {};
+
+    function loadEngagementDates() {
+      apiFetch("/api/clients/engagement-dates")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var rows = (data && data.clients) || [];
+          engagementDates = {};
+          for (var i = 0; i < rows.length; i++) { engagementDates[rows[i].id] = rows[i]; }
+          renderNsEngagementHint();
+        })
+        .catch(function() { /* presets still work without it */ });
+    }
+
+    // Days -> number of occurrences at this frequency, counting the first
+    // session as occurrence 1. A 90-day weekly engagement starting today runs
+    // to day 90, which is 13 weekly sessions (days 0, 7, ... 84).
+    // Never returns less than 2 (a "series" of one is not a series) and never
+    // more than 26 (each occurrence can fire a real Google event).
+    function occurrencesForDuration(days, freq) {
+      var stepDays = freq === "monthly" ? 30 : (freq === "biweekly" ? 14 : 7);
+      var n = Math.floor(days / stepDays) + 1;
+      if (n < 2)  { n = 2; }
+      if (n > 26) { n = 26; }
+      return n;
+    }
+
+    // Adds calendar days to a YYYY-MM-DD string, in UTC so DST cannot shift it.
+    function addDaysToDateStrLocal(dateStr, days) {
+      var p = dateStr.split("-");
+      var d = new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + days));
+      return d.getUTCFullYear() + "-" + padZ(d.getUTCMonth() + 1) + "-" + padZ(d.getUTCDate());
+    }
+
+    // Selects a duration preset, or reveals the manual count for Custom.
+    // Every path yields a bounded count -- an infinite series is never
+    // reachable from this dialog.
+    function setNsDuration(days) {
+      document.getElementById("nsDurationVal").value = String(days);
+      var ids = { "30": "nsDur30", "90": "nsDur90", "180": "nsDur180", "custom": "nsDurCustom" };
+      for (var k in ids) {
+        if (!Object.prototype.hasOwnProperty.call(ids, k)) { continue; }
+        var el = document.getElementById(ids[k]);
+        if (el) { el.className = "type-toggle-btn" + (String(days) === k ? " active" : ""); }
+      }
+      document.getElementById("nsRecurCountGroup").hidden = (days !== "custom");
+      if (days !== "custom") {
+        var freq = document.getElementById("nsRecurFreq").value;
+        document.getElementById("nsRecurCount").value = occurrencesForDuration(days, freq);
+      }
+      updateNsRecurPreview();
+    }
+
+    // Typing a count by hand IS the custom path -- switch to it rather than
+    // leaving a preset highlighted next to a number it did not produce.
+    function onNsRecurCountInput() {
+      if (document.getElementById("nsDurationVal").value !== "custom") {
+        setNsDuration("custom");
+      }
+      updateNsRecurPreview();
+    }
+
+    // Shows the selected client's real engagement dates, so the duration is
+    // chosen against actual data.
+    //
+    // package_started_at is the honest answer and is preferred whenever it
+    // exists. It only exists for engagements that began after 2026-08-03, when
+    // stamping was added -- everything older is NULL, deliberately not
+    // backfilled and not guessed.
+    //
+    // The fallback is labelled "first session on file", NOT "contract start",
+    // because those genuinely differ: a lead meets Rafa BEFORE becoming a
+    // client, and that sales/diagnostic meeting does not count toward the
+    // package. For those clients Alice adds a week or two from her own
+    // knowledge and uses Custom -- which is why Custom is required.
+    function renderNsEngagementHint() {
+      var hintEl = document.getElementById("nsEngagementHint");
+      if (!hintEl) { return; }
+      var en = isEn();
+      var clientId = document.getElementById("nsClient").value;
+      var row = clientId ? engagementDates[clientId] : null;
+
+      if (!row || (!row.package_started_at && !row.first_session_on_file && !row.package)) {
+        hintEl.hidden = true;
+        hintEl.innerHTML = "";
+        return;
+      }
+
+      var html = "";
+      var startDate = row.package_started_at || row.first_session_on_file || null;
+
+      if (row.package_started_at) {
+        html += '<div><span class="hint-label">' +
+                (en ? "Package started: " : "Pacote iniciado: ") + '</span>' +
+                escHtml(formatDate(row.package_started_at)) + '</div>';
+      } else if (row.first_session_on_file) {
+        html += '<div><span class="hint-label">' +
+                (en ? "First session on file: " : "Primeira sessão registrada: ") + '</span>' +
+                escHtml(formatDate(row.first_session_on_file)) +
+                ' <span class="hint-soft">' +
+                (en ? "(engagement start not recorded)" : "(início do contrato não registrado)") +
+                '</span></div>';
+      }
+
+      if (row.package) {
+        html += '<div><span class="hint-label">' + (en ? "Package: " : "Pacote: ") + '</span>' +
+                escHtml(row.package);
+        if (row.duration_days) {
+          html += ' · ' + row.duration_days + (en ? " days" : " dias");
+        } else {
+          // No duration on file -- say so rather than implying one.
+          html += ' <span class="hint-soft">' +
+                  (en ? "(no set duration)" : "(sem duração definida)") + '</span>';
+        }
+        html += '</div>';
+      }
+
+      // What each preset would mean from this client's own start date.
+      if (startDate) {
+        html += '<div class="hint-dates">';
+        var presets = [30, 90, 180];
+        for (var i = 0; i < presets.length; i++) {
+          html += '<span class="hint-date-opt">' + presets[i] + 'd → ' +
+                  escHtml(formatDate(addDaysToDateStrLocal(startDate, presets[i]))) + '</span>';
+        }
+        html += '</div>';
+      }
+
+      hintEl.innerHTML = html;
+      hintEl.hidden = !html;
+    }
+
+    // Preselects the preset matching the client's package duration, when one
+    // is known. Where duration is NULL or the package is unrecognized, the
+    // three presets are shown with NONE highlighted -- no guess, no block.
+    function applyNsDurationDefault() {
+      var clientId = document.getElementById("nsClient").value;
+      var row = clientId ? engagementDates[clientId] : null;
+      var dur = row && row.duration_days ? row.duration_days : null;
+      if (dur === 30 || dur === 90 || dur === 180) {
+        setNsDuration(dur);
+      } else {
+        // Clear any previous highlight; leave the count untouched.
+        document.getElementById("nsDurationVal").value = "";
+        setNsDurationButtonsInactive();
+        document.getElementById("nsRecurCountGroup").hidden = true;
+        updateNsRecurPreview();
+      }
+    }
+
+    // Changing the frequency changes how many meetings fit in the SAME
+    // duration -- 90 days is 13 weekly sessions but only 4 monthly ones -- so
+    // the count is recomputed rather than left showing the old cadence's total.
+    // A custom count is the user's own number and is never overwritten.
+    function onNsRecurFreqChange() {
+      var dur = document.getElementById("nsDurationVal").value;
+      if (dur && dur !== "custom") {
+        setNsDuration(parseInt(dur, 10));
+      } else {
+        updateNsRecurPreview();
+      }
+    }
+
+    function setNsDurationButtonsInactive() {
+      var ids = ["nsDur30", "nsDur90", "nsDur180", "nsDurCustom"];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) { el.className = "type-toggle-btn"; }
+      }
+    }
+
     function updateNsRecurPreview() {
       var previewEl = document.getElementById("nsRecurPreview");
       if (!previewEl || document.getElementById("nsRecurFields").hidden) { return; }
@@ -4055,6 +4298,14 @@
       var date  = document.getElementById("nsDate").value;
       var freq  = document.getElementById("nsRecurFreq").value;
       var count = parseInt(document.getElementById("nsRecurCount").value, 10);
+      // No duration chosen yet: say what is missing instead of going blank,
+      // which reads as a broken form.
+      if (!document.getElementById("nsDurationVal").value) {
+        previewEl.textContent = en
+          ? "Choose a duration to see the meetings."
+          : "Escolha uma duração para ver as reuniões.";
+        return;
+      }
       if (!date || isNaN(count) || count < 2 || count > 26) {
         previewEl.textContent = "";
         return;
@@ -4143,6 +4394,13 @@
       var recurring  = !isEvent && document.getElementById("nsRecurring").checked;
       var recurFreq  = document.getElementById("nsRecurFreq").value;
       var recurCount = parseInt(document.getElementById("nsRecurCount").value, 10);
+      // A duration must be chosen. This is what makes an unbounded series
+      // unreachable from this dialog: every path here produces a real count,
+      // which the worker turns into a bounded RRULE COUNT.
+      if (recurring && !document.getElementById("nsDurationVal").value) {
+        fail(en ? "Choose how long this engagement runs." : "Escolha a duracao deste contrato.");
+        return;
+      }
       if (recurring && (isNaN(recurCount) || recurCount < 2 || recurCount > 26)) {
         fail(en ? "Number of meetings must be between 2 and 26." : "Numero de reunioes deve ser entre 2 e 26.");
         return;

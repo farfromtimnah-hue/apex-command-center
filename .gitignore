@@ -26,3 +26,9 @@ wrangler.lock
 
 # Build artifacts
 dist/
+
+# Client material never belongs in this repo — it is public.
+# Session writeups and seed scripts live in the Obsidian vault instead.
+# (clients/elevante.md + elevate_seed.sql were removed 2026-08-02; see vault.)
+clients/
+*_seed.sql

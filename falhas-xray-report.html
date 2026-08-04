@@ -266,6 +266,35 @@
 
     var currentUser = null;
     var auth = null;
+    // Set once loadReport has already fallen back from a rejected client token,
+    // so a second 401 shows the error instead of looping.
+    var triedFirebaseFallback = false;
+
+    // Drop a client password session from this browser. Used when the API
+    // rejects the stored token, so an admin holding a stale client token is
+    // not locked out of a report they can legitimately see.
+    function clearClientSession() {
+      localStorage.removeItem("apex_client_token");
+      localStorage.removeItem("apex_client_id");
+      localStorage.removeItem("apex_client_name");
+    }
+
+    // Bring up Firebase (if init() has not already) and resolve with the
+    // signed-in user, or reject when there is no Firebase session to fall
+    // back to.
+    function firebaseUser() {
+      if (currentUser) { return Promise.resolve(currentUser); }
+      return new Promise(function(resolve, reject) {
+        if (!auth) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+          auth = firebase.auth();
+        }
+        auth.onAuthStateChanged(function(user) {
+          if (user) { currentUser = user; resolve(user); }
+          else { reject(new Error("Not authenticated")); }
+        });
+      });
+    }
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -502,8 +531,31 @@
       bodyEl.hidden = false;
     }
 
+    var REPORT_PATH = "/api/clients/" + encodeURIComponent(CLIENT_ID) +
+                      "/assessments/falhas_xray";
+
     function loadReport() {
-      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/assessments/falhas_xray")
+      apiFetch(REPORT_PATH)
+        .then(function(res) {
+          // A stale client token in localStorage wins over the Firebase session
+          // in getToken(), so an admin with a leftover token gets rejected on a
+          // report they can actually see. Clear it and retry once as Firebase
+          // before giving up (hit live by Rafa, 2026-08-03).
+          // 401/403 is what an expired capt_ token returns. 500 is included on
+          // purpose: a token that is not capt_-shaped falls through to Firebase
+          // JWT verification in the Worker and fails there as "Malformed JWT",
+          // which surfaces as a 500 rather than a 401. Both mean the same thing
+          // here -- the stored token is unusable -- and we only ever retry when
+          // one is actually present, so a real server error with no client token
+          // still shows the error message as before.
+          if ((res.status === 401 || res.status === 403 || res.status === 500) &&
+              !triedFirebaseFallback && localStorage.getItem("apex_client_token")) {
+            triedFirebaseFallback = true;
+            clearClientSession();
+            return firebaseUser().then(function() { return apiFetch(REPORT_PATH); });
+          }
+          return res;
+        })
         .then(function(res) {
           if (!res.ok) { throw new Error("HTTP " + res.status); }
           return res.json();

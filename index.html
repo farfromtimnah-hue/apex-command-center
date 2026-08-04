@@ -508,6 +508,14 @@
         });
     }
 
+    // Drop a client password session from this browser. Used when the API
+    // rejects a stored token, so an admin is not held in a client identity.
+    function clearClientSession() {
+      localStorage.removeItem("apex_client_token");
+      localStorage.removeItem("apex_client_id");
+      localStorage.removeItem("apex_client_name");
+    }
+
     // ── Client username/password login ─────────────────────────────────────
     function handleClientLogin(evt) {
       evt.preventDefault();
@@ -540,11 +548,26 @@
         });
     }
 
-    // Skip sign-in if already authenticated
+    // Skip sign-in if already authenticated. The token is VALIDATED before we
+    // redirect: a stale/expired client token used to bounce admins straight into
+    // the client portal before they could sign in as themselves (hit live by Rafa,
+    // 2026-08-03). If the API rejects it, clear it and stay on the login page.
+    // GET /api/role is the validation call: it is client-token reachable and
+    // returns 401 for any token authenticate() will not accept.
     if (localStorage.getItem("apex_client_token")) {
-      // Existing client password session — portal.html validates the token
-      // and sends the user back here if it has expired.
-      window.location.href = "portal.html";
+      fetch(WORKER_URL + "/api/role", {
+        headers: { "Authorization": "Bearer " + localStorage.getItem("apex_client_token") }
+      })
+        .then(function(res) {
+          if (res.ok) {
+            window.location.href = "portal.html";
+          } else {
+            clearClientSession();
+          }
+        })
+        .catch(function() {
+          clearClientSession();
+        });
     }
     auth.onAuthStateChanged(function(user) {
       if (user && sessionStorage.getItem("apex_role")) {

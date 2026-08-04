@@ -13684,7 +13684,18 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
             await env.DB.prepare(
                 "UPDATE client_assessments SET answers_json = ?, profile_json = ?, status = ?, " +
                 "started_at = CASE WHEN started_at IS NULL AND ? > 0 THEN datetime('now') ELSE started_at END, " +
-                "updated_at = datetime('now') WHERE id = ?"
+                // AND status != 'completed' closes a real race that stranded a
+                // live client's finished X-Ray. xrayNext() fires xraySaveDraft()
+                // WITHOUT awaiting it and then calls xraySubmit(), so on the last
+                // section two PUTs are in flight against the same row at once. The
+                // guard at the top of this handler is a read, so a draft that read
+                // 'in_progress' before the submit committed still passes it and
+                // then writes 'in_progress' back over 'completed' — leaving
+                // score_json and completed_at (which the draft never touches)
+                // intact. That is exactly the half-written row found on
+                // mazinho-001. Whoever wins the race, a completed row now stays
+                // completed.
+                "updated_at = datetime('now') WHERE id = ? AND status != 'completed'"
             ).bind(JSON.stringify(merged), JSON.stringify(mergedProfile), status, answered + profileAnswered, row.id).run();
             return jsonOk({ saved: true, draft: true, answered: answered, total: catalog.total,
                             profile_answered: profileAnswered, profile_required_total: profileTotal });

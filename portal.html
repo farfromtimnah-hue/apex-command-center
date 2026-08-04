@@ -4915,9 +4915,17 @@
     }
 
     function xrayNext() {
-      xraySaveDraft();
-      if (xraySection < xrayStepCount() - 1) { xrayGoSection(xraySection + 1); return; }
-      xraySubmit();
+      if (xraySection < xrayStepCount() - 1) {
+        xraySaveDraft();
+        xrayGoSection(xraySection + 1);
+        return;
+      }
+      // Last section: the draft MUST settle before the submit goes out. Firing
+      // both at once put two writes on the same row, and a draft landing second
+      // wrote 'in_progress' back over 'completed' — the bug that stranded a real
+      // client's finished X-Ray. The server-side guard is the real protection
+      // (see handlePutAssessmentAnswers); this just stops the race being started.
+      xraySaveDraft().then(xraySubmit, xraySubmit);
     }
 
     function xrayExit() {

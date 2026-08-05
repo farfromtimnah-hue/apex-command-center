@@ -245,6 +245,132 @@
       line-height: 1.4;
     }
 
+    /* ─── Finance pill tab bar (hero) — mirrors finance.html:886-929 ─────── */
+    .fin-tab-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0;
+      border-bottom: none;
+      background: transparent;
+      flex-shrink: 0;
+    }
+
+    .fin-tab-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 15px;
+      border-radius: 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      background: transparent;
+      color: rgba(255,255,255,0.75);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .fin-tab-pill:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+    .fin-tab-pill.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #1a1a1d;
+      font-weight: 600;
+    }
+
+    .fin-tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.28);
+      color: inherit;
+    }
+    .fin-tab-pill:not(.active) .fin-tab-badge {
+      background: rgba(255,255,255,0.22);
+      color: rgba(255,255,255,0.85);
+    }
+    .fin-tab-badge[hidden] { display: none !important; }
+
+    .fin-tab-panel[hidden] { display: none !important; }
+
+    /* ─── Categories tab ─────────────────────────────────────────────────── */
+    .uncat-line { font-size: 15px; color: var(--text); line-height: 1.5; }
+    .uncat-line strong { font-size: 22px; font-weight: 700; }
+
+    .cat-split { display: flex; gap: 28px; flex-wrap: wrap; }
+    .cat-col { flex: 1; min-width: 260px; }
+    .cat-col-head {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .cat-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+    }
+    .cat-row-name { flex: 1; font-size: 13px; }
+    .cat-row-amt  { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .cat-row-n    { font-size: 11px; color: var(--muted); min-width: 34px; text-align: right; }
+
+    .cat-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--gold);
+      opacity: 0.85;
+      min-width: 2px;
+    }
+    .cat-bar-wrap { width: 100%; height: 6px; background: var(--border); border-radius: 3px; margin-top: 3px; }
+    /* Uncategorized is drawn in a deliberately neutral grey, never gold: it is
+       an absence of information, not a category competing with the real ones. */
+    .cat-row.is-uncat .cat-bar { background: var(--muted); opacity: 0.5; }
+    .cat-row.is-uncat .cat-row-name { color: var(--muted); font-style: italic; }
+
+    .rule-src {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .rule-src-manual { background: #d1fae5; color: #065f46; }
+    .rule-src-llm    { background: #e0e7ff; color: #3730a3; }
+    .rule-src-seed   { background: #f1f5f9; color: #475569; }
+
+    /* ─── Scope prompt (Google Calendar recurring-event pattern) ──────────── */
+    .scope-opt {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 15px;
+      margin-bottom: 9px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .scope-opt:hover { border-color: var(--gold); background: var(--gold-dim); }
+    .scope-opt-title { font-size: 14px; font-weight: 600; color: var(--text); }
+    .scope-opt-sub   { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+
     /* ─── Invoice sub-tabs (mirrors finance.html) ────────────────────────── */
     .inv-subtab-bar {
       display: flex;
@@ -612,10 +738,35 @@
             <div class="glass-tile-note" id="heroNetNote" hidden></div>
           </div>
         </div>
+
+        <!-- Top-level pill tabs (same pattern as finance.html).
+             These sit INSIDE the hero, below the tiles, so the headline
+             figures stay visible on every tab -- they are the page's
+             headline, not one tab's content. -->
+        <div class="fin-tab-bar m-scroll-tabs" id="finTabBar">
+          <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
+            <span class="show-pt">Sa&uacute;de Financeira</span>
+            <span class="show-en">Financial Health</span>
+            <span class="fin-tab-badge" id="finBadgeSaude" hidden>0</span>
+          </button>
+          <button class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
+            <span class="show-pt">Faturas</span>
+            <span class="show-en">Invoices</span>
+            <span class="fin-tab-badge" id="finBadgeFaturas" hidden>0</span>
+          </button>
+          <button class="fin-tab-pill" id="finTabBtnCategorias" onclick="switchFinanceTab('categorias')">
+            <span class="show-pt">Categorias</span>
+            <span class="show-en">Categories</span>
+            <span class="fin-tab-badge" id="finBadgeCategorias" hidden>0</span>
+          </button>
+        </div>
       </div>
     </div>
 
     <div class="fn-body">
+
+    <!-- ══ Panel: Saude Financeira ══════════════════════════════════════ -->
+    <div id="finPanelSaude" class="fin-tab-panel">
 
     <div class="page-sub">
       <span class="show-pt">Saldos e movimenta&ccedil;&atilde;o direto do banco. Nada aqui exige categoriza&ccedil;&atilde;o.</span>
@@ -720,6 +871,95 @@
       </div>
     </div>
 
+    <!-- ── Charts ── -->
+    <!-- Not decoration. Nicole is dyslexic and works from visual tools, and
+         Alice is not a numbers person -- a wall of figures is the version that
+         goes unused, which is how the last tool died. -->
+    <div id="chartCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Vis&atilde;o geral</span>
+        <span class="show-en">Overview</span>
+      </div>
+      <div class="chart-grid">
+        <div>
+          <div class="flow-label" style="margin-bottom:8px">
+            <span class="show-pt">Entrou e saiu</span>
+            <span class="show-en">Money in and out</span>
+          </div>
+          <div class="chart-box"><canvas id="flowChart"></canvas></div>
+          <div id="flowCaveat" class="chart-caveat" hidden></div>
+        </div>
+        <div>
+          <div class="flow-label" style="margin-bottom:8px">
+            <span class="show-pt">Este m&ecirc;s vs. m&ecirc;s anterior</span>
+            <span class="show-en">This month vs. last month</span>
+          </div>
+          <div class="chart-box"><canvas id="momChart"></canvas></div>
+          <div id="momCaveat" class="chart-caveat" hidden></div>
+        </div>
+        <div>
+          <div class="flow-label" style="margin-bottom:8px">
+            <span class="show-pt">Saldo por conta</span>
+            <span class="show-en">Balance by account</span>
+          </div>
+          <div class="chart-box"><canvas id="balanceChart"></canvas></div>
+          <div id="balanceCaveat" class="chart-caveat" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Transactions (Stage 4) ── -->
+    <div id="txnCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Transa&ccedil;&otilde;es</span>
+        <span class="show-en">Transactions</span>
+      </div>
+      <div class="filter-row">
+        <input type="search" id="txnSearch" oninput="renderTransactions()"
+               placeholder="Buscar descri&ccedil;&atilde;o...">
+        <select id="txnAccount" onchange="renderTransactions()">
+          <option value="">Todas as contas / All accounts</option>
+        </select>
+        <select id="txnPending" onchange="renderTransactions()">
+          <option value="">Todos / All</option>
+          <option value="posted">Confirmadas / Posted</option>
+          <option value="pending">Pendentes / Pending</option>
+        </select>
+        <select id="txnCategoryFilter" onchange="renderTransactions()">
+          <option value="">Todas as categorias / All categories</option>
+          <option value="uncategorized">Sem categoria / Uncategorized</option>
+        </select>
+        <input type="date" id="txnFrom" onchange="renderTransactions()">
+        <input type="date" id="txnTo" onchange="renderTransactions()">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
+              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
+              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
+              <th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>
+              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+            </tr>
+          </thead>
+          <tbody id="txnBody"></tbody>
+        </table>
+      </div>
+      <div id="txnEmpty" class="empty" hidden>
+        <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
+        <span class="show-en">No transactions found.</span>
+      </div>
+    </div>
+
+    </div><!-- /finPanelSaude -->
+
+    <!-- ══ Panel: Faturas ═══════════════════════════════════════════════ -->
+    <!-- Invoicing is a TASK she comes to the page to do, not a thing she
+         glances at. On the old single-scroll layout, creating an invoice
+         meant scrolling past the entire dashboard first. -->
+    <div id="finPanelFaturas" class="fin-tab-panel" hidden>
+
     <!-- ── Drafts ready to send ── -->
     <!-- A draft nobody notices is the same as no draft at all: the cron
          creates them, so they have to be visible without being hunted for. -->
@@ -771,43 +1011,6 @@
       <div class="net-note">
         <span class="show-pt">M&aacute;ximo de 20 por vez. Valores acima de $5.000 ou que n&atilde;o batem exatamente exigem confirma&ccedil;&atilde;o individual.</span>
         <span class="show-en">Maximum 20 at a time. Amounts above $5,000 or that do not match exactly need individual confirmation.</span>
-      </div>
-    </div>
-
-    <!-- ── Charts ── -->
-    <!-- Not decoration. Nicole is dyslexic and works from visual tools, and
-         Alice is not a numbers person -- a wall of figures is the version that
-         goes unused, which is how the last tool died. -->
-    <div id="chartCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Vis&atilde;o geral</span>
-        <span class="show-en">Overview</span>
-      </div>
-      <div class="chart-grid">
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Entrou e saiu</span>
-            <span class="show-en">Money in and out</span>
-          </div>
-          <div class="chart-box"><canvas id="flowChart"></canvas></div>
-          <div id="flowCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Este m&ecirc;s vs. m&ecirc;s anterior</span>
-            <span class="show-en">This month vs. last month</span>
-          </div>
-          <div class="chart-box"><canvas id="momChart"></canvas></div>
-          <div id="momCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Saldo por conta</span>
-            <span class="show-en">Balance by account</span>
-          </div>
-          <div class="chart-box"><canvas id="balanceChart"></canvas></div>
-          <div id="balanceCaveat" class="chart-caveat" hidden></div>
-        </div>
       </div>
     </div>
 
@@ -873,44 +1076,103 @@
       <div id="invoiceEmpty" class="empty" hidden></div>
     </div>
 
-    <!-- ── Transactions (Stage 4) ── -->
-    <div id="txnCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Transa&ccedil;&otilde;es</span>
-        <span class="show-en">Transactions</span>
+    </div><!-- /finPanelFaturas -->
+
+    <!-- ══ Panel: Categorias ════════════════════════════════════════════ -->
+    <!-- Occasional and deepening work, which is why it is its own tab rather
+         than a column on the transaction list. NOTHING here gates anything on
+         the other two tabs: balances, in/out/net, charts and the transaction
+         list all work with zero categories assigned. -->
+    <div id="finPanelCategorias" class="fin-tab-panel" hidden>
+
+      <div class="page-sub">
+        <span class="show-pt">Para onde o dinheiro foi. Opcional &mdash; os saldos e o fluxo funcionam sem nada disto.</span>
+        <span class="show-en">Where the money went. Optional &mdash; balances and cash flow work without any of this.</span>
       </div>
-      <div class="filter-row">
-        <input type="search" id="txnSearch" oninput="renderTransactions()"
-               placeholder="Buscar descri&ccedil;&atilde;o...">
-        <select id="txnAccount" onchange="renderTransactions()">
-          <option value="">Todas as contas / All accounts</option>
-        </select>
-        <select id="txnPending" onchange="renderTransactions()">
-          <option value="">Todos / All</option>
-          <option value="posted">Confirmadas / Posted</option>
-          <option value="pending">Pendentes / Pending</option>
-        </select>
-        <input type="date" id="txnFrom" onchange="renderTransactions()">
-        <input type="date" id="txnTo" onchange="renderTransactions()">
+
+      <!-- Uncategorized total, stated plainly. Honest about what is not yet
+           known rather than quietly omitting it from the chart below. -->
+      <div id="uncatCard" class="card" hidden>
+        <div class="card-title">
+          <span class="show-pt">Ainda n&atilde;o categorizado</span>
+          <span class="show-en">Not categorized yet</span>
+        </div>
+        <div id="uncatSummary" class="uncat-line"></div>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn btn-gold btn-sm" onclick="goCategorizeUncategorized()">
+            <span class="show-pt">Categorizar agora</span>
+            <span class="show-en">Categorize now</span>
+          </button>
+          <button class="btn btn-sm" id="autoCatBtn" onclick="runAutoCategorization()">
+            <span class="show-pt">Categorizar automaticamente</span>
+            <span class="show-en">Auto-categorize</span>
+          </button>
+        </div>
+        <div id="autoCatNote" class="net-note" hidden></div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
-              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
-              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
-              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
-            </tr>
-          </thead>
-          <tbody id="txnBody"></tbody>
-        </table>
+
+      <!-- Spending breakdown. Business and personal separately, matching how
+           the rest of the page treats them. Transfers excluded entirely. -->
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span>
+            <span class="show-pt">Gastos por categoria</span>
+            <span class="show-en">Spending by category</span>
+          </span>
+          <input type="month" id="catMonth" onchange="loadCategoryBreakdown()">
+        </div>
+        <div class="net-note" style="margin-bottom:14px">
+          <span class="show-pt">Transfer&ecirc;ncias entre as suas pr&oacute;prias contas n&atilde;o aparecem aqui: mover dinheiro n&atilde;o &eacute; gasto.</span>
+          <span class="show-en">Transfers between your own accounts are excluded: moving money is not spending.</span>
+        </div>
+        <div class="cat-split">
+          <div class="cat-col">
+            <div class="cat-col-head">
+              <span class="show-pt">Comercial</span><span class="show-en">Business</span>
+            </div>
+            <div id="catBusiness"></div>
+          </div>
+          <div class="cat-col">
+            <div class="cat-col-head">
+              <span class="show-pt">Pessoal</span><span class="show-en">Personal</span>
+            </div>
+            <div id="catPersonal"></div>
+          </div>
+        </div>
       </div>
-      <div id="txnEmpty" class="empty" hidden>
-        <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
-        <span class="show-en">No transactions found.</span>
+
+      <!-- Rules management. A wrong rule that keeps reapplying is worse than
+           no rule, so every rule is visible, editable and deletable. -->
+      <div class="card">
+        <div class="card-title">
+          <span class="show-pt">Regras</span>
+          <span class="show-en">Rules</span>
+        </div>
+        <div class="net-note" style="margin-bottom:14px">
+          <span class="show-pt">Cada regra categoriza automaticamente todas as compras futuras desse estabelecimento. &Eacute; por isso que o trabalho diminui a cada m&ecirc;s.</span>
+          <span class="show-en">Each rule automatically categorizes every future charge from that merchant. This is why the work shrinks every month.</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="show-pt">Estabelecimento</span><span class="show-en">Merchant</span></th>
+                <th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>
+                <th><span class="show-pt">Origem</span><span class="show-en">Source</span></th>
+                <th class="num"><span class="show-pt">Transa&ccedil;&otilde;es</span><span class="show-en">Transactions</span></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="rulesBody"></tbody>
+          </table>
+        </div>
+        <div id="rulesEmpty" class="empty" hidden>
+          <span class="show-pt">Nenhuma regra ainda. A primeira aparece assim que voc&ecirc; categorizar uma transa&ccedil;&atilde;o.</span>
+          <span class="show-en">No rules yet. The first one appears as soon as you categorize a transaction.</span>
+        </div>
       </div>
-    </div>
+
+    </div><!-- /finPanelCategorias -->
 
     </div><!-- /fn-body -->
   </main>
@@ -938,6 +1200,85 @@
         <button class="btn btn-gold" onclick="confirmTagging()">
           <span class="show-pt">Confirmar</span>
           <span class="show-en">Confirm</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CATEGORY PICKER ═════════════════════════════════════ -->
+  <div id="catOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Categoria</span>
+        <span class="show-en">Category</span>
+      </div>
+      <div class="modal-sub" id="catModalSub"></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <select id="catPickSelect"></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeCategoryModal()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="proceedToScopePrompt()">
+          <span class="show-pt">Continuar</span>
+          <span class="show-en">Continue</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SCOPE PROMPT ════════════════════════════════════════ -->
+  <!-- Modeled on Google Calendar's recurring-event edit dialog, because it is
+       the same three-way ambiguity and users already recognize the pattern.
+       WE ASK RATHER THAN DEFAULT because both cases are real and a system that
+       guesses is wrong about half the time: fixing a bad auto-categorization
+       should hit everything past and future, while a genuine one-off (usually
+       materials at Home Depot, this once a gift) should touch one row and
+       writing a rule would be actively wrong. -->
+  <div id="scopeOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Aplicar a quais transa&ccedil;&otilde;es?</span>
+        <span class="show-en">Apply to which transactions?</span>
+      </div>
+      <div class="modal-sub" id="scopeModalSub"></div>
+
+      <button class="scope-opt" onclick="applyCategoryScope('one')">
+        <div class="scope-opt-title">
+          <span class="show-pt">S&oacute; esta</span>
+          <span class="show-en">Just this one</span>
+        </div>
+        <div class="scope-opt-sub">
+          <span class="show-pt">Apenas esta transa&ccedil;&atilde;o. Nenhuma regra &eacute; criada.</span>
+          <span class="show-en">This transaction only. No rule is written.</span>
+        </div>
+      </button>
+
+      <button class="scope-opt" onclick="applyCategoryScope('future')">
+        <div class="scope-opt-title">
+          <span class="show-pt">Esta e futuras</span>
+          <span class="show-en">This and future</span>
+        </div>
+        <div class="scope-opt-sub" id="scopeFutureSub"></div>
+      </button>
+
+      <button class="scope-opt" onclick="applyCategoryScope('all')">
+        <div class="scope-opt-title">
+          <span class="show-pt">Todo o hist&oacute;rico</span>
+          <span class="show-en">All history</span>
+        </div>
+        <!-- The count is shown BEFORE applying. Retroactive edits silently
+             rewriting months of history is exactly the kind of surprise that
+             makes someone stop trusting the numbers. -->
+        <div class="scope-opt-sub" id="scopeAllSub"></div>
+      </button>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeScopeModal()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
         </button>
       </div>
     </div>
@@ -1426,11 +1767,15 @@
       var pending = document.getElementById("txnPending").value;
       var from    = document.getElementById("txnFrom").value;
       var to      = document.getElementById("txnTo").value;
+      var catFilterEl = document.getElementById("txnCategoryFilter");
+      var catFilter   = (catFilterEl && catFilterEl.value) || "";
 
       var rows = TRANSACTIONS.filter(function(t) {
         if (acctId && t.account_id !== acctId) { return false; }
         if (pending === "pending" && !t.pending) { return false; }
         if (pending === "posted"  &&  t.pending) { return false; }
+        if (catFilter === "uncategorized" && t.category_id) { return false; }
+        if (catFilter && catFilter !== "uncategorized" && t.category_id !== catFilter) { return false; }
         if (from && String(t.date) < from) { return false; }
         if (to   && String(t.date) > to)   { return false; }
         if (q) {
@@ -1448,10 +1793,22 @@
         var pills = "";
         if (t.pending) { pills += ' <span class="pill pill-pending">pendente</span>'; }
         if (t.is_transfer) { pills += ' <span class="pill pill-transfer">transf.</span>'; }
+
+        // The category cell is a plain button showing either the category or a
+        // quiet dash. A dash is NOT an error or a warning -- uncategorized is a
+        // normal state and this cell must never nag her into acting.
+        var cat = categoryById(t.category_id);
+        var catLabel = cat
+          ? esc(categoryName(cat))
+          : '<span style="color:var(--muted)">&mdash;</span>';
+        var catCell = '<button class="btn btn-sm" style="font-weight:500" onclick="openCategoryModal(\'' +
+          esc(t.id) + '\')">' + catLabel + "</button>";
+
         return "<tr>" +
           "<td>" + fmtDate(t.date) + "</td>" +
           "<td>" + esc(t.description || "") + pills + "</td>" +
           "<td>" + esc(nameById[t.account_id] || "") + "</td>" +
+          "<td>" + catCell + "</td>" +
           '<td class="num ' + (t.amount_cents >= 0 ? "is-green" : "") + '">' + fmtCents(t.amount_cents) + "</td>" +
         "</tr>";
       }).join("");
@@ -1887,6 +2244,442 @@
       return map[inv.status] || inv.status;
     }
 
+    // ═══════════════ TOP-LEVEL TABS ═══════════════════════════════════════
+    //
+    // Analytics and invoicing are different jobs at different cadences.
+    // Balances are glanced at; invoicing is a task she comes to the page
+    // specifically to do; categorization is occasional and deepening. On the
+    // old single-scroll layout, creating an invoice meant scrolling past the
+    // entire dashboard first.
+
+    var currentFinanceTab = "saude";
+    var FIN_TABS = ["saude", "faturas", "categorias"];
+    var categoriasLoaded = false;
+
+    function switchFinanceTab(tab) {
+      currentFinanceTab = tab;
+      for (var i = 0; i < FIN_TABS.length; i++) {
+        var t = FIN_TABS[i];
+        var btn   = document.getElementById("finTabBtn" + t.charAt(0).toUpperCase() + t.slice(1));
+        var panel = document.getElementById("finPanel" + t.charAt(0).toUpperCase() + t.slice(1));
+        if (btn)   { btn.className = "fin-tab-pill" + (t === tab ? " active" : ""); }
+        if (panel) { panel.hidden  = (t !== tab); }
+      }
+      // Lazy-load on first open, as finance.html does. Categories are a
+      // separate set of queries and there is no reason to run them for someone
+      // who only ever looks at balances.
+      if (tab === "categorias" && !categoriasLoaded) {
+        categoriasLoaded = true;
+        initCategoryMonth();
+        loadCategories();
+        loadCategoryBreakdown();
+        loadRules();
+      }
+    }
+
+    // Badges surface what needs attention without her opening anything --
+    // the same "surface it, don't make her go looking" principle the rest of
+    // the page is built on.
+    function updateFinanceBadges() {
+      // Faturas: drafts waiting to be sent plus deposits waiting to be matched.
+      // Both are "something is sitting here for you", which is what the badge
+      // is claiming.
+      var drafts = INVOICES.filter(function(i) { return i.status === "draft"; }).length;
+      var pendingMatches = (MATCHES || []).length;
+      setBadge("finBadgeFaturas", drafts + pendingMatches);
+
+      // Categorias: uncategorized transactions. Zero is silent -- a badge
+      // reading 0 is noise, and this layer must never nag.
+      var uncat = TRANSACTIONS.filter(function(t) {
+        return !t.category_id && !t.is_transfer &&
+               t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
+      }).length;
+      setBadge("finBadgeCategorias", uncat);
+    }
+
+    function setBadge(id, count) {
+      var el = document.getElementById(id);
+      if (!el) { return; }
+      if (count > 0) { el.textContent = count; el.hidden = false; }
+      else { el.hidden = true; }
+    }
+
+    // ═══════════════ CATEGORIZATION ═══════════════════════════════════════
+    //
+    // NOTHING HERE GATES ANYTHING. Every function below can fail, return
+    // nothing, or never run at all, and the balances, the hero tiles, the
+    // charts and the transaction list are unaffected. An uncategorized
+    // transaction is a normal state, never an error state.
+
+    var CATEGORIES = [];
+    var RULES = [];
+    var BREAKDOWN = null;
+    var pendingCategoryTxn = null;   // { id, merchant, categoryId }
+
+    function initCategoryMonth() {
+      var el = document.getElementById("catMonth");
+      if (el && !el.value) { el.value = new Date().toISOString().slice(0, 7); }
+    }
+
+    function loadCategories() {
+      return apiFetch("/api/finance-new/categories")
+        .then(function(r) { return r.json(); })
+        .then(function(data) { CATEGORIES = data.categories || []; })
+        .catch(function() { CATEGORIES = []; });
+    }
+
+    function categoryName(cat) {
+      if (!cat) { return ""; }
+      return isEn() ? (cat.name_en || cat.name_pt) : cat.name_pt;
+    }
+
+    function categoryById(id) {
+      for (var i = 0; i < CATEGORIES.length; i++) {
+        if (CATEGORIES[i].id === id) { return CATEGORIES[i]; }
+      }
+      return null;
+    }
+
+    function loadCategoryBreakdown() {
+      var monthEl = document.getElementById("catMonth");
+      var month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
+      return apiFetch("/api/finance-new/categories/breakdown?month=" + encodeURIComponent(month))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          BREAKDOWN = data;
+          renderBreakdown();
+          renderUncategorized();
+        })
+        .catch(function() {
+          BREAKDOWN = null;
+          renderBreakdown();
+          renderUncategorized();
+        });
+    }
+
+    function renderBreakdown() {
+      renderBreakdownCol("catBusiness", BREAKDOWN ? BREAKDOWN.business : [],
+                         BREAKDOWN && BREAKDOWN.uncategorized ? BREAKDOWN.uncategorized.business : null);
+      renderBreakdownCol("catPersonal", BREAKDOWN ? BREAKDOWN.personal : [],
+                         BREAKDOWN && BREAKDOWN.uncategorized ? BREAKDOWN.uncategorized.personal : null);
+    }
+
+    function renderBreakdownCol(elId, rows, uncat) {
+      var el = document.getElementById(elId);
+      if (!el) { return; }
+      rows = rows || [];
+      var uncatCents = (uncat && uncat.cents) || 0;
+
+      if (rows.length === 0 && !uncatCents) {
+        el.innerHTML = '<div class="empty" style="padding:14px 0;text-align:left">' +
+          '<span class="show-pt">Sem gastos neste per&iacute;odo.</span>' +
+          '<span class="show-en">No spending in this period.</span></div>';
+        return;
+      }
+
+      // The uncategorized slice is drawn IN the list, not omitted from it. A
+      // breakdown that quietly drops what it does not know is a chart that
+      // lies by subtraction.
+      var all = rows.slice();
+      var max = 0;
+      all.forEach(function(r) { if (r.spent_cents > max) { max = r.spent_cents; } });
+      if (uncatCents > max) { max = uncatCents; }
+      if (max <= 0) { max = 1; }
+
+      var html = all.map(function(r) {
+        var cat = categoryById(r.category_id);
+        var pct = Math.max(2, Math.round((r.spent_cents / max) * 100));
+        return '<div class="cat-row">' +
+          '<div style="flex:1">' +
+            '<div style="display:flex;align-items:center;gap:10px">' +
+              '<div class="cat-row-name">' + esc(categoryName(cat) || r.name_pt || "?") + "</div>" +
+              '<div class="cat-row-amt">' + fmtCents(r.spent_cents) + "</div>" +
+              '<div class="cat-row-n">' + r.n + "</div>" +
+            "</div>" +
+            '<div class="cat-bar-wrap"><div class="cat-bar" style="width:' + pct + '%"></div></div>' +
+          "</div>" +
+        "</div>";
+      }).join("");
+
+      if (uncatCents > 0) {
+        var upct = Math.max(2, Math.round((uncatCents / max) * 100));
+        html += '<div class="cat-row is-uncat">' +
+          '<div style="flex:1">' +
+            '<div style="display:flex;align-items:center;gap:10px">' +
+              '<div class="cat-row-name">' +
+                (isEn() ? "Not categorized" : "N&atilde;o categorizado") + "</div>" +
+              '<div class="cat-row-amt">' + fmtCents(uncatCents) + "</div>" +
+              '<div class="cat-row-n">' + ((uncat && uncat.n) || 0) + "</div>" +
+            "</div>" +
+            '<div class="cat-bar-wrap"><div class="cat-bar" style="width:' + upct + '%"></div></div>' +
+          "</div>" +
+        "</div>";
+      }
+
+      el.innerHTML = html;
+    }
+
+    // "$1,240 nao categorizado (18 transacoes)" -- stated plainly, with one
+    // click to go fix it. Honest about what is not yet known.
+    function renderUncategorized() {
+      var card = document.getElementById("uncatCard");
+      var line = document.getElementById("uncatSummary");
+      if (!card || !line) { return; }
+
+      var u = BREAKDOWN && BREAKDOWN.uncategorized;
+      var cents = ((u && u.business && u.business.cents) || 0) + ((u && u.personal && u.personal.cents) || 0);
+      var n     = ((u && u.business && u.business.n)     || 0) + ((u && u.personal && u.personal.n)     || 0);
+
+      if (n === 0) {
+        card.hidden = true;
+        return;
+      }
+
+      card.hidden = false;
+      line.innerHTML = isEn()
+        ? "<strong>" + fmtCents(cents) + "</strong> not categorized (" + n + " transaction" + (n === 1 ? "" : "s") + ")"
+        : "<strong>" + fmtCents(cents) + "</strong> n&atilde;o categorizado (" + n + " transa&ccedil;" + (n === 1 ? "&atilde;o" : "&otilde;es") + ")";
+    }
+
+    // Jump to the transaction list filtered to what still needs a category.
+    function goCategorizeUncategorized() {
+      switchFinanceTab("saude");
+      var sel = document.getElementById("txnCategoryFilter");
+      if (sel) { sel.value = "uncategorized"; }
+      renderTransactions();
+      var card = document.getElementById("txnCard");
+      if (card) { card.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    }
+
+    // Layers 1 and 2 on demand. Explicitly a button, not something that fires
+    // on load: layer 2 is a paid call and she should be the one asking for it.
+    function runAutoCategorization() {
+      var btn  = document.getElementById("autoCatBtn");
+      var note = document.getElementById("autoCatNote");
+      if (btn) { btn.disabled = true; }
+      if (note) {
+        note.hidden = false;
+        note.textContent = isEn() ? "Working..." : "Processando...";
+      }
+
+      apiFetch("/api/finance-new/categorization/run", { method: "POST" })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var total = (data.by_rules || 0) + (data.by_llm || 0);
+          if (note) {
+            if (data.llm_skipped_reason === "no_api_key") {
+              // Not an error. The rules layer still ran and whatever it could
+              // not reach simply stays uncategorized.
+              note.textContent = isEn()
+                ? total + " categorized by rules. Automatic suggestions are not configured, so the rest stay uncategorized."
+                : total + " categorizadas por regras. Sugestões automáticas não estão configuradas; o resto continua sem categoria.";
+            } else {
+              note.textContent = isEn()
+                ? total + " transactions categorized."
+                : total + " transações categorizadas.";
+            }
+          }
+          return refreshAfterCategoryChange();
+        })
+        .catch(function() {
+          if (note) {
+            note.textContent = isEn()
+              ? "Could not run just now. Nothing was changed."
+              : "Não foi possível executar agora. Nada foi alterado.";
+          }
+        })
+        .then(function() { if (btn) { btn.disabled = false; } });
+    }
+
+    // ── The scope prompt ───────────────────────────────────────────────────
+
+    function openCategoryModal(txnId) {
+      var txn = null;
+      for (var i = 0; i < TRANSACTIONS.length; i++) {
+        if (TRANSACTIONS[i].id === txnId) { txn = TRANSACTIONS[i]; break; }
+      }
+      if (!txn) { return; }
+
+      pendingCategoryTxn = { id: txn.id, merchant: txn.merchant_normalized || "", categoryId: null };
+
+      var sub = document.getElementById("catModalSub");
+      if (sub) { sub.textContent = (txn.description || txn.merchant_normalized || ""); }
+
+      var sel = document.getElementById("catPickSelect");
+      if (sel) {
+        var opts = '<option value="">' + (isEn() ? "-- no category --" : "-- sem categoria --") + "</option>";
+        opts += CATEGORIES.map(function(c) {
+          return '<option value="' + esc(c.id) + '"' + (c.id === txn.category_id ? " selected" : "") + ">" +
+                 esc(categoryName(c)) + "</option>";
+        }).join("");
+        sel.innerHTML = opts;
+      }
+
+      document.getElementById("catOverlay").hidden = false;
+    }
+
+    function closeCategoryModal() {
+      document.getElementById("catOverlay").hidden = true;
+    }
+
+    function proceedToScopePrompt() {
+      if (!pendingCategoryTxn) { return; }
+      var sel = document.getElementById("catPickSelect");
+      pendingCategoryTxn.categoryId = (sel && sel.value) || null;
+      closeCategoryModal();
+
+      // With no merchant key there is nothing a rule could match on, so the
+      // three-way question is meaningless -- apply to this row and say nothing.
+      if (!pendingCategoryTxn.merchant) {
+        applyCategoryScope("one");
+        return;
+      }
+
+      var sub = document.getElementById("scopeModalSub");
+      if (sub) {
+        sub.textContent = isEn()
+          ? "Future charges from " + pendingCategoryTxn.merchant + " can be categorized automatically."
+          : "Compras futuras de " + pendingCategoryTxn.merchant + " podem ser categorizadas automaticamente.";
+      }
+
+      // Counts are fetched BEFORE the options are actionable, so the
+      // retroactive choice is never made blind.
+      var allSub    = document.getElementById("scopeAllSub");
+      var futureSub = document.getElementById("scopeFutureSub");
+      if (allSub)    { allSub.textContent    = isEn() ? "Checking..." : "Verificando..."; }
+      if (futureSub) { futureSub.textContent = ""; }
+
+      document.getElementById("scopeOverlay").hidden = false;
+
+      apiFetch("/api/finance-new/transactions/" + encodeURIComponent(pendingCategoryTxn.id) + "/category-impact")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var n = data.all_count || 0;
+          if (futureSub) {
+            futureSub.textContent = isEn()
+              ? "This transaction plus a rule for future ones. Past transactions are left alone."
+              : "Esta transação e uma regra para as futuras. O passado não é alterado.";
+          }
+          if (allSub) {
+            allSub.textContent = isEn()
+              ? "Writes a rule and also changes " + n + " past transaction" + (n === 1 ? "" : "s") + " from this merchant."
+              : "Cria uma regra e também altera " + n + " transaç" + (n === 1 ? "ão" : "ões") + " anterior" + (n === 1 ? "" : "es") + " deste estabelecimento.";
+          }
+        })
+        .catch(function() {
+          if (allSub) {
+            allSub.textContent = isEn()
+              ? "Writes a rule and applies it to past transactions from this merchant."
+              : "Cria uma regra e aplica às transações anteriores deste estabelecimento.";
+          }
+        });
+    }
+
+    function closeScopeModal() {
+      document.getElementById("scopeOverlay").hidden = true;
+      pendingCategoryTxn = null;
+    }
+
+    function applyCategoryScope(scope) {
+      if (!pendingCategoryTxn) { return; }
+      var txnId = pendingCategoryTxn.id;
+      var body  = { category_id: pendingCategoryTxn.categoryId, scope: scope };
+
+      document.getElementById("scopeOverlay").hidden = true;
+      pendingCategoryTxn = null;
+
+      apiFetch("/api/finance-new/transactions/" + encodeURIComponent(txnId) + "/category", {
+        method: "POST",
+        body: body
+      })
+        .then(function(r) { return r.json(); })
+        .then(function() { return refreshAfterCategoryChange(); })
+        .catch(function() {});
+    }
+
+    // A category change can affect the breakdown, the rules list, the badge and
+    // the transaction rows, but NEVER the balances or the hero figures.
+    function refreshAfterCategoryChange() {
+      return apiFetch("/api/finance-new/transactions?limit=500")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          TRANSACTIONS = (data && data.transactions) || TRANSACTIONS;
+          renderTransactions();
+          updateFinanceBadges();
+          if (categoriasLoaded) {
+            loadCategoryBreakdown();
+            loadRules();
+          }
+        })
+        .catch(function() {});
+    }
+
+    // ── Rules management ───────────────────────────────────────────────────
+
+    function loadRules() {
+      return apiFetch("/api/finance-new/categorization/rules")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          RULES = data.rules || [];
+          renderRules();
+        })
+        .catch(function() { RULES = []; renderRules(); });
+    }
+
+    function renderRules() {
+      var body  = document.getElementById("rulesBody");
+      var empty = document.getElementById("rulesEmpty");
+      if (!body) { return; }
+
+      if (RULES.length === 0) {
+        body.innerHTML = "";
+        if (empty) { empty.hidden = false; }
+        return;
+      }
+      if (empty) { empty.hidden = true; }
+
+      body.innerHTML = RULES.map(function(r) {
+        var cat = categoryById(r.category_id);
+        var srcLabel = r.source === "llm"
+          ? (isEn() ? "auto" : "auto")
+          : (r.source === "seed" ? (isEn() ? "default" : "padrão") : (isEn() ? "yours" : "sua"));
+        var sel = '<select onchange="updateRule(\'' + esc(r.id) + "', this.value)\">" +
+          CATEGORIES.map(function(c) {
+            return '<option value="' + esc(c.id) + '"' + (c.id === r.category_id ? " selected" : "") + ">" +
+                   esc(categoryName(c)) + "</option>";
+          }).join("") + "</select>";
+
+        return "<tr>" +
+          "<td>" + esc(r.pattern) + "</td>" +
+          "<td>" + sel + "</td>" +
+          '<td><span class="rule-src rule-src-' + esc(r.source) + '">' + srcLabel + "</span></td>" +
+          '<td class="num">' + (r.match_count || 0) + "</td>" +
+          '<td><button class="btn btn-sm" onclick="deleteRule(\'' + esc(r.id) + '\')">' +
+            (isEn() ? "Delete" : "Excluir") + "</button></td>" +
+        "</tr>";
+      }).join("");
+    }
+
+    function updateRule(ruleId, categoryId) {
+      apiFetch("/api/finance-new/categorization/rules/" + encodeURIComponent(ruleId), {
+        method: "PATCH",
+        body: { category_id: categoryId }
+      })
+        .then(function() { return refreshAfterCategoryChange(); })
+        .catch(function() {});
+    }
+
+    function deleteRule(ruleId) {
+      var msg = isEn()
+        ? "Delete this rule? Transactions it categorized go back to uncategorized. Categories you set yourself are kept."
+        : "Excluir esta regra? As transações que ela categorizou voltam a ficar sem categoria. As que você definiu manualmente são mantidas.";
+      if (!window.confirm(msg)) { return; }
+
+      apiFetch("/api/finance-new/categorization/rules/" + encodeURIComponent(ruleId), { method: "DELETE" })
+        .then(function() { return refreshAfterCategoryChange(); })
+        .catch(function() {});
+    }
+
     // Always fetch voided rows; the Archive checkbox filters them client-side,
     // so toggling it never costs a round trip.
     function loadInvoices() {
@@ -1947,6 +2740,7 @@
     function renderInvoices() {
       document.getElementById("invoiceCard").hidden = false;
       updateInvoiceBadges();
+      updateFinanceBadges();
 
       var rows = invoicesForTab(CURRENT_INVOICE_TAB);
       var emptyEl = document.getElementById("invoiceEmpty");
@@ -2163,6 +2957,7 @@
         .then(function(data) {
           MATCHES = (data.matches || []).filter(function(m) { return m.tier !== "ambiguous"; });
           renderMatches();
+          updateFinanceBadges();
         })
         .catch(function() {});
     }
@@ -2290,7 +3085,32 @@
         renderTransfers();
         populateAccountFilter();
         renderTransactions();
+        updateFinanceBadges();
       });
+    }
+
+    // The category list is needed by the transaction rows on the Saude tab, so
+    // it is fetched up front rather than waiting for the Categorias tab to be
+    // opened. It is deliberately fire-and-forget: if it fails, the rows render
+    // with a dash and every other number on the page is unaffected.
+    function preloadCategories() {
+      return loadCategories().then(function() {
+        populateCategoryFilter();
+        renderTransactions();
+      }).catch(function() {});
+    }
+
+    function populateCategoryFilter() {
+      var sel = document.getElementById("txnCategoryFilter");
+      if (!sel) { return; }
+      var keep = sel.value;
+      var html = '<option value="">' + (isEn() ? "All categories" : "Todas as categorias") + "</option>" +
+                 '<option value="uncategorized">' + (isEn() ? "Uncategorized" : "Sem categoria") + "</option>";
+      html += CATEGORIES.map(function(c) {
+        return '<option value="' + esc(c.id) + '">' + esc(categoryName(c)) + "</option>";
+      }).join("");
+      sel.innerHTML = html;
+      sel.value = keep;
     }
 
     // ── Role / bootstrap (same shape as finance.html) ──────────────────────
@@ -2335,7 +3155,9 @@
       loadMessageTemplates();
       loadClients();
       switchInvoiceTab("draft");
+      switchFinanceTab("saude");
       loadAll();
+      preloadCategories();
     }
 
     function init() {

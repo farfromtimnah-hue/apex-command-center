@@ -5503,6 +5503,19 @@
     // never call it) — renderMeetings([]) just leaves the card hidden.
     var lastMeetings = [];
 
+    // Today on Apex's clock (America/New_York) as "YYYY-MM-DD", matching the
+    // window the worker selected. Intl handles the EDT/EST boundary; en-CA
+    // formats as YYYY-MM-DD. Falls back to the viewer's local date if Intl
+    // throws. NOT a display formatter -- formatDate() still renders the date.
+    function easternTodayStr() {
+      try {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/New_York",
+          year: "numeric", month: "2-digit", day: "2-digit"
+        }).format(new Date());
+      } catch (e) { return todayStr(); }
+    }
+
     function loadMeetings() {
       apiFetch("/api/portal/next-meeting")
         .then(function(res) { return res.json(); })
@@ -5521,7 +5534,11 @@
       // Nothing today or tomorrow -> no empty card at all.
       if (!meetings.length) { card.hidden = true; return; }
 
-      var today = todayStr();
+      // "Today" on APEX's clock, not the viewer's. The server picked these two
+      // dates in Eastern; todayStr() is the viewer's local date, so a client in
+      // Brazil (UTC-3) or travelling west would label an Eastern-today meeting
+      // "Amanhã". One clock, same rule as formatDateTimeUTC in datetime.js.
+      var today = easternTodayStr();
       meetings.forEach(function(m) {
         var row = document.createElement("div");
         row.className = "meeting-card meeting-row";

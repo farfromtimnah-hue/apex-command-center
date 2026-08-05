@@ -4,10 +4,28 @@ var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/sec
 var CLAUDE_API_URL     = "https://api.anthropic.com/v1/messages";
 var CLAUDE_MODEL       = "claude-sonnet-4-6";
 
+// Locked to the app's own origin (2026-08-05). It was "*", which let any site
+// on the internet issue credentialed-by-header requests against every route
+// here -- including the finance and Plaid endpoints -- using a token lifted
+// from a phishing page or a malicious extension.
+//
+// Every caller lives in this repo and is served from apex.resonateai.online
+// (see CNAME), the client portal and the public referral intake included. The
+// invoice template at /templates/apex-invoice-template-DRAFT.html is served
+// from that same origin and calls the Worker cross-origin from it, so it keeps
+// working; that was verified against the deployed template, not assumed.
+//
+// If a second origin is ever genuinely needed, add it to an allowlist and echo
+// the matching request Origin back -- do NOT revert this to "*". A wildcard
+// cannot be narrowed later without breaking whatever quietly came to depend
+// on it.
+var ALLOWED_ORIGIN = "https://apex.resonateai.online";
+
 var CORS_HEADERS = {
-    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Origin":  ALLOWED_ORIGIN,
     "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Vary":                         "Origin"
 };
 
 // ---------------------------------------------------------------------------

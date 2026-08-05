@@ -2756,8 +2756,13 @@ async function handlePatchTask(id, request, env) {
         // Only alice, rafa, and developer can mutate tasks (same gate as task creation and client writes)
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
-        await env.DB.prepare("UPDATE tasks SET status = ? WHERE id = ?")
-            .bind(body.status, id).run();
+        // completed_by tracks who closed the task, so it must be cleared when a
+        // task is re-opened — otherwise a swept task toggled back to pending
+        // would keep reading as 'system-sweep'.
+        var completedBy = body.status === "done" ? (user.role || "user") : null;
+        await env.DB.prepare(
+            "UPDATE tasks SET status = ?, completed_by = ?, updated_at = ? WHERE id = ?"
+        ).bind(body.status, completedBy, new Date().toISOString(), id).run();
 
         return jsonOk({ ok: true, status: body.status });
     } catch (e) {
@@ -5557,6 +5562,39 @@ async function handleGetConsultantTasks(request, env) {
         return jsonOk({ tasks: res.results });
     } catch (e) {
         return jsonErr("Error fetching consultant tasks: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/tasks
+// Every task, both types, for the Tasks page. Since the task unification this
+// table is the single source of truth: the Tasks page used to derive its rows
+// from sessions.pdf_data and store completions in sessions.task_completions,
+// so a checkbox ticked there never reached the client profile or the Overview
+// tile. All three views now read these rows.
+// ---------------------------------------------------------------------------
+
+async function handleGetAllTasks(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        // LEFT JOIN, not INNER: a task whose client row is missing must still
+        // be listed here rather than vanishing from Rafa's page silently.
+        var res = await env.DB.prepare(
+            "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
+            "t.description, t.due_date, t.due_date_source, t.status, " +
+            "t.completed_by, t.session_id, s.date as session_date, t.created_at " +
+            "FROM tasks t " +
+            "LEFT JOIN clients c ON t.client_id = c.id " +
+            "LEFT JOIN sessions s ON t.session_id = s.id " +
+            "ORDER BY t.due_date ASC, t.created_at ASC"
+        ).all();
+
+        return jsonOk({ tasks: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching tasks: " + e.message, 500);
     }
 }
 
@@ -16128,6 +16166,11 @@ export default {
         }
         if (segs[0] === "api" && segs[1] === "finance" && segs[2] === "subscriptions" && segs[3] && method === "DELETE") {
             return handleDeleteFinanceSubscription(segs[3], request, env);
+        }
+
+        // /api/tasks  GET — every task, both types (Tasks page)
+        if (segs[0] === "api" && segs[1] === "tasks" && !segs[2] && method === "GET") {
+            return handleGetAllTasks(request, env);
         }
 
         // /api/tasks/consultant/overdue  GET — must come before generic tasks/:id match

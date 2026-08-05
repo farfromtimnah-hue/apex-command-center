@@ -812,8 +812,12 @@
     var completedMap = {};             // taskKey → true/false; keyed per session
 
     // ── Month abbrev map for parsing "DD Mon" due strings ─────────────────
+    // "fev"/"feb" mapped to 0 here, so February parsed as January. With the
+    // six-months-ago rollover in parseDueDate() that pushed February tasks a
+    // full year forward, where they never read as overdue. Kept in sync with
+    // MONTH_MAP in scripts/task-unification/derive.mjs.
     var MONTH_MAP = {
-      "jan": 0, "fev": 0, "feb": 0,
+      "jan": 0, "fev": 1, "feb": 1,
       "mar": 2,
       "abr": 3, "apr": 3,
       "mai": 4, "may": 4,
@@ -826,9 +830,13 @@
       "dez": 11, "dec": 11
     };
 
-    // ── Completion persistence (localStorage) ──────────────────────────────
-    // Merged with backend task_completions loaded from sessions at startup.
-    // localStorage is the fast-read cache; backend is durable.
+    // ── Completion persistence ────────────────────────────────────────────
+    // Completion now lives in the `tasks` table and is loaded per-request in
+    // rowsToTasks(). The old localStorage cache is deliberately no longer read
+    // or written: it was keyed by the "{sessionId}_{type}_{index}" derivation
+    // keys, so it would both mis-key against real row ids and let this page
+    // show a completion the client profile and Overview tile never saw.
+    // The stale key is cleared once so it cannot resurface.
 
     function completionStorageKey() {
       var email = sessionStorage.getItem("apex_email") || "unknown";
@@ -836,16 +844,12 @@
     }
 
     function loadLocalCompletions() {
-      try {
-        var raw = localStorage.getItem(completionStorageKey());
-        if (raw) { completedMap = JSON.parse(raw); }
-      } catch(e) { completedMap = {}; }
+      try { localStorage.removeItem(completionStorageKey()); } catch(e) {}
+      completedMap = {};
     }
 
     function saveLocalCompletions() {
-      try {
-        localStorage.setItem(completionStorageKey(), JSON.stringify(completedMap));
-      } catch(e) {}
+      // Intentionally a no-op — D1 is the only store for completion state.
     }
 
     // ── Hero background ────────────────────────────────────────────────────
@@ -1055,10 +1059,10 @@
 
     function loadTasks() {
       user_getToken().then(function(token) {
-        return fetch(WORKER_URL + "/api/sessions", { headers: { "Authorization": "Bearer " + token } });
+        return fetch(WORKER_URL + "/api/tasks", { headers: { "Authorization": "Bearer " + token } });
       }).then(function(res) { return res.json(); })
         .then(function(data) {
-          allTasks = deriveTasks(data.sessions || []);
+          allTasks = rowsToTasks(data.tasks || []);
           updateTabCounts();
           updateTasksHeroTiles();
           populateClientFilter();
@@ -1134,6 +1138,46 @@
     //
     // Completion state from task_completions column is merged into completedMap.
     // Task key format: "{sessionId}_{type}_{index}"
+
+    // ── D1 rows → task view model ─────────────────────────────────────────
+    // Since the task unification the `tasks` table is the single source of
+    // truth. `key` is the row's real id (not the old "{sessionId}_{type}_{i}"
+    // derivation key) and completion comes from status, so a checkbox ticked
+    // here is the same fact the client profile and Overview tile read.
+    // deriveTasks() below is retained only as the historical reference for
+    // how these rows were originally produced from sessions.pdf_data.
+
+    function rowsToTasks(rows) {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return rows.map(function(r) {
+        var dueDate = null;
+        if (r.due_date) {
+          var p = String(r.due_date).split("-");
+          dueDate = new Date(+p[0], +p[1] - 1, +p[2]);
+          dueDate.setHours(0, 0, 0, 0);
+        }
+        var isDone = r.status === "done";
+
+        // Drive the completion map straight off DB status — no localStorage
+        // merge, which is what previously let the three views disagree.
+        completedMap[r.id] = isDone;
+
+        return {
+          key:         r.id,
+          type:        r.type === "consultant" ? "rafa" : "client",
+          text:        r.description || "",
+          due:         r.due_date || null,
+          dueDate:     dueDate,
+          overdue:     (!isDone && dueDate) ? dueDate < today : false,
+          clientName:  r.client_name || "—",
+          clientId:    r.client_id || null,
+          sessionDate: r.session_date || null,
+          sessionId:   r.session_id || null
+        };
+      });
+    }
 
     function deriveTasks(sessions) {
       var tasks = [];
@@ -1568,27 +1612,37 @@
 
     // ── Completion toggle ──────────────────────────────────────────────────
 
+    // taskKey is the tasks-table row id. The write goes to /api/tasks/:id, so
+    // the same row backs Rafa's page, the client profile and the Overview
+    // tile — previously this wrote to sessions.task_completions, which only
+    // this page ever read.
     function toggleComplete(taskKey, sessionId) {
       var newVal = !completedMap[taskKey];
       completedMap[taskKey] = newVal;
-      saveLocalCompletions();
 
+      // Optimistic: repaint now, reconcile if the write fails.
       updateTabCounts();
       updateTasksHeroTiles();
       updateDoneChip(getTabTasks());
       renderTaskView();
 
-      // Persist to backend (fire-and-forget, no spinner)
-      var patch = {};
-      patch[taskKey] = newVal;
       user_getToken().then(function(token) {
-        return fetch(WORKER_URL + "/api/sessions/" + encodeURIComponent(sessionId) + "/task-completions", {
+        return fetch(WORKER_URL + "/api/tasks/" + encodeURIComponent(taskKey), {
           method: "PATCH",
           headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ completions: patch })
+          body: JSON.stringify({ status: newVal ? "done" : "pending" })
         });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
       }).catch(function() {
-        // Silent fail — localStorage already holds the state
+        // Roll back rather than fail silently: leaving the checkbox ticked
+        // while D1 still says pending is the exact divergence this unification
+        // was meant to remove.
+        completedMap[taskKey] = !newVal;
+        updateTabCounts();
+        updateTasksHeroTiles();
+        updateDoneChip(getTabTasks());
+        renderTaskView();
       });
     }
 

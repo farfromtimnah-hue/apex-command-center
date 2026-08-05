@@ -16527,6 +16527,17 @@ function isValidPurpose(p) {
 // never derived from the institution or the bank's account names.
 // ---------------------------------------------------------------------------
 
+// Plaid rejects a client_user_id that carries PII -- "Client user id should not
+// contain sensitive information" -- so the email cannot be sent, even prefixed.
+// A SHA-256 of the email is stable per user (so the same person keeps the same
+// Plaid identity across sessions and re-links) while carrying nothing sensitive.
+// Truncated to 32 chars: still collision-safe for a handful of staff accounts.
+async function plaidUserId(user) {
+    var seed = (user && user.email) || "admin";
+    var hash = await sha256Hex(seed);
+    return "apex-" + hash.slice(0, 32);
+}
+
 async function handlePostFinanceNewLinkToken(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -16540,7 +16551,7 @@ async function handlePostFinanceNewLinkToken(request, env) {
         }
 
         var result = await plaidFetch(env, "/link/token/create", {
-            user:          { client_user_id: "apex-" + (user.email || "admin") },
+            user:          { client_user_id: await plaidUserId(user) },
             client_name:   "Apex Command Center",
             products:      ["transactions"],
             country_codes: ["US"],
@@ -16552,7 +16563,7 @@ async function handlePostFinanceNewLinkToken(request, env) {
         // English rather than leaving Alice with a dead button.
         if (!result.ok && result.data && result.data.error_code === "INVALID_FIELD") {
             result = await plaidFetch(env, "/link/token/create", {
-                user:          { client_user_id: "apex-" + (user.email || "admin") },
+                user:          { client_user_id: await plaidUserId(user) },
                 client_name:   "Apex Command Center",
                 products:      ["transactions"],
                 country_codes: ["US"],
@@ -16591,7 +16602,7 @@ async function handlePostFinanceNewLinkTokenUpdate(request, env) {
         if (!item) { return jsonErr("Item not found", 404); }
 
         var result = await plaidFetch(env, "/link/token/create", {
-            user:          { client_user_id: "apex-" + (user.email || "admin") },
+            user:          { client_user_id: await plaidUserId(user) },
             client_name:   "Apex Command Center",
             products:      [],
             country_codes: ["US"],

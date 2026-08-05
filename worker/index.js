@@ -10612,11 +10612,44 @@ async function handleGetPortalMe(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Route: GET /api/portal/next-meeting — next scheduled session for this
-// client. Sessions are already synced with Google Calendar (calendar.html /
+// Route: GET /api/portal/next-meeting — this client's meetings TODAY and
+// TOMORROW. Sessions are already synced with Google Calendar (calendar.html /
 // sessions_calendar_sync), so this reads the same integration's data and
 // carries the Meet join link.
+//
+// Returns { meetings: [...] } — an array, because the portal's meeting card
+// shows every meeting in that two-day window, not just the next one. The old
+// single-row `meeting` property is kept alongside it (first row, or null) so
+// nothing that read the previous shape breaks; portal.html's loadMeetings() is
+// the only caller today.
+//
+// The `-1 day` floor of the old query is gone on purpose: it was there to keep
+// a just-finished meeting visible, but a "Hoje / Amanhã" card must not label
+// yesterday's meeting as today's. Scoped by client_id — deliberately NOT
+// /api/sessions/calendar, which returns every client's sessions unscoped.
+//
+// "Today" is EASTERN, not UTC. D1's date('now') is UTC, which rolls to
+// tomorrow at 8 PM Eastern (9 PM under EST) — so a UTC-anchored window drops
+// tonight's meeting from the card during precisely the evening hours when the
+// client is looking for it. Verified live: on 2026-08-04 at 8:54 PM Eastern,
+// D1 already reported date('now') = '2026-08-05', and GENERAL TILE SERVICES'
+// 18:00 meeting that same evening fell outside the window. `sessions.date` is
+// a local wall-clock calendar date, so it must be compared against the
+// Eastern calendar date. Same one-clock rule as formatDateTimeUTC in
+// datetime.js, and the server-side twin of rule 21 / localDateStr().
 // ---------------------------------------------------------------------------
+
+// Today's date on Apex's clock (America/New_York) as "YYYY-MM-DD".
+// Intl handles the EDT/EST boundary.
+function easternDateStr(offsetDays) {
+    var d = new Date();
+    if (offsetDays) { d = new Date(d.getTime() + offsetDays * 86400000); }
+    var p = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric", month: "2-digit", day: "2-digit"
+    }).format(d);
+    return p;   // en-CA formats as YYYY-MM-DD
+}
 
 async function handleGetPortalNextMeeting(request, env) {
     try {
@@ -10624,12 +10657,14 @@ async function handleGetPortalNextMeeting(request, env) {
         // Admin preview-as: same rule as handleGetPortalMe.
         var previewId = previewClientId(user, request);
         if (!previewId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
-        var row = await env.DB.prepare(
-            "SELECT date, time, session_type, google_meet_link FROM sessions " +
-            "WHERE client_id = ? AND status != 'discarded' AND status != 'cancelled' AND date >= date('now', '-1 day') " +
-            "ORDER BY date ASC, COALESCE(time,'99:99') ASC LIMIT 1"
-        ).bind(previewId || user.client_id).first();
-        return jsonOk({ meeting: row || null });
+        var res = await env.DB.prepare(
+            "SELECT date, time, end_time, session_type, location, google_meet_link, html_link FROM sessions " +
+            "WHERE client_id = ? AND status != 'discarded' AND status != 'cancelled' " +
+            "AND date IN (?, ?) " +
+            "ORDER BY date ASC, COALESCE(time,'99:99') ASC"
+        ).bind(previewId || user.client_id, easternDateStr(0), easternDateStr(1)).all();
+        var rows = (res && res.results) || [];
+        return jsonOk({ meetings: rows, meeting: rows[0] || null });
     } catch (e) {
         return jsonErr("Error fetching next meeting: " + e.message, 500);
     }

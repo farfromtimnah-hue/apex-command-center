@@ -330,6 +330,12 @@
       gap: 12px; flex-wrap: wrap;
     }
     .meeting-when { font-size: 15px; font-weight: 700; }
+    /* One row per meeting inside #meetingsCard; separated only between rows
+       so a single-meeting card carries no stray rule. */
+    .meeting-row + .meeting-row {
+      margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+    }
+    .meeting-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
     /* Analytics */
     .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -573,7 +579,6 @@
       .hero-idblock { min-width: 130px; }
       .hero-support { padding: 0; width: 40px; justify-content: center; border-radius: 50%; gap: 0; }
       .hero-support .show-pt, .hero-support .show-en { display: none; }
-      #portalMeetingJoin { margin-left: auto; }
     }
 
     /* Support modal. Its own overlay rather than .modal-overlay: this one has
@@ -1156,9 +1161,7 @@
                 <span class="show-en">Client Portal</span>
               </div>
               <div class="hero-title" id="portalClientName"></div>
-              <div class="hero-sub" id="portalMeetingLine"></div>
             </div>
-            <div id="portalMeetingJoin"></div>
             <!-- Support entry point. Lives in the hero rather than bottom-right
                  on purpose: .gm-fab already owns that corner on all three
                  Pipeline sub-sections, and a second circular glyph beside a "+"
@@ -1267,6 +1270,19 @@
       </div>
 
       <div id="tabAnalytics">
+        <!-- Upcoming meetings (today / tomorrow). Deliberately the same
+             .content-card weight as #pendingBanner below: this used to be a
+             12px grey .hero-sub line under the client name and Nicole, who
+             designed the page, still missed her own meeting on it. Rows are
+             rendered by loadMeetings(); the card stays hidden when there is
+             nothing today or tomorrow rather than showing an empty shell. -->
+        <div class="content-card" id="meetingsCard" hidden>
+          <div class="card-title">
+            <span class="show-pt">Pr&oacute;ximas reuni&otilde;es</span>
+            <span class="show-en">Upcoming meetings</span>
+          </div>
+          <div id="meetingsList"></div>
+        </div>
         <div class="content-card" id="pendingBanner" hidden>
           <div class="meeting-card">
             <div>
@@ -1757,6 +1773,10 @@
       if (!document.getElementById("viewPortal").hidden) {
         // Reloads the whole shared analytics view, pace card included.
         loadAnalytics();
+        // The meetings card builds "Hoje/Today" and "Entrar/Join" in JS, not
+        // .show-pt/.show-en spans, so it needs an explicit re-render. Replays
+        // the cached rows rather than refetching.
+        renderMeetings(lastMeetings);
         if (!document.getElementById("tabGoals").hidden) { loadGoalsTab(); }
         if (!document.getElementById("tabWorksched").hidden && workSettings) { renderWorkSettings(); }
       }
@@ -3576,13 +3596,13 @@
     function showPortal() {
       document.getElementById("portalClientName").textContent = clientName;
       refreshPendingAffordances();
-      // The logo and the next-meeting line are the BUSINESS's relationship with
+      // The logo and the meetings card are the BUSINESS's relationship with
       // Apex, not the salesperson's: /logo-image and /api/portal/next-meeting
       // are both outside the seller allowlist and would 403. Skipped rather
       // than allowlisted — a seller has no meeting with Rafa.
       if (!isSeller()) {
         loadPortalLogo();
-        loadNextMeeting();
+        loadMeetings();
       }
       applyPortalShape();
       populateMobileDock();
@@ -5474,26 +5494,101 @@
         .catch(function(e) { window.alert(e.message); });
     }
 
-    function loadNextMeeting() {
+    // ── Upcoming meetings card (Analytics tab) ─────────────────────────────
+    // Replaces the old "Próxima reunião" hero line. /api/portal/next-meeting
+    // is client-scoped and already limited to today + tomorrow server-side;
+    // /api/sessions/calendar is NOT scoped and must never be used here.
+    // Last rows fetched, so the language toggle can re-render without a
+    // refetch. Empty until loadMeetings() resolves, and for sellers (who
+    // never call it) — renderMeetings([]) just leaves the card hidden.
+    var lastMeetings = [];
+
+    function loadMeetings() {
       apiFetch("/api/portal/next-meeting")
         .then(function(res) { return res.json(); })
         .then(function(d) {
-          var line = document.getElementById("portalMeetingLine");
-          var join = document.getElementById("portalMeetingJoin");
-          if (!d.meeting) {
-            line.textContent = isEn() ? "No upcoming meeting scheduled." : "Nenhuma reunião agendada.";
-            join.innerHTML = "";
-            return;
-          }
-          var when = weekdayName(d.meeting.date) + ", " + formatDate(d.meeting.date) +
-                     (d.meeting.time ? " · " + formatTime(d.meeting.time) : "");
-          line.textContent = (isEn() ? "Next meeting: " : "Próxima reunião: ") + when;
-          join.innerHTML = d.meeting.google_meet_link
-            ? '<a class="btn-gold" style="text-decoration:none;display:inline-block;" href="' + escHtml(d.meeting.google_meet_link) + '" target="_blank" rel="noopener">' +
-              (isEn() ? "Join" : "Entrar") + '</a>'
-            : "";
+          lastMeetings = (d && d.meetings) || [];
+          renderMeetings(lastMeetings);
         })
         .catch(function() {});
+    }
+
+    function renderMeetings(meetings) {
+      var card = document.getElementById("meetingsCard");
+      var list = document.getElementById("meetingsList");
+      if (!card || !list) { return; }
+      list.innerHTML = "";
+      // Nothing today or tomorrow -> no empty card at all.
+      if (!meetings.length) { card.hidden = true; return; }
+
+      var today = todayStr();
+      meetings.forEach(function(m) {
+        var row = document.createElement("div");
+        row.className = "meeting-card meeting-row";
+
+        var body = document.createElement("div");
+
+        var when = document.createElement("div");
+        when.className = "meeting-when";
+        when.textContent = m.date === today
+          ? (isEn() ? "Today" : "Hoje")
+          : (isEn() ? "Tomorrow" : "Amanhã");
+        body.appendChild(when);
+
+        // Date + time. formatDate()/formatTime() from datetime.js, used
+        // exactly as-is -- no date logic of our own lives here.
+        var meta = document.createElement("div");
+        meta.className = "meeting-meta";
+        var text = formatDate(m.date);
+        if (m.time) {
+          // A start time alone makes a 30-minute call and a six-hour block
+          // look identical, so show the range when there is one. `end_time`
+          // arrives in two shapes -- plain "HH:MM" on Apex-created rows, full
+          // ISO datetime on Google-synced ones (dashboard.html:1791). When it
+          // is NULL, show the start alone rather than a broken "6:00 PM – ".
+          var endRaw = m.end_time;
+          var endHHMM = null;
+          if (endRaw) {
+            endHHMM = endRaw.indexOf("T") !== -1 ? endRaw.slice(11, 16) : endRaw.slice(0, 5);
+          }
+          text += " · " + (endHHMM
+            ? formatTime(m.time) + " – " + formatTime(endHHMM)
+            : formatTime(m.time));
+        }
+        meta.textContent = text;
+        body.appendChild(meta);
+        row.appendChild(body);
+
+        // Join: guard the sentinel values the calendar writes for rows with no
+        // real Meet link. "[PENDING_GOOGLE_API]" reached a live client on
+        // 2026-07-22 as a clickable link. Same guard as dashboard.html:1806.
+        var meetLink = m.google_meet_link || "";
+        if (meetLink && meetLink !== "[PENDING_GOOGLE_API]" && meetLink !== "in_person") {
+          var joinA = document.createElement("a");
+          joinA.href = meetLink;
+          joinA.target = "_blank";
+          joinA.rel = "noopener";
+          joinA.className = "btn-gold";
+          joinA.style.cssText = "text-decoration:none;display:inline-block;";
+          joinA.textContent = isEn() ? "Join" : "Entrar";
+          row.appendChild(joinA);
+        } else if (m.location) {
+          // In-person: Directions only when there is an address to send them
+          // to. An empty location renders the meeting with no button rather
+          // than a dead link.
+          var dirA = document.createElement("a");
+          dirA.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(m.location);
+          dirA.target = "_blank";
+          dirA.rel = "noopener";
+          dirA.className = "btn-gold";
+          dirA.style.cssText = "text-decoration:none;display:inline-block;";
+          dirA.textContent = isEn() ? "Directions" : "Como chegar";
+          row.appendChild(dirA);
+        }
+
+        list.appendChild(row);
+      });
+      card.hidden = false;
     }
 
     // ═══ Analytics — rendered by the SHARED view (analytics-view.js) ══════

@@ -17322,53 +17322,118 @@ async function handleGetFinanceNewTransactions(request, env) {
 // Only ever fills in BLANKS. A transaction she categorized herself
 // (category_source = 'manual') is never touched by an automatic pass -- her
 // answer outranks the engine's, always.
+//
+// SCOPE PRECEDENCE. A rule carries a scope ('business' | 'personal' | 'both')
+// and only fires on transactions whose account has that purpose -- 'both'
+// fires on either. When BOTH a scoped rule and a 'both' rule exist for the
+// same merchant, THE SPECIFIC ONE WINS for accounts of that purpose:
+//
+//   HOME DEPOT / business -> Materiais   (scoped rule)
+//   HOME DEPOT / both     -> Casa        (fallback for the other side)
+//
+// A business transaction takes Materiais; a personal one falls back to Casa.
+// Without this the two accounts would fight over one merchant and one of them
+// would be wrong every month, silently.
+//
+// Implemented by applying rules SPECIFIC-FIRST, then 'both', with every UPDATE
+// already guarded by `category_id IS NULL`. The scoped rule claims its own
+// side before the shared rule runs, and the shared rule then cannot reach
+// those rows because they are no longer blank. Precedence falls out of the
+// ordering; no extra exclusion clause is needed.
 async function applyCategorizationRules(env, opts) {
     var onlyPattern = (opts && opts.pattern) || null;
 
     var rulesRes = onlyPattern
         ? await env.DB.prepare(
-            "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL AND pattern = ?"
+            "SELECT pattern, match_type, scope, category_id FROM categorization_rules " +
+            "WHERE category_id IS NOT NULL AND pattern = ?"
           ).bind(onlyPattern).all()
         : await env.DB.prepare(
-            "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL"
+            "SELECT pattern, match_type, scope, category_id FROM categorization_rules " +
+            "WHERE category_id IS NOT NULL"
           ).all();
 
     var rules = rulesRes.results || [];
     var applied = 0;
 
+    // Specific before shared. A 'business' rule claims its business
+    // transactions first; the 'both' rule then fills only what is left, which
+    // is exactly the fallback semantics -- and because every UPDATE is guarded
+    // by `category_id IS NULL`, the shared rule can no longer reach rows the
+    // specific rule already took.
+    rules.sort(function(a, b) {
+        var rank = function(s) { return s === "both" ? 1 : 0; };
+        return rank(a.scope) - rank(b.scope);
+    });
+
     for (var i = 0; i < rules.length; i++) {
         var r = rules[i];
-        var res;
-        if (r.match_type === "merchant_contains") {
-            res = await env.DB.prepare(
-                "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
-                "WHERE category_id IS NULL AND merchant_normalized LIKE ?"
-            ).bind(r.category_id, "%" + r.pattern + "%").run();
-        } else {
-            res = await env.DB.prepare(
-                "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
-                "WHERE category_id IS NULL AND merchant_normalized = ?"
-            ).bind(r.category_id, r.pattern).run();
-        }
+
+        // A rule fires only on accounts it is scoped to. 'both' matches either
+        // purpose; a scoped rule matches only its own.
+        var scopeClause = r.scope === "both"
+            ? ""
+            : "AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = transactions.account_id AND a.purpose = ?) ";
+
+        var matchClause = r.match_type === "merchant_contains"
+            ? "merchant_normalized LIKE ? "
+            : "merchant_normalized = ? ";
+
+        var sql =
+            "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
+            "WHERE category_id IS NULL AND " + matchClause + scopeClause;
+
+        var binds = [r.category_id];
+        binds.push(r.match_type === "merchant_contains" ? "%" + r.pattern + "%" : r.pattern);
+        if (r.scope !== "both") { binds.push(r.scope); }
+
+        var res = await env.DB.prepare(sql).bind.apply(null, binds).run();
         applied += (res.meta && res.meta.changes) || 0;
     }
 
     return applied;
 }
 
-// Write or update the rule for a merchant key.
+// The scope a rule written FROM a given transaction should carry: the purpose
+// of the account that transaction landed on.
+//
+// Deliberately NOT 'both'. When she categorizes a Home Depot charge on the
+// business account, she is answering "what is Home Depot on the business
+// account" -- not making a claim about her household. 'both' is reserved for
+// rules she deliberately makes global. Guessing 'both' here is what creates
+// the cross-account collision in the first place.
+async function scopeForTransaction(env, txnId) {
+    var row = await env.DB.prepare(
+        "SELECT a.purpose FROM transactions t JOIN accounts a ON a.id = t.account_id WHERE t.id = ?"
+    ).bind(txnId).first();
+    // No account joined (shouldn't happen -- account_id is how a transaction
+    // arrives) means we cannot say which side it belongs to, and a wrong guess
+    // is the exact failure being fixed. 'both' is the honest fallback.
+    return (row && row.purpose) || "both";
+}
+
+// Write or update the rule for a merchant key WITHIN ONE SCOPE.
 //
 // UPSERT, not insert. Re-categorizing the same merchant must REPLACE the
 // existing rule rather than stack a second contradictory one whose winner
 // would depend on row order. A manual rule also overwrites an llm rule -- that
 // is exactly what "fixing a bad auto-categorization" means -- but an llm pass
 // never overwrites a manual one.
-async function upsertCategorizationRule(env, pattern, categoryId, source) {
+//
+// THE KEY IS (pattern, match_type, scope), not (pattern, match_type). This is
+// the whole point of the scope column: HOME DEPOT on the business account and
+// HOME DEPOT on the personal account are two independent rules, and writing
+// one must not touch the other. Matching the old two-part key here would
+// silently re-collide them at write time no matter what the index says.
+async function upsertCategorizationRule(env, pattern, categoryId, source, scope) {
     if (!pattern) { return; }
 
+    var ruleScope = scope === "business" || scope === "personal" ? scope : "both";
+
     var existing = await env.DB.prepare(
-        "SELECT id, source FROM categorization_rules WHERE pattern = ? AND match_type = 'merchant_exact'"
-    ).bind(pattern).first();
+        "SELECT id, source FROM categorization_rules " +
+        "WHERE pattern = ? AND match_type = 'merchant_exact' AND scope = ?"
+    ).bind(pattern, ruleScope).first();
 
     if (existing) {
         if (existing.source === "manual" && source !== "manual") { return; }
@@ -17379,9 +17444,9 @@ async function upsertCategorizationRule(env, pattern, categoryId, source) {
     }
 
     await env.DB.prepare(
-        "INSERT INTO categorization_rules (id, pattern, match_type, category_id, source) " +
-        "VALUES (?, ?, 'merchant_exact', ?, ?)"
-    ).bind(crypto.randomUUID(), pattern, categoryId, source).run();
+        "INSERT INTO categorization_rules (id, pattern, match_type, scope, category_id, source) " +
+        "VALUES (?, ?, 'merchant_exact', ?, ?, ?)"
+    ).bind(crypto.randomUUID(), pattern, ruleScope, categoryId, source).run();
 }
 
 // ---------------------------------------------------------------------------
@@ -17394,8 +17459,11 @@ async function handleGetFinanceNewCategories(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
+        // scope is returned so the picker can offer only the categories that
+        // belong to a given transaction's account purpose, plus the shared
+        // ones. She should not scroll past "Moradia" to find "Subcontratados".
         var res = await env.DB.prepare(
-            "SELECT id, name_pt, name_en, kind, sort_order, archived FROM categories " +
+            "SELECT id, name_pt, name_en, kind, scope, sort_order, archived FROM categories " +
             "WHERE archived = 0 ORDER BY sort_order, name_pt"
         ).all();
 
@@ -17422,14 +17490,22 @@ async function handlePostFinanceNewCategory(request, env) {
         if (!namePt) { return jsonErr("name_pt required", 400); }
 
         var kind = body.kind === "income" || body.kind === "transfer" ? body.kind : "expense";
+
+        // A category she adds while categorizing a business transaction should
+        // belong to the business side, not appear in her household picker
+        // forever. The caller passes the scope of wherever she was; anything
+        // unrecognized falls back to 'both', which is visible everywhere and
+        // therefore the safe default -- an over-offered category is friction,
+        // a missing one is a dead end.
+        var catScope = body.scope === "business" || body.scope === "personal" ? body.scope : "both";
         var id   = "cat_" + crypto.randomUUID().slice(0, 8);
 
         await env.DB.prepare(
-            "INSERT INTO categories (id, name_pt, name_en, kind, sort_order, created_at) " +
-            "VALUES (?, ?, ?, ?, 500, datetime('now'))"
-        ).bind(id, namePt, String(body.name_en || "").trim() || null, kind).run();
+            "INSERT INTO categories (id, name_pt, name_en, kind, scope, sort_order, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, 500, datetime('now'))"
+        ).bind(id, namePt, String(body.name_en || "").trim() || null, kind, catScope).run();
 
-        return jsonOk({ id: id, name_pt: namePt, kind: kind });
+        return jsonOk({ id: id, name_pt: namePt, kind: kind, scope: catScope });
     } catch (e) {
         return jsonErr("Error creating category: " + e.message, 500);
     }
@@ -17449,6 +17525,17 @@ async function handlePostFinanceNewCategory(request, env) {
 // The uncategorized remainder is returned as a FIRST-CLASS FIGURE, not
 // omitted. A breakdown that quietly drops what it does not know is a chart
 // that lies by subtraction.
+//
+// SCOPED CATEGORIES DO NOT DOUBLE-COUNT. The GROUP BY is (a.purpose,
+// t.category_id), and each row is then filed into `business` or `personal` by
+// that same purpose. A 'both' category (Viagem e Transporte, Refeicoes, Taxas)
+// that has spending on BOTH accounts therefore comes back as TWO rows -- one
+// per purpose -- and each side's total counts only its own. It appears in both
+// lists, which is correct, and is never summed into a combined figure that
+// would count it twice. There is no combined total in this payload at all: the
+// two sides are reported separately, exactly as the rest of the page treats
+// them, and the hero tiles' combined "Saldo total" is computed elsewhere from
+// balances, not from this breakdown.
 // ---------------------------------------------------------------------------
 
 async function handleGetFinanceNewCategoryBreakdown(request, env) {
@@ -17491,7 +17578,12 @@ async function handleGetFinanceNewCategoryBreakdown(request, env) {
             var r = rows[i];
             var bucket = r.purpose === "personal" ? "personal" : "business";
             if (!r.category_id) {
-                uncat[bucket] = { cents: r.spent_cents || 0, n: r.n || 0 };
+                // Accumulated, not assigned. One row per purpose is what the
+                // GROUP BY produces today, but a total that silently discards
+                // all but the last row if that ever changes is the kind of
+                // quiet undercount this endpoint exists to avoid.
+                uncat[bucket].cents += r.spent_cents || 0;
+                uncat[bucket].n     += r.n || 0;
                 continue;
             }
             out[bucket].push({
@@ -17558,23 +17650,43 @@ async function handlePostFinanceNewTransactionCategory(request, env, txnId) {
 
         var ruleWritten = false;
         var retroApplied = 0;
+        var ruleScope = null;
 
         if (scope !== "one" && txn.merchant_normalized) {
-            await upsertCategorizationRule(env, txn.merchant_normalized, categoryId, "manual");
+            // The rule inherits the purpose of THIS transaction's account. She
+            // is answering "what is this merchant on this account", not making
+            // a claim about the other one.
+            ruleScope = await scopeForTransaction(env, txnId);
+            await upsertCategorizationRule(env, txn.merchant_normalized, categoryId, "manual", ruleScope);
             ruleWritten = true;
 
             if (scope === "all") {
-                // Retroactive. Deliberately does NOT overwrite other manual
-                // choices -- if she filed one Home Depot charge as a gift on
-                // purpose, a later blanket rule should not silently undo that
-                // specific decision.
+                // Retroactive -- but ONLY across accounts this rule actually
+                // covers. Rewriting the other account's history from a rule
+                // she wrote on the business side is the same cross-account
+                // bleed the scope column exists to stop, just backwards in
+                // time and therefore harder to notice.
+                //
+                // Deliberately does NOT overwrite other manual choices either
+                // -- if she filed one Home Depot charge as a gift on purpose,
+                // a later blanket rule should not silently undo that specific
+                // decision.
+                var scopeSql = ruleScope === "both"
+                    ? ""
+                    : "AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = transactions.account_id AND a.purpose = ?) ";
+
+                var retroBinds = [categoryId, txn.merchant_normalized, txnId];
+                if (ruleScope !== "both") { retroBinds.push(ruleScope); }
+
                 var res = await env.DB.prepare(
                     "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
-                    "WHERE merchant_normalized = ? AND id != ? AND (category_source IS NULL OR category_source != 'manual')"
-                ).bind(categoryId, txn.merchant_normalized, txnId).run();
+                    "WHERE merchant_normalized = ? AND id != ? AND (category_source IS NULL OR category_source != 'manual') " +
+                    scopeSql
+                ).bind.apply(null, retroBinds).run();
                 retroApplied = (res.meta && res.meta.changes) || 0;
             } else {
                 // 'future': fill blanks only, past categorized rows untouched.
+                // applyCategorizationRules enforces scope per rule.
                 retroApplied = await applyCategorizationRules(env, { pattern: txn.merchant_normalized });
             }
         }
@@ -17582,6 +17694,7 @@ async function handlePostFinanceNewTransactionCategory(request, env, txnId) {
         return jsonOk({
             ok: true,
             scope: scope,
+            rule_scope: ruleScope,
             rule_written: ruleWritten,
             applied: retroApplied
         });
@@ -17611,21 +17724,40 @@ async function handleGetFinanceNewCategoryImpact(request, env, txnId) {
         ).bind(txnId).first();
         if (!txn) { return jsonErr("Transaction not found", 404); }
         if (!txn.merchant_normalized) {
-            return jsonOk({ merchant: null, all_count: 0, future_count: 0 });
+            return jsonOk({ merchant: null, all_count: 0, future_count: 0, scope: null });
         }
+
+        // Counted WITHIN THE SCOPE the rule will actually carry -- the purpose
+        // of this transaction's account. Counting across both accounts would
+        // promise her a number the write then does not deliver, which is worse
+        // than not showing a number at all: the whole point of this route is
+        // that she can trust the figure before committing.
+        var ruleScope = await scopeForTransaction(env, txnId);
+        var scopeSql = ruleScope === "both"
+            ? ""
+            : "AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = transactions.account_id AND a.purpose = ?) ";
+
+        var allBinds = [txn.merchant_normalized, txnId];
+        if (ruleScope !== "both") { allBinds.push(ruleScope); }
 
         var all = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM transactions " +
-            "WHERE merchant_normalized = ? AND id != ? AND (category_source IS NULL OR category_source != 'manual')"
-        ).bind(txn.merchant_normalized, txnId).first();
+            "WHERE merchant_normalized = ? AND id != ? AND (category_source IS NULL OR category_source != 'manual') " +
+            scopeSql
+        ).bind.apply(null, allBinds).first();
+
+        var blankBinds = [txn.merchant_normalized, txnId];
+        if (ruleScope !== "both") { blankBinds.push(ruleScope); }
 
         var blanks = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM transactions " +
-            "WHERE merchant_normalized = ? AND id != ? AND category_id IS NULL"
-        ).bind(txn.merchant_normalized, txnId).first();
+            "WHERE merchant_normalized = ? AND id != ? AND category_id IS NULL " +
+            scopeSql
+        ).bind.apply(null, blankBinds).first();
 
         return jsonOk({
             merchant:     txn.merchant_normalized,
+            scope:        ruleScope,
             all_count:    (all && all.n) || 0,
             future_count: (blanks && blanks.n) || 0
         });
@@ -17649,12 +17781,18 @@ async function handleGetFinanceNewRules(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
+        // match_count is scope-aware: a business rule must not claim credit for
+        // the personal account's transactions at the same merchant. Counting
+        // across both would overstate every scoped rule and make the two rules
+        // for one merchant look like duplicates of each other.
         var res = await env.DB.prepare(
-            "SELECT r.id, r.pattern, r.match_type, r.category_id, r.source, r.created_at, " +
+            "SELECT r.id, r.pattern, r.match_type, r.scope, r.category_id, r.source, r.created_at, " +
             "c.name_pt, c.name_en, " +
-            "(SELECT COUNT(*) FROM transactions t WHERE t.merchant_normalized = r.pattern) AS match_count " +
+            "(SELECT COUNT(*) FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+            " WHERE t.merchant_normalized = r.pattern " +
+            " AND (r.scope = 'both' OR a.purpose = r.scope)) AS match_count " +
             "FROM categorization_rules r LEFT JOIN categories c ON c.id = r.category_id " +
-            "ORDER BY r.created_at DESC"
+            "ORDER BY r.pattern, r.scope, r.created_at DESC"
         ).all();
 
         return jsonOk({ rules: res.results || [] });
@@ -17673,7 +17811,7 @@ async function handlePatchFinanceNewRule(request, env, ruleId) {
         if (!body.category_id) { return jsonErr("category_id required", 400); }
 
         var rule = await env.DB.prepare(
-            "SELECT id, pattern FROM categorization_rules WHERE id = ?"
+            "SELECT id, pattern, scope FROM categorization_rules WHERE id = ?"
         ).bind(ruleId).first();
         if (!rule) { return jsonErr("Rule not found", 404); }
 
@@ -17682,11 +17820,20 @@ async function handlePatchFinanceNewRule(request, env, ruleId) {
         ).bind(body.category_id, ruleId).run();
 
         // Fixing a rule means the old answer was wrong, so past transactions it
-        // auto-filed are corrected too -- but never the ones she chose herself.
+        // auto-filed are corrected too -- but never the ones she chose herself,
+        // and never on an account this rule does not cover. Editing the
+        // business HOME DEPOT rule must leave the personal side alone.
+        var scopeSql = rule.scope === "both"
+            ? ""
+            : "AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = transactions.account_id AND a.purpose = ?) ";
+        var binds = [body.category_id, rule.pattern];
+        if (rule.scope !== "both") { binds.push(rule.scope); }
+
         var res = await env.DB.prepare(
             "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
-            "WHERE merchant_normalized = ? AND (category_source IS NULL OR category_source != 'manual')"
-        ).bind(body.category_id, rule.pattern).run();
+            "WHERE merchant_normalized = ? AND (category_source IS NULL OR category_source != 'manual') " +
+            scopeSql
+        ).bind.apply(null, binds).run();
 
         return jsonOk({ ok: true, applied: (res.meta && res.meta.changes) || 0 });
     } catch (e) {
@@ -17701,7 +17848,7 @@ async function handleDeleteFinanceNewRule(request, env, ruleId) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var rule = await env.DB.prepare(
-            "SELECT id, pattern FROM categorization_rules WHERE id = ?"
+            "SELECT id, pattern, scope FROM categorization_rules WHERE id = ?"
         ).bind(ruleId).first();
         if (!rule) { return jsonErr("Rule not found", 404); }
 
@@ -17709,13 +17856,32 @@ async function handleDeleteFinanceNewRule(request, env, ruleId) {
 
         // Deleting the rule un-files what the rule filed, so the breakdown
         // stops asserting a categorization she just rejected. Her own manual
-        // choices survive -- she deleted the rule, not her decisions.
+        // choices survive -- she deleted the rule, not her decisions. Scoped
+        // to the accounts this rule covered: deleting the business rule must
+        // not blank the personal side's categories.
+        var scopeSql = rule.scope === "both"
+            ? ""
+            : "AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = transactions.account_id AND a.purpose = ?) ";
+        var binds = [rule.pattern];
+        if (rule.scope !== "both") { binds.push(rule.scope); }
+
         var res = await env.DB.prepare(
             "UPDATE transactions SET category_id = NULL, category_source = NULL, categorized_at = NULL " +
-            "WHERE merchant_normalized = ? AND category_source IN ('rule','llm')"
-        ).bind(rule.pattern).run();
+            "WHERE merchant_normalized = ? AND category_source IN ('rule','llm') " +
+            scopeSql
+        ).bind.apply(null, binds).run();
 
-        return jsonOk({ ok: true, cleared: (res.meta && res.meta.changes) || 0 });
+        // Deleting a scoped rule can UNCOVER a 'both' rule for the same
+        // merchant that it was shadowing. Re-running the engine for this
+        // pattern lets that fallback claim the rows just blanked, instead of
+        // leaving them uncategorized until the next sync.
+        var refilled = await applyCategorizationRules(env, { pattern: rule.pattern });
+
+        return jsonOk({
+            ok: true,
+            cleared: (res.meta && res.meta.changes) || 0,
+            refilled: refilled
+        });
     } catch (e) {
         return jsonErr("Error deleting rule: " + e.message, 500);
     }
@@ -17751,33 +17917,80 @@ async function handlePostFinanceNewCategorizationRun(request, env) {
             return jsonOk(out);
         }
 
-        // Distinct unmatched merchants only. Transfers are never sent -- they
-        // are not spending and do not belong to a spending category.
+        // Distinct unmatched merchants PER ACCOUNT PURPOSE. The same merchant
+        // on the two accounts is two separate questions with two separate
+        // answers -- HOME DEPOT is Materiais on the business side and Casa on
+        // the personal side -- so the group key is (merchant, purpose), not
+        // merchant alone. Asking once and applying the answer to both is the
+        // exact collision this whole change removes.
+        //
+        // "Already has a rule" is likewise scope-aware: a merchant with a
+        // business rule but nothing on the personal side is still an open
+        // question for personal, and must still be asked.
+        //
+        // Transfers are never sent -- they are not spending and do not belong
+        // to a spending category.
         var pending = await env.DB.prepare(
-            "SELECT t.merchant_normalized AS m, COUNT(*) AS n, MAX(t.description) AS sample " +
-            "FROM transactions t WHERE t.category_id IS NULL AND t.merchant_normalized IS NOT NULL " +
+            "SELECT t.merchant_normalized AS m, a.purpose AS purpose, " +
+            "COUNT(*) AS n, MAX(t.description) AS sample " +
+            "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+            "WHERE t.category_id IS NULL AND t.merchant_normalized IS NOT NULL " +
             "AND t.merchant_normalized != '' AND t.is_transfer = 0 " +
             "AND t.transfer_status NOT IN ('suspected','confirmed') " +
-            "AND NOT EXISTS (SELECT 1 FROM categorization_rules r WHERE r.pattern = t.merchant_normalized) " +
-            "GROUP BY t.merchant_normalized ORDER BY n DESC LIMIT 60"
+            "AND NOT EXISTS (SELECT 1 FROM categorization_rules r " +
+            "                WHERE r.pattern = t.merchant_normalized " +
+            "                AND r.scope IN (a.purpose, 'both')) " +
+            "GROUP BY t.merchant_normalized, a.purpose ORDER BY n DESC LIMIT 60"
         ).all();
 
         var merchants = pending.results || [];
         if (merchants.length === 0) { return jsonOk(out); }
 
         var cats = await env.DB.prepare(
-            "SELECT id, name_pt, kind FROM categories WHERE archived = 0 AND kind != 'transfer' ORDER BY sort_order"
+            "SELECT id, name_pt, kind, scope FROM categories WHERE archived = 0 AND kind != 'transfer' ORDER BY sort_order"
         ).all();
-        var catList = (cats.results || []).map(function(c) {
-            return c.id + " = " + c.name_pt + " (" + c.kind + ")";
-        }).join("\n");
+        var allCats = cats.results || [];
 
-        var merchantList = merchants.map(function(m, i) {
+        // Each side is asked using only its OWN vocabulary plus the shared
+        // categories. Offering "Subcontratados" as an option for a personal
+        // charge invites exactly the wrong answer, and a model handed a
+        // business-only list will find somewhere to put a grocery run.
+        var catListFor = function(purpose) {
+            return allCats.filter(function(c) {
+                return c.scope === "both" || c.scope === purpose;
+            }).map(function(c) {
+                return c.id + " = " + c.name_pt + " (" + c.kind + ")";
+            }).join("\n");
+        };
+
+        // One call per purpose present, not one per merchant. Two calls at
+        // most, and only for the sides that actually have open questions.
+        var groups = { business: [], personal: [] };
+        for (var g = 0; g < merchants.length; g++) {
+            var key = merchants[g].purpose === "personal" ? "personal" : "business";
+            groups[key].push(merchants[g]);
+        }
+
+        var purposes = ["business", "personal"].filter(function(p) { return groups[p].length > 0; });
+        var parsedAll = [];
+
+        for (var pi = 0; pi < purposes.length; pi++) {
+        var purpose = purposes[pi];
+        var group = groups[purpose];
+        var catList = catListFor(purpose);
+
+        var merchantList = group.map(function(m, i) {
             return (i + 1) + ". " + m.m + "   [example: " + String(m.sample || "").slice(0, 60) + "]";
         }).join("\n");
 
+        var accountLabel = purpose === "personal"
+            ? "her PERSONAL household account"
+            : "her BUSINESS account";
+
         var prompt =
             "You are categorizing bank transaction merchants for a small Brazilian consulting firm.\n\n" +
+            "These transactions are all from " + accountLabel + ", so categorize them as " +
+            (purpose === "personal" ? "household" : "business") + " spending.\n\n" +
             "Available categories (use the id on the left):\n" + catList + "\n\n" +
             "Merchants to categorize:\n" + merchantList + "\n\n" +
             "Return ONLY a JSON array, no markdown and no explanation. Each element must be " +
@@ -17799,11 +18012,13 @@ async function handlePostFinanceNewCategorizationRun(request, env) {
             })
         });
 
-        // A failed LLM call is not a failed categorization run. Layer 1 already
-        // succeeded and those results stand; the rest simply stay uncategorized.
+        // A failed LLM call for one side is not a failed run, and not a reason
+        // to abandon the other side. Layer 1 already succeeded and those
+        // results stand; whatever this call would have answered simply stays
+        // uncategorized, which is a normal state.
         if (!claudeRes.ok) {
             out.llm_skipped_reason = "api_error";
-            return jsonOk(out);
+            continue;
         }
 
         var claudeData = await claudeRes.json();
@@ -17821,26 +18036,36 @@ async function handlePostFinanceNewCategorizationRun(request, env) {
         if (!Array.isArray(parsed)) { parsed = []; }
 
         out.llm_used = true;
-        out.merchants_sent = merchants.length;
+        out.merchants_sent += group.length;
 
+        // Valid ids for THIS side only. A business id coming back for a
+        // personal merchant is a wrong answer, not merely an unexpected one,
+        // and is dropped the same way an invented id is.
         var validCatIds = {};
-        (cats.results || []).forEach(function(c) { validCatIds[c.id] = true; });
+        allCats.forEach(function(c) {
+            if (c.scope === "both" || c.scope === purpose) { validCatIds[c.id] = true; }
+        });
 
         for (var i = 0; i < parsed.length; i++) {
             var p = parsed[i];
             if (!p || !p.merchant || !p.category_id) { continue; }
-            if (!validCatIds[p.category_id]) { continue; }   // never trust an invented id
+            if (!validCatIds[p.category_id]) { continue; }   // never trust an invented or off-scope id
 
-            // Persisted as a rule so this merchant is never sent to the LLM
-            // again -- this is what stops the cost from repeating.
-            await upsertCategorizationRule(env, p.merchant, p.category_id, "llm");
+            // Persisted as a rule SCOPED TO THIS SIDE, so this merchant is
+            // never sent to the LLM again for this account purpose -- this is
+            // what stops the cost from repeating -- while leaving the other
+            // side free to get its own answer.
+            await upsertCategorizationRule(env, p.merchant, p.category_id, "llm", purpose);
 
             var r = await env.DB.prepare(
                 "UPDATE transactions SET category_id = ?, category_source = 'llm', categorized_at = datetime('now') " +
-                "WHERE category_id IS NULL AND merchant_normalized = ?"
-            ).bind(p.category_id, p.merchant).run();
+                "WHERE category_id IS NULL AND merchant_normalized = ? " +
+                "AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = transactions.account_id AND a.purpose = ?)"
+            ).bind(p.category_id, p.merchant, purpose).run();
             out.by_llm += (r.meta && r.meta.changes) || 0;
         }
+
+        }   // end per-purpose loop
 
         return jsonOk(out);
     } catch (e) {
@@ -17872,12 +18097,16 @@ async function handlePostFinanceNewTransferConfirm(request, env) {
                 "SELECT merchant_normalized FROM transactions WHERE transfer_pair_id = ? LIMIT 1"
             ).bind(body.transfer_pair_id).first();
             if (leg && leg.merchant_normalized) {
+                // Scope 'both': a transfer between her own accounts is a
+                // transfer whichever side you look at it from, and both legs
+                // land on different accounts by definition.
                 var dupe = await env.DB.prepare(
-                    "SELECT id FROM categorization_rules WHERE pattern = ? AND category_id = 'transfer'"
+                    "SELECT id FROM categorization_rules WHERE pattern = ? AND category_id = 'transfer' AND scope = 'both'"
                 ).bind(leg.merchant_normalized).first();
                 if (!dupe) {
                     await env.DB.prepare(
-                        "INSERT INTO categorization_rules (id, pattern, category_id, source) VALUES (?, ?, 'transfer', 'auto')"
+                        "INSERT INTO categorization_rules (id, pattern, scope, category_id, source) " +
+                        "VALUES (?, ?, 'both', 'transfer', 'auto')"
                     ).bind(crypto.randomUUID(), leg.merchant_normalized).run();
                 }
             }

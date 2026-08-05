@@ -1157,6 +1157,7 @@
             <thead>
               <tr>
                 <th><span class="show-pt">Estabelecimento</span><span class="show-en">Merchant</span></th>
+                <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
                 <th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>
                 <th><span class="show-pt">Origem</span><span class="show-en">Source</span></th>
                 <th class="num"><span class="show-pt">Transa&ccedil;&otilde;es</span><span class="show-en">Transactions</span></th>
@@ -2340,6 +2341,29 @@
       return null;
     }
 
+    // The purpose of the account a transaction landed on. This is what decides
+    // which categories she is offered -- business vocabulary for the business
+    // account, household vocabulary for the personal one.
+    function purposeForTxn(txn) {
+      if (!txn) { return null; }
+      for (var i = 0; i < ACCOUNTS.length; i++) {
+        if (ACCOUNTS[i].id === txn.account_id) { return ACCOUNTS[i].purpose; }
+      }
+      return null;
+    }
+
+    // Categories on offer for one side: that side's own, plus the shared ones.
+    // She should not have to scroll past "Moradia" to reach "Subcontratados".
+    // With no purpose resolved (accounts not loaded yet) the full list is
+    // returned rather than an empty one -- offering too much is friction,
+    // offering nothing is a dead end.
+    function categoriesForPurpose(purpose) {
+      if (!purpose) { return CATEGORIES; }
+      return CATEGORIES.filter(function(c) {
+        return !c.scope || c.scope === "both" || c.scope === purpose;
+      });
+    }
+
     function loadCategoryBreakdown() {
       var monthEl = document.getElementById("catMonth");
       var month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
@@ -2500,15 +2524,35 @@
       }
       if (!txn) { return; }
 
-      pendingCategoryTxn = { id: txn.id, merchant: txn.merchant_normalized || "", categoryId: null };
+      var purpose = purposeForTxn(txn);
+      pendingCategoryTxn = {
+        id: txn.id,
+        merchant: txn.merchant_normalized || "",
+        categoryId: null,
+        purpose: purpose
+      };
 
       var sub = document.getElementById("catModalSub");
       if (sub) { sub.textContent = (txn.description || txn.merchant_normalized || ""); }
 
       var sel = document.getElementById("catPickSelect");
       if (sel) {
+        // Only this account's vocabulary. The rule she is about to create is
+        // scoped to this account, so offering the other side's categories
+        // would invite a choice the rule then cannot honour.
+        var offered = categoriesForPurpose(purpose);
+
+        // A category already on the transaction is always kept in the list
+        // even if it falls outside this scope -- otherwise re-opening the
+        // picker on an older transaction would silently drop her own answer.
+        var hasCurrent = offered.some(function(c) { return c.id === txn.category_id; });
+        if (txn.category_id && !hasCurrent) {
+          var cur = categoryById(txn.category_id);
+          if (cur) { offered = offered.concat([cur]); }
+        }
+
         var opts = '<option value="">' + (isEn() ? "-- no category --" : "-- sem categoria --") + "</option>";
-        opts += CATEGORIES.map(function(c) {
+        opts += offered.map(function(c) {
           return '<option value="' + esc(c.id) + '"' + (c.id === txn.category_id ? " selected" : "") + ">" +
                  esc(categoryName(c)) + "</option>";
         }).join("");
@@ -2643,14 +2687,31 @@
         var srcLabel = r.source === "llm"
           ? (isEn() ? "auto" : "auto")
           : (r.source === "seed" ? (isEn() ? "default" : "padrão") : (isEn() ? "yours" : "sua"));
+
+        // WHICH ACCOUNT THIS RULE GOVERNS. Without this column the two rules
+        // for one merchant -- HOME DEPOT as Materiais on business, as Casa on
+        // personal -- render as identical-looking rows and editing the wrong
+        // one is guaranteed.
+        var scope = r.scope || "both";
+        var scopeLabel = scope === "business"
+          ? (isEn() ? "Business" : "Comercial")
+          : (scope === "personal" ? (isEn() ? "Personal" : "Pessoal")
+                                  : (isEn() ? "Both" : "Ambas"));
+
+        // Editing a rule offers only the categories its own scope can hold.
+        var offered = categoriesForPurpose(scope === "both" ? null : scope);
+        var hasCurrent = offered.some(function(c) { return c.id === r.category_id; });
+        if (r.category_id && !hasCurrent && cat) { offered = offered.concat([cat]); }
+
         var sel = '<select onchange="updateRule(\'' + esc(r.id) + "', this.value)\">" +
-          CATEGORIES.map(function(c) {
+          offered.map(function(c) {
             return '<option value="' + esc(c.id) + '"' + (c.id === r.category_id ? " selected" : "") + ">" +
                    esc(categoryName(c)) + "</option>";
           }).join("") + "</select>";
 
         return "<tr>" +
           "<td>" + esc(r.pattern) + "</td>" +
+          '<td><span class="pill">' + scopeLabel + "</span></td>" +
           "<td>" + sel + "</td>" +
           '<td><span class="rule-src rule-src-' + esc(r.source) + '">' + srcLabel + "</span></td>" +
           '<td class="num">' + (r.match_count || 0) + "</td>" +

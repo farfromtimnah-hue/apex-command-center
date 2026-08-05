@@ -2059,6 +2059,27 @@
             <div id="sellerSeatsList">
               <div style="color:var(--muted);font-size:13px;">Carregando...</div>
             </div>
+            <!-- Seller diagnostics — a BUTTON ONLY. The metrics live on their
+                 own page (seller-diagnostics.html) and must not be inlined
+                 here: this file is already ~360KB, which is exactly why
+                 client-analytics.html was split out.
+
+                 Hidden until this client has at least one seller seat, which
+                 is currently every real client, so nothing clutters until a
+                 seat exists. loadSellerSeats() toggles it.
+
+                 Admin-only, and NOT by virtue of being hidden here: the
+                 endpoint refuses client and seller sessions server-side. -->
+            <div id="sellerDiagWrap" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+              <a id="btnSellerDiag" class="btn-add" href="#" style="display:inline-block;text-decoration:none;">
+                <span class="show-pt">Diagn&oacute;stico de vendedores &rarr;</span>
+                <span class="show-en">Seller diagnostics &rarr;</span>
+              </a>
+              <p class="muted" style="font-size:12px;margin:8px 0 0;">
+                <span class="show-pt">Velocidade de contato, obje&ccedil;&otilde;es, fechamento e ticket m&eacute;dio por vendedor. Material de coaching &mdash; o cliente n&atilde;o v&ecirc; esta p&aacute;gina.</span>
+                <span class="show-en">Contact speed, objections, closing and average deal size per salesperson. Coaching material &mdash; the client does not see this page.</span>
+              </p>
+            </div>
           </div>
         </div>
 
@@ -3302,6 +3323,15 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           var seats = data.seats || [];
+          // The diagnostics button appears only once a seat exists — there is
+          // nothing to diagnose before the first salesperson logs in, and an
+          // empty page reads as broken.
+          var diagWrap = document.getElementById("sellerDiagWrap");
+          var diagBtn = document.getElementById("btnSellerDiag");
+          if (diagWrap && diagBtn) {
+            diagWrap.style.display = seats.length ? "" : "none";
+            diagBtn.href = "seller-diagnostics.html?client=" + encodeURIComponent(CLIENT_ID || "");
+          }
           if (!seats.length) {
             el.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
               '<span class="show-pt">Nenhum vendedor com login ativo.</span>' +

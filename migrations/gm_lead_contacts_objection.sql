@@ -1,0 +1,68 @@
+-- gm_lead_contacts: who logged it, and what came back (2026-08-05).
+--
+-- Two columns, both load-bearing for the seller diagnostics page. Added while
+-- the table holds 7 rows across every client and no real salesperson has ever
+-- logged in — schema changes here are close to free today and expensive once
+-- a client's real leads and their sellers land.
+--
+-- logged_by — the DISPLAY NAME of the human who recorded the contact, matching
+-- the convention already set by client_assessments.activated_by,
+-- lead_contact_log.logged_by, resources.created_by and clients.next_step_set_by.
+-- A name, never an id.
+--
+-- Resolved SERVER-SIDE from the session and never from the request body:
+--   seller session  -> their seller_name
+--   client (owner)  -> the client's display name
+--   admin           -> users.display_name
+-- A seller stamps their own name and cannot claim another, the same rule
+-- handleGetGmLeads already applies when it forces the vendedor filter off the
+-- session rather than off a query param.
+--
+-- DELIBERATELY NOT BACKFILLED. The 7 existing rows have genuinely unknown
+-- authorship, so NULL is the honest value -- the same rule already applied to
+-- sessions.created_by and client_logins.created_by. Inventing a name here
+-- would manufacture exactly the confident-wrong-answer this reporting exists
+-- to prevent.
+ALTER TABLE gm_lead_contacts ADD COLUMN logged_by TEXT;
+
+-- objection — which of EIGHT fixed values came back, or NULL.
+--
+-- The list and its ORDER are Nicole's, from six years running life-insurance
+-- sales teams, and are validated against GM_LEAD_OBJECTIONS in the Worker:
+--
+--   1. Too expensive
+--   2. The other guys are cheaper
+--   3. Can't afford it
+--   4. Need to think about it
+--   5. Need to talk to someone
+--   6. Getting other quotes
+--   7. Already have someone
+--   8. We don't need it
+--
+-- THE ORDER IS DELIBERATE AND MUST NOT BE ALPHABETIZED OR RE-SORTED. The three
+-- price framings sit at the top on purpose: "too expensive" is a VALUE problem,
+-- "can't afford it" is a BUDGET problem, "the other guys are cheaper" is a
+-- COMPARISON problem. They have completely different answers. Most salespeople
+-- do not know these are different and will reach for whichever appears first,
+-- so adjacency forces an actual choice.
+--
+-- There is NO "Other" value, by design. An escape hatch is where a dropdown
+-- goes to die, and the whole point of this column is countable data.
+--
+-- The column is OPTIONAL -- not every contact produces an objection, and
+-- "No response" obviously does not. But when an objection IS selected, notes
+-- is REQUIRED (enforced in handlePostGmLeadContact and in the UI): no "other"
+-- bucket, but the rep must still be able to explain in their own words.
+--
+-- The gap between the label and the note is the POINT, not a defect. If a rep
+-- picks "Can't afford it" and writes "doesn't want financing", that mismatch
+-- reveals how they read the room -- the single most valuable signal this
+-- feature produces. The system therefore never maps a rep's phrasing to a
+-- category on their behalf, and the diagnostics page never shows a category
+-- count without the notes behind it.
+ALTER TABLE gm_lead_contacts ADD COLUMN objection TEXT;
+
+-- The diagnostics page groups a client's contacts by seller and by objection.
+-- Every one of those reads is scoped to one client_id first.
+CREATE INDEX IF NOT EXISTS idx_gmlc_client_logged_by
+    ON gm_lead_contacts (client_id, logged_by);

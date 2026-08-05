@@ -911,35 +911,180 @@ function gmLogOutreach(method) {
   window.setTimeout(function() { gmOpenOutcomeModal(method); }, 0);
 }
 
+// ── Objections ────────────────────────────────────────────────────────────
+// Nicole's list, from six years running life-insurance sales teams. The ORDER
+// IS DELIBERATE AND MUST NOT BE ALPHABETIZED OR RE-SORTED: the three price
+// framings sit at the top on purpose because "too expensive" (value), "the
+// other guys are cheaper" (comparison) and "can't afford it" (budget) have
+// completely different answers, and adjacency forces an actual choice.
+//
+// The keys are the exact strings the Worker validates against
+// (GM_LEAD_OBJECTIONS) — only the display is translated.
+//
+// DO NOT ADD: an "Other" option, parenthetical hints like "(value)"/"(budget)",
+// tooltips, or any explainer text beside these options. All were proposed and
+// rejected. Teaching a rep sales theory in the moment they just got rejected is
+// bad timing and reads as an inquisition — this is a diagnostic tool, not a
+// training module. An escape hatch is also where a dropdown goes to die, and
+// the whole point is countable data.
+var GM_OBJECTIONS = [
+  { key: "Too expensive",              pt: "Muito caro",                     en: "Too expensive" },
+  { key: "The other guys are cheaper", pt: "Os outros são mais baratos",     en: "The other guys are cheaper" },
+  { key: "Can't afford it",            pt: "Não tem como pagar",             en: "Can't afford it" },
+  { key: "Need to think about it",     pt: "Preciso pensar",                 en: "Need to think about it" },
+  { key: "Need to talk to someone",    pt: "Preciso falar com alguém",       en: "Need to talk to someone" },
+  { key: "Getting other quotes",       pt: "Pegando outros orçamentos",      en: "Getting other quotes" },
+  { key: "Already have someone",       pt: "Já tem alguém",                  en: "Already have someone" },
+  { key: "We don't need it",           pt: "Não precisamos",                 en: "We don't need it" }
+];
+
+function gmObjectionLabel(key) {
+  for (var i = 0; i < GM_OBJECTIONS.length; i++) {
+    if (GM_OBJECTIONS[i].key === key) { return gmT(GM_OBJECTIONS[i].pt, GM_OBJECTIONS[i].en); }
+  }
+  return escHtml(key || "");
+}
+
+// The outcome modal's in-progress state. The result is picked first, then the
+// optional objection and the note, then Save — a single write, so a contact is
+// never stored half-logged.
+var gmOutcomeDraft = null;
+
 function gmOpenOutcomeModal(method) {
+  gmOutcomeDraft = { method: method, result: null, objection: null, notes: "" };
+  gmRenderOutcomeModal();
+}
+
+function gmRenderOutcomeModal() {
+  var d = gmOutcomeDraft;
+  if (!d) { return; }
   var body = '<p class="gm-derived-note">' +
-    gmT("Registrando: ", "Logging: ") + '<strong>' + gmMethodLabel(method) + '</strong>. ' +
+    gmT("Registrando: ", "Logging: ") + '<strong>' + gmMethodLabel(d.method) + '</strong>. ' +
     gmT("Escolha o resultado.", "Pick the outcome.") + '</p>' +
     '<div class="gm-chip-set" style="flex-direction:column;align-items:stretch;">';
   GM_CONTACT_RESULTS.forEach(function(r) {
-    body += '<button type="button" class="gm-choice-chip" style="text-align:left;" onclick="gmSaveOutreach(' +
-      "'" + escHtml(method).replace(/'/g, "\\'") + "','" + r.key + "')\">" +
-      gmT(r.pt, r.en) + '</button>';
+    var on = d.result === r.key;
+    body += '<button type="button" class="gm-choice-chip' + (on ? ' selected' : '') + '" ' +
+      'style="text-align:left;' + (on ? 'border-color:var(--gold);' : '') + '" ' +
+      'onclick="gmOutcomeSetResult(\'' + r.key + '\')">' +
+      (on ? '✓ ' : '') + gmT(r.pt, r.en) + '</button>';
   });
-  body += '</div>' +
-    '<button type="button" class="btn-outline gm-add-btn" onclick="gmRenderLeadSheet()">' +
+  body += '</div>';
+
+  // The objection and the note only appear once a result is picked: they are
+  // about what came back, and there is nothing to explain before then.
+  if (d.result) {
+    body += '<div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">' +
+      '<label class="field-label">' +
+      gmT("Objeção (opcional)", "Objection (optional)") + '</label>' +
+      '<div class="gm-chip-set" style="flex-direction:column;align-items:stretch;">';
+    GM_OBJECTIONS.forEach(function(o) {
+      var on = d.objection === o.key;
+      body += '<button type="button" class="gm-choice-chip' + (on ? ' selected' : '') + '" ' +
+        'style="text-align:left;' + (on ? 'border-color:var(--gold);' : '') + '" ' +
+        'onclick="gmOutcomeSetObjection(\'' + o.key.replace(/'/g, "\\'") + '\')">' +
+        (on ? '✓ ' : '') + gmT(o.pt, o.en) + '</button>';
+    });
+    body += '</div>';
+
+    // notes has existed on gm_lead_contacts since the table shipped and never
+    // had a UI — a known open bug, fixed here. The objection field is useless
+    // without the note beside it: the gap between the label the rep picked and
+    // what they actually wrote is the whole diagnostic.
+    body += '<label class="field-label" style="margin-top:14px;">' +
+      gmT("Observações", "Notes") +
+      (d.objection ? ' <span style="color:var(--gold);">*</span>' : '') + '</label>';
+    if (d.objection) {
+      body += '<p class="muted" style="font-size:12px;margin:0 0 6px;">' +
+        gmT("Obrigatório quando você marca uma objeção — escreva com as palavras do cliente.",
+            "Required when you select an objection — write it in the customer's own words.") + '</p>';
+    }
+    body += '<textarea id="gmOutcomeNotes" rows="3" maxlength="2000" style="width:100%;" ' +
+      'oninput="gmOutcomeSetNotes(this.value)" placeholder="' +
+      gmT("O que o cliente disse?", "What did the customer say?") + '">' +
+      escHtml(d.notes || "") + '</textarea>' +
+      '<p id="gmOutcomeErr" class="muted" style="color:var(--danger,#c0392b);font-size:12px;margin:6px 0 0;"></p>' +
+      '</div>' +
+      '<button type="button" class="btn-gold gm-add-btn" onclick="gmSaveOutreach()">' +
+      gmT("Salvar contato", "Save contact") + '</button>';
+  }
+
+  body += '<button type="button" class="btn-outline gm-add-btn" onclick="gmCancelOutcome()">' +
     gmT("Cancelar", "Cancel") + '</button>';
   gmSheetOpen(gmT("Resultado do contato", "Contact outcome"), body, "crm-outcome");
+  // Restore focus and caret if the note was mid-edit before a re-render.
+  var ta = document.getElementById("gmOutcomeNotes");
+  if (ta && gmOutcomeDraft && gmOutcomeDraft._focusNotes) {
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    gmOutcomeDraft._focusNotes = false;
+  }
 }
 
-function gmSaveOutreach(method, result) {
+function gmOutcomeSetResult(key) {
+  if (!gmOutcomeDraft) { return; }
+  gmOutcomeDraft.result = key;
+  gmRenderOutcomeModal();
+}
+
+// Tapping the selected objection again clears it — it is optional, and there
+// must be a way back to "no objection" without reopening the modal.
+function gmOutcomeSetObjection(key) {
+  if (!gmOutcomeDraft) { return; }
+  gmOutcomeDraft.objection = (gmOutcomeDraft.objection === key) ? null : key;
+  gmRenderOutcomeModal();
+}
+
+// Typing must not re-render (the textarea would lose focus on every keystroke),
+// so the draft is updated in place and the DOM is left alone.
+function gmOutcomeSetNotes(v) {
+  if (!gmOutcomeDraft) { return; }
+  gmOutcomeDraft.notes = v;
+}
+
+function gmCancelOutcome() {
+  gmOutcomeDraft = null;
+  gmRenderLeadSheet();
+}
+
+function gmSaveOutreach() {
+  var d = gmOutcomeDraft;
+  if (!d || !d.result) { return; }
   var lead = gmDetailLead;
-  gmApi("leads/" + lead.id + "/contacts", { method: "POST", body: { method: method, result: result } })
-    .then(function(d) {
+  var notes = (d.notes || "").trim();
+  // Enforced in the UI as well as in the handler. The handler is the real
+  // gate — this one exists so the rep is told BEFORE the round trip, in the
+  // field they need to fill, rather than by a generic error afterwards.
+  if (d.objection && !notes) {
+    var err = document.getElementById("gmOutcomeErr");
+    if (err) {
+      err.textContent = gmT("Escreva uma observação para explicar a objeção.",
+                            "Add a note to explain the objection.");
+    }
+    var ta = document.getElementById("gmOutcomeNotes");
+    if (ta) { ta.focus(); }
+    return;
+  }
+  // logged_by is NOT sent: the server stamps it from the session. A body-
+  // supplied name would be ignored anyway.
+  gmApi("leads/" + lead.id + "/contacts", {
+    method: "POST",
+    body: { method: d.method, result: d.result, objection: d.objection || null, notes: notes || null }
+  })
+    .then(function(r) {
       // The server returns the refreshed derived values, so the sheet can
       // re-render without a second round trip.
-      lead.contatos_count = d.contatos_count;
-      lead.primeiro_contato = d.primeiro_contato;
+      lead.contatos_count = r.contatos_count;
+      lead.primeiro_contato = r.primeiro_contato;
       gmLeadContacts = null;                 // force a refetch if the log opens
+      gmOutcomeDraft = null;
       gmRenderLeadSheet();
       gmToast(gmT("Contato registrado ✓", "Contact logged ✓"));
     })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) {
+      var el = document.getElementById("gmOutcomeErr");
+      if (el) { el.textContent = e.message; } else { window.alert(e.message); }
+    });
 }
 
 // The follow-up count row opens the LOG, not a number editor: the count is
@@ -961,12 +1106,21 @@ function gmOpenContactLog() {
         gmLeadContacts.forEach(function(c) {
           var res = "";
           GM_CONTACT_RESULTS.forEach(function(r) { if (r.key === c.result) { res = gmT(r.pt, r.en); } });
+          // The objection and the note sit together and are never collapsed
+          // into one another: the label is what the rep chose, the note is
+          // what the customer actually said, and the gap between them is the
+          // point. logged_by is NULL on rows predating this column — it is
+          // simply omitted rather than guessed at.
           body += '<div class="gm-sheet-row" style="cursor:default;">' +
             '<span class="gm-sheet-row-icon">' + gmIcon(gmMethodIcon(c.method)) + '</span>' +
             '<span class="gm-sheet-row-body">' +
               '<span class="gm-sheet-row-label">' + gmMethodLabel(c.method) +
               (res ? ' · ' + escHtml(res) : "") + '</span>' +
-              '<span class="gm-sheet-row-value">' + escHtml(formatDateTimeUTC(c.logged_at)) + '</span>' +
+              '<span class="gm-sheet-row-value">' + escHtml(formatDateTimeUTC(c.logged_at)) +
+              (c.logged_by ? ' · ' + escHtml(c.logged_by) : "") + '</span>' +
+              (c.objection
+                ? '<span class="gm-sheet-row-sub"><strong>' + gmObjectionLabel(c.objection) + '</strong></span>'
+                : "") +
               (c.notes ? '<span class="gm-sheet-row-sub">' + escHtml(c.notes) + '</span>' : "") +
             '</span></div>';
         });
@@ -1671,21 +1825,38 @@ function gmRenderJobs() {
   var body = document.getElementById("gmJobsBody");
   var jobs = gmJobsData.jobs;
   var target = gmJobsData.target_margin;
+  // A NULL target is rendered as NOT SET, with a prompt — never as 0%, never
+  // as a passing check, never silently skipped. An unmeasured margin is not an
+  // on-target margin, and the number used to default to a fabricated 30%.
   var html = '<div class="content-card">' +
     '<div class="card-title">' + gmT("Obras e margem", "Jobs & margin") + '</div>' +
-    '<p class="muted" style="margin-bottom:8px;">' +
-    gmT("Margem alvo mínima: ", "Minimum target margin: ") + fmtNum(target, "percent") +
-    gmT(" — nenhuma proposta sai abaixo desse número.", " — no proposal goes out below this number.") + '</p>';
+    (target === null || target === undefined
+      ? '<p class="muted" style="margin-bottom:8px;">' +
+        '<strong>' + gmT("Margem alvo mínima: não definida.", "Minimum target margin: not set.") + '</strong> ' +
+        gmT("Defina a sua em Ajustes para que as obras possam ser comparadas com ela.",
+            "Set yours in Settings so jobs can be measured against it.") + '</p>'
+      : '<p class="muted" style="margin-bottom:8px;">' +
+        gmT("Margem alvo mínima: ", "Minimum target margin: ") + fmtNum(target, "percent") +
+        gmT(" — nenhuma proposta sai abaixo desse número.", " — no proposal goes out below this number.") + '</p>');
   if (!jobs.length) {
     html += '<p class="muted">' + gmT("Nenhuma obra cadastrada ainda.", "No jobs yet.") + '</p>';
   } else {
     jobs.forEach(function(j, i) {
+      // alvo_ok is THREE-state: true (met), false (below), null (unanswerable
+      // — no margin yet, or no target set). A null must not fall into the
+      // "below target" branch and must not show a green check either: the
+      // margin is real, the verdict is simply unknown.
       var margemHtml = "";
       if (j.margem_pct !== null) {
-        margemHtml = j.alvo_ok
-          ? '<span class="gm-ok">✓ ' + fmtNum(j.margem_pct, "percent") + '</span>'
-          : '<span class="gm-warn" data-tour="jobs-margin-alert">⚠ ' + fmtNum(j.margem_pct, "percent") + " " +
+        if (j.alvo_ok === null) {
+          margemHtml = '<span class="muted">' + fmtNum(j.margem_pct, "percent") + " " +
+            gmT("(sem alvo definido)", "(no target set)") + '</span>';
+        } else if (j.alvo_ok) {
+          margemHtml = '<span class="gm-ok">✓ ' + fmtNum(j.margem_pct, "percent") + '</span>';
+        } else {
+          margemHtml = '<span class="gm-warn" data-tour="jobs-margin-alert">⚠ ' + fmtNum(j.margem_pct, "percent") + " " +
             gmT("abaixo do alvo", "below target") + '</span>';
+        }
       }
       var prazoHtml = "";
       if (j.no_prazo !== null) {
@@ -2030,11 +2201,24 @@ function gmRenderSimpleSheet(kind) {
     // Derived at read time from the cost fields and the target margin — never
     // stored, so these are static rows (no onclick) in the same grouped
     // language as the sections above, rather than a differently-styled card.
+    // Same three-state rule as the list rows: null alvo_ok means the question
+    // cannot be answered, and the sub-line says so instead of naming a target
+    // that does not exist.
     var target = gmJobsData.target_margin;
-    var marginHtml = row.margem_pct === null ? ""
-      : (row.alvo_ok ? '<span class="gm-ok">✓ ' : '<span class="gm-warn">⚠ ') + fmtNum(row.margem_pct, "percent") + '</span>';
-    var marginSub = (row.margem_pct === null || row.alvo_ok) ? ""
-      : gmT("abaixo do alvo de ", "below the target of ") + fmtNum(target, "percent");
+    var marginHtml = "";
+    var marginSub = "";
+    if (row.margem_pct !== null) {
+      if (row.alvo_ok === null) {
+        marginHtml = '<span class="muted">' + fmtNum(row.margem_pct, "percent") + '</span>';
+        marginSub = gmT("sem margem alvo definida — não dá para dizer se está no alvo",
+                        "no target margin set — cannot say whether this is on target");
+      } else if (row.alvo_ok) {
+        marginHtml = '<span class="gm-ok">✓ ' + fmtNum(row.margem_pct, "percent") + '</span>';
+      } else {
+        marginHtml = '<span class="gm-warn">⚠ ' + fmtNum(row.margem_pct, "percent") + '</span>';
+        marginSub = gmT("abaixo do alvo de ", "below the target of ") + fmtNum(target, "percent");
+      }
+    }
     var onTimeHtml = row.no_prazo === null ? ""
       : (row.no_prazo ? '<span class="gm-ok">✓ ' + gmT("Sim", "Yes") + '</span>'
                       : '<span class="gm-warn">! ' + gmT("Não", "No") + '</span>');

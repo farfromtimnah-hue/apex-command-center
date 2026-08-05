@@ -240,6 +240,48 @@ var CLIENT_SOURCE_TYPES = [
 var LEAD_CONTACT_METHODS = ["WhatsApp", "Phone call", "Email", "In person", "Text message"];
 var LEAD_CONTACT_RESULTS = ["No response", "Answered", "Left voicemail", "Rescheduled", "Not interested"];
 
+// ---------------------------------------------------------------------------
+// OBJECTIONS — what came back when the customer said no.
+//
+// Nicole's list, from six years running life-insurance sales teams. Stored on
+// gm_lead_contacts.objection and ranked by the seller diagnostics page.
+//
+// THE ORDER IS DELIBERATE AND MUST NOT BE ALPHABETIZED OR RE-SORTED.
+//
+// The three price framings sit at the top on purpose:
+//   "Too expensive"            -> a VALUE problem
+//   "The other guys are cheaper" -> a COMPARISON problem
+//   "Can't afford it"          -> a BUDGET problem
+// They have completely different answers. Most salespeople do not know these
+// are different and will reach for whichever appears first, so putting them
+// adjacent forces an actual choice.
+//
+// There is NO "Other" value, by design. An escape hatch is where a dropdown
+// goes to die, and the whole point of this column is countable data.
+//
+// The UI carries NO parenthetical hints, NO tooltips and NO explainer text
+// next to these options. A draft that tagged them "(value)" / "(budget)" was
+// rejected: teaching a rep sales theory in the moment they just got rejected
+// is bad timing and reads as an inquisition. This is a diagnostic tool, not a
+// training module.
+//
+// The system also never maps a rep's phrasing to a category on their behalf.
+// THE MISDIAGNOSIS IS THE DATA: if a rep picks "Can't afford it" and the note
+// says "doesn't want financing", that gap reveals how they read the room, and
+// it is the single most valuable signal this feature produces. Let them
+// choose, let them be wrong, surface the gap on the diagnostics page.
+// ---------------------------------------------------------------------------
+var GM_LEAD_OBJECTIONS = [
+    "Too expensive",
+    "The other guys are cheaper",
+    "Can't afford it",
+    "Need to think about it",
+    "Need to talk to someone",
+    "Getting other quotes",
+    "Already have someone",
+    "We don't need it"
+];
+
 function leadStageIndex(stage) {
     var i = LEAD_STAGES.indexOf(stage || "Lead");
     return i < 0 ? 0 : i;
@@ -13926,6 +13968,12 @@ function gmParseJsonListNonEmpty(s, fallback) {
 
 // Load (and lazily seed) a client's gm_config row. Only servicos and the
 // admin-only finance_categories get seeded values; every other list starts empty.
+//
+// target_margin is NOT in the insert column list, and the column no longer
+// carries a DEFAULT (see migrations/gm_config_target_margin_nullable.sql), so
+// a new client's margin floor starts NULL — unset, not 30. Do not add it back
+// here: the previous DEFAULT 30 put a fabricated floor on all 11 existing
+// clients, and a margin floor is a number an owner might actually act on.
 async function gmGetConfig(env, clientId) {
     var row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
     if (!row) {
@@ -13954,7 +14002,13 @@ async function gmGetConfig(env, clientId) {
         finance_categories:  gmParseJsonListNonEmpty(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
         partner_types:       gmParseJsonList(row.partner_types_json, []),
         cycle_months:        gmParseJsonList(row.cycle_months_json, []),
-        target_margin:       row.target_margin,
+        // NULL is a real, meaningful value here: the client has not set a
+        // margin floor. It must never be coerced to 0 or to 30 on the way out
+        // — every display path renders it as "not set" and prompts for one.
+        target_margin:        row.target_margin === null || row.target_margin === undefined
+                                  ? null : row.target_margin,
+        target_margin_set_by: row.target_margin_set_by || null,
+        target_margin_set_at: row.target_margin_set_at || null,
         pipeline_view_threshold: row.pipeline_view_threshold,
         pipeline_view_override:  row.pipeline_view_override || null
     };
@@ -14035,14 +14089,22 @@ async function handleGetGmConfig(id, request, env) {
 // ---------------------------------------------------------------------------
 // Route: PUT /api/clients/:id/gm/config — per-client lists/settings.
 //
-// Mixed gate. A client may write ONLY the four presentation lists for their
-// own client_id (servicos, vendedores, partner_types, cycle_months) — these
-// are theirs: their services are what their partners' customers see on the
-// public referral page, and the other three are optional rows on their own
-// sheets. Everything else stays admin-only: finance_categories drives the
-// Entrada/Saída derivation, and target_margin / pipeline_view_threshold are
-// consultancy settings. A client sending those is not an error — the keys are
-// simply ignored, so a client UI can PUT the whole config object safely.
+// Mixed gate. A client may write the four presentation lists for their own
+// client_id (servicos, vendedores, partner_types, cycle_months) — these are
+// theirs: their services are what their partners' customers see on the public
+// referral page, and the other three are optional rows on their own sheets.
+//
+// target_margin is ALSO client-writable, as of 2026-08-05. It is the client's
+// own minimum margin floor ("no proposal goes out below this number"), it is
+// per-company by the source spreadsheet's own design, and the consultant can
+// see it either way — kept admin-only it just got lost on Rafa's side. Writes
+// stamp target_margin_set_by / _set_at from the session.
+//
+// finance_categories and pipeline_view_threshold STAY admin-only and must not
+// be widened: the first drives the Entrada/Saída derivation for every finance
+// entry, the second is a consultancy presentation setting. A client sending
+// either is not an error — the keys are simply ignored, so a client UI can PUT
+// the whole config object safely.
 // ---------------------------------------------------------------------------
 
 async function handlePutGmConfig(id, request, env) {
@@ -14089,8 +14151,35 @@ async function handlePutGmConfig(id, request, env) {
             }
             if (cats.length) { sets.push("finance_categories_json = ?"); binds.push(JSON.stringify(cats)); }
         }
-        var tm = isAdmin ? gmNum(body.target_margin) : null;
-        if (tm !== null && tm >= 0 && tm <= 100) { sets.push("target_margin = ?"); binds.push(tm); }
+        // target_margin is CLIENT-WRITABLE (finance_categories and
+        // pipeline_view_threshold above and below deliberately are NOT). The
+        // client owns this number; the consultant reviews it. Rafa can see it
+        // either way, and left admin-only it simply got lost on his side.
+        //
+        // Absent key -> leave it alone. Present -> it must be a number in
+        // 0 < v < 100, exclusive at both ends: 0% and 100% are not margin
+        // floors anyone runs a business on, and 0 in particular would read as
+        // "unset" everywhere else in this feature. An out-of-range or
+        // unparseable value is a real error, not a silent no-op, because the
+        // client typed it deliberately and needs to be told it did not save.
+        if (typeof body.target_margin !== "undefined") {
+            var tm = gmNum(body.target_margin);
+            if (tm === null || !(tm > 0 && tm < 100)) {
+                return jsonErr("A margem alvo deve ser um número entre 0 e 100. " +
+                               "Target margin must be a number between 0 and 100.", 400);
+            }
+            sets.push("target_margin = ?");
+            binds.push(tm);
+            // Stamp WHO and WHEN on every write, following the
+            // clients.next_step_set_by convention: display name off the
+            // session, never off the body. This exists so a client quietly
+            // lowering their own floor does not go unnoticed. The legacy 30s
+            // stay NULL here and the portal shows them as "set by default,
+            // please confirm" rather than attributing them to anyone.
+            sets.push("target_margin_set_by = ?");
+            binds.push(actorName(user));
+            sets.push("target_margin_set_at = datetime('now')");
+        }
         var thr = isAdmin ? gmNum(body.pipeline_view_threshold) : null;
         if (thr !== null && thr >= 1) { sets.push("pipeline_view_threshold = ?"); binds.push(Math.round(thr)); }
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
@@ -14391,8 +14480,8 @@ async function handleGetGmLeadContacts(id, leadId, request, env) {
         var cSeller = sessionSellerName(user);
         if (cSeller && lead.vendedor !== cSeller) { return jsonErr("Forbidden", 403); }
         var rows = await env.DB.prepare(
-            "SELECT id, lead_id, method, result, notes, logged_at FROM gm_lead_contacts " +
-            "WHERE lead_id = ? ORDER BY logged_at DESC"
+            "SELECT id, lead_id, method, result, notes, objection, logged_by, logged_at " +
+            "FROM gm_lead_contacts WHERE lead_id = ? ORDER BY logged_at DESC"
         ).bind(leadId).all();
         return jsonOk({ contacts: (rows.results || []) });
     } catch (e) {
@@ -14414,9 +14503,39 @@ async function handlePostGmLeadContact(id, leadId, request, env) {
         if (LEAD_CONTACT_METHODS.indexOf(method) < 0) { return jsonErr("Invalid method", 400); }
         var result = gmStr(body.result, 40);
         if (result && LEAD_CONTACT_RESULTS.indexOf(result) < 0) { return jsonErr("Invalid result", 400); }
+        // objection is OPTIONAL — not every contact produces one, and "No
+        // response" obviously does not. But it must be one of the eight fixed
+        // values when present: there is no "Other", so free text is rejected
+        // rather than quietly stored as a ninth category.
+        var objection = gmStr(body.objection, 60);
+        if (objection && GM_LEAD_OBJECTIONS.indexOf(objection) < 0) {
+            return jsonErr("Invalid objection", 400);
+        }
+        var notes = gmStr(body.notes, 2000);
+        // WHEN AN OBJECTION IS SELECTED, NOTES ARE REQUIRED. No "other" bucket,
+        // but the rep must still be able to explain in their own words — and
+        // the gap between the label they picked and what they wrote is the
+        // whole diagnostic. A category count with no note behind it cannot be
+        // read, so the pair is enforced here as well as in the UI (the UI can
+        // be bypassed; this cannot).
+        if (objection && !notes) {
+            return jsonErr("A note is required when you select an objection", 400);
+        }
+        // logged_by is resolved from the SESSION and never from the request
+        // body — a body-supplied logged_by is ignored entirely. A seller stamps
+        // their own seller_name and cannot claim another's, the same rule
+        // handleGetGmLeads applies when it forces the vendedor filter off the
+        // session. actorName() yields the seller_name for a seller session, the
+        // client display name for an owner, and users.display_name for an admin,
+        // because authenticateClientToken already resolves display_name that way.
+        var loggedBy = actorName(user);
         await env.DB.prepare(
-            "INSERT INTO gm_lead_contacts (id, lead_id, client_id, method, result, notes) VALUES (?, ?, ?, ?, ?, ?)"
-        ).bind(crypto.randomUUID(), leadId, id, method, result || null, gmStr(body.notes, 2000) || null).run();
+            "INSERT INTO gm_lead_contacts (id, lead_id, client_id, method, result, notes, objection, logged_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            crypto.randomUUID(), leadId, id, method, result || null,
+            notes || null, objection || null, loggedBy
+        ).run();
         // Return the lead's refreshed derived values so the sheet can re-render
         // without a second round trip.
         var agg = await env.DB.prepare(
@@ -15367,9 +15486,371 @@ function gmJobComputed(row, targetMargin) {
         margem_pct: margemPct,
         // ALVO? — warn when margin is below the client's configured minimum.
         // "No proposal goes out below this number."
-        alvo_ok: margemPct === null ? null : margemPct >= targetMargin,
+        //
+        // THREE-STATE, not boolean. null means the question cannot be answered:
+        // either the job has no margin yet, or the client has no target set.
+        // The targetMargin check is load-bearing — `margemPct >= null` coerces
+        // to `margemPct >= 0` in JS, which would silently mark EVERY job as
+        // on-target the moment a client's floor is unset. A job at 24.9%
+        // against an unset target is not "on target", it is unmeasured, and
+        // the UI must say so rather than show a green check.
+        alvo_ok: (margemPct === null || targetMargin === null || targetMargin === undefined)
+                     ? null : margemPct >= targetMargin,
         no_prazo: noPrazo
     };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/gm/seller-diagnostics  — ADMIN ONLY
+//
+// Per-salesperson performance for ONE client, for seller-diagnostics.html.
+//
+// WHY THIS IS RAFA-SIDE AND NOT CLIENT-SIDE — record this, do not change it.
+//
+// This data identifies a specific employee BY NAME and characterizes their
+// performance. In a consultant's hands it is coaching material. Handed to an
+// owner with no framing it could get someone fired over a metric nobody
+// explained to them, and it depends heavily on how much sales training the
+// owner themselves has. So it stays with Rafa, who decides who sees it and
+// discusses it with the owner rather than springing it on them.
+//
+// It may move client-side later, per client, at Rafa's discretion. That is a
+// future decision, not a TODO.
+//
+// The gate is isAdminRole HERE, server-side. It is deliberately NOT added to
+// clientRequestAllowed or sellerRequestAllowed — a client or seller session
+// gets a 403 from the role gate before this handler is ever reached, and an
+// unlinked page is not a protected page. Two 403 bugs shipped in this feature
+// because a route was never added to the allowlist while handler checks
+// passed; this is the same failure mode in reverse, and the fix is that this
+// route appears in NEITHER allowlist.
+//
+// SMALL SAMPLES ARE SUPPRESSED, NOT ROUNDED. Every metric carries its own
+// sample size, and any ratio computed on fewer than GM_DIAG_MIN_SAMPLE leads
+// returns null so the page renders "not enough data yet" instead of a number.
+// A 100% closing ratio off one deal, shown to a consultant who then acts on
+// it, is worse than showing nothing — and that is the state of every client in
+// the system today. Follows the existing cross-client-average precedent, which
+// suppresses below 3 contributing clients and shows sample size on the number.
+// ---------------------------------------------------------------------------
+
+// Ratios below this many underlying leads are not reported as numbers.
+var GM_DIAG_MIN_SAMPLE = 5;
+
+// Live stages for "days in stage" — closed and lost leads have stopped ageing
+// and would otherwise drag every average toward however long the history is.
+var GM_DIAG_LIVE_STAGES = GM_LIVE_STAGES;
+
+// A ratio that refuses to answer on thin data. Returns null (render as "not
+// enough data yet") rather than a misleading number.
+function gmDiagRatio(numerator, denominator, sample) {
+    if (!denominator || denominator <= 0) { return null; }
+    if ((sample === null || sample === undefined ? denominator : sample) < GM_DIAG_MIN_SAMPLE) { return null; }
+    return Math.round((numerator / denominator) * 1000) / 10;
+}
+
+function gmDiagMedian(values) {
+    if (!values || !values.length) { return null; }
+    var v = values.slice().sort(function(a, b) { return a - b; });
+    var mid = Math.floor(v.length / 2);
+    var m = v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+    return Math.round(m * 10) / 10;
+}
+
+// Whole days between two SQLite datetimes, or null if either is missing.
+function gmDiagDaysBetween(a, b) {
+    if (!a || !b) { return null; }
+    var ms = Date.parse(String(b).replace(" ", "T") + "Z") - Date.parse(String(a).replace(" ", "T") + "Z");
+    if (!isFinite(ms)) { return null; }
+    return ms / 86400000;
+}
+
+function gmDiagMinutesBetween(a, b) {
+    var d = gmDiagDaysBetween(a, b);
+    return d === null ? null : d * 1440;
+}
+
+async function handleGetGmSellerDiagnostics(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        // Admin roles only — developer, alice, rafa. A client or seller session
+        // never reaches this line (the role gate rejects it first), but the
+        // check is here too so the handler is safe on its own terms.
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        // Optional ?seller=<name> narrows every metric to one salesperson.
+        // Absent means "across all sellers for this client".
+        var sellerFilter = gmStr(new URL(request.url).searchParams.get("seller"), 80);
+
+        // The roster: everyone with a seat, plus anyone who owns leads or has
+        // logged contacts. A seller who lost their seat still has history worth
+        // reading, and a vendedor name typed on a lead never had a seat at all.
+        var seatRows = await env.DB.prepare(
+            "SELECT seller_name FROM client_logins WHERE client_id = ? AND role = 'seller' AND seller_name IS NOT NULL"
+        ).bind(id).all();
+        var leadSellerRows = await env.DB.prepare(
+            "SELECT DISTINCT vendedor AS seller_name FROM gm_leads " +
+            "WHERE client_id = ? AND vendedor IS NOT NULL AND vendedor <> ''"
+        ).bind(id).all();
+        var contactSellerRows = await env.DB.prepare(
+            "SELECT DISTINCT logged_by AS seller_name FROM gm_lead_contacts " +
+            "WHERE client_id = ? AND logged_by IS NOT NULL AND logged_by <> ''"
+        ).bind(id).all();
+
+        var seatNames = {};
+        (seatRows.results || []).forEach(function(r) { if (r.seller_name) { seatNames[r.seller_name] = true; } });
+        var roster = {};
+        Object.keys(seatNames).forEach(function(n) { roster[n] = true; });
+        (leadSellerRows.results || []).forEach(function(r) { if (r.seller_name) { roster[r.seller_name] = true; } });
+        (contactSellerRows.results || []).forEach(function(r) { if (r.seller_name) { roster[r.seller_name] = true; } });
+        var sellers = Object.keys(roster).sort();
+
+        // Every lead for the client, with its contact log attached. The data
+        // volumes here are small by construction (this whole feature exists
+        // because they are), so the aggregation is done in JS where the
+        // definitions stay readable rather than across ten SQL variants.
+        var leadBinds = sellerFilter ? [id, sellerFilter] : [id];
+        var leadRows = await env.DB.prepare(
+            "SELECT id, vendedor, estagio, valor, data_lead, data_contato, data_estimate, " +
+            "stage_changed_at, created_at FROM gm_leads WHERE client_id = ?" +
+            (sellerFilter ? " AND vendedor = ?" : "")
+        ).bind(...leadBinds).all();
+        var leads = leadRows.results || [];
+
+        var contactRows = await env.DB.prepare(
+            "SELECT c.id, c.lead_id, c.method, c.result, c.notes, c.objection, c.logged_by, c.logged_at, " +
+            "l.vendedor, l.estagio FROM gm_lead_contacts c " +
+            "JOIN gm_leads l ON l.id = c.lead_id WHERE c.client_id = ?" +
+            (sellerFilter ? " AND COALESCE(c.logged_by, l.vendedor) = ?" : "")
+        ).bind(...leadBinds).all();
+        var contacts = contactRows.results || [];
+
+        // ── Metric 1 — speed to first contact (data_contato − data_lead) ────
+        // LIRA's own declared SLA, not one Apex imposed: "1º contato < 5 min".
+        var firstContactMins = [];
+        var slaContactBreaches = 0;
+        leads.forEach(function(l) {
+            var m = gmDiagMinutesBetween(l.data_lead, l.data_contato);
+            if (m === null || m < 0) { return; }
+            firstContactMins.push(m);
+            if (m > 5) { slaContactBreaches++; }
+        });
+
+        // ── Metric 2 — speed to estimate (data_estimate − data_contato) ─────
+        // The client's other declared SLA: "estimate < 24h".
+        var estimateHrs = [];
+        var slaEstimateBreaches = 0;
+        leads.forEach(function(l) {
+            var d = gmDiagDaysBetween(l.data_contato, l.data_estimate);
+            if (d === null || d < 0) { return; }
+            estimateHrs.push(d * 24);
+            if (d > 1) { slaEstimateBreaches++; }
+        });
+
+        // ── Metric 3 — contact ratio (attempts ÷ conversations reached) ─────
+        var attempts = contacts.length;
+        var answered = contacts.filter(function(c) { return c.result === "Answered"; }).length;
+
+        // ── Metric 4 — outcome after conversation ───────────────────────────
+        // Of the leads actually REACHED, how many moved a stage after that
+        // conversation versus stalled where they were.
+        var reachedLeadIds = {};
+        contacts.forEach(function(c) {
+            if (c.result === "Answered") {
+                if (!reachedLeadIds[c.lead_id] || c.logged_at < reachedLeadIds[c.lead_id]) {
+                    reachedLeadIds[c.lead_id] = c.logged_at;
+                }
+            }
+        });
+        var advancedAfter = 0, stalledAfter = 0;
+        leads.forEach(function(l) {
+            var firstAnswered = reachedLeadIds[l.id];
+            if (!firstAnswered) { return; }
+            // stage_changed_at after the conversation = the conversation moved it.
+            if (l.stage_changed_at && l.stage_changed_at > firstAnswered) { advancedAfter++; }
+            else { stalledAfter++; }
+        });
+
+        // ── Metric 5 — days in stage, live leads only ───────────────────────
+        var stageDays = {};
+        leads.forEach(function(l) {
+            if (GM_DIAG_LIVE_STAGES.indexOf(l.estagio) < 0) { return; }
+            var since = l.stage_changed_at || l.created_at;
+            var d = gmDiagDaysBetween(since, new Date().toISOString().slice(0, 19).replace("T", " "));
+            if (d === null || d < 0) { return; }
+            if (!stageDays[l.estagio]) { stageDays[l.estagio] = []; }
+            stageDays[l.estagio].push(d);
+        });
+        var daysInStage = [];
+        GM_DIAG_LIVE_STAGES.forEach(function(st) {
+            var arr = stageDays[st] || [];
+            if (!arr.length) { return; }
+            var sum = 0;
+            arr.forEach(function(x) { sum += x; });
+            daysInStage.push({
+                stage: st,
+                avg_days: Math.round((sum / arr.length) * 10) / 10,
+                sample: arr.length
+            });
+        });
+
+        // ── Metric 6 — most common objections, ranked ───────────────────────
+        // ── and the NOTE beside each one (metric 6 + the gap view) ──────────
+        //
+        // The note travels WITH the objection and is never collapsed into the
+        // label. A rep who picks "Can't afford it" and writes "doesn't want
+        // financing" has misread a buying signal as a budget objection, and
+        // that gap is the single most valuable output of this feature. A
+        // category count with no notes behind it cannot be read, so the API
+        // never returns one without the other.
+        var objCounts = {};
+        var objDetail = {};
+        contacts.forEach(function(c) {
+            if (!c.objection) { return; }
+            objCounts[c.objection] = (objCounts[c.objection] || 0) + 1;
+            if (!objDetail[c.objection]) { objDetail[c.objection] = []; }
+            objDetail[c.objection].push({
+                lead_id: c.lead_id,
+                note: c.notes || null,
+                logged_by: c.logged_by || null,
+                logged_at: c.logged_at,
+                estagio: c.estagio
+            });
+        });
+        // Ranked by count, but ties keep Nicole's canonical order rather than
+        // falling back to alphabetical.
+        var objections = Object.keys(objCounts).sort(function(a, b) {
+            if (objCounts[b] !== objCounts[a]) { return objCounts[b] - objCounts[a]; }
+            return GM_LEAD_OBJECTIONS.indexOf(a) - GM_LEAD_OBJECTIONS.indexOf(b);
+        }).map(function(k) {
+            return { objection: k, count: objCounts[k], entries: objDetail[k] };
+        });
+
+        // ── Metric 7 — objection → outcome ──────────────────────────────────
+        // Which objections this seller LOSES to versus closes through. The
+        // highest-value view on the page: losing every "Too expensive" while
+        // closing every "Need to think about it" is a specific, coachable gap.
+        var objOutcome = {};
+        var leadStageById = {};
+        leads.forEach(function(l) { leadStageById[l.id] = l.estagio; });
+        contacts.forEach(function(c) {
+            if (!c.objection) { return; }
+            var st = leadStageById[c.lead_id] || c.estagio;
+            if (!objOutcome[c.objection]) { objOutcome[c.objection] = { won: 0, lost: 0, open: 0 }; }
+            if (st === "Fechado") { objOutcome[c.objection].won++; }
+            else if (st === "Perdido") { objOutcome[c.objection].lost++; }
+            else { objOutcome[c.objection].open++; }
+        });
+        var objectionOutcomes = Object.keys(objOutcome).sort(function(a, b) {
+            return GM_LEAD_OBJECTIONS.indexOf(a) - GM_LEAD_OBJECTIONS.indexOf(b);
+        }).map(function(k) {
+            var o = objOutcome[k];
+            var decided = o.won + o.lost;
+            return {
+                objection: k, won: o.won, lost: o.lost, open: o.open,
+                decided: decided,
+                win_pct: gmDiagRatio(o.won, decided, decided)
+            };
+        });
+
+        // ── Metric 8 — closing ratio: Fechado ÷ (Fechado + Perdido) ─────────
+        var won = leads.filter(function(l) { return l.estagio === "Fechado"; }).length;
+        var lost = leads.filter(function(l) { return l.estagio === "Perdido"; }).length;
+
+        // ── Metric 9 — average deal value on closed deals ───────────────────
+        // Catches DISCOUNTING, which a closing ratio alone hides: a seller
+        // closing 80% at low average value is buying deals.
+        var closedValues = [];
+        leads.forEach(function(l) {
+            if (l.estagio === "Fechado" && l.valor !== null && l.valor !== undefined) {
+                closedValues.push(l.valor);
+            }
+        });
+        var avgDeal = null;
+        if (closedValues.length >= GM_DIAG_MIN_SAMPLE) {
+            var vs = 0;
+            closedValues.forEach(function(v) { vs += v; });
+            avgDeal = Math.round((vs / closedValues.length) * 100) / 100;
+        }
+
+        // ── Metric 10 — touches before close/loss ───────────────────────────
+        var touchCounts = [];
+        leads.forEach(function(l) {
+            if (l.estagio !== "Fechado" && l.estagio !== "Perdido") { return; }
+            var n = contacts.filter(function(c) { return c.lead_id === l.id; }).length;
+            touchCounts.push(n);
+        });
+        var avgTouches = null;
+        if (touchCounts.length >= GM_DIAG_MIN_SAMPLE) {
+            var ts = 0;
+            touchCounts.forEach(function(x) { ts += x; });
+            avgTouches = Math.round((ts / touchCounts.length) * 10) / 10;
+        }
+
+        return jsonOk({
+            client_id: id,
+            client_name: client.name,
+            seller: sellerFilter || null,
+            sellers: sellers,
+            seat_count: Object.keys(seatNames).length,
+            min_sample: GM_DIAG_MIN_SAMPLE,
+            metrics: {
+                speed_to_first_contact: {
+                    median_minutes: gmDiagMedian(firstContactMins),
+                    sla_minutes: 5,
+                    breaches: slaContactBreaches,
+                    sample: firstContactMins.length
+                },
+                speed_to_estimate: {
+                    median_hours: gmDiagMedian(estimateHrs),
+                    sla_hours: 24,
+                    breaches: slaEstimateBreaches,
+                    sample: estimateHrs.length
+                },
+                contact_ratio: {
+                    attempts: attempts,
+                    answered: answered,
+                    // Attempts per conversation reached. The threshold applies
+                    // to ANSWERED, not to attempts: answered is the ratio's
+                    // DENOMINATOR, and it is the thin number here. Gating on
+                    // attempts would report "2.7 attempts per conversation"
+                    // off three conversations — precisely the small-sample
+                    // number this rule exists to suppress. The raw attempts
+                    // and answered counts are still returned, so the page can
+                    // show the underlying activity without implying a rate.
+                    ratio: (answered >= GM_DIAG_MIN_SAMPLE)
+                               ? Math.round((attempts / answered) * 10) / 10 : null,
+                    sample: answered
+                },
+                outcome_after_conversation: {
+                    advanced: advancedAfter,
+                    stalled: stalledAfter,
+                    advanced_pct: gmDiagRatio(advancedAfter, advancedAfter + stalledAfter,
+                                              advancedAfter + stalledAfter),
+                    sample: advancedAfter + stalledAfter
+                },
+                days_in_stage: { stages: daysInStage, sample: leads.filter(function(l) {
+                    return GM_DIAG_LIVE_STAGES.indexOf(l.estagio) >= 0; }).length },
+                objections: { ranked: objections, sample: contacts.filter(function(c) {
+                    return !!c.objection; }).length },
+                objection_outcomes: { rows: objectionOutcomes, sample: contacts.filter(function(c) {
+                    return !!c.objection; }).length },
+                closing_ratio: {
+                    won: won, lost: lost, decided: won + lost,
+                    pct: gmDiagRatio(won, won + lost, won + lost),
+                    sample: won + lost
+                },
+                average_deal_value: { value: avgDeal, sample: closedValues.length },
+                touches_before_close: { avg: avgTouches, sample: touchCounts.length }
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error building seller diagnostics: " + e.message, 500);
+    }
 }
 
 async function handleGetGmJobs(id, request, env) {
@@ -16149,6 +16630,13 @@ export default {
                     if (gmCol === "partners")  { return handleGetGmPartners(cid, request, env); }
                     if (gmCol === "finance")   { return handleGetGmFinance(cid, request, env); }
                     if (gmCol === "jobs")      { return handleGetGmJobs(cid, request, env); }
+                    // ADMIN ONLY (isAdminRole inside the handler), and
+                    // deliberately absent from BOTH clientRequestAllowed and
+                    // sellerRequestAllowed above — a client or seller session
+                    // is refused by the role gate before reaching the handler.
+                    // Do not add it to either allowlist to "make the page
+                    // work": the page is Rafa's, not the client's.
+                    if (gmCol === "seller-diagnostics") { return handleGetGmSellerDiagnostics(cid, request, env); }
                 }
                 if (segs.length === 5 && method === "POST") {
                     if (gmCol === "leads")     { return handlePostGmLead(cid, request, env); }

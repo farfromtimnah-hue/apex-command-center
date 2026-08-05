@@ -2817,6 +2817,50 @@
           (en ? "+ Add" : "+ Adicionar") + '</button>';
       });
 
+      // ── Margem alvo mínima ────────────────────────────────────────────────
+      // One more row on the same card. The client owns this number: it is
+      // their minimum acceptable margin ("no proposal goes out below this"),
+      // and it is per-company by the source spreadsheet's own design, where it
+      // is a single referenced input cell rather than a formula constant.
+      //
+      // It used to be admin-only and defaulted to 30 for every client. That 30
+      // had NO source — LIRA's own MARGEM-ALVO MÍNIMA cell was left empty, and
+      // no other material was ever supplied — so it was surfacing an invented
+      // number as the client's own target. Unset is honest; wrong is worse.
+      var tm = gmConfig.config.target_margin;
+      var tmSetBy = gmConfig.config.target_margin_set_by;
+      var tmSetAt = gmConfig.config.target_margin_set_at;
+      html += '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px;">' +
+        '<label class="field-label" for="gmTargetMargin">' +
+        (en ? "Minimum target margin (%)" : "Margem alvo mínima (%)") + '</label>' +
+        '<p class="muted" style="font-size:12px;margin:0 0 8px;">' +
+        (en
+          ? "Your floor: no proposal goes out below this number. Jobs are measured against it on the Jobs & margin tab."
+          : "O seu piso: nenhuma proposta sai abaixo desse número. As obras são comparadas com ele na aba Obras e margem.") +
+        '</p>' +
+        '<input type="number" id="gmTargetMargin" min="0.1" max="99.9" step="0.1" ' +
+          'style="width:100%;" placeholder="' + (en ? "Not set" : "Não definida") + '" ' +
+          'value="' + (tm === null || tm === undefined ? "" : escHtml(String(tm))) + '">';
+      if (tm === null || tm === undefined) {
+        html += '<p class="muted" style="font-size:12px;margin:6px 0 0;font-style:italic;">' +
+          (en ? "Not set — jobs show their margin but cannot be marked on or off target."
+              : "Não definida — as obras mostram a margem, mas não dá para dizer se estão no alvo.") + '</p>';
+      } else if (!tmSetBy) {
+        // A legacy 30 nobody chose. Say so plainly rather than presenting it
+        // as the client's own number — and do not clear it either: it might be
+        // right, and only they can say.
+        html += '<p class="muted" style="font-size:12px;margin:6px 0 0;">' +
+          (en ? "Set by default — please confirm this is really your minimum."
+              : "Definida por padrão — confirme se esse é mesmo o seu mínimo.") + '</p>';
+      } else {
+        // Quiet attribution line, hidden entirely when there is no author.
+        html += '<p class="muted" style="font-size:12px;margin:6px 0 0;">' +
+          escHtml((en ? "Set by " : "Definida por ") + tmSetBy +
+                  (tmSetAt ? (en ? " on " : " em ") + formatDate(String(tmSetAt).slice(0, 10)) : "")) + '</p>';
+      }
+      html += '<p id="gmTargetMarginErr" class="muted" style="color:var(--danger,#c0392b);font-size:12px;margin:6px 0 0;"></p>' +
+        '</div>';
+
       // No save button here — the card's single one at the bottom covers this
       // section too. See referralSettingsSave().
       html += '</div>';
@@ -2870,6 +2914,24 @@
     // the config has been re-read from the server, or rejects on failure — the
     // caller owns the error message and the re-render, because a re-render here
     // would wipe the other half's in-progress state.
+    // Validation for the margin field. Returns an error message, or "" when
+    // the value is good. Runs BEFORE anything is sent, like rsValidate().
+    // Empty is valid and means "leave it as it is" — clearing an already-set
+    // floor is not something this field does by accident.
+    function gmTargetMarginValidate() {
+      var el = document.getElementById("gmTargetMargin");
+      if (!el) { return ""; }
+      var raw = el.value.trim();
+      if (!raw) { return ""; }
+      var n = Number(raw);
+      if (!isFinite(n) || !(n > 0 && n < 100)) {
+        return isEn()
+          ? "The target margin must be a number between 0 and 100."
+          : "A margem alvo deve ser um número entre 0 e 100.";
+      }
+      return "";
+    }
+
     function gmListsSaveRequest() {
       if (!gmListDraft) { return Promise.resolve(); }
       var payload = {};
@@ -2884,6 +2946,11 @@
         });
         payload[d.key] = out;
       });
+      // Only send the margin when the client actually typed one. An untouched
+      // empty field must not clear a value that is already stored — the key is
+      // simply absent and the Worker leaves the column alone.
+      var tmEl = document.getElementById("gmTargetMargin");
+      if (tmEl && tmEl.value.trim()) { payload.target_margin = Number(tmEl.value.trim()); }
       return gmApi("config", { method: "PUT", body: payload })
         .then(function() {
           // Reload the config so any open sheet picks up the new lists, and so
@@ -2979,6 +3046,16 @@
       if (invalid) {
         if (err) { err.textContent = invalid; }
         return;                       // nothing sent — neither half is written
+      }
+      // Same rule for the margin: a bad number saves nothing at all, and the
+      // message lands next to the field that caused it.
+      var tmInvalid = gmTargetMarginValidate();
+      var tmErr = document.getElementById("gmTargetMarginErr");
+      if (tmErr) { tmErr.textContent = ""; }
+      if (tmInvalid) {
+        if (tmErr) { tmErr.textContent = tmInvalid; }
+        if (err) { err.textContent = tmInvalid; }
+        return;
       }
 
       var settle = function(p) {
@@ -6041,7 +6118,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785708867"></script>
+  <script src="gm.js?v=1785910040"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

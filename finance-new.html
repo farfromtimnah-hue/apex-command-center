@@ -18,6 +18,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <!-- Plaid Link, loaded straight from the CDN: no build step in this repo. -->
   <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <!-- Chart.js from CDN, same version and loading style as finance.html. -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     /* ─── Reset ─────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -138,17 +140,172 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ─── Layout ────────────────────────────────────────────────────────── */
-    #appMain { flex: 1; padding: 28px; max-width: 1180px; width: 100%; margin: 0 auto; }
+    /* ─── App main ───────────────────────────────────────────────────────── */
+    /* Same shell as finance.html. #pageWrapper and #contentArea are styled by
+       nav.js's injected stylesheet (a flex ROW and its column child); without
+       those two wrappers in the markup, #navSidebar and #appMain become
+       siblings of the column-flex body and the content stacks BELOW the
+       sidebar instead of beside it. A max-width + margin:0 auto here would
+       also center against the whole viewport rather than the content column,
+       which is only visible on a wide window. */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
     #appMain[hidden] { display: none !important; }
 
-    .page-heading {
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: -0.4px;
-      margin-bottom: 4px;
+    /* Below-hero content column */
+    .fn-body { padding: 24px 32px 32px; display: flex; flex-direction: column; }
+
+    .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+    /* ─── Finance hero section (mirrors finance.html) ────────────────────── */
+    /* Element IDs are fnHeroBg/fnHeroScrim, NOT financeHeroBg/financeHeroScrim,
+       so that this page and finance.html can never collide while both are live. */
+    .finance-hero-section {
+      position: relative;
+      padding: 28px 32px 24px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
     }
-    .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+    #fnHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #fnHeroBg.is-loaded { animation: kenburns 28s ease-in-out infinite alternate; }
+
+    #fnHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .finance-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #fnHeroBg.is-loaded { animation: none; }
+    }
+
+    .page-heading-hero { font-size: 22px; font-weight: 700; color: #fff; }
+
+    .glass-tile-row { display: flex; gap: 14px; flex-wrap: wrap; }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 18px 22px;
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value { font-size: 30px; font-weight: 700; color: #fff; line-height: 1; }
+    .glass-tile-value.is-gold  { color: var(--gold); }
+    .glass-tile-value.is-green { color: #4ade80; }
+    .glass-tile-value.is-red   { color: #f87171; }
+    .glass-tile-note {
+      font-size: 10px;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.4;
+    }
+
+    /* ─── Invoice sub-tabs (mirrors finance.html) ────────────────────────── */
+    .inv-subtab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 6px;
+      margin-bottom: 12px;
+    }
+
+    .inv-subtab {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 10px 14px 9px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .inv-subtab:hover { color: var(--text); }
+    .inv-subtab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    .inv-subtab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--gold-dim);
+      color: var(--brown);
+    }
+    .inv-subtab.active .inv-subtab-badge { background: var(--gold); color: #fff; }
+
+    /* ─── Charts ─────────────────────────────────────────────────────────── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 18px;
+    }
+    .chart-box { position: relative; height: 260px; }
+    .chart-caveat {
+      font-size: 11px;
+      color: var(--brown);
+      background: var(--gold-dim);
+      border-radius: 6px;
+      padding: 7px 10px;
+      margin-top: 10px;
+      line-height: 1.45;
+    }
 
     .card {
       background: var(--card);
@@ -359,9 +516,13 @@
     }
 
     @media (max-width: 720px) {
-      #appMain { padding: 18px 14px 90px; }
+      .fn-body { padding: 16px 14px 90px; }
+      .finance-hero-section { padding: 20px 16px; }
       #appHeader { padding: 0 14px; }
       .acct-balance { font-size: 24px; }
+      .glass-tile { min-width: 110px; padding: 14px 16px; }
+      .glass-tile-value { font-size: 22px; }
+      .chart-box { height: 220px; }
     }
   </style>
 </head>
@@ -385,7 +546,12 @@
     </div>
   </header>
 
-  <nav id="navSidebar"></nav>
+  <!-- #pageWrapper is a flex ROW and #contentArea its column child; both are
+       styled by nav.js. They must exist in the markup or the sidebar and the
+       content stack vertically instead of sitting side by side. -->
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
 
   <div id="loadingScreen">
     <div class="spinner"></div>
@@ -396,10 +562,54 @@
   <!-- ═══════════════ MAIN ════════════════════════════════════════════════ -->
   <main id="appMain" hidden>
 
-    <h1 class="page-heading">
-      <span class="show-pt">Financeiro</span>
-      <span class="show-en">Financial</span>
-    </h1>
+    <!-- Hero section -->
+    <div class="finance-hero-section">
+      <div id="fnHeroBg" aria-hidden="true"></div>
+      <div id="fnHeroScrim" aria-hidden="true"></div>
+      <div class="finance-hero-content">
+        <h1 class="page-heading-hero">
+          <span class="show-pt">Financeiro</span>
+          <span class="show-en">Financial</span>
+        </h1>
+
+        <div class="glass-tile-row">
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">Saldo total</span>
+              <span class="show-en">Total balance</span>
+            </div>
+            <div class="glass-tile-value is-gold" id="heroBalance">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">Entrou (m&ecirc;s)</span>
+              <span class="show-en">In (month)</span>
+            </div>
+            <div class="glass-tile-value is-green" id="heroIn">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">Saiu (m&ecirc;s)</span>
+              <span class="show-en">Out (month)</span>
+            </div>
+            <div class="glass-tile-value is-red" id="heroOut">--</div>
+          </div>
+          <!-- Hidden entirely when transfer detection is below 50%: a net
+               figure she cannot audit is worse than no figure. -->
+          <div class="glass-tile" id="heroNetTile">
+            <div class="glass-tile-label">
+              <span class="show-pt">L&iacute;quido</span>
+              <span class="show-en">Net</span>
+            </div>
+            <div class="glass-tile-value" id="heroNet">--</div>
+            <div class="glass-tile-note" id="heroNetNote" hidden></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fn-body">
+
     <div class="page-sub">
       <span class="show-pt">Saldos e movimenta&ccedil;&atilde;o direto do banco. Nada aqui exige categoriza&ccedil;&atilde;o.</span>
       <span class="show-en">Balances and cash movement straight from the bank. Nothing here requires categorization.</span>
@@ -557,23 +767,87 @@
       </div>
     </div>
 
-    <!-- ── Invoices ── -->
-    <div id="invoiceCard" class="card" hidden>
+    <!-- ── Charts ── -->
+    <!-- Not decoration. Nicole is dyslexic and works from visual tools, and
+         Alice is not a numbers person -- a wall of figures is the version that
+         goes unused, which is how the last tool died. -->
+    <div id="chartCard" class="card" hidden>
       <div class="card-title">
-        <span class="show-pt">Faturas</span>
-        <span class="show-en">Invoices</span>
+        <span class="show-pt">Vis&atilde;o geral</span>
+        <span class="show-en">Overview</span>
       </div>
-      <div class="filter-row">
+      <div class="chart-grid">
+        <div>
+          <div class="flow-label" style="margin-bottom:8px">
+            <span class="show-pt">Entrou e saiu</span>
+            <span class="show-en">Money in and out</span>
+          </div>
+          <div class="chart-box"><canvas id="flowChart"></canvas></div>
+          <div id="flowCaveat" class="chart-caveat" hidden></div>
+        </div>
+        <div>
+          <div class="flow-label" style="margin-bottom:8px">
+            <span class="show-pt">Este m&ecirc;s vs. m&ecirc;s anterior</span>
+            <span class="show-en">This month vs. last month</span>
+          </div>
+          <div class="chart-box"><canvas id="momChart"></canvas></div>
+          <div id="momCaveat" class="chart-caveat" hidden></div>
+        </div>
+        <div>
+          <div class="flow-label" style="margin-bottom:8px">
+            <span class="show-pt">Saldo por conta</span>
+            <span class="show-en">Balance by account</span>
+          </div>
+          <div class="chart-box"><canvas id="balanceChart"></canvas></div>
+          <div id="balanceCaveat" class="chart-caveat" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Invoices ── -->
+    <!-- Three sub-tabs, not a status column. These are WORKFLOW STAGES:
+         Rascunho = do something, Nao Pagas = wait or chase, Arquivo = done.
+         Flattening them into one table loses the only question Alice
+         actually asks of this screen. Mirrors finance.html:1807-1821. -->
+    <div id="invoiceCard" class="card" hidden>
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <span>
+          <span class="show-pt">Faturas</span>
+          <span class="show-en">Invoices</span>
+        </span>
         <button class="btn btn-sm btn-gold" onclick="openNewInvoice()">
           <span class="show-pt">+ Nova fatura</span>
           <span class="show-en">+ New invoice</span>
         </button>
+      </div>
+
+      <div class="inv-subtab-bar m-scroll-tabs">
+        <button class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
+          <span class="show-pt">Rascunho</span>
+          <span class="show-en">Draft</span>
+          <span class="inv-subtab-badge" id="badgeDraft" hidden>0</span>
+        </button>
+        <button class="inv-subtab" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
+          <span class="show-pt">N&atilde;o Pagas</span>
+          <span class="show-en">Unpaid</span>
+          <span class="inv-subtab-badge" id="badgeUnpaid" hidden>0</span>
+        </button>
+        <button class="inv-subtab" id="subtabPaid" onclick="switchInvoiceTab('paid')">
+          <span class="show-pt">Arquivo</span>
+          <span class="show-en">Archive</span>
+        </button>
+      </div>
+
+      <!-- Lives inside Archive only: anulados are historical, not a filter
+           over the whole workflow. -->
+      <div class="filter-row" id="voidedToggleRow" hidden>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
-          <input type="checkbox" id="showVoided" onchange="loadInvoices()">
+          <input type="checkbox" id="showVoided" onchange="renderInvoices()">
           <span class="show-pt">Mostrar anulados</span>
           <span class="show-en">Show voided</span>
         </label>
       </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -589,6 +863,7 @@
           <tbody id="invoiceBody"></tbody>
         </table>
       </div>
+      <div id="invoiceEmpty" class="empty" hidden></div>
     </div>
 
     <!-- ── Transactions (Stage 4) ── -->
@@ -630,7 +905,11 @@
       </div>
     </div>
 
+    </div><!-- /fn-body -->
   </main>
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
 
   <!-- ═══════════════ ACCOUNT TAGGING MODAL ═══════════════════════════════ -->
   <div id="tagOverlay" class="overlay" hidden>
@@ -759,6 +1038,8 @@
     var MATCHES       = [];
     var CLIENTS       = [];
     var PENDING_RECURRENCE = null;
+    var CURRENT_INVOICE_TAB = "draft";
+    var CHARTS = { flow: null, mom: null, balance: null };
 
     // Prefetched at page load ON PURPOSE: the WhatsApp handler must be able to
     // build its message without awaiting anything, so window.open() can run
@@ -786,6 +1067,36 @@
 
     function handleSignOut() {
       auth.signOut().then(function() { window.location.href = "index.html"; });
+    }
+
+    // Same rotating hero background as the rest of the app (finance.html).
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx  = Math.floor(Math.random() * imgs.length);
+      var bgEl    = document.getElementById(imgElId);
+      var scrimEl = document.getElementById(scrimElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          var next = i + 1;
+          if (next === imgs.length) { return; }
+          if (next % imgs.length === idx) { return; }
+          tryLoadImage(next);
+        };
+        img.src = url;
+      }
     }
 
     function populateHeaderUser(email, displayName, avatarUrl) {
@@ -1134,6 +1445,347 @@
       }).join("");
     }
 
+    // ═══════════════ HERO TILES ═══════════════════════════════════════════
+    //
+    // Totals across both purposes. The net tile obeys the SAME honesty
+    // threshold as the per-account cards: hidden below 50% detection, labeled
+    // between 50 and 80.
+
+    function renderHero() {
+      var totalBalance = ACCOUNTS.reduce(function(s, a) { return s + (a.balance_cents || 0); }, 0);
+      document.getElementById("heroBalance").textContent = fmtCents(totalBalance);
+
+      var b = SUMMARY && SUMMARY.business ? SUMMARY.business : null;
+      var p = SUMMARY && SUMMARY.personal ? SUMMARY.personal : null;
+      if (!b && !p) {
+        document.getElementById("heroIn").textContent  = "--";
+        document.getElementById("heroOut").textContent = "--";
+        document.getElementById("heroNet").textContent = "--";
+        return;
+      }
+
+      var inC  = (b ? b.in_cents  : 0) + (p ? p.in_cents  : 0);
+      var outC = (b ? b.out_cents : 0) + (p ? p.out_cents : 0);
+      document.getElementById("heroIn").textContent  = fmtCents(inC);
+      document.getElementById("heroOut").textContent = fmtCents(outC);
+
+      var ref = b || p;
+      var netTile = document.getElementById("heroNetTile");
+      var netNote = document.getElementById("heroNetNote");
+
+      if (!ref.net_shown) {
+        // Below 50% detection: no net figure at all, and the tile says why.
+        netTile.hidden = false;
+        document.getElementById("heroNet").textContent = "--";
+        netNote.hidden = false;
+        netNote.innerHTML = isEn()
+          ? "Hidden: transfers between your own accounts could not be identified reliably."
+          : "Oculto: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre suas contas com confian&ccedil;a.";
+        return;
+      }
+
+      netTile.hidden = false;
+      var net = inC - outC;
+      var netEl = document.getElementById("heroNet");
+      netEl.textContent = fmtCents(net);
+      netEl.className = "glass-tile-value " + (net >= 0 ? "is-green" : "is-red");
+
+      if (ref.net_labeled) {
+        netNote.hidden = false;
+        netNote.textContent = isEn()
+          ? "after detected transfers"
+          : "líquido após transferências detectadas";
+      } else {
+        netNote.hidden = true;
+      }
+    }
+
+    // ═══════════════ CHARTS ═══════════════════════════════════════════════
+    //
+    // THIN DATA IS HANDLED HONESTLY. Plaid only pulls from 2026-07-01, so at
+    // launch there is about one month. A monthly bar chart with a single bar
+    // is a rectangle, not a visualization, and padding the axis with empty
+    // months to make it look populated would be a lie about coverage. Under
+    // two full months we drop to a weekly view inside the real range; with
+    // almost nothing we say so and name what unlocks it.
+    //
+    // THE NET LINE OBEYS THE HONESTY THRESHOLD. If the tile hides net, the
+    // chart draws no net line. A chart showing a confident net line beside a
+    // tile that refuses to show the number would be worse than no chart.
+
+    var CHART_GOLD  = "#C9A43A";
+    var CHART_GREEN = "#2e7d44";
+    var CHART_RED   = "#b3261e";
+    var CHART_GREY  = "#7a8ca3";
+
+    function monthKey(iso) { return String(iso).slice(0, 7); }
+
+    function distinctMonths(txns) {
+      var seen = {};
+      txns.forEach(function(t) { seen[monthKey(t.date)] = true; });
+      return Object.keys(seen).sort();
+    }
+
+    // Sunday-anchored week key, so weekly buckets are stable across renders.
+    function weekKey(iso) {
+      var d = new Date(String(iso).slice(0, 10) + "T00:00:00Z");
+      if (isNaN(d.getTime())) { return String(iso).slice(0, 10); }
+      d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+      return d.toISOString().slice(0, 10);
+    }
+
+    function countedTransactions() {
+      // Transfers are excluded from flow figures exactly as the summary
+      // endpoint excludes them, so the chart and the tiles agree.
+      return TRANSACTIONS.filter(function(t) {
+        return t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
+      });
+    }
+
+    function bucketFlow(txns, keyFn) {
+      var buckets = {};
+      txns.forEach(function(t) {
+        var k = keyFn(t.date);
+        if (!buckets[k]) { buckets[k] = { inC: 0, outC: 0 }; }
+        if (t.amount_cents > 0) { buckets[k].inC += t.amount_cents; }
+        else { buckets[k].outC += -t.amount_cents; }
+      });
+      return buckets;
+    }
+
+    function destroyChart(name) {
+      if (CHARTS[name]) { CHARTS[name].destroy(); CHARTS[name] = null; }
+    }
+
+    function netIsShown() {
+      var ref = (SUMMARY && (SUMMARY.business || SUMMARY.personal)) || null;
+      return !!(ref && ref.net_shown);
+    }
+
+    function netIsLabeled() {
+      var ref = (SUMMARY && (SUMMARY.business || SUMMARY.personal)) || null;
+      return !!(ref && ref.net_labeled);
+    }
+
+    function baseChartOpts() {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { font: { family: "Inter", size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return ctx.dataset.label + ": " + fmtCents(ctx.parsed.y * 100);
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              font: { family: "Inter", size: 10 },
+              callback: function(v) { return "$" + Number(v).toLocaleString(); }
+            },
+            grid: { color: "#f0ece4" }
+          },
+          x: { ticks: { font: { family: "Inter", size: 10 } }, grid: { display: false } }
+        }
+      };
+    }
+
+    function showCaveat(id, html) {
+      var el = document.getElementById(id);
+      if (!html) { el.hidden = true; return; }
+      el.hidden = false;
+      el.innerHTML = html;
+    }
+
+    function renderCharts() {
+      var card = document.getElementById("chartCard");
+      if (!ACCOUNTS.length) { card.hidden = true; return; }
+      card.hidden = false;
+
+      if (typeof Chart === "undefined") { return; }
+
+      renderFlowChart();
+      renderMomChart();
+      renderBalanceChart();
+    }
+
+    function renderFlowChart() {
+      var txns = countedTransactions();
+      destroyChart("flow");
+
+      if (!txns.length) {
+        showCaveat("flowCaveat", isEn()
+          ? "No transactions yet. This chart appears as soon as the first sync lands."
+          : "Ainda sem transa&ccedil;&otilde;es. Este gr&aacute;fico aparece assim que a primeira sincroniza&ccedil;&atilde;o chegar.");
+        return;
+      }
+
+      var months = distinctMonths(txns);
+      var useWeekly = months.length < 2;
+      var keyFn = useWeekly ? weekKey : monthKey;
+      var buckets = bucketFlow(txns, keyFn);
+      var labels = Object.keys(buckets).sort();
+
+      // A single bucket is still a rectangle -- say so rather than draw it.
+      if (labels.length < 2) {
+        showCaveat("flowCaveat", isEn()
+          ? "Only a few days of history so far. A trend appears once there are at least two weeks of data."
+          : "Ainda s&atilde;o poucos dias de hist&oacute;rico. A tend&ecirc;ncia aparece com pelo menos duas semanas de dados.");
+        return;
+      }
+
+      // Default to the last 6 months once that much history exists.
+      if (!useWeekly && labels.length > 6) { labels = labels.slice(-6); }
+
+      var datasets = [
+        {
+          label: isEn() ? "In" : "Entrou",
+          data: labels.map(function(k) { return centsToNum(buckets[k].inC); }),
+          backgroundColor: CHART_GREEN, borderRadius: 4, order: 2
+        },
+        {
+          label: isEn() ? "Out" : "Saiu",
+          data: labels.map(function(k) { return centsToNum(buckets[k].outC); }),
+          backgroundColor: CHART_RED, borderRadius: 4, order: 2
+        }
+      ];
+
+      // Net line ONLY when the tiles are showing net.
+      if (netIsShown()) {
+        datasets.push({
+          type: "line",
+          label: (isEn() ? "Net" : "Líquido") +
+                 (netIsLabeled() ? (isEn() ? " (after detected transfers)" : " (após transf. detectadas)") : ""),
+          data: labels.map(function(k) { return centsToNum(buckets[k].inC - buckets[k].outC); }),
+          borderColor: CHART_GOLD, backgroundColor: CHART_GOLD,
+          borderWidth: 2, tension: 0.3, pointRadius: 3, fill: false, order: 1
+        });
+      }
+
+      CHARTS.flow = new Chart(document.getElementById("flowChart"), {
+        type: "bar",
+        data: { labels: labels.map(prettyLabel(useWeekly)), datasets: datasets },
+        options: baseChartOpts()
+      });
+
+      var caveats = [];
+      if (useWeekly) {
+        caveats.push(isEn()
+          ? "Showing weekly buckets: there is less than two months of history. It switches to months automatically."
+          : "Mostrando por semana: h&aacute; menos de dois meses de hist&oacute;rico. Passa a mostrar meses automaticamente.");
+      }
+      if (!netIsShown()) {
+        caveats.push(isEn()
+          ? "No net line: transfers between your own accounts could not be identified reliably, so a net figure would be misleading."
+          : "Sem linha de l&iacute;quido: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre suas contas com confian&ccedil;a, e um valor l&iacute;quido enganaria.");
+      } else if (netIsLabeled()) {
+        caveats.push(isEn()
+          ? "The net line is after detected transfers only; some transfers may have been missed."
+          : "A linha de l&iacute;quido considera apenas as transfer&ecirc;ncias detectadas; algumas podem ter escapado.");
+      }
+      showCaveat("flowCaveat", caveats.join("<br>"));
+    }
+
+    function centsToNum(c) { return Math.round((Number(c) || 0)) / 100; }
+
+    function prettyLabel(useWeekly) {
+      return function(k) {
+        if (useWeekly) {
+          var p = String(k).split("-");
+          return isEn() ? (p[1] + "/" + p[2]) : (p[2] + "/" + p[1]);
+        }
+        var mp = String(k).split("-");
+        var names = isEn()
+          ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+          : ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+        return names[parseInt(mp[1], 10) - 1] + "/" + mp[0].slice(2);
+      };
+    }
+
+    // "Am I doing better than last month" -- previously unanswerable, because
+    // the page only ever knew the current month.
+    function renderMomChart() {
+      var txns = countedTransactions();
+      destroyChart("mom");
+
+      var buckets = bucketFlow(txns, monthKey);
+      var months = Object.keys(buckets).sort();
+
+      if (months.length < 2) {
+        showCaveat("momCaveat", isEn()
+          ? "Needs two calendar months to compare. History starts 1 Jul 2026, so this fills in next month."
+          : "Precisa de dois meses para comparar. O hist&oacute;rico come&ccedil;a em 01/07/2026, ent&atilde;o isto aparece no m&ecirc;s que vem.");
+        return;
+      }
+
+      var last = months[months.length - 1];
+      var prev = months[months.length - 2];
+      var fmtM = prettyLabel(false);
+
+      var datasets = [
+        {
+          label: fmtM(prev),
+          data: [centsToNum(buckets[prev].inC), centsToNum(buckets[prev].outC)],
+          backgroundColor: CHART_GREY, borderRadius: 4
+        },
+        {
+          label: fmtM(last),
+          data: [centsToNum(buckets[last].inC), centsToNum(buckets[last].outC)],
+          backgroundColor: CHART_GOLD, borderRadius: 4
+        }
+      ];
+
+      CHARTS.mom = new Chart(document.getElementById("momChart"), {
+        type: "bar",
+        data: {
+          labels: [isEn() ? "In" : "Entrou", isEn() ? "Out" : "Saiu"],
+          datasets: datasets
+        },
+        options: baseChartOpts()
+      });
+
+      showCaveat("momCaveat", "");
+    }
+
+    // Balance per account. Plaid gives a CURRENT balance, not a history, so
+    // this is a snapshot by account -- labeled as such rather than drawn as a
+    // trend line we cannot actually source.
+    function renderBalanceChart() {
+      destroyChart("balance");
+      if (!ACCOUNTS.length) { return; }
+
+      var labels = ACCOUNTS.map(function(a) {
+        return (a.name || "") + (a.mask ? " ****" + a.mask : "");
+      });
+      var data = ACCOUNTS.map(function(a) { return centsToNum(a.balance_cents); });
+      var colors = ACCOUNTS.map(function(a) {
+        return a.purpose === "business" ? CHART_GOLD : CHART_GREY;
+      });
+
+      var opts = baseChartOpts();
+      opts.indexAxis = "y";
+      opts.plugins.legend.display = false;
+
+      CHARTS.balance = new Chart(document.getElementById("balanceChart"), {
+        type: "bar",
+        data: { labels: labels, datasets: [{
+          label: isEn() ? "Balance" : "Saldo",
+          data: data, backgroundColor: colors, borderRadius: 4
+        }] },
+        options: opts
+      });
+
+      showCaveat("balanceCaveat", isEn()
+        ? "Current balance per account. Gold is business, grey is personal."
+        : "Saldo atual por conta. Dourado &eacute; comercial, cinza &eacute; pessoal.");
+    }
+
     function renderBanners() {
       var reauth = document.getElementById("reauthBanner");
       reauth.hidden = REAUTH_ITEMS.length === 0;
@@ -1186,9 +1838,10 @@
       return map[inv.status] || inv.status;
     }
 
+    // Always fetch voided rows; the Archive checkbox filters them client-side,
+    // so toggling it never costs a round trip.
     function loadInvoices() {
-      var showVoided = document.getElementById("showVoided").checked ? "1" : "0";
-      return apiFetch("/api/finance-new/invoices?include_voided=" + showVoided)
+      return apiFetch("/api/finance-new/invoices?include_voided=1")
         .then(function(r) { return r.json(); })
         .then(function(data) {
           INVOICES = data.invoices || [];
@@ -1198,9 +1851,69 @@
         .catch(function() {});
     }
 
+    // Workflow stages, not a filter. finance.html:2848 does the same thing.
+    function switchInvoiceTab(tab) {
+      CURRENT_INVOICE_TAB = tab;
+      var d = document.getElementById("subtabDraft");
+      var u = document.getElementById("subtabUnpaid");
+      var p = document.getElementById("subtabPaid");
+      if (d) { d.classList.toggle("active", tab === "draft"); }
+      if (u) { u.classList.toggle("active", tab === "unpaid"); }
+      if (p) { p.classList.toggle("active", tab === "paid"); }
+      // "mostrar anulados" belongs to Archive: voided rows are historical.
+      document.getElementById("voidedToggleRow").hidden = (tab !== "paid");
+      renderInvoices();
+    }
+
+    function invoicesForTab(tab) {
+      var showVoided = document.getElementById("showVoided");
+      var wantVoided = showVoided && showVoided.checked;
+      return INVOICES.filter(function(inv) {
+        if (tab === "draft")  { return inv.status === "draft"; }
+        if (tab === "unpaid") { return inv.status === "sent"; }
+        // Archive: paid and real voids, plus voided_mistake behind the toggle.
+        if (inv.status === "paid" || inv.status === "void") { return true; }
+        if (inv.status === "voided_mistake") { return !!wantVoided; }
+        return false;
+      });
+    }
+
+    // The badge is the whole "surface it, don't make her go looking" point:
+    // an unpaid count visible without opening anything. Mirrors
+    // updateFinanceBadges() in finance.html.
+    function updateInvoiceBadges() {
+      var counts = { draft: 0, unpaid: 0 };
+      INVOICES.forEach(function(inv) {
+        if (inv.status === "draft") { counts.draft++; }
+        if (inv.status === "sent")  { counts.unpaid++; }
+      });
+      [["badgeDraft", counts.draft], ["badgeUnpaid", counts.unpaid]].forEach(function(pair) {
+        var el = document.getElementById(pair[0]);
+        if (!el) { return; }
+        if (pair[1] > 0) { el.textContent = pair[1]; el.hidden = false; }
+        else { el.hidden = true; }
+      });
+    }
+
     function renderInvoices() {
       document.getElementById("invoiceCard").hidden = false;
-      document.getElementById("invoiceBody").innerHTML = INVOICES.map(function(inv) {
+      updateInvoiceBadges();
+
+      var rows = invoicesForTab(CURRENT_INVOICE_TAB);
+      var emptyEl = document.getElementById("invoiceEmpty");
+      if (!rows.length) {
+        emptyEl.hidden = false;
+        emptyEl.innerHTML = CURRENT_INVOICE_TAB === "draft"
+          ? '<span class="show-pt">Nenhum rascunho. Faturas recorrentes aparecem aqui automaticamente.</span>' +
+            '<span class="show-en">No drafts. Recurring invoices appear here automatically.</span>'
+          : (CURRENT_INVOICE_TAB === "unpaid"
+            ? '<span class="show-pt">Nenhuma fatura aguardando pagamento.</span><span class="show-en">No invoices awaiting payment.</span>'
+            : '<span class="show-pt">Nenhuma fatura arquivada.</span><span class="show-en">No archived invoices.</span>');
+      } else {
+        emptyEl.hidden = true;
+      }
+
+      document.getElementById("invoiceBody").innerHTML = rows.map(function(inv) {
         var actions = "";
         if (inv.status === "draft" || inv.status === "sent") {
           actions +=
@@ -1521,7 +2234,9 @@
         TRANSACTIONS = (res[2] && res[2].transactions) || [];
 
         renderBanners();
+        renderHero();
         renderAccountCards();
+        renderCharts();
         renderLinked();
         renderTransfers();
         populateAccountFilter();
@@ -1565,10 +2280,12 @@
       if (mainEl)    { mainEl.hidden    = false; }
 
       window.initNav && window.initNav();
+      initHeroBg("fnHeroBg", "fnHeroScrim");
       // Templates and clients are fetched up front so the WhatsApp click
       // handler never has to await before opening its window.
       loadMessageTemplates();
       loadClients();
+      switchInvoiceTab("draft");
       loadAll();
     }
 

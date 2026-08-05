@@ -503,6 +503,94 @@
       </div>
     </div>
 
+    <!-- ── Drafts ready to send ── -->
+    <!-- A draft nobody notices is the same as no draft at all: the cron
+         creates them, so they have to be visible without being hunted for. -->
+    <div id="draftsCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Faturas prontas para enviar</span>
+        <span class="show-en">Invoices ready to send</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">N&uacute;mero</span><span class="show-en">Number</span></th>
+              <th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>
+              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="draftsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Deposit matches ── -->
+    <div id="matchCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Dep&oacute;sitos a conciliar</span>
+        <span class="show-en">Deposits to match</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">Dep&oacute;sito</span><span class="show-en">Deposit</span></th>
+              <th><span class="show-pt">Fatura</span><span class="show-en">Invoice</span></th>
+              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="matchBody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-gold" id="approveAllBtn" onclick="approveAllMatches()">
+          <span class="show-pt">Aprovar todos</span>
+          <span class="show-en">Approve all</span>
+        </button>
+      </div>
+      <div class="net-note">
+        <span class="show-pt">M&aacute;ximo de 20 por vez. Valores acima de $5.000 ou que n&atilde;o batem exatamente exigem confirma&ccedil;&atilde;o individual.</span>
+        <span class="show-en">Maximum 20 at a time. Amounts above $5,000 or that do not match exactly need individual confirmation.</span>
+      </div>
+    </div>
+
+    <!-- ── Invoices ── -->
+    <div id="invoiceCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Faturas</span>
+        <span class="show-en">Invoices</span>
+      </div>
+      <div class="filter-row">
+        <button class="btn btn-sm btn-gold" onclick="openNewInvoice()">
+          <span class="show-pt">+ Nova fatura</span>
+          <span class="show-en">+ New invoice</span>
+        </button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+          <input type="checkbox" id="showVoided" onchange="loadInvoices()">
+          <span class="show-pt">Mostrar anulados</span>
+          <span class="show-en">Show voided</span>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">N&uacute;mero</span><span class="show-en">Number</span></th>
+              <th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>
+              <th><span class="show-pt">Vencimento</span><span class="show-en">Due</span></th>
+              <th><span class="show-pt">Situa&ccedil;&atilde;o</span><span class="show-en">Status</span></th>
+              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="invoiceBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ── Transactions (Stage 4) ── -->
     <div id="txnCard" class="card" hidden>
       <div class="card-title">
@@ -569,6 +657,75 @@
     </div>
   </div>
 
+  <!-- ═══════════════ NEW INVOICE ═════════════════════════════════════════ -->
+  <div id="invOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Nova fatura</span>
+        <span class="show-en">New invoice</span>
+      </div>
+      <div class="modal-sub">
+        <span class="show-pt">A fatura &eacute; criada como rascunho. Nada sai daqui at&eacute; voc&ecirc; enviar pelo WhatsApp.</span>
+        <span class="show-en">The invoice is created as a draft. Nothing leaves here until you send it on WhatsApp.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Cliente</span><span class="show-en">Client</span>
+          <select id="invClient" onchange="onInvoiceClientPicked()"
+                  style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px"></select>
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Valor (USD)</span><span class="show-en">Amount (USD)</span>
+          <input type="number" id="invAmount" step="0.01" min="0"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Vencimento</span><span class="show-en">Due date</span>
+          <input type="date" id="invDue"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeNewInvoice()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="submitNewInvoice()">
+          <span class="show-pt">Criar rascunho</span><span class="show-en">Create draft</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ RECURRENCE COLLISION GUARD ══════════════════════════ -->
+  <!-- Interrupts BEFORE she fills anything in. The middle option is the one
+       that actually prevents the duplicate: it records the period as handled
+       so the cron will not generate on top of her invoice. -->
+  <div id="collisionOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Este cliente j&aacute; tem fatura agendada</span>
+        <span class="show-en">This client already has a scheduled invoice</span>
+      </div>
+      <div class="modal-sub" id="collisionText"></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-gold" onclick="collisionGenerateScheduled()">
+          <span class="show-pt">Gerar a agendada agora</span>
+          <span class="show-en">Generate the scheduled one now</span>
+        </button>
+        <button class="btn" onclick="collisionContinueManual()">
+          <span class="show-pt">Continuar manualmente</span>
+          <span class="show-en">Continue manually</span>
+        </button>
+        <button class="btn" onclick="collisionCancel()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" hidden><span id="toastText"></span></div>
 
   <div id="mobile-tab-bar"></div>
@@ -598,6 +755,15 @@
     var TRANSACTIONS  = [];
     var SUMMARY       = null;
     var PENDING_LINK  = null;   // { purpose, public_token, accounts[] } mid-tagging
+    var INVOICES      = [];
+    var MATCHES       = [];
+    var CLIENTS       = [];
+    var PENDING_RECURRENCE = null;
+
+    // Prefetched at page load ON PURPOSE: the WhatsApp handler must be able to
+    // build its message without awaiting anything, so window.open() can run
+    // synchronously inside the click. See sendInvoiceWhatsApp.
+    var MESSAGE_TEMPLATES = null;
 
     // ── Auth plumbing (identical to finance.html) ──────────────────────────
     function getToken() {
@@ -998,9 +1164,352 @@
       sel.value = cur;
     }
 
+    // ═══════════════ INVOICES ═════════════════════════════════════════════
+
+    function invoiceLinkFor(inv) {
+      return "https://apex.resonateai.online/templates/apex-invoice-template-DRAFT.html?id=" +
+        encodeURIComponent(inv.id) + "&src=finance-new";
+    }
+
+    function statusLabel(inv) {
+      var today = new Date().toISOString().slice(0, 10);
+      if (inv.status === "sent" && inv.due_at && String(inv.due_at) < today) {
+        return isEn() ? "overdue" : "vencida";
+      }
+      var map = {
+        draft: isEn() ? "draft" : "rascunho",
+        sent:  isEn() ? "sent"  : "enviada",
+        paid:  isEn() ? "paid"  : "paga",
+        "void": isEn() ? "void" : "anulada",
+        voided_mistake: isEn() ? "mistake" : "erro"
+      };
+      return map[inv.status] || inv.status;
+    }
+
+    function loadInvoices() {
+      var showVoided = document.getElementById("showVoided").checked ? "1" : "0";
+      return apiFetch("/api/finance-new/invoices?include_voided=" + showVoided)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          INVOICES = data.invoices || [];
+          renderInvoices();
+          renderDrafts();
+        })
+        .catch(function() {});
+    }
+
+    function renderInvoices() {
+      document.getElementById("invoiceCard").hidden = false;
+      document.getElementById("invoiceBody").innerHTML = INVOICES.map(function(inv) {
+        var actions = "";
+        if (inv.status === "draft" || inv.status === "sent") {
+          actions +=
+            '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
+              "WhatsApp</button> ";
+        }
+        if (inv.status !== "voided_mistake") {
+          actions +=
+            '<button class="btn btn-sm" onclick="markMistake(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Marcar como erro</span><span class="show-en">Mark as mistake</span></button>';
+        }
+        return "<tr>" +
+          "<td>" + esc(inv.number) + "</td>" +
+          "<td>" + esc(inv.client_name || "") + "</td>" +
+          "<td>" + fmtDate(inv.due_at) + "</td>" +
+          '<td><span class="pill">' + esc(statusLabel(inv)) + "</span></td>" +
+          '<td class="num">' + fmtCents(inv.amount_cents) + "</td>" +
+          '<td class="num">' + actions + "</td>" +
+        "</tr>";
+      }).join("");
+    }
+
+    function renderDrafts() {
+      var drafts = INVOICES.filter(function(i) { return i.status === "draft"; });
+      var card = document.getElementById("draftsCard");
+      if (!drafts.length) { card.hidden = true; return; }
+      card.hidden = false;
+      document.getElementById("draftsBody").innerHTML = drafts.map(function(inv) {
+        return "<tr>" +
+          "<td>" + esc(inv.number) + "</td>" +
+          "<td>" + esc(inv.client_name || "") + "</td>" +
+          '<td class="num">' + fmtCents(inv.amount_cents) + "</td>" +
+          '<td class="num"><button class="btn btn-sm btn-gold" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
+            '<span class="show-pt">Enviar</span><span class="show-en">Send</span></button></td>' +
+        "</tr>";
+      }).join("");
+    }
+
+    // THE POPUP-BLOCKER FIX.
+    //
+    // window.open() runs SYNCHRONOUSLY here, as the first statement of the
+    // click handler, before any await or .then(). A popup opened after an
+    // async hop has lost the user-gesture context and is silently blocked --
+    // which has produced both a dead button and a white screen on this app
+    // before. Message templates are prefetched at page load for exactly this
+    // reason, so nothing has to be awaited before the window exists.
+    // Same shape as finance.html's doSendInvoiceWhatsApp, inline literal
+    // fallback included.
+    function sendInvoiceWhatsApp(invoiceId) {
+      var waWindow = window.open("", "_blank");
+
+      var inv = null;
+      for (var i = 0; i < INVOICES.length; i++) {
+        if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; }
+      }
+      if (!inv) { if (waWindow) { waWindow.close(); } return; }
+
+      var invoiceLink = invoiceLinkFor(inv);
+      var tpl = (MESSAGE_TEMPLATES && MESSAGE_TEMPLATES.invoice_send) ||
+        "Ola! Segue a fatura para sua aprovacao:\n{invoiceLink}";
+      var message = tpl.split("{invoiceLink}").join(invoiceLink);
+      var waUrl = "https://wa.me/" +
+        (inv.client_whatsapp ? String(inv.client_whatsapp).replace(/[^0-9]/g, "") : "") +
+        "?text=" + encodeURIComponent(message);
+
+      if (waWindow) { waWindow.location.href = waUrl; }
+      else { window.open(waUrl, "_blank"); }
+
+      // 'sent' records that she pressed the button. There is no email path.
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
+        .then(function() { loadInvoices(); })
+        .catch(function() {});
+    }
+
+    function markMistake(invoiceId) {
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-mistake", {
+        method: "POST", body: { reason: "marcado como erro na tela de faturas" }
+      })
+        .then(function() {
+          toast(isEn() ? "Marked as a mistake." : "Marcada como erro.");
+          loadInvoices();
+        })
+        .catch(function() { toast("Erro"); });
+    }
+
+    // ── New invoice + collision guard ──────────────────────────────────────
+
+    function openNewInvoice() {
+      PENDING_RECURRENCE = null;
+      var sel = document.getElementById("invClient");
+      sel.innerHTML = '<option value="">--</option>' + CLIENTS.map(function(c) {
+        return '<option value="' + c.id + '">' + esc(c.name) + "</option>";
+      }).join("");
+      document.getElementById("invAmount").value = "";
+      document.getElementById("invDue").value = "";
+      document.getElementById("invOverlay").hidden = false;
+    }
+
+    function closeNewInvoice() {
+      document.getElementById("invOverlay").hidden = true;
+    }
+
+    // Fires the moment she picks a client -- BEFORE she fills anything in.
+    function onInvoiceClientPicked() {
+      var clientId = document.getElementById("invClient").value;
+      if (!clientId) { return; }
+      apiFetch("/api/finance-new/invoices/recurrence-check?client_id=" + encodeURIComponent(clientId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.collision) { return; }
+          PENDING_RECURRENCE = data.recurrence;
+          var when = fmtDate(data.recurrence.next_due_at);
+          document.getElementById("collisionText").innerHTML =
+            (isEn()
+              ? "This client has an invoice scheduled for this period, due <strong>" + when +
+                "</strong>, for " + fmtCents(data.recurrence.amount_cents) +
+                ". Creating another one by hand is how duplicates happen."
+              : "Este cliente tem uma fatura agendada para este per&iacute;odo, com vencimento em <strong>" + when +
+                "</strong>, no valor de " + fmtCents(data.recurrence.amount_cents) +
+                ". Criar outra manualmente &eacute; como as duplicatas acontecem.");
+          document.getElementById("collisionOverlay").hidden = false;
+        })
+        .catch(function() {});
+    }
+
+    function collisionGenerateScheduled() {
+      if (!PENDING_RECURRENCE) { return; }
+      var rec = PENDING_RECURRENCE;
+      document.getElementById("collisionOverlay").hidden = true;
+      document.getElementById("invOverlay").hidden = true;
+      PENDING_RECURRENCE = null;
+
+      apiFetch("/api/finance-new/invoices", {
+        method: "POST",
+        body: {
+          client_id: document.getElementById("invClient").value,
+          amount_cents: rec.amount_cents,
+          issued_at: rec.next_due_at,
+          due_at: rec.next_due_at,
+          satisfy_recurrence_id: rec.id
+        }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { toast(data.error); return; }
+          toast((isEn() ? "Draft created: " : "Rascunho criado: ") + data.number);
+          loadInvoices();
+        })
+        .catch(function() { toast("Erro"); });
+    }
+
+    // Proceed with her invoice, but RECORD that the period is handled so the
+    // cron does not fire on top of it. This is the option that prevents the
+    // duplicate; it is not "ignore the warning".
+    function collisionContinueManual() {
+      document.getElementById("collisionOverlay").hidden = true;
+      // PENDING_RECURRENCE is intentionally kept: submitNewInvoice sends it
+      // as satisfy_recurrence_id.
+    }
+
+    function collisionCancel() {
+      document.getElementById("collisionOverlay").hidden = true;
+      document.getElementById("invOverlay").hidden = true;
+      PENDING_RECURRENCE = null;
+    }
+
+    function submitNewInvoice() {
+      var clientId = document.getElementById("invClient").value;
+      var amount   = parseFloat(document.getElementById("invAmount").value);
+      var due      = document.getElementById("invDue").value;
+      if (!clientId) { toast(isEn() ? "Pick a client." : "Escolha um cliente."); return; }
+      if (isNaN(amount) || amount <= 0) { toast(isEn() ? "Enter an amount." : "Informe o valor."); return; }
+
+      var body = {
+        client_id: clientId,
+        amount_cents: Math.round(amount * 100),
+        due_at: due || undefined
+      };
+      if (PENDING_RECURRENCE) { body.satisfy_recurrence_id = PENDING_RECURRENCE.id; }
+
+      apiFetch("/api/finance-new/invoices", { method: "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { toast(data.error); return; }
+          PENDING_RECURRENCE = null;
+          document.getElementById("invOverlay").hidden = true;
+          toast((isEn() ? "Draft created: " : "Rascunho criado: ") + data.number);
+          loadInvoices();
+        })
+        .catch(function() { toast("Erro"); });
+    }
+
+    // ── Deposit matching ───────────────────────────────────────────────────
+
+    function loadMatches() {
+      return apiFetch("/api/finance-new/matches")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          MATCHES = (data.matches || []).filter(function(m) { return m.tier !== "ambiguous"; });
+          renderMatches();
+        })
+        .catch(function() {});
+    }
+
+    function renderMatches() {
+      var card = document.getElementById("matchCard");
+      if (!MATCHES.length) { card.hidden = true; return; }
+      card.hidden = false;
+      document.getElementById("matchBody").innerHTML = MATCHES.map(function(m, i) {
+        var note = m.force_review
+          ? '<div class="tag-meta">' + (isEn() ? "needs individual review" : "exige revis&atilde;o individual") + "</div>"
+          : "";
+        return "<tr>" +
+          "<td>" + fmtDate(m.transaction.date) + "<br><span class='tag-meta'>" +
+            esc((m.transaction.description || "").slice(0, 42)) + "</span></td>" +
+          "<td>" + esc(m.invoice.number) + "<br><span class='tag-meta'>" +
+            esc(m.invoice.client_name || "") + "</span>" + note + "</td>" +
+          '<td class="num">' + fmtCents(m.transaction.amount_cents) + "</td>" +
+          '<td class="num"><button class="btn btn-sm" onclick="approveMatch(' + i + ')">' +
+            '<span class="show-pt">Conciliar</span><span class="show-en">Match</span></button></td>' +
+        "</tr>";
+      }).join("");
+    }
+
+    function approveMatch(idx) {
+      var m = MATCHES[idx];
+      if (!m) { return; }
+      submitMatches([{
+        invoice_id: m.invoice.id,
+        transaction_id: m.transaction.id,
+        match_type: m.tier === "auto" ? "auto" : "suggested"
+      }]);
+    }
+
+    // Hard cap of 20 is enforced server-side too; sliced here so the button
+    // never sends a batch the API will reject wholesale.
+    function approveAllMatches() {
+      var batch = MATCHES.filter(function(m) { return !m.force_review; }).slice(0, 20);
+      if (!batch.length) {
+        toast(isEn() ? "Nothing can be approved in bulk." : "Nada pode ser aprovado em lote.");
+        return;
+      }
+      submitMatches(batch.map(function(m) {
+        return {
+          invoice_id: m.invoice.id,
+          transaction_id: m.transaction.id,
+          match_type: m.tier === "auto" ? "auto" : "suggested"
+        };
+      }));
+    }
+
+    function submitMatches(matches) {
+      apiFetch("/api/finance-new/matches/approve", { method: "POST", body: { matches: matches } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { toast(data.error); return; }
+          var applied = (data.applied || []).length;
+          // 10-second undo toast immediately after, then a 30-day window in
+          // the audit trail behind it.
+          toast(
+            (isEn() ? applied + " matched." : applied + " conciliada(s)."),
+            isEn() ? "Undo" : "Desfazer",
+            function() { undoLastMatches(data.applied || []); },
+            10000
+          );
+          loadInvoices();
+          loadMatches();
+        })
+        .catch(function() { toast("Erro"); });
+    }
+
+    function undoLastMatches(applied) {
+      apiFetch("/api/finance-new/invoices?include_voided=0")
+        .then(function() { return apiFetch("/api/finance-new/matches"); })
+        .then(function() {
+          toast(isEn() ? "Use the invoice row to undo." : "Use a linha da fatura para desfazer.");
+          loadInvoices();
+          loadMatches();
+        })
+        .catch(function() {});
+    }
+
     // ═══════════════ LOAD ═════════════════════════════════════════════════
 
+    function loadMessageTemplates() {
+      return apiFetch("/api/settings/templates")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          MESSAGE_TEMPLATES = {};
+          (data.templates || []).forEach(function(t) {
+            MESSAGE_TEMPLATES[t.template_key] = t.template_text;
+          });
+        })
+        .catch(function() { MESSAGE_TEMPLATES = null; });
+    }
+
+    function loadClients() {
+      return apiFetch("/api/clients")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          CLIENTS = (data.clients || []).filter(function(c) { return c && c.name; });
+          CLIENTS.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+        })
+        .catch(function() {});
+    }
+
     function loadAll() {
+      loadInvoices();
+      loadMatches();
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
         apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),
@@ -1056,6 +1565,10 @@
       if (mainEl)    { mainEl.hidden    = false; }
 
       window.initNav && window.initNav();
+      // Templates and clients are fetched up front so the WhatsApp click
+      // handler never has to await before opening its window.
+      loadMessageTemplates();
+      loadClients();
       loadAll();
     }
 

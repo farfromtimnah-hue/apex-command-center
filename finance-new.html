@@ -1332,10 +1332,15 @@
             '</div>';
 
           if (!flow.net_shown) {
-            flowHtml += '<div class="net-note">' +
-              '<span class="show-pt">O l&iacute;quido n&atilde;o &eacute; exibido: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre as suas contas com confian&ccedil;a suficiente, e um n&uacute;mero errado seria pior que nenhum.</span>' +
-              '<span class="show-en">Net is hidden: transfers between your own accounts could not be identified with enough confidence, and a wrong number would be worse than none.</span>' +
-              '</div>';
+            // Same two reasons as the hero tile: measured badly, or too little
+            // to measure. Only the first is a statement about detection.
+            var rateKnown = !!(SUMMARY && SUMMARY.detection && SUMMARY.detection.known);
+            flowHtml += '<div class="net-note">' + (rateKnown
+              ? '<span class="show-pt">O l&iacute;quido n&atilde;o &eacute; exibido: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre as suas contas com confian&ccedil;a suficiente, e um n&uacute;mero errado seria pior que nenhum.</span>' +
+                '<span class="show-en">Net is hidden: transfers between your own accounts could not be identified with enough confidence, and a wrong number would be worse than none.</span>'
+              : '<span class="show-pt">O l&iacute;quido n&atilde;o &eacute; exibido: ainda n&atilde;o h&aacute; transa&ccedil;&otilde;es suficientes para separar transfer&ecirc;ncias de receita real.</span>' +
+                '<span class="show-en">Net is hidden: there are not enough transactions yet to tell transfers apart from real income.</span>'
+            ) + '</div>';
           } else if (flow.net_labeled) {
             flowHtml += '<div class="net-note">' +
               '<span class="show-pt">Algumas transfer&ecirc;ncias podem n&atilde;o ter sido detectadas. Entrou e saiu acima s&atilde;o os valores brutos.</span>' +
@@ -1481,13 +1486,24 @@
       var netNote = document.getElementById("heroNetNote");
 
       if (!ref.net_shown) {
-        // Below 50% detection: no net figure at all, and the tile says why.
+        // No net figure at all, and the tile says why. Two different reasons
+        // land here and they are NOT the same sentence: detection ran and
+        // scored badly, versus there was too little to measure. Telling her
+        // "could not be identified reliably" on an empty account would be a
+        // false accusation against a system that simply had no data yet.
+        var known = !!(SUMMARY && SUMMARY.detection && SUMMARY.detection.known);
         netTile.hidden = false;
         document.getElementById("heroNet").textContent = "--";
         netNote.hidden = false;
-        netNote.innerHTML = isEn()
-          ? "Hidden: transfers between your own accounts could not be identified reliably."
-          : "Oculto: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre suas contas com confian&ccedil;a.";
+        if (known) {
+          netNote.innerHTML = isEn()
+            ? "Hidden: transfers between your own accounts could not be identified reliably."
+            : "Oculto: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre suas contas com confian&ccedil;a.";
+        } else {
+          netNote.innerHTML = isEn()
+            ? "Hidden: not enough transactions yet to tell transfers apart from real income."
+            : "Oculto: ainda n&atilde;o h&aacute; transa&ccedil;&otilde;es suficientes para separar transfer&ecirc;ncias de receita real.";
+        }
         return;
       }
 

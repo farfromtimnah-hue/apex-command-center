@@ -17104,9 +17104,10 @@ async function applyTransferRules(env) {
 // legs, where a candidate is any transaction whose exact amount also appears
 // with the opposite sign in another account inside the window -- i.e. the
 // things that COULD be transfers.
-//   >= 80%  -> show net normally
-//   50-80%  -> show net labeled "after detected transfers", raw in/out beside it
-//   <  50%  -> do NOT show net at all; show only the two raw numbers
+//   >= 80%    -> show net normally
+//   50-80%    -> show net labeled "after detected transfers", raw in/out beside it
+//   <  50%    -> do NOT show net at all; show only the two raw numbers
+//   unknown   -> too few candidates to measure; treated exactly like < 50%
 // A wrong headline she cannot audit is worse than a missing one.
 // ---------------------------------------------------------------------------
 
@@ -17141,7 +17142,24 @@ async function computeTransferDetectionRate(env, sinceDate) {
         if (a.transfer_status === "suspected" || a.transfer_status === "confirmed") { detected++; }
     }
 
-    return { candidates: candidates, detected: detected, rate: candidates === 0 ? 1 : (detected / candidates) };
+    // ZERO CANDIDATES IS ZERO INFORMATION, NOT PERFECT DETECTION.
+    //
+    // This used to return rate 1 when candidates === 0, so an empty account
+    // displayed a confident green net of $0.00. Harmless while empty, wrong the
+    // moment the first sync lands a handful of transactions with no detectable
+    // pairs: the rate reads 1.0 and net displays confidently while possibly
+    // being materially wrong. The threshold exists precisely to prevent that.
+    //
+    // Below MIN_RATE_CANDIDATES the ratio is not measuring anything: with
+    // fewer than 8 candidate legs a single missed pair swings the rate by 12.5
+    // points or more, which is wider than the gap between the 80% and 50%
+    // tiers. So we return an UNKNOWN rate (null) rather than a number, and
+    // every consumer treats unknown the same way it treats sub-50%: show the
+    // raw in and out figures, no net, and say why.
+    var MIN_RATE_CANDIDATES = 8;
+    var rate = candidates < MIN_RATE_CANDIDATES ? null : (detected / candidates);
+
+    return { candidates: candidates, detected: detected, rate: rate };
 }
 
 async function handleGetFinanceNewSummary(request, env) {
@@ -17179,17 +17197,25 @@ async function handleGetFinanceNewSummary(request, env) {
             "GROUP BY a.purpose"
         ).bind(start, start).all();
 
+        // rate === null means "not enough candidates to measure". It travels to
+        // the client as null, never as a number, so the page can distinguish
+        // "we measured badly" from "we could not measure at all".
+        var rateKnown = detection.rate !== null;
+
         var out = {
             month: start.slice(0, 7),
             detection: {
                 candidates: detection.candidates,
                 detected:   detection.detected,
-                rate:       Math.round(detection.rate * 100) / 100
+                rate:       rateKnown ? Math.round(detection.rate * 100) / 100 : null,
+                known:      rateKnown
             }
         };
 
-        var netShown   = detection.rate >= 0.5;
-        var netLabeled = detection.rate < 0.8;
+        // Unknown is not a low score, it is the absence of one -- and it lands
+        // on the same side as a low score: no net.
+        var netShown   = rateKnown && detection.rate >= 0.5;
+        var netLabeled = rateKnown && detection.rate < 0.8;
 
         var purposes = ["business", "personal"];
         for (var p = 0; p < purposes.length; p++) {

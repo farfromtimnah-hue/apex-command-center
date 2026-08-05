@@ -1786,7 +1786,14 @@
           grid: { color: "#f0ece4" }
         },
         y: {
-          ticks: { font: { family: "Inter", size: 10 } },
+          ticks: {
+            font: { family: "Inter", size: 10 },
+            // Bank account names are long ("ADV PLUS BANKING ****8821") and
+            // were being clipped at the left edge of the canvas.
+            crossAlign: "far",
+            autoSkip: false
+          },
+          afterFit: function(scale) { scale.width = 190; },
           grid: { display: false }
         }
       };

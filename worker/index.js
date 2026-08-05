@@ -16237,6 +16237,220 @@ async function handleDeleteGmRow(id, collection, rowId, request, env) {
     }
 }
 
+// ===========================================================================
+// FINANCE-NEW — Plaid-backed budgeting. Parallel to the Zoho finance page,
+// which stays live and untouched.
+//
+// Governing rule for everything below: the dashboard must be useful with ZERO
+// input from Alice. No screen may require her to categorize, reconcile or
+// confirm before it shows a number. The previous finance tool was correct and
+// went completely unused because it demanded exactly that.
+// ===========================================================================
+
+// Money is INTEGER CENTS everywhere in this file section. Plaid and Zoho both
+// send dollars as floats; convert at the edge, once, and never carry a float
+// into a comparison. Math.round (not truncation) so 14.37 -> 1437, not 1436.
+function toCents(dollars) {
+    var n = Number(dollars);
+    if (!isFinite(n)) { return 0; }
+    return Math.round(n * 100);
+}
+
+function centsToDollars(cents) {
+    return (Number(cents) || 0) / 100;
+}
+
+// INV- + six zero-padded digits. The INV-2025-0001 shape in
+// templates/apex-invoice-data-DRAFT.json is a mockup and is NOT the format.
+function formatInvoiceNumber(n) {
+    var s = String(n);
+    while (s.length < 6) { s = "0" + s; }
+    return "INV-" + s;
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/migrate-invoices — alice/rafa/developer only.
+//
+// One-time (but idempotent) lift of the Zoho Books invoice list into D1.
+// Zoho may be dying and these records are the only thing that must survive.
+//
+// Idempotent on invoices.zoho_invoice_id: re-running updates the existing row
+// rather than inserting a second copy, so it is safe to run twice, and safe to
+// run again later to pick up a status change made in Zoho.
+//
+// INV-000016 IS DELIBERATELY SKIPPED. It is a Zoho-auto-generated duplicate of
+// Alice's manual INV-000015 (same client, same $1,500, one day apart,
+// created_by "Zoho Books" with a recurring profile behind it). It is being
+// silently retired -- not imported in any status -- but its NUMBER is burned,
+// which is why the counter seeds at 17.
+// ---------------------------------------------------------------------------
+
+var ZOHO_SKIP_INVOICE_NUMBERS = ["INV-000016"];
+
+// Zoho 'sent' and 'overdue' both mean "issued and unpaid". Apex never sent
+// email through Zoho -- is_emailed is false on every one of them and carries
+// no information. Overdue is DERIVED from due_at at render time, never stored,
+// so it is not a status here.
+function mapZohoInvoiceStatus(zohoStatus) {
+    var s = String(zohoStatus || "").toLowerCase();
+    if (s === "draft")                      { return "draft"; }
+    if (s === "paid")                       { return "paid"; }
+    if (s === "void" || s === "voided")     { return "void"; }
+    if (s === "sent" || s === "overdue" ||
+        s === "unpaid" || s === "viewed" ||
+        s === "partially_paid")             { return "sent"; }
+    return null;
+}
+
+async function handlePostFinanceNewMigrateInvoices(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var report = {
+            zoho_reachable: false,
+            zoho_error:     null,
+            fetched:        0,
+            imported:       0,
+            updated:        0,
+            skipped:        [],
+            unmatched:      [],
+            counter_seeded: null
+        };
+
+        // Seed the counter FIRST and unconditionally. If Zoho is dead the
+        // build must not fail -- Alice still needs to create invoices by hand,
+        // and 16 must never be reissued whether or not the lift succeeded.
+        await env.DB.prepare(
+            "INSERT INTO invoice_counter (id, next_number) VALUES (1, 17) ON CONFLICT(id) DO NOTHING"
+        ).run();
+        var counterRow = await env.DB.prepare("SELECT next_number FROM invoice_counter WHERE id = 1").first();
+        report.counter_seeded = counterRow ? counterRow.next_number : null;
+
+        var zohoAuth;
+        try {
+            zohoAuth = await getZohoAccessToken(env);
+        } catch (e) {
+            report.zoho_error = e.message;
+            return jsonOk(report);
+        }
+
+        // Page through the full invoice list. 200 is Zoho's per_page ceiling.
+        var zohoInvoices = [];
+        var page = 1;
+        while (page <= 20) {
+            var listRes = await zohoBankingFetch(
+                zohoAuth, "GET",
+                "invoices?per_page=200&page=" + page + "&sort_column=invoice_number"
+            );
+            if (!listRes.ok) {
+                report.zoho_error = "Zoho invoice list failed (HTTP " + listRes.status + "): " +
+                    ((listRes.data && listRes.data.message) || "unknown");
+                return jsonOk(report);
+            }
+            var batch = (listRes.data && listRes.data.invoices) || [];
+            zohoInvoices = zohoInvoices.concat(batch);
+            var ctx = listRes.data && listRes.data.page_context;
+            if (!ctx || !ctx.has_more_page) { break; }
+            page++;
+        }
+
+        report.zoho_reachable = true;
+        report.fetched = zohoInvoices.length;
+
+        // Resolve Zoho customer -> local client once, up front.
+        var clientRes = await env.DB.prepare(
+            "SELECT id, name, zoho_customer_id FROM clients WHERE zoho_customer_id IS NOT NULL AND zoho_customer_id != ''"
+        ).all();
+        var clientByZohoId = {};
+        var i;
+        for (i = 0; i < clientRes.results.length; i++) {
+            clientByZohoId[String(clientRes.results[i].zoho_customer_id)] = clientRes.results[i];
+        }
+
+        for (i = 0; i < zohoInvoices.length; i++) {
+            var zi = zohoInvoices[i];
+            var number = zi.invoice_number;
+
+            if (ZOHO_SKIP_INVOICE_NUMBERS.indexOf(number) !== -1) {
+                report.skipped.push({
+                    number: number,
+                    reason: "Zoho-auto-generated duplicate of INV-000015; retired, number burned"
+                });
+                continue;
+            }
+
+            var status = mapZohoInvoiceStatus(zi.status);
+            if (!status) {
+                report.skipped.push({ number: number, reason: "unmapped Zoho status '" + zi.status + "'" });
+                continue;
+            }
+
+            var localClient = clientByZohoId[String(zi.customer_id)] || null;
+            if (!localClient) {
+                report.unmatched.push({ number: number, zoho_customer: zi.customer_name });
+            }
+
+            // issued_date is blank on drafts; fall back to the invoice date.
+            var issuedAt = zi.issued_date || zi.date || null;
+
+            var existing = await env.DB.prepare(
+                "SELECT id FROM invoices WHERE zoho_invoice_id = ?"
+            ).bind(String(zi.invoice_id)).first();
+
+            if (existing) {
+                await env.DB.prepare(
+                    "UPDATE invoices SET client_id = ?, number = ?, amount_cents = ?, issued_at = ?, " +
+                    "due_at = ?, status = ?, source = 'zoho_migrated' WHERE id = ?"
+                ).bind(
+                    localClient ? localClient.id : null,
+                    number,
+                    toCents(zi.total),
+                    issuedAt,
+                    zi.due_date || null,
+                    status,
+                    existing.id
+                ).run();
+                report.updated++;
+            } else {
+                await env.DB.prepare(
+                    "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, " +
+                    "zoho_invoice_id, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'zoho_migrated')"
+                ).bind(
+                    crypto.randomUUID(),
+                    localClient ? localClient.id : null,
+                    number,
+                    toCents(zi.total),
+                    issuedAt,
+                    zi.due_date || null,
+                    status,
+                    String(zi.invoice_id)
+                ).run();
+                report.imported++;
+            }
+        }
+
+        // The counter must clear every number that now exists, including any
+        // Alice added in Zoho after this code was written.
+        var maxRow = await env.DB.prepare(
+            "SELECT MAX(CAST(REPLACE(number, 'INV-', '') AS INTEGER)) AS max_n FROM invoices WHERE number LIKE 'INV-%'"
+        ).first();
+        var maxUsed = (maxRow && maxRow.max_n) || 0;
+        // 16 is burned even though it was never imported.
+        if (maxUsed < 16) { maxUsed = 16; }
+        await env.DB.prepare(
+            "UPDATE invoice_counter SET next_number = ? WHERE id = 1 AND next_number <= ?"
+        ).bind(maxUsed + 1, maxUsed).run();
+        var finalCounter = await env.DB.prepare("SELECT next_number FROM invoice_counter WHERE id = 1").first();
+        report.counter_seeded = finalCounter ? finalCounter.next_number : null;
+
+        return jsonOk(report);
+    } catch (e) {
+        return jsonErr("Error migrating invoices: " + e.message, 500);
+    }
+}
+
 export default {
     fetch: async function(request, env) {
         var url    = new URL(request.url);
@@ -16756,6 +16970,9 @@ export default {
         if (segs[0] === "api" && segs[1] === "invoices" && segs[2] && segs[3] === "items" && method === "PUT") {
             return handlePutInvoiceItems(segs[2], request, env);
         }
+
+        // --- finance-new (Plaid budgeting) -------------------------------
+        if (path === "/api/finance-new/migrate-invoices" && method === "POST") { return handlePostFinanceNewMigrateInvoices(request, env); }
 
         return jsonErr("Not found", 404);
     },

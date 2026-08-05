@@ -1559,6 +1559,15 @@
               <span class="show-pt">Ver An&#225;lise</span>
               <span class="show-en">View Analytics</span>
             </a>
+            <!-- THIS client's portal exactly as they see it, read-only. The
+                 meeting case: Rafa opens the client's own view without asking
+                 them to share a screen. New tab so the profile stays put.
+                 Read-only is enforced Worker-side, not by hiding controls. -->
+            <a class="btn-action" id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden
+               style="text-decoration:none;display:inline-flex;align-items:center;">
+              <span class="show-pt">Ver portal do cliente</span>
+              <span class="show-en">View client portal</span>
+            </a>
             <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
               <span class="show-pt">Gerar PDF</span>
               <span class="show-en">Generate PDF</span>
@@ -4978,6 +4987,17 @@
       var caBtn = document.getElementById("btnClientAnalytics");
       if (caBtn) {
         caBtn.href = "client-analytics.html?client=" + encodeURIComponent(CLIENT_ID || "");
+      }
+
+      // Read-only preview of this client's own portal. Admin roles only; the
+      // Worker rejects previewAs from anyone else, so this is convenience, not
+      // the access control.
+      var vpBtn = document.getElementById("btnViewPortal");
+      if (vpBtn) {
+        var vpRole = sessionStorage.getItem("apex_role") || "";
+        var vpAllowed = (vpRole === "alice" || vpRole === "rafa" || vpRole === "developer");
+        vpBtn.href = "portal.html?previewAs=" + encodeURIComponent(CLIENT_ID || "");
+        vpBtn.hidden = !vpAllowed;
       }
 
       // Header logo thumbnail

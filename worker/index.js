@@ -169,21 +169,24 @@ function sessionSellerName(user) {
 }
 
 // Admin roles pass for any client; a client-role user only for their own.
-// Developer preview-as (?previewAs=<client_id>, LTC's getSelfSubmission
-// pattern) needs no extra branch here: the developer role already passes for
-// reads, and every preview WRITE is rejected earlier by the read-only gate in
-// fetch() (see "Developer preview-as is READ-ONLY").
+// Admin preview-as (?previewAs=<client_id>, LTC's getSelfSubmission pattern)
+// needs no extra branch here: every admin role already passes for reads, and
+// every preview WRITE is rejected earlier by the read-only gate in fetch()
+// (see "Admin preview-as is READ-ONLY").
 function requireClientAccess(user, clientId) {
     if (!user) { return false; }
     if (user.role === "alice" || user.role === "rafa" || user.role === "developer") { return true; }
     return user.role === "client" && !!user.client_id && user.client_id === clientId;
 }
 
-// The preview client id when (and only when) the caller is a developer with a
-// ?previewAs= query param. Null for every other caller — alice, rafa, and the
-// real client path never see a different identity.
-function devPreviewClientId(user, request) {
-    if (!user || user.role !== "developer") { return null; }
+// The preview client id when (and only when) an admin caller carries a
+// ?previewAs= query param. Alice, rafa and developer all qualify: each already
+// passes requireClientAccess for every client, so previewing grants no data
+// they cannot reach through the admin UI — it only changes which client's view
+// they are shown. Null for the real client path, which never sees a different
+// identity. Preview stays READ-ONLY for all three roles via the gate in fetch().
+function previewClientId(user, request) {
+    if (!isAdminRole(user)) { return null; }
     var pa = new URL(request.url).searchParams.get("previewAs");
     return pa || null;
 }
@@ -10573,19 +10576,19 @@ async function handlePostClientLogout(request, env) {
 async function handleGetPortalMe(request, env) {
     try {
         var user = await authenticate(request, env);
-        // Developer preview-as (LTC pattern): a developer with ?previewAs=<id>
-        // reads this endpoint as that client. Developer only — alice/rafa and
-        // the real client path are untouched. Writes stay blocked by the
-        // preview read-only gate in fetch().
-        var previewClientId = devPreviewClientId(user, request);
-        if (!previewClientId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
+        // Admin preview-as (LTC pattern): alice, rafa or a developer with
+        // ?previewAs=<id> reads this endpoint as that client. The real client
+        // path is untouched. Writes stay blocked by the preview read-only gate
+        // in fetch().
+        var previewId = previewClientId(user, request);
+        if (!previewId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
         // status is read fresh on EVERY portal load (never cached in the token
         // or session) so a lead who converts to 'active' via the Lead Pipeline
         // Outcome Control sees the full client portal on their very next load,
         // with no re-login and no migration step — same client_id row throughout.
         var client = await env.DB.prepare(
             "SELECT id, name, logo_url, industry, location, status FROM clients WHERE id = ?"
-        ).bind(previewClientId || user.client_id).first();
+        ).bind(previewId || user.client_id).first();
         if (!client) { return jsonErr("Client not found", 404); }
         var helpTemplateRow = await env.DB.prepare(
             "SELECT template_text FROM message_templates WHERE template_key = ?"
@@ -10618,14 +10621,14 @@ async function handleGetPortalMe(request, env) {
 async function handleGetPortalNextMeeting(request, env) {
     try {
         var user = await authenticate(request, env);
-        // Developer preview-as: same rule as handleGetPortalMe.
-        var previewClientId = devPreviewClientId(user, request);
-        if (!previewClientId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
+        // Admin preview-as: same rule as handleGetPortalMe.
+        var previewId = previewClientId(user, request);
+        if (!previewId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
         var row = await env.DB.prepare(
             "SELECT date, time, session_type, google_meet_link FROM sessions " +
             "WHERE client_id = ? AND status != 'discarded' AND status != 'cancelled' AND date >= date('now', '-1 day') " +
             "ORDER BY date ASC, COALESCE(time,'99:99') ASC LIMIT 1"
-        ).bind(previewClientId || user.client_id).first();
+        ).bind(previewId || user.client_id).first();
         return jsonOk({ meeting: row || null });
     } catch (e) {
         return jsonErr("Error fetching next meeting: " + e.message, 500);
@@ -15734,14 +15737,16 @@ export default {
         var gateResponse = await enforceClientRoleGate(request, env, path, method);
         if (gateResponse) { return gateResponse; }
 
-        // Developer preview-as is READ-ONLY, enforced here at the API level —
-        // not by hiding buttons. portal.html appends previewAs=<id> to every
+        // Admin preview-as is READ-ONLY, enforced here at the API level — not
+        // by hiding buttons. portal.html appends previewAs=<id> to every
         // request while previewing, so any non-GET arriving with that param
-        // from a developer is rejected before route dispatch.
+        // from an admin is rejected before route dispatch. Covers all three
+        // admin roles: alice and rafa preview too, and each would otherwise
+        // fall through to their normal (fully writable) admin routes.
         if (method !== "GET" && url.searchParams.get("previewAs")) {
             var previewUser = null;
             try { previewUser = await authenticate(request, env); } catch (e) { previewUser = null; }
-            if (previewUser && previewUser.role === "developer") {
+            if (isAdminRole(previewUser)) {
                 return jsonErr("Modo preview é somente leitura / Preview mode is read-only", 403);
             }
         }

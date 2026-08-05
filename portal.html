@@ -909,7 +909,10 @@
       <span class="show-pt"> — somente leitura</span><span class="show-en"> — read-only</span>
     </span>
     <span style="display:flex;gap:8px;">
-      <button type="button" onclick="previewSwitchClient()">
+      <!-- Developer-only: drives the dev view picker in nav.js, which no other
+           role has. Rafa/Alice reach preview from a single client's profile,
+           so they get Exit only — there is no picker for them to return to. -->
+      <button type="button" id="previewSwitchBtn" hidden onclick="previewSwitchClient()">
         <span class="show-pt">Trocar cliente</span><span class="show-en">Switch client</span>
       </button>
       <button type="button" onclick="previewExit()">
@@ -1720,10 +1723,23 @@
       return m ? decodeURIComponent(m[1]) : null;
     })();
 
+    // The previewer's real role, set at bootstrap. Only meaningful while
+    // PREVIEW_AS is set; null on a real client session.
+    var previewRealRole = null;
+
     function previewSwitchClient() {
       if (window.apexNavSetView) { window.apexNavSetView("client"); }
     }
-    function previewExit() { window.location.href = "dashboard.html"; }
+    // Back to where the preview was opened from. A developer came via the
+    // nav.js picker, so the dashboard is right (unchanged). Alice/Rafa came
+    // from one client's profile — return them to it, not to the dashboard.
+    function previewExit() {
+      if (PREVIEW_AS && previewRealRole && previewRealRole !== "developer") {
+        window.location.href = "client.html?id=" + encodeURIComponent(PREVIEW_AS);
+        return;
+      }
+      window.location.href = "dashboard.html";
+    }
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -5814,12 +5830,14 @@
         .then(function(res) { if (!res.ok) { throw new Error("auth"); } return res.json(); })
         .then(function(role) {
           if (role.role !== "client") {
-            // Developer preview-as: developers with ?previewAs stay here in
-            // read-only mode. Every other admin goes to their own dashboard.
-            if (!(PREVIEW_AS && role.role === "developer")) {
+            // Admin preview-as: any admin with ?previewAs stays here in
+            // read-only mode. Admins without it go to their own dashboard.
+            var isAdmin = (role.role === "alice" || role.role === "rafa" || role.role === "developer");
+            if (!(PREVIEW_AS && isAdmin)) {
               window.location.href = "dashboard.html";
               throw new Error("redirect");
             }
+            previewRealRole = role.role;
           } else if (PREVIEW_AS) {
             // a real client with a stray previewAs param — drop it
             window.location.href = "portal.html";
@@ -5850,6 +5868,9 @@
           if (PREVIEW_AS) {
             document.getElementById("previewClientLabel").textContent = clientName;
             document.getElementById("previewBanner").hidden = false;
+            // Only the developer picker can switch clients from in here.
+            var swBtn = document.getElementById("previewSwitchBtn");
+            if (swBtn) { swBtn.hidden = (previewRealRole !== "developer"); }
           }
           // A seller reaches none of these: field-config, the daily-entry
           // state, goals and assessments are all owner surfaces and the Worker

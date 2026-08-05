@@ -16999,6 +16999,23 @@ async function syncPlaidTransactions(env) {
     }
 
     await detectTransfers(env);
+
+    // Categorize on arrival, using rules only. This is what makes the work
+    // shrink: once she has told the system what HOME DEPOT is, every future
+    // Home Depot charge is filed before she ever looks at it. Rules are free
+    // and deterministic, so this costs nothing and cannot surprise her.
+    //
+    // The LLM layer is deliberately NOT run here -- it is a paid call and
+    // belongs behind an explicit action, not inside a sync that also fires on
+    // a 4-hourly cron. Failure is swallowed for the same reason categorization
+    // never gates anything: a sync that pulled her transactions correctly must
+    // not report failure because an enrichment pass had a problem.
+    try {
+        await applyCategorizationRules(env, null);
+    } catch (e) {
+        // Uncategorized is a normal state. Nothing to report.
+    }
+
     return summary;
 }
 
@@ -17258,13 +17275,576 @@ async function handleGetFinanceNewTransactions(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT t.id, t.account_id, t.amount_cents, t.date, t.posted_date, t.description, " +
-            "t.merchant_normalized, t.is_transfer, t.transfer_pair_id, t.transfer_status, t.pending " +
+            "t.merchant_normalized, t.is_transfer, t.transfer_pair_id, t.transfer_status, t.pending, " +
+            "t.category_id, t.category_source " +
             "FROM transactions t ORDER BY t.date DESC, t.created_at DESC LIMIT ?"
         ).bind(limit).all();
 
         return jsonOk({ transactions: res.results });
     } catch (e) {
         return jsonErr("Error fetching transactions: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// CATEGORIZATION
+//
+// THE GOVERNING RULE: categorization never gates anything. Balances, in/out/
+// net, the charts and the transaction list all keep working with zero
+// categories assigned. This layer only makes the picture richer. She abandoned
+// a correct finance tool once because it demanded her time before it gave her
+// anything, and a category prompt standing between her and her numbers would
+// repeat that exactly. An uncategorized transaction is a NORMAL state, never
+// an error state.
+//
+// THE WORK MUST SHRINK TOWARD ZERO. She categorizes one Home Depot charge as
+// Materiais; a rule is written on merchant_normalized; every future Home Depot
+// charge is categorized on arrival. Month one she categorizes a lot, month two
+// most transactions arrive pre-categorized, month three it is nearly silent.
+// That compounding is the entire point and the thing that makes this different
+// from the Zoho reconciliation she abandoned -- that work repeated forever,
+// this work shrinks.
+//
+// THREE LAYERS, IN ORDER:
+//   1. String rules — free, instant, deterministic. Handles recurring vendors,
+//      which is most of the volume.
+//   2. LLM fallback — only for merchants no rule matches. The answer is
+//      PERSISTED AS A RULE so no merchant is ever classified twice; otherwise
+//      we would pay repeatedly for the same answer. Merchants are batched, not
+//      called per-transaction.
+//   3. Her override — always available, and every override writes or updates
+//      a rule.
+// With no API key configured, layer 2 is skipped silently.
+// ===========================================================================
+
+// Apply every stored rule to transactions that do not yet have a category.
+//
+// Only ever fills in BLANKS. A transaction she categorized herself
+// (category_source = 'manual') is never touched by an automatic pass -- her
+// answer outranks the engine's, always.
+async function applyCategorizationRules(env, opts) {
+    var onlyPattern = (opts && opts.pattern) || null;
+
+    var rulesRes = onlyPattern
+        ? await env.DB.prepare(
+            "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL AND pattern = ?"
+          ).bind(onlyPattern).all()
+        : await env.DB.prepare(
+            "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL"
+          ).all();
+
+    var rules = rulesRes.results || [];
+    var applied = 0;
+
+    for (var i = 0; i < rules.length; i++) {
+        var r = rules[i];
+        var res;
+        if (r.match_type === "merchant_contains") {
+            res = await env.DB.prepare(
+                "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
+                "WHERE category_id IS NULL AND merchant_normalized LIKE ?"
+            ).bind(r.category_id, "%" + r.pattern + "%").run();
+        } else {
+            res = await env.DB.prepare(
+                "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
+                "WHERE category_id IS NULL AND merchant_normalized = ?"
+            ).bind(r.category_id, r.pattern).run();
+        }
+        applied += (res.meta && res.meta.changes) || 0;
+    }
+
+    return applied;
+}
+
+// Write or update the rule for a merchant key.
+//
+// UPSERT, not insert. Re-categorizing the same merchant must REPLACE the
+// existing rule rather than stack a second contradictory one whose winner
+// would depend on row order. A manual rule also overwrites an llm rule -- that
+// is exactly what "fixing a bad auto-categorization" means -- but an llm pass
+// never overwrites a manual one.
+async function upsertCategorizationRule(env, pattern, categoryId, source) {
+    if (!pattern) { return; }
+
+    var existing = await env.DB.prepare(
+        "SELECT id, source FROM categorization_rules WHERE pattern = ? AND match_type = 'merchant_exact'"
+    ).bind(pattern).first();
+
+    if (existing) {
+        if (existing.source === "manual" && source !== "manual") { return; }
+        await env.DB.prepare(
+            "UPDATE categorization_rules SET category_id = ?, source = ?, updated_at = datetime('now') WHERE id = ?"
+        ).bind(categoryId, source, existing.id).run();
+        return;
+    }
+
+    await env.DB.prepare(
+        "INSERT INTO categorization_rules (id, pattern, match_type, category_id, source) " +
+        "VALUES (?, ?, 'merchant_exact', ?, ?)"
+    ).bind(crypto.randomUUID(), pattern, categoryId, source).run();
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/categories — alice/rafa/developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewCategories(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, name_pt, name_en, kind, sort_order, archived FROM categories " +
+            "WHERE archived = 0 ORDER BY sort_order, name_pt"
+        ).all();
+
+        return jsonOk({ categories: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching categories: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/categories — alice/rafa/developer only.
+// Body: { name_pt, name_en, kind }
+// The seeded set is deliberately short; this is how she adds her own.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewCategory(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var namePt = String(body.name_pt || "").trim();
+        if (!namePt) { return jsonErr("name_pt required", 400); }
+
+        var kind = body.kind === "income" || body.kind === "transfer" ? body.kind : "expense";
+        var id   = "cat_" + crypto.randomUUID().slice(0, 8);
+
+        await env.DB.prepare(
+            "INSERT INTO categories (id, name_pt, name_en, kind, sort_order, created_at) " +
+            "VALUES (?, ?, ?, ?, 500, datetime('now'))"
+        ).bind(id, namePt, String(body.name_en || "").trim() || null, kind).run();
+
+        return jsonOk({ id: id, name_pt: namePt, kind: kind });
+    } catch (e) {
+        return jsonErr("Error creating category: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/categories/breakdown?month=YYYY-MM
+//
+// Spending by category for the period, business and personal shown separately
+// to match how the rest of the page treats them.
+//
+// TRANSFERS ARE NOT A CATEGORY. Anything flagged is_transfer, or detected as a
+// suspected/confirmed transfer leg, is excluded entirely -- moving money
+// between her own accounts is not spending and counting it would inflate every
+// total.
+//
+// The uncategorized remainder is returned as a FIRST-CLASS FIGURE, not
+// omitted. A breakdown that quietly drops what it does not know is a chart
+// that lies by subtraction.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewCategoryBreakdown(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        var start;
+        if (month && /^\d{4}-\d{2}$/.test(month)) {
+            start = month + "-01";
+        } else {
+            start = new Date().toISOString().slice(0, 7) + "-01";
+        }
+
+        var EXCLUDE_TRANSFERS =
+            "AND t.is_transfer = 0 AND t.transfer_status NOT IN ('suspected','confirmed') ";
+
+        // Spending only: money leaving the account, grouped by purpose and
+        // category. Income is reported separately below so a big client
+        // payment cannot visually cancel out a month of expenses.
+        var res = await env.DB.prepare(
+            "SELECT a.purpose, t.category_id, c.name_pt, c.name_en, c.kind, " +
+            "SUM(-t.amount_cents) AS spent_cents, COUNT(*) AS n " +
+            "FROM transactions t " +
+            "JOIN accounts a ON a.id = t.account_id " +
+            "LEFT JOIN categories c ON c.id = t.category_id " +
+            "WHERE t.date >= ? AND t.date < date(?, '+1 month') AND t.amount_cents < 0 " +
+            EXCLUDE_TRANSFERS +
+            "GROUP BY a.purpose, t.category_id ORDER BY spent_cents DESC"
+        ).bind(start, start).all();
+
+        var out = { month: start.slice(0, 7), business: [], personal: [], uncategorized: {} };
+        var rows = res.results || [];
+        var uncat = { business: { cents: 0, n: 0 }, personal: { cents: 0, n: 0 } };
+
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var bucket = r.purpose === "personal" ? "personal" : "business";
+            if (!r.category_id) {
+                uncat[bucket] = { cents: r.spent_cents || 0, n: r.n || 0 };
+                continue;
+            }
+            out[bucket].push({
+                category_id: r.category_id,
+                name_pt:     r.name_pt,
+                name_en:     r.name_en,
+                kind:        r.kind,
+                spent_cents: r.spent_cents || 0,
+                n:           r.n || 0
+            });
+        }
+
+        out.uncategorized = uncat;
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error building breakdown: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/transactions/:id/category
+// Body: { category_id, scope }
+//
+// THE SCOPE PROMPT, modeled on Google Calendar's recurring-event edit dialog
+// because it is the same three-way ambiguity and users already recognize the
+// pattern:
+//   'one'    — this transaction only. NO RULE WRITTEN.
+//   'future' — this transaction + a rule. Past untouched.
+//   'all'    — a rule, applied retroactively to every past transaction from
+//              this merchant.
+//
+// WHY ASK RATHER THAN DEFAULT: both cases are real and a system that guesses
+// is wrong about half the time. Fixing a bad auto-categorization should hit
+// everything, past and future -- the rule was wrong. A genuine one-off
+// (usually materials at Home Depot, this once a gift) should touch one
+// transaction, and a rule there would be actively wrong.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewTransactionCategory(request, env, txnId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body  = await request.json().catch(function() { return {}; });
+        var scope = body.scope === "future" || body.scope === "all" ? body.scope : "one";
+        var categoryId = body.category_id || null;
+
+        var txn = await env.DB.prepare(
+            "SELECT id, merchant_normalized FROM transactions WHERE id = ?"
+        ).bind(txnId).first();
+        if (!txn) { return jsonErr("Transaction not found", 404); }
+
+        if (categoryId) {
+            var cat = await env.DB.prepare("SELECT id FROM categories WHERE id = ?").bind(categoryId).first();
+            if (!cat) { return jsonErr("Category not found", 400); }
+        }
+
+        // The transaction itself, in every scope. Marked 'manual' so no later
+        // automatic pass can quietly overwrite her answer.
+        await env.DB.prepare(
+            "UPDATE transactions SET category_id = ?, category_source = 'manual', categorized_at = datetime('now') WHERE id = ?"
+        ).bind(categoryId, txnId).run();
+
+        var ruleWritten = false;
+        var retroApplied = 0;
+
+        if (scope !== "one" && txn.merchant_normalized) {
+            await upsertCategorizationRule(env, txn.merchant_normalized, categoryId, "manual");
+            ruleWritten = true;
+
+            if (scope === "all") {
+                // Retroactive. Deliberately does NOT overwrite other manual
+                // choices -- if she filed one Home Depot charge as a gift on
+                // purpose, a later blanket rule should not silently undo that
+                // specific decision.
+                var res = await env.DB.prepare(
+                    "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
+                    "WHERE merchant_normalized = ? AND id != ? AND (category_source IS NULL OR category_source != 'manual')"
+                ).bind(categoryId, txn.merchant_normalized, txnId).run();
+                retroApplied = (res.meta && res.meta.changes) || 0;
+            } else {
+                // 'future': fill blanks only, past categorized rows untouched.
+                retroApplied = await applyCategorizationRules(env, { pattern: txn.merchant_normalized });
+            }
+        }
+
+        return jsonOk({
+            ok: true,
+            scope: scope,
+            rule_written: ruleWritten,
+            applied: retroApplied
+        });
+    } catch (e) {
+        return jsonErr("Error setting category: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/transactions/:id/category-impact
+//
+// How many past transactions "Todo o historico" would change, counted BEFORE
+// she commits. Retroactive edits silently rewriting months of history is
+// exactly the kind of surprise that makes someone stop trusting the numbers,
+// and it shifts the month-over-month comparison she reads at the top of the
+// page.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewCategoryImpact(request, env, txnId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var txn = await env.DB.prepare(
+            "SELECT id, merchant_normalized FROM transactions WHERE id = ?"
+        ).bind(txnId).first();
+        if (!txn) { return jsonErr("Transaction not found", 404); }
+        if (!txn.merchant_normalized) {
+            return jsonOk({ merchant: null, all_count: 0, future_count: 0 });
+        }
+
+        var all = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM transactions " +
+            "WHERE merchant_normalized = ? AND id != ? AND (category_source IS NULL OR category_source != 'manual')"
+        ).bind(txn.merchant_normalized, txnId).first();
+
+        var blanks = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM transactions " +
+            "WHERE merchant_normalized = ? AND id != ? AND category_id IS NULL"
+        ).bind(txn.merchant_normalized, txnId).first();
+
+        return jsonOk({
+            merchant:     txn.merchant_normalized,
+            all_count:    (all && all.n) || 0,
+            future_count: (blanks && blanks.n) || 0
+        });
+    } catch (e) {
+        return jsonErr("Error computing impact: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/categorization/rules — list.
+// Route: PATCH /api/finance-new/categorization/rules/:id — change category.
+// Route: DELETE /api/finance-new/categorization/rules/:id — remove.
+//
+// A wrong rule that keeps reapplying is worse than no rule, so she can always
+// see the list and edit or delete any entry.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewRules(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT r.id, r.pattern, r.match_type, r.category_id, r.source, r.created_at, " +
+            "c.name_pt, c.name_en, " +
+            "(SELECT COUNT(*) FROM transactions t WHERE t.merchant_normalized = r.pattern) AS match_count " +
+            "FROM categorization_rules r LEFT JOIN categories c ON c.id = r.category_id " +
+            "ORDER BY r.created_at DESC"
+        ).all();
+
+        return jsonOk({ rules: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching rules: " + e.message, 500);
+    }
+}
+
+async function handlePatchFinanceNewRule(request, env, ruleId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.category_id) { return jsonErr("category_id required", 400); }
+
+        var rule = await env.DB.prepare(
+            "SELECT id, pattern FROM categorization_rules WHERE id = ?"
+        ).bind(ruleId).first();
+        if (!rule) { return jsonErr("Rule not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE categorization_rules SET category_id = ?, source = 'manual', updated_at = datetime('now') WHERE id = ?"
+        ).bind(body.category_id, ruleId).run();
+
+        // Fixing a rule means the old answer was wrong, so past transactions it
+        // auto-filed are corrected too -- but never the ones she chose herself.
+        var res = await env.DB.prepare(
+            "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
+            "WHERE merchant_normalized = ? AND (category_source IS NULL OR category_source != 'manual')"
+        ).bind(body.category_id, rule.pattern).run();
+
+        return jsonOk({ ok: true, applied: (res.meta && res.meta.changes) || 0 });
+    } catch (e) {
+        return jsonErr("Error updating rule: " + e.message, 500);
+    }
+}
+
+async function handleDeleteFinanceNewRule(request, env, ruleId) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var rule = await env.DB.prepare(
+            "SELECT id, pattern FROM categorization_rules WHERE id = ?"
+        ).bind(ruleId).first();
+        if (!rule) { return jsonErr("Rule not found", 404); }
+
+        await env.DB.prepare("DELETE FROM categorization_rules WHERE id = ?").bind(ruleId).run();
+
+        // Deleting the rule un-files what the rule filed, so the breakdown
+        // stops asserting a categorization she just rejected. Her own manual
+        // choices survive -- she deleted the rule, not her decisions.
+        var res = await env.DB.prepare(
+            "UPDATE transactions SET category_id = NULL, category_source = NULL, categorized_at = NULL " +
+            "WHERE merchant_normalized = ? AND category_source IN ('rule','llm')"
+        ).bind(rule.pattern).run();
+
+        return jsonOk({ ok: true, cleared: (res.meta && res.meta.changes) || 0 });
+    } catch (e) {
+        return jsonErr("Error deleting rule: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/categorization/run — alice/rafa/developer only.
+//
+// Layer 1 then layer 2. Rules first (free, instant), then the LLM on whatever
+// merchants remain unmatched.
+//
+// THE LLM ANSWER IS PERSISTED AS A RULE. Without that we would pay for the
+// same merchant every sync forever. Merchants are batched into a single call
+// rather than one call per transaction, and DISTINCT merchant keys are sent,
+// not transactions -- forty Starbucks charges are one question.
+//
+// If no API key is configured, layer 2 is skipped SILENTLY and those
+// transactions stay uncategorized. That is a normal state, not an error.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewCategorizationRun(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var byRules = await applyCategorizationRules(env, null);
+
+        var out = { by_rules: byRules, by_llm: 0, llm_used: false, merchants_sent: 0 };
+
+        if (!env.CLAUDE_API_KEY) {
+            out.llm_skipped_reason = "no_api_key";
+            return jsonOk(out);
+        }
+
+        // Distinct unmatched merchants only. Transfers are never sent -- they
+        // are not spending and do not belong to a spending category.
+        var pending = await env.DB.prepare(
+            "SELECT t.merchant_normalized AS m, COUNT(*) AS n, MAX(t.description) AS sample " +
+            "FROM transactions t WHERE t.category_id IS NULL AND t.merchant_normalized IS NOT NULL " +
+            "AND t.merchant_normalized != '' AND t.is_transfer = 0 " +
+            "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+            "AND NOT EXISTS (SELECT 1 FROM categorization_rules r WHERE r.pattern = t.merchant_normalized) " +
+            "GROUP BY t.merchant_normalized ORDER BY n DESC LIMIT 60"
+        ).all();
+
+        var merchants = pending.results || [];
+        if (merchants.length === 0) { return jsonOk(out); }
+
+        var cats = await env.DB.prepare(
+            "SELECT id, name_pt, kind FROM categories WHERE archived = 0 AND kind != 'transfer' ORDER BY sort_order"
+        ).all();
+        var catList = (cats.results || []).map(function(c) {
+            return c.id + " = " + c.name_pt + " (" + c.kind + ")";
+        }).join("\n");
+
+        var merchantList = merchants.map(function(m, i) {
+            return (i + 1) + ". " + m.m + "   [example: " + String(m.sample || "").slice(0, 60) + "]";
+        }).join("\n");
+
+        var prompt =
+            "You are categorizing bank transaction merchants for a small Brazilian consulting firm.\n\n" +
+            "Available categories (use the id on the left):\n" + catList + "\n\n" +
+            "Merchants to categorize:\n" + merchantList + "\n\n" +
+            "Return ONLY a JSON array, no markdown and no explanation. Each element must be " +
+            '{"merchant": "<exact merchant string as given>", "category_id": "<one id from the list>"}. ' +
+            "If you are genuinely unsure about a merchant, OMIT it from the array entirely rather than guessing -- " +
+            "leaving it uncategorized is expected and fine.";
+
+        var claudeRes = await fetch(CLAUDE_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type":      "application/json",
+                "x-api-key":         env.CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01"
+            },
+            body: JSON.stringify({
+                model:      CLAUDE_MODEL,
+                max_tokens: 2048,
+                messages:   [{ role: "user", content: prompt }]
+            })
+        });
+
+        // A failed LLM call is not a failed categorization run. Layer 1 already
+        // succeeded and those results stand; the rest simply stay uncategorized.
+        if (!claudeRes.ok) {
+            out.llm_skipped_reason = "api_error";
+            return jsonOk(out);
+        }
+
+        var claudeData = await claudeRes.json();
+        var rawText = ((claudeData.content && claudeData.content[0] && claudeData.content[0].text) || "").trim();
+
+        var parsed = [];
+        try {
+            parsed = JSON.parse(rawText);
+        } catch (parseErr) {
+            var arrMatch = rawText.match(/\[[\s\S]*\]/);
+            if (arrMatch) {
+                try { parsed = JSON.parse(arrMatch[0]); } catch (e2) { parsed = []; }
+            }
+        }
+        if (!Array.isArray(parsed)) { parsed = []; }
+
+        out.llm_used = true;
+        out.merchants_sent = merchants.length;
+
+        var validCatIds = {};
+        (cats.results || []).forEach(function(c) { validCatIds[c.id] = true; });
+
+        for (var i = 0; i < parsed.length; i++) {
+            var p = parsed[i];
+            if (!p || !p.merchant || !p.category_id) { continue; }
+            if (!validCatIds[p.category_id]) { continue; }   // never trust an invented id
+
+            // Persisted as a rule so this merchant is never sent to the LLM
+            // again -- this is what stops the cost from repeating.
+            await upsertCategorizationRule(env, p.merchant, p.category_id, "llm");
+
+            var r = await env.DB.prepare(
+                "UPDATE transactions SET category_id = ?, category_source = 'llm', categorized_at = datetime('now') " +
+                "WHERE category_id IS NULL AND merchant_normalized = ?"
+            ).bind(p.category_id, p.merchant).run();
+            out.by_llm += (r.meta && r.meta.changes) || 0;
+        }
+
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error running categorization: " + e.message, 500);
     }
 }
 
@@ -18620,6 +19200,26 @@ export default {
         }
         if (path === "/api/finance-new/summary"           && method === "GET")  { return handleGetFinanceNewSummary(request, env); }
         if (path === "/api/finance-new/transactions"      && method === "GET")  { return handleGetFinanceNewTransactions(request, env); }
+
+        // --- categorization ------------------------------------------------
+        if (path === "/api/finance-new/categories"           && method === "GET")  { return handleGetFinanceNewCategories(request, env); }
+        if (path === "/api/finance-new/categories"           && method === "POST") { return handlePostFinanceNewCategory(request, env); }
+        if (path === "/api/finance-new/categories/breakdown" && method === "GET")  { return handleGetFinanceNewCategoryBreakdown(request, env); }
+        if (path === "/api/finance-new/categorization/run"   && method === "POST") { return handlePostFinanceNewCategorizationRun(request, env); }
+        if (path === "/api/finance-new/categorization/rules" && method === "GET")  { return handleGetFinanceNewRules(request, env); }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "categorization" &&
+            segs[3] === "rules" && segs[4]) {
+            if (method === "PATCH")  { return handlePatchFinanceNewRule(request, env, segs[4]); }
+            if (method === "DELETE") { return handleDeleteFinanceNewRule(request, env, segs[4]); }
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "transactions" && segs[3]) {
+            if (segs[4] === "category" && method === "POST") {
+                return handlePostFinanceNewTransactionCategory(request, env, segs[3]);
+            }
+            if (segs[4] === "category-impact" && method === "GET") {
+                return handleGetFinanceNewCategoryImpact(request, env, segs[3]);
+            }
+        }
         if (path === "/api/finance-new/transfers/confirm" && method === "POST") { return handlePostFinanceNewTransferConfirm(request, env); }
         if (path === "/api/finance-new/transfers/reject"  && method === "POST") { return handlePostFinanceNewTransferReject(request, env); }
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }

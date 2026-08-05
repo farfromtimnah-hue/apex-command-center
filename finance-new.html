@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
+  <title>Apex &#8212; Financeiro (Novo)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Plaid Link, loaded straight from the CDN: no build step in this repo. -->
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+      --green    : #2e7d44;
+      --red      : #b3261e;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 14px; }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ─── Loading ───────────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Layout ────────────────────────────────────────────────────────── */
+    #appMain { flex: 1; padding: 28px; max-width: 1180px; width: 100%; margin: 0 auto; }
+    #appMain[hidden] { display: none !important; }
+
+    .page-heading {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: 4px;
+    }
+    .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* ─── Banners ───────────────────────────────────────────────────────── */
+    .banner {
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .banner-warn { background: #fdf4e3; border: 1px solid #e8cf9a; color: #7a5c2e; }
+    .banner-info { background: #f1f4f8; border: 1px solid #d5dde8; color: #44546a; }
+    .banner[hidden] { display: none !important; }
+
+    /* ─── Account cards ─────────────────────────────────────────────────── */
+    .acct-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .acct-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .acct-card.is-business { border-top: 3px solid var(--gold); }
+    .acct-card.is-personal { border-top: 3px solid #7a8ca3; }
+
+    .acct-kind {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .acct-balance { font-size: 28px; font-weight: 700; letter-spacing: -0.6px; }
+    .acct-meta { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    .flow-row {
+      display: flex;
+      gap: 18px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .flow-item { flex: 1; min-width: 90px; }
+    .flow-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+    .flow-value { font-size: 17px; font-weight: 600; margin-top: 3px; }
+    .is-green { color: var(--green); }
+    .is-red   { color: var(--red); }
+
+    .net-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.45; }
+
+    /* ─── Buttons ───────────────────────────────────────────────────────── */
+    .btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { border-color: var(--gold); }
+    .btn-gold { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .btn-gold:hover { background: #b7942f; border-color: #b7942f; }
+    .btn-sm { font-size: 12px; padding: 6px 11px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* ─── Tables ────────────────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td { padding: 9px 10px; border-bottom: 1px solid #f2eee7; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .table-wrap { overflow-x: auto; }
+
+    .pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: #f0ece4;
+      color: var(--muted);
+    }
+    .pill-pending { background: #fdf4e3; color: #8a6d2f; }
+    .pill-transfer { background: #eef1f6; color: #55637a; }
+
+    /* ─── Filters ───────────────────────────────────────────────────────── */
+    .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .filter-row input, .filter-row select {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+    }
+    .filter-row input:focus, .filter-row select:focus { outline: none; border-color: var(--gold); }
+    .filter-row input[type="search"] { min-width: 190px; flex: 1; }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 22px 0;
+      text-align: center;
+    }
+
+    /* ─── Link / tagging modal ──────────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(26,26,29,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 20px;
+    }
+    .overlay[hidden] { display: none !important; }
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      max-width: 520px;
+      width: 100%;
+      padding: 24px;
+      max-height: 86vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+
+    .tag-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .tag-row:last-of-type { border-bottom: none; }
+    .tag-name { font-size: 13px; font-weight: 600; }
+    .tag-meta { font-size: 11px; color: var(--muted); }
+
+    .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .seg button {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px; font-weight: 600;
+      padding: 6px 12px; border: none; background: #fff;
+      color: var(--muted); cursor: pointer;
+    }
+    .seg button.is-on { background: var(--gold); color: #fff; }
+
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ─── Toast ─────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+      background: var(--header); color: #fff;
+      font-size: 13px; padding: 11px 18px; border-radius: 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.24);
+      z-index: 300; display: flex; align-items: center; gap: 14px;
+    }
+    #toast[hidden] { display: none !important; }
+    #toast button {
+      background: transparent; border: 1px solid rgba(255,255,255,0.35);
+      color: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+      padding: 4px 10px; border-radius: 14px; cursor: pointer;
+    }
+
+    @media (max-width: 720px) {
+      #appMain { padding: 18px 14px 90px; }
+      #appHeader { padding: 0 14px; }
+      .acct-balance { font-size: 24px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <nav id="navSidebar"></nav>
+
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <h1 class="page-heading">
+      <span class="show-pt">Financeiro</span>
+      <span class="show-en">Financial</span>
+    </h1>
+    <div class="page-sub">
+      <span class="show-pt">Saldos e movimenta&ccedil;&atilde;o direto do banco. Nada aqui exige categoriza&ccedil;&atilde;o.</span>
+      <span class="show-en">Balances and cash movement straight from the bank. Nothing here requires categorization.</span>
+    </div>
+
+    <!-- Re-auth banner: a dead connection must never be silent. -->
+    <div id="reauthBanner" class="banner banner-warn" hidden>
+      <span>
+        <span class="show-pt">Uma conex&atilde;o banc&aacute;ria precisa ser reconectada. Os dados abaixo podem estar desatualizados.</span>
+        <span class="show-en">A bank connection needs to be reconnected. The data below may be out of date.</span>
+      </span>
+      <button class="btn btn-sm btn-gold" onclick="reconnectFirstBrokenItem()">
+        <span class="show-pt">Reconectar</span>
+        <span class="show-en">Reconnect</span>
+      </button>
+    </div>
+
+    <!-- Staleness banner: never silently show old numbers. -->
+    <div id="staleBanner" class="banner banner-info" hidden>
+      <span id="staleText"></span>
+    </div>
+
+    <!-- ── Connect (shown when nothing is linked) ── -->
+    <div id="connectCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Conectar contas</span>
+        <span class="show-en">Connect accounts</span>
+      </div>
+      <div class="page-sub" style="margin-bottom:16px">
+        <span class="show-pt">Escolha o bot&atilde;o certo: &eacute; ele que define se a conta entra como comercial ou pessoal.</span>
+        <span class="show-en">Pick the right button: it decides whether the account is filed as business or personal.</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-gold" onclick="startLink('business')">
+          <span class="show-pt">Conectar conta comercial</span>
+          <span class="show-en">Connect business account</span>
+        </button>
+        <button class="btn" onclick="startLink('personal')">
+          <span class="show-pt">Conectar conta pessoal</span>
+          <span class="show-en">Connect personal account</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Dashboard cards ── -->
+    <div id="acctGrid" class="acct-grid"></div>
+
+    <!-- ── Linked accounts / re-tagging ── -->
+    <div id="linkedCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Contas conectadas</span>
+        <span class="show-en">Linked accounts</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
+              <th><span class="show-pt">Banco</span><span class="show-en">Bank</span></th>
+              <th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>
+              <th class="num"><span class="show-pt">Saldo</span><span class="show-en">Balance</span></th>
+            </tr>
+          </thead>
+          <tbody id="linkedBody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn btn-sm" onclick="startLink('business')">
+          <span class="show-pt">+ Conta comercial</span>
+          <span class="show-en">+ Business account</span>
+        </button>
+        <button class="btn btn-sm" onclick="startLink('personal')">
+          <span class="show-pt">+ Conta pessoal</span>
+          <span class="show-en">+ Personal account</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Suspected transfers ── -->
+    <div id="transferCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Transfer&ecirc;ncias suspeitas</span>
+        <span class="show-en">Suspected transfers</span>
+      </div>
+      <div class="page-sub" style="margin-bottom:12px">
+        <span class="show-pt">Dinheiro movido entre as suas pr&oacute;prias contas n&atilde;o &eacute; receita nem despesa. Confirme para tirar dos totais.</span>
+        <span class="show-en">Money moved between your own accounts is neither income nor expense. Confirm to remove it from the totals.</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
+              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
+              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="transferBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Transactions (Stage 4) ── -->
+    <div id="txnCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Transa&ccedil;&otilde;es</span>
+        <span class="show-en">Transactions</span>
+      </div>
+      <div class="filter-row">
+        <input type="search" id="txnSearch" oninput="renderTransactions()"
+               placeholder="Buscar descri&ccedil;&atilde;o...">
+        <select id="txnAccount" onchange="renderTransactions()">
+          <option value="">Todas as contas / All accounts</option>
+        </select>
+        <select id="txnPending" onchange="renderTransactions()">
+          <option value="">Todos / All</option>
+          <option value="posted">Confirmadas / Posted</option>
+          <option value="pending">Pendentes / Pending</option>
+        </select>
+        <input type="date" id="txnFrom" onchange="renderTransactions()">
+        <input type="date" id="txnTo" onchange="renderTransactions()">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
+              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
+              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
+              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+            </tr>
+          </thead>
+          <tbody id="txnBody"></tbody>
+        </table>
+      </div>
+      <div id="txnEmpty" class="empty" hidden>
+        <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
+        <span class="show-en">No transactions found.</span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ═══════════════ ACCOUNT TAGGING MODAL ═══════════════════════════════ -->
+  <div id="tagOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Marcar cada conta</span>
+        <span class="show-en">Tag each account</span>
+      </div>
+      <div class="modal-sub">
+        <span class="show-pt">O banco entregou mais de uma conta neste login. Marque cada uma &mdash; o nome que o banco usa n&atilde;o diz se ela &eacute; comercial ou pessoal.</span>
+        <span class="show-en">The bank returned more than one account for this login. Tag each one &mdash; the bank's own name does not tell us whether it is business or personal.</span>
+      </div>
+      <div id="tagRows"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeTagModal()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="confirmTagging()">
+          <span class="show-pt">Confirmar</span>
+          <span class="show-en">Confirm</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" hidden><span id="toastText"></span></div>
+
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth        = null;
+    var currentUser = null;
+
+    var ACCOUNTS      = [];
+    var REAUTH_ITEMS  = [];
+    var TRANSACTIONS  = [];
+    var SUMMARY       = null;
+    var PENDING_LINK  = null;   // { purpose, public_token, accounts[] } mid-tagging
+
+    // ── Auth plumbing (identical to finance.html) ──────────────────────────
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function apiFetch(path, opts) {
+      return getToken().then(function(token) {
+        var method  = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + token };
+        var fOpts   = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fOpts.body = JSON.stringify(opts.body);
+        }
+        return fetch(WORKER_URL + path, fOpts);
+      });
+    }
+
+    function handleSignOut() {
+      auth.signOut().then(function() { window.location.href = "index.html"; });
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var el = document.getElementById("headerEmail");
+      if (el) { el.textContent = displayName || email || ""; }
+    }
+
+    function isEn() { return document.body.classList.contains("lang-en"); }
+
+    // ── Formatting ─────────────────────────────────────────────────────────
+    // Money arrives as INTEGER CENTS and is divided exactly once, here.
+    function fmtCents(cents) {
+      var v = (Number(cents) || 0) / 100;
+      return v.toLocaleString(isEn() ? "en-US" : "pt-BR",
+        { style: "currency", currency: "USD" });
+    }
+
+    function fmtDate(iso) {
+      if (!iso) { return ""; }
+      var p = String(iso).slice(0, 10).split("-");
+      if (p.length !== 3) { return iso; }
+      return isEn() ? (p[1] + "/" + p[2] + "/" + p[0]) : (p[2] + "/" + p[1] + "/" + p[0]);
+    }
+
+    function esc(s) {
+      return String(s === null || s === undefined ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function toast(msg, actionLabel, actionFn, ms) {
+      var t = document.getElementById("toast");
+      var tx = document.getElementById("toastText");
+      tx.textContent = msg;
+      var old = t.querySelector("button");
+      if (old) { old.remove(); }
+      if (actionLabel) {
+        var b = document.createElement("button");
+        b.textContent = actionLabel;
+        b.onclick = function() { t.hidden = true; actionFn(); };
+        t.appendChild(b);
+      }
+      t.hidden = false;
+      clearTimeout(t._timer);
+      t._timer = setTimeout(function() { t.hidden = true; }, ms || 4000);
+    }
+
+    // ═══════════════ PLAID LINK ═══════════════════════════════════════════
+    //
+    // purpose comes from WHICH BUTTON was clicked and is threaded all the way
+    // to /exchange. It is never read off the institution or the account name.
+
+    function startLink(purpose) {
+      apiFetch("/api/finance-new/link-token", { method: "POST", body: { purpose: purpose } })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (!data.link_token) {
+            toast(data.error || (isEn() ? "Could not start the bank connection." : "N&atilde;o foi poss&iacute;vel iniciar a conex&atilde;o."));
+            return;
+          }
+          var handler = Plaid.create({
+            token: data.link_token,
+            onSuccess: function(public_token, metadata) {
+              var accts = (metadata && metadata.accounts) || [];
+              // One account: the button already answered the question.
+              // Two or more (a shared BofA login returns both): ask per account
+              // rather than guessing from the bank's naming.
+              if (accts.length <= 1) {
+                submitExchange(public_token, purpose, accts.map(function(a) {
+                  return { id: a.id, purpose: purpose };
+                }));
+              } else {
+                openTagModal(public_token, purpose, accts);
+              }
+            },
+            onExit: function() {}
+          });
+          handler.open();
+        })
+        .catch(function() {
+          toast(isEn() ? "Could not start the bank connection." : "N&atilde;o foi poss&iacute;vel iniciar a conex&atilde;o.");
+        });
+    }
+
+    function openTagModal(publicToken, defaultPurpose, accounts) {
+      PENDING_LINK = { public_token: publicToken, purpose: defaultPurpose, accounts: [] };
+      var host = document.getElementById("tagRows");
+      host.innerHTML = "";
+      accounts.forEach(function(a, idx) {
+        PENDING_LINK.accounts.push({ id: a.id, purpose: defaultPurpose });
+        var row = document.createElement("div");
+        row.className = "tag-row";
+        row.innerHTML =
+          '<div><div class="tag-name">' + esc(a.name || "") + '</div>' +
+          '<div class="tag-meta">' + esc(a.subtype || "") +
+          (a.mask ? " &middot;&middot;&middot;&middot; " + esc(a.mask) : "") + '</div></div>' +
+          '<div class="seg">' +
+            '<button type="button" data-i="' + idx + '" data-p="business">Comercial</button>' +
+            '<button type="button" data-i="' + idx + '" data-p="personal">Pessoal</button>' +
+          '</div>';
+        host.appendChild(row);
+      });
+      host.querySelectorAll(".seg button").forEach(function(btn) {
+        if (btn.getAttribute("data-p") === defaultPurpose) { btn.classList.add("is-on"); }
+        btn.onclick = function() {
+          var i = Number(btn.getAttribute("data-i"));
+          var p = btn.getAttribute("data-p");
+          PENDING_LINK.accounts[i].purpose = p;
+          var sibs = btn.parentNode.querySelectorAll("button");
+          sibs.forEach(function(s) { s.classList.remove("is-on"); });
+          btn.classList.add("is-on");
+        };
+      });
+      document.getElementById("tagOverlay").hidden = false;
+    }
+
+    function closeTagModal() {
+      document.getElementById("tagOverlay").hidden = true;
+      PENDING_LINK = null;
+    }
+
+    function confirmTagging() {
+      if (!PENDING_LINK) { return; }
+      var p = PENDING_LINK;
+      document.getElementById("tagOverlay").hidden = true;
+      PENDING_LINK = null;
+      submitExchange(p.public_token, p.purpose, p.accounts);
+    }
+
+    function submitExchange(publicToken, purpose, accounts) {
+      apiFetch("/api/finance-new/exchange", {
+        method: "POST",
+        body: { public_token: publicToken, purpose: purpose, accounts: accounts }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { toast(data.error); return; }
+          toast(isEn() ? "Account connected." : "Conta conectada.");
+          loadAll();
+        })
+        .catch(function() {
+          toast(isEn() ? "Could not finish connecting." : "N&atilde;o foi poss&iacute;vel concluir a conex&atilde;o.");
+        });
+    }
+
+    // Update-mode re-auth: reconnect a broken Item without losing its history.
+    function reconnectFirstBrokenItem() {
+      if (!REAUTH_ITEMS.length) { return; }
+      var itemId = REAUTH_ITEMS[0].id;
+      apiFetch("/api/finance-new/link-token/update", { method: "POST", body: { item_id: itemId } })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (!data.link_token) { toast(data.error || "Erro"); return; }
+          var handler = Plaid.create({
+            token: data.link_token,
+            onSuccess: function() {
+              toast(isEn() ? "Connection restored." : "Conex&atilde;o restaurada.");
+              loadAll();
+            },
+            onExit: function() {}
+          });
+          handler.open();
+        })
+        .catch(function() { toast("Erro"); });
+    }
+
+    function retagAccount(accountId, purpose) {
+      apiFetch("/api/finance-new/accounts/" + accountId, {
+        method: "PATCH", body: { purpose: purpose }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function() { loadAll(); })
+        .catch(function() { toast("Erro"); });
+    }
+
+    // ═══════════════ RENDERING ════════════════════════════════════════════
+
+    function renderAccountCards() {
+      var grid = document.getElementById("acctGrid");
+      var connectCard = document.getElementById("connectCard");
+
+      if (!ACCOUNTS.length) {
+        grid.innerHTML = "";
+        connectCard.hidden = false;
+        document.getElementById("linkedCard").hidden = true;
+        return;
+      }
+      connectCard.hidden = true;
+      document.getElementById("linkedCard").hidden = false;
+
+      var kinds = [
+        { key: "business", pt: "Conta Comercial", en: "Business Account" },
+        { key: "personal", pt: "Conta Pessoal",   en: "Personal Account" }
+      ];
+
+      grid.innerHTML = kinds.map(function(k) {
+        var accts = ACCOUNTS.filter(function(a) { return a.purpose === k.key; });
+        if (!accts.length) { return ""; }
+
+        var balance = accts.reduce(function(s, a) { return s + (a.balance_cents || 0); }, 0);
+        var flow = SUMMARY && SUMMARY[k.key] ? SUMMARY[k.key] : null;
+
+        var flowHtml = "";
+        if (flow) {
+          // The honesty threshold decides whether a net figure appears at all.
+          // A wrong headline on a hands-off dashboard is worse than no
+          // headline, because she cannot tell it is wrong and will act on it.
+          var netBlock = "";
+          if (flow.net_shown) {
+            netBlock =
+              '<div class="flow-item"><div class="flow-label">' +
+                (flow.net_labeled
+                  ? '<span class="show-pt">L&iacute;quido ap&oacute;s transfer&ecirc;ncias detectadas</span><span class="show-en">Net after detected transfers</span>'
+                  : '<span class="show-pt">L&iacute;quido</span><span class="show-en">Net</span>') +
+              '</div><div class="flow-value ' + (flow.net_cents >= 0 ? "is-green" : "is-red") + '">' +
+              fmtCents(flow.net_cents) + '</div></div>';
+          }
+
+          flowHtml =
+            '<div class="flow-row">' +
+              '<div class="flow-item"><div class="flow-label"><span class="show-pt">Entrou</span><span class="show-en">In</span></div>' +
+                '<div class="flow-value is-green">' + fmtCents(flow.in_cents) + '</div></div>' +
+              '<div class="flow-item"><div class="flow-label"><span class="show-pt">Saiu</span><span class="show-en">Out</span></div>' +
+                '<div class="flow-value is-red">' + fmtCents(flow.out_cents) + '</div></div>' +
+              netBlock +
+            '</div>';
+
+          if (!flow.net_shown) {
+            flowHtml += '<div class="net-note">' +
+              '<span class="show-pt">O l&iacute;quido n&atilde;o &eacute; exibido: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre as suas contas com confian&ccedil;a suficiente, e um n&uacute;mero errado seria pior que nenhum.</span>' +
+              '<span class="show-en">Net is hidden: transfers between your own accounts could not be identified with enough confidence, and a wrong number would be worse than none.</span>' +
+              '</div>';
+          } else if (flow.net_labeled) {
+            flowHtml += '<div class="net-note">' +
+              '<span class="show-pt">Algumas transfer&ecirc;ncias podem n&atilde;o ter sido detectadas. Entrou e saiu acima s&atilde;o os valores brutos.</span>' +
+              '<span class="show-en">Some transfers may not have been detected. In and out above are the raw figures.</span>' +
+              '</div>';
+          }
+
+          if (flow.pending_cents) {
+            flowHtml += '<div class="net-note"><span class="show-pt">Inclui ' + fmtCents(flow.pending_cents) +
+              ' em transa&ccedil;&otilde;es pendentes, que ainda podem mudar.</span>' +
+              '<span class="show-en">Includes ' + fmtCents(flow.pending_cents) +
+              ' in pending transactions, which may still change.</span></div>';
+          }
+        }
+
+        return '<div class="acct-card is-' + k.key + '">' +
+          '<div class="acct-kind"><span class="show-pt">' + k.pt + '</span><span class="show-en">' + k.en + '</span></div>' +
+          '<div class="acct-balance">' + fmtCents(balance) + '</div>' +
+          '<div class="acct-meta">' + accts.map(function(a) {
+            return esc(a.name) + (a.mask ? " &middot;&middot;&middot;&middot;" + esc(a.mask) : "");
+          }).join(" &middot; ") + '</div>' +
+          flowHtml +
+        '</div>';
+      }).join("");
+    }
+
+    function renderLinked() {
+      var body = document.getElementById("linkedBody");
+      body.innerHTML = ACCOUNTS.map(function(a) {
+        var other = a.purpose === "business" ? "personal" : "business";
+        var otherLabel = other === "business" ? "Comercial" : "Pessoal";
+        return "<tr>" +
+          "<td>" + esc(a.name || "") + (a.mask ? ' <span class="tag-meta">&middot;&middot;&middot;&middot;' + esc(a.mask) + "</span>" : "") + "</td>" +
+          "<td>" + esc(a.institution || "") + "</td>" +
+          '<td><span class="pill">' + (a.purpose === "business" ? "Comercial" : "Pessoal") + "</span> " +
+            '<button class="btn btn-sm" onclick="retagAccount(\'' + a.id + "','" + other + "')\">&#8644; " + otherLabel + "</button></td>" +
+          '<td class="num">' + fmtCents(a.balance_cents) + "</td>" +
+        "</tr>";
+      }).join("");
+    }
+
+    function renderTransfers() {
+      var suspected = TRANSACTIONS.filter(function(t) { return t.transfer_status === "suspected"; });
+      var card = document.getElementById("transferCard");
+      if (!suspected.length) { card.hidden = true; return; }
+      card.hidden = false;
+      document.getElementById("transferBody").innerHTML = suspected.map(function(t) {
+        return "<tr>" +
+          "<td>" + fmtDate(t.date) + "</td>" +
+          "<td>" + esc(t.description || "") + "</td>" +
+          '<td class="num">' + fmtCents(t.amount_cents) + "</td>" +
+          '<td class="num">' +
+            '<button class="btn btn-sm btn-gold" onclick="confirmTransfer(\'' + t.transfer_pair_id + '\', false)">' +
+              '<span class="show-pt">&Eacute; transfer&ecirc;ncia</span><span class="show-en">Is a transfer</span></button> ' +
+            '<button class="btn btn-sm" onclick="confirmTransfer(\'' + t.transfer_pair_id + '\', true)">' +
+              '<span class="show-pt">Sempre</span><span class="show-en">Always</span></button> ' +
+            '<button class="btn btn-sm" onclick="rejectTransfer(\'' + t.transfer_pair_id + '\')">' +
+              '<span class="show-pt">N&atilde;o &eacute;</span><span class="show-en">Not one</span></button>' +
+          "</td>" +
+        "</tr>";
+      }).join("");
+    }
+
+    function confirmTransfer(pairId, always) {
+      apiFetch("/api/finance-new/transfers/confirm", {
+        method: "POST", body: { transfer_pair_id: pairId, always: !!always }
+      }).then(function() { loadAll(); }).catch(function() { toast("Erro"); });
+    }
+
+    function rejectTransfer(pairId) {
+      apiFetch("/api/finance-new/transfers/reject", {
+        method: "POST", body: { transfer_pair_id: pairId }
+      }).then(function() { loadAll(); }).catch(function() { toast("Erro"); });
+    }
+
+    function renderTransactions() {
+      var card = document.getElementById("txnCard");
+      if (!ACCOUNTS.length) { card.hidden = true; return; }
+      card.hidden = false;
+
+      var q       = (document.getElementById("txnSearch").value || "").toLowerCase();
+      var acctId  = document.getElementById("txnAccount").value;
+      var pending = document.getElementById("txnPending").value;
+      var from    = document.getElementById("txnFrom").value;
+      var to      = document.getElementById("txnTo").value;
+
+      var rows = TRANSACTIONS.filter(function(t) {
+        if (acctId && t.account_id !== acctId) { return false; }
+        if (pending === "pending" && !t.pending) { return false; }
+        if (pending === "posted"  &&  t.pending) { return false; }
+        if (from && String(t.date) < from) { return false; }
+        if (to   && String(t.date) > to)   { return false; }
+        if (q) {
+          var hay = ((t.description || "") + " " + (t.merchant_normalized || "")).toLowerCase();
+          if (hay.indexOf(q) === -1) { return false; }
+        }
+        return true;
+      });
+
+      var nameById = {};
+      ACCOUNTS.forEach(function(a) { nameById[a.id] = a.name; });
+
+      document.getElementById("txnEmpty").hidden = rows.length > 0;
+      document.getElementById("txnBody").innerHTML = rows.slice(0, 400).map(function(t) {
+        var pills = "";
+        if (t.pending) { pills += ' <span class="pill pill-pending">pendente</span>'; }
+        if (t.is_transfer) { pills += ' <span class="pill pill-transfer">transf.</span>'; }
+        return "<tr>" +
+          "<td>" + fmtDate(t.date) + "</td>" +
+          "<td>" + esc(t.description || "") + pills + "</td>" +
+          "<td>" + esc(nameById[t.account_id] || "") + "</td>" +
+          '<td class="num ' + (t.amount_cents >= 0 ? "is-green" : "") + '">' + fmtCents(t.amount_cents) + "</td>" +
+        "</tr>";
+      }).join("");
+    }
+
+    function renderBanners() {
+      var reauth = document.getElementById("reauthBanner");
+      reauth.hidden = REAUTH_ITEMS.length === 0;
+
+      // Staleness: show WHEN the data is from, always. A number with no
+      // timestamp invites her to trust a figure that may be days old.
+      var stale = document.getElementById("staleBanner");
+      var newest = null;
+      ACCOUNTS.forEach(function(a) {
+        if (a.last_synced_at && (!newest || a.last_synced_at > newest)) { newest = a.last_synced_at; }
+      });
+      if (!newest) { stale.hidden = true; return; }
+      stale.hidden = false;
+      var d = new Date(newest.replace(" ", "T") + "Z");
+      var when = isNaN(d.getTime()) ? newest : d.toLocaleString(isEn() ? "en-US" : "pt-BR");
+      document.getElementById("staleText").textContent =
+        (isEn() ? "Data from " : "Dados de ") + when;
+    }
+
+    function populateAccountFilter() {
+      var sel = document.getElementById("txnAccount");
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">' +
+        (isEn() ? "All accounts" : "Todas as contas") + "</option>" +
+        ACCOUNTS.map(function(a) {
+          return '<option value="' + a.id + '">' + esc(a.name || "") + "</option>";
+        }).join("");
+      sel.value = cur;
+    }
+
+    // ═══════════════ LOAD ═════════════════════════════════════════════════
+
+    function loadAll() {
+      return Promise.all([
+        apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
+        apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),
+        apiFetch("/api/finance-new/transactions?limit=500").then(function(r) { return r.json(); }).catch(function() { return {}; })
+      ]).then(function(res) {
+        ACCOUNTS     = (res[0] && res[0].accounts) || [];
+        REAUTH_ITEMS = (res[0] && res[0].reauth_items) || [];
+        SUMMARY      = res[1] || null;
+        TRANSACTIONS = (res[2] && res[2].transactions) || [];
+
+        renderBanners();
+        renderAccountCards();
+        renderLinked();
+        renderTransfers();
+        populateAccountFilter();
+        renderTransactions();
+      });
+    }
+
+    // ── Role / bootstrap (same shape as finance.html) ──────────────────────
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function setupPage(role) {
+      var roleEl      = document.getElementById("headerRole");
+      var email       = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl   = sessionStorage.getItem("apex_avatar_url")   || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl) { roleEl.textContent = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      window.initNav && window.initNav();
+      loadAll();
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            setTimeout(function() {
+              if (!auth.currentUser) { window.location.href = "index.html"; }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) { setupPage(cached); }
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) { setupPage(data.role); }
+        }).catch(function() {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

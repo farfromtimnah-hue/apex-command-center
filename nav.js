@@ -26,6 +26,9 @@
     { key: "finance",   href: "finance.html",   icon: "finance",
       labelPt: "Financeiro",                   labelEn: "Financial",
       tipPt: "Financeiro",                     tipEn: "Financial" },
+    { key: "financenew", href: "finance-new.html", icon: "finance",
+      labelPt: "Financeiro (Novo)",            labelEn: "Financial (New)",
+      tipPt: "Financeiro (Novo)",              tipEn: "Financial (New)" },
     { key: "sales",     href: "sales.html",     icon: "trend",
       labelPt: "Vendas",                       labelEn: "Sales",
       tipPt: "Vendas",                         tipEn: "Sales" },
@@ -62,6 +65,9 @@
     { key: "finance",   href: "finance.html",   icon: "finance",
       labelPt: "Financeiro",                   labelEn: "Financial",
       tipPt: "Financeiro",                     tipEn: "Financial" },
+    { key: "financenew", href: "finance-new.html", icon: "finance",
+      labelPt: "Financeiro (Novo)",            labelEn: "Financial (New)",
+      tipPt: "Financeiro (Novo)",              tipEn: "Financial (New)" },
     { key: "settings",  href: "settings.html",  icon: "settings",
       labelPt: "Configura&ccedil;&otilde;es",  labelEn: "Settings",
       tipPt: "Configuracoes",                  tipEn: "Settings" }
@@ -415,6 +421,7 @@
   var MTAB_VENDAS     = mobileTabDef("sales",     "sales.html",     "trend",        "Vendas",                       "Sales");
   var MTAB_TAREFAS    = mobileTabDef("tasks",     "tasks.html",     "check-square", "Tarefas",                      "Tasks");
   var MTAB_FINANCEIRO = mobileTabDef("finance",   "finance.html",   "finance",      "Financeiro",                   "Financial");
+  var MTAB_FINANCENOVO = mobileTabDef("financenew", "finance-new.html", "finance",   "Financeiro (Novo)",            "Financial (New)");
   var MTAB_CALENDARIO = mobileTabDef("calendar",  "calendar.html",  "cal-grid",     "Calend&aacute;rio",            "Calendar");
   var MTAB_DOCUMENTOS = mobileTabDef("documents", "documents.html", "file",         "Documentos",                   "Documents");
   var MTAB_CONFIG     = mobileTabDef("settings",  "settings.html",  "settings",     "Configura&ccedil;&otilde;es",  "Settings");
@@ -425,19 +432,19 @@
     if (navRole === "rafa") {
       return {
         tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_VENDAS, MTAB_TAREFAS],
-        more: [MTAB_CLIENTANALYTICS, MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG]
+        more: [MTAB_CLIENTANALYTICS, MTAB_FINANCEIRO, MTAB_FINANCENOVO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG]
       };
     }
     if (navRole === "developer") {
       return {
         tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES],
-        more: [MTAB_CLIENTANALYTICS, MTAB_VENDAS, MTAB_TAREFAS, MTAB_FINANCEIRO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG, MTAB_ADDUSER]
+        more: [MTAB_CLIENTANALYTICS, MTAB_VENDAS, MTAB_TAREFAS, MTAB_FINANCEIRO, MTAB_FINANCENOVO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG, MTAB_ADDUSER]
       };
     }
     // alice (default)
     return {
       tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_FINANCEIRO, MTAB_CALENDARIO],
-      more: [MTAB_CLIENTANALYTICS, MTAB_VENDAS, MTAB_TAREFAS, MTAB_DOCUMENTOS, MTAB_CONFIG]
+      more: [MTAB_CLIENTANALYTICS, MTAB_FINANCENOVO, MTAB_VENDAS, MTAB_TAREFAS, MTAB_DOCUMENTOS, MTAB_CONFIG]
     };
   }
 

@@ -16451,6 +16451,1600 @@ async function handlePostFinanceNewMigrateInvoices(request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Plaid HTTP plumbing.
+//
+// PLAID_CLIENT_ID / PLAID_SECRET / PLAID_ENV are Worker SECRETS. They are read
+// from env here and nowhere else, never hardcoded, and never returned to the
+// browser. The same goes for the per-Item access_token: it lives in
+// plaid_items.access_token, is used only inside this Worker, and is never
+// logged or serialized into any response.
+// ---------------------------------------------------------------------------
+
+function plaidBaseUrl(env) {
+    return "https://" + (env.PLAID_ENV || "production") + ".plaid.com";
+}
+
+async function plaidFetch(env, endpoint, body) {
+    var payload = Object.assign({}, body, {
+        client_id: env.PLAID_CLIENT_ID,
+        secret:    env.PLAID_SECRET
+    });
+    var ctrl  = new AbortController();
+    var timer = setTimeout(function() { ctrl.abort(); }, 20000);
+    var res;
+    try {
+        res = await fetch(plaidBaseUrl(env) + endpoint, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify(payload),
+            signal:  ctrl.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+    var data = await res.json();
+    return { ok: res.ok, status: res.status, data: data };
+}
+
+// Plaid error surfaced to the UI WITHOUT echoing the request payload, which
+// would carry client_id/secret into a log or a browser console.
+function plaidErrMessage(result) {
+    var d = result && result.data;
+    if (!d) { return "Plaid request failed (HTTP " + (result && result.status) + ")"; }
+    return (d.error_message || d.error_code || "Plaid request failed") +
+           (d.error_code ? " [" + d.error_code + "]" : "");
+}
+
+function isValidPurpose(p) {
+    return p === "business" || p === "personal";
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/link-token — alice/rafa/developer only.
+// Body: { purpose: 'business' | 'personal' }
+//
+// purpose is carried through the whole link flow from the BUTTON Alice
+// clicked, and is echoed back so the client can hand it to /exchange. It is
+// never derived from the institution or the bank's account names.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewLinkToken(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var purpose = body.purpose;
+        if (!isValidPurpose(purpose)) {
+            return jsonErr("purpose must be 'business' or 'personal'", 400);
+        }
+
+        var result = await plaidFetch(env, "/link/token/create", {
+            user:          { client_user_id: "apex-" + (user.email || "admin") },
+            client_name:   "Apex Command Center",
+            products:      ["transactions"],
+            country_codes: ["US"],
+            language:      "pt"
+        });
+
+        // Plaid rejects unsupported Link languages outright. Portuguese is not
+        // available in every account/region combination, so fall back to
+        // English rather than leaving Alice with a dead button.
+        if (!result.ok && result.data && result.data.error_code === "INVALID_FIELD") {
+            result = await plaidFetch(env, "/link/token/create", {
+                user:          { client_user_id: "apex-" + (user.email || "admin") },
+                client_name:   "Apex Command Center",
+                products:      ["transactions"],
+                country_codes: ["US"],
+                language:      "en"
+            });
+        }
+
+        if (!result.ok) { return jsonErr(plaidErrMessage(result), 502); }
+        return jsonOk({ link_token: result.data.link_token, purpose: purpose });
+    } catch (e) {
+        return jsonErr("Error creating link token: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/link-token/update — alice/rafa/developer only.
+// Body: { item_id }
+//
+// Update mode re-auth: an existing Item whose consent lapsed or whose login
+// broke. Takes access_token and an EMPTY products array -- passing products
+// here is what makes Plaid reject an update-mode token.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewLinkTokenUpdate(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.item_id) { return jsonErr("item_id required", 400); }
+
+        var item = await env.DB.prepare(
+            "SELECT id, access_token FROM plaid_items WHERE id = ? OR plaid_item_id = ?"
+        ).bind(body.item_id, body.item_id).first();
+        if (!item) { return jsonErr("Item not found", 404); }
+
+        var result = await plaidFetch(env, "/link/token/create", {
+            user:          { client_user_id: "apex-" + (user.email || "admin") },
+            client_name:   "Apex Command Center",
+            products:      [],
+            country_codes: ["US"],
+            language:      "en",
+            access_token:  item.access_token
+        });
+
+        if (!result.ok) { return jsonErr(plaidErrMessage(result), 502); }
+        return jsonOk({ link_token: result.data.link_token });
+    } catch (e) {
+        return jsonErr("Error creating update link token: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/exchange — alice/rafa/developer only.
+// Body: { public_token, purpose, accounts: [{ id, purpose? }] }
+//
+// Exchanges the public token, stores the Item, and creates one `accounts` row
+// per account the bank returned.
+//
+// PER-ACCOUNT PURPOSE: both Apex accounts sit at BofA and may arrive under a
+// single Item on one login. When that happens the top-level `purpose` is only
+// a default -- accounts[].purpose overrides it per account, so Alice can tag
+// checking as business and savings as personal in the same link. Nothing is
+// inferred from account.name or .subtype.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewExchange(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.public_token) { return jsonErr("public_token required", 400); }
+        var defaultPurpose = body.purpose;
+        if (!isValidPurpose(defaultPurpose)) {
+            return jsonErr("purpose must be 'business' or 'personal'", 400);
+        }
+
+        var exch = await plaidFetch(env, "/item/public_token/exchange", {
+            public_token: body.public_token
+        });
+        if (!exch.ok) { return jsonErr(plaidErrMessage(exch), 502); }
+
+        var accessToken = exch.data.access_token;
+        var plaidItemId = exch.data.item_id;
+
+        // Institution name for the UI. Non-fatal if it fails.
+        var institution = null;
+        var itemRes = await plaidFetch(env, "/item/get", { access_token: accessToken });
+        if (itemRes.ok && itemRes.data.item && itemRes.data.item.institution_id) {
+            var instRes = await plaidFetch(env, "/institutions/get_by_id", {
+                institution_id: itemRes.data.item.institution_id,
+                country_codes:  ["US"]
+            });
+            if (instRes.ok && instRes.data.institution) {
+                institution = instRes.data.institution.name;
+            }
+        }
+
+        var existingItem = await env.DB.prepare(
+            "SELECT id FROM plaid_items WHERE plaid_item_id = ?"
+        ).bind(plaidItemId).first();
+        var itemRowId;
+        if (existingItem) {
+            itemRowId = existingItem.id;
+            // Re-link of a known Item: refresh the credential and clear any
+            // reauth flag, but keep the cursor so sync resumes where it left off.
+            await env.DB.prepare(
+                "UPDATE plaid_items SET access_token = ?, institution = ?, status = 'good' WHERE id = ?"
+            ).bind(accessToken, institution, itemRowId).run();
+        } else {
+            itemRowId = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO plaid_items (id, plaid_item_id, access_token, institution, status) " +
+                "VALUES (?, ?, ?, ?, 'good')"
+            ).bind(itemRowId, plaidItemId, accessToken, institution).run();
+        }
+
+        // Per-account purpose overrides sent by the tagging step.
+        var purposeByAccount = {};
+        if (Array.isArray(body.accounts)) {
+            for (var a = 0; a < body.accounts.length; a++) {
+                var sel = body.accounts[a];
+                if (sel && sel.id && isValidPurpose(sel.purpose)) {
+                    purposeByAccount[sel.id] = sel.purpose;
+                }
+            }
+        }
+
+        var acctRes = await plaidFetch(env, "/accounts/get", { access_token: accessToken });
+        if (!acctRes.ok) { return jsonErr(plaidErrMessage(acctRes), 502); }
+
+        var created = [];
+        var accts = acctRes.data.accounts || [];
+        for (var i = 0; i < accts.length; i++) {
+            var acc = accts[i];
+            var purpose = purposeByAccount[acc.account_id] || defaultPurpose;
+            var balances = acc.balances || {};
+            var existingAcct = await env.DB.prepare(
+                "SELECT id FROM accounts WHERE plaid_account_id = ?"
+            ).bind(acc.account_id).first();
+
+            if (existingAcct) {
+                await env.DB.prepare(
+                    "UPDATE accounts SET plaid_item_id = ?, institution = ?, name = ?, mask = ?, subtype = ?, " +
+                    "purpose = ?, balance_cents = ?, available_cents = ?, last_synced_at = datetime('now'), " +
+                    "status = 'active' WHERE id = ?"
+                ).bind(
+                    plaidItemId, institution, acc.name, acc.mask, acc.subtype, purpose,
+                    balances.current === null || balances.current === undefined ? null : toCents(balances.current),
+                    balances.available === null || balances.available === undefined ? null : toCents(balances.available),
+                    existingAcct.id
+                ).run();
+                created.push({ id: existingAcct.id, name: acc.name, mask: acc.mask, purpose: purpose });
+            } else {
+                var newId = crypto.randomUUID();
+                await env.DB.prepare(
+                    "INSERT INTO accounts (id, plaid_item_id, plaid_account_id, institution, name, mask, subtype, " +
+                    "purpose, balance_cents, available_cents, last_synced_at) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"
+                ).bind(
+                    newId, plaidItemId, acc.account_id, institution, acc.name, acc.mask, acc.subtype, purpose,
+                    balances.current === null || balances.current === undefined ? null : toCents(balances.current),
+                    balances.available === null || balances.available === undefined ? null : toCents(balances.available)
+                ).run();
+                created.push({ id: newId, name: acc.name, mask: acc.mask, purpose: purpose });
+            }
+        }
+
+        // access_token is deliberately NOT part of this response.
+        return jsonOk({ item_id: itemRowId, institution: institution, accounts: created });
+    } catch (e) {
+        return jsonErr("Error exchanging public token: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/accounts — alice/rafa/developer only.
+// Lists linked accounts plus the health of the Item behind each, so the page
+// can raise a re-auth banner without a second round trip.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewAccounts(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT a.id, a.plaid_item_id, a.institution, a.name, a.mask, a.subtype, a.purpose, " +
+            "a.balance_cents, a.available_cents, a.last_synced_at, a.status, " +
+            "i.id AS item_row_id, i.status AS item_status, i.last_synced_at AS item_last_synced_at " +
+            "FROM accounts a LEFT JOIN plaid_items i ON i.plaid_item_id = a.plaid_item_id " +
+            "WHERE a.status = 'active' ORDER BY a.purpose ASC, a.name ASC"
+        ).all();
+
+        var needsReauth = await env.DB.prepare(
+            "SELECT id, institution FROM plaid_items WHERE status = 'reauth_required'"
+        ).all();
+
+        return jsonOk({ accounts: res.results, reauth_items: needsReauth.results });
+    } catch (e) {
+        return jsonErr("Error fetching accounts: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/finance-new/accounts/:id — alice/rafa/developer only.
+// Body: { purpose }
+//
+// Correcting a mis-tag WITHOUT unlinking. A wrong tag silently files
+// household spending under the business column, so this has to be a one-click
+// fix on the dashboard, not a re-link.
+// ---------------------------------------------------------------------------
+
+async function handlePatchFinanceNewAccount(accountId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!isValidPurpose(body.purpose)) {
+            return jsonErr("purpose must be 'business' or 'personal'", 400);
+        }
+
+        var existing = await env.DB.prepare("SELECT id FROM accounts WHERE id = ?").bind(accountId).first();
+        if (!existing) { return jsonErr("Account not found", 404); }
+
+        await env.DB.prepare("UPDATE accounts SET purpose = ? WHERE id = ?")
+            .bind(body.purpose, accountId).run();
+        return jsonOk({ id: accountId, purpose: body.purpose });
+    } catch (e) {
+        return jsonErr("Error updating account: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Plaid transaction sync.
+//
+// History starts at 2026-07-01 on first sync. /transactions/sync always
+// replays from the beginning of available history when called with no cursor,
+// so the floor is applied on insert rather than in the request.
+// ---------------------------------------------------------------------------
+
+var PLAID_HISTORY_FLOOR = "2026-07-01";
+
+// Strip the noise BofA puts around a merchant so the composite dedup key and
+// the transfer heuristics compare like with like: card suffixes, store
+// numbers, dates, and reference ids all vary between the pending and posted
+// version of the SAME transaction.
+function normalizeMerchant(desc) {
+    var s = String(desc || "").toUpperCase();
+    s = s.replace(/[0-9]{4,}/g, " ");
+    s = s.replace(/[^A-Z ]+/g, " ");
+    s = s.replace(/\b(PURCHASE|POS|DEBIT|CREDIT|CARD|XXXX|REF|ID|CKCD|DES|INDN|CO)\b/g, " ");
+    s = s.replace(/\s+/g, " ").trim();
+    return s.slice(0, 60);
+}
+
+function daysBetween(aIso, bIso) {
+    var a = Date.parse(String(aIso) + "T00:00:00Z");
+    var b = Date.parse(String(bIso) + "T00:00:00Z");
+    if (isNaN(a) || isNaN(b)) { return 999; }
+    return Math.abs(a - b) / 86400000;
+}
+
+// Find a row that is ALREADY this transaction, arriving under a new identity.
+//
+// Plaid re-issues transaction_id when a transaction settles from pending to
+// posted, so a plain plaid_transaction_id lookup misses the pending row and
+// inserts a duplicate -- every settling transaction counted twice, in both
+// the money-out total and the balance-derived views. Two guards:
+//   1. pending_transaction_id, which Plaid supplies on the posted record and
+//      which points at the id the pending row was stored under.
+//   2. a composite of exact amount + normalized merchant + date within 3 days,
+//      for feeds that drop that link.
+async function findExistingTransaction(env, accountRowId, plaidTxn, amountCents, merchantNorm) {
+    var byPendingId = null;
+    if (plaidTxn.pending_transaction_id) {
+        byPendingId = await env.DB.prepare(
+            "SELECT id, date FROM transactions WHERE plaid_transaction_id = ? OR pending_plaid_transaction_id = ?"
+        ).bind(plaidTxn.pending_transaction_id, plaidTxn.pending_transaction_id).first();
+        if (byPendingId) { return byPendingId; }
+    }
+
+    var candidates = await env.DB.prepare(
+        "SELECT id, date FROM transactions WHERE account_id = ? AND amount_cents = ? AND merchant_normalized = ? " +
+        "AND date >= date(?, '-3 day') AND date <= date(?, '+3 day')"
+    ).bind(accountRowId, amountCents, merchantNorm, plaidTxn.date, plaidTxn.date).all();
+
+    if (candidates.results && candidates.results.length === 1) {
+        return candidates.results[0];
+    }
+    return null;
+}
+
+async function syncPlaidTransactions(env) {
+    var items = await env.DB.prepare(
+        "SELECT id, plaid_item_id, access_token, cursor FROM plaid_items WHERE status != 'revoked'"
+    ).all();
+
+    var summary = { items: 0, added: 0, modified: 0, removed: 0, errors: [] };
+
+    for (var i = 0; i < items.results.length; i++) {
+        var item = items.results[i];
+        summary.items++;
+
+        var accountRows = await env.DB.prepare(
+            "SELECT id, plaid_account_id FROM accounts WHERE plaid_item_id = ?"
+        ).bind(item.plaid_item_id).all();
+        var acctIdByPlaid = {};
+        var r;
+        for (r = 0; r < accountRows.results.length; r++) {
+            acctIdByPlaid[accountRows.results[r].plaid_account_id] = accountRows.results[r].id;
+        }
+
+        var cursor = item.cursor || null;
+        var hasMore = true;
+        var guard = 0;
+
+        while (hasMore && guard < 30) {
+            guard++;
+            var body = { access_token: item.access_token };
+            if (cursor) { body.cursor = cursor; }
+
+            var res = await plaidFetch(env, "/transactions/sync", body);
+
+            if (!res.ok) {
+                var code = res.data && res.data.error_code;
+                // ITEM_LOGIN_REQUIRED means the bank revoked consent or the
+                // password changed. Flag it so the page can raise the re-auth
+                // banner instead of quietly serving frozen numbers.
+                if (code === "ITEM_LOGIN_REQUIRED" || code === "ITEM_ERROR") {
+                    await env.DB.prepare(
+                        "UPDATE plaid_items SET status = 'reauth_required' WHERE id = ?"
+                    ).bind(item.id).run();
+                }
+                // A cursor Plaid no longer recognizes: restart this Item's
+                // history rather than wedging forever on a bad cursor.
+                if (code === "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION" || code === "INVALID_FIELD") {
+                    await env.DB.prepare("UPDATE plaid_items SET cursor = NULL WHERE id = ?").bind(item.id).run();
+                }
+                summary.errors.push((item.plaid_item_id || item.id) + ": " + (code || "unknown"));
+                break;
+            }
+
+            var data = res.data;
+            var added    = data.added    || [];
+            var modified = data.modified || [];
+            var removed  = data.removed  || [];
+            var t, txn, acctRowId, amountCents, merchNorm;
+
+            // added + modified take the same upsert path: `modified` is how a
+            // pending row becomes posted, which is exactly the case dedup exists for.
+            var upserts = added.concat(modified);
+            for (t = 0; t < upserts.length; t++) {
+                txn = upserts[t];
+                if (String(txn.date) < PLAID_HISTORY_FLOOR) { continue; }
+
+                acctRowId = acctIdByPlaid[txn.account_id];
+                if (!acctRowId) { continue; }   // account not tagged/linked here
+
+                // Plaid sends POSITIVE for money leaving the account. Flip once,
+                // here, so every downstream reader sees the natural sign.
+                amountCents = -toCents(txn.amount);
+                merchNorm   = normalizeMerchant(txn.merchant_name || txn.name);
+
+                var existing = await findExistingTransaction(env, acctRowId, txn, amountCents, merchNorm);
+
+                if (existing) {
+                    await env.DB.prepare(
+                        "UPDATE transactions SET plaid_transaction_id = ?, pending_plaid_transaction_id = ?, " +
+                        "amount_cents = ?, date = ?, posted_date = ?, description = ?, merchant_normalized = ?, " +
+                        "pending = ?, raw_json = ? WHERE id = ?"
+                    ).bind(
+                        txn.transaction_id,
+                        txn.pending_transaction_id || null,
+                        amountCents,
+                        txn.date,
+                        txn.pending ? null : (txn.authorized_date || txn.date),
+                        txn.name || null,
+                        merchNorm,
+                        txn.pending ? 1 : 0,
+                        JSON.stringify(txn),
+                        existing.id
+                    ).run();
+                    summary.modified++;
+                } else {
+                    await env.DB.prepare(
+                        "INSERT INTO transactions (id, account_id, plaid_transaction_id, pending_plaid_transaction_id, " +
+                        "amount_cents, date, posted_date, description, merchant_normalized, pending, raw_json) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                        "ON CONFLICT(plaid_transaction_id) DO NOTHING"
+                    ).bind(
+                        crypto.randomUUID(),
+                        acctRowId,
+                        txn.transaction_id,
+                        txn.pending_transaction_id || null,
+                        amountCents,
+                        txn.date,
+                        txn.pending ? null : (txn.authorized_date || txn.date),
+                        txn.name || null,
+                        merchNorm,
+                        txn.pending ? 1 : 0,
+                        JSON.stringify(txn)
+                    ).run();
+                    summary.added++;
+                }
+            }
+
+            for (t = 0; t < removed.length; t++) {
+                await env.DB.prepare("DELETE FROM transactions WHERE plaid_transaction_id = ?")
+                    .bind(removed[t].transaction_id).run();
+                summary.removed++;
+            }
+
+            cursor  = data.next_cursor;
+            hasMore = !!data.has_more;
+
+            await env.DB.prepare(
+                "UPDATE plaid_items SET cursor = ?, last_synced_at = datetime('now'), status = 'good' WHERE id = ?"
+            ).bind(cursor, item.id).run();
+        }
+
+        // Refresh balances so the headline cards do not drift from the bank.
+        var balRes = await plaidFetch(env, "/accounts/balance/get", { access_token: item.access_token });
+        if (balRes.ok && balRes.data.accounts) {
+            for (r = 0; r < balRes.data.accounts.length; r++) {
+                var b = balRes.data.accounts[r];
+                var bal = b.balances || {};
+                await env.DB.prepare(
+                    "UPDATE accounts SET balance_cents = ?, available_cents = ?, last_synced_at = datetime('now') " +
+                    "WHERE plaid_account_id = ?"
+                ).bind(
+                    bal.current === null || bal.current === undefined ? null : toCents(bal.current),
+                    bal.available === null || bal.available === undefined ? null : toCents(bal.available),
+                    b.account_id
+                ).run();
+            }
+        }
+    }
+
+    await detectTransfers(env);
+    return summary;
+}
+
+// ---------------------------------------------------------------------------
+// Transfer detection — the highest-risk piece in this build.
+//
+// Moving $1,000 from business to personal is neither income nor expense, but
+// it lands as a debit in one account and a credit in the other. Left alone it
+// inflates money-in AND money-out, while net stays accidentally correct --
+// which is the dangerous part, because the error is invisible in the one
+// number that looks right.
+//
+// Rule: exact amount_cents match, opposite signs, 0-2 calendar day window,
+// and a description that looks like a transfer. Both Apex accounts are at
+// BofA and both are synced, so both legs should be present.
+//
+// Detected pairs are marked 'suspected', NOT excluded. Silent exclusion risks
+// hiding real income; per-transaction confirmation reintroduces the chore that
+// killed the last tool. She confirms once per pair, or once forever.
+// ---------------------------------------------------------------------------
+
+var TRANSFER_PATTERNS = /(TRANSFER|ONLINE TRANSFER|ZELLE|WIRE|MOVE MONEY|XFER)/i;
+
+// Does either leg look like a transfer? An account's own last-four appearing
+// in the other leg's description counts too -- BofA writes "TO CHK 1234".
+function looksLikeTransfer(descA, descB, masks) {
+    var a = String(descA || "");
+    var b = String(descB || "");
+    if (TRANSFER_PATTERNS.test(a) || TRANSFER_PATTERNS.test(b)) { return true; }
+    for (var i = 0; i < masks.length; i++) {
+        if (!masks[i]) { continue; }
+        if (a.indexOf(masks[i]) !== -1 || b.indexOf(masks[i]) !== -1) { return true; }
+    }
+    return false;
+}
+
+async function detectTransfers(env) {
+    // Only look at rows not already settled by a human decision. 'confirmed'
+    // and 'rejected' are Alice's calls and are never revisited automatically.
+    var rows = await env.DB.prepare(
+        "SELECT t.id, t.account_id, t.amount_cents, t.date, t.description, t.transfer_status, a.mask " +
+        "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+        "WHERE t.transfer_status = 'none' AND t.date >= date('now', '-120 day')"
+    ).all();
+
+    var txns = rows.results || [];
+    var masks = [];
+    var m;
+    for (m = 0; m < txns.length; m++) {
+        if (txns[m].mask && masks.indexOf(txns[m].mask) === -1) { masks.push(txns[m].mask); }
+    }
+
+    var used = {};
+    var i, j;
+    for (i = 0; i < txns.length; i++) {
+        var a = txns[i];
+        if (used[a.id]) { continue; }
+        if (a.amount_cents >= 0) { continue; }   // anchor on the outflow leg
+
+        for (j = 0; j < txns.length; j++) {
+            var b = txns[j];
+            if (i === j || used[b.id] || used[a.id]) { continue; }
+            if (b.account_id === a.account_id) { continue; }
+            if (b.amount_cents !== -a.amount_cents) { continue; }   // exact, opposite
+            if (daysBetween(a.date, b.date) > 2) { continue; }
+            if (!looksLikeTransfer(a.description, b.description, masks)) { continue; }
+
+            var pairId = crypto.randomUUID();
+            await env.DB.prepare(
+                "UPDATE transactions SET transfer_status = 'suspected', transfer_pair_id = ? WHERE id IN (?, ?)"
+            ).bind(pairId, a.id, b.id).run();
+            used[a.id] = true;
+            used[b.id] = true;
+            break;
+        }
+    }
+
+    await applyTransferRules(env);
+}
+
+// "Always treat this pair as a transfer": a confirmed rule auto-confirms
+// future pairs with the same normalized description, so a monthly
+// owner's-draw transfer is answered once rather than every month.
+async function applyTransferRules(env) {
+    var rules = await env.DB.prepare(
+        "SELECT pattern FROM categorization_rules WHERE source = 'auto' AND category_id = 'transfer'"
+    ).all();
+    for (var i = 0; i < rules.results.length; i++) {
+        await env.DB.prepare(
+            "UPDATE transactions SET transfer_status = 'confirmed', is_transfer = 1 " +
+            "WHERE transfer_status = 'suspected' AND merchant_normalized = ?"
+        ).bind(rules.results[i].pattern).run();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/summary — alice/rafa/developer only.
+//
+// This month's in / out / net per purpose, computed off the raw feed. It
+// requires NO categorization and returns numbers the moment transactions land.
+//
+// THE HONESTY THRESHOLD. Detection rate = detected transfer legs / candidate
+// legs, where a candidate is any transaction whose exact amount also appears
+// with the opposite sign in another account inside the window -- i.e. the
+// things that COULD be transfers.
+//   >= 80%  -> show net normally
+//   50-80%  -> show net labeled "after detected transfers", raw in/out beside it
+//   <  50%  -> do NOT show net at all; show only the two raw numbers
+// A wrong headline she cannot audit is worse than a missing one.
+// ---------------------------------------------------------------------------
+
+async function computeTransferDetectionRate(env, sinceDate) {
+    // Candidate legs: exact amount present with the opposite sign in a
+    // DIFFERENT account within 2 days. This is the same shape as detection
+    // minus the description test, so the ratio measures how much of the
+    // plausible-transfer population the description rule actually caught.
+    var rows = await env.DB.prepare(
+        "SELECT id, account_id, amount_cents, date, transfer_status FROM transactions WHERE date >= ?"
+    ).bind(sinceDate).all();
+
+    var txns = rows.results || [];
+    var candidates = 0;
+    var detected = 0;
+    var i, j;
+
+    for (i = 0; i < txns.length; i++) {
+        var a = txns[i];
+        var isCandidate = false;
+        for (j = 0; j < txns.length; j++) {
+            var b = txns[j];
+            if (a.id === b.id) { continue; }
+            if (b.account_id === a.account_id) { continue; }
+            if (b.amount_cents !== -a.amount_cents) { continue; }
+            if (daysBetween(a.date, b.date) > 2) { continue; }
+            isCandidate = true;
+            break;
+        }
+        if (!isCandidate) { continue; }
+        candidates++;
+        if (a.transfer_status === "suspected" || a.transfer_status === "confirmed") { detected++; }
+    }
+
+    return { candidates: candidates, detected: detected, rate: candidates === 0 ? 1 : (detected / candidates) };
+}
+
+async function handleGetFinanceNewSummary(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");   // YYYY-MM
+        var start, end;
+        if (month && /^\d{4}-\d{2}$/.test(month)) {
+            start = month + "-01";
+        } else {
+            var now = new Date();
+            start = now.toISOString().slice(0, 7) + "-01";
+        }
+        end = start;   // computed in SQL via date(start,'+1 month')
+
+        var detection = await computeTransferDetectionRate(env, start);
+
+        // Confirmed transfers are always excluded. Suspected ones are excluded
+        // too -- a suspected pair is far more likely to be a real transfer than
+        // real income, and leaving it in double-counts both sides. The honesty
+        // threshold below is what tells her how much to trust the result.
+        var res = await env.DB.prepare(
+            "SELECT a.purpose, " +
+            "SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END) AS in_cents, " +
+            "SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END) AS out_cents, " +
+            "SUM(CASE WHEN t.pending = 1 THEN ABS(t.amount_cents) ELSE 0 END) AS pending_cents, " +
+            "COUNT(*) AS n " +
+            "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+            "WHERE t.date >= ? AND t.date < date(?, '+1 month') " +
+            "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+            "GROUP BY a.purpose"
+        ).bind(start, start).all();
+
+        var out = {
+            month: start.slice(0, 7),
+            detection: {
+                candidates: detection.candidates,
+                detected:   detection.detected,
+                rate:       Math.round(detection.rate * 100) / 100
+            }
+        };
+
+        var netShown   = detection.rate >= 0.5;
+        var netLabeled = detection.rate < 0.8;
+
+        var purposes = ["business", "personal"];
+        for (var p = 0; p < purposes.length; p++) {
+            var row = null;
+            for (var i = 0; i < res.results.length; i++) {
+                if (res.results[i].purpose === purposes[p]) { row = res.results[i]; }
+            }
+            var inC  = row ? (row.in_cents  || 0) : 0;
+            var outC = row ? (row.out_cents || 0) : 0;
+            out[purposes[p]] = {
+                in_cents:      inC,
+                out_cents:     outC,
+                net_cents:     inC - outC,
+                pending_cents: row ? (row.pending_cents || 0) : 0,
+                net_shown:     netShown,
+                net_labeled:   netShown && netLabeled
+            };
+        }
+
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error building summary: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/transactions — alice/rafa/developer only.
+// Filtering is done client-side over this payload; the server caps the window.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewTransactions(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var limit = parseInt(url.searchParams.get("limit") || "500", 10);
+        if (isNaN(limit) || limit < 1 || limit > 2000) { limit = 500; }
+
+        var res = await env.DB.prepare(
+            "SELECT t.id, t.account_id, t.amount_cents, t.date, t.posted_date, t.description, " +
+            "t.merchant_normalized, t.is_transfer, t.transfer_pair_id, t.transfer_status, t.pending " +
+            "FROM transactions t ORDER BY t.date DESC, t.created_at DESC LIMIT ?"
+        ).bind(limit).all();
+
+        return jsonOk({ transactions: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching transactions: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/transfers/confirm — alice/rafa/developer only.
+// Body: { transfer_pair_id, always }
+// `always` records a rule so the same recurring pair is never asked again.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewTransferConfirm(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.transfer_pair_id) { return jsonErr("transfer_pair_id required", 400); }
+
+        await env.DB.prepare(
+            "UPDATE transactions SET transfer_status = 'confirmed', is_transfer = 1 WHERE transfer_pair_id = ?"
+        ).bind(body.transfer_pair_id).run();
+
+        if (body.always) {
+            var leg = await env.DB.prepare(
+                "SELECT merchant_normalized FROM transactions WHERE transfer_pair_id = ? LIMIT 1"
+            ).bind(body.transfer_pair_id).first();
+            if (leg && leg.merchant_normalized) {
+                var dupe = await env.DB.prepare(
+                    "SELECT id FROM categorization_rules WHERE pattern = ? AND category_id = 'transfer'"
+                ).bind(leg.merchant_normalized).first();
+                if (!dupe) {
+                    await env.DB.prepare(
+                        "INSERT INTO categorization_rules (id, pattern, category_id, source) VALUES (?, ?, 'transfer', 'auto')"
+                    ).bind(crypto.randomUUID(), leg.merchant_normalized).run();
+                }
+            }
+        }
+
+        return jsonOk({ confirmed: true });
+    } catch (e) {
+        return jsonErr("Error confirming transfer: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/transfers/reject — alice/rafa/developer only.
+// "This is not a transfer" -- the pair goes back to counting as real money and
+// is never re-suggested.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewTransferReject(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.transfer_pair_id) { return jsonErr("transfer_pair_id required", 400); }
+
+        await env.DB.prepare(
+            "UPDATE transactions SET transfer_status = 'rejected', is_transfer = 0, transfer_pair_id = NULL " +
+            "WHERE transfer_pair_id = ?"
+        ).bind(body.transfer_pair_id).run();
+
+        return jsonOk({ rejected: true });
+    } catch (e) {
+        return jsonErr("Error rejecting transfer: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/sync — alice/rafa/developer only.
+// Manual "sync now", same code path the cron runs.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewSync(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var result = await syncPlaidTransactions(env);
+        return jsonOk(result);
+    } catch (e) {
+        return jsonErr("Error syncing: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// FINANCE-NEW — invoices, matching, recurring.
+//
+// DELIVERY IS WHATSAPP ONLY. Apex has no email path for invoices and no client
+// email addresses on file. Every invoice reaches a client by Alice tapping a
+// WhatsApp button, which opens wa.me with a link. Two consequences encoded
+// throughout this section:
+//   1. A generated invoice is genuinely INERT until she acts, so a cron that
+//      creates drafts carries no risk of unreviewed client contact.
+//   2. status = 'sent' means "Alice pressed the WhatsApp button", not "an
+//      email was delivered". Nothing here builds or implies an email path.
+// ===========================================================================
+
+// Allocate the next invoice number. next_number is bumped in the same
+// statement that reads it (guarded by the WHERE), so two concurrent callers
+// cannot be handed the same number -- one of them updates 0 rows and retries.
+async function allocateInvoiceNumber(env) {
+    for (var attempt = 0; attempt < 8; attempt++) {
+        var row = await env.DB.prepare("SELECT next_number FROM invoice_counter WHERE id = 1").first();
+        if (!row) {
+            await env.DB.prepare("INSERT INTO invoice_counter (id, next_number) VALUES (1, 17) ON CONFLICT(id) DO NOTHING").run();
+            continue;
+        }
+        var n = row.next_number;
+        var upd = await env.DB.prepare(
+            "UPDATE invoice_counter SET next_number = ? WHERE id = 1 AND next_number = ?"
+        ).bind(n + 1, n).run();
+        if (upd.meta && upd.meta.changes === 1) {
+            return formatInvoiceNumber(n);
+        }
+    }
+    throw new Error("Could not allocate an invoice number");
+}
+
+// The period a recurrence occurrence belongs to, e.g. "2026-08". This is the
+// idempotency key for cron generation: the 4-hourly schedule means
+// runRecurringInvoices sees the same due recurrence six times a day, and
+// without a period key it would generate six invoices.
+function periodKeyFor(dateIso, intervalUnit) {
+    var d = String(dateIso).slice(0, 10);
+    if (intervalUnit === "year")  { return d.slice(0, 4); }
+    if (intervalUnit === "month") { return d.slice(0, 7); }
+    return d;   // day / week are keyed to the exact date
+}
+
+function addInterval(dateIso, n, unit) {
+    var d = new Date(String(dateIso).slice(0, 10) + "T00:00:00Z");
+    if (isNaN(d.getTime())) { return dateIso; }
+    if (unit === "day")   { d.setUTCDate(d.getUTCDate() + n); }
+    if (unit === "week")  { d.setUTCDate(d.getUTCDate() + 7 * n); }
+    if (unit === "month") { d.setUTCMonth(d.getUTCMonth() + n); }
+    if (unit === "year")  { d.setUTCFullYear(d.getUTCFullYear() + n); }
+    return d.toISOString().slice(0, 10);
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/invoices — alice/rafa/developer only.
+// ?include_voided=1 backs the "mostrar anulados" toggle.
+//
+// voided_mistake rows are EXCLUDED by default from the list, from outstanding
+// totals, from aging, and from matching candidates -- but they are never
+// deleted and their numbers are never reused.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewInvoices(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var includeVoided = url.searchParams.get("include_voided") === "1";
+
+        var sql =
+            "SELECT i.id, i.client_id, i.number, i.amount_cents, i.issued_at, i.due_at, i.status, " +
+            "i.sent_at, i.paid_at, i.voided_reason, i.voided_by, i.voided_at, i.source, i.created_at, " +
+            "c.name AS client_name, c.whatsapp AS client_whatsapp " +
+            "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ";
+        if (!includeVoided) { sql += "WHERE i.status != 'voided_mistake' "; }
+        sql += "ORDER BY i.number DESC";
+
+        var res = await env.DB.prepare(sql).all();
+
+        // Outstanding excludes paid, void and voided_mistake. Overdue is
+        // DERIVED here from due_at, never stored as a status.
+        var today = new Date().toISOString().slice(0, 10);
+        var outstanding = 0;
+        var overdue = 0;
+        var drafts = 0;
+        for (var i = 0; i < res.results.length; i++) {
+            var inv = res.results[i];
+            if (inv.status === "sent") {
+                outstanding += inv.amount_cents || 0;
+                if (inv.due_at && String(inv.due_at) < today) { overdue += inv.amount_cents || 0; }
+            }
+            if (inv.status === "draft") { drafts++; }
+        }
+
+        return jsonOk({
+            invoices: res.results,
+            outstanding_cents: outstanding,
+            overdue_cents: overdue,
+            draft_count: drafts
+        });
+    } catch (e) {
+        return jsonErr("Error fetching invoices: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices — alice/rafa/developer only.
+// Body: { client_id, amount_cents, issued_at, due_at, notes, satisfy_recurrence_id }
+//
+// satisfy_recurrence_id is the "Continuar manualmente" branch of the collision
+// modal: it stamps last_satisfied_period so the cron will not generate a
+// second invoice on top of the one she just made by hand. That stamp is what
+// actually prevents the Gator INV-000015/000016 duplicate -- not the warning.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoice(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.client_id) { return jsonErr("client_id required", 400); }
+
+        var amountCents = parseInt(body.amount_cents, 10);
+        if (isNaN(amountCents)) { return jsonErr("amount_cents required", 400); }
+
+        var issuedAt = body.issued_at || new Date().toISOString().slice(0, 10);
+        var dueAt    = body.due_at || issuedAt;
+
+        var number = await allocateInvoiceNumber(env);
+        var id = crypto.randomUUID();
+
+        await env.DB.prepare(
+            "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, source, notes) " +
+            "VALUES (?, ?, ?, ?, ?, ?, 'draft', 'manual', ?)"
+        ).bind(id, body.client_id, number, amountCents, issuedAt, dueAt, body.notes || null).run();
+
+        if (body.satisfy_recurrence_id) {
+            var rec = await env.DB.prepare(
+                "SELECT id, interval_n, interval_unit, next_due_at FROM invoice_recurrence WHERE id = ?"
+            ).bind(body.satisfy_recurrence_id).first();
+            if (rec) {
+                await env.DB.prepare(
+                    "UPDATE invoice_recurrence SET last_satisfied_period = ?, next_due_at = ?, " +
+                    "generated_count = generated_count + 1 WHERE id = ?"
+                ).bind(
+                    periodKeyFor(rec.next_due_at, rec.interval_unit),
+                    addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit),
+                    rec.id
+                ).run();
+            }
+        }
+
+        return jsonOk({ id: id, number: number, status: "draft" });
+    } catch (e) {
+        return jsonErr("Error creating invoice: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/invoices/recurrence-check?client_id=...
+// alice/rafa/developer only.
+//
+// Backs the collision-guard modal. Fires when Alice picks a client in New
+// Invoice, BEFORE she fills anything in.
+//
+// THE WINDOW IS FUZZY ON PURPOSE (+/- 8 days). The real Gator case was a
+// manual invoice on July 31 against a recurrence due August 1; an exact-date
+// match would have sailed straight past it.
+// ---------------------------------------------------------------------------
+
+var RECURRENCE_COLLISION_WINDOW_DAYS = 8;
+
+async function handleGetFinanceNewRecurrenceCheck(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var clientId = url.searchParams.get("client_id");
+        if (!clientId) { return jsonErr("client_id required", 400); }
+
+        var rec = await env.DB.prepare(
+            "SELECT id, client_id, amount_cents, interval_n, interval_unit, next_due_at, last_satisfied_period " +
+            "FROM invoice_recurrence WHERE client_id = ? AND active = 1 " +
+            "AND next_due_at >= date('now', ?) AND next_due_at <= date('now', ?) LIMIT 1"
+        ).bind(
+            clientId,
+            "-" + RECURRENCE_COLLISION_WINDOW_DAYS + " day",
+            "+" + RECURRENCE_COLLISION_WINDOW_DAYS + " day"
+        ).first();
+
+        if (!rec) { return jsonOk({ collision: false }); }
+
+        // Already handled for this period: no need to interrupt her.
+        var pk = periodKeyFor(rec.next_due_at, rec.interval_unit);
+        if (rec.last_satisfied_period === pk) { return jsonOk({ collision: false }); }
+
+        return jsonOk({
+            collision: true,
+            recurrence: {
+                id: rec.id,
+                amount_cents: rec.amount_cents,
+                next_due_at: rec.next_due_at,
+                period_key: pk
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error checking recurrence: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/mark-mistake — admin only.
+// Body: { reason }
+//
+// SOFT DELETE. Alice has created duplicate invoices more than once while
+// trying to send. The row stays in D1 forever; only its visibility changes.
+// Mirrors the JM Luxury client merge, which marked the losing record
+// status 'merged' rather than deleting it.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceMarkMistake(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var inv = await env.DB.prepare("SELECT id, status FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE invoices SET status = 'voided_mistake', voided_reason = ?, voided_by = ?, " +
+            "voided_at = datetime('now') WHERE id = ?"
+        ).bind(body.reason || null, actorName(user), invoiceId).run();
+
+        // Any match against this invoice is withdrawn too, so it stops
+        // counting as a paid deposit.
+        await env.DB.prepare(
+            "UPDATE invoice_payments SET undone_at = datetime('now'), undone_by = ? " +
+            "WHERE invoice_id = ? AND undone_at IS NULL"
+        ).bind(actorName(user), invoiceId).run();
+
+        return jsonOk({ id: invoiceId, status: "voided_mistake" });
+    } catch (e) {
+        return jsonErr("Error marking invoice as mistake: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/mark-sent — admin only.
+// Called right after the WhatsApp window opens. 'sent' means exactly that:
+// Alice pressed the button. No email is or ever will be involved.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceMarkSent(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var inv = await env.DB.prepare("SELECT id, status FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status === "voided_mistake" || inv.status === "void") {
+            return jsonErr("Invoice is voided", 400);
+        }
+
+        await env.DB.prepare(
+            "UPDATE invoices SET status = 'sent', sent_at = datetime('now') WHERE id = ? AND status = 'draft'"
+        ).bind(invoiceId).run();
+
+        return jsonOk({ id: invoiceId, status: "sent" });
+    } catch (e) {
+        return jsonErr("Error marking invoice sent: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/invoices/:id/render-data — admin only.
+//
+// Same JSON shape as the Zoho-backed /api/invoices/:id/render-data, so the
+// EXISTING template (templates/apex-invoice-template-DRAFT.html) renders
+// unchanged. The template already works and Apex owns it; only the data
+// source moves from Zoho to D1.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var inv = await env.DB.prepare(
+            "SELECT i.*, c.name AS client_name, c.email AS client_email, c.payment_method, c.package " +
+            "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ? OR i.number = ?"
+        ).bind(invoiceId, invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+
+        var assunto = "";
+        if (inv.package) {
+            var pkgRow = await env.DB.prepare(
+                "SELECT full_name FROM packages WHERE short_name = ?"
+            ).bind(inv.package).first();
+            if (pkgRow && pkgRow.full_name) { assunto = pkgRow.full_name; }
+        }
+
+        var amountDollars = centsToDollars(inv.amount_cents);
+        var clientLogoUrl = inv.client_id
+            ? (APEX_API_BASE + "/api/clients/" + inv.client_id + "/logo-image")
+            : "";
+
+        var renderData = {
+            invoice: {
+                numero:                     inv.number || "",
+                data_fatura:                formatZohoDate(inv.issued_at),
+                data_vencimento:            formatZohoDate(inv.due_at),
+                termos_condicoes_pagamento: "",
+                assunto:                    assunto,
+                descricao:                  inv.notes || ""
+            },
+            empresa: {
+                nome:      "Apex Business & Leadership",
+                endereco:  "Tampa, FL",
+                telefone:  "",
+                website:   "apexbusiness.pro",
+                logo_url:  "https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"
+            },
+            cliente: {
+                client_id:  inv.client_id || "",
+                nome:       inv.client_name || "",
+                endereco:   "",
+                email:      inv.client_email || "",
+                logo_url:   clientLogoUrl
+            },
+            itens: [{
+                descricao:      assunto || "Servicos de consultoria",
+                detalhes:       inv.notes || "",
+                quantidade:     1,
+                valor_unitario: formatCurrency(amountDollars),
+                desconto:       "---",
+                subtotal:       formatCurrency(amountDollars)
+            }],
+            totais: {
+                subtotal:       formatCurrency(amountDollars),
+                desconto_total: null,
+                valor_total:    formatCurrency(amountDollars)
+            },
+            observacoes:      inv.notes || "",
+            formas_pagamento: inv.payment_method ||
+                "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente."
+        };
+
+        return jsonOk(renderData);
+    } catch (e) {
+        return jsonErr("Error building invoice render data: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Deposit-to-invoice matching.
+//
+// Conditions here are favorable: ~10-16 clients on individually negotiated
+// staggered terms, so amounts are close to unique and a client rarely carries
+// two open invoices at once. AMOUNT IS THE PRIMARY KEY; the client name is a
+// CONFIRMING signal only, because BofA truncates descriptions.
+//
+//   Auto-match  exact amount, 0-14 days from issue/due, AND a name or number
+//               fragment in the description
+//   Suggest     within 3% or $50 (whichever is smaller), 0-30 days, or an
+//               exact amount that is missing the name signal
+//   Do not guess  >3% off, >30 days, or MULTIPLE open invoices of similar
+//               amount -- which is exactly the live two-Gator-$1,500 case
+// ---------------------------------------------------------------------------
+
+function nameFragments(clientName) {
+    var parts = String(clientName || "").toUpperCase().split(/[^A-Z0-9]+/);
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i].length >= 4) { out.push(parts[i]); }
+    }
+    return out;
+}
+
+function descriptionHasClientSignal(description, clientName, invoiceNumber) {
+    var d = String(description || "").toUpperCase();
+    if (invoiceNumber && d.indexOf(String(invoiceNumber).toUpperCase()) !== -1) { return true; }
+    var frags = nameFragments(clientName);
+    for (var i = 0; i < frags.length; i++) {
+        if (d.indexOf(frags[i]) !== -1) { return true; }
+    }
+    return false;
+}
+
+async function buildMatchCandidates(env) {
+    // Open invoices only: paid, void and voided_mistake are never candidates.
+    var invRes = await env.DB.prepare(
+        "SELECT i.id, i.client_id, i.number, i.amount_cents, i.issued_at, i.due_at, c.name AS client_name " +
+        "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id " +
+        "WHERE i.status = 'sent'"
+    ).all();
+    var invoices = invRes.results || [];
+
+    // Deposits: money IN, on a business account, not a transfer, not already
+    // matched to a live (non-undone) payment.
+    var depRes = await env.DB.prepare(
+        "SELECT t.id, t.amount_cents, t.date, t.description FROM transactions t " +
+        "JOIN accounts a ON a.id = t.account_id " +
+        "WHERE t.amount_cents > 0 AND a.purpose = 'business' " +
+        "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+        "AND t.id NOT IN (SELECT transaction_id FROM invoice_payments WHERE undone_at IS NULL) " +
+        "AND t.date >= date('now', '-120 day')"
+    ).all();
+    var deposits = depRes.results || [];
+
+    var out = [];
+    for (var d = 0; d < deposits.length; d++) {
+        var dep = deposits[d];
+
+        // How many open invoices sit near this amount? Two or more and we do
+        // not guess at all -- this is the two-Gator-$1,500 guard.
+        var near = invoices.filter(function(inv) {
+            var diff = Math.abs((inv.amount_cents || 0) - dep.amount_cents);
+            var tol  = Math.min(Math.round((inv.amount_cents || 0) * 0.03), 5000);
+            return diff <= tol;
+        });
+        if (near.length > 1) {
+            out.push({ transaction: dep, tier: "ambiguous", invoices: near.map(function(i) { return i.id; }) });
+            continue;
+        }
+        if (near.length === 0) { continue; }
+
+        var inv = near[0];
+        var anchor = inv.issued_at || inv.due_at;
+        var age = anchor ? daysBetween(anchor, dep.date) : 999;
+        var exact = (inv.amount_cents === dep.amount_cents);
+        var signal = descriptionHasClientSignal(dep.description, inv.client_name, inv.number);
+
+        var tier = null;
+        if (exact && age <= 14 && signal)       { tier = "auto"; }
+        else if (exact && age <= 30)            { tier = "suggest"; }
+        else if (!exact && age <= 30)           { tier = "suggest"; }   // fee/partial/over-payment
+        if (!tier)                              { continue; }
+
+        // Forced individual review, never auto: high value, or any
+        // tolerance-based (non-exact) amount such as a processor fee.
+        var forceReview = (dep.amount_cents > 500000) || !exact;
+        if (tier === "auto" && forceReview) { tier = "suggest"; }
+
+        out.push({
+            transaction: dep,
+            invoice: inv,
+            tier: tier,
+            exact: exact,
+            signal: signal,
+            days: age,
+            force_review: forceReview
+        });
+    }
+    return out;
+}
+
+async function handleGetFinanceNewMatches(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var candidates = await buildMatchCandidates(env);
+        return jsonOk({ matches: candidates });
+    } catch (e) {
+        return jsonErr("Error building matches: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/matches/approve — admin only.
+// Body: { matches: [{ invoice_id, transaction_id, match_type }] }
+//
+// "Aprovar todos" is acceptable ONLY because a wrong match marks an invoice
+// paid -- it does not move money. The rails that make it safe:
+//   - HARD CAP of 20 per batch
+//   - forced individual review above $5,000 or on any non-exact amount
+//   - full audit trail (approved_by, matched_at)
+//   - 30-day undo, which is a soft reversal rather than a delete
+// ---------------------------------------------------------------------------
+
+var MATCH_BATCH_CAP = 20;
+var MATCH_FORCE_REVIEW_CENTS = 500000;
+
+async function handlePostFinanceNewMatchApprove(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var matches = body.matches;
+        if (!Array.isArray(matches) || !matches.length) { return jsonErr("matches required", 400); }
+        if (matches.length > MATCH_BATCH_CAP) {
+            return jsonErr("Batch limited to " + MATCH_BATCH_CAP + " matches", 400);
+        }
+
+        var applied = [];
+        var rejected = [];
+
+        for (var i = 0; i < matches.length; i++) {
+            var m = matches[i];
+            if (!m.invoice_id || !m.transaction_id) { continue; }
+
+            var inv = await env.DB.prepare(
+                "SELECT id, amount_cents, status FROM invoices WHERE id = ?"
+            ).bind(m.invoice_id).first();
+            var txn = await env.DB.prepare(
+                "SELECT id, amount_cents FROM transactions WHERE id = ?"
+            ).bind(m.transaction_id).first();
+            if (!inv || !txn) { continue; }
+            if (inv.status !== "sent") {
+                rejected.push({ invoice_id: m.invoice_id, reason: "not open" });
+                continue;
+            }
+
+            // A bulk approve may never sweep in a high-value or inexact match.
+            // Those require a single, deliberate confirmation each.
+            var isExact = (inv.amount_cents === txn.amount_cents);
+            var isBulk  = matches.length > 1;
+            if (isBulk && (!isExact || inv.amount_cents > MATCH_FORCE_REVIEW_CENTS)) {
+                rejected.push({ invoice_id: m.invoice_id, reason: "requires individual review" });
+                continue;
+            }
+
+            await env.DB.prepare(
+                "INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents, match_type, approved_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?)"
+            ).bind(
+                crypto.randomUUID(), inv.id, txn.id, txn.amount_cents,
+                m.match_type === "auto" ? "auto" : (m.match_type === "suggested" ? "suggested" : "manual"),
+                actorName(user)
+            ).run();
+
+            await env.DB.prepare(
+                "UPDATE invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?"
+            ).bind(inv.id).run();
+
+            applied.push({ invoice_id: inv.id, transaction_id: txn.id });
+        }
+
+        return jsonOk({ applied: applied, rejected: rejected });
+    } catch (e) {
+        return jsonErr("Error approving matches: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/matches/undo — admin only.
+// Body: { payment_id }
+// Undo stays open for 30 days. The payment row is marked undone rather than
+// deleted, so the reversal itself is auditable.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewMatchUndo(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.payment_id) { return jsonErr("payment_id required", 400); }
+
+        var pay = await env.DB.prepare(
+            "SELECT id, invoice_id, matched_at, undone_at FROM invoice_payments WHERE id = ?"
+        ).bind(body.payment_id).first();
+        if (!pay) { return jsonErr("Payment not found", 404); }
+        if (pay.undone_at) { return jsonErr("Already undone", 400); }
+
+        var stale = await env.DB.prepare(
+            "SELECT 1 AS ok FROM invoice_payments WHERE id = ? AND matched_at >= datetime('now', '-30 day')"
+        ).bind(body.payment_id).first();
+        if (!stale) { return jsonErr("Undo window (30 days) has passed", 400); }
+
+        await env.DB.prepare(
+            "UPDATE invoice_payments SET undone_at = datetime('now'), undone_by = ? WHERE id = ?"
+        ).bind(actorName(user), body.payment_id).run();
+
+        // Back to open unless another live payment still covers it.
+        var others = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM invoice_payments WHERE invoice_id = ? AND undone_at IS NULL"
+        ).bind(pay.invoice_id).first();
+        if (!others || !others.n) {
+            await env.DB.prepare(
+                "UPDATE invoices SET status = 'sent', paid_at = NULL WHERE id = ? AND status = 'paid'"
+            ).bind(pay.invoice_id).run();
+        }
+
+        return jsonOk({ undone: true });
+    } catch (e) {
+        return jsonErr("Error undoing match: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Recurring invoices — generate DRAFTS, never send.
+//
+// "If she has to remember to come in and build an invoice all the time,
+// that's different than she comes in and sees, oh, the invoice is there, I
+// gotta send that." The cron creates the draft; SHE sends it over WhatsApp.
+//
+// The 4-hour cron makes idempotency mandatory: this runs six times a day and
+// must generate at most once per client per period. Two independent guards --
+// last_satisfied_period, and a direct look for an existing invoice in the same
+// period, which also covers invoices created outside the collision modal.
+// ---------------------------------------------------------------------------
+
+async function runRecurringInvoices(env) {
+    var due = await env.DB.prepare(
+        "SELECT id, client_id, amount_cents, interval_n, interval_unit, next_due_at, " +
+        "end_after_n, generated_count, last_satisfied_period " +
+        "FROM invoice_recurrence WHERE active = 1 AND next_due_at <= date('now')"
+    ).all();
+
+    var generated = [];
+
+    for (var i = 0; i < due.results.length; i++) {
+        var rec = due.results[i];
+
+        if (rec.end_after_n && rec.generated_count >= rec.end_after_n) {
+            await env.DB.prepare("UPDATE invoice_recurrence SET active = 0 WHERE id = ?").bind(rec.id).run();
+            continue;
+        }
+
+        var pk = periodKeyFor(rec.next_due_at, rec.interval_unit);
+
+        // Guard 1: this period was already handled (usually by the collision
+        // modal's "continuar manualmente" branch).
+        if (rec.last_satisfied_period === pk) {
+            await env.DB.prepare(
+                "UPDATE invoice_recurrence SET next_due_at = ? WHERE id = ?"
+            ).bind(addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit), rec.id).run();
+            continue;
+        }
+
+        // Guard 2: an invoice already exists for this client and period,
+        // however it was created. Covers manual invoices made without going
+        // through the modal -- which is precisely how the Gator duplicate got in.
+        var existing = await env.DB.prepare(
+            "SELECT id FROM invoices WHERE client_id = ? AND status != 'voided_mistake' " +
+            "AND (period_key = ? OR (issued_at IS NOT NULL AND substr(issued_at, 1, ?) = ?))"
+        ).bind(rec.client_id, pk, pk.length, pk).first();
+
+        if (existing) {
+            await env.DB.prepare(
+                "UPDATE invoice_recurrence SET last_satisfied_period = ?, next_due_at = ? WHERE id = ?"
+            ).bind(pk, addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit), rec.id).run();
+            continue;
+        }
+
+        var number = await allocateInvoiceNumber(env);
+        var invId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, " +
+            "source, recurrence_id, period_key) VALUES (?, ?, ?, ?, ?, ?, 'draft', 'recurrence', ?, ?)"
+        ).bind(
+            invId, rec.client_id, number, rec.amount_cents,
+            rec.next_due_at, rec.next_due_at, rec.id, pk
+        ).run();
+
+        await env.DB.prepare(
+            "UPDATE invoice_recurrence SET next_due_at = ?, generated_count = generated_count + 1, " +
+            "last_satisfied_period = ? WHERE id = ?"
+        ).bind(addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit), pk, rec.id).run();
+
+        generated.push({ id: invId, number: number, client_id: rec.client_id });
+    }
+
+    return { generated: generated };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/recurrences  — admin only.
+// Route: POST /api/finance-new/recurrences — admin only.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewRecurrences(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT r.*, c.name AS client_name FROM invoice_recurrence r " +
+            "LEFT JOIN clients c ON c.id = r.client_id ORDER BY r.next_due_at ASC"
+        ).all();
+        return jsonOk({ recurrences: res.results });
+    } catch (e) {
+        return jsonErr("Error fetching recurrences: " + e.message, 500);
+    }
+}
+
+async function handlePostFinanceNewRecurrence(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.client_id)   { return jsonErr("client_id required", 400); }
+        if (!body.next_due_at) { return jsonErr("next_due_at required", 400); }
+
+        var unit = body.interval_unit || "month";
+        if (["day", "week", "month", "year"].indexOf(unit) === -1) {
+            return jsonErr("interval_unit must be day, week, month or year", 400);
+        }
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO invoice_recurrence (id, client_id, amount_cents, interval_n, interval_unit, " +
+            "next_due_at, end_after_n) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            id, body.client_id, parseInt(body.amount_cents, 10) || 0,
+            parseInt(body.interval_n, 10) || 1, unit, body.next_due_at,
+            body.end_after_n ? parseInt(body.end_after_n, 10) : null
+        ).run();
+
+        return jsonOk({ id: id });
+    } catch (e) {
+        return jsonErr("Error creating recurrence: " + e.message, 500);
+    }
+}
+
 export default {
     fetch: async function(request, env) {
         var url    = new URL(request.url);
@@ -16972,7 +18566,36 @@ export default {
         }
 
         // --- finance-new (Plaid budgeting) -------------------------------
-        if (path === "/api/finance-new/migrate-invoices" && method === "POST") { return handlePostFinanceNewMigrateInvoices(request, env); }
+        if (path === "/api/finance-new/migrate-invoices"  && method === "POST") { return handlePostFinanceNewMigrateInvoices(request, env); }
+        if (path === "/api/finance-new/link-token"        && method === "POST") { return handlePostFinanceNewLinkToken(request, env); }
+        if (path === "/api/finance-new/link-token/update" && method === "POST") { return handlePostFinanceNewLinkTokenUpdate(request, env); }
+        if (path === "/api/finance-new/exchange"          && method === "POST") { return handlePostFinanceNewExchange(request, env); }
+        if (path === "/api/finance-new/accounts"          && method === "GET")  { return handleGetFinanceNewAccounts(request, env); }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "accounts" && segs[3] && method === "PATCH") {
+            return handlePatchFinanceNewAccount(segs[3], request, env);
+        }
+        if (path === "/api/finance-new/summary"           && method === "GET")  { return handleGetFinanceNewSummary(request, env); }
+        if (path === "/api/finance-new/transactions"      && method === "GET")  { return handleGetFinanceNewTransactions(request, env); }
+        if (path === "/api/finance-new/transfers/confirm" && method === "POST") { return handlePostFinanceNewTransferConfirm(request, env); }
+        if (path === "/api/finance-new/transfers/reject"  && method === "POST") { return handlePostFinanceNewTransferReject(request, env); }
+        if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
+        if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
+        if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
+        if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }
+        if (path === "/api/finance-new/matches"           && method === "GET")  { return handleGetFinanceNewMatches(request, env); }
+        if (path === "/api/finance-new/matches/approve"   && method === "POST") { return handlePostFinanceNewMatchApprove(request, env); }
+        if (path === "/api/finance-new/matches/undo"      && method === "POST") { return handlePostFinanceNewMatchUndo(request, env); }
+        if (path === "/api/finance-new/recurrences"       && method === "GET")  { return handleGetFinanceNewRecurrences(request, env); }
+        if (path === "/api/finance-new/recurrences"       && method === "POST") { return handlePostFinanceNewRecurrence(request, env); }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "render-data" && method === "GET") {
+            return handleGetFinanceNewInvoiceRenderData(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-mistake" && method === "POST") {
+            return handlePostFinanceNewInvoiceMarkMistake(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-sent" && method === "POST") {
+            return handlePostFinanceNewInvoiceMarkSent(segs[3], request, env);
+        }
 
         return jsonErr("Not found", 404);
     },
@@ -16987,7 +18610,18 @@ export default {
     // API on any failure. Successes are silent (no daily "all good" noise).
     // -------------------------------------------------------------------
     scheduled: async function(event, env, ctx) {
+        // Three INDEPENDENT waitUntil calls, deliberately not chained. A Zoho
+        // refresh failure inside checkIntegrationHealth must not stop the Plaid
+        // sync, and neither may stop recurring invoice generation -- a missed
+        // recurrence is an invoice Alice never sends and revenue that never
+        // gets billed. Each swallows its own errors for the same reason.
         ctx.waitUntil(checkIntegrationHealth(env));
+        ctx.waitUntil(syncPlaidTransactions(env).catch(function(e) {
+            return notifyNicoleTelegram(env, "Plaid sync failed: " + e.message).catch(function() {});
+        }));
+        ctx.waitUntil(runRecurringInvoices(env).catch(function(e) {
+            return notifyNicoleTelegram(env, "Recurring invoices failed: " + e.message).catch(function() {});
+        }));
     }
 };
 

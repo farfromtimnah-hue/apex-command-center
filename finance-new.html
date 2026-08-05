@@ -289,6 +289,9 @@
       color: var(--brown);
     }
     .inv-subtab.active .inv-subtab-badge { background: var(--gold); color: #fff; }
+    /* Same trap as .filter-row: inline-flex would keep a zero-count badge on
+       screen after updateInvoiceBadges() sets .hidden. */
+    .inv-subtab-badge[hidden] { display: none !important; }
 
     /* ─── Charts ─────────────────────────────────────────────────────────── */
     .chart-grid {
@@ -440,7 +443,11 @@
     .pill-transfer { background: #eef1f6; color: #55637a; }
 
     /* ─── Filters ───────────────────────────────────────────────────────── */
+    /* `display: flex` beats the browser's default `[hidden] { display: none }`,
+       so an explicit override is required or a hidden filter row still paints
+       -- which is what put "mostrar anulados" on the Rascunho tab. */
     .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .filter-row[hidden] { display: none !important; }
     .filter-row input, .filter-row select {
       font-family: 'Inter', sans-serif;
       font-size: 13px;

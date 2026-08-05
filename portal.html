@@ -5973,8 +5973,28 @@
       });
     }
 
+    // TEMPORARY (2026-08-05) -- invoice display paused for clients.
+    //
+    // Why: this reads live from Zoho, and an invoice only becomes "paid" there if
+    // someone marks it paid. That reconciliation step was never used, so payments
+    // that really arrived still show as sent/overdue -- e.g. LIRA's INV-000008 has
+    // read "overdue by 26 days" throughout. Telling a client they owe money they
+    // already sent is worse than showing them nothing.
+    //
+    // Remove this flag once handleGetClientInvoices merges D1 + Zoho with D1's
+    // paid status winning. See projects/apex-finance-overhaul-plan.md.
+    var INVOICES_PAUSED_FOR_CLIENTS = true;
+
     // Invoices — read-only paid/unpaid split.
     function loadInvoices() {
+      if (INVOICES_PAUSED_FOR_CLIENTS) {
+        var pausedMsg = '<p class="muted">' + (isEn()
+          ? "Invoices are being updated. Please contact us for your current balance."
+          : "As faturas estao sendo atualizadas. Entre em contato para consultar seu saldo atual.") + '</p>';
+        document.getElementById("invoicesUnpaidBody").innerHTML = pausedMsg;
+        document.getElementById("invoicesPaidBody").innerHTML = "";
+        return;
+      }
       var loadingHtml = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
       document.getElementById("invoicesUnpaidBody").innerHTML = loadingHtml;
       document.getElementById("invoicesPaidBody").innerHTML = loadingHtml;

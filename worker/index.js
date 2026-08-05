@@ -2720,11 +2720,11 @@ async function handlePostClientTask(id, request, env) {
 
         var taskId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO tasks (id, client_id, type, description, due_date, status) VALUES (?, ?, ?, ?, ?, 'pending')"
+            "INSERT INTO tasks (id, client_id, type, description, due_date, status, source) VALUES (?, ?, ?, ?, ?, 'pending', 'manual')"
         ).bind(taskId, id, body.type, body.description, body.due_date || null).run();
 
         var task = await env.DB.prepare(
-            "SELECT id, client_id, type, description, due_date, status, created_at FROM tasks WHERE id = ?"
+            "SELECT id, client_id, type, description, due_date, status, source, created_at FROM tasks WHERE id = ?"
         ).bind(taskId).first();
 
         return jsonOk({ task: task });
@@ -5527,17 +5527,31 @@ async function handleGetConsultantTasks(request, env) {
             return jsonErr("scope must be today or week", 400);
         }
 
+        // Optional provenance filter. Without it the endpoint returns every
+        // consultant task in scope, which is what dashboard.html's "Tarefas"
+        // card wants. tasks.html's Pedidos de Ajuda section passes
+        // source=help_request: that section must never rely on
+        // type='consultant' being exclusive to help requests, which is the
+        // assumption that broke when session tasks were migrated in.
+        var source = url.searchParams.get("source");
+        var allowedSources = ["help_request", "session", "manual"];
+        if (source !== null && allowedSources.indexOf(source) === -1) {
+            return jsonErr("source must be help_request, session or manual", 400);
+        }
+        var sourceClause = source ? " AND t.source = ?" : "";
+
         var today = new Date().toISOString().split("T")[0];
 
         var stmt;
         if (scope === "today") {
             stmt = env.DB.prepare(
                 "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
-                "t.description, t.due_date, t.status, t.created_at " +
+                "t.description, t.due_date, t.status, t.source, t.created_at " +
                 "FROM tasks t JOIN clients c ON t.client_id = c.id " +
-                "WHERE t.type = 'consultant' AND t.due_date = ? " +
+                "WHERE t.type = 'consultant' AND t.due_date = ?" + sourceClause + " " +
                 "ORDER BY t.due_date ASC"
-            ).bind(today);
+            );
+            stmt = source ? stmt.bind(today, source) : stmt.bind(today);
         } else {
             // Compute Sunday-to-Saturday week boundaries using same logic as calendar.html getWeekDateStrings()
             var now = new Date();
@@ -5551,11 +5565,12 @@ async function handleGetConsultantTasks(request, env) {
 
             stmt = env.DB.prepare(
                 "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
-                "t.description, t.due_date, t.status, t.created_at " +
+                "t.description, t.due_date, t.status, t.source, t.created_at " +
                 "FROM tasks t JOIN clients c ON t.client_id = c.id " +
-                "WHERE t.type = 'consultant' AND t.due_date >= ? AND t.due_date <= ? " +
+                "WHERE t.type = 'consultant' AND t.due_date >= ? AND t.due_date <= ?" + sourceClause + " " +
                 "ORDER BY t.due_date ASC"
-            ).bind(weekStart, weekEnd);
+            );
+            stmt = source ? stmt.bind(weekStart, weekEnd, source) : stmt.bind(weekStart, weekEnd);
         }
 
         var res = await stmt.all();
@@ -9877,8 +9892,11 @@ async function handlePostHelpRequest(id, request, env) {
         // YYYY-MM-DD shape client.html's date inputs write and its overdue
         // check compares against.
         var dueDate = new Date().toISOString().slice(0, 10);
+        // source='help_request' is what the Pedidos de Ajuda section filters on.
+        // The "[Pedido de ajuda / Help request]" description prefix is display
+        // text only — never the filter.
         await env.DB.prepare(
-            "INSERT INTO tasks (id, client_id, type, description, due_date, status) VALUES (?, ?, 'consultant', ?, ?, 'pending')"
+            "INSERT INTO tasks (id, client_id, type, description, due_date, status, source) VALUES (?, ?, 'consultant', ?, ?, 'pending', 'help_request')"
         ).bind(taskId, id, description, dueDate).run();
         var waText = "Oi Rafa! Aqui é " + client.name +
             ". Preciso de ajuda com \"" + label + "\" no Portal Apex. Os números estão na sua aba de tarefas.";

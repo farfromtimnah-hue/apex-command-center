@@ -1074,11 +1074,15 @@
         });
     }
 
-    // ── Data: fetch today's help-request tasks (D1 `tasks` table, type=consultant) ──
+    // ── Data: fetch today's help-request tasks ─────────────────────────────
+    // source=help_request is load-bearing. This section used to filter on
+    // type='consultant' alone, which only worked while help requests were the
+    // only consultant rows in the table; once session-derived tasks were
+    // migrated in, four of them due today showed up here.
 
     function loadHelpRequests() {
       user_getToken().then(function(token) {
-        return fetch(WORKER_URL + "/api/tasks/consultant?scope=today", { headers: { "Authorization": "Bearer " + token } });
+        return fetch(WORKER_URL + "/api/tasks/consultant?scope=today&source=help_request", { headers: { "Authorization": "Bearer " + token } });
       }).then(function(res) { return res.json(); })
         .then(function(data) {
           var tasks = (data.tasks || []).filter(function(t) { return t.status === "pending"; });

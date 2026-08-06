@@ -253,7 +253,10 @@
         { id: "navBtnAlice",  v: "alice",  label: "Alice"  },
         { id: "navBtnRafa",   v: "rafa",   label: "Rafa"   },
         { id: "navBtnDev",    v: "dev",    label: "Dev"    },
-        { id: "navBtnClient", v: "client", label: "Client" }
+        { id: "navBtnClient", v: "client", label: "Client" },
+        // Same shape as Client: opens a picker rather than switching the nav.
+        // Two steps, because a seller only means something inside one client.
+        { id: "navBtnSeller", v: "seller", label: "Seller" }
       ];
       for (var j = 0; j < buttons.length; j++) {
         var b = buttons[j];
@@ -317,6 +320,12 @@
       openClientPreviewPicker();
       return;
     }
+    // Same contract as "client": a preview, not a nav state. Picks a client
+    // first, then one of that client's salespeople.
+    if (v === "seller") {
+      openClientPreviewPicker({ seller: true });
+      return;
+    }
     sessionStorage.setItem("apex_dev_view", v);
 
     if (typeof window.setView === "function") {
@@ -330,8 +339,17 @@
   // Searchable modal listing every client; picking one opens
   // portal.html?previewAs=<client_id> (read-only, enforced by the Worker).
   var pickerClients = null;
+  // When true the client pick is step 1 of the seller flow and hands off to the
+  // seller picker instead of navigating straight into the portal.
+  var pickerSellerMode = false;
 
-  function openClientPreviewPicker() {
+  function openClientPreviewPicker(opts) {
+    pickerSellerMode = !!(opts && opts.seller);
+    // Step 1 always starts from the client list, even if a previous run left a
+    // seller list loaded — otherwise the filter box would still be filtering
+    // the old client's salespeople.
+    pickerSellers = null;
+    pickerSellerClientId = null;
     var overlay = document.getElementById("apexClientPickerOverlay");
     if (!overlay) {
       overlay = document.createElement("div");
@@ -339,8 +357,7 @@
       overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(20,18,16,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;";
       overlay.innerHTML =
         '<div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,0.3);font-family:\'Inter\',sans-serif;">' +
-        '<div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#1a1a1d;">' +
-        '<span class="show-pt">Ver portal como cliente</span><span class="show-en">Preview portal as client</span></div>' +
+        '<div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#1a1a1d;" id="apexClientPickerTitle"></div>' +
         '<input type="text" id="apexClientPickerFilter" placeholder="Filtrar / Filter…" ' +
         'style="border:1px solid #e8e2d9;border-radius:8px;padding:10px 12px;font-family:\'Inter\',sans-serif;font-size:14px;margin-bottom:10px;outline:none;" ' +
         'oninput="window.apexClientPickerRender()">' +
@@ -356,6 +373,14 @@
       document.body.appendChild(overlay);
     }
     overlay.style.display = "flex";
+    var titleEl = document.getElementById("apexClientPickerTitle");
+    if (titleEl) {
+      titleEl.innerHTML = pickerSellerMode
+        ? '<span class="show-pt">Ver como vendedor — escolha o cliente</span>' +
+          '<span class="show-en">Preview as salesperson — pick the client</span>'
+        : '<span class="show-pt">Ver portal como cliente</span>' +
+          '<span class="show-en">Preview portal as client</span>';
+    }
     document.getElementById("apexClientPickerFilter").value = "";
     var listEl = document.getElementById("apexClientPickerList");
     listEl.innerHTML = '<div style="color:#6b6660;font-size:13px;padding:10px;">Carregando… / Loading…</div>';
@@ -378,6 +403,9 @@
   }
 
   window.apexClientPickerRender = function () {
+    // The one filter box serves both steps of the seller flow, so once the
+    // seller list is up, typing filters that instead of the client list.
+    if (pickerSellers) { window.apexSellerPickerRender(); return; }
     var listEl = document.getElementById("apexClientPickerList");
     if (!listEl || !pickerClients) { return; }
     var q = (document.getElementById("apexClientPickerFilter").value || "").toLowerCase();
@@ -397,7 +425,90 @@
   };
 
   window.apexClientPickerGo = function (id) {
+    if (pickerSellerMode) { openSellerPreviewPicker(id); return; }
     window.location.href = "portal.html?previewAs=" + encodeURIComponent(id);
+  };
+
+  // ── Developer salesperson-preview picker (step 2 of the Seller flow) ──────
+  // Lists the client's salespeople and opens the portal scoped to one of them.
+  //
+  // THE LIST COMES FROM gm_seller_login_requests, NOT client_logins. A seat
+  // request is the client saying "this person sells for me"; the seat itself is
+  // paperwork Rafa and Alice work through by hand. JM has four requested and
+  // zero approved, so an approved-only picker would be empty and there would be
+  // nothing to test against. Pending names are listed and visibly marked.
+  //
+  // This is a PREVIEW, exactly like the client preview: it appends
+  // ?previewAs=<client>&previewSeller=<name> and nothing more. No session is
+  // created, no token is minted, no client_logins row is touched, and the
+  // Worker's read-only preview gate still rejects every write. Nobody is logged
+  // in as the salesperson -- the developer's own Google session is what
+  // authenticates, and the extra param only narrows what is displayed.
+  var pickerSellers = null;
+  var pickerSellerClientId = null;
+
+  function openSellerPreviewPicker(clientId) {
+    pickerSellerClientId = clientId;
+    pickerSellers = null;
+    var titleEl = document.getElementById("apexClientPickerTitle");
+    if (titleEl) {
+      titleEl.innerHTML =
+        '<span class="show-pt">Ver como vendedor — escolha a pessoa</span>' +
+        '<span class="show-en">Preview as salesperson — pick the person</span>';
+    }
+    document.getElementById("apexClientPickerFilter").value = "";
+    var listEl = document.getElementById("apexClientPickerList");
+    listEl.innerHTML = '<div style="color:#6b6660;font-size:13px;padding:10px;">Carregando… / Loading…</div>';
+
+    var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+    var fb = window.firebase;
+    if (!fb || !fb.auth || !fb.auth().currentUser) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Sessão não encontrada / No session</div>';
+      return;
+    }
+    fb.auth().currentUser.getIdToken().then(function (token) {
+      return fetch(workerUrl + "/api/clients/" + encodeURIComponent(clientId) + "/gm/seller-login-requests",
+        { headers: { "Authorization": "Bearer " + token } });
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      pickerSellers = data.requests || [];
+      window.apexSellerPickerRender();
+    }).catch(function (e) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Erro: ' + (e && e.message ? e.message : "?") + '</div>';
+    });
+  }
+
+  window.apexSellerPickerRender = function () {
+    var listEl = document.getElementById("apexClientPickerList");
+    if (!listEl || !pickerSellers) { return; }
+    var q = (document.getElementById("apexClientPickerFilter").value || "").toLowerCase();
+    var html = "";
+    for (var i = 0; i < pickerSellers.length; i++) {
+      var s = pickerSellers[i];
+      var name = s.seller_name || "";
+      if (!name) { continue; }
+      if (q && name.toLowerCase().indexOf(q) === -1) { continue; }
+      // A pending request is the normal case today, so it is labelled rather
+      // than hidden or disabled — the whole point is being able to preview a
+      // salesperson before their seat exists.
+      var tag = s.status && s.status !== "approved"
+        ? ' <span style="font-size:11px;color:#7a5f18;background:rgba(201,164,58,0.18);' +
+          'border-radius:9px;padding:1px 7px;font-weight:700;">' + s.status + '</span>'
+        : '';
+      html += '<button type="button" onclick="apexSellerPickerGo(' +
+        JSON.stringify(name).replace(/"/g, "&quot;") + ')" ' +
+        'style="display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid #e8e2d9;' +
+        'padding:11px 6px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:600;color:#1a1a1d;cursor:pointer;">' +
+        name.replace(/&/g, "&amp;").replace(/</g, "&lt;") + tag +
+        '</button>';
+    }
+    listEl.innerHTML = html ||
+      '<div style="color:#6b6660;font-size:13px;padding:10px;">' +
+      'Nenhum vendedor solicitado / No salespeople requested</div>';
+  };
+
+  window.apexSellerPickerGo = function (name) {
+    window.location.href = "portal.html?previewAs=" + encodeURIComponent(pickerSellerClientId) +
+      "&previewSeller=" + encodeURIComponent(name);
   };
 
   window.apexClientPickerClose = function () {

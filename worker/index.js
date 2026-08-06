@@ -186,6 +186,32 @@ function sessionSellerName(user) {
     return (user && user.login_role === "seller" && user.seller_name) ? user.seller_name : null;
 }
 
+// The salesperson an ADMIN is previewing as (?previewSeller=<name>, alongside
+// ?previewAs=<client_id>). Read-only by construction: it can only ever NARROW
+// what an admin already sees, never widen it, because every admin role already
+// passes requireClientAccess for every client and every preview write is
+// rejected by the read-only gate in fetch().
+//
+// Gated on isAdminRole so a real client or seller session cannot hand itself
+// this param. For a seller session it would be a no-op anyway (their own
+// session name wins below), but a filter that silently ignores input from the
+// wrong caller is a filter someone will later mistake for an auth check.
+//
+// Returns a plain name string; it is compared against gm_leads.vendedor, which
+// is free text, exactly as a real seller session's name is.
+function previewSellerName(user, request) {
+    if (!isAdminRole(user)) { return null; }
+    var ps = new URL(request.url).searchParams.get("previewSeller");
+    return gmStr(ps, 80) || null;
+}
+
+// The vendedor filter to apply to a client's leads: a real seller session's own
+// name, or the name an admin is previewing. The session ALWAYS wins -- a seller
+// cannot widen or redirect their own scope by adding a query param.
+function effectiveSellerName(user, request) {
+    return sessionSellerName(user) || previewSellerName(user, request);
+}
+
 // Admin roles pass for any client; a client-role user only for their own.
 // Admin preview-as (?previewAs=<client_id>, LTC's getSelfSubmission pattern)
 // needs no extra branch here: every admin role already passes for reads, and
@@ -14257,8 +14283,13 @@ async function handleGetGmLeads(id, request, env) {
         // leads that predate the log — see gmLeadPrimeiroContato in gm.js.
         // Row-level scope for a salesperson session: they see ONLY leads whose
         // vendedor is their own name. Enforced HERE, in the SQL, off the name
-        // carried on the session — never off a query param or body field, and
+        // carried on the SESSION — never off a query param or body field, and
         // never in the frontend (a hidden row is not a protected row).
+        //
+        // ?previewSeller= narrows this too, but it is NOT an exception to that
+        // rule: it is honoured only for admin roles, who already see every lead
+        // of every client, so it can only subtract. A seller session's own name
+        // always wins over it (see effectiveSellerName).
         //
         // The comparison is exact, not COALESCE'd: a lead with vendedor NULL or
         // '' belongs to the OWNER and is invisible to every seller. NULL is not
@@ -14268,7 +14299,10 @@ async function handleGetGmLeads(id, request, env) {
         // were applied only to the row list, a seller would still learn the
         // size, value and close rate of the whole business's pipeline from the
         // metric tiles.
-        var sellerName = sessionSellerName(user);
+        // A real seller session's own name, or the salesperson an admin is
+        // previewing as. Identical filtering either way, which is the point:
+        // the preview shows what that person would actually see.
+        var sellerName = effectiveSellerName(user, request);
         var sellerFilter = sellerName ? " AND l.vendedor = ?" : "";
         var leadBinds = sellerName ? [id, sellerName] : [id];
         var rows = await env.DB.prepare(
@@ -14294,8 +14328,34 @@ async function handleGetGmLeads(id, request, env) {
         ).bind(...leadBinds).first();
         var leadsTotais = (summary && summary.leads_totais) || 0;
         var fechados = (summary && summary.fechados) || 0;
+        // Does this business have anybody to assign a lead TO? Counts seller
+        // seats AND pending seat requests, because a client who has asked for
+        // seats has salespeople -- the seat is just paperwork we have not done
+        // yet. JM is the motivating case: four requested, zero approved.
+        //
+        // This gates the "unassigned" marker in the pipeline list. With nobody
+        // on the roster, "unassigned" is not a gap to fix, it is the only state
+        // a lead can be in, so the marker is hidden entirely rather than
+        // decorating every row with a warning the client cannot act on.
+        //
+        // Computed server-side and returned with the leads so the CRM tab does
+        // not have to depend on the settings screen having been opened first.
+        // A seller session never needs it: every lead it can see is its own.
+        var sellerCount = 0;
+        if (!sellerName) {
+            var scRow = await env.DB.prepare(
+                "SELECT (SELECT COUNT(*) FROM client_logins " +
+                "        WHERE client_id = ? AND role = 'seller' AND seller_name IS NOT NULL) + " +
+                "       (SELECT COUNT(*) FROM gm_seller_login_requests " +
+                "        WHERE client_id = ? AND status IN ('pending','approved') " +
+                "          AND seller_name NOT IN (SELECT COALESCE(seller_name,'') FROM client_logins " +
+                "                                  WHERE client_id = ? AND role = 'seller')) AS n"
+            ).bind(id, id, id).first();
+            sellerCount = (scRow && scRow.n) || 0;
+        }
         return jsonOk({
             leads: (rows.results || []),
+            seller_count: sellerCount,
             summary: {
                 leads_totais: leadsTotais,
                 pipeline_ativo: (summary && summary.pipeline_ativo) || 0,

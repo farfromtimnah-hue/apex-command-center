@@ -4180,13 +4180,19 @@
     // still holds the same four.
     var PORTAL_DOCK_ORDER = ["analytics", "goals", "gmcrm", "gmfinance"];
 
-    // A seller's entire navigable surface: the Pipeline, alone. Derived from
-    // the canonical array by filter rather than written out as a second list,
-    // so it inherits the label, icon and ordering of the real entry and cannot
-    // drift from it. The dock and the "Mais" overflow both build from
-    // portalTabs() too, so they follow automatically — there is no third place
-    // to keep in sync.
-    var SELLER_TABS = ["gmcrm"];
+    // A seller's entire navigable surface: the Pipeline and the shared sales
+    // material. Derived from the canonical array by filter rather than written
+    // out as a second list, so it inherits the label, icon and ordering of the
+    // real entry and cannot drift from it. The dock and the "Mais" overflow
+    // both build from portalTabs() too, so they follow automatically — there is
+    // no third place to keep in sync.
+    //
+    // "documents" here is the SAME Documentos tab the client sees, showing a
+    // strictly narrower set: the server returns only visibility='seller' rows
+    // to a seller session and drops session-derived reports entirely. This list
+    // is navigation, not authorization — every one of these is enforced again
+    // server-side in sellerRequestAllowed().
+    var SELLER_TABS = ["gmcrm", "documents"];
 
     function portalTabs() {
       if (!isSeller()) { return PORTAL_TABS; }
@@ -5865,11 +5871,21 @@
         .then(function(res) { return res.json(); })
         .then(function(d) {
           documentsCache = d.documents || [];
-          var html = '<div class="kpi-section-title">' +
-            '<span class="show-pt">Arquivos e relat&oacute;rios</span>' +
-            '<span class="show-en">Files and reports</span></div>';
+          // A salesperson's Documentos tab is only ever the shared sales
+          // material, so it says so rather than inheriting the client's
+          // "Arquivos e relatórios" heading — a rep should not be left
+          // wondering which of the client's files they are missing.
+          var html = isSeller()
+            ? '<div class="kpi-section-title">' +
+              '<span class="show-pt">Materiais do Vendedor</span>' +
+              '<span class="show-en">Sales materials</span></div>'
+            : '<div class="kpi-section-title">' +
+              '<span class="show-pt">Arquivos e relat&oacute;rios</span>' +
+              '<span class="show-en">Files and reports</span></div>';
           if (!documentsCache.length) {
-            html += '<p class="muted">' + (isEn() ? "No documents yet." : "Nenhum documento ainda.") + '</p>';
+            html += '<p class="muted">' + (isSeller()
+              ? (isEn() ? "No sales materials yet." : "Nenhum material ainda.")
+              : (isEn() ? "No documents yet." : "Nenhum documento ainda.")) + '</p>';
           } else {
             documentsCache.forEach(function(doc, i) {
               html += '<div class="list-row"><div class="list-main">' +
@@ -5918,6 +5934,13 @@
     }
 
     function completedAssessmentsHtml() {
+      // Assessments are consulting deliverables about the client's business,
+      // never sales material. The server already refuses to send a salesperson
+      // any session-derived report, but this section renders from
+      // assessmentsCache on the client, so it needs its own guard — otherwise
+      // a seller's Documentos tab would still show the heading and the rows.
+      // Covers the ?previewSeller= path too, since isSeller() is true there.
+      if (isSeller()) { return ""; }
       var done = completedAssessmentsList();
       var html = '<div class="kpi-section-title" style="margin-top:18px;">' +
         '<span class="show-pt">Diagn&oacute;sticos e relat&oacute;rios conclu&iacute;dos</span>' +

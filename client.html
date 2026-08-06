@@ -1975,6 +1975,13 @@
               <span class="show-en">Documents</span>
             </h2>
             <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv" style="display:none;" onchange="handleDocFileSelected(this)">
+            <!-- Who the next upload is filed for. Defaults to the client-only
+                 scope: sharing a document with the client's whole sales team is
+                 a deliberate choice, never the path of least resistance. -->
+            <select id="docVisibility" class="btn-sm" style="display:none;" title="Quem pode ver / Who can see">
+              <option value="client">Somente cliente / Client only</option>
+              <option value="seller">Cliente + vendedores / Client + sellers</option>
+            </select>
             <button class="btn-sm" id="btnUploadDoc" onclick="document.getElementById('docFileInput').click()" style="display:none;">
               <span class="show-pt">Enviar Arquivo</span>
               <span class="show-en">Upload File</span>
@@ -4240,6 +4247,10 @@
       var canUpload = role === "alice" || role === "rafa" || role === "developer";
       var uploadBtn = document.getElementById("btnUploadDoc");
       if (uploadBtn) { uploadBtn.style.display = canUpload ? "" : "none"; }
+      // The visibility picker follows the upload button exactly — it is only
+      // meaningful to whoever can actually upload.
+      var visSel = document.getElementById("docVisibility");
+      if (visSel) { visSel.style.display = canUpload ? "" : "none"; }
 
       apiFetch("/api/clients/" + CLIENT_ID + "/documents")
         .then(function(res) { return res.json(); })
@@ -6302,6 +6313,17 @@
           dateSpan.textContent = formatDateTimeUTC(doc.date);
 
           metaEl.appendChild(badgeEl);
+          // Seller-visible documents are called out; client-only ones carry no
+          // badge, because that is the default and the unremarkable case. An
+          // admin should be able to see at a glance which files the client's
+          // sales team can read.
+          if (doc.kind === "uploaded" && doc.visibility === "seller") {
+            var visEl = document.createElement("span");
+            visEl.className = "status-badge";
+            visEl.style.cssText = "background:#fdf0d5;color:#7a4a00;";
+            visEl.innerHTML = '<span class="show-pt">Vendedores</span><span class="show-en">Sellers</span>';
+            metaEl.appendChild(visEl);
+          }
           metaEl.appendChild(dateSpan);
           if (doc.kind === "uploaded" && doc.uploaded_by) {
             var byEl = document.createElement("span");
@@ -6436,9 +6458,13 @@
         statusEl.className = "pull-status";
       }
 
+      var visSel = document.getElementById("docVisibility");
+      var visibility = (visSel && visSel.value === "seller") ? "seller" : "client";
+
       var formData = new FormData();
       formData.append("file", file);
       formData.append("title", file.name);
+      formData.append("visibility", visibility);
 
       getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents", {

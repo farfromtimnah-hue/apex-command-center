@@ -2295,16 +2295,39 @@ async function handleGetClientDocuments(id, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
-        var generatedRows = await env.DB.prepare(
-            "SELECT id, client_name, date, pdf_data, approved_at, created_at " +
-            "FROM sessions WHERE client_id = ? AND pdf_data IS NOT NULL " +
-            "ORDER BY date DESC"
-        ).bind(id).all();
+        // A salesperson sees the shared sales material and NOTHING else. Two
+        // separate narrowings, both required:
+        //
+        //   1. uploaded rows are filtered to visibility='seller'. The client's
+        //      own documents default to 'client' and stay invisible here.
+        //   2. session-derived reports are dropped entirely, regardless of any
+        //      visibility value — they are consulting deliverables ABOUT the
+        //      client's business (assessments, meeting summaries), not sales
+        //      material, and no visibility flag should ever expose one.
+        //
+        // effectiveSellerName covers the admin ?previewSeller= path with the
+        // same predicate, so a preview shows exactly the restricted set a real
+        // seller session gets — which is the entire point of the preview.
+        var asSeller = !!effectiveSellerName(user, request);
 
-        var uploadedRows = await env.DB.prepare(
-            "SELECT id, title, file_name, content_type, uploaded_by, created_at " +
-            "FROM client_documents WHERE client_id = ? ORDER BY created_at DESC"
-        ).bind(id).all();
+        var generatedRows = asSeller
+            ? { results: [] }
+            : await env.DB.prepare(
+                "SELECT id, client_name, date, pdf_data, approved_at, created_at " +
+                "FROM sessions WHERE client_id = ? AND pdf_data IS NOT NULL " +
+                "ORDER BY date DESC"
+            ).bind(id).all();
+
+        var uploadedRows = asSeller
+            ? await env.DB.prepare(
+                "SELECT id, title, file_name, content_type, uploaded_by, created_at, visibility " +
+                "FROM client_documents WHERE client_id = ? AND visibility = 'seller' " +
+                "ORDER BY created_at DESC"
+            ).bind(id).all()
+            : await env.DB.prepare(
+                "SELECT id, title, file_name, content_type, uploaded_by, created_at, visibility " +
+                "FROM client_documents WHERE client_id = ? ORDER BY created_at DESC"
+            ).bind(id).all();
 
         var generated = (generatedRows.results || []).map(function(s) {
             return {
@@ -2325,6 +2348,7 @@ async function handleGetClientDocuments(id, request, env) {
                 file_name: d.file_name,
                 content_type: d.content_type,
                 uploaded_by: d.uploaded_by,
+                visibility: d.visibility || "client",
                 date: d.created_at
             };
         });
@@ -2374,6 +2398,11 @@ async function handlePostClientDocument(id, request, env) {
         var titleField = form.get("title");
         var title = (typeof titleField === "string" && titleField.trim()) ? titleField.trim() : (file.name || ("document." + ext));
 
+        // Anything other than an explicit 'seller' falls back to 'client'. A
+        // typo or a missing field must never widen who can see a document.
+        var visField = form.get("visibility");
+        var visibility = (visField === "seller") ? "seller" : "client";
+
         var docId = crypto.randomUUID();
         var key = "client-documents/" + id + "/" + docId + "." + ext;
 
@@ -2382,11 +2411,11 @@ async function handlePostClientDocument(id, request, env) {
         });
 
         await env.DB.prepare(
-            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             docId, id, title, file.name || ("document." + ext), key, file.type,
-            user.display_name || user.role
+            user.display_name || user.role, visibility
         ).run();
 
         var row = await env.DB.prepare("SELECT * FROM client_documents WHERE id = ?").bind(docId).first();
@@ -2441,9 +2470,17 @@ async function handleGetClientDocumentFile(id, docId, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
-        var row = await env.DB.prepare(
-            "SELECT file_url, file_name, content_type FROM client_documents WHERE id = ? AND client_id = ?"
-        ).bind(docId, id).first();
+        // The list endpoint hides client-only documents from a salesperson;
+        // this one has to as well, or the hiding is cosmetic — the ids are
+        // guessable-by-enumeration in exactly the way a list filter is not.
+        var row = effectiveSellerName(user, request)
+            ? await env.DB.prepare(
+                "SELECT file_url, file_name, content_type FROM client_documents " +
+                "WHERE id = ? AND client_id = ? AND visibility = 'seller'"
+            ).bind(docId, id).first()
+            : await env.DB.prepare(
+                "SELECT file_url, file_name, content_type FROM client_documents WHERE id = ? AND client_id = ?"
+            ).bind(docId, id).first();
         if (!row) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
 
         if (!/^client-documents\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.file_url)) {
@@ -10365,6 +10402,15 @@ function sellerRequestAllowed(path, method, clientId) {
         // The outreach log of a lead. handleGetGmLeadContacts re-checks that
         // the lead is this seller's before returning anything.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        // Shared sales material (Materiais do Vendedor). Both handlers narrow
+        // to visibility='seller' off the session, so what comes back is the
+        // shared material only — never the client's own documents, and never a
+        // session-derived assessment report. READ ONLY: there is deliberately
+        // no POST or DELETE counterpart below, which is what makes a
+        // salesperson read-only on documents server-side rather than by a
+        // hidden button.
+        if (rest === "documents") { return true; }
+        if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
         return false;
     }
     if (method === "POST") {

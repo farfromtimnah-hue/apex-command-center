@@ -1861,17 +1861,17 @@ function gmRenderJobs() {
   // as a passing check, never silently skipped. An unmeasured margin is not an
   // on-target margin, and the number used to default to a fabricated 30%.
   var html = '<div class="content-card">' +
-    '<div class="card-title">' + gmT("Obras e margem", "Jobs & margin") + '</div>' +
+    '<div class="card-title">' + gmT("Projetos e margem", "Projects & margin") + '</div>' +
     (target === null || target === undefined
       ? '<p class="muted" style="margin-bottom:8px;">' +
         '<strong>' + gmT("Margem alvo mínima: não definida.", "Minimum target margin: not set.") + '</strong> ' +
-        gmT("Defina a sua em Ajustes para que as obras possam ser comparadas com ela.",
-            "Set yours in Settings so jobs can be measured against it.") + '</p>'
+        gmT("Defina a sua em Ajustes para que os projetos possam ser comparados com ela.",
+            "Set yours in Settings so projects can be measured against it.") + '</p>'
       : '<p class="muted" style="margin-bottom:8px;">' +
         gmT("Margem alvo mínima: ", "Minimum target margin: ") + fmtNum(target, "percent") +
         gmT(" — nenhuma proposta sai abaixo desse número.", " — no proposal goes out below this number.") + '</p>');
   if (!jobs.length) {
-    html += '<p class="muted">' + gmT("Nenhuma obra cadastrada ainda.", "No jobs yet.") + '</p>';
+    html += '<p class="muted">' + gmT("Nenhum projeto cadastrado ainda.", "No projects yet.") + '</p>';
   } else {
     jobs.forEach(function(j, i) {
       // alvo_ok is THREE-state: true (met), false (below), null (unanswerable
@@ -1909,7 +1909,7 @@ function gmRenderJobs() {
     });
   }
   html += '<button type="button" class="btn-gold gm-add-btn" data-tour="jobs-add" onclick="gmOpenJob(-1)">' +
-    gmT("+ Nova obra", "+ New job") + '</button></div>';
+    gmT("+ Novo projeto", "+ New project") + '</button></div>';
   body.innerHTML = html;
 }
 
@@ -1992,7 +1992,7 @@ function gmSimpleSpec(kind) {
                     "The type (Entrada/Saída) is set automatically by the category.") },
         { key: "data",      type: "date",     pt: "Data",            en: "Date" },
         { key: "mes",       type: "choice",   pt: "Mês",             en: "Month", options: cfg.cycle_months },
-        { key: "obra_id",   type: "jobref",   pt: "Obra vinculada",  en: "Linked job" },
+        { key: "obra_id",   type: "jobref",   pt: "Projeto vinculado", en: "Linked project" },
         { key: "obs",       type: "textarea", pt: "Obs",             en: "Notes" }
       ]
     };
@@ -2001,9 +2001,9 @@ function gmSimpleSpec(kind) {
   return {
     collection: "jobs", data: function() { return gmJobsData.jobs; },
     reload: gmLoadJobs, itemKey: "job",
-    titleNew: gmT("Nova obra", "New job"), nameKey: "obra",
+    titleNew: gmT("Novo projeto", "New project"), nameKey: "obra",
     fields: [
-      { key: "obra",           type: "text",     pt: "Cliente / obra",     en: "Client / job", required: true },
+      { key: "obra",           type: "text",     pt: "Cliente / projeto", en: "Client / project", required: true },
       { key: "valor",          type: "currency", pt: "Valor ($)",          en: "Value ($)" },
       { key: "material",       type: "currency", pt: "Material ($)",       en: "Materials ($)" },
       { key: "mao_de_obra",    type: "currency", pt: "Mão de obra ($)",    en: "Labor ($)" },
@@ -2123,10 +2123,10 @@ function gmJobSheetBody(row, spec) {
   var obra = val("obra");
   var body = '<div class="gm-sheet-hero">' +
     '<button type="button" class="gm-sheet-hero-half" ' +
-      'aria-label="' + gmT("Mudar cliente / obra", "Change client / job") + '" ' +
+      'aria-label="' + gmT("Mudar cliente / projeto", "Change client / project") + '" ' +
       'onclick="' + edit("obra") + '">' +
       '<span class="gm-sheet-hero-body">' +
-        '<span class="gm-sheet-hero-label">' + gmT("Cliente / obra", "Client / job") + '</span>' +
+        '<span class="gm-sheet-hero-label">' + gmT("Cliente / projeto", "Client / project") + '</span>' +
         '<span class="gm-sheet-hero-value' + (obra ? "" : " gm-empty") + '">' +
         (obra || gmT("A definir", "Not set")) + '</span>' +
       '</span>' +
@@ -2201,7 +2201,7 @@ function gmFinanceSheetBody(row, spec) {
     gmSheetRowHtml("calendar", gmT("Data", "Date"), val("data"), edit("data")) +
     (gmListEmpty(gmConfig.config.cycle_months) ? "" :
       gmSheetRowHtml("calendar", gmT("Mês", "Month"), val("mes"), edit("mes"))) +
-    gmSheetRowHtml("briefcase", gmT("Obra vinculada", "Linked job"), val("obra_id"), edit("obra_id")) +
+    gmSheetRowHtml("briefcase", gmT("Projeto vinculado", "Linked project"), val("obra_id"), edit("obra_id")) +
     gmSheetRowHtml("tag", gmT("Obs", "Notes"), val("obs"), edit("obs")));
 
   return body;
@@ -2363,8 +2363,8 @@ function gmEditSimpleField(defIdx) {
       jobs.forEach(function(j) { if (j.obra === value) { jid = j.id; } });
       gmSaveSimpleField(kind, "obra_id", jid);
     }, '<div class="gm-derived-note">' +
-      gmT("A lista vem da aba Obras — o vínculo é pelo registro da obra.",
-          "The list comes from the Jobs tab — the link is by job record.") + '</div>');
+      gmT("A lista vem da aba Projetos — o vínculo é pelo registro do projeto.",
+          "The list comes from the Projetos tab — the link is by project record.") + '</div>');
     return;
   }
   gmOpenFieldEditor(gmT(def.pt, def.en), def.type, row[def.key], def.options || [], function(value) {

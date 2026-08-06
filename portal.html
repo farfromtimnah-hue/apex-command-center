@@ -1210,7 +1210,7 @@
           <span class="show-pt">Pipeline</span><span class="show-en">Pipeline</span>
         </button>
         <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
-          <span class="show-pt">Obras</span><span class="show-en">Jobs</span>
+          <span class="show-pt">Projetos</span><span class="show-en">Projects</span>
         </button>
         <button class="portal-tab" data-tab="gmfinance" onclick="switchTab('gmfinance')">
           <span class="show-pt">Financeiro</span><span class="show-en">Finances</span>
@@ -2747,10 +2747,10 @@
         noteEn: "Optional. If empty, the \"Type\" row does not appear on partners." },
       { key: "cycle_months", pt: "Meses do ciclo", en: "Cycle months",
         notePt: "Opcional — é uma janela sazonal de planejamento. Quem trabalha o ano todo pode deixar vazio: " +
-                "os campos de mês somem dos leads, do financeiro e das obras, e o gráfico mensal do Financeiro " +
+                "os campos de mês somem dos leads, do financeiro e dos projetos, e o gráfico mensal do Financeiro " +
                 "agrupa os lançamentos em \"—\" em vez de por mês.",
         noteEn: "Optional — this is a seasonal planning window. If you work year-round, leave it empty: " +
-                "the month fields disappear from leads, finance entries and jobs, and the Financeiro monthly " +
+                "the month fields disappear from leads, finance entries and projects, and the Financeiro monthly " +
                 "chart groups entries under \"—\" instead of by month." }
     ];
 
@@ -2795,11 +2795,11 @@
             (en
               ? "You can ask us for a portal login for a salesperson. A salesperson with a login will only see " +
                 "the pipeline records they create or that are assigned to them — never the rest of your data " +
-                "(finance, jobs, goals, or the other salespeople's leads). Requesting does not create the login: " +
+                "(finance, projects, goals, or the other salespeople's leads). Requesting does not create the login: " +
                 "our team reviews it first."
               : "Você pode solicitar um login do portal para um vendedor. Um vendedor com login verá apenas os " +
                 "registros do pipeline que ele criar ou que forem atribuídos a ele — nunca o restante dos seus " +
-                "dados (financeiro, obras, metas ou os leads dos outros vendedores). Solicitar não cria o login: " +
+                "dados (financeiro, projetos, metas ou os leads dos outros vendedores). Solicitar não cria o login: " +
                 "nossa equipe analisa antes.") + '</p>';
         }
         items.forEach(function(v, i) {
@@ -2835,16 +2835,16 @@
         (en ? "Minimum target margin (%)" : "Margem alvo mínima (%)") + '</label>' +
         '<p class="muted" style="font-size:12px;margin:0 0 8px;">' +
         (en
-          ? "Your floor: no proposal goes out below this number. Jobs are measured against it on the Jobs & margin tab."
-          : "O seu piso: nenhuma proposta sai abaixo desse número. As obras são comparadas com ele na aba Obras e margem.") +
+          ? "Your floor: no proposal goes out below this number. Projects are measured against it on the Projects & margin tab."
+          : "O seu piso: nenhuma proposta sai abaixo desse número. Os projetos são comparados com ele na aba Projetos e margem.") +
         '</p>' +
         '<input type="number" id="gmTargetMargin" min="0.1" max="99.9" step="0.1" ' +
           'style="width:100%;" placeholder="' + (en ? "Not set" : "Não definida") + '" ' +
           'value="' + (tm === null || tm === undefined ? "" : escHtml(String(tm))) + '">';
       if (tm === null || tm === undefined) {
         html += '<p class="muted" style="font-size:12px;margin:6px 0 0;font-style:italic;">' +
-          (en ? "Not set — jobs show their margin but cannot be marked on or off target."
-              : "Não definida — as obras mostram a margem, mas não dá para dizer se estão no alvo.") + '</p>';
+          (en ? "Not set — projects show their margin but cannot be marked on or off target."
+              : "Não definida — os projetos mostram a margem, mas não dá para dizer se estão no alvo.") + '</p>';
       } else if (!tmSetBy) {
         // A legacy 30 nobody chose. Say so plainly rather than presenting it
         // as the client's own number — and do not clear it either: it might be
@@ -3969,7 +3969,7 @@
       { key: "gmbase",     icon: "star",      labelPt: "Base de Ouro",           labelEn: "Golden Base" },
       { key: "gmpartners", icon: "users",     labelPt: "Parceiros",              labelEn: "Partners" },
       { key: "gmfinance",  icon: "finance",   labelPt: "Financeiro",             labelEn: "Finances" },
-      { key: "gmjobs",     icon: "briefcase", labelPt: "Obras",                  labelEn: "Jobs" },
+      { key: "gmjobs",     icon: "briefcase", labelPt: "Projetos",               labelEn: "Projects" },
       { key: "worksched",  icon: "settings",  labelPt: "Ajustes",                labelEn: "Settings" }
     ];
 
@@ -4077,11 +4077,11 @@
             '<span class="show-pt">Margem</span><span class="show-en">Margin</span></div></div>' +
             '</div>') +
           lpCard("Lan&ccedil;amentos (exemplo)", "Entries (sample)",
-            lpRow("Obra Exemplo &mdash; parcela 2", "Sample Job &mdash; installment 2", "Recebido", "Received") +
+            lpRow("Projeto Exemplo &mdash; parcela 2", "Sample Project &mdash; installment 2", "Recebido", "Received") +
             lpRow("Material &mdash; fornecedor exemplo", "Materials &mdash; sample supplier", "Pago", "Paid"));
       }
       if (key === "gmjobs") {
-        return lpCard("Obras (exemplo)", "Jobs (sample)",
+        return lpCard("Projetos (exemplo)", "Projects (sample)",
           lpRow("Reforma Exemplo &mdash; Apto 42", "Sample Remodel &mdash; Unit 42", "Em execu&ccedil;&atilde;o &middot; 60%", "In progress &middot; 60%") +
           lpRow("Constru&ccedil;&atilde;o Exemplo &mdash; Lote 7", "Sample Build &mdash; Lot 7", "Planejamento", "Planning") +
           lpRow("Manuten&ccedil;&atilde;o Exemplo", "Sample Maintenance", "Conclu&iacute;da", "Completed"));
@@ -4128,7 +4128,7 @@
       // Golden Base and Partners are no longer here: they are sub-sections of
       // Pipeline (see #tabGmcrm). They remain valid tab ids for deep links.
       { tab: "gmcrm",      icon: "trend",        labelPt: "Pipeline",               labelEn: "Pipeline" },
-      { tab: "gmjobs",     icon: "briefcase",    labelPt: "Obras",                  labelEn: "Jobs" },
+      { tab: "gmjobs",     icon: "briefcase",    labelPt: "Projetos",               labelEn: "Projects" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
       // apexOwned: the client's relationship with APEX rather than a tool for
@@ -6138,7 +6138,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785996821"></script>
+  <script src="gm.js?v=1785996851"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

@@ -6080,7 +6080,16 @@
           }
           // Set BEFORE the must_change_password branch so that even the forced
           // password-change screen knows which kind of session it belongs to.
-          isSellerSession = (role.login_role === "seller");
+          // A real seller session, OR an admin previewing as one. The preview
+          // MUST take this branch too: SELLER_TABS is what restricts the portal
+          // to the pipeline, and without this an admin preview rendered the
+          // FULL client portal -- finances included -- while the comment above
+          // PREVIEW_SELLER claimed it showed what the salesperson sees.
+          // PREVIEW_SELLER is already gated on an admin role in the Worker
+          // (previewSellerName), and this only ever NARROWS what is displayed,
+          // so it cannot widen anyone's access.
+          isSellerSession = (role.login_role === "seller") ||
+                            (!!PREVIEW_SELLER && !!PREVIEW_AS);
           window.PORTAL_IS_SELLER = isSellerSession;
           if (role.role === "client" && role.must_change_password) {
             document.getElementById("loadingScreen").hidden = true;

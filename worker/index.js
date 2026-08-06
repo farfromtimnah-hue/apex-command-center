@@ -15970,15 +15970,30 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             return { total: sum, with_value: withValue, leads: rows.length };
         }
 
-        // Largest single win/loss, carrying the lead name so the number is
-        // traceable to a real deal instead of floating free.
+        // Largest single win/loss, carrying the deal name so the number is
+        // traceable to a real job instead of floating free.
+        //
+        // gm_jobs.obra is not a tidy name: the spreadsheet import concatenated
+        // the customer, the scope, the salesperson and a paragraph of notes
+        // into one field. Taking it whole would dump that paragraph into a
+        // tile, so the label is cut at the first sentence-ish boundary and
+        // capped. The full text is still on the job record itself.
+        function gmDiagDealLabel(s) {
+            if (!s) { return null; }
+            var txt = String(s).trim();
+            var cut = txt.split(/\s+[—–-]\s+|\.\s/)[0].trim();
+            if (!cut) { cut = txt; }
+            if (cut.length > 60) { cut = cut.slice(0, 57).trim() + "…"; }
+            return cut;
+        }
+
         function gmDiagBiggest(rows) {
             var best = null;
             rows.forEach(function(l) {
                 if (l.valor === null || l.valor === undefined || l.valor <= 0) { return; }
                 if (!best || l.valor > best.valor) { best = l; }
             });
-            return best ? { valor: best.valor, nome: best.nome || null } : null;
+            return best ? { valor: best.valor, nome: gmDiagDealLabel(best.nome) } : null;
         }
 
         var lostLeads = leads.filter(function(l) { return l.estagio === "Perdido"; });

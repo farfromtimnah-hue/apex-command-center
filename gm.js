@@ -797,6 +797,13 @@ function gmQuickAddOpen() {
     '<div class="gm-editor-input"><input type="text" id="gmQaNome" value="' + escHtml(draft.nome || "") + '" oninput="gmQuickDraftSave()"></div>' +
     '<label class="field-label" style="margin-top:12px;">' + gmT("Telefone", "Phone") + '</label>' +
     '<div class="gm-editor-input"><input type="tel" id="gmQaTel" value="' + escHtml(draft.telefone || "") + '" oninput="gmQuickDraftSave()"></div>' +
+    // Job site. Optional like every other quick-add field except the name —
+    // most leads arrive as a name and a number long before anyone knows where
+    // the pool goes, so a blank here is normal and saves without complaint.
+    '<label class="field-label" style="margin-top:12px;">' + gmT("Endereço", "Address") + '</label>' +
+    '<div class="gm-editor-input"><input type="text" id="gmQaAddress" value="' + escHtml(draft.address || "") + '" oninput="gmQuickDraftSave()"></div>' +
+    '<label class="field-label" style="margin-top:12px;">' + gmT("Cidade", "City") + '</label>' +
+    '<div class="gm-editor-input"><input type="text" id="gmQaCity" value="' + escHtml(draft.city || "") + '" oninput="gmQuickDraftSave()"></div>' +
     '<label class="field-label" style="margin-top:12px;">' + gmT("Serviço", "Service") + '</label>' +
     '<div class="gm-chip-set" id="gmQaServicos">' + chips + '</div>' +
     '<div class="gm-derived-note">' +
@@ -827,10 +834,14 @@ function gmQuickPickServico(btn) {
 function gmQuickDraftSave() {
   var nomeEl = document.getElementById("gmQaNome");
   var telEl = document.getElementById("gmQaTel");
+  var addrEl = document.getElementById("gmQaAddress");
+  var cityEl = document.getElementById("gmQaCity");
   try {
     localStorage.setItem(gmQuickDraftKey(), JSON.stringify({
       nome: nomeEl ? nomeEl.value : "",
       telefone: telEl ? telEl.value : "",
+      address: addrEl ? addrEl.value : "",
+      city: cityEl ? cityEl.value : "",
       servico: gmQuickServicos.length ? gmQuickServicos.join(", ") : null
     }));
   } catch (e) {}
@@ -839,6 +850,10 @@ function gmQuickDraftSave() {
 function gmQuickAddSave() {
   var nome = (document.getElementById("gmQaNome").value || "").trim();
   var tel = (document.getElementById("gmQaTel").value || "").trim();
+  var addrEl = document.getElementById("gmQaAddress");
+  var cityEl = document.getElementById("gmQaCity");
+  var addr = addrEl ? (addrEl.value || "").trim() : "";
+  var city = cityEl ? (cityEl.value || "").trim() : "";
   if (!nome) {
     window.alert(gmT("O nome é obrigatório.", "Name is required."));
     return;
@@ -846,6 +861,8 @@ function gmQuickAddSave() {
   var payload = {
     cliente: nome,
     telefone: tel || null,
+    address: addr || null,
+    city: city || null,
     servico: gmQuickServicos.length ? gmQuickServicos.join(", ") : null,
     estagio: "Novo Lead",
     data_lead: gmNowLocalIso(),
@@ -1179,6 +1196,11 @@ function gmLeadFieldDefs() {
     { key: "parceiro_id",    type: "partner",  pt: "Parceiro",                en: "Partner" },
     { key: "telefone",       type: "tel",      pt: "Telefone",                en: "Phone" },
     { key: "email",          type: "text",     pt: "Email",                   en: "Email" },
+    // Free text, stored as typed. No autocomplete or validation: for a pool
+    // builder this is the job site, and the client's own spelling of it is the
+    // record. Both are optional and blank on most leads early on.
+    { key: "address",        type: "text",     pt: "Endereço",                en: "Address" },
+    { key: "city",           type: "text",     pt: "Cidade",                  en: "City" },
     { key: "observacao",     type: "textarea", pt: "Observação do trabalho",  en: "Job notes" },
     { key: "mes_fechamento", type: "choice",   pt: "Mês fechamento",          en: "Closing month", options: cfg.cycle_months },
     { key: "mes_lead",       type: "choice",   pt: "Mês lead",                en: "Lead month",    options: cfg.cycle_months },
@@ -1314,13 +1336,20 @@ function gmRenderLeadSheet() {
     gmSheetRowHtml("handshake", gmT("Parceiro", "Partner"), val("parceiro_id"), edit("parceiro_id"),
       "crm-lead-partner") +
     gmSheetRowHtml("phone", gmT("Telefone", "Phone"), val("telefone"), edit("telefone")) +
-    gmSheetRowHtml("mail", gmT("Email", "Email"), val("email"), edit("email")));
+    gmSheetRowHtml("mail", gmT("Email", "Email"), val("email"), edit("email")) +
+    // The job site. Promoted into Lead details rather than left in "Other
+    // fields" because for a builder "where is it?" ranks with "who sent it?".
+    // An empty value renders as an ordinary blank row that is still tappable
+    // to fill in — never a warning, and never a reason to hide the lead.
+    gmSheetRowHtml("map-pin", gmT("Endereço", "Address"), val("address"), edit("address")) +
+    gmSheetRowHtml("building", gmT("Cidade", "City"), val("city"), edit("city")));
 
   // ── Everything else, still tap-to-edit ────────────────────────────────
   // The remaining fields keep the flat treatment: they are lower-frequency,
   // and promoting all fifteen would defeat the grouping.
   var shown = { valor: 1, proxima_acao: 1,
-                servico: 1, vendedor: 1, origem: 1, parceiro_id: 1, telefone: 1, email: 1 };
+                servico: 1, vendedor: 1, origem: 1, parceiro_id: 1, telefone: 1, email: 1,
+                address: 1, city: 1 };
   var noCycle = gmListEmpty(gmConfig.config.cycle_months);
   var rest = "";
   gmLeadFieldDefs().forEach(function(def, i) {
@@ -1629,7 +1658,10 @@ var GM_ICONS = {
   repeat:   '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
   briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
   compass:  '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
-  handshake: '<path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>'
+  handshake: '<path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>',
+  // Job-site address / city rows on the lead sheet.
+  "map-pin": '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>'
 };
 
 function gmIcon(name) {

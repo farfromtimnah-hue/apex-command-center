@@ -14340,10 +14340,15 @@ async function gmLeadFields(body, config, partial, env, clientId) {
             out.parceiro_id = partner.id;
         }
     }
+    // address/city are stored exactly as typed — no geocoding, normalising or
+    // validation. For a pool builder the address IS the job site, and the
+    // source data legitimately contains misspellings ("Fort Mayers") that are
+    // the client's own record. Both are optional and usually empty early on.
     var strFields = [
         ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["email", 200], ["servico", 400],
         ["observacao", 2000], ["vendedor", 80], ["data_contato", 40],
-        ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40]
+        ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40],
+        ["address", 200], ["city", 100]
     ];
     for (var i = 0; i < strFields.length; i++) {
         var k = strFields[i][0];
@@ -14368,8 +14373,9 @@ async function gmInsertLead(env, clientId, f) {
     var leadId = crypto.randomUUID();
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
-        "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
+        "address, city) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -14388,7 +14394,9 @@ async function gmInsertLead(env, clientId, f) {
         f.estagio,
         f.followups !== undefined ? f.followups : null,
         f.proxima_acao !== undefined ? f.proxima_acao : null,
-        f.mes_fechamento !== undefined ? f.mes_fechamento : null
+        f.mes_fechamento !== undefined ? f.mes_fechamento : null,
+        f.address !== undefined ? f.address : null,
+        f.city !== undefined ? f.city : null
     ).run();
     return leadId;
 }

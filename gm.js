@@ -1227,6 +1227,14 @@ function gmLeadFieldDefs() {
     // record. Both are optional and blank on most leads early on.
     { key: "address",        type: "text",     pt: "Endereço",                en: "Address" },
     { key: "city",           type: "text",     pt: "Cidade",                  en: "City" },
+    // What the customer wants built, in their own words. Kept out of `servico`
+    // on purpose: that is a per-client dropdown list, and this free text ("POOL,
+    // SPA, CAGE", "Standard pool, maybe jacuzzi") does not match it. Optional.
+    { key: "servico_desc",   type: "text",     pt: "O que o cliente quer",    en: "What the client wants" },
+    // For an $80k pool the financing decision is the biggest qualifier, and it
+    // dominates the loss reasons in JM's cancelled leads. Free text, not an
+    // enum -- the source phrasing is inconsistent on purpose. Optional.
+    { key: "status_financiamento", type: "text", pt: "Status financiamento",  en: "Financing status" },
     { key: "observacao",     type: "textarea", pt: "Observação do trabalho",  en: "Job notes" },
     { key: "mes_fechamento", type: "choice",   pt: "Mês fechamento",          en: "Closing month", options: cfg.cycle_months },
     { key: "mes_lead",       type: "choice",   pt: "Mês lead",                en: "Lead month",    options: cfg.cycle_months },

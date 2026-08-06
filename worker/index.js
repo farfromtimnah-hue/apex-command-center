@@ -2910,6 +2910,11 @@ async function handlePostSessionsSchedule(request, env) {
         var meetingCategory = "client";
         if (body.meeting_category === "prospective") { meetingCategory = "prospective"; }
         if (body.meeting_category === "event")       { meetingCategory = "event"; }
+        // 'vendor' is a meeting with a vendor or partner: not a client and not
+        // a lead. Unlike 'event' it DOES take a Meet link -- these are usually
+        // online -- which is why it is a separate category and not an event
+        // variant. Before it existed there was no way to book one at all.
+        if (body.meeting_category === "vendor")      { meetingCategory = "vendor"; }
 
         var endTime = null;
         if (body.end_time) {
@@ -2930,6 +2935,15 @@ async function handlePostSessionsSchedule(request, env) {
             clientId    = null;
             clientName  = body.event_name;
             sessionType = "in_person"; // events never get a Google Meet link
+        } else if (meetingCategory === "vendor") {
+            // Same no-client shape as an event -- the vendor/partner name is
+            // free text and lands in client_name -- but the session type is
+            // whatever was chosen, so an online vendor meeting gets a real
+            // Meet link. That link is the entire reason this category exists.
+            if (!body.event_name) { return jsonErr("event_name is required for vendor meetings", 400); }
+            clientId    = null;
+            clientName  = body.event_name;
+            sessionType = body.session_type;
         } else {
             if (!body.client_id) { return jsonErr("client_id is required", 400); }
             var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
@@ -4005,8 +4019,8 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         // ---- Resolve every field to its post-edit value -------------------
         var newCategory = session.meeting_category || "client";
         if (hasCategory) {
-            if (["client", "prospective", "event"].indexOf(body.meeting_category) === -1) {
-                return jsonErr("meeting_category must be client, prospective or event", 400);
+            if (["client", "prospective", "event", "vendor"].indexOf(body.meeting_category) === -1) {
+                return jsonErr("meeting_category must be client, prospective, event or vendor", 400);
             }
             newCategory = body.meeting_category;
         }
@@ -14408,7 +14422,13 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["email", 200], ["servico", 400],
         ["observacao", 2000], ["vendedor", 80], ["data_contato", 40],
         ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40],
-        ["address", 200], ["city", 100]
+        ["address", 200], ["city", 100],
+        // servico_desc is what the customer wants BUILT, in their own words --
+        // deliberately separate from `servico`, which is a per-client dropdown
+        // list the free text does not match. status_financiamento is free text
+        // and NOT an enum: the source phrasing is inconsistent and normalising
+        // it would invent categories nobody agreed to.
+        ["servico_desc", 300], ["status_financiamento", 120]
     ];
     for (var i = 0; i < strFields.length; i++) {
         var k = strFields[i][0];

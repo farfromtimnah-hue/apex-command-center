@@ -55,6 +55,11 @@
       --cal-event       : #ffffff;
       --cal-event-text  : #1a2f5e;
       --cal-event-border: #1a2f5e;
+      /* Vendor/partner: teal, distinct from the client blues and the white
+         event chip, so a non-client meeting is identifiable at a glance. */
+      --cal-vendor       : #e6f5f3;
+      --cal-vendor-text  : #0f5f57;
+      --cal-vendor-border: #0f5f57;
     }
 
     body {
@@ -460,6 +465,7 @@
     .cal-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
+    .cal-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
     .cal-chip:hover { opacity: 0.88; }
     /* Online session missing its real Meet link (still the internal
        placeholder) -- warn so it isn't mistaken for a healthy meeting. */
@@ -601,6 +607,7 @@
     .cal-block.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-block.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-block.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
+    .cal-block.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
     .cal-block:hover { opacity: 0.88; }
     .cal-block.cancelled { opacity: 0.55; text-decoration: line-through; }
 
@@ -641,6 +648,7 @@
     .cal-week-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-week-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-week-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
+    .cal-week-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
     .cal-week-chip:hover { opacity: 0.88; }
 
     /* ─── Day view ───────────────────────────────────────────────────────── */
@@ -706,6 +714,7 @@
     .cal-day-chip.external    { background: var(--cal-external);    color: var(--cal-external-text); border: 1px dashed var(--cal-external-border); }
     .cal-day-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-day-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
+    .cal-day-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
     .cal-day-chip:hover { opacity: 0.88; }
 
     /* ─── Empty state ────────────────────────────────────────────────────── */
@@ -750,6 +759,7 @@
     .type-pill.inperson    { background: var(--cal-inperson);    color: var(--cal-inperson-text); }
     .type-pill.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .type-pill.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 1px solid var(--cal-event-border); }
+    .type-pill.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 1px solid var(--cal-vendor-border); }
 
     /* ─── Toast ──────────────────────────────────────────────────────────── */
     #calToast {
@@ -1447,9 +1457,16 @@
         <!-- Event name: only shown for "+ Event" / "+ Apex Club" entries.
              Stored in the client_name column server-side. -->
         <div class="field-group" id="nsEventNameGroup" hidden>
-          <div class="field-label">
+          <!-- One field, two meanings: the event name, or the vendor/partner
+               name. setNsVendorMode swaps which label is shown, so the two
+               spans stay in the page's normal bilingual show-pt/show-en form. -->
+          <div class="field-label" id="nsEventNameLabel">
             <span class="show-pt">Nome do evento</span>
             <span class="show-en">Event name</span>
+          </div>
+          <div class="field-label" id="nsVendorNameLabel" hidden>
+            <span class="show-pt">Fornecedor / parceiro</span>
+            <span class="show-en">Vendor / partner</span>
           </div>
           <input type="text" id="nsEventName">
         </div>
@@ -2490,6 +2507,14 @@
       apexOpt.textContent = "+ Apex Club";
       sel.appendChild(apexOpt);
 
+      // Vendors/partners are not clients and not leads, so they belong up here
+      // with the other non-client options rather than anywhere in the client
+      // list. Alice had real meetings she could not book before this existed.
+      var vendorOpt = document.createElement("option");
+      vendorOpt.value = "__vendor__";
+      vendorOpt.textContent = (en ? "+ Vendor / Partner" : "+ Fornecedor / Parceiro");
+      sel.appendChild(vendorOpt);
+
       var sep = document.createElement("option");
       sep.disabled = true;
       sep.textContent = "──────────────";
@@ -2500,12 +2525,52 @@
       placeholder.textContent = en ? "— select client —" : "— selecionar cliente —";
       sel.appendChild(placeholder);
 
+      // Active clients only by default. Listing every client that ever existed
+      // is not a cosmetic problem: Alice could not find JM Luxury Pools among
+      // the dead records while scheduling, created a second one, and that
+      // duplicate cost a full merge to clean up. A confusing picker
+      // manufactures bad data.
+      //
+      // 'merged' is deliberately excluded from this list entirely. A merged
+      // record is a tombstone pointing at a surviving record; scheduling onto
+      // it recreates the exact bug this is meant to prevent. It appears only
+      // inside the collapsed group below, and is visibly labelled there.
+      var inactive = [];
       for (var i = 0; i < clients.length; i++) {
-        var opt = document.createElement("option");
-        opt.value = clients[i].id;
-        opt.textContent = clients[i].name;
-        opt.dataset.status = clients[i].status || "";
-        sel.appendChild(opt);
+        var status = clients[i].status || "";
+        if (status === "active" || status === "lead") {
+          var opt = document.createElement("option");
+          opt.value = clients[i].id;
+          opt.textContent = clients[i].name;
+          opt.dataset.status = status;
+          sel.appendChild(opt);
+        } else {
+          inactive.push(clients[i]);
+        }
+      }
+
+      // Closed/merged/inactive records stay reachable -- scheduling against one
+      // is still legitimate -- but behind a deliberate second click rather than
+      // in the default view. Rendered as a real <optgroup> so type-to-filter
+      // still searches these names: Alice typing a name she knows is faster
+      // than any grouping, and the browser's own search spans optgroups.
+      if (inactive.length) {
+        var grp = document.createElement("optgroup");
+        grp.label = (en ? "▸ Closed clients (" : "▸ Clientes encerrados (") + inactive.length + ")";
+        for (var j = 0; j < inactive.length; j++) {
+          var iOpt = document.createElement("option");
+          iOpt.value = inactive[j].id;
+          var st = inactive[j].status || "";
+          // A merged record is labelled as such right in the option text, so
+          // picking one is always a knowing choice.
+          var suffix = st === "merged"
+            ? (en ? " — merged" : " — mesclado")
+            : (st === "closed" ? (en ? " — closed" : " — encerrado") : "");
+          iOpt.textContent = inactive[j].name + suffix;
+          iOpt.dataset.status = st;
+          grp.appendChild(iOpt);
+        }
+        sel.appendChild(grp);
       }
 
       sel.value = "";
@@ -2524,6 +2589,11 @@
         setNsEventMode(true, sel.value === "__apex_club__");
         return;
       }
+      if (sel.value === "__vendor__") {
+        setNsVendorMode(true);
+        return;
+      }
+      setNsVendorMode(false);
       setNsEventMode(false, false);
       // Auto-default the category toggle from the selected client's own
       // status, but this is only a default -- Alice/Rafa can still flip
@@ -2561,6 +2631,39 @@
       }
       updateNsLocationVisibility();
       updateNsEndTimeVisibility();
+    }
+
+    // Vendor/partner mode. Deliberately NOT a variant of event mode: an event
+    // forces in_person precisely so it never gets a Meet link, and a vendor
+    // meeting needs that link -- Rafa meets vendors and partners online. So the
+    // type toggle stays VISIBLE and defaults to online_meet, while the client
+    // association is dropped exactly as it is for events.
+    function setNsVendorMode(isVendor) {
+      var nameGroup = document.getElementById("nsEventNameGroup");
+      var nameEl    = document.getElementById("nsEventName");
+      var eventLabel  = document.getElementById("nsEventNameLabel");
+      var vendorLabel = document.getElementById("nsVendorNameLabel");
+      var en = isEn();
+      if (eventLabel)  { eventLabel.hidden  = !!isVendor; }
+      if (vendorLabel) { vendorLabel.hidden = !isVendor; }
+      if (isVendor) {
+        document.getElementById("nsCategoryGroup").hidden = true;
+        document.getElementById("nsRecurGroup").hidden    = true;
+        document.getElementById("nsTypeGroup").hidden     = false; // needs the link
+        nameGroup.hidden = false;
+        nameEl.value = "";
+        nameEl.placeholder = en ? "Who are you meeting?" : "Com quem e a reuniao?";
+        document.getElementById("nsCategoryVal").value = "vendor";
+        setNewSessionType("online_meet");
+      } else {
+        nameEl.placeholder = "";
+      }
+      updateNsLocationVisibility();
+      updateNsEndTimeVisibility();
+    }
+
+    function nsIsVendor() {
+      return document.getElementById("nsClient").value === "__vendor__";
     }
 
     function openModal(id) {
@@ -2941,6 +3044,7 @@
     function sessionTypeCls(session) {
       if (isExternalSession(session)) { return "external"; }
       if (session.meeting_category === "event") { return "event"; }
+      if (session.meeting_category === "vendor") { return "vendor"; }
       if (session.meeting_category === "prospective") { return "prospective"; }
       return (session.session_type === "in_person") ? "inperson" : "online";
     }
@@ -4364,11 +4468,14 @@
     function handleNewSession() {
       var clientId  = document.getElementById("nsClient").value;
       var isEvent   = nsIsEvent();
+      var isVendor  = nsIsVendor();
       var date      = document.getElementById("nsDate").value;
       var time      = document.getElementById("nsTime").value;
       var endTime   = document.getElementById("nsEndTime").value;
+      // A vendor meeting keeps its chosen type -- that is what earns it a Meet
+      // link -- unlike an event, which is forced in_person.
       var type      = isEvent ? "in_person" : (document.getElementById("nsTypeVal").value || "online_meet");
-      var category  = isEvent ? "event" : (document.getElementById("nsCategoryVal").value || "client");
+      var category  = isEvent ? "event" : (isVendor ? "vendor" : (document.getElementById("nsCategoryVal").value || "client"));
       var notes     = document.getElementById("nsNotes").value;
       var location  = (document.getElementById("nsLocation").value || "").trim();
       var eventName = (document.getElementById("nsEventName").value || "").trim();
@@ -4381,7 +4488,14 @@
         statusEl.className = "pull-status is-error";
       }
 
-      if (isEvent) {
+      if (isVendor) {
+        // No client is required -- that is the point of this category.
+        if (!eventName || !date || !time) {
+          fail(en ? "Vendor/partner name, date and time are required."
+                 : "Nome do fornecedor/parceiro, data e hora sao obrigatorios.");
+          return;
+        }
+      } else if (isEvent) {
         if (!eventName || !date || !time) {
           fail(en ? "Event name, date and time are required." : "Nome do evento, data e hora sao obrigatorios.");
           return;
@@ -4399,7 +4513,7 @@
         return;
       }
 
-      var recurring  = !isEvent && document.getElementById("nsRecurring").checked;
+      var recurring  = !isEvent && !isVendor && document.getElementById("nsRecurring").checked;
       var recurFreq  = document.getElementById("nsRecurFreq").value;
       var recurCount = parseInt(document.getElementById("nsRecurCount").value, 10);
       // A duration must be chosen. This is what makes an unbounded series
@@ -4420,8 +4534,8 @@
       // first is the one being placed by hand.
       withWarnings({
         id:           null,
-        client_id:    isEvent ? null : clientId,
-        client_name:  isEvent ? eventName : null,
+        client_id:    (isEvent || isVendor) ? null : clientId,
+        client_name:  (isEvent || isVendor) ? eventName : null,
         date:         date,
         time:         time,
         end_time:     endTime || null,
@@ -4435,7 +4549,8 @@
 
       function baseBody(dateStr, meetLink, googleEventId, htmlLink) {
         var body = { date: dateStr, time: time, session_type: type, notes: notes || null, meeting_category: category };
-        if (isEvent) { body.event_name = eventName; } else { body.client_id = clientId; }
+        // Vendor meetings carry a name and no client, same as events.
+        if (isEvent || isVendor) { body.event_name = eventName; } else { body.client_id = clientId; }
         if (endTime)  { body.end_time = endTime; }
         if (location) { body.location = location; }
         if (meetLink) { body.google_meet_link = meetLink; }
@@ -4675,6 +4790,9 @@
       if (isEventCat) {
         typeCls = "event";
         typeLabel = en ? "Event" : "Evento";
+      } else if (session.meeting_category === "vendor") {
+        typeCls = "vendor";
+        typeLabel = en ? "Vendor / Partner" : "Fornecedor / Parceiro";
       } else if (session.session_type === "in_person") {
         typeCls = "inperson";
         typeLabel = en ? "In-Person" : "Presencial";
@@ -5030,7 +5148,11 @@
       var name = session.client_name || "Consultoria";
       // Events carry their own name; a client session takes the same title
       // convention the create path uses.
-      var title = (session.meeting_category === "event" || session.meeting_category === "prospective")
+      // "RDE" marks a real client session. Events, prospects and vendor/partner
+      // meetings are none of those, so they keep their plain name.
+      var title = (session.meeting_category === "event" ||
+                   session.meeting_category === "vendor" ||
+                   session.meeting_category === "prospective")
         ? name : name + " - RDE";
 
       var startTime = session.time ? session.time.slice(0, 5) : "09:00";
@@ -5052,7 +5174,10 @@
         add_meet_link: false
       };
       if (session.location) { addBody.location = session.location; }
-      var addAttendee = session.meeting_category === "event" ? null : clientEmailById(session.client_id);
+      // Events and vendor meetings have no client_id, so there is no client
+      // email to invite -- looking one up would be meaningless.
+      var addAttendee = (session.meeting_category === "event" || session.meeting_category === "vendor")
+        ? null : clientEmailById(session.client_id);
       if (addAttendee) { addBody.attendee_email = addAttendee; }
 
       apiFetch("/api/google/calendar/event", { method: "POST", body: addBody })

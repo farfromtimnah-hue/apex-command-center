@@ -15767,7 +15767,9 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         // definitions stay readable rather than across ten SQL variants.
         var leadBinds = sellerFilter ? [id, sellerFilter] : [id];
         var leadRows = await env.DB.prepare(
-            "SELECT id, vendedor, estagio, valor, data_lead, data_contato, data_estimate, " +
+            // `cliente` is the lead's own name and comes back aliased as `nome`
+            // so the biggest-win/biggest-loss tiles can name the actual deal.
+            "SELECT id, cliente AS nome, vendedor, estagio, valor, origem, data_lead, data_contato, data_estimate, " +
             "stage_changed_at, created_at FROM gm_leads WHERE client_id = ?" +
             (sellerFilter ? " AND vendedor = ?" : "")
         ).bind(...leadBinds).all();
@@ -15943,6 +15945,130 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             avgTouches = Math.round((ts / touchCounts.length) * 10) / 10;
         }
 
+        // ── Metric 11 — MONEY: won, still in play, and lost ─────────────────
+        //
+        // Three figures, and they are returned and rendered in this order:
+        // closed, active pipeline, lost. Won FIRST is deliberate. A page that
+        // leads with the lost total and buries the closed one reads as an
+        // indictment of the sales team rather than as a diagnostic, and this
+        // page names individual employees.
+        //
+        // COVERAGE IS PART OF EVERY FIGURE, NOT A FOOTNOTE. Most leads carry no
+        // valor at all, so each total ships with the count that actually
+        // contributed AND the count of leads in that bucket. A sum over 11 of
+        // 58 lost leads is a partial minimum, not "the amount this business
+        // lost", and the UI cannot say so unless the API hands it both numbers.
+        //
+        // NO RATIOS HERE, ON PURPOSE. See the note on per-seller rows below.
+        function gmDiagMoney(rows) {
+            var sum = 0, withValue = 0;
+            rows.forEach(function(l) {
+                if (l.valor !== null && l.valor !== undefined && l.valor > 0) {
+                    sum += l.valor; withValue++;
+                }
+            });
+            return { total: sum, with_value: withValue, leads: rows.length };
+        }
+
+        // Largest single win/loss, carrying the lead name so the number is
+        // traceable to a real deal instead of floating free.
+        function gmDiagBiggest(rows) {
+            var best = null;
+            rows.forEach(function(l) {
+                if (l.valor === null || l.valor === undefined || l.valor <= 0) { return; }
+                if (!best || l.valor > best.valor) { best = l; }
+            });
+            return best ? { valor: best.valor, nome: best.nome || null } : null;
+        }
+
+        var lostLeads = leads.filter(function(l) { return l.estagio === "Perdido"; });
+        var activeLeads = leads.filter(function(l) {
+            return l.estagio !== "Perdido" && l.estagio !== "Fechado";
+        });
+
+        // WON comes from gm_jobs, not from gm_leads: a job is the signed work,
+        // and gm_jobs.vendedor is backfilled. gm_leads.estagio='Fechado' is a
+        // pipeline state that mostly predates the jobs table here and carries
+        // no value, so summing it would under-report what was actually sold.
+        var jobBinds = sellerFilter ? [id, sellerFilter] : [id];
+        var jobRows = await env.DB.prepare(
+            "SELECT obra AS nome, vendedor, valor FROM gm_jobs WHERE client_id = ?" +
+            (sellerFilter ? " AND vendedor = ?" : "")
+        ).bind(...jobBinds).all();
+        var jobs = jobRows.results || [];
+
+        var wonMoney = gmDiagMoney(jobs);
+        var activeMoney = gmDiagMoney(activeLeads);
+        var lostMoney = gmDiagMoney(lostLeads);
+
+        // ── Per-seller money rows, sorted by CLOSED value descending ────────
+        //
+        // Sorted by what each person SOLD, not by what they lost. Same reason
+        // won renders first.
+        //
+        // THERE IS DELIBERATELY NO CLOSE RATE OR WIN/LOSS RATIO ON THESE ROWS.
+        // This client's lead data was imported from three spreadsheet tabs with
+        // completely different sampling — one of them, CANCELADOS, contains
+        // cancelled deals ONLY. A seller whose leads came mostly from that tab
+        // reads as 15 lost / 0 active purely because of where the rows came
+        // from, while having closed real work that lives in gm_jobs. Any ratio
+        // built on those denominators would characterise a named employee off a
+        // sampling artifact, on a page whose whole reason for being admin-only
+        // is that it names people. So the rows carry counts and money, and the
+        // reader does their own thinking.
+        //
+        // `origem_concentration` exists to make that visible rather than
+        // implied: where a seller's leads come overwhelmingly from one source,
+        // the row says so, so nobody reads a lopsided row as performance.
+        var origemRows = await env.DB.prepare(
+            "SELECT vendedor, origem, COUNT(*) AS n FROM gm_leads " +
+            "WHERE client_id = ? AND vendedor IS NOT NULL AND vendedor <> '' " +
+            "GROUP BY vendedor, origem"
+        ).bind(id).all();
+        var origemBySeller = {};
+        (origemRows.results || []).forEach(function(r) {
+            if (!origemBySeller[r.vendedor]) { origemBySeller[r.vendedor] = []; }
+            origemBySeller[r.vendedor].push({ origem: r.origem || "(sem origem)", n: r.n });
+        });
+
+        var sellerMoney = sellers.map(function(name) {
+            var theirLost = lostLeads.filter(function(l) { return l.vendedor === name; });
+            var theirActive = activeLeads.filter(function(l) { return l.vendedor === name; });
+            var theirJobs = jobs.filter(function(j) { return j.vendedor === name; });
+
+            // Dominant origem, only when it genuinely dominates. The threshold
+            // is on the seller's own lead count, and it is reported with both
+            // numbers so it reads as provenance, never as a score.
+            var conc = null;
+            var mine = origemBySeller[name] || [];
+            var totalOrigem = 0;
+            mine.forEach(function(o) { totalOrigem += o.n; });
+            if (totalOrigem > 0) {
+                var top = mine.slice().sort(function(a, b) { return b.n - a.n; })[0];
+                if (top && top.n / totalOrigem >= 0.6) {
+                    conc = {
+                        origem: top.origem, count: top.n, of: totalOrigem,
+                        pct: Math.round((top.n / totalOrigem) * 100)
+                    };
+                }
+            }
+
+            return {
+                seller: name,
+                won: gmDiagMoney(theirJobs),
+                active: gmDiagMoney(theirActive),
+                lost: gmDiagMoney(theirLost),
+                biggest_win: gmDiagBiggest(theirJobs),
+                biggest_loss: gmDiagBiggest(theirLost),
+                origem_concentration: conc
+            };
+        }).sort(function(a, b) {
+            // Closed value descending. Ties fall back to name so the order is
+            // stable between loads rather than depending on roster ordering.
+            if (b.won.total !== a.won.total) { return b.won.total - a.won.total; }
+            return a.seller.localeCompare(b.seller);
+        });
+
         return jsonOk({
             client_id: id,
             client_name: client.name,
@@ -15997,7 +16123,16 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
                     sample: won + lost
                 },
                 average_deal_value: { value: avgDeal, sample: closedValues.length },
-                touches_before_close: { avg: avgTouches, sample: touchCounts.length }
+                touches_before_close: { avg: avgTouches, sample: touchCounts.length },
+                // Order here mirrors render order: won, active, lost.
+                money: {
+                    won: wonMoney,
+                    active: activeMoney,
+                    lost: lostMoney,
+                    biggest_win: gmDiagBiggest(jobs),
+                    biggest_loss: gmDiagBiggest(lostLeads),
+                    by_seller: sellerMoney
+                }
             }
         });
     } catch (e) {

@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1785462000">
+  <link rel="stylesheet" href="gm.css?v=1785994601">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -911,6 +911,9 @@
     <span>
       <span class="show-pt">Preview: </span><span class="show-en">Preview: </span>
       <strong id="previewClientLabel"></strong>
+      <!-- Filled only in seller preview, so the banner never lets Nicole forget
+           WHICH salesperson's view she is looking at. -->
+      <span id="previewSellerLabel"></span>
       <span class="show-pt"> — somente leitura</span><span class="show-en"> — read-only</span>
     </span>
     <span style="display:flex;gap:8px;">
@@ -1739,6 +1742,21 @@
       return m ? decodeURIComponent(m[1]) : null;
     })();
 
+    // Which salesperson the admin is previewing AS, from ?previewSeller=<name>.
+    // Only meaningful alongside PREVIEW_AS.
+    //
+    // This is a VIEW FILTER, not an identity. No session exists for this
+    // person, no token is minted and no client_logins row is involved: the
+    // developer's own admin session still authenticates every request, and the
+    // Worker's read-only preview gate still rejects every write. It narrows
+    // what is shown to the leads whose vendedor matches this name -- the same
+    // rule a real seller session gets, so what Nicole sees here is what that
+    // salesperson would see.
+    var PREVIEW_SELLER = (function() {
+      var m = window.location.search.match(/[?&]previewSeller=([^&]+)/);
+      return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : null;
+    })();
+
     // The previewer's real role, set at bootstrap. Only meaningful while
     // PREVIEW_AS is set; null on a real client session.
     var previewRealRole = null;
@@ -1839,6 +1857,14 @@
     function apiFetch(path, opts) {
       if (PREVIEW_AS) {
         path += (path.indexOf("?") > -1 ? "&" : "?") + "previewAs=" + encodeURIComponent(PREVIEW_AS);
+        // Threaded alongside previewAs so the Worker applies the same vendedor
+        // filter a real seller session would get — to the row list AND to the
+        // summary tiles. Filtering in the browser instead would leave the
+        // metrics describing the whole business, which is exactly what a
+        // salesperson is not supposed to see.
+        if (PREVIEW_SELLER) {
+          path += "&previewSeller=" + encodeURIComponent(PREVIEW_SELLER);
+        }
       }
       return getToken().then(function(token) {
         var method  = (opts && opts.method) || "GET";
@@ -6076,6 +6102,10 @@
           document.getElementById("headerClientName").textContent = clientName;
           if (PREVIEW_AS) {
             document.getElementById("previewClientLabel").textContent = clientName;
+            var psLabel = document.getElementById("previewSellerLabel");
+            if (psLabel && PREVIEW_SELLER) {
+              psLabel.textContent = " · " + PREVIEW_SELLER;
+            }
             document.getElementById("previewBanner").hidden = false;
             // Only the developer picker can switch clients from in here.
             var swBtn = document.getElementById("previewSwitchBtn");
@@ -6138,7 +6168,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1785994261"></script>
+  <script src="gm.js?v=1785994601"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

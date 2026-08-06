@@ -36,6 +36,25 @@
 .gm-pill.gm-red    { background: rgba(180,64,64,0.13);  color: #a03636; }
 .gm-pill.gm-muted  { background: rgba(107,102,96,0.13); color: #575249; }
 
+/* "Nobody owns this lead yet." Deliberately quiet -- amber, not the red used
+   for a blown SLA. An unassigned lead is a routing gap for the owner to close,
+   not a failure, and on a client with several sellers plenty of rows can carry
+   it at once. Only rendered when the client actually has salespeople. */
+.gm-unassigned {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  vertical-align: middle;
+  background: rgba(201,164,58,0.18);
+  color: #7a5f18;
+}
+
 /* ── Pipeline: stacked stage sections ─────────────────────────────────── */
 .gm-stage-section { margin-bottom: 4px; }
 .gm-stage-head {

@@ -665,6 +665,25 @@ function gmLeadsInStage(stage) {
   return out;
 }
 
+// A lead nobody owns. NULL and '' both count: the exact-match seller filter in
+// the Worker treats both as "belongs to the owner, invisible to every seller",
+// so both are genuinely unassigned rather than assigned-to-blank.
+function gmLeadIsUnassigned(lead) {
+  return !String(lead.vendedor || "").trim();
+}
+
+// Show the marker only when there is somebody to assign TO. seller_count comes
+// from the leads endpoint and counts seats plus pending requests. At zero the
+// marker is hidden completely -- with no salespeople on the books every lead is
+// unassigned, and flagging all of them says nothing.
+//
+// A seller session never sees it either: every lead it can read is its own by
+// construction, so the marker could only ever be noise.
+function gmShowUnassigned() {
+  return window.PORTAL_IS_SELLER !== true &&
+         !!(gmLeadsData && gmLeadsData.seller_count > 0);
+}
+
 function gmLeadRowHtml(lead) {
   var idx = gmLeadsData.leads.indexOf(lead);
   var parts = [];
@@ -679,9 +698,16 @@ function gmLeadRowHtml(lead) {
     line3 = days === null ? "" :
       (isEn() ? days + " day(s) in this stage" : days + " dia(s) neste estágio");
   }
+  // Flag only. Nothing here proposes an assignee, and nothing anywhere
+  // defaults a lead to the client's only or most-common seller: seeding a
+  // vendedor name onto a lead the client never assigned is how two real LIRA
+  // employees ended up attached to six unrelated businesses.
+  var unassigned = gmShowUnassigned() && gmLeadIsUnassigned(lead);
   return '<button type="button" class="gm-lead-row" data-tour="crm-lead-row" onclick="gmOpenLead(' + idx + ')">' +
     '<span class="gm-lead-main">' +
-    '<span class="gm-lead-name">' + escHtml(lead.cliente) + '</span>' +
+    '<span class="gm-lead-name">' + escHtml(lead.cliente) +
+    (unassigned ? ' <span class="gm-unassigned" data-tour="crm-unassigned">' +
+      gmT("sem vendedor", "unassigned") + '</span>' : "") + '</span>' +
     (line2 ? '<div class="gm-lead-sub">' + line2 + '</div>' : "") +
     (line3 ? '<div class="gm-lead-sub">' + line3 + '</div>' : "") +
     '</span>' +

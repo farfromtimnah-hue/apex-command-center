@@ -50,16 +50,18 @@ function baseCss() {
     return `
     @page {
       size: Letter;
-      /* Top margin reserves the running header's band on EVERY page. A
-         padding-top on the flow only clears it once, at the very top, so
-         pages 2+ ran their body text straight under the header. The header
-         is 74px + 9px padding-bottom ~= 22mm; 30mm leaves breathing room
-         under the rule before text starts. */
-      margin: 30mm 15mm 16mm 15mm;
+      /* The header is position:fixed at top:0 of the CONTENT BOX, so it
+         overlays the start of the flow on every page. The flow is pushed
+         clear of it by body padding-top (see body), NOT by this margin --
+         a fixed element is not in the flow, so only padding moves the text.
+         Margin stays at the original 14mm: the paper edge to the header. */
+      margin: 14mm 15mm 16mm 15mm;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
+    html { margin: 0; padding: 0; }
     body {
+      margin: 0;
+      padding: 0;
       font-family: ${FONT_STACK};
       color: ${INK};
       font-size: 12.5pt;
@@ -88,12 +90,15 @@ function baseCss() {
        TOP MARGIN, not by padding on the flow -- padding only clears the
        header once, at the top of the document, so pages 2+ used to run
        their body text straight underneath it. */
+    /* The header lives in a repeating <thead> (see page()). It is in normal
+       flow inside that cell -- no fixed positioning, no negative offsets. */
+    .pagegrid { width: 100%; border-collapse: collapse; }
+    .pagegrid > thead { display: table-header-group; }
+    .pagegrid > tbody { display: table-row-group; }
+    .pagegrid > thead > tr > td { padding: 0 0 14px; }
+    .pagegrid > tbody > tr > td { padding: 0; }
+
     .runhead {
-      position: fixed;
-      /* Negative top pulls the header UP into the @page top margin that was
-         reserved for it, so it sits in the margin band rather than in the
-         content area where it would overlap the flow. */
-      top: -16mm; left: 0; right: 0;
       height: 74px;
       display: flex;
       align-items: center;
@@ -277,10 +282,20 @@ function header(clientName, logoDataUri, docLabel) {
 }
 
 function page(opts) {
+    // The running header is a <thead>, NOT a position:fixed block.
+    //
+    // Chrome repeats a thead at the top of every printed page AND reserves
+    // real flow space for it, so body content can never slide underneath.
+    // Three fixed-position variants were tried first and all failed the same
+    // way -- page 1 looked right while pages 2+ overlapped -- because a fixed
+    // element is out of flow, and neither .sheet padding, an @page top
+    // margin, nor body padding-top repeats per page to compensate.
     return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">' +
         '<title>' + esc(opts.title) + '</title>' +
         '<style>' + baseCss() + '</style></head><body>' +
+        '<table class="pagegrid"><thead><tr><td>' +
         header(opts.clientName, opts.logo, opts.docLabel) +
+        '</td></tr></thead><tbody><tr><td>' +
         '<div class="sheet">' +
         '<div class="title-wrap">' +
         '<div class="eyebrow">' + esc(opts.eyebrow) + '</div>' +
@@ -289,7 +304,7 @@ function page(opts) {
         '<div class="rule-gold"></div>' +
         '</div>' +
         opts.body +
-        '</div></body></html>';
+        '</div></td></tr></tbody></table></body></html>';
 }
 
 export function renderScripts(c) {

@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <title>Apex — Sessões</title>
+  <title data-title-pt="Apex — Sessões" data-title-en="Apex — Sessions">Apex — Sessões</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1315,9 +1315,9 @@
                   <span class="show-en">+ New Section</span>
                 </button>
                 <div id="newSectionForm" hidden>
-                  <input type="text" class="summary-field new-section-input" id="newSectionTitlePt" placeholder="T&iacute;tulo PT">
-                  <input type="text" class="summary-field new-section-input" id="newSectionTitleEn" placeholder="T&iacute;tulo EN">
-                  <textarea class="summary-field" id="newSectionDescription" placeholder="Descreva o que deve aparecer nesta se&ccedil;&atilde;o &mdash; a IA usa esta descri&ccedil;&atilde;o para extrair o conte&uacute;do da transcri&ccedil;&atilde;o. / Describe what the AI should write about in this section."></textarea>
+                  <input type="text" class="summary-field new-section-input" id="newSectionTitlePt" data-ph-pt="T&iacute;tulo PT" data-ph-en="Title PT" placeholder="T&iacute;tulo PT">
+                  <input type="text" class="summary-field new-section-input" id="newSectionTitleEn" data-ph-pt="T&iacute;tulo EN" data-ph-en="Title EN" placeholder="T&iacute;tulo EN">
+                  <textarea class="summary-field" id="newSectionDescription" data-ph-pt="Descreva o que deve aparecer nesta se&ccedil;&atilde;o &mdash; a IA usa esta descri&ccedil;&atilde;o para extrair o conte&uacute;do da transcri&ccedil;&atilde;o." data-ph-en="Describe what the AI should write about in this section." placeholder="Descreva o que deve aparecer nesta se&ccedil;&atilde;o &mdash; a IA usa esta descri&ccedil;&atilde;o para extrair o conte&uacute;do da transcri&ccedil;&atilde;o."></textarea>
                   <div style="display:flex; gap:10px; margin-top:8px;">
                     <button type="button" class="btn-action" id="btnSaveNewSection" style="padding:8px 16px; font-size:13px;">
                       <span class="show-pt">Salvar Se&ccedil;&atilde;o</span>
@@ -1357,10 +1357,8 @@
             <span class="show-en">Client</span>
           </div>
           <select id="clientSelect" onchange="handleNewClientSelect(this.value)">
-            <option value="">
-              <span class="show-pt">— selecionar cliente —</span>
-              <span class="show-en">— select client —</span>
-            </option>
+            <!-- <option> strips spans and would show both languages as text. -->
+            <option value="" data-opt-pt="— selecionar cliente —" data-opt-en="— select client —">— selecionar cliente —</option>
           </select>
         </div>
 
@@ -1370,12 +1368,12 @@
             <span class="show-pt">Novo Cliente</span>
             <span class="show-en">New Client</span>
           </div>
-          <div class="field-group"><input type="text"  id="nc_name"     autocomplete="off" placeholder="Nome / Name *"></div>
-          <div class="field-group"><input type="text"  id="nc_industry" autocomplete="off" placeholder="Setor / Industry"></div>
-          <div class="field-group"><input type="text"  id="nc_location" autocomplete="off" placeholder="Localização / Location"></div>
+          <div class="field-group"><input type="text"  id="nc_name"     autocomplete="off" data-ph-pt="Nome *" data-ph-en="Name *" placeholder="Nome *"></div>
+          <div class="field-group"><input type="text"  id="nc_industry" autocomplete="off" data-ph-pt="Setor" data-ph-en="Industry" placeholder="Setor"></div>
+          <div class="field-group"><input type="text"  id="nc_location" autocomplete="off" data-ph-pt="Localização" data-ph-en="Location" placeholder="Localização"></div>
           <div class="field-group">
             <select id="nc_package" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
-              <option value="">— Pacote / Package —</option>
+              <option value="" data-opt-pt="— Pacote —" data-opt-en="— Package —">— Pacote —</option>
               <option value="Essencial">Essencial</option>
               <option value="Profissional">Profissional</option>
               <option value="Sprint">Sprint</option>
@@ -1385,10 +1383,10 @@
           </div>
           <div class="field-group">
             <select id="nc_status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;">
-              <option value="active">Ativo / Active</option>
+              <option value="active" data-opt-pt="Ativo" data-opt-en="Active">Ativo</option>
               <option value="lead">Lead</option>
-              <option value="paused">Pausado / Paused</option>
-              <option value="closed">Encerrado / Closed</option>
+              <option value="paused" data-opt-pt="Pausado" data-opt-en="Paused">Pausado</option>
+              <option value="closed" data-opt-pt="Encerrado" data-opt-en="Closed">Encerrado</option>
             </select>
           </div>
           <div style="display:flex;gap:8px;margin-top:4px;">
@@ -1432,10 +1430,7 @@
 
         <div class="transcript-filter-bar">
           <select id="transcriptClientFilter" onchange="renderTranscriptList()">
-            <option value="">
-              <span class="show-pt">Todos os Clientes</span>
-              <span class="show-en">All Clients</span>
-            </option>
+            <option value="" data-opt-pt="Todos os Clientes" data-opt-en="All Clients">Todos os Clientes</option>
           </select>
           <input type="date" id="transcriptDateFrom" onchange="renderTranscriptList()">
           <input type="date" id="transcriptDateTo"   onchange="renderTranscriptList()">
@@ -1550,6 +1545,27 @@
 
     // ── State ──────────────────────────────────────────────────────────────
     var auth            = null;
+    // Language helpers. Named apexEn/t so they never collide with the local
+    // `isEn` variables some render functions already declare.
+    function apexEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return apexEn() ? en : pt; }
+
+    // Placeholders and <option> text cannot hold spans, so they carry both
+    // languages as data attributes and are swapped here.
+    function applySessBilingualAttrs() {
+      var en = apexEn();
+      var phs = document.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < phs.length; i++) {
+        phs[i].setAttribute("placeholder", phs[i].getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      var opts = document.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var j = 0; j < opts.length; j++) {
+        opts[j].textContent = opts[j].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+    }
+
     var currentUser     = null;
     var currentRole     = null;
     var currentViewRole = null;
@@ -2172,7 +2188,7 @@
       var statusEl = document.getElementById("newClientStatus");
       var name = (nameEl ? nameEl.value : "").trim();
       if (!name) {
-        statusEl.textContent = "Nome é obrigatório.";
+        statusEl.textContent = t("Nome é obrigatório.", "Name is required.");
         statusEl.className = "pull-status is-error";
         return;
       }
@@ -2865,7 +2881,7 @@
           if (sectionConfigSession !== sessionId) { return; }
           if (r.ok) {
             statusEl.className = "action-status is-ok";
-            statusEl.textContent = "Seções salvas. / Sections saved.";
+            statusEl.textContent = t("Seções salvas.", "Sections saved.");
           } else {
             statusEl.className = "action-status is-error";
             statusEl.textContent = "Erro ao salvar: " + ((r.data && r.data.error) || "") ;
@@ -2873,7 +2889,7 @@
         })
         .catch(function(err) {
           statusEl.className = "action-status is-error";
-          statusEl.textContent = "Erro ao salvar seções. / Error saving sections.";
+          statusEl.textContent = t("Erro ao salvar seções.", "Error saving sections.");
         });
     }
 
@@ -2886,7 +2902,7 @@
 
       if (!titlePt || !desc) {
         statusEl.className = "action-status is-error";
-        statusEl.textContent = "Título PT e Descrição são obrigatórios. / Title PT and Description are required.";
+        statusEl.textContent = t("Título PT e Descrição são obrigatórios.", "Title PT and Description are required.");
         return;
       }
 
@@ -3030,11 +3046,11 @@
 
         var tdSit = document.createElement("td");
         tdSit.className = "mc-field";
-        tdSit.setAttribute("data-label-pt", "Situacao");
+        tdSit.setAttribute("data-label-pt", "Situação");
         tdSit.setAttribute("data-label-en", "Situation");
         var tdLvl = document.createElement("td");
         tdLvl.className = "mc-field";
-        tdLvl.setAttribute("data-label-pt", "Nivel");
+        tdLvl.setAttribute("data-label-pt", "Nível");
         tdLvl.setAttribute("data-label-en", "Level");
         if (editable) {
           var input = structField("input", "business_diagnosis", lang, i, "situation");
@@ -3372,7 +3388,7 @@
         })
         .catch(function(e) {
           if (actionStatus) {
-            actionStatus.textContent = "Erro ao verificar secoes atuais: " + (e.message || "") + " / Error checking current sections.";
+            actionStatus.textContent = t("Erro ao verificar seções atuais: ", "Error checking current sections: ") + (e.message || "");
             actionStatus.className = "action-status is-error";
           }
           if (btn) { btn.disabled = false; }
@@ -3386,7 +3402,7 @@
 
       if (!pdfData) {
         if (actionStatus) {
-          actionStatus.textContent = "pdf_data ausente — execute Gerar Resumo para gerar o PDF. / pdf_data missing — run Generate Summary first.";
+          actionStatus.textContent = t("pdf_data ausente — execute Gerar Resumo para gerar o PDF.", "pdf_data missing — run Generate Summary first.");
           actionStatus.className = "action-status is-error";
         }
         if (btn) { btn.disabled = false; }
@@ -3433,7 +3449,7 @@
         newTab.postMessage({ type: "apex-report-data", payload: data }, "https://apex.resonateai.online");
         if (btn) { btn.disabled = false; }
         if (actionStatus) {
-          actionStatus.textContent = "Dialogo de impressao aberto na nova aba.";
+          actionStatus.textContent = t("Diálogo de impressão aberto na nova aba.", "Print dialog opened in the new tab.");
           actionStatus.className = "action-status is-ok";
         }
       }
@@ -3491,7 +3507,21 @@
       );
     }
 
+    // ── Language toggle re-render ─────────────────────────────────────────
+    //
+    // Most of this page switches through CSS ::before rules and span pairs,
+    // which handle themselves. What does not: the client dropdown, the
+    // placeholders, and anything drawn from JS. Replays cached data only.
+    document.addEventListener("apex:langchange", function () {
+      applySessBilingualAttrs();
+      if (typeof renderClientDropdown === "function") { renderClientDropdown(); }
+      if (sessions.length && typeof renderSessionList === "function") { renderSessionList(); }
+      if (typeof updateSessionStats === "function") { updateSessionStats(); }
+      if (inboxSessions.length && typeof renderInbox === "function") { renderInbox(); }
+    });
+
     // ── Bootstrap ──────────────────────────────────────────────────────────
+    applySessBilingualAttrs();
     init();
   </script>
 

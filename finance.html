@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <title>Apex &#8212; Financeiro</title>
+  <title data-title-pt="Apex &#8212; Financeiro" data-title-en="Apex &#8212; Financial">Apex &#8212; Financeiro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -2191,6 +2191,11 @@
       return Math.round((target - today) / 86400000);
     }
 
+    function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
     function showToast(msg) {
       var el = document.getElementById("financeToast");
       if (!el) { return; }
@@ -2957,7 +2962,7 @@
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
-          showToast("Erro: " + (e.message || "Falha ao enviar"));
+          showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao enviar", "Send failed")));
         });
     }
 
@@ -3014,7 +3019,7 @@
         .catch(function(e) {
           if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
           if (waWindow) { waWindow.close(); }
-          showToast("Erro: " + (e.message || "Falha ao enviar"));
+          showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao enviar", "Send failed")));
         });
     }
 
@@ -3147,7 +3152,7 @@
         })
         .catch(function(e) {
           if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
-          showToast("Erro: " + (e.message || "Falha ao salvar"));
+          showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao salvar", "Save failed")));
         });
     }
 
@@ -3474,7 +3479,7 @@
         })
         .catch(function(e) {
           if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = "1"; }
-          showToast("Erro: " + (e.message || "Falha ao criar fatura"));
+          showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao criar fatura", "Could not create invoice")));
         });
     }
 
@@ -4012,7 +4017,7 @@
           loadChartData();
           showToast("Transacao categorizada / Transaction categorized");
         })
-        .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao categorizar")); });
+        .catch(function(e) { showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao categorizar", "Could not categorise"))); });
     }
 
     // ── New category (self-extending) ───────────────────────────────────────
@@ -4050,7 +4055,7 @@
           renderReconFolders();
           showToast("Categoria criada / Category created");
         })
-        .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao criar categoria")); })
+        .catch(function(e) { showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao criar categoria", "Could not create category"))); })
         .finally(function() { if (saveBtn) { saveBtn.disabled = false; } });
     }
 
@@ -4127,7 +4132,7 @@
           loadReconFolders();
           showToast(label ? "Apelido salvo / Label saved" : "Apelido removido / Label cleared");
         })
-        .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao salvar apelido")); });
+        .catch(function(e) { showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao salvar apelido", "Could not save nickname"))); });
     }
 
     function toggleReconCategoryHidden(accountId, hide) {
@@ -4150,7 +4155,7 @@
           loadReconManageCategoriesList();
           showToast(hide ? "Categoria escondida / Category hidden" : "Categoria visivel / Category visible");
         })
-        .catch(function(e) { showToast("Erro: " + (e.message || "Falha ao atualizar categoria")); });
+        .catch(function(e) { showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao atualizar categoria", "Could not update category"))); });
     }
 
     // ── Match-to-invoice modal ─────────────────────────────────────────────
@@ -4294,7 +4299,7 @@
         })
         .catch(function(e) {
           if (confirmBtn) { confirmBtn.disabled = false; }
-          showToast("Erro: " + (e.message || "Falha ao vincular"));
+          showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao vincular", "Could not link")));
         });
     }
 
@@ -4344,7 +4349,7 @@
           loadChartData();
           showToast(toastMsg);
         })
-        .catch(function(e) { showToast("Erro: " + (e.message || "Falha")); });
+        .catch(function(e) { showToast(t("Erro: ", "Error: ") + (e.message || t("Falha", "Failed"))); });
     }
 
     // ── Ferramentas Zoho / Zoho Tools tab ──────────────────────────────────
@@ -4500,7 +4505,7 @@
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; }
-          showToast("Erro: " + (e.message || "Falha ao salvar despesa"));
+          showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao salvar despesa", "Could not save expense")));
         });
     }
 
@@ -4596,7 +4601,7 @@
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; }
-          showToast("Erro: " + (e.message || "Falha ao salvar"));
+          showToast(t("Erro: ", "Error: ") + (e.message || t("Falha ao salvar", "Save failed")));
         });
     }
 

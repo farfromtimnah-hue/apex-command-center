@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <title>Apex &#8212; Financeiro (Novo)</title>
+  <title data-title-pt="Apex &#8212; Financeiro (Novo)" data-title-en="Apex &#8212; Financial (New)">Apex &#8212; Financeiro (Novo)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -916,14 +916,14 @@
       </div>
       <div class="filter-row">
         <input type="search" id="txnSearch" oninput="renderTransactions()"
-               placeholder="Buscar descri&ccedil;&atilde;o...">
+               data-ph-pt="Buscar descri&ccedil;&atilde;o..." data-ph-en="Search description..." placeholder="Buscar descri&ccedil;&atilde;o...">
         <select id="txnAccount" onchange="renderTransactions()">
           <option value="">Todas as contas / All accounts</option>
         </select>
         <select id="txnPending" onchange="renderTransactions()">
-          <option value="">Todos / All</option>
-          <option value="posted">Confirmadas / Posted</option>
-          <option value="pending">Pendentes / Pending</option>
+          <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
+          <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
+          <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
         </select>
         <select id="txnCategoryFilter" onchange="renderTransactions()">
           <option value="">Todas as categorias / All categories</option>
@@ -1452,7 +1452,24 @@
       if (el) { el.textContent = displayName || email || ""; }
     }
 
-    function isEn() { return document.body.classList.contains("lang-en"); }
+    function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+    // Placeholders can't hold spans; they carry both languages as data
+    // attributes and are swapped on load and on every language toggle.
+    function applyFinBilingualAttrs() {
+      var en = isEn();
+      var phs = document.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < phs.length; i++) {
+        phs[i].setAttribute("placeholder", phs[i].getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      var opts = document.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var j = 0; j < opts.length; j++) {
+        opts[j].textContent = opts[j].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+    }
 
     // ── Formatting ─────────────────────────────────────────────────────────
     // Money arrives as INTEGER CENTS and is divided exactly once, here.
@@ -1597,7 +1614,7 @@
       apiFetch("/api/finance-new/link-token/update", { method: "POST", body: { item_id: itemId } })
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          if (!data.link_token) { toast(data.error || "Erro"); return; }
+          if (!data.link_token) { toast(data.error || t("Erro", "Error")); return; }
           var handler = Plaid.create({
             token: data.link_token,
             onSuccess: function() {
@@ -1608,7 +1625,7 @@
           });
           handler.open();
         })
-        .catch(function() { toast("Erro"); });
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     function retagAccount(accountId, purpose) {
@@ -1617,7 +1634,7 @@
       })
         .then(function(res) { return res.json(); })
         .then(function() { loadAll(); })
-        .catch(function() { toast("Erro"); });
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     // ═══════════════ RENDERING ════════════════════════════════════════════
@@ -1748,13 +1765,13 @@
     function confirmTransfer(pairId, always) {
       apiFetch("/api/finance-new/transfers/confirm", {
         method: "POST", body: { transfer_pair_id: pairId, always: !!always }
-      }).then(function() { loadAll(); }).catch(function() { toast("Erro"); });
+      }).then(function() { loadAll(); }).catch(function() { toast(t("Erro", "Error")); });
     }
 
     function rejectTransfer(pairId) {
       apiFetch("/api/finance-new/transfers/reject", {
         method: "POST", body: { transfer_pair_id: pairId }
-      }).then(function() { loadAll(); }).catch(function() { toast("Erro"); });
+      }).then(function() { loadAll(); }).catch(function() { toast(t("Erro", "Error")); });
     }
 
     function renderTransactions() {
@@ -2839,7 +2856,7 @@
           toast(isEn() ? "Marked as a mistake." : "Marcada como erro.");
           loadInvoices();
         })
-        .catch(function() { toast("Erro"); });
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     // ── New invoice + collision guard ──────────────────────────────────────
@@ -2905,7 +2922,7 @@
           toast((isEn() ? "Draft created: " : "Rascunho criado: ") + data.number);
           loadInvoices();
         })
-        .catch(function() { toast("Erro"); });
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     // Proceed with her invoice, but RECORD that the period is handled so the
@@ -2946,7 +2963,7 @@
           toast((isEn() ? "Draft created: " : "Rascunho criado: ") + data.number);
           loadInvoices();
         })
-        .catch(function() { toast("Erro"); });
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     // ── Deposit matching ───────────────────────────────────────────────────
@@ -3026,7 +3043,7 @@
           loadInvoices();
           loadMatches();
         })
-        .catch(function() { toast("Erro"); });
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     function undoLastMatches(applied) {
@@ -3088,6 +3105,25 @@
         updateFinanceBadges();
       });
     }
+
+    // ── Language toggle re-render ─────────────────────────────────────────
+    //
+    // Same render sequence loadAll() ends with, minus the network: ACCOUNTS,
+    // SUMMARY and TRANSACTIONS are already in memory, and the filters keep
+    // their current selections because each populate* preserves them.
+    document.addEventListener("apex:langchange", function () {
+      applyFinBilingualAttrs();
+      renderBanners();
+      renderHero();
+      renderAccountCards();
+      renderCharts();
+      renderLinked();
+      renderTransfers();
+      populateAccountFilter();
+      populateCategoryFilter();
+      renderTransactions();
+      updateFinanceBadges();
+    });
 
     // The category list is needed by the transaction rows on the Saude tab, so
     // it is fetched up front rather than waiting for the Categorias tab to be
@@ -3153,6 +3189,7 @@
       // Templates and clients are fetched up front so the WhatsApp click
       // handler never has to await before opening its window.
       loadMessageTemplates();
+      applyFinBilingualAttrs();
       loadClients();
       switchInvoiceTab("draft");
       switchFinanceTab("saude");

@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <title>Apex — Tarefas</title>
+  <title data-title-pt="Apex — Tarefas" data-title-en="Apex &#8212; Tasks">Apex — Tarefas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1070,7 +1070,7 @@
         })
         .catch(function(e) {
           document.getElementById("tasksContainer").innerHTML =
-            '<div class="tasks-empty" style="color:#b44040;">Erro ao carregar tarefas: ' + escHtml(e.message) + '</div>';
+            '<div class="tasks-empty" style="color:#b44040;">' + t("Erro ao carregar tarefas: ", "Could not load tasks: ") + escHtml(e.message) + '</div>';
         });
     }
 
@@ -1435,7 +1435,7 @@
       names.sort();
 
       // Rebuild options — keep default "all" option
-      sel.innerHTML = '<option value="">Todos os Clientes / All Clients</option>';
+      sel.innerHTML = '<option value="">' + t("Todos os Clientes", "All Clients") + '</option>';
       for (var j = 0; j < names.length; j++) {
         var opt = document.createElement("option");
         opt.value = names[j];
@@ -1662,7 +1662,7 @@
       // Checkbox toggle button
       var check = document.createElement("button");
       check.className = "task-check" + (showDone ? " checked" : "");
-      check.title = "Marcar como concluída / Mark complete";
+      check.title = t("Marcar como concluída", "Mark complete");
       check.setAttribute("aria-label", "Toggle complete");
       // Use a self-contained closure via data attributes to avoid closure issues in loops
       (function(tKey, sId) {
@@ -1767,7 +1767,12 @@
 
     // ── Utilities ──────────────────────────────────────────────────────────
 
-    function escHtml(str) {
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
       return (str || "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")

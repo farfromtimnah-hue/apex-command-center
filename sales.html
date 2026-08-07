@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
-  <title>Apex — Vendas</title>
+  <title data-title-pt="Apex — Vendas" data-title-en="Apex &#8212; Sales">Apex — Vendas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -557,7 +557,12 @@
       });
     }
 
-    function escHtml(str) {
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
       return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
 
@@ -634,7 +639,7 @@
         })
         .catch(function (e) {
           document.getElementById("rankingContainer").innerHTML =
-            '<div class="error-msg">Erro ao carregar ranking: ' + escHtml(e.message) + '</div>';
+            '<div class="error-msg">' + t("Erro ao carregar ranking: ", "Could not load ranking: ") + escHtml(e.message) + '</div>';
         });
     }
 
@@ -649,7 +654,7 @@
         .then(function (data) { renderLeaderboard(data.ranking || []); })
         .catch(function (e) {
           document.getElementById("leaderboardContainer").innerHTML =
-            '<div class="error-msg">Erro: ' + escHtml(e.message) + '</div>';
+            '<div class="error-msg">' + t("Erro: ", "Error: ") + escHtml(e.message) + '</div>';
         });
     }
 

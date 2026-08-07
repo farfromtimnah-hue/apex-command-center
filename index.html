@@ -504,7 +504,8 @@
         })
         .catch(function(e) {
           btn.disabled = false;
-          setStatus("Error: " + e.message, true);
+          setStatus((document.body.classList.contains("lang-en")
+            ? "Error: " : "Erro: ") + e.message, true);
         });
     }
 

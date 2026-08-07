@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <title>Apex — Documentos</title>
+  <title data-title-pt="Apex — Documentos" data-title-en="Apex &#8212; Documents">Apex — Documentos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -611,8 +611,8 @@
               <span class="show-en">Type *</span>
             </label>
             <select id="resType" onchange="onTypeChange()">
-              <option value="contact">Contato / Contact</option>
-              <option value="file">Arquivo / File</option>
+              <option value="contact" data-opt-pt="Contato" data-opt-en="Contact">Contato</option>
+              <option value="file" data-opt-pt="Arquivo" data-opt-en="File">Arquivo</option>
               <option value="link">Link</option>
             </select>
           </div>
@@ -622,14 +622,14 @@
             <span class="show-pt">Nova Categoria *</span>
             <span class="show-en">New Category *</span>
           </label>
-          <input type="text" id="resOtherCategory" placeholder="Ex.: Tecnologia / Technology">
+          <input type="text" id="resOtherCategory" data-ph-pt="Ex.: Tecnologia" data-ph-en="Technology" placeholder="Ex.: Tecnologia">
         </div>
         <div class="field-group">
           <label>
             <span class="show-pt">Descrição</span>
             <span class="show-en">Description</span>
           </label>
-          <textarea id="resDescription" placeholder="Quando usar este recurso... / When to use this resource..."></textarea>
+          <textarea id="resDescription" data-ph-pt="Quando usar este recurso..." data-ph-en="When to use this resource..." placeholder="Quando usar este recurso..."></textarea>
         </div>
 
         <!-- Contact fields -->
@@ -639,7 +639,7 @@
               <span class="show-pt">Nome do Contato</span>
               <span class="show-en">Contact Name</span>
             </label>
-            <input type="text" id="resContactName" placeholder="Nome / Name">
+            <input type="text" id="resContactName" data-ph-pt="Nome" data-ph-en="Name" placeholder="Nome">
           </div>
           <div class="field-row">
             <div class="field-group">
@@ -647,7 +647,7 @@
                 <span class="show-pt">Telefone</span>
                 <span class="show-en">Phone</span>
               </label>
-              <input type="text" id="resContactPhone" placeholder="Tel / WhatsApp">
+              <input type="text" id="resContactPhone" data-ph-pt="Tel" data-ph-en="WhatsApp" placeholder="Tel">
             </div>
             <div class="field-group">
               <label>Email</label>
@@ -757,7 +757,12 @@
       });
     }
 
-    function escHtml(str) {
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
       return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
 
@@ -812,7 +817,7 @@
         })
         .catch(function (e) {
           var el = document.getElementById("resourceListContainer");
-          if (el) { el.innerHTML = '<div class="error-msg">Erro ao carregar recursos: ' + escHtml(e.message) + '</div>'; }
+          if (el) { el.innerHTML = '<div class="error-msg">' + t("Erro ao carregar recursos: ", "Could not load resources: ") + escHtml(e.message) + '</div>'; }
         });
     }
 
@@ -902,7 +907,7 @@
                 (allCategories[i] === selected ? ' selected' : '') + '>' +
                 escHtml(allCategories[i]) + '</option>';
       }
-      html += '<option value="' + OTHER_VALUE + '">Outro / Other...</option>';
+      html += '<option value="' + OTHER_VALUE + '" data-opt-pt="Outro" data-opt-en="Other...">Outro</option>';
       sel.innerHTML = html;
       if (selected && allCategories.indexOf(selected) === -1) { sel.value = OTHER_VALUE; }
       onCategoryChange();
@@ -945,7 +950,7 @@
       var currentEl = document.getElementById("resFileCurrent");
       if (r && r.resource_type === "file" && r.file_name) {
         currentEl.style.display = "";
-        currentEl.textContent   = "Atual / Current: " + r.file_name;
+        currentEl.textContent   = t("Atual: ", "Current: ") + r.file_name;
       } else {
         currentEl.style.display = "none";
       }
@@ -972,18 +977,18 @@
       }
 
       if (!title) {
-        statusEl.textContent = "Título é obrigatório. / Title is required.";
+        statusEl.textContent = t("Título é obrigatório.", "Title is required.");
         statusEl.className   = "form-status is-error";
         return;
       }
       if (!category) {
-        statusEl.textContent = "Categoria é obrigatória. / Category is required.";
+        statusEl.textContent = t("Categoria é obrigatória.", "Category is required.");
         statusEl.className   = "form-status is-error";
         return;
       }
       var url = document.getElementById("resUrl").value.trim();
       if (type === "link" && !url) {
-        statusEl.textContent = "URL é obrigatória para links. / URL is required for links.";
+        statusEl.textContent = t("URL é obrigatória para links.", "URL is required for links.");
         statusEl.className   = "form-status is-error";
         return;
       }
@@ -996,13 +1001,13 @@
         }
       }
       if (type === "file" && !file && !editingFileResource) {
-        statusEl.textContent = "Selecione um arquivo. / Choose a file.";
+        statusEl.textContent = t("Selecione um arquivo.", "Choose a file.");
         statusEl.className   = "form-status is-error";
         return;
       }
 
       btn.disabled         = true;
-      statusEl.textContent = "Salvando... / Saving...";
+      statusEl.textContent = t("Salvando...", "Saving...");
       statusEl.className   = "form-status";
 
       var fields = {
@@ -1045,7 +1050,7 @@
         })
         .catch(function (e) {
           btn.disabled         = false;
-          statusEl.textContent = "Erro: " + e.message;
+          statusEl.textContent = t("Erro: ", "Error: ") + e.message;
           statusEl.className   = "form-status is-error";
         });
     }
@@ -1070,7 +1075,7 @@
         })
         .catch(function (e) {
           var el = document.getElementById("pdfListContainer");
-          if (el) { el.innerHTML = '<div class="error-msg">Erro ao carregar PDFs: ' + escHtml(e.message) + '</div>'; }
+          if (el) { el.innerHTML = '<div class="error-msg">' + t("Erro ao carregar PDFs: ", "Could not load PDFs: ") + escHtml(e.message) + '</div>'; }
         });
     }
 
@@ -1100,7 +1105,7 @@
         html +=
           '<tr>' +
           '<td class="mc-head"><div class="resource-title">' + escHtml(s.client_name || "--") + '</div></td>' +
-          '<td class="mc-field detail-text" data-label-pt="Data da Sessao" data-label-en="Session Date">' + escHtml(formatDate(s.date)) + '</td>' +
+          '<td class="mc-field detail-text" data-label-pt="Data da Sessão" data-label-en="Session Date">' + escHtml(formatDate(s.date)) + '</td>' +
           '<td class="mc-action" style="text-align:right;">' +
           '<button class="btn-row-action" onclick="openSessionPdf(' + i + ')">' +
           '<span class="show-pt">Abrir PDF</span><span class="show-en">Open PDF</span>' +
@@ -1151,7 +1156,7 @@
       var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html";
       var newTab = window.open(TEMPLATE_URL, "_blank");
       if (!newTab) {
-        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
         return;
       }
 
@@ -1254,6 +1259,30 @@
     }
 
     window.onload = function () { init(); };
+  
+    // ── Bilingual attributes ──────────────────────────────────────────────
+    // placeholder, title and <option> text cannot hold .show-pt/.show-en
+    // spans, so they carry both languages as data attributes and are swapped
+    // here — on load and on every apex:langchange.
+    function applyPageBilingualAttrs() {
+      var en = window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+      var ph = document.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < ph.length; i++) {
+        ph[i].setAttribute("placeholder", ph[i].getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      var op = document.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var j = 0; j < op.length; j++) {
+        op[j].textContent = op[j].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+      var ti = document.querySelectorAll("[data-title-attr-pt][data-title-attr-en]");
+      for (var k = 0; k < ti.length; k++) {
+        ti[k].setAttribute("title", ti[k].getAttribute(en ? "data-title-attr-en" : "data-title-attr-pt"));
+      }
+    }
+    document.addEventListener("apex:langchange", applyPageBilingualAttrs);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyPageBilingualAttrs);
+    } else { applyPageBilingualAttrs(); }
   </script>
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
        injected fixed-position nav broke the desktop flex layout, so these

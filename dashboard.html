@@ -669,7 +669,7 @@
           <div class="glass-tile-row">
             <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
                  onclick="window.location.href='sessions.html'"
-                 title="Ver Inbox de Sessoes / Open Sessions Inbox">
+                 data-title-attr-pt="Ver Inbox de Sessões" data-title-attr-en="Open Sessions Inbox" title="Ver Inbox de Sessões">
               <div class="glass-tile-label">
                 <span class="show-pt">Pendentes</span>
                 <span class="show-en">Pending</span>
@@ -699,7 +699,7 @@
             </div>
             <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
                  onclick="window.location.href='clients.html'"
-                 title="Ver recursos pendentes na pagina Clientes / See pending resources on the Clients page">
+                 data-title-attr-pt="Ver recursos pendentes na página Clientes" data-title-attr-en="See pending resources on the Clients page" title="Ver recursos pendentes na página Clientes">
               <div class="glass-tile-label">
                 <span class="show-pt">Envios Pendentes</span>
                 <span class="show-en">Pending Sends</span>
@@ -734,7 +734,7 @@
         <div class="content-card">
           <div class="content-card-header">
             <h2 class="content-card-title">
-              <span class="show-pt">Sessoes Recentes</span>
+              <span class="show-pt">Sessões Recentes</span>
               <span class="show-en">Recent Sessions</span>
             </h2>
             <a href="sessions.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
@@ -794,7 +794,7 @@
             </div>
             <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
                  onclick="window.location.href='tasks.html?overdue=1'"
-                 title="Ver tarefas atrasadas / View overdue tasks">
+                 data-title-attr-pt="Ver tarefas atrasadas" data-title-attr-en="View overdue tasks" title="Ver tarefas atrasadas">
               <div class="glass-tile-label">
                 <span class="show-pt">Atrasadas</span>
                 <span class="show-en">Overdue</span>
@@ -889,7 +889,7 @@
             </div>
             <div class="glass-tile">
               <div class="glass-tile-label">
-                <span class="show-pt">Total de Sessoes</span>
+                <span class="show-pt">Total de Sessões</span>
                 <span class="show-en">Total Sessions</span>
               </div>
               <div class="glass-tile-value" id="devStatTotal">--</div>
@@ -902,7 +902,7 @@
         <div class="content-card">
           <div class="content-card-header">
             <h2 class="content-card-title">
-              <span class="show-pt">Sessoes Recentes</span>
+              <span class="show-pt">Sessões Recentes</span>
               <span class="show-en">Recent Sessions</span>
             </h2>
             <a href="sessions.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
@@ -2162,6 +2162,30 @@
 
     // ── Bootstrap ──────────────────────────────────────────────────────────
     window.onload = function() { init(); };
+  
+    // ── Bilingual attributes ──────────────────────────────────────────────
+    // placeholder, title and <option> text cannot hold .show-pt/.show-en
+    // spans, so they carry both languages as data attributes and are swapped
+    // here — on load and on every apex:langchange.
+    function applyPageBilingualAttrs() {
+      var en = window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+      var ph = document.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < ph.length; i++) {
+        ph[i].setAttribute("placeholder", ph[i].getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      var op = document.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var j = 0; j < op.length; j++) {
+        op[j].textContent = op[j].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+      var ti = document.querySelectorAll("[data-title-attr-pt][data-title-attr-en]");
+      for (var k = 0; k < ti.length; k++) {
+        ti[k].setAttribute("title", ti[k].getAttribute(en ? "data-title-attr-en" : "data-title-attr-pt"));
+      }
+    }
+    document.addEventListener("apex:langchange", applyPageBilingualAttrs);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyPageBilingualAttrs);
+    } else { applyPageBilingualAttrs(); }
   </script>
 
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
@@ -2180,9 +2204,9 @@
     <div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:22px 20px;font-family:'Inter',sans-serif;box-shadow:0 18px 50px rgba(0,0,0,0.3);">
       <div id="scmTitle" style="font-size:17px;font-weight:800;color:#1a1a1d;margin-bottom:14px;"></div>
       <div style="background:#f6f4ef;border-radius:9px;padding:13px 14px;margin-bottom:14px;line-height:1.85;font-size:14px;color:#1a1a1d;">
-        <div><span style="color:#6b6660;">Vendedor:</span> <strong id="scmSeller"></strong></div>
-        <div><span style="color:#6b6660;">Usuário:</span> <strong id="scmUser" style="user-select:all;"></strong></div>
-        <div><span style="color:#6b6660;">Senha:</span> <strong id="scmPass" style="user-select:all;font-family:ui-monospace,Menlo,monospace;"></strong></div>
+        <div><span style="color:#6b6660;"><span class="show-pt">Vendedor:</span><span class="show-en">Salesperson:</span></span> <strong id="scmSeller"></strong></div>
+        <div><span style="color:#6b6660;"><span class="show-pt">Usuário:</span><span class="show-en">Username:</span></span> <strong id="scmUser" style="user-select:all;"></strong></div>
+        <div><span style="color:#6b6660;"><span class="show-pt">Senha:</span><span class="show-en">Password:</span></span> <strong id="scmPass" style="user-select:all;font-family:ui-monospace,Menlo,monospace;"></strong></div>
       </div>
       <div id="scmWarn" style="font-size:12.5px;color:#8a6d1f;background:rgba(201,164,58,0.13);border-radius:8px;padding:9px 11px;margin-bottom:16px;line-height:1.5;"></div>
       <button id="scmSend" type="button" onclick="sendSellerCredsWhatsapp()" style="display:block;width:100%;background:#25D366;border:none;color:#fff;border-radius:9px;padding:13px;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:9px;"></button>

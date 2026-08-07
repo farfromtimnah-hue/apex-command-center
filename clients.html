@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
-  <title>Apex — Clientes</title>
+  <title data-title-pt="Apex — Clientes" data-title-en="Apex &#8212; Clients">Apex — Clientes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -825,7 +825,7 @@
               </button>
               <button class="inv-subtab" id="subtabClientsConsolidados" onclick="switchClientsTab('consolidados')">
                 <span class="show-pt">Consolidados</span>
-                <span class="show-en">Consolidados</span>
+                <span class="show-en">Consolidated</span>
               </button>
               <!-- APEX's OWN referral partners — who sends coaching clients TO
                    Apex. Not a client's gm_partners (that lives in the portal,
@@ -868,7 +868,7 @@
         <div class="field-row">
           <div class="field-group">
             <label><span class="show-pt">Tipo</span><span class="show-en">Type</span></label>
-            <input type="text" id="apTipo" maxlength="100" placeholder="Contador, Ex-cliente…">
+            <input type="text" id="apTipo" maxlength="100" data-ph-pt="Contador, Ex-cliente…" data-ph-en="Accountant, Former client…" placeholder="Contador, Ex-cliente…">
           </div>
           <div class="field-group">
             <label><span class="show-pt">Status</span><span class="show-en">Status</span></label>
@@ -915,12 +915,12 @@
           <span class="show-pt">Empresa</span><span class="show-en">Business</span>
         </div>
         <div class="field-group">
-          <input type="text" id="ncName" placeholder="Nome da empresa * / Company name *">
+          <input type="text" id="ncName" data-ph-pt="Nome da empresa *" data-ph-en="Company name *" placeholder="Nome da empresa *">
         </div>
         <div class="field-row">
           <div class="field-group">
             <select id="ncPackage">
-              <option value="">-- Pacote / Package --</option>
+              <option value="" data-opt-pt="-- Pacote" data-opt-en="Package --">-- Pacote</option>
               <option value="Raio-X">Raio-X</option>
               <option value="Sprint">Sprint</option>
               <option value="Premium">Premium</option>
@@ -930,19 +930,19 @@
           </div>
           <div class="field-group">
             <select id="ncStatus">
-              <option value="active">Ativo / Active</option>
+              <option value="active" data-opt-pt="Ativo" data-opt-en="Active">Ativo</option>
               <option value="lead">Lead</option>
-              <option value="paused">Pausado / Paused</option>
-              <option value="closed">Encerrado / Closed</option>
+              <option value="paused" data-opt-pt="Pausado" data-opt-en="Paused">Pausado</option>
+              <option value="closed" data-opt-pt="Encerrado" data-opt-en="Closed">Encerrado</option>
             </select>
           </div>
         </div>
         <div class="field-row">
           <div class="field-group">
-            <input type="text" id="ncIndustry" placeholder="Setor / Industry">
+            <input type="text" id="ncIndustry" data-ph-pt="Setor" data-ph-en="Industry" placeholder="Setor">
           </div>
           <div class="field-group">
-            <input type="text" id="ncLocation" placeholder="Localizacao / Location">
+            <input type="text" id="ncLocation" data-ph-pt="Localizacao" data-ph-en="Location" placeholder="Localizacao">
           </div>
         </div>
         <!-- Primary contact -->
@@ -951,15 +951,15 @@
         </div>
         <div class="field-row">
           <div class="field-group">
-            <input type="text" id="nc1Name" placeholder="Nome / Name">
+            <input type="text" id="nc1Name" data-ph-pt="Nome" data-ph-en="Name" placeholder="Nome">
           </div>
           <div class="field-group">
-            <input type="text" id="nc1Role" placeholder="Cargo / Role">
+            <input type="text" id="nc1Role" data-ph-pt="Cargo" data-ph-en="Role" placeholder="Cargo">
           </div>
         </div>
         <div class="field-row">
           <div class="field-group">
-            <input type="text" id="nc1Phone" placeholder="Tel / WhatsApp">
+            <input type="text" id="nc1Phone" data-ph-pt="Tel" data-ph-en="WhatsApp" placeholder="Tel">
           </div>
           <div class="field-group">
             <input type="email" id="nc1Email" placeholder="Email">
@@ -972,15 +972,15 @@
           </div>
           <div class="field-row">
             <div class="field-group">
-              <input type="text" id="nc2Name" placeholder="Nome / Name">
+              <input type="text" id="nc2Name" data-ph-pt="Nome" data-ph-en="Name" placeholder="Nome">
             </div>
             <div class="field-group">
-              <input type="text" id="nc2Role" placeholder="Cargo / Role">
+              <input type="text" id="nc2Role" data-ph-pt="Cargo" data-ph-en="Role" placeholder="Cargo">
             </div>
           </div>
           <div class="field-row">
             <div class="field-group">
-              <input type="text" id="nc2Phone" placeholder="Tel / WhatsApp">
+              <input type="text" id="nc2Phone" data-ph-pt="Tel" data-ph-en="WhatsApp" placeholder="Tel">
             </div>
             <div class="field-group">
               <input type="email" id="nc2Email" placeholder="Email">
@@ -1222,7 +1222,7 @@
     // Client-facing WhatsApp message is PT-only (standing project decision).
     function buildResourceMessage(p) {
       var introTpl = (messageTemplates && messageTemplates.resource_send) ||
-        "Olá! Segue uma recomendação da Apex Business & Leadership:";
+        t("Olá! Segue uma recomendação da Apex Business & Leadership:", "Hello! Here is a recommendation from Apex Business & Leadership:");
       var lines = [introTpl, "", p.title];
       if (p.description) { lines.push(p.description); }
       if (p.resource_type === "contact") {
@@ -1853,7 +1853,12 @@
       container.appendChild(table);
     }
 
-    function escHtml(str) {
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
       return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
@@ -1870,12 +1875,12 @@
           newClientPackagesLoaded = true;
           var newPkgs = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
           var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
-          var html = '<option value="">-- Pacote / Package --</option>';
+          var html = '<option value="" data-opt-pt="-- Pacote" data-opt-en="Package --">-- Pacote</option>';
           for (var i = 0; i < newPkgs.length; i++) {
             html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' + escHtml(newPkgs[i].short_name) + '</option>';
           }
           if (newPkgs.length > 0 && legacyPkgs.length > 0) {
-            html += '<option value="" disabled>----- Legacy / Legado -----</option>';
+            html += '<option value="" disabled data-opt-pt="----- Legacy" data-opt-en="Legado -----">----- Legacy</option>';
           }
           for (var j = 0; j < legacyPkgs.length; j++) {
             html += '<option value="' + escHtml(legacyPkgs[j].short_name) + '">' + escHtml(legacyPkgs[j].short_name) + '</option>';
@@ -2058,6 +2063,30 @@
     }
 
     window.onload = function () { init(); };
+  
+    // ── Bilingual attributes ──────────────────────────────────────────────
+    // placeholder, title and <option> text cannot hold .show-pt/.show-en
+    // spans, so they carry both languages as data attributes and are swapped
+    // here — on load and on every apex:langchange.
+    function applyPageBilingualAttrs() {
+      var en = window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+      var ph = document.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < ph.length; i++) {
+        ph[i].setAttribute("placeholder", ph[i].getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      var op = document.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var j = 0; j < op.length; j++) {
+        op[j].textContent = op[j].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+      var ti = document.querySelectorAll("[data-title-attr-pt][data-title-attr-en]");
+      for (var k = 0; k < ti.length; k++) {
+        ti[k].setAttribute("title", ti[k].getAttribute(en ? "data-title-attr-en" : "data-title-attr-pt"));
+      }
+    }
+    document.addEventListener("apex:langchange", applyPageBilingualAttrs);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyPageBilingualAttrs);
+    } else { applyPageBilingualAttrs(); }
   </script>
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
        injected fixed-position nav broke the desktop flex layout, so these

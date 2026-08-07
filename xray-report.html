@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <script src="datetime.js"></script>
-  <title>Relatório Raio X Empresarial — Apex</title>
+  <title data-title-pt="Relatório Raio X Empresarial — Apex" data-title-en="Apex &#8212; X-Ray Report">Relatório Raio X Empresarial — Apex</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -173,7 +173,7 @@
 </head>
 <body class="lang-pt">
   <header>
-    <div class="header-title">RAIO X EMPRESARIAL</div>
+    <div class="header-title"><span class="show-pt">RAIO X EMPRESARIAL</span><span class="show-en">BUSINESS X-RAY</span></div>
     <div class="header-right">
       <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
       <button class="hdr-btn" onclick="toggleLang()">PT / EN</button>
@@ -287,6 +287,16 @@
       var b = document.body;
       if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
       else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
+      // A <title> cannot hold spans, so it carries both languages as data
+      // attributes; nav.js applies them and also owns the shared event.
+      if (window.apexApplyTitle) { window.apexApplyTitle(); }
+      // Announce it, so anything rendered through a ternary (the chart
+      // aria-labels) can redraw instead of staying frozen at first render.
+      try {
+        document.dispatchEvent(new CustomEvent("apex:langchange", {
+          detail: { lang: b.classList.contains("lang-en") ? "en" : "pt" }
+        }));
+      } catch (e) {}
     }
 
     function goBack() {

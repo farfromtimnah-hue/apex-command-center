@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
-  <title>Apex — Add User</title>
+  <title data-title-pt="Apex — Add User" data-title-en="Apex &#8212; Add User">Apex — Add User</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -394,7 +394,12 @@
     }
 
     // ── Load and render the users table ──────────────────────────────────────
-    function loadUsers() {
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function loadUsers() {
       var container = document.getElementById("usersTableContainer");
       if (!container) { return; }
       container.innerHTML =
@@ -411,7 +416,7 @@
         renderUsersTable(data.users || []);
       }).catch(function (e) {
         container.innerHTML =
-          '<div class="table-empty" style="color:#b44040;">Erro ao carregar usuarios: ' + e.message + '</div>';
+          '<div class="table-empty" style="color:#b44040;">' + t("Erro ao carregar usuários: ", "Could not load users: ") + e.message + '</div>';
       });
     }
 
@@ -420,7 +425,7 @@
       if (!container) { return; }
 
       if (users.length === 0) {
-        container.innerHTML = '<div class="table-empty">Nenhum usuario cadastrado.</div>';
+        container.innerHTML = '<div class="table-empty">' + t("Nenhum usuário cadastrado.", "No users registered.") + '</div>';
         return;
       }
 
@@ -506,12 +511,12 @@
           loadUsers();
         } else {
           msgEl.className = "msg-err";
-          msgEl.textContent = result.data.error || "Erro desconhecido.";
+          msgEl.textContent = result.data.error || t("Erro desconhecido.", "Unknown error.");
         }
       }).catch(function (e) {
         btn.disabled = false;
         msgEl.className = "msg-err";
-        msgEl.textContent = "Erro: " + e.message;
+        msgEl.textContent = t("Erro: ", "Error: ") + e.message;
       });
     }
 

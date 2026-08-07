@@ -259,8 +259,12 @@
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
       padding: 20px 24px;
-      flex: 1;
-      min-width: 130px;
+      /* Same zero-basis clipping fixed in finance-new.html: a bare `flex: 1`
+         is `flex: 1 1 0%`, so tiles split the row evenly and a long value is
+         cut off. These tiles hold small counts today, but the fix is applied
+         here too rather than left as a latent bug for the first big number. */
+      flex: 1 1 auto;
+      min-width: 150px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -279,6 +283,7 @@
       font-weight: 700;
       color: #fff;
       line-height: 1;
+      white-space: nowrap;
     }
 
     .glass-tile-value.is-gold { color: var(--gold); }

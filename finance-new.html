@@ -220,8 +220,13 @@
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
       padding: 18px 22px;
-      flex: 1;
-      min-width: 130px;
+      /* flex-basis auto, not the 0% that a bare `flex: 1` implies. With a zero
+         basis the four tiles split the row evenly no matter how wide their
+         contents are, so the 30px value clipped to 86px of usable space and
+         the headline number rendered as "US$ 282..." -- unreadable, on the
+         first four figures she looks at. Sizing from content instead. */
+      flex: 1 1 auto;
+      min-width: 150px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -235,7 +240,7 @@
       color: rgba(255,255,255,0.55);
     }
 
-    .glass-tile-value { font-size: 30px; font-weight: 700; color: #fff; line-height: 1; }
+    .glass-tile-value { font-size: 30px; font-weight: 700; color: #fff; line-height: 1; white-space: nowrap; }
     .glass-tile-value.is-gold  { color: var(--gold); }
     .glass-tile-value.is-green { color: #4ade80; }
     .glass-tile-value.is-red   { color: #f87171; }

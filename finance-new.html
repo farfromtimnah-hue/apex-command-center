@@ -476,6 +476,40 @@
     .banner[hidden] { display: none !important; }
 
     /* ─── Account cards ─────────────────────────────────────────────────── */
+    /* ── "Precisa de voce" queue ──────────────────────────────────────────
+       Gold top edge, matching the business card, because this is the panel
+       she is meant to land on. No red anywhere: an item here is a decision
+       waiting, never a failure. Counts sit in neutral chips rather than
+       badges, which read as alerts. */
+    .attn-card { border-top: 3px solid var(--gold); }
+    .attn-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 4px;
+    }
+    /* The shrinking number. Deliberately given equal billing with the title:
+       the count of what is left means little without what got handled. */
+    .attn-progress { font-size: 12.5px; color: var(--muted); }
+    .attn-rows { margin-top: 10px; }
+    .attn-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 0; border-top: 1px solid var(--border);
+    }
+    .attn-row:first-child { border-top: 0; }
+    .attn-count {
+      flex: 0 0 auto; min-width: 42px; height: 42px; padding: 0 10px;
+      border-radius: 21px; background: var(--gold-dim); color: var(--brown);
+      font-size: 18px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .attn-text { flex: 1 1 auto; min-width: 0; }
+    .attn-title { font-size: 14.5px; font-weight: 600; }
+    .attn-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+    .attn-clear { font-size: 13.5px; color: var(--muted); padding: 6px 0 2px; }
+    @media (max-width: 560px) {
+      .attn-row { gap: 10px; }
+      .attn-count { min-width: 36px; height: 36px; font-size: 16px; }
+    }
+
     .acct-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -835,6 +869,24 @@
           <span class="show-pt">Conectar conta pessoal</span>
           <span class="show-en">Connect personal account</span>
         </button>
+      </div>
+    </div>
+
+    <!-- ── "Precisa de voce" queue ──
+         Sits above the balances deliberately: the balances are the thing she
+         checks, this is the thing she would otherwise never learn about. -->
+    <div id="attentionCard" class="card attn-card" hidden>
+      <div class="attn-head">
+        <div class="card-title" style="margin:0">
+          <span class="show-pt">Precisa de voc&ecirc;</span>
+          <span class="show-en">Needs you</span>
+        </div>
+        <div id="attnProgress" class="attn-progress"></div>
+      </div>
+      <div id="attnRows" class="attn-rows"></div>
+      <div id="attnClear" class="attn-clear" hidden>
+        <span class="show-pt">Nada pendente. As regras cuidaram de tudo at&eacute; aqui.</span>
+        <span class="show-en">Nothing pending. The rules handled everything so far.</span>
       </div>
     </div>
 
@@ -1407,6 +1459,7 @@
     var REAUTH_ITEMS  = [];
     var TRANSACTIONS  = [];
     var SUMMARY       = null;
+    var ATTENTION     = null;   // counts behind the "Precisa de voce" queue
     var PENDING_LINK  = null;   // { purpose, public_token, accounts[] } mid-tagging
     var INVOICES      = [];
     var MATCHES       = [];
@@ -1664,6 +1717,97 @@
     }
 
     // ═══════════════ RENDERING ════════════════════════════════════════════
+
+    // ── "Precisa de voce" ───────────────────────────────────────────────
+    //
+    // One queue, three sources, one click each. The ordering is by how much a
+    // single decision is worth, not by count: approving a match settles an
+    // invoice, entering terms unlocks the forward view for that client, and
+    // categorizing is the long tail that the rules keep eating into.
+    //
+    // No count is ever styled as a warning. An uncategorized transaction is a
+    // NORMAL state -- the engine has not been taught that merchant yet -- and
+    // the previous tool lost her by making normal states feel like failures.
+    function renderAttention() {
+      var card = document.getElementById("attentionCard");
+      if (!card) { return; }
+      if (!ATTENTION) { card.hidden = true; return; }
+
+      var rows = [];
+
+      if (ATTENTION.matches && ATTENTION.matches.count > 0) {
+        rows.push({
+          n: ATTENTION.matches.count,
+          go: "faturas",
+          pt: "dep&oacute;sito" + (ATTENTION.matches.count > 1 ? "s" : "") + " para confirmar",
+          en: "deposit" + (ATTENTION.matches.count > 1 ? "s" : "") + " to confirm",
+          subPt: "Chegou dinheiro que parece ser de uma fatura. Confirme e ela fica quitada.",
+          subEn: "Money arrived that looks like an invoice payment. Confirm and it is settled."
+        });
+      }
+
+      if (ATTENTION.missing_terms && ATTENTION.missing_terms.count > 0) {
+        rows.push({
+          n: ATTENTION.missing_terms.count,
+          go: null,
+          href: "clients.html",
+          pt: "cliente" + (ATTENTION.missing_terms.count > 1 ? "s" : "") + " sem valores combinados",
+          en: "client" + (ATTENTION.missing_terms.count > 1 ? "s" : "") + " without agreed terms",
+          subPt: "Sem isso n&atilde;o d&aacute; pra prever o que entra nos pr&oacute;ximos meses.",
+          subEn: "Without these, future months cannot be projected."
+        });
+      }
+
+      if (ATTENTION.uncategorized && ATTENTION.uncategorized.count > 0) {
+        rows.push({
+          n: ATTENTION.uncategorized.count,
+          go: "categorias",
+          pt: "transa&ccedil;&otilde;es ainda sem categoria",
+          en: "transactions not categorized yet",
+          subPt: "Cada uma que voc&ecirc; classifica vira uma regra e as parecidas se resolvem sozinhas.",
+          subEn: "Each one you file becomes a rule, and similar ones settle themselves."
+        });
+      }
+
+      document.getElementById("attnRows").innerHTML = rows.map(function(r) {
+        var click = r.href
+          ? 'location.href=\'' + r.href + '\''
+          : 'switchFinanceTab(\'' + r.go + '\')';
+        return '<div class="attn-row" role="button" tabindex="0" style="cursor:pointer" ' +
+                 'onclick="' + click + '" ' +
+                 'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + click + ';}">' +
+                 '<div class="attn-count">' + r.n + '</div>' +
+                 '<div class="attn-text">' +
+                   '<div class="attn-title">' +
+                     '<span class="show-pt">' + r.pt + '</span>' +
+                     '<span class="show-en">' + r.en + '</span>' +
+                   '</div>' +
+                   '<div class="attn-sub">' +
+                     '<span class="show-pt">' + r.subPt + '</span>' +
+                     '<span class="show-en">' + r.subEn + '</span>' +
+                   '</div>' +
+                 '</div>' +
+               '</div>';
+      }).join("");
+
+      document.getElementById("attnClear").hidden = rows.length > 0;
+
+      // The work shrinking, stated as a fact about the rules rather than a
+      // score about her. Only shown once the rules have actually done
+      // something -- "0 de 170" would be a boast about nothing.
+      var rh = ATTENTION.rules_handled || {};
+      var prog = document.getElementById("attnProgress");
+      if (rh.count > 0 && rh.of > 0) {
+        prog.innerHTML =
+          '<span class="show-pt">As regras trataram ' + rh.count + ' de ' + rh.of + ' sem voc&ecirc;.</span>' +
+          '<span class="show-en">The rules handled ' + rh.count + ' of ' + rh.of + ' without you.</span>';
+      } else {
+        prog.innerHTML = "";
+      }
+
+      card.hidden = false;
+      applyFinBilingualAttrs();
+    }
 
     function renderAccountCards() {
       var grid = document.getElementById("acctGrid");
@@ -3176,15 +3320,20 @@
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
         apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),
-        apiFetch("/api/finance-new/transactions?limit=500").then(function(r) { return r.json(); }).catch(function() { return {}; })
+        apiFetch("/api/finance-new/transactions?limit=500").then(function(r) { return r.json(); }).catch(function() { return {}; }),
+        // Fire-and-forget like the others: if the queue cannot be built, the
+        // panel stays hidden and every balance on the page is unaffected.
+        apiFetch("/api/finance-new/attention").then(function(r) { return r.json(); }).catch(function() { return null; })
       ]).then(function(res) {
         ACCOUNTS     = (res[0] && res[0].accounts) || [];
         REAUTH_ITEMS = (res[0] && res[0].reauth_items) || [];
         SUMMARY      = res[1] || null;
         TRANSACTIONS = (res[2] && res[2].transactions) || [];
+        ATTENTION    = res[3] && !res[3].error ? res[3] : null;
 
         renderBanners();
         renderHero();
+        renderAttention();
         renderAccountCards();
         renderCharts();
         renderLinked();
@@ -3204,6 +3353,7 @@
       applyFinBilingualAttrs();
       renderBanners();
       renderHero();
+      renderAttention();
       renderAccountCards();
       renderCharts();
       renderLinked();

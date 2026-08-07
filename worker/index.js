@@ -18471,6 +18471,93 @@ async function handlePostFinanceNewTransferReject(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/attention — alice/rafa/developer only.
+//
+// The single "precisa de voce" queue. With six jobs her failure mode is not
+// misreading a chart, it is never learning there was something to look at, so
+// everything that genuinely needs a decision is counted in ONE place.
+//
+// Three sources, each one click from resolution:
+//   matches   deposits the engine paired to an invoice, awaiting approval
+//   uncategorized  transactions no rule could place
+//   terms     clients with no package terms, which is what blocks the
+//             forward view in the finance dashboard from knowing future income
+//
+// It also returns what the RULES handled without her, because the count on
+// its own reads as a pile of undone work. 182 uncategorized was the worst
+// this will ever be -- every categorization she makes becomes a rule that
+// shrinks the next number -- and the interface should say that rather than
+// present a backlog. An empty queue is a success state with its own copy,
+// not a blank panel.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewAttention(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        // 1. Matches awaiting approval. Ambiguous candidates are deliberately
+        //    excluded: the engine refuses to guess between two same-amount
+        //    invoices, and surfacing that as a task she must resolve would be
+        //    handing her the engine's uncertainty as homework.
+        var candidates = await buildMatchCandidates(env);
+        var actionable = candidates.filter(function(c) {
+            return c.tier === "auto" || c.tier === "suggest";
+        });
+
+        // 2. Uncategorized spending. Transfers are excluded -- moving money
+        //    between her own accounts is not a categorization decision.
+        var uncatRow = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM transactions " +
+            "WHERE category_id IS NULL AND is_transfer = 0 " +
+            "AND transfer_status NOT IN ('suspected','confirmed')"
+        ).first();
+
+        // How much the rules absorbed on their own. This is the shrinking
+        // number: rule-categorized rows are ones she never had to touch.
+        var handledRow = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM transactions WHERE category_source = 'rule'"
+        ).first();
+        var manualRow = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM transactions WHERE category_source = 'manual'"
+        ).first();
+
+        // 3. Active clients with no package terms on file.
+        var termsRow = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM clients c " +
+            "WHERE COALESCE(c.status,'active') = 'active' " +
+            "AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id)"
+        ).first();
+
+        var uncategorized = (uncatRow && uncatRow.n) || 0;
+        var handledByRules = (handledRow && handledRow.n) || 0;
+        var handledManually = (manualRow && manualRow.n) || 0;
+        var missingTerms = (termsRow && termsRow.n) || 0;
+
+        // Denominator is everything the engine was ever asked to place, so the
+        // ratio answers "how much did it do for me", not "how much is left".
+        var everConsidered = uncategorized + handledByRules + handledManually;
+
+        return jsonOk({
+            matches: {
+                count: actionable.length,
+                auto: actionable.filter(function(c) { return c.tier === "auto"; }).length
+            },
+            uncategorized: { count: uncategorized },
+            missing_terms: { count: missingTerms },
+            rules_handled: {
+                count: handledByRules,
+                of: everConsidered
+            },
+            total: actionable.length + uncategorized + missingTerms
+        });
+    } catch (e) {
+        return jsonErr("Error building attention queue: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance-new/backfill-merchants — alice/rafa/developer only.
 //
 // Rewrites merchant_normalized and memo on the rows that were synced BEFORE
@@ -19899,6 +19986,7 @@ export default {
         if (path === "/api/finance-new/transfers/reject"  && method === "POST") { return handlePostFinanceNewTransferReject(request, env); }
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
         if (path === "/api/finance-new/backfill-merchants" && method === "POST") { return handlePostFinanceNewBackfillMerchants(request, env); }
+        if (path === "/api/finance-new/attention"         && method === "GET")  { return handleGetFinanceNewAttention(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

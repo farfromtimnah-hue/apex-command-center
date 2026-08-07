@@ -1,5 +1,24 @@
 (function () {
 
+  // ── DEV view switcher: ONE list, used by BOTH the desktop sidebar and the
+  // mobile "Mais" menu ─────────────────────────────────────────────────────
+  // These were previously two hand-maintained arrays. They drifted: "Seller"
+  // was added to the sidebar and never to the mobile menu, so on a phone the
+  // Seller preview was unreachable in portrait and only appeared in landscape
+  // (landscape crosses mobile.css's 769px breakpoint, which swaps the "Mais"
+  // menu for the desktop sidebar). Derive both from here so it cannot recur.
+  //
+  // Client and Seller open a picker rather than switching the nav directly —
+  // Seller takes two steps, because a salesperson only means something inside
+  // one client.
+  var DEV_VIEWS = [
+    { v: "alice",  label: "Alice"  },
+    { v: "rafa",   label: "Rafa"   },
+    { v: "dev",    label: "Dev"    },
+    { v: "client", label: "Client" },
+    { v: "seller", label: "Seller" }
+  ];
+
   // ── Nav item definitions ────────────────────────────────────────────────
   var NAV_ITEMS_ALICE = [
     { key: "dashboard", href: "dashboard.html", icon: "home",
@@ -249,15 +268,9 @@
       html += '<div class="apex-nav-switcher">';
       html += '<div class="apex-nav-switcher-label">DEV</div>';
       html += '<div class="apex-nav-switcher-btns">';
-      var buttons = [
-        { id: "navBtnAlice",  v: "alice",  label: "Alice"  },
-        { id: "navBtnRafa",   v: "rafa",   label: "Rafa"   },
-        { id: "navBtnDev",    v: "dev",    label: "Dev"    },
-        { id: "navBtnClient", v: "client", label: "Client" },
-        // Same shape as Client: opens a picker rather than switching the nav.
-        // Two steps, because a seller only means something inside one client.
-        { id: "navBtnSeller", v: "seller", label: "Seller" }
-      ];
+      var buttons = DEV_VIEWS.map(function (dv) {
+        return { id: "navBtn" + dv.label, v: dv.v, label: dv.label };
+      });
       for (var j = 0; j < buttons.length; j++) {
         var b = buttons[j];
         var ac = (devView === b.v) ? " apex-nav-view-active" : "";
@@ -609,19 +622,17 @@
     }
     menuHtml += '</nav>';
 
-    // Dev view switcher (developer role only) — same three buttons and the
-    // same apexNavSetView calls as the desktop sidebar switcher. Checks the
+    // Dev view switcher (developer role only) — the SAME DEV_VIEWS list and
+    // the same apexNavSetView calls as the desktop sidebar switcher, derived
+    // rather than duplicated (see DEV_VIEWS). Checks the
     // REAL role, not navRole: a developer previewing Alice/Rafa still needs
     // the switcher visible to get back to the Dev view.
     var realRole = sessionStorage.getItem("apex_role") || "alice";
     if (realRole === "developer") {
       var mmDevView = sessionStorage.getItem("apex_dev_view") || "dev";
-      var mmButtons = [
-        { id: "mmBtnAlice",  v: "alice",  label: "Alice"  },
-        { id: "mmBtnRafa",   v: "rafa",   label: "Rafa"   },
-        { id: "mmBtnDev",    v: "dev",    label: "Dev"    },
-        { id: "mmBtnClient", v: "client", label: "Client" }
-      ];
+      var mmButtons = DEV_VIEWS.map(function (dv) {
+        return { id: "mmBtn" + dv.label, v: dv.v, label: dv.label };
+      });
       menuHtml += '<div class="mm-switcher">';
       menuHtml += '<div class="mm-switcher-label">DEV</div>';
       menuHtml += '<div class="mm-switcher-btns">';

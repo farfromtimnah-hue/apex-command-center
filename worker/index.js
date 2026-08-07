@@ -15911,13 +15911,29 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             };
         });
 
-        // ── Metric 8 — closing ratio: Fechado ÷ (Fechado + Perdido) ─────────
-        var won = leads.filter(function(l) { return l.estagio === "Fechado"; }).length;
+        // ── Metric 8 — closed vs lost counts ────────────────────────────────
+        //
+        // CLOSED WORK LIVES IN gm_jobs, NOT IN gm_leads.estagio='Fechado'.
+        // Counting only the lead stage made this metric blind: Andrey Sans owns
+        // a $64,000 signed project and has zero leads at 'Fechado', so the page
+        // said "0 fechados" and 0% next to money it had itself just reported.
+        // Asaf was the same at $75,000. Same family of bug as the overdue-tasks
+        // tile that could not see 96% of its rows — the query structurally
+        // excluded the data, so the number was not slightly off, it was blind.
+        //
+        // Jobs are counted where the lead never reached 'Fechado', so a deal
+        // that exists in both tables is not counted twice. `jobs` is loaded
+        // further down (it is also what the money tiles use); the lookup is
+        // built here and consumed after that query runs.
+        var wonLeads = leads.filter(function(l) { return l.estagio === "Fechado"; }).length;
         var lost = leads.filter(function(l) { return l.estagio === "Perdido"; }).length;
 
         // ── Metric 9 — average deal value on closed deals ───────────────────
         // Catches DISCOUNTING, which a closing ratio alone hides: a seller
         // closing 80% at low average value is buying deals.
+        // Values come from gm_jobs for the same reason as the counts above: a
+        // 'Fechado' lead here carries no valor, so averaging the lead rows
+        // produced an average over an empty set. Computed after `jobs` loads.
         var closedValues = [];
         leads.forEach(function(l) {
             if (l.estagio === "Fechado" && l.valor !== null && l.valor !== undefined) {
@@ -15925,13 +15941,12 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             }
         });
         var avgDeal = null;
-        if (closedValues.length >= GM_DIAG_MIN_SAMPLE) {
-            var vs = 0;
-            closedValues.forEach(function(v) { vs += v; });
-            avgDeal = Math.round((vs / closedValues.length) * 100) / 100;
-        }
 
         // ── Metric 10 — touches before close/loss ───────────────────────────
+        //
+        // Deliberately leads-only, unlike metrics 8 and 9 above: a job carries
+        // no contact log, so it has no touch count to average. This measures
+        // leads that were worked to a decision, which is what the tile says.
         var touchCounts = [];
         leads.forEach(function(l) {
             if (l.estagio !== "Fechado" && l.estagio !== "Perdido") { return; }
@@ -16015,6 +16030,41 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         var wonMoney = gmDiagMoney(jobs);
         var activeMoney = gmDiagMoney(activeLeads);
         var lostMoney = gmDiagMoney(lostLeads);
+
+        // ── Metrics 8 and 9, completed now that gm_jobs is loaded ───────────
+        //
+        // Signed jobs are the closed work. Only one lead in the whole database
+        // sits at 'Fechado' (a test row, no value), so before this the closed
+        // count and the average deal value were both computed over an empty
+        // set while gm_jobs held the real thing.
+        var won = wonLeads + jobs.length;
+
+        // The average is over jobs that actually carry a value, and still
+        // refuses to answer below the sample threshold.
+        var jobValues = [];
+        jobs.forEach(function(j) {
+            if (j.valor !== null && j.valor !== undefined && j.valor > 0) { jobValues.push(j.valor); }
+        });
+        var allClosedValues = closedValues.concat(jobValues);
+        if (allClosedValues.length >= GM_DIAG_MIN_SAMPLE) {
+            var vs = 0;
+            allClosedValues.forEach(function(v) { vs += v; });
+            avgDeal = Math.round((vs / allClosedValues.length) * 100) / 100;
+        }
+
+        // THE RATIO STAYS SUPPRESSED WHENEVER JOBS FEED THE NUMERATOR.
+        //
+        // Fixing the blindness must not become a licence to publish a rate the
+        // data cannot support. Once closed work comes from gm_jobs and losses
+        // come from gm_leads, the two sides are drawn from differently sampled
+        // sources — this client's leads were imported from three spreadsheet
+        // tabs, one of which (CANCELADOS) contains cancelled deals ONLY. Asaf's
+        // denominator is 15 such rows. Dividing signed jobs by them yields a
+        // number that looks like a close rate, names an employee, and means
+        // nothing. The COUNTS are honest and are shown; the rate is withheld.
+        var closingPct = jobs.length > 0
+            ? null
+            : gmDiagRatio(won, won + lost, won + lost);
 
         // ── Per-seller money rows, sorted by CLOSED value descending ────────
         //
@@ -16134,10 +16184,19 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
                     return !!c.objection; }).length },
                 closing_ratio: {
                     won: won, lost: lost, decided: won + lost,
-                    pct: gmDiagRatio(won, won + lost, won + lost),
+                    won_jobs: jobs.length, won_leads: wonLeads,
+                    pct: closingPct,
+                    // Tells the page WHY the rate is absent, so it can say
+                    // "counts only" instead of "not enough data yet" — the
+                    // sample is fine, the two sides just aren't comparable.
+                    pct_suppressed_reason: (closingPct === null && jobs.length > 0)
+                        ? "mixed_sampling" : null,
                     sample: won + lost
                 },
-                average_deal_value: { value: avgDeal, sample: closedValues.length },
+                // Sample counts the values the average was actually taken
+                // over — jobs included — so the printed sample can never
+                // disagree with the number beside it.
+                average_deal_value: { value: avgDeal, sample: allClosedValues.length },
                 touches_before_close: { avg: avgTouches, sample: touchCounts.length },
                 // Order here mirrors render order: won, active, lost.
                 money: {

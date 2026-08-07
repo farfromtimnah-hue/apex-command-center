@@ -11,7 +11,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
-  <title>Apex &mdash; Diagn&oacute;stico de Vendedores</title>
+  <title data-title-pt="Apex &mdash; Diagn&oacute;stico de Vendedores"
+         data-title-en="Apex &mdash; Seller Diagnostics">Apex &mdash; Diagn&oacute;stico de Vendedores</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -388,6 +389,27 @@
         t("sem dados suficientes ainda", "not enough data yet") + '</div>';
     }
 
+    // ── Stage display labels ──────────────────────────────────────────────
+    //
+    // DISPLAY ONLY. The Portuguese strings are the stored values and the style
+    // keys (GM_STAGE_PILL in gm.js is keyed on them), so they are never
+    // rewritten — this map is consulted at render time and nowhere else. An
+    // unknown stage falls through to its stored value rather than disappearing.
+    var STAGE_LABEL_EN = {
+      "Novo Lead":        "New Lead",
+      "Contato Feito":    "Contacted",
+      "Visita Agendada":  "Visit Scheduled",
+      "Estimate Enviado": "Estimate Sent",
+      "Follow-up":        "Follow-up",
+      "Negociação":       "Negotiation",
+      "Fechado":          "Closed",
+      "Perdido":          "Lost"
+    };
+    function stageLabel(stage) {
+      if (!stage) { return ""; }
+      return isEn() ? (STAGE_LABEL_EN[stage] || stage) : stage;
+    }
+
     // Every tile prints its own sample size, always, next to the number rather
     // than in a tooltip — the existing cross-client-average rule.
     function sampleLine(n, unitPt, unitEn) {
@@ -488,6 +510,18 @@
       currentSeller = name;
       load();
     }
+
+    // ── Language toggle re-render ─────────────────────────────────────────
+    //
+    // This page renders through t() calls, so every string is baked into
+    // innerHTML at render time and frozen there. Without this the toggle moved
+    // the header and left the tiles, tables and stage names in Portuguese.
+    // Replays the cached payload — no refetch, and the seller filter stands.
+    document.addEventListener("apex:langchange", function () {
+      if (!diagData) { return; }
+      renderRail();
+      render();
+    });
 
     // ── Main render ───────────────────────────────────────────────────────
     function render() {
@@ -645,13 +679,35 @@
         sampleLine(oc.sample, "leads que atenderam", "leads reached")
       );
 
+      // Closed work is counted from signed jobs, so the rate is deliberately
+      // withheld: the closed side and the lost side come from differently
+      // sampled sources and dividing one by the other would name an employee
+      // with a meaningless percentage. The counts are real and are shown.
       var clr = m.closing_ratio;
+      var clrValue;
+      if (clr.pct !== null) {
+        clrValue = '<div class="metric-value">' + clr.pct + '%</div>';
+      } else if (clr.pct_suppressed_reason === "mixed_sampling") {
+        clrValue = '<div class="metric-value suppressed">' +
+          t("sem taxa — origens diferentes", "no rate — different sources") + '</div>';
+      } else {
+        clrValue = notEnough();
+      }
       html += tile(
-        t("Taxa de fechamento", "Closing ratio"),
-        clr.pct === null ? notEnough() : '<div class="metric-value">' + clr.pct + '%</div>',
-        escHtml(clr.won + " " + t("fechados", "won") + " · " +
-                clr.lost + " " + t("perdidos", "lost")),
-        sampleLine(clr.sample, "leads decididos", "decided leads")
+        t("Fechados e perdidos", "Closed and lost"),
+        clrValue,
+        escHtml(clr.won + " " + t("fechados", "closed") + " · " +
+                clr.lost + " " + t("perdidos", "lost")) +
+        (clr.won_jobs
+          ? '<br><span class="muted">' + escHtml(
+              clr.won_jobs + " " + t("de obras assinadas", "from signed jobs")) + '</span>'
+          : ""),
+        clr.pct_suppressed_reason === "mixed_sampling"
+          ? '<div class="metric-sample">' + t(
+              "obras assinadas e leads perdidos vêm de origens diferentes; a divisão não seria uma taxa",
+              "signed jobs and lost leads come from different sources; dividing them would not be a rate") +
+            '</div>'
+          : sampleLine(clr.sample, "leads decididos", "decided leads")
       );
 
       // Metric 9 catches DISCOUNTING, which a closing ratio alone hides: a
@@ -691,7 +747,7 @@
           '<th>' + t("Leads", "Leads") + '</th>' +
           '</tr></thead><tbody>';
         dis.stages.forEach(function (r) {
-          html += '<tr><td>' + escHtml(r.stage) + '</td><td>' + r.avg_days + '</td><td>' + r.sample + '</td></tr>';
+          html += '<tr><td>' + escHtml(stageLabel(r.stage)) + '</td><td>' + r.avg_days + '</td><td>' + r.sample + '</td></tr>';
         });
         html += '</tbody></table></div>';
       }
@@ -762,7 +818,7 @@
                     "(no note — logged before this field existed)") + '</span>') +
               '<div class="obj-note-meta">' +
               escHtml([e.logged_by || t("autor desconhecido", "unknown author"),
-                       e.estagio || ""].filter(Boolean).join(" · ")) +
+                       stageLabel(e.estagio)].filter(Boolean).join(" · ")) +
               '</div></div>';
           });
           html += '</div>';

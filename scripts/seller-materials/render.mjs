@@ -50,7 +50,12 @@ function baseCss() {
     return `
     @page {
       size: Letter;
-      margin: 14mm 15mm 16mm 15mm;
+      /* Top margin reserves the running header's band on EVERY page. A
+         padding-top on the flow only clears it once, at the very top, so
+         pages 2+ ran their body text straight under the header. The header
+         is 74px + 9px padding-bottom ~= 22mm; 30mm leaves breathing room
+         under the rule before text starts. */
+      margin: 30mm 15mm 16mm 15mm;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -79,10 +84,16 @@ function baseCss() {
     /* ── Running header ──────────────────────────────────────────────────
        position: fixed inside an @page context repeats on EVERY page, which
        is what puts the client logo at the top of each one without hand-
-       placing it per page. The body gets padding-top to clear it. */
+       placing it per page. The space it occupies is reserved by the @page
+       TOP MARGIN, not by padding on the flow -- padding only clears the
+       header once, at the top of the document, so pages 2+ used to run
+       their body text straight underneath it. */
     .runhead {
       position: fixed;
-      top: 0; left: 0; right: 0;
+      /* Negative top pulls the header UP into the @page top margin that was
+         reserved for it, so it sits in the margin band rather than in the
+         content area where it would overlap the flow. */
+      top: -16mm; left: 0; right: 0;
       height: 74px;
       display: flex;
       align-items: center;
@@ -124,7 +135,9 @@ function baseCss() {
       max-width: 46%;
     }
 
-    .sheet { padding-top: 92px; }
+    /* No padding-top: the @page top margin now reserves the header band on
+       every page. Padding here would only indent page 1 and double-space it. */
+    .sheet { padding-top: 0; }
 
     /* ── Title block, first page only ─────────────────────────────────── */
     .title-wrap { margin-bottom: 26px; }

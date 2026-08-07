@@ -1175,6 +1175,9 @@
 
       loadGoalApprovals();
       loadSellerLoginRequests();
+      // Pre-fetch so the credentials modal's WhatsApp button can open
+      // synchronously on click (popup-blocker rule).
+      loadDashMessageTemplates();
 
       if (role === "alice") {
         var aliceDash = document.getElementById("aliceDash");
@@ -1327,6 +1330,92 @@
     // and stops there. Actual salesperson seats are a separate future build.
     // ══════════════════════════════════════════════════════════════════════
 
+    // Credentials from the most recent approval — shown once, never refetched.
+    var pendingSellerCreds = null;
+
+    // Pre-fetched at load so the WhatsApp button can call window.open()
+    // SYNCHRONOUSLY in its click handler. Any await before window.open lets
+    // the popup blocker fire — on iOS it yields a blank about:blank tab.
+    // Same rule and same reason as client.html's sends.
+    var dashMessageTemplates = null;
+    function loadDashMessageTemplates() {
+      apiFetch("/api/settings/templates")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          dashMessageTemplates = {};
+          (data.templates || []).forEach(function(t) {
+            dashMessageTemplates[t.template_key] = t.template_text;
+          });
+        })
+        .catch(function() { dashMessageTemplates = null; });
+    }
+
+    // Replaces the old alert(). An alert gives one option — Close — and on a
+    // phone the password cannot be selected out of it, so approving on mobile
+    // produced a live seat whose credential nobody held.
+    function showSellerCredsModal(c) {
+      var en = document.body.classList.contains("lang-en");
+      var ov = document.getElementById("sellerCredsOverlay");
+      if (!ov) { return; }
+      document.getElementById("scmSeller").textContent = c.seller_name;
+      document.getElementById("scmUser").textContent = c.username;
+      document.getElementById("scmPass").textContent = c.temp_password;
+      document.getElementById("scmTitle").textContent = en
+        ? "Salesperson login created" : "Login de vendedor criado";
+      document.getElementById("scmWarn").textContent = en
+        ? "Save or send this now — the password cannot be shown again."
+        : "Anote ou envie agora — a senha não poderá ser vista novamente.";
+      document.getElementById("scmSend").textContent = en
+        ? "Send on WhatsApp" : "Enviar no WhatsApp";
+      document.getElementById("scmCopy").textContent = en ? "Copy" : "Copiar";
+      document.getElementById("scmClose").textContent = en ? "Close" : "Fechar";
+      ov.style.display = "flex";
+    }
+
+    window.closeSellerCredsModal = function () {
+      var ov = document.getElementById("sellerCredsOverlay");
+      if (ov) { ov.style.display = "none"; }
+    };
+
+    window.copySellerCreds = function (btn) {
+      if (!pendingSellerCreds) { return; }
+      var en = document.body.classList.contains("lang-en");
+      var txt = (en ? "Username: " : "Usuário: ") + pendingSellerCreds.username +
+                "\n" + (en ? "Temp password: " : "Senha temporária: ") +
+                pendingSellerCreds.temp_password;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function () {
+          if (btn) { btn.textContent = en ? "Copied" : "Copiado"; }
+        }).catch(function () {});
+      }
+    };
+
+    // No phone number is used or needed. Rafa sends into WhatsApp groups and
+    // chooses the recipient there, so this opens WhatsApp with the message
+    // pre-filled and no recipient — the same bare wa.me/?text= fallback
+    // client.html already uses whenever a client has no number on file.
+    window.sendSellerCredsWhatsapp = function () {
+      if (!pendingSellerCreds) { return; }
+      var loginUrl = "https://apex.resonateai.online/index.html";
+      var tpl = (dashMessageTemplates && dashMessageTemplates.seller_login) ||
+        "Olá! O acesso de vendedor para {sellerName} está pronto.\n\n" +
+        "Repasse estes dados para {sellerName}:\n\n" +
+        "Link: {loginUrl}\n" +
+        "Usuário: {username}\n" +
+        "Senha temporária: {tempPassword}\n\n" +
+        "No primeiro acesso ele(a) vai criar uma senha nova.\n\n" +
+        "Importante: {sellerName} verá apenas os leads do funil que ele(a) criar ou que estiverem no nome dele(a).";
+      var msg = tpl
+        .split("{loginUrl}").join(loginUrl)
+        .split("{sellerName}").join(pendingSellerCreds.seller_name || "")
+        .split("{username}").join(pendingSellerCreds.username)
+        .split("{tempPassword}").join(pendingSellerCreds.temp_password);
+      var waTab = window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+      if (!waTab) {
+        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+      }
+    };
+
     function loadSellerLoginRequests() {
       apiFetch("/api/gm/seller-login-requests")
         .then(function(res) { return res.json(); })
@@ -1373,21 +1462,23 @@
           // ONCE — only its hash is stored, so it is unrecoverable after this.
           // It MUST be surfaced here rather than silently dropped.
           //
-          // This queue has no client record loaded (it spans every client), so
-          // there is no phone number to build a wa.me link from. The send lives
-          // on the client's own page, where clientData supplies the owner's
-          // number; this alert carries the credentials and says where to go.
+          // This used to be a bare alert() that told the approver to go open
+          // the client's page to send it, on the reasoning that this queue
+          // spans every client so no phone number is in scope. That reasoning
+          // was wrong: NO WhatsApp send in this app depends on having a
+          // number. Rafa sends into groups and picks the recipient inside
+          // WhatsApp, so client.html's sends already fall back to a bare
+          // "https://wa.me/?text=..." whenever digits are missing. The number
+          // was never the blocker, and the alert stranded the credential on a
+          // phone where it could not be copied — seats were approved and the
+          // password never reached anyone.
           if (r.data.provisioned && r.data.temp_password) {
-            var en = document.body.classList.contains("lang-en");
-            window.alert(
-              (en ? "Salesperson login created.\n\n" : "Login de vendedor criado.\n\n") +
-              (en ? "Salesperson: " : "Vendedor: ") + (r.data.seller_name || "") + "\n" +
-              (en ? "Username: " : "Usuário: ") + r.data.username + "\n" +
-              (en ? "Temp password: " : "Senha temporária: ") + r.data.temp_password + "\n\n" +
-              (en
-                ? "Save this now — the password cannot be shown again. To send it to the business owner over WhatsApp, open the client's page."
-                : "Anote agora — a senha não poderá ser vista novamente. Para enviar ao dono do negócio por WhatsApp, abra a página do cliente.")
-            );
+            pendingSellerCreds = {
+              seller_name: r.data.seller_name || "",
+              username: r.data.username,
+              temp_password: r.data.temp_password
+            };
+            showSellerCredsModal(pendingSellerCreds);
           }
           loadSellerLoginRequests();
         })
@@ -2079,5 +2170,27 @@
        mobile.css alone controls their visibility and positioning. -->
   <div id="mobile-tab-bar"></div>
   <div id="mobile-more-menu"></div>
+
+  <!-- Seller credentials, shown once after an approval. Replaces an alert()
+       whose only option was Close: on a phone the temp password could not be
+       selected out of it, so seats got approved and the credential never
+       reached anyone. The WhatsApp button opens wa.me with NO recipient —
+       Rafa sends into groups and picks the person inside WhatsApp. -->
+  <div id="sellerCredsOverlay" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:18px;">
+    <div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:22px 20px;font-family:'Inter',sans-serif;box-shadow:0 18px 50px rgba(0,0,0,0.3);">
+      <div id="scmTitle" style="font-size:17px;font-weight:800;color:#1a1a1d;margin-bottom:14px;"></div>
+      <div style="background:#f6f4ef;border-radius:9px;padding:13px 14px;margin-bottom:14px;line-height:1.85;font-size:14px;color:#1a1a1d;">
+        <div><span style="color:#6b6660;">Vendedor:</span> <strong id="scmSeller"></strong></div>
+        <div><span style="color:#6b6660;">Usuário:</span> <strong id="scmUser" style="user-select:all;"></strong></div>
+        <div><span style="color:#6b6660;">Senha:</span> <strong id="scmPass" style="user-select:all;font-family:ui-monospace,Menlo,monospace;"></strong></div>
+      </div>
+      <div id="scmWarn" style="font-size:12.5px;color:#8a6d1f;background:rgba(201,164,58,0.13);border-radius:8px;padding:9px 11px;margin-bottom:16px;line-height:1.5;"></div>
+      <button id="scmSend" type="button" onclick="sendSellerCredsWhatsapp()" style="display:block;width:100%;background:#25D366;border:none;color:#fff;border-radius:9px;padding:13px;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:9px;"></button>
+      <div style="display:flex;gap:9px;">
+        <button id="scmCopy" type="button" onclick="copySellerCreds(this)" style="flex:1;background:transparent;border:1px solid #d8d2c8;color:#1a1a1d;border-radius:9px;padding:11px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;"></button>
+        <button id="scmClose" type="button" onclick="closeSellerCredsModal()" style="flex:1;background:transparent;border:1px solid #d8d2c8;color:#6b6660;border-radius:9px;padding:11px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;"></button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

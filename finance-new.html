@@ -1090,11 +1090,19 @@
         </div>
         <div>
           <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Este m&ecirc;s vs. m&ecirc;s anterior</span>
-            <span class="show-en">This month vs. last month</span>
+            <span class="show-pt">O que mudou por categoria</span>
+            <span class="show-en">What changed by category</span>
           </div>
           <div class="chart-box"><canvas id="momChart"></canvas></div>
           <div id="momCaveat" class="chart-caveat" hidden></div>
+        </div>
+        <div>
+          <div class="flow-label" style="margin-bottom:8px">
+            <span class="show-pt">Para onde foi o dinheiro</span>
+            <span class="show-en">Where the money went</span>
+          </div>
+          <div class="chart-box"><canvas id="catChart"></canvas></div>
+          <div id="catCaveat" class="chart-caveat" hidden></div>
         </div>
         <div>
           <div class="flow-label" style="margin-bottom:8px">
@@ -2737,6 +2745,7 @@
 
       renderFlowChart();
       renderMomChart();
+      renderCategoryChart();
       renderBalanceChart();
     }
 
@@ -2853,29 +2862,184 @@
       var prev = months[months.length - 2];
       var fmtM = prettyLabel(false);
 
-      var datasets = [
-        {
-          label: fmtM(prev),
-          data: [centsToNum(buckets[prev].inC), centsToNum(buckets[prev].outC)],
-          backgroundColor: CHART_GREY, borderRadius: 4
-        },
-        {
-          label: fmtM(last),
-          data: [centsToNum(buckets[last].inC), centsToNum(buckets[last].outC)],
-          backgroundColor: CHART_GOLD, borderRadius: 4
+      // PER-CATEGORY MOVEMENT, not four bars in two pairs.
+      //
+      // The old chart drew in/out for two months side by side, which required
+      // her to do the comparison arithmetic herself -- read four bars, subtract
+      // two pairs, then work out which direction is good. A single bar per
+      // category showing the CHANGE says the same thing without the mental
+      // step: bars to the right are categories she spent more on this month.
+      var byCat = {};
+      txns.forEach(function(t) {
+        if (t.amount_cents >= 0) { return; }        // expenses only
+        var m = monthKey(t.date);
+        if (m !== last && m !== prev) { return; }
+        var key = t.category_id || "__uncat";
+        var row = byCat[key] || (byCat[key] = { prev: 0, last: 0 });
+        row[m === last ? "last" : "prev"] += Math.abs(t.amount_cents);
+      });
+
+      var moves = Object.keys(byCat).map(function(key) {
+        var r = byCat[key];
+        return { key: key, delta: r.last - r.prev, last: r.last, prev: r.prev };
+      }).filter(function(m) {
+        return m.delta !== 0;
+      });
+
+      if (!moves.length) {
+        showCaveat("momCaveat", isEn()
+          ? "Nothing moved between " + fmtM(prev) + " and " + fmtM(last) + "."
+          : "Nada mudou entre " + fmtM(prev) + " e " + fmtM(last) + ".");
+        return;
+      }
+
+      // Biggest movements in either direction, largest first. Capped so the
+      // chart stays readable -- the tail of tiny changes is noise.
+      moves.sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+      moves = moves.slice(0, 7).sort(function(a, b) { return a.delta - b.delta; });
+
+      var labels = moves.map(function(m) {
+        if (m.key === "__uncat") { return isEn() ? "Uncategorized" : "Sem categoria"; }
+        var cat = CATEGORIES.filter(function(c) { return c.id === m.key; })[0];
+        return cat ? categoryName(cat) : (isEn() ? "Other" : "Outros");
+      });
+
+      // Gold for more, grey for less. Deliberately NOT red/green: spending
+      // more on one category is a fact about the month, not a verdict on it,
+      // and she is not being told off by a chart.
+      var colors = moves.map(function(m) { return m.delta > 0 ? CHART_GOLD : CHART_GREY; });
+
+      var opts = baseChartOpts();
+      opts.indexAxis = "y";
+      opts.plugins.legend.display = false;
+      opts.plugins.tooltip = {
+        callbacks: {
+          label: function(ctx) {
+            var m = moves[ctx.dataIndex];
+            var dir = m.delta > 0 ? (isEn() ? "more" : "a mais") : (isEn() ? "less" : "a menos");
+            return fmtCents(Math.abs(m.delta)) + " " + dir +
+                   " (" + fmtCents(m.prev) + " → " + fmtCents(m.last) + ")";
+          }
         }
-      ];
+      };
+      opts.scales = {
+        x: {
+          ticks: {
+            font: { family: "Inter", size: 10 },
+            callback: function(v) { return "$" + Number(v).toLocaleString(); }
+          },
+          grid: { color: "#f0ece4" }
+        },
+        y: {
+          ticks: { font: { family: "Inter", size: 10 }, crossAlign: "far", autoSkip: false },
+          afterFit: function(scale) { scale.width = 130; },
+          grid: { display: false }
+        }
+      };
 
       CHARTS.mom = new Chart(document.getElementById("momChart"), {
         type: "bar",
         data: {
-          labels: [isEn() ? "In" : "Entrou", isEn() ? "Out" : "Saiu"],
-          datasets: datasets
+          labels: labels,
+          datasets: [{
+            data: moves.map(function(m) { return centsToNum(m.delta); }),
+            backgroundColor: colors, borderRadius: 4
+          }]
         },
-        options: baseChartOpts()
+        options: opts
       });
 
-      showCaveat("momCaveat", "");
+      showCaveat("momCaveat", isEn()
+        ? "Change from " + fmtM(prev) + " to " + fmtM(last) + ". Gold spent more, grey spent less."
+        : "Mudan&ccedil;a de " + fmtM(prev) + " para " + fmtM(last) + ". Dourado gastou mais, cinza gastou menos.");
+    }
+
+    // Where the money went: EXPENSES ONLY.
+    //
+    // Income is never mixed in. Bug 9b220c2 in finance.html proved the damage:
+    // income folded into an expense donut produced a silently wrong total that
+    // looked entirely plausible. Income and expenses are not parts of one
+    // whole, so they cannot share a circle.
+    //
+    // Capped at six slices plus "Outros". Alice hid 21 of 27 categories in the
+    // old tool -- six is her demonstrated working limit, and a donut past that
+    // is a legend she has to decode rather than a picture she can read.
+    function renderCategoryChart() {
+      destroyChart("cat");
+      var txns = countedTransactions().filter(function(t) { return t.amount_cents < 0; });
+
+      if (!txns.length) {
+        showCaveat("catCaveat", isEn()
+          ? "No spending to show yet."
+          : "Ainda sem gastos para mostrar.");
+        return;
+      }
+
+      var totals = {};
+      txns.forEach(function(t) {
+        var key = t.category_id || "__uncat";
+        totals[key] = (totals[key] || 0) + Math.abs(t.amount_cents);
+      });
+
+      var rows = Object.keys(totals).map(function(k) { return { key: k, cents: totals[k] }; });
+      rows.sort(function(a, b) { return b.cents - a.cents; });
+
+      // Uncategorized is pulled OUT of the ranking and always drawn last in
+      // neutral grey. It is an absence of information, not a category
+      // competing with the others for her attention.
+      var uncat = rows.filter(function(r) { return r.key === "__uncat"; })[0];
+      rows = rows.filter(function(r) { return r.key !== "__uncat"; });
+
+      var top = rows.slice(0, 6);
+      var rest = rows.slice(6);
+      var restTotal = rest.reduce(function(s, r) { return s + r.cents; }, 0);
+
+      var labels = top.map(function(r) {
+        var cat = CATEGORIES.filter(function(c) { return c.id === r.key; })[0];
+        return cat ? categoryName(cat) : (isEn() ? "Other" : "Outros");
+      });
+      var data = top.map(function(r) { return centsToNum(r.cents); });
+
+      // Gold-anchored ramp: the biggest slice is brand gold and the rest step
+      // down in warmth, so the eye lands on the largest first.
+      var palette = ["#C9A43A", "#B08D3C", "#95763D", "#7A5C2E", "#A8935F", "#C4B590"];
+      var colors = top.map(function(_, i) { return palette[i % palette.length]; });
+
+      if (restTotal > 0) {
+        labels.push(isEn() ? "Other" : "Outros");
+        data.push(centsToNum(restTotal));
+        colors.push("#cfc7b8");
+      }
+      if (uncat) {
+        labels.push(isEn() ? "Uncategorized" : "Sem categoria");
+        data.push(centsToNum(uncat.cents));
+        colors.push("#d8d4cc");
+      }
+
+      var opts = baseChartOpts();
+      opts.scales = {};                       // a donut has no axes
+      opts.plugins.legend.display = true;
+      opts.plugins.legend.position = "right";
+      opts.plugins.legend.labels = { font: { family: "Inter", size: 11 }, boxWidth: 12 };
+      opts.plugins.tooltip = {
+        callbacks: {
+          label: function(ctx) {
+            var total = data.reduce(function(s, v) { return s + v; }, 0);
+            var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
+            return ctx.label + ": $" + Number(ctx.parsed).toLocaleString() + " (" + pct + "%)";
+          }
+        }
+      };
+
+      CHARTS.cat = new Chart(document.getElementById("catChart"), {
+        type: "doughnut",
+        data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }] },
+        options: opts
+      });
+
+      showCaveat("catCaveat", isEn()
+        ? "Spending only. Income is never mixed into this."
+        : "Somente gastos. Receita nunca entra aqui.");
     }
 
     // Balance per account. Plaid gives a CURRENT balance, not a history, so

@@ -514,6 +514,27 @@
        instalment arriving on schedule is the system working. */
     .inv-remaining { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
+    /* ── Apex Club event P&L ──
+       The verdict sentence carries the whole answer. A small loss on an event
+       Apex is still learning to run is NOT a failure -- Apex went full time in
+       January 2026 and early over-investment is expected -- so a negative net
+       is stated in plain dark text, not alarm red. */
+    .club-event { padding: 14px 0; border-top: 1px solid var(--border); }
+    .club-event:first-child { border-top: 0; padding-top: 4px; }
+    .club-verdict { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
+    .club-verdict.is-up { color: var(--green); }
+    .club-detail { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+    .club-suggest {
+      margin-top: 12px; padding: 12px 14px;
+      background: var(--gold-dim); border-radius: 8px;
+    }
+    .club-suggest-head { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+    .club-sug-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12.5px; padding: 4px 0; flex-wrap: wrap;
+    }
+    .club-sug-row .grow { flex: 1 1 auto; min-width: 140px; }
+
     .acct-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -896,6 +917,28 @@
 
     <!-- ── Dashboard cards ── -->
     <div id="acctGrid" class="acct-grid"></div>
+
+    <!-- ── Apex Club: event P&L ──
+         Leads with one signed sentence. Detail sits underneath because the
+         answer she needs is "made money / lost a little / lost a lot", and
+         a table cannot say that in three seconds. -->
+    <div id="clubCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Apex Club</span>
+        <span class="show-en">Apex Club</span>
+      </div>
+      <div id="clubBody"></div>
+      <div id="clubEmpty" class="page-sub" hidden>
+        <span class="show-pt">Nenhum evento cadastrado ainda.</span>
+        <span class="show-en">No events set up yet.</span>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-sm" onclick="createClubEvent()">
+          <span class="show-pt">Novo evento</span>
+          <span class="show-en">New event</span>
+        </button>
+      </div>
+    </div>
 
     <!-- ── Linked accounts / re-tagging ── -->
     <div id="linkedCard" class="card" hidden>
@@ -1464,6 +1507,7 @@
     var TRANSACTIONS  = [];
     var SUMMARY       = null;
     var ATTENTION     = null;   // counts behind the "Precisa de voce" queue
+    var CLUB_EVENTS   = [];     // Apex Club events, each with its own P&L
     var PENDING_LINK  = null;   // { purpose, public_token, accounts[] } mid-tagging
     var INVOICES      = [];
     var MATCHES       = [];
@@ -1811,6 +1855,124 @@
 
       card.hidden = false;
       applyFinBilingualAttrs();
+    }
+
+    // ── Apex Club event P&L ─────────────────────────────────────────────
+    //
+    // "Evento de julho: -$181" first, detail under it. The confirmed number
+    // is the headline; anything still only suggested is shown separately and
+    // never folded into it, because a P&L that quietly includes guesses is
+    // worse than one that admits what it does not know.
+    function renderClub() {
+      var card = document.getElementById("clubCard");
+      if (!card) { return; }
+      card.hidden = false;
+
+      var empty = document.getElementById("clubEmpty");
+      if (!CLUB_EVENTS.length) {
+        document.getElementById("clubBody").innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+
+      document.getElementById("clubBody").innerHTML = CLUB_EVENTS.map(function(e) {
+        var c = e.confirmed;
+        var net = c.net_cents;
+
+        // The verdict. A negative event is stated plainly, never in alarm
+        // red -- the point is that it is VISIBLE, not that it is a problem.
+        var verdict =
+          '<div class="club-verdict' + (net > 0 ? " is-up" : "") + '">' +
+            esc(e.event.name) + ": " + (net >= 0 ? "+" : "") + fmtCents(net) +
+          "</div>";
+
+        var detail =
+          '<div class="club-detail">' +
+            '<span class="show-pt">Entrou ' + fmtCents(c.income_cents) +
+              " de " + c.people + " pessoa" + (c.people === 1 ? "" : "s") +
+              " &middot; saiu " + fmtCents(c.expense_cents) + "</span>" +
+            '<span class="show-en">In ' + fmtCents(c.income_cents) +
+              " from " + c.people + " " + (c.people === 1 ? "person" : "people") +
+              " &middot; out " + fmtCents(c.expense_cents) + "</span>" +
+          "</div>";
+
+        // Outstanding suggestions, with what the number would become. Framed
+        // as a question, never applied on her behalf.
+        var sug = "";
+        if (e.suggestions.length) {
+          sug =
+            '<div class="club-suggest">' +
+              '<div class="club-suggest-head">' +
+                '<span class="show-pt">' + e.suggestions.length +
+                  " lan&ccedil;amento(s) podem ser deste evento &mdash; se confirmar tudo: " +
+                  (e.projected.net_cents >= 0 ? "+" : "") + fmtCents(e.projected.net_cents) + "</span>" +
+                '<span class="show-en">' + e.suggestions.length +
+                  " transaction(s) may belong to this event &mdash; if you confirm all: " +
+                  (e.projected.net_cents >= 0 ? "+" : "") + fmtCents(e.projected.net_cents) + "</span>" +
+              "</div>" +
+              e.suggestions.map(function(s) {
+                var why = s.why === "memo"
+                  ? (isEn() ? "memo says so" : "o memo indica")
+                  : (isEn() ? "matches a ticket price" : "bate com o valor do ingresso");
+                return '<div class="club-sug-row">' +
+                  '<span class="grow">' + fmtDate(s.date) + " &middot; " +
+                    esc((s.memo || s.description || "").slice(0, 40)) +
+                    ' <span class="tag-meta">(' + why + ")</span></span>" +
+                  "<b>" + fmtCents(s.amount_cents) + "</b>" +
+                  '<button class="btn btn-sm btn-gold" onclick="confirmClubTxn(\'' + e.event.id +
+                    "','" + s.transaction_id + "','" + s.side + "'," + s.people + ')">' +
+                    '<span class="show-pt">&Eacute; deste evento</span>' +
+                    '<span class="show-en">Belongs here</span></button>' +
+                  "</div>";
+              }).join("") +
+            "</div>";
+        }
+
+        return '<div class="club-event">' + verdict + detail + sug + "</div>";
+      }).join("");
+
+      applyFinBilingualAttrs();
+    }
+
+    function loadClub() {
+      return apiFetch("/api/finance-new/club/events")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          CLUB_EVENTS = (d && d.events) || [];
+          renderClub();
+        })
+        .catch(function() {});
+    }
+
+    function confirmClubTxn(eventId, txnId, side, people) {
+      apiFetch("/api/finance-new/club/confirm", {
+        method: "POST",
+        body: { event_id: eventId, items: [{ transaction_id: txnId, side: side, people: people }] }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          loadClub();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function createClubEvent() {
+      var name = prompt(isEn() ? "Event name (e.g. July dinner)" : "Nome do evento (ex: Jantar de julho)");
+      if (!name) { return; }
+      var date = prompt(isEn() ? "Event date (YYYY-MM-DD)" : "Data do evento (AAAA-MM-DD)");
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        toast(isEn() ? "Date must be YYYY-MM-DD." : "Data precisa ser AAAA-MM-DD.");
+        return;
+      }
+      apiFetch("/api/finance-new/club/events", { method: "POST", body: { name: name, event_date: date } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          loadClub();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     function renderAccountCards() {
@@ -3369,6 +3531,7 @@
     function loadAll() {
       loadInvoices();
       loadMatches();
+      loadClub();
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
         apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),
@@ -3407,6 +3570,7 @@
       renderHero();
       renderAttention();
       renderAccountCards();
+      renderClub();
       renderCharts();
       renderLinked();
       renderTransfers();

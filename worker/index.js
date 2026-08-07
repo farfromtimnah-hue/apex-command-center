@@ -18470,6 +18470,259 @@ async function handlePostFinanceNewTransferReject(request, env) {
     }
 }
 
+// ===========================================================================
+// APEX CLUB — event-scoped P&L.
+//
+// A dinner with a guest speaker, roughly monthly. $50 per person, $75 per
+// couple; food and books paid out by Zelle. Alice needs this because Rafa
+// launches first and thinks later and she is the grounding: early
+// over-investment is expected and fine, but it has to be VISIBLE.
+//
+// The answer she needs is one of three -- made money, lost a little, lost a
+// lot -- so the endpoint leads with a single signed number and puts the
+// detail underneath.
+//
+// SUGGEST, NEVER ASSERT. The engine can see a $50 Zelle in the window from
+// someone who is not a client, but it cannot know whether that person came to
+// dinner. Only rows Alice confirmed count toward the P&L; suggestions are
+// returned alongside, clearly separated, for her to accept.
+// ===========================================================================
+
+var APEX_CLUB_PRICE_SINGLE = 5000;   // $50 per person
+var APEX_CLUB_PRICE_COUPLE = 7500;   // $75 per couple
+
+// Words that mark a transaction as Apex Club in the memo the sender typed --
+// the column that only started carrying signal after the Zelle backfill.
+// "Livros Apex Club", "Apex club comida", "networking dinner".
+function apexClubMemoHit(text) {
+    var s = String(text || "").toUpperCase();
+    if (s.indexOf("APEX CLUB") !== -1)     { return true; }
+    if (s.indexOf("NETWORKING") !== -1)    { return true; }
+    if (s.indexOf("JANTAR") !== -1)        { return true; }
+    return false;
+}
+
+async function buildApexClubEventPL(env, event) {
+    // Confirmed membership first. These are the only rows that move the
+    // number.
+    var confirmedRes = await env.DB.prepare(
+        "SELECT e.transaction_id, e.side, e.people, t.amount_cents, t.date, t.description, t.memo " +
+        "FROM apex_club_event_txns e JOIN transactions t ON t.id = e.transaction_id " +
+        "WHERE e.event_id = ?"
+    ).bind(event.id).all();
+    var confirmed = confirmedRes.results || [];
+
+    var incomeCents = 0, expenseCents = 0, people = 0;
+    var confirmedIds = {};
+    confirmed.forEach(function(r) {
+        confirmedIds[r.transaction_id] = true;
+        if (r.side === "income") {
+            incomeCents += r.amount_cents;
+            people += r.people || 1;
+        } else {
+            expenseCents += Math.abs(r.amount_cents);
+        }
+    });
+
+    // Candidates in the window that she has NOT ruled on yet.
+    var candRes = await env.DB.prepare(
+        "SELECT t.id, t.amount_cents, t.date, t.description, t.memo, t.merchant_normalized " +
+        "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+        "WHERE a.purpose = 'business' AND t.date >= ? AND t.date <= ? " +
+        "AND t.transfer_status NOT IN ('suspected','confirmed')"
+    ).bind(event.window_start, event.window_end).all();
+
+    var suggestions = [];
+    (candRes.results || []).forEach(function(t) {
+        if (confirmedIds[t.id]) { return; }
+
+        var memoHit = apexClubMemoHit(t.memo) || apexClubMemoHit(t.description);
+
+        if (t.amount_cents > 0) {
+            // Income side: the price points are the primary tell. $50 and $75
+            // are distinctive enough on this feed to be worth proposing, and
+            // a memo hit raises confidence rather than creating the match.
+            var isSingle = t.amount_cents === APEX_CLUB_PRICE_SINGLE;
+            var isCouple = t.amount_cents === APEX_CLUB_PRICE_COUPLE;
+            if (!isSingle && !isCouple && !memoHit) { return; }
+
+            suggestions.push({
+                transaction_id: t.id,
+                side: "income",
+                people: isCouple ? 2 : 1,
+                amount_cents: t.amount_cents,
+                date: t.date,
+                description: t.description,
+                memo: t.memo,
+                why: memoHit ? "memo" : "price_point",
+                confidence: memoHit ? "high" : "medium"
+            });
+        } else if (memoHit) {
+            // Expense side: only a memo hit. Food and books are ordinary
+            // Zelle payouts with no distinguishing amount, and guessing at
+            // them from size alone would sweep in unrelated spending.
+            suggestions.push({
+                transaction_id: t.id,
+                side: "expense",
+                people: 0,
+                amount_cents: t.amount_cents,
+                date: t.date,
+                description: t.description,
+                memo: t.memo,
+                why: "memo",
+                confidence: "high"
+            });
+        }
+    });
+
+    suggestions.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+
+    // What the number WOULD be if she accepted everything suggested. Kept
+    // strictly separate from the confirmed figure so the headline never
+    // silently includes a guess.
+    var projIncome = incomeCents, projExpense = expenseCents, projPeople = people;
+    suggestions.forEach(function(s) {
+        if (s.side === "income") { projIncome += s.amount_cents; projPeople += s.people; }
+        else { projExpense += Math.abs(s.amount_cents); }
+    });
+
+    return {
+        event: event,
+        confirmed: {
+            income_cents: incomeCents,
+            expense_cents: expenseCents,
+            net_cents: incomeCents - expenseCents,
+            people: people,
+            txn_count: confirmed.length
+        },
+        // Only meaningful while suggestions are outstanding; the UI shows it
+        // as "se confirmar tudo", never as the answer.
+        projected: {
+            income_cents: projIncome,
+            expense_cents: projExpense,
+            net_cents: projIncome - projExpense,
+            people: projPeople
+        },
+        suggestions: suggestions
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET  /api/finance-new/club/events      — list with P&L each
+// Route: POST /api/finance-new/club/events      — create an event
+// Route: POST /api/finance-new/club/confirm     — accept/reject suggestions
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewClubEvents(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT * FROM apex_club_events ORDER BY event_date DESC"
+        ).all();
+
+        var events = res.results || [];
+        var out = [];
+        for (var i = 0; i < events.length; i++) {
+            out.push(await buildApexClubEventPL(env, events[i]));
+        }
+        return jsonOk({ events: out });
+    } catch (e) {
+        return jsonErr("Error building Apex Club P&L: " + e.message, 500);
+    }
+}
+
+async function handlePostFinanceNewClubEvent(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.name || !body.event_date) { return jsonErr("name and event_date required", 400); }
+
+        // Default window: attendees pay from about two weeks before the
+        // dinner to a week after, which is what the July cluster looks like.
+        // Stored per event so widening one never disturbs another.
+        var start = body.window_start || addInterval(body.event_date, -14, "day");
+        var end   = body.window_end   || addInterval(body.event_date, 7, "day");
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, notes, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).bind(id, body.name, body.event_date, start, end, body.notes || null, actorName(user)).run();
+
+        var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(id).first();
+        return jsonOk(await buildApexClubEventPL(env, row));
+    } catch (e) {
+        return jsonErr("Error creating event: " + e.message, 500);
+    }
+}
+
+async function handlePostFinanceNewClubConfirm(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.event_id) { return jsonErr("event_id required", 400); }
+        var items = Array.isArray(body.items) ? body.items : [];
+
+        var added = 0, removed = 0;
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            if (!it.transaction_id) { continue; }
+
+            if (it.remove) {
+                await env.DB.prepare(
+                    "DELETE FROM apex_club_event_txns WHERE event_id = ? AND transaction_id = ?"
+                ).bind(body.event_id, it.transaction_id).run();
+                removed++;
+                continue;
+            }
+
+            await env.DB.prepare(
+                "INSERT INTO apex_club_event_txns (event_id, transaction_id, side, people, confirmed_by) " +
+                "VALUES (?, ?, ?, ?, ?) " +
+                "ON CONFLICT(event_id, transaction_id) DO UPDATE SET side = excluded.side, people = excluded.people"
+            ).bind(
+                body.event_id, it.transaction_id,
+                it.side === "expense" ? "expense" : "income",
+                it.people === 2 ? 2 : (it.side === "expense" ? 0 : 1),
+                actorName(user)
+            ).run();
+            added++;
+
+            // Confirming membership also files the transaction under the
+            // Apex Club category, so the event P&L and the category totals
+            // cannot tell two different stories about the same money. A
+            // manual categorization she made herself is never overwritten.
+            await env.DB.prepare(
+                "UPDATE transactions SET category_id = ?, category_source = 'rule', " +
+                "categorized_at = datetime('now') " +
+                "WHERE id = ? AND COALESCE(category_source, '') != 'manual'"
+            ).bind(
+                it.side === "expense" ? "cat_apex_club_despesa" : "cat_apex_club_receita",
+                it.transaction_id
+            ).run();
+        }
+
+        var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(body.event_id).first();
+        if (!row) { return jsonErr("Event not found", 404); }
+
+        var pl = await buildApexClubEventPL(env, row);
+        pl.added = added;
+        pl.removed = removed;
+        return jsonOk(pl);
+    } catch (e) {
+        return jsonErr("Error confirming event transactions: " + e.message, 500);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Route: GET /api/finance-new/attention — alice/rafa/developer only.
 //
@@ -20174,6 +20427,9 @@ export default {
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
         if (path === "/api/finance-new/backfill-merchants" && method === "POST") { return handlePostFinanceNewBackfillMerchants(request, env); }
         if (path === "/api/finance-new/attention"         && method === "GET")  { return handleGetFinanceNewAttention(request, env); }
+        if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }
+        if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }
+        if (path === "/api/finance-new/club/confirm"      && method === "POST") { return handlePostFinanceNewClubConfirm(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

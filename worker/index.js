@@ -18471,6 +18471,108 @@ async function handlePostFinanceNewTransferReject(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/backfill-merchants — alice/rafa/developer only.
+//
+// Rewrites merchant_normalized and memo on the rows that were synced BEFORE
+// normalizeMerchant learned to strip Zelle confirmation refs. Those rows still
+// carry the shattered keys (CONF RYEW BBNX), so every rule matches one row and
+// nothing compounds.
+//
+// It reads each row's stored description and runs it back through the SAME
+// normalizeMerchant()/extractMemo() the sync path uses. Deliberately not
+// hand-written SQL string surgery: a second implementation would drift from
+// the first the next time either changes, and the whole point of the fix is
+// that the backfill and future syncs produce identical keys.
+//
+// category_id on a manual row is NEVER touched. Her answer outranks the
+// engine, always -- the merchant key underneath it is corrected, the category
+// she chose is not. ?dry_run=1 reports the same summary without writing.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBackfillMerchants(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var dryRun = new URL(request.url).searchParams.get("dry_run") === "1";
+
+        var rowsRes = await env.DB.prepare(
+            "SELECT id, description, merchant_normalized, memo, category_source FROM transactions"
+        ).all();
+        var rows = rowsRes.results || [];
+
+        var beforeKeys = {};
+        var afterKeys  = {};
+        var rewritten  = 0;
+        var memosSet   = 0;
+        // old key -> the set of new keys it became, so an over-collapse (two
+        // genuinely different payees merging) is visible in the report rather
+        // than silent.
+        var groups = {};
+
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var oldKey  = r.merchant_normalized || "";
+            var newKey  = normalizeMerchant(r.description);
+            var newMemo = extractMemo(r.description);
+
+            if (oldKey) { beforeKeys[oldKey] = true; }
+            if (newKey) { afterKeys[newKey]  = true; }
+
+            if (!groups[newKey]) { groups[newKey] = { rows: 0, from: {} }; }
+            groups[newKey].rows++;
+            if (oldKey) { groups[newKey].from[oldKey] = true; }
+
+            var keyChanged  = newKey !== oldKey;
+            var memoChanged = (newMemo || null) !== (r.memo || null);
+            if (!keyChanged && !memoChanged) { continue; }
+
+            if (keyChanged)  { rewritten++; }
+            if (memoChanged && newMemo) { memosSet++; }
+
+            if (!dryRun) {
+                await env.DB.prepare(
+                    "UPDATE transactions SET merchant_normalized = ?, memo = ? WHERE id = ?"
+                ).bind(newKey, newMemo, r.id).run();
+            }
+        }
+
+        // Only the keys that actually absorbed more than one old key are worth
+        // reporting -- the merges are the evidence the fix worked.
+        var merged = [];
+        Object.keys(groups).forEach(function(k) {
+            var fromCount = Object.keys(groups[k].from).length;
+            if (fromCount > 1) {
+                merged.push({ merchant: k, rows: groups[k].rows, was_distinct_keys: fromCount });
+            }
+        });
+        merged.sort(function(a, b) { return b.rows - a.rows; });
+
+        var out = {
+            dry_run: dryRun,
+            rows_scanned: rows.length,
+            rows_rewritten: rewritten,
+            memos_populated: memosSet,
+            distinct_merchants_before: Object.keys(beforeKeys).length,
+            distinct_merchants_after: Object.keys(afterKeys).length,
+            merged_groups: merged
+        };
+
+        // Now that merchants merge, the rules that previously matched a single
+        // row each should catch the rest of their group. That compounding is
+        // the entire point of the fix, so it is measured, not assumed.
+        if (!dryRun) {
+            out.newly_categorized_by_rules = await applyCategorizationRules(env, {});
+        }
+
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error backfilling merchants: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance-new/sync — alice/rafa/developer only.
 // Manual "sync now", same code path the cron runs.
 // ---------------------------------------------------------------------------
@@ -19796,6 +19898,7 @@ export default {
         if (path === "/api/finance-new/transfers/confirm" && method === "POST") { return handlePostFinanceNewTransferConfirm(request, env); }
         if (path === "/api/finance-new/transfers/reject"  && method === "POST") { return handlePostFinanceNewTransferReject(request, env); }
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
+        if (path === "/api/finance-new/backfill-merchants" && method === "POST") { return handlePostFinanceNewBackfillMerchants(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

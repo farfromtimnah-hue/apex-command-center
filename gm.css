@@ -515,3 +515,57 @@
   0%, 60% { box-shadow: 0 0 0 2px var(--gold); }
   100%    { box-shadow: 0 0 0 2px transparent; }
 }
+
+/* ── Project photos ──────────────────────────────────────────────────────
+   Progress photos on a project (gm_job_photos). The client sees these in
+   their own portal, so they are laid out to be looked at rather than
+   scanned: a two-up grid that goes one-up on a narrow phone.
+
+   The images are fetched as authenticated blobs and swapped in, so each one
+   starts with no src — .gm-photo-loading keeps that empty box from
+   collapsing the grid while it arrives. */
+.gm-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  padding: 10px 12px;
+}
+.gm-photo {
+  position: relative;
+  margin: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2, #f1ede6);
+}
+.gm-photo img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--surface-2, #f1ede6);
+}
+.gm-photo img.gm-photo-loading { opacity: 0.35; }
+.gm-photo figcaption {
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+/* Sits over the image, so it needs its own contrast rather than inheriting
+   the card's — a photo can be any colour underneath. */
+.gm-photo-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.gm-photo-del:hover { background: rgba(0, 0, 0, 0.78); }

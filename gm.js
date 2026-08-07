@@ -1950,6 +1950,153 @@ function gmRenderJobs() {
 function gmOpenJob(idx) {
   gmSheetRow = idx === -1 ? null : gmJobsData.jobs[idx];
   gmRenderSimpleSheet("job");
+  // A brand-new project has no id yet, so it has nothing to attach photos to.
+  if (gmSheetRow && gmSheetRow.id) { gmLoadJobPhotos(gmSheetRow.id); }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Project photos
+// ═════════════════════════════════════════════════════════════════════════
+//
+// Asked for by Rafa. For a pool builder the project is a physical site, and
+// progress photos are what an owner shows their own customer — so the client
+// sees these in their own portal. A salesperson does not: the seller session
+// is refused at sellerRequestAllowed(), which never lists these routes.
+//
+// Cached per job so a language toggle can re-render the gallery without
+// re-fetching every image row.
+var gmJobPhotos = {};
+
+function gmLoadJobPhotos(jobId) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/photos")
+    .then(function(d) {
+      gmJobPhotos[jobId] = d.photos || [];
+      gmRenderJobPhotos(jobId);
+    })
+    .catch(function() {
+      // A failed photo load must not take the rest of the project sheet with
+      // it — the numbers above are what the sheet is primarily for.
+      gmJobPhotos[jobId] = [];
+      gmRenderJobPhotos(jobId, true);
+    });
+}
+
+// The image routes are authenticated, so <img src="..."> cannot fetch them —
+// an img tag sends no Authorization header. Each photo is fetched as a blob
+// and shown from an object URL instead. Object URLs are revoked when the
+// gallery is re-rendered so a long session does not leak them.
+var gmPhotoObjectUrls = {};
+
+function gmRevokePhotoUrls() {
+  Object.keys(gmPhotoObjectUrls).forEach(function(k) {
+    try { URL.revokeObjectURL(gmPhotoObjectUrls[k]); } catch (e) {}
+  });
+  gmPhotoObjectUrls = {};
+}
+
+function gmHydratePhoto(photo) {
+  var el = document.getElementById("gmPhotoImg_" + photo.id);
+  if (!el) { return; }
+  apiFetch(photo.file_url)
+    .then(function(res) { return res.ok ? res.blob() : null; })
+    .then(function(blob) {
+      if (!blob) { return; }
+      var url = URL.createObjectURL(blob);
+      gmPhotoObjectUrls[photo.id] = url;
+      var img = document.getElementById("gmPhotoImg_" + photo.id);
+      if (img) { img.src = url; img.classList.remove("gm-photo-loading"); }
+    })
+    .catch(function() {});
+}
+
+function gmRenderJobPhotos(jobId, failed) {
+  var box = document.getElementById("gmJobPhotosSection");
+  if (!box) { return; }
+  gmRevokePhotoUrls();
+  var photos = gmJobPhotos[jobId] || [];
+
+  var inner = "";
+  if (failed) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("N\u00e3o foi poss\u00edvel carregar as fotos.", "Could not load the photos.") + '</p>';
+  } else if (!photos.length) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Nenhuma foto ainda.", "No photos yet.") + '</p>';
+  } else {
+    inner = '<div class="gm-photo-grid">';
+    photos.forEach(function(p) {
+      inner += '<figure class="gm-photo">' +
+        '<img id="gmPhotoImg_' + escHtml(p.id) + '" class="gm-photo-loading" ' +
+             'alt="' + escHtml(p.caption || gmT("Foto do projeto", "Project photo")) + '">' +
+        (p.caption ? '<figcaption>' + escHtml(p.caption) + '</figcaption>' : "") +
+        '<button type="button" class="gm-photo-del" ' +
+          'aria-label="' + gmT("Remover foto", "Remove photo") + '" ' +
+          'onclick="gmDeleteJobPhoto(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' +
+                    JSON.stringify(p.id).replace(/"/g, "&quot;") + ')">&times;</button>' +
+        '</figure>';
+    });
+    inner += '</div>';
+  }
+
+  // The file input is hidden behind a styled button — same pattern the logo
+  // and document uploads use.
+  inner += '<input type="file" id="gmJobPhotoInput" accept="image/*" hidden ' +
+    'onchange="gmUploadJobPhoto(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', this)">' +
+    '<button type="button" class="btn-gold gm-add-btn" ' +
+      'onclick="document.getElementById(\'gmJobPhotoInput\').click()">' +
+    gmT("+ Adicionar foto", "+ Add photo") + '</button>' +
+    '<p class="muted" style="font-size:11px;padding:0 12px 8px;">' +
+    gmT("O cliente v\u00ea estas fotos no portal dele.",
+        "Your client sees these photos in their portal.") + '</p>';
+
+  box.innerHTML = gmSheetSection(gmT("Fotos do projeto", "Project photos"), inner);
+  photos.forEach(gmHydratePhoto);
+}
+
+function gmUploadJobPhoto(jobId, input) {
+  if (!input.files || !input.files[0]) { return; }
+  var file = input.files[0];
+
+  // Checked here as well as in the Worker so a phone user gets an immediate
+  // answer instead of waiting out a 15 MB upload to be told no.
+  var MAX = 15 * 1024 * 1024;
+  if (file.size > MAX) {
+    gmToast(gmT("Foto muito grande. M\u00e1ximo 15 MB.", "Photo too large. Maximum 15 MB."));
+    input.value = "";
+    return;
+  }
+
+  var fd = new FormData();
+  fd.append("photo", file);
+
+  gmToast(gmT("Enviando foto...", "Uploading photo..."));
+  // formData, not body: apiFetch sets a JSON content-type for `body`, which
+  // would break the multipart boundary.
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/photos", { method: "POST", formData: fd })
+    .then(function(d) {
+      if (!gmJobPhotos[jobId]) { gmJobPhotos[jobId] = []; }
+      gmJobPhotos[jobId].push(d.photo);
+      gmRenderJobPhotos(jobId);
+      gmToast(gmT("Foto adicionada.", "Photo added."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao enviar a foto: ", "Could not upload the photo: ") + e.message);
+    })
+    .then(function() { input.value = ""; });
+}
+
+function gmDeleteJobPhoto(jobId, photoId) {
+  if (!window.confirm(gmT("Remover esta foto?", "Remove this photo?"))) { return; }
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/photos/" + encodeURIComponent(photoId),
+        { method: "DELETE" })
+    .then(function() {
+      gmJobPhotos[jobId] = (gmJobPhotos[jobId] || []).filter(function(p) { return p.id !== photoId; });
+      gmRenderJobPhotos(jobId);
+      gmToast(gmT("Foto removida.", "Photo removed."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao remover a foto: ", "Could not remove the photo: ") + e.message);
+    });
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -2296,6 +2443,11 @@ function gmRenderSimpleSheet(kind) {
       gmSheetRowHtml("compass", gmT("Margem", "Margin"), marginHtml, null, null, marginSub) +
       gmSheetRowHtml("clock", gmT("No prazo?", "On time?"), onTimeHtml),
       gmT("calculado automaticamente", "calculated automatically"));
+
+    // ── Progress photos ─────────────────────────────────────────────────
+    // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
+    // sheet opens immediately instead of waiting on the network.
+    body += '<div id="gmJobPhotosSection"></div>';
   }
   if (kind === "base") {
     if (row.reactivated_lead_id) {
@@ -2851,4 +3003,12 @@ function gmOnLangChange() {
   if (gmCurrentTab === "gmroadmap" && gmRoadmapData) { gmRenderRoadmap(); }
   if (gmCurrentTab === "gmfinance" && gmFinanceData) { gmRenderFinance(); }
   if (gmCurrentTab === "gmjobs" && gmJobsData) { gmRenderJobs(); }
+
+  // An open project sheet re-renders too, so the photo gallery's own labels
+  // ("No photos yet", "+ Add photo") switch with everything else. Replayed
+  // from gmJobPhotos, so no image is re-downloaded.
+  if (gmSheetKind === "job" && gmSheetRow && gmSheetRow.id &&
+      document.getElementById("gmJobPhotosSection")) {
+    gmRenderJobPhotos(gmSheetRow.id);
+  }
 }

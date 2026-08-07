@@ -10332,10 +10332,17 @@ function clientRequestAllowed(path, method, clientId) {
                     gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
                     gmRest === "jobs") { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
+                // Progress photos on their own project, and the image itself.
+                // Client-visible by design: for a pool builder the project is a
+                // physical site and these are what the owner shows their own
+                // customer. Handlers re-scope by client_id AND job_id.
+                if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
+                if (/^jobs\/[A-Za-z0-9-]+\/photos\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
             }
             if (method === "POST") {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
                     gmRest === "partners" || gmRest === "finance" || gmRest === "jobs") { return true; }
+                if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
             }
@@ -10349,6 +10356,10 @@ function clientRequestAllowed(path, method, clientId) {
             }
             if (method === "DELETE") {
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                // Their own project's photo. Consistent with being able to
+                // delete the project itself; the handler removes the R2 object
+                // as well as the row, so nothing is orphaned.
+                if (/^jobs\/[A-Za-z0-9-]+\/photos\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
         }
     }
@@ -16236,6 +16247,178 @@ async function handleGetGmJobs(id, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Project photos — gm_job_photos + R2.
+//
+// Asked for by Rafa. For a pool builder the project is a physical site, and
+// progress photos are what an owner shows their own customer, so these are
+// CLIENT-VISIBLE by design.
+//
+// SELLERS CANNOT SEE THEM. Nothing here enforces that, and nothing here needs
+// to: sellerRequestAllowed() is a strict allowlist and these routes are simply
+// absent from it, so a seller session is refused before reaching any handler.
+// Adding a photo route to that allowlist would be the mistake.
+//
+// Key layout mirrors client-documents: job-photos/<clientId>/<photoId>.<ext>.
+// ---------------------------------------------------------------------------
+
+var JOB_PHOTO_TYPES = {
+    "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+    "image/gif": "gif", "image/webp": "webp", "image/heic": "heic"
+};
+
+// Phones produce large files. 15 MB accepts a modern phone photo without
+// resizing while still refusing something pathological.
+var JOB_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
+
+// One shape for every photo row the API returns. file_url is an API path, not
+// an R2 key — raw R2 paths are never exposed to the frontend.
+function gmJobPhotoOut(row, clientId) {
+    return {
+        id: row.id,
+        job_id: row.job_id,
+        caption: row.caption || null,
+        uploaded_by: row.uploaded_by || null,
+        created_at: row.created_at,
+        file_url: "/api/clients/" + clientId + "/gm/jobs/" + row.job_id + "/photos/" + row.id + "/file"
+    };
+}
+
+// Confirms the job belongs to this client before anything touches a photo, so
+// a guessed job_id from another client cannot be read or written through.
+async function gmJobBelongsToClient(env, clientId, jobId) {
+    var row = await env.DB.prepare(
+        "SELECT id FROM gm_jobs WHERE id = ? AND client_id = ?"
+    ).bind(jobId, clientId).first();
+    return !!row;
+}
+
+async function handleGetGmJobPhotos(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_job_photos WHERE job_id = ? AND client_id = ? ORDER BY created_at ASC"
+        ).bind(jobId, id).all();
+
+        return jsonOk({
+            photos: (rows.results || []).map(function(r) { return gmJobPhotoOut(r, id); })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching project photos: " + e.message, 500);
+    }
+}
+
+async function handlePostGmJobPhoto(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("photo");
+        if (!file || typeof file.arrayBuffer !== "function") {
+            return jsonErr("photo is required", 400);
+        }
+
+        var ext = JOB_PHOTO_TYPES[file.type];
+        if (!ext) {
+            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, WebP or HEIC image.", 400);
+        }
+
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > JOB_PHOTO_MAX_BYTES) {
+            return jsonErr("Photo too large. Maximum size is 15 MB.", 400);
+        }
+
+        var capField = form.get("caption");
+        var caption = (typeof capField === "string" && capField.trim()) ? capField.trim().slice(0, 300) : null;
+
+        var photoId = crypto.randomUUID();
+        var key = "job-photos/" + id + "/" + photoId + "." + ext;
+
+        await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
+
+        await env.DB.prepare(
+            "INSERT INTO gm_job_photos (id, job_id, client_id, r2_key, caption, uploaded_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(
+            photoId, jobId, id, key, caption,
+            user.display_name || user.role || null
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_job_photos WHERE id = ?").bind(photoId).first();
+        return jsonOk({ photo: gmJobPhotoOut(row, id) });
+    } catch (e) {
+        return jsonErr("Error uploading photo: " + e.message, 500);
+    }
+}
+
+async function handleGetGmJobPhotoFile(id, jobId, photoId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        // Scoped by client AND job: an id from another client's project is a
+        // 404 here, not a served image.
+        var row = await env.DB.prepare(
+            "SELECT r2_key FROM gm_job_photos WHERE id = ? AND job_id = ? AND client_id = ?"
+        ).bind(photoId, jobId, id).first();
+        if (!row) { return jsonErr("Photo not found", 404); }
+
+        // Same guard as the documents route: never hand R2 a path shape we did
+        // not write ourselves.
+        if (!/^job-photos\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.r2_key)) {
+            return jsonErr("Photo not found", 404);
+        }
+
+        var obj = await env.ASSETS.get(row.r2_key);
+        if (!obj) { return jsonErr("Photo not found", 404); }
+
+        var headers = new Headers();
+        headers.set("Content-Type", (obj.httpMetadata && obj.httpMetadata.contentType) || "image/jpeg");
+        headers.set("Cache-Control", "private, max-age=3600");
+        return new Response(obj.body, { headers: headers });
+    } catch (e) {
+        return jsonErr("Error fetching photo: " + e.message, 500);
+    }
+}
+
+async function handleDeleteGmJobPhoto(id, jobId, photoId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT r2_key FROM gm_job_photos WHERE id = ? AND job_id = ? AND client_id = ?"
+        ).bind(photoId, jobId, id).first();
+        if (!row) { return jsonErr("Photo not found", 404); }
+
+        if (!/^job-photos\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.r2_key)) {
+            return jsonErr("Photo not found", 404);
+        }
+
+        // The R2 object goes first. If the row were dropped first and this
+        // threw, the object would be orphaned with nothing left pointing at
+        // it — unreachable and undeletable through the API.
+        await env.ASSETS.delete(row.r2_key);
+
+        await env.DB.prepare(
+            "DELETE FROM gm_job_photos WHERE id = ? AND job_id = ? AND client_id = ?"
+        ).bind(photoId, jobId, id).run();
+
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting photo: " + e.message, 500);
+    }
+}
+
 function gmJobFields(body, partial) {
     var out = {};
     function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
@@ -19437,6 +19620,24 @@ export default {
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "contacts") {
                     if (method === "GET")  { return handleGetGmLeadContacts(cid, segs[5], request, env); }
                     if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }
+                }
+                // /gm/jobs/:jobId/photos — progress photos on a project.
+                // Client-visible on purpose (the owner shows these to their own
+                // customer). NOT in sellerRequestAllowed, so a seller session is
+                // refused upstream — do not add them there.
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "photos") {
+                    if (method === "GET")  { return handleGetGmJobPhotos(cid, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmJobPhoto(cid, segs[5], request, env); }
+                }
+                // /gm/jobs/:jobId/photos/:photoId
+                if (segs.length === 8 && gmCol === "jobs" && segs[6] === "photos" && method === "DELETE") {
+                    return handleDeleteGmJobPhoto(cid, segs[5], segs[7], request, env);
+                }
+                // /gm/jobs/:jobId/photos/:photoId/file — serves the image; no
+                // raw R2 path is ever exposed to the frontend.
+                if (segs.length === 9 && gmCol === "jobs" && segs[6] === "photos" &&
+                    segs[8] === "file" && method === "GET") {
+                    return handleGetGmJobPhotoFile(cid, segs[5], segs[7], request, env);
                 }
                 if (segs.length === 6 && method === "PUT") {
                     if (gmCol === "leads")     { return handlePutGmLead(cid, segs[5], request, env); }

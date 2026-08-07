@@ -165,6 +165,8 @@
 
     var analyticsMonth = todayStr().slice(0, 7);
     var analyticsIndicators = [];
+    // Cached so a language toggle can rewrite the meta line without refetching.
+    var analyticsCompletedDays = null;
     var sectionShowAll = {};
     var destroyed = false;
 
@@ -299,8 +301,9 @@
         '<div class="kpi-value">' + fmtNum(ind.realizado, pctType) + '</div>' +
         pillHtml(pct) + '</div>';
       if (ind.meta_mensal !== null && ind.meta_mensal !== undefined) {
-        html += '<div class="kpi-meta-row"><span>Meta: ' + fmtNum(ind.meta_mensal, pctType) + '</span>' +
-          '<span>Falta: ' + fmtNum(ind.falta, pctType) + '</span></div>';
+        html += '<div class="kpi-meta-row"><span>' + (isEn() ? "Target: " : "Meta: ") +
+          fmtNum(ind.meta_mensal, pctType) + '</span>' +
+          '<span>' + (isEn() ? "Left: " : "Falta: ") + fmtNum(ind.falta, pctType) + '</span></div>';
       }
       if (ind.goal_status === "pending" && ind.proposed_value !== null && ind.proposed_value !== undefined) {
         html += '<div class="kpi-pending-note">' +
@@ -369,8 +372,8 @@
             '<div class="chart-a-head"><span class="chart-a-label">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</span>' +
             pillHtml(x.pct) + '</div>' +
             '<div class="chart-a-track"><div class="chart-a-fill ' + band + '" style="width:' + Math.min(100, x.pct) + '%"></div></div>' +
-            '<div class="chart-a-sub">Meta: ' + fmtNum(ind.meta_mensal, pctType) +
-            ' · Falta: ' + fmtNum(ind.falta, pctType) + '</div>' +
+            '<div class="chart-a-sub">' + (isEn() ? "Target: " : "Meta: ") + fmtNum(ind.meta_mensal, pctType) +
+            (isEn() ? " · Left: " : " · Falta: ") + fmtNum(ind.falta, pctType) + '</div>' +
             '</div>';
         });
       }
@@ -379,15 +382,22 @@
         '<p class="muted">' + (isEn() ? "No indicators enabled." : "Nenhum indicador habilitado.") + '</p>';
     }
 
+    function renderAnalyticsMeta() {
+      var meta = el("analyticsMeta");
+      if (!meta || analyticsCompletedDays === null) { return; }
+      meta.textContent = (isEn()
+        ? analyticsCompletedDays + " completed day(s) this month"
+        : analyticsCompletedDays + " dia(s) completo(s) neste mês");
+    }
+
     function loadAnalytics() {
       el("monthLabel").textContent = monthLabelText(analyticsMonth);
       return apiFetch("/api/clients/" + clientId + "/entries-summary?month=" + analyticsMonth)
         .then(function (res) { return res.json(); })
         .then(function (d) {
           if (destroyed) { return; }
-          el("analyticsMeta").textContent = (isEn()
-            ? d.completed_days + " completed day(s) this month"
-            : d.completed_days + " dia(s) completo(s) neste mês");
+          analyticsCompletedDays = d.completed_days;
+          renderAnalyticsMeta();
           analyticsIndicators = d.indicators || [];
           renderOverview(analyticsIndicators);
           renderAnalyticsBody();
@@ -821,12 +831,15 @@
       }
       return '<div class="muted" style="font-size:12px;margin-bottom:4px;">' +
         (isEn() ? "Latest: " : "Último mês: ") + fmtNum(last.realizado, pctType) +
-        (last.meta !== null && last.meta !== undefined ? " · Meta: " + fmtNum(last.meta, pctType) : "") + '</div>' +
+        (last.meta !== null && last.meta !== undefined
+          ? (isEn() ? " · Target: " : " · Meta: ") + fmtNum(last.meta, pctType) : "") + '</div>' +
         svg + legend + summary;
     }
 
     // ── Chart B ────────────────────────────────────────────────────────────
     var chartBLoadedFor = null;
+    // Last chart-B payload, so a language toggle can redraw it from cache.
+    var chartBData = null;
     function populateChartBPicker() {
       var sel = el("chartBPicker");
       if (!sel) { return; }
@@ -848,11 +861,13 @@
       if (!sel || !body || !sel.value) { return; }
       var key = sel.value;
       chartBLoadedFor = key;
+      chartBData = null;   // stale until the new indicator's data lands
       body.innerHTML = '<p class="muted">' + (isEn() ? "Loading…" : "Carregando…") + '</p>';
       apiFetch("/api/clients/" + clientId + "/indicator-history?indicator=" + encodeURIComponent(key) + "&months=12")
         .then(function (res) { return res.json(); })
         .then(function (d) {
           if (destroyed || chartBLoadedFor !== key) { return; }
+          chartBData = d;
           body.innerHTML = trendChartHtml(d);
         })
         .catch(function () {
@@ -865,6 +880,30 @@
       if (showPace) { loadPace(); }
     }
 
+    // Re-render every bilingual surface from the caches this instance already
+    // holds. Deliberately does NOT refetch: a language toggle is not a reload,
+    // and refetching would blank the card and lose the user's place.
+    // Section collapse state lives in sessionStorage, so it survives this;
+    // paceSelectedKey and the chart-B selection are preserved in closure.
+    function onLangChange() {
+      if (destroyed) { return; }
+      var ml = el("monthLabel");
+      if (ml) { ml.textContent = monthLabelText(analyticsMonth); }
+      renderAnalyticsMeta();
+      if (analyticsIndicators.length) {
+        renderOverview(analyticsIndicators);
+        renderAnalyticsBody();
+        if (showChartB) {
+          populateChartBPicker();
+          // populateChartBPicker only refetches when the INDICATOR changed, so
+          // the drawn chart would otherwise keep its old-language labels.
+          var cb = el("chartBBody");
+          if (cb && chartBData) { cb.innerHTML = trendChartHtml(chartBData); }
+        }
+      }
+      if (showPace) { renderPaceCard(); }
+    }
+
     return {
       load: load,
       getMonth: function () { return analyticsMonth; },
@@ -872,6 +911,7 @@
         analyticsMonth = m;
         loadAnalytics();
       },
+      onLangChange: onLangChange,
       destroy: function () { destroyed = true; root.innerHTML = ""; }
     };
   }

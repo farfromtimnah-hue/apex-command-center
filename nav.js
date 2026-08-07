@@ -296,7 +296,33 @@
     btn.innerHTML = navSvg(collapsed ? "chevron-right" : "chevron-left");
   }
 
+  // ── Public: current language ─────────────────────────────────────────────
+  // One definition for every page. Pages historically each declared their own
+  // isEn(); those still work, but new code should call this.
+  window.apexIsEn = function () {
+    return document.body.classList.contains("lang-en");
+  };
+
+  // ── Public: bilingual <title> ────────────────────────────────────────────
+  // A <title> cannot hold .show-pt/.show-en spans, so every page was stuck in
+  // Portuguese. Pages declare both strings once:
+  //     <title data-title-pt="Apex — Clientes" data-title-en="Apex — Clients">
+  // and the toggle swaps them. Pages without the attributes are left alone.
+  function applyTitle() {
+    var el = document.querySelector("title");
+    if (!el) { return; }
+    var pt = el.getAttribute("data-title-pt");
+    var en = el.getAttribute("data-title-en");
+    if (!pt || !en) { return; }
+    el.textContent = window.apexIsEn() ? en : pt;
+  }
+  window.apexApplyTitle = applyTitle;
+
   // ── Public: language toggle (shared across all pages) ────────────────────
+  // Swapping the class is only half the job. Anything already baked into
+  // innerHTML/textContent by a ternary can never change on its own, so we
+  // announce the change and let each page re-render from ITS CACHED DATA.
+  // Listeners must not refetch — a language toggle is not a reload.
   window.apexNavToggleLang = function () {
     var b = document.body;
     if (b.classList.contains("lang-pt")) {
@@ -307,6 +333,14 @@
       b.classList.remove("lang-en");
       b.classList.add("lang-pt");
       sessionStorage.setItem("apex_lang", "pt");
+    }
+    applyTitle();
+    var lang = window.apexIsEn() ? "en" : "pt";
+    try {
+      document.dispatchEvent(new CustomEvent("apex:langchange", { detail: { lang: lang } }));
+    } catch (e) {
+      // Never let one page's listener throwing leave the toggle half-applied.
+      if (window.console && console.error) { console.error("apex:langchange listener failed", e); }
     }
   };
 
@@ -718,6 +752,8 @@
       document.body.classList.remove("lang-en");
       document.body.classList.add("lang-pt");
     }
+    // Landing on a page while EN is active must give an English tab too.
+    applyTitle();
 
     var role = sessionStorage.getItem("apex_role") || "alice";
     var devView = (role === "developer") ? (sessionStorage.getItem("apex_dev_view") || "dev") : "";

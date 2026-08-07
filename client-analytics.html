@@ -11,7 +11,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
-  <title>Apex &mdash; An&aacute;lise de Clientes</title>
+  <title data-title-pt="Apex &mdash; An&aacute;lise de Clientes"
+         data-title-en="Apex &mdash; Client Analytics">Apex &mdash; An&aacute;lise de Clientes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -500,13 +501,20 @@
     var currentView = null;      // ApexAnalyticsView instance
     var currentClientId = null;
     var histIndicators = [];
+    // Last payload per section, replayed on a language toggle so the page can
+    // re-render in the other language without refetching. See the
+    // apex:langchange listener near the bottom of this script.
+    var lastAverage = null, lastCoverage = null, lastHist = null;
 
     function escHtml(s) {
       return String(s === null || s === undefined ? "" : s)
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
-    function isEn() { return document.body.classList.contains("lang-en"); }
+    // Defers to nav.js so there is one definition of "which language".
+    function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
 
     function handleSignOut() {
       auth.signOut().then(function () {
@@ -605,6 +613,7 @@
     }
 
     function renderAverage(d) {
+      lastAverage = d;
       var box = document.getElementById("averageBody");
       var html = "";
 
@@ -696,16 +705,25 @@
           clientsList = all.filter(function (c) {
             return c.status === "active" || c.status === null || c.status === undefined;
           });
-          var sel = document.getElementById("clientPicker");
-          sel.innerHTML = '<option value="">' +
-            (isEn() ? "-- pick a client --" : "-- escolha um cliente --") + '</option>';
-          clientsList.forEach(function (c) {
-            var o = document.createElement("option");
-            o.value = c.id;
-            o.textContent = c.name;
-            sel.appendChild(o);
-          });
+          renderClientPicker();
         });
+    }
+
+    // Split out of loadClients so a language toggle can re-label the options
+    // from clientsList without refetching — and without losing the selection.
+    function renderClientPicker() {
+      var sel = document.getElementById("clientPicker");
+      if (!sel) { return; }
+      var keep = sel.value;
+      sel.innerHTML = '<option value="">' +
+        (isEn() ? "-- pick a client --" : "-- escolha um cliente --") + '</option>';
+      clientsList.forEach(function (c) {
+        var o = document.createElement("option");
+        o.value = c.id;
+        o.textContent = c.name;
+        sel.appendChild(o);
+      });
+      sel.value = keep;
     }
 
     function onClientPicked() {
@@ -716,6 +734,10 @@
     function selectClient(id) {
       currentClientId = id || null;
       document.getElementById("clientPicker").value = id || "";
+      // Drop the previous client's payloads: until the new fetches land, a
+      // language toggle would otherwise replay the old client's numbers.
+      lastCoverage = null;
+      lastHist = null;
       var panels = document.getElementById("clientPanels");
       var empty  = document.getElementById("clientEmpty");
       var link   = document.getElementById("profileLink");
@@ -773,6 +795,7 @@
     }
 
     function renderCoverage(d) {
+      lastCoverage = d;
       var box = document.getElementById("coverageBody");
       var byDate = {};
       d.entries.forEach(function (e) { byDate[e.date] = e.completed ? "completed" : "partial"; });
@@ -829,17 +852,27 @@
         .then(function (res) { return res.json(); })
         .then(function (d) {
           histIndicators = d.indicators || [];
+          renderHistPicker();
           var sel = document.getElementById("histPicker");
-          sel.innerHTML = "";
-          histIndicators.forEach(function (ind) {
-            var o = document.createElement("option");
-            o.value = ind.key;
-            o.textContent = isEn() ? ind.label_en : ind.label_pt;
-            sel.appendChild(o);
-          });
           if (sel.value) { loadIndicatorHistory(); }
         })
         .catch(function () {});
+    }
+
+    // Same split as renderClientPicker: the indicator labels are bilingual, so
+    // the toggle must re-label them from histIndicators, keeping the choice.
+    function renderHistPicker() {
+      var sel = document.getElementById("histPicker");
+      if (!sel) { return; }
+      var keep = sel.value;
+      sel.innerHTML = "";
+      histIndicators.forEach(function (ind) {
+        var o = document.createElement("option");
+        o.value = ind.key;
+        o.textContent = isEn() ? ind.label_en : ind.label_pt;
+        sel.appendChild(o);
+      });
+      sel.value = keep;
     }
 
     function loadIndicatorHistory() {
@@ -850,7 +883,7 @@
       apiFetch("/api/clients/" + currentClientId + "/indicator-history?indicator=" +
                encodeURIComponent(sel.value) + "&months=12")
         .then(function (res) { return res.json(); })
-        .then(function (d) { body.innerHTML = renderHistTable(d); })
+        .then(function (d) { lastHist = d; body.innerHTML = renderHistTable(d); })
         .catch(function () {
           body.innerHTML = '<p class="muted">' + (isEn() ? "No data yet." : "Sem dados ainda.") + '</p>';
         });
@@ -874,7 +907,8 @@
         (isEn() ? "Month" : "M&ecirc;s") + '</th>' +
         '<th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">' +
         (isEn() ? "Actual" : "Realizado") + '</th>' +
-        '<th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">Meta</th>' +
+        '<th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">' +
+        (isEn() ? "Target" : "Meta") + '</th>' +
         '<th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);">%</th>' +
         '</tr></thead><tbody>';
       pts.forEach(function (p) {
@@ -954,6 +988,35 @@
         }
       }).catch(function () {});
     }
+
+    // ── Language toggle re-render ─────────────────────────────────────────
+    //
+    // nav.js swaps the body class and fires apex:langchange. Anything this
+    // page baked into innerHTML through an isEn() ternary is frozen until we
+    // rebuild it, so we replay the cached data — no refetch, no lost state.
+    //
+    // Re-renders ONLY the visible mode; the hidden one is rebuilt when its tab
+    // is next opened, exactly as gm.js does per pipeline section.
+    document.addEventListener("apex:langchange", function () {
+      var avgOpen = !document.getElementById("modeAverage").hidden;
+      var cliOpen = !document.getElementById("modeClient").hidden;
+
+      if (avgOpen && lastAverage) { renderAverage(lastAverage); }
+
+      if (cliOpen) {
+        renderClientPicker();
+        renderHistPicker();
+        if (currentView && currentView.onLangChange) { currentView.onLangChange(); }
+        if (lastCoverage) { renderCoverage(lastCoverage); }
+        if (lastHist) {
+          document.getElementById("histBody").innerHTML = renderHistTable(lastHist);
+        }
+      } else {
+        // The picker is shared chrome above both modes — keep it in sync so
+        // switching to the client tab never shows a stale-language option.
+        renderClientPicker();
+      }
+    });
 
     function init() {
       firebase.initializeApp(FIREBASE_CONFIG);

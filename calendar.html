@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <title>Apex — Calendário</title>
+  <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1448,10 +1448,10 @@
             <span class="show-en">Client</span>
           </div>
           <select id="nsClient" onchange="onNsClientChange()">
-            <option value="">
-              <span class="show-pt">— selecionar —</span>
-              <span class="show-en">— select —</span>
-            </option>
+            <!-- An <option> cannot hold spans — the browser strips the markup and
+                 shows BOTH languages as text. Data attributes are the only
+                 mechanism that works; applyCalBilingualAttrs() swaps them. -->
+            <option value="" data-opt-pt="— selecionar —" data-opt-en="— select —">— selecionar —</option>
           </select>
         </div>
         <!-- Event name: only shown for "+ Event" / "+ Apex Club" entries.
@@ -2241,7 +2241,19 @@
 
     // ── Utilities ──────────────────────────────────────────────────────────
 
-    function isEn() { return document.body.classList.contains("lang-en"); }
+    function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+
+    // <option> text cannot be a span pair, so those carry both languages as
+    // data attributes and are swapped here — on load and on every toggle.
+    function applyCalBilingualAttrs() {
+      var en = isEn();
+      var opts = document.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var i = 0; i < opts.length; i++) {
+        opts[i].textContent = opts[i].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+    }
 
     function getToken() {
       if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
@@ -2319,7 +2331,7 @@
             if (statusEl) {
               statusEl.textContent = en
                 ? "Complete sign-in in the new tab, then try your action again."
-                : "Conclua o login na nova aba e tente a acao novamente.";
+                : "Conclua o login na nova aba e tente a ação novamente.";
               statusEl.className = "pull-status";
             }
           } else {
@@ -3885,7 +3897,7 @@
       if (w.conflicts.length) {
         lines.push(en
           ? (w.conflicts.length === 1 ? "This overlaps with:" : "This overlaps with " + w.conflicts.length + " items:")
-          : (w.conflicts.length === 1 ? "Isto se sobrepoe a:" : "Isto se sobrepoe a " + w.conflicts.length + " itens:"));
+          : (w.conflicts.length === 1 ? "Isto se sobrepõe a:" : "Isto se sobrepõe a " + w.conflicts.length + " itens:"));
         for (var i = 0; i < w.conflicts.length; i++) {
           lines.push("  • " + w.conflicts[i].name + " (" + w.conflicts[i].times + ")");
         }
@@ -3896,7 +3908,7 @@
           var tw = w.travel[t];
           lines.push(en
             ? tw.name + " (" + tw.times + ") is " + tw.gap + " minutes away — he may not have time to arrive."
-            : tw.name + " (" + tw.times + ") esta a " + tw.gap + " minutos — ele pode nao ter tempo de chegar.");
+            : tw.name + " (" + tw.times + ") está a " + tw.gap + " minutos — ele pode não ter tempo de chegar.");
         }
       }
       return lines;
@@ -4016,7 +4028,12 @@
       renderSyncConflictNotice(fresh);
     }
 
+    // Cached so a language toggle can redraw the banner in the other language
+    // without re-running the sync.
+    var lastSyncConflicts = null;
+
     function renderSyncConflictNotice(items) {
+      lastSyncConflicts = items;
       var en = isEn();
       var banner = document.getElementById("syncConflictNotice");
       var body   = document.getElementById("syncConflictBody");
@@ -4030,8 +4047,8 @@
             ? "The sync found 1 scheduling problem in upcoming meetings:"
             : "The sync found " + items.length + " scheduling problems in upcoming meetings:")
         : (items.length === 1
-            ? "A sincronizacao encontrou 1 problema de agenda nas proximas reunioes:"
-            : "A sincronizacao encontrou " + items.length + " problemas de agenda nas proximas reunioes:");
+            ? "A sincronização encontrou 1 problema de agenda nas próximas reuniões:"
+            : "A sincronização encontrou " + items.length + " problemas de agenda nas próximas reuniões:");
       body.appendChild(head);
 
       for (var i = 0; i < items.length; i++) {
@@ -4042,11 +4059,11 @@
         if (it.kind === "conflict") {
           p.textContent = en
             ? when + ": " + it.aName + " (" + it.aTimes + ") overlaps " + it.bName + " (" + it.bTimes + ")"
-            : when + ": " + it.aName + " (" + it.aTimes + ") se sobrepoe a " + it.bName + " (" + it.bTimes + ")";
+            : when + ": " + it.aName + " (" + it.aTimes + ") se sobrepõe a " + it.bName + " (" + it.bTimes + ")";
         } else {
           p.textContent = en
             ? when + ": " + it.aName + " (" + it.aTimes + ") and " + it.bName + " (" + it.bTimes + ") are " + it.gap + " minutes apart — he may not have time to arrive."
-            : when + ": " + it.aName + " (" + it.aTimes + ") e " + it.bName + " (" + it.bTimes + ") estao a " + it.gap + " minutos — ele pode nao ter tempo de chegar.";
+            : when + ": " + it.aName + " (" + it.aTimes + ") e " + it.bName + " (" + it.bTimes + ") estão a " + it.gap + " minutos — ele pode não ter tempo de chegar.";
         }
         body.appendChild(p);
       }
@@ -5795,7 +5812,7 @@
       if (msg.indexOf("no longer an active part of its series") !== -1) {
         return isEn()
           ? "This meeting is no longer an active part of its series, so 'this and following' / 'all meetings' cannot be applied. Reload the calendar and try again."
-          : "Esta reuniao ja nao faz parte ativa da sua serie, portanto 'esta e todas as seguintes' / 'todas as reunioes' nao pode ser aplicado. Recarregue o calendario e tente novamente.";
+          : "Esta reunião já não faz parte ativa da sua série, portanto 'esta e todas as seguintes' / 'todas as reuniões' não pode ser aplicado. Recarregue o calendário e tente novamente.";
       }
       return msg;
     }
@@ -5895,7 +5912,32 @@
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────
-    window.onload = function() { init(); };
+    // ── Language toggle re-render ─────────────────────────────────────────
+    //
+    // This page builds nearly everything through isEn() ternaries — month and
+    // day names, the nav label, agenda rows, the sync-conflict banner — so
+    // every one of those strings was frozen at render time and a toggle only
+    // moved the header. Alice works here daily.
+    //
+    // Replays from cached state: calSessions and clients are already in
+    // memory, and calView/curDate keep the user exactly where they were.
+    // No refetch, no view reset, no scroll jump.
+    document.addEventListener("apex:langchange", function () {
+      applyCalBilingualAttrs();
+      updateNavLabel();
+      if (clients.length) { populateClientDropdown(); }
+      renderCalendar();
+      if (lastSyncConflicts && lastSyncConflicts.length) {
+        renderSyncConflictNotice(lastSyncConflicts);
+      }
+      if (typeof renderNsEngagementHint === "function") { renderNsEngagementHint(); }
+      // A detail panel left open must not keep the old language behind it.
+      if (activeDetailSession && typeof openDetail === "function") {
+        openDetail(activeDetailSession);
+      }
+    });
+
+    window.onload = function() { applyCalBilingualAttrs(); init(); };
   </script>
 
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-

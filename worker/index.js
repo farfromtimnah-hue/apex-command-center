@@ -16052,19 +16052,20 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             avgDeal = Math.round((vs / allClosedValues.length) * 100) / 100;
         }
 
-        // THE RATIO STAYS SUPPRESSED WHENEVER JOBS FEED THE NUMERATOR.
+        // ── Closing ratio: closes ÷ that seller's own leads ─────────────────
         //
-        // Fixing the blindness must not become a licence to publish a rate the
-        // data cannot support. Once closed work comes from gm_jobs and losses
-        // come from gm_leads, the two sides are drawn from differently sampled
-        // sources — this client's leads were imported from three spreadsheet
-        // tabs, one of which (CANCELADOS) contains cancelled deals ONLY. Asaf's
-        // denominator is 15 such rows. Dividing signed jobs by them yields a
-        // number that looks like a close rate, names an employee, and means
-        // nothing. The COUNTS are honest and are shown; the rate is withheld.
-        var closingPct = jobs.length > 0
-            ? null
-            : gmDiagRatio(won, won + lost, won + lost);
+        // The denominator is every lead assigned to the seller, not just the
+        // decided ones: a lead that belonged to them and never closed is part
+        // of what they were given to work. Nicole's call — a lost lead that
+        // belonged to a seller is that seller's lost lead, and that is the
+        // data rather than a sampling artifact.
+        //
+        // The denominator is ALWAYS returned and rendered beside the figure
+        // ("1 de 15"), never behind a tooltip, so the ratio can be read
+        // against what it was computed over. The only gate left is the
+        // existing small-sample threshold, applied to the denominator.
+        var leadsForDenominator = leads.length;
+        var closingPct = gmDiagRatio(won, leadsForDenominator, leadsForDenominator);
 
         // ── Per-seller money rows, sorted by CLOSED value descending ────────
         //
@@ -16186,12 +16187,10 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
                     won: won, lost: lost, decided: won + lost,
                     won_jobs: jobs.length, won_leads: wonLeads,
                     pct: closingPct,
-                    // Tells the page WHY the rate is absent, so it can say
-                    // "counts only" instead of "not enough data yet" — the
-                    // sample is fine, the two sides just aren't comparable.
-                    pct_suppressed_reason: (closingPct === null && jobs.length > 0)
-                        ? "mixed_sampling" : null,
-                    sample: won + lost
+                    // The ratio's denominator: every lead assigned to this
+                    // seller. Rendered beside the percentage, never hidden.
+                    of_leads: leadsForDenominator,
+                    sample: leadsForDenominator
                 },
                 // Sample counts the values the average was actually taken
                 // over — jobs included — so the printed sample can never

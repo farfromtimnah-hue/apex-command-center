@@ -17327,12 +17327,37 @@ async function handlePatchFinanceNewAccount(accountId, request, env) {
 
 var PLAID_HISTORY_FLOOR = "2026-07-01";
 
+// The free-text note the sender typed on a Zelle payment: for "Livros Apex
+// Club", for "GESTAO APEX". It carries real meaning -- which client, which
+// event -- so it is stored on its own column rather than discarded. It must
+// NOT feed the merchant key, or payments from one client split by whatever
+// each of them happened to type in the note field.
+function extractMemo(desc) {
+    var m = String(desc || "").match(/\bfor\s+"([^"]+)"/i);
+    return m ? m[1].trim().slice(0, 120) : null;
+}
+
 // Strip the noise BofA puts around a merchant so the composite dedup key and
 // the transfer heuristics compare like with like: card suffixes, store
 // numbers, dates, and reference ids all vary between the pending and posted
 // version of the SAME transaction.
+//
+// ORDER MATTERS. A Zelle confirmation ref is alphanumeric with single digits
+// (ryew3bbnx), so it survives the 4+ digit strip, and the non-alpha pass then
+// shatters it into surviving letter chunks (CONF RYEW BBNX). Since the ref is
+// unique per transaction, that made EVERY Zelle row its own merchant -- 70
+// rows, 69 keys -- so categorization rules matched exactly one row and never
+// compounded. The ref and the quoted memo are removed BEFORE that pass.
 function normalizeMerchant(desc) {
-    var s = String(desc || "").toUpperCase();
+    var s = String(desc || "");
+
+    s = s.replace(/\bfor\s+"[^"]*"/gi, " ");
+    // Both orders BofA emits the ref in:
+    //   "Zelle payment to Alice Corsino Conf# ryew3bbnx"        (trailing)
+    //   "Zelle Transfer CONF# LCWB7A9V7; ALICE CORSINO"         (name last)
+    s = s.replace(/\bCONF#?\s*[A-Z0-9]+;?/gi, " ");
+
+    s = s.toUpperCase();
     s = s.replace(/[0-9]{4,}/g, " ");
     s = s.replace(/[^A-Z ]+/g, " ");
     s = s.replace(/\b(PURCHASE|POS|DEBIT|CREDIT|CARD|XXXX|REF|ID|CKCD|DES|INDN|CO)\b/g, " ");
@@ -17447,6 +17472,9 @@ async function syncPlaidTransactions(env) {
                 // here, so every downstream reader sees the natural sign.
                 amountCents = -toCents(txn.amount);
                 merchNorm   = normalizeMerchant(txn.merchant_name || txn.name);
+                // The memo only ever appears in the raw description Plaid puts
+                // in .name -- merchant_name, when present, is already cleaned.
+                var memoText = extractMemo(txn.name);
 
                 var existing = await findExistingTransaction(env, acctRowId, txn, amountCents, merchNorm);
 
@@ -17454,7 +17482,7 @@ async function syncPlaidTransactions(env) {
                     await env.DB.prepare(
                         "UPDATE transactions SET plaid_transaction_id = ?, pending_plaid_transaction_id = ?, " +
                         "amount_cents = ?, date = ?, posted_date = ?, description = ?, merchant_normalized = ?, " +
-                        "pending = ?, raw_json = ? WHERE id = ?"
+                        "memo = ?, pending = ?, raw_json = ? WHERE id = ?"
                     ).bind(
                         txn.transaction_id,
                         txn.pending_transaction_id || null,
@@ -17463,6 +17491,7 @@ async function syncPlaidTransactions(env) {
                         txn.pending ? null : (txn.authorized_date || txn.date),
                         txn.name || null,
                         merchNorm,
+                        memoText,
                         txn.pending ? 1 : 0,
                         JSON.stringify(txn),
                         existing.id
@@ -17471,8 +17500,8 @@ async function syncPlaidTransactions(env) {
                 } else {
                     await env.DB.prepare(
                         "INSERT INTO transactions (id, account_id, plaid_transaction_id, pending_plaid_transaction_id, " +
-                        "amount_cents, date, posted_date, description, merchant_normalized, pending, raw_json) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                        "amount_cents, date, posted_date, description, merchant_normalized, memo, pending, raw_json) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                         "ON CONFLICT(plaid_transaction_id) DO NOTHING"
                     ).bind(
                         crypto.randomUUID(),
@@ -17484,6 +17513,7 @@ async function syncPlaidTransactions(env) {
                         txn.pending ? null : (txn.authorized_date || txn.date),
                         txn.name || null,
                         merchNorm,
+                        memoText,
                         txn.pending ? 1 : 0,
                         JSON.stringify(txn)
                     ).run();

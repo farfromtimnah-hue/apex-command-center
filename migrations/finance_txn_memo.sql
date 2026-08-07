@@ -1,0 +1,11 @@
+-- The free-text note a Zelle sender types: for "Livros Apex Club",
+-- for "GESTAO APEX", for "Amanda".
+--
+-- It used to be fed through normalizeMerchant() along with everything else,
+-- where it became part of the merchant key -- so two payments from the SAME
+-- client split apart whenever the sender typed a different note. It is now
+-- stripped out of the key and kept here, where the Apex Club event P&L and
+-- payer-alias learning can read it.
+--
+-- Nullable: only Zelle rows carry a memo, and only when the sender typed one.
+ALTER TABLE transactions ADD COLUMN memo TEXT;

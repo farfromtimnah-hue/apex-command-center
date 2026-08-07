@@ -499,6 +499,27 @@
     .acct-balance { font-size: 28px; font-weight: 700; letter-spacing: -0.6px; }
     .acct-meta { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
+    /* "Da pra usar" -- available_cents. This is the number she can actually
+       act on, so it takes the visual weight; the balance below it is context.
+       Balance is the optimistic figure: the business account has shown $384.90
+       balance against $50.77 available, and spending against the balance is
+       how an account goes negative. */
+    .acct-avail-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+    }
+    .acct-balance-sub {
+      font-size: 13px; color: var(--muted); margin-top: 6px;
+    }
+    .acct-balance-sub b { font-weight: 600; color: var(--text); }
+    /* An account that is genuinely overdrawn is stated plainly rather than
+       decorated with a warning. She is not being alarmed -- she is being told,
+       once, in the same voice as everything else. */
+    .acct-avail.is-under { color: var(--red); }
+    .acct-avail-note {
+      font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45;
+    }
+
     .flow-row {
       display: flex;
       gap: 18px;
@@ -1662,6 +1683,22 @@
         if (!accts.length) { return ""; }
 
         var balance = accts.reduce(function(s, a) { return s + (a.balance_cents || 0); }, 0);
+
+        // available_cents is what the bank will actually let her spend today:
+        // balance minus holds and pending authorizations. It was populated by
+        // the worker from the first sync and never shown, so the dashboard has
+        // been reporting the optimistic number all along.
+        //
+        // Plaid does not return availableBalance for every account type. A
+        // missing value is left missing rather than defaulted to the balance,
+        // which would silently reinstate the exact overstatement being fixed.
+        var availKnown = accts.length > 0 && accts.every(function(a) {
+          return a.available_cents !== null && a.available_cents !== undefined;
+        });
+        var available = availKnown ? accts.reduce(function(s, a) {
+          return s + (a.available_cents || 0);
+        }, 0) : null;
+
         var flow = SUMMARY && SUMMARY[k.key] ? SUMMARY[k.key] : null;
 
         var flowHtml = "";
@@ -1714,9 +1751,49 @@
           }
         }
 
+        // Headline = available when the bank tells us, balance otherwise.
+        // "Da pra usar" / "Available to use" -- her words, not "available
+        // balance", which is the phrase from the bank site she stopped
+        // reading.
+        var headHtml;
+        if (available !== null) {
+          headHtml =
+            '<div class="acct-avail-label">' +
+              '<span class="show-pt">D&aacute; pra usar</span>' +
+              '<span class="show-en">Available to use</span>' +
+            '</div>' +
+            '<div class="acct-balance acct-avail' + (available < 0 ? ' is-under' : '') + '">' +
+              fmtCents(available) + '</div>' +
+            '<div class="acct-balance-sub">' +
+              '<span class="show-pt">Saldo no banco: <b>' + fmtCents(balance) + '</b></span>' +
+              '<span class="show-en">Bank balance: <b>' + fmtCents(balance) + '</b></span>' +
+            '</div>';
+
+          // Two states worth a sentence. Overdrawn is stated plainly because
+          // hiding it would be the one kindness that actually costs her money.
+          if (available < 0) {
+            headHtml += '<div class="acct-avail-note">' +
+              '<span class="show-pt">A conta est&aacute; negativa neste momento. O saldo acima ainda n&atilde;o desconta o que j&aacute; foi autorizado.</span>' +
+              '<span class="show-en">This account is currently overdrawn. The balance above does not yet subtract what has already been authorized.</span>' +
+              '</div>';
+          } else if (balance - available >= 2000) {
+            headHtml += '<div class="acct-avail-note">' +
+              '<span class="show-pt">' + fmtCents(balance - available) + ' do saldo ainda est&aacute; retido pelo banco.</span>' +
+              '<span class="show-en">' + fmtCents(balance - available) + ' of the balance is still held by the bank.</span>' +
+              '</div>';
+          }
+        } else {
+          headHtml =
+            '<div class="acct-balance">' + fmtCents(balance) + '</div>' +
+            '<div class="acct-balance-sub">' +
+              '<span class="show-pt">O banco n&atilde;o informa quanto d&aacute; pra usar nesta conta.</span>' +
+              '<span class="show-en">The bank does not report available funds for this account.</span>' +
+            '</div>';
+        }
+
         return '<div class="acct-card is-' + k.key + '">' +
           '<div class="acct-kind"><span class="show-pt">' + k.pt + '</span><span class="show-en">' + k.en + '</span></div>' +
-          '<div class="acct-balance">' + fmtCents(balance) + '</div>' +
+          headHtml +
           '<div class="acct-meta">' + accts.map(function(a) {
             return esc(a.name) + (a.mask ? " &middot;&middot;&middot;&middot;" + esc(a.mask) : "");
           }).join(" &middot; ") + '</div>' +
@@ -1735,7 +1812,14 @@
           "<td>" + esc(a.institution || "") + "</td>" +
           '<td><span class="pill">' + (a.purpose === "business" ? "Comercial" : "Pessoal") + "</span> " +
             '<button class="btn btn-sm" onclick="retagAccount(\'' + a.id + "','" + other + "')\">&#8644; " + otherLabel + "</button></td>" +
-          '<td class="num">' + fmtCents(a.balance_cents) + "</td>" +
+          '<td class="num">' + fmtCents(a.balance_cents) +
+            (a.available_cents !== null && a.available_cents !== undefined
+              ? '<div class="tag-meta">' +
+                  '<span class="show-pt">d&aacute; pra usar ' + fmtCents(a.available_cents) + '</span>' +
+                  '<span class="show-en">available ' + fmtCents(a.available_cents) + '</span>' +
+                '</div>'
+              : "") +
+          "</td>" +
         "</tr>";
       }).join("");
     }

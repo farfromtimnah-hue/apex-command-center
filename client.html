@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <title>Apex — Cliente</title>
+  <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1527,9 +1527,9 @@
           </div>
           <div class="profile-header-meta">
             <div class="client-nav-row">
-              <button class="btn-client-nav" id="btnPrevClient" hidden onclick="navNeighborClient(-1)" title="Cliente anterior / Previous client">&#8249;</button>
+              <button class="btn-client-nav" id="btnPrevClient" hidden onclick="navNeighborClient(-1)" data-title-attr-pt="Cliente anterior" data-title-attr-en="Previous client" title="Cliente anterior">&#8249;</button>
               <h1 class="client-name" id="clientName">&#8212;</h1>
-              <button class="btn-client-nav" id="btnNextClient" hidden onclick="navNeighborClient(1)" title="Pr&oacute;ximo cliente / Next client">&#8250;</button>
+              <button class="btn-client-nav" id="btnNextClient" hidden onclick="navNeighborClient(1)" data-title-attr-pt="Pr&oacute;ximo cliente" data-title-attr-en="Next client" title="Pr&oacute;ximo cliente">&#8250;</button>
             </div>
             <div class="client-badges" id="clientBadges">
               <!-- package + status lozenges rendered by JS -->
@@ -1600,16 +1600,16 @@
         <!-- Overview card -->
         <div class="content-card" id="sec-overview" data-section-id="overview">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" title="Recolher / Collapse">&#9660;</button>
+            <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="overviewBody">
             <div class="overview-grid" id="overviewGrid">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
         </div>
@@ -1617,16 +1617,16 @@
         <!-- Sessions section -->
         <div class="content-card" id="sec-sessions" data-section-id="sessions">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Sessoes</span>
               <span class="show-en">Sessions</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" title="Recolher / Collapse">&#9660;</button>
+            <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="sessionsBody">
             <div id="sessionsSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
         </div>
@@ -1634,7 +1634,7 @@
         <!-- Digital Presence section -->
         <div class="content-card" id="sec-dp" data-section-id="dp">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Presenca Digital</span>
               <span class="show-en">Digital Presence</span>
@@ -1643,12 +1643,12 @@
               <button class="btn-add" id="btnDpEdit" onclick="openDigitalPresenceModal()">
                 <span class="show-pt">Editar</span><span class="show-en">Edit</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('dp')" id="collapseDp" title="Recolher / Collapse">&#9660;</button>
+              <button class="collapse-btn" onclick="toggleSection('dp')" id="collapseDp" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="dpBody">
             <div id="dpSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
         </div>
@@ -1656,7 +1656,7 @@
         <!-- Client Tasks section -->
         <div class="content-card" id="sec-clientTasks" data-section-id="clientTasks">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Cliente</span>
               <span class="show-en">Client Tasks</span>
@@ -1665,16 +1665,16 @@
               <button class="btn-add" id="btnAddClientTask" onclick="openAddTaskForm('client')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('clientTasks')" id="collapseClientTasks" title="Recolher / Collapse">&#9660;</button>
+              <button class="collapse-btn" onclick="toggleSection('clientTasks')" id="collapseClientTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="clientTasksBody">
             <div id="clientTasksSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
             <div id="clientTaskAddForm" style="display:none;">
               <div class="tasks-add-form">
-                <input type="text" id="clientTaskDesc" placeholder="Descricao / Description">
+                <input type="text" id="clientTaskDesc" data-ph-pt="Descrição" data-ph-en="Description" placeholder="Descrição">
                 <input type="date" id="clientTaskDue" title="Due date">
                 <button class="btn-add" onclick="handleAddTask('client')">
                   <span class="show-pt">Salvar</span><span class="show-en">Save</span>
@@ -1687,7 +1687,7 @@
         <!-- Consultant Tasks section -->
         <div class="content-card" id="sec-consultantTasks" data-section-id="consultantTasks">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Consultor</span>
               <span class="show-en">Consultant Tasks</span>
@@ -1696,16 +1696,16 @@
               <button class="btn-add" id="btnAddConsultantTask" onclick="openAddTaskForm('consultant')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('consultantTasks')" id="collapseConsultantTasks" title="Recolher / Collapse">&#9660;</button>
+              <button class="collapse-btn" onclick="toggleSection('consultantTasks')" id="collapseConsultantTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="consultantTasksBody">
             <div id="consultantTasksSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
             <div id="consultantTaskAddForm" style="display:none;">
               <div class="tasks-add-form">
-                <input type="text" id="consultantTaskDesc" placeholder="Descricao / Description">
+                <input type="text" id="consultantTaskDesc" data-ph-pt="Descrição" data-ph-en="Description" placeholder="Descrição">
                 <input type="date" id="consultantTaskDue" title="Due date">
                 <button class="btn-add" onclick="handleAddTask('consultant')">
                   <span class="show-pt">Salvar</span><span class="show-en">Save</span>
@@ -1718,7 +1718,7 @@
         <!-- Contacts section (moved from right column — reorderable) -->
         <div class="content-card" id="sec-contacts" data-section-id="contacts">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Contatos</span>
               <span class="show-en">Contacts</span>
@@ -1727,12 +1727,12 @@
               <button class="btn-add" onclick="openContactModal()">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('contacts')" id="collapseContacts" title="Recolher / Collapse">&#9660;</button>
+              <button class="collapse-btn" onclick="toggleSection('contacts')" id="collapseContacts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="contactsBody">
             <div id="contactsSection">
-              <div style="padding:16px 20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:16px 20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
         </div>
@@ -1880,7 +1880,7 @@
         <!-- Notes section -->
         <div class="content-card" id="sec-notes" data-section-id="notes">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Notas</span>
               <span class="show-en">Notes</span>
@@ -1889,12 +1889,12 @@
               <button class="btn-add" onclick="openNoteModal()">
                 + <span class="show-pt">Adicionar Nota</span><span class="show-en">Add Note</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('notes')" id="collapseNotes" title="Recolher / Collapse">&#9660;</button>
+              <button class="collapse-btn" onclick="toggleSection('notes')" id="collapseNotes" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="notesBody">
             <div id="notesSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
         </div>
@@ -1902,7 +1902,7 @@
         <!-- Resources (Resource Hub) — permanent sent-history record -->
         <div class="content-card" id="sec-resources" data-section-id="resources">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Recursos</span>
               <span class="show-en">Resources</span>
@@ -1911,12 +1911,12 @@
               <button class="btn-add" onclick="openAttachResourceModal()">
                 + <span class="show-pt">Anexar Recurso</span><span class="show-en">Attach Resource</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('resources')" id="collapseResources" title="Recolher / Collapse">&#9660;</button>
+              <button class="collapse-btn" onclick="toggleSection('resources')" id="collapseResources" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="resourcesBody">
             <div id="resourcesSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
         </div>
@@ -1924,7 +1924,7 @@
         <!-- Growth tracking (Sales Dashboard) — monthly growth % entries -->
         <div class="content-card" id="sec-growth" data-section-id="growth">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Crescimento</span>
               <span class="show-en">Growth</span>
@@ -1933,12 +1933,12 @@
               <button class="btn-add" onclick="openGrowthModal()">
                 + <span class="show-pt">Registrar</span><span class="show-en">Log Entry</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('growth')" id="collapseGrowth" title="Recolher / Collapse">&#9660;</button>
+              <button class="collapse-btn" onclick="toggleSection('growth')" id="collapseGrowth" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="growthBody">
             <div id="growthSection">
-              <div style="padding:20px;color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
         </div>
@@ -1946,17 +1946,17 @@
         <!-- Payment method -->
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Metodo de Pagamento</span>
               <span class="show-en">Payment Method</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('payment')" id="collapsePayment" title="Recolher / Collapse">&#9660;</button>
+            <button class="collapse-btn" onclick="toggleSection('payment')" id="collapsePayment" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="paymentBody">
             <div style="padding:14px 20px;">
               <select id="paymentMethodSelect" onchange="handlePaymentMethodChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;">
-                <option value="">&#8212; selecionar / select &#8212;</option>
+                <option value="" data-opt-pt="&#8212; selecionar &#8212;" data-opt-en="&#8212; select &#8212;">&#8212; selecionar &#8212;</option>
                 <option value="Zelle">Zelle</option>
                 <option value="Physical Check">Physical Check</option>
                 <option value="Stripe">Stripe</option>
@@ -1969,7 +1969,7 @@
         <!-- Documents section (reorderable) -->
         <div class="content-card" id="sec-docs" data-section-id="docs">
           <div class="content-card-header">
-            <span class="drag-handle" title="Arrastar / Drag">&#9783;</span>
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Documentos</span>
               <span class="show-en">Documents</span>
@@ -1978,15 +1978,15 @@
             <!-- Who the next upload is filed for. Defaults to the client-only
                  scope: sharing a document with the client's whole sales team is
                  a deliberate choice, never the path of least resistance. -->
-            <select id="docVisibility" class="btn-sm" style="display:none;" title="Quem pode ver / Who can see">
-              <option value="client">Somente cliente / Client only</option>
-              <option value="seller">Cliente + vendedores / Client + sellers</option>
+            <select id="docVisibility" class="btn-sm" style="display:none;" data-title-attr-pt="Quem pode ver" data-title-attr-en="Who can see" title="Quem pode ver">
+              <option value="client" data-opt-pt="Somente cliente" data-opt-en="Client only">Somente cliente</option>
+              <option value="seller" data-opt-pt="Cliente + vendedores" data-opt-en="Client + sellers">Cliente + vendedores</option>
             </select>
             <button class="btn-sm" id="btnUploadDoc" onclick="document.getElementById('docFileInput').click()" style="display:none;">
               <span class="show-pt">Enviar Arquivo</span>
               <span class="show-en">Upload File</span>
             </button>
-            <button class="collapse-btn" onclick="toggleSection('docs')" id="collapseDocs" title="Recolher / Collapse">&#9660;</button>
+            <button class="collapse-btn" onclick="toggleSection('docs')" id="collapseDocs" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="docsBody">
             <div class="pull-status" id="docUploadStatus" style="padding:0 20px;"></div>
@@ -2035,7 +2035,7 @@
             </h2>
           </div>
           <div id="portalAccessBody" style="padding:16px 20px;">
-            <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+            <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
           </div>
         </div>
 
@@ -2058,13 +2058,13 @@
               <span class="show-pt">Solicita&ccedil;&otilde;es pendentes</span><span class="show-en">Pending requests</span>
             </div>
             <div id="sellerLoginClientList">
-              <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
             <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin:16px 0 4px;">
               <span class="show-pt">Logins ativos</span><span class="show-en">Active logins</span>
             </div>
             <div id="sellerSeatsList">
-              <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+              <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
             <!-- Seller diagnostics — a BUTTON ONLY. The metrics live on their
                  own page (seller-diagnostics.html) and must not be inlined
@@ -2099,7 +2099,7 @@
             </h2>
           </div>
           <div id="assessmentsBody" style="padding:16px 20px;">
-            <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+            <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
           </div>
         </div>
 
@@ -2112,7 +2112,7 @@
             </h2>
           </div>
           <div id="weeklySummaryBody" style="padding:16px 20px;">
-            <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+            <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
           </div>
         </div>
 
@@ -2123,7 +2123,7 @@
               <span class="show-pt">Atividade Recente</span>
               <span class="show-en">Recent Activity</span>
             </div>
-            <button class="collapse-btn" onclick="toggleSection('activity')" id="collapseActivity" title="Recolher / Collapse">&#9660;</button>
+            <button class="collapse-btn" onclick="toggleSection('activity')" id="collapseActivity" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="activityBody">
             <div class="coming-soon">
@@ -2163,7 +2163,7 @@
           <textarea
             id="nsTranscript"
             style="min-height:180px;"
-            placeholder="Cole o transcript aqui... / Paste transcript here..."
+            data-ph-pt="Cole o transcript aqui..." data-ph-en="Paste transcript here..." placeholder="Cole o transcript aqui..."
           ></textarea>
         </div>
         <button class="btn-primary" id="btnSaveSession" onclick="handleNewSession()">
@@ -2225,7 +2225,7 @@
           <textarea
             id="noteContent"
             style="min-height:120px;"
-            placeholder="Nota..."
+            data-ph-pt="Nota..." data-ph-en="Note..." placeholder="Nota..."
           ></textarea>
         </div>
         <button class="btn-primary" id="btnSaveNote" onclick="handleAddNote()">
@@ -2269,7 +2269,7 @@
         <div style="display:flex;gap:10px;margin-bottom:10px;">
           <div class="field-group" style="flex:1;">
             <select id="ptDiscountType" onchange="onPtDiscountTypeChange()">
-              <option value="">-- Nenhum / None --</option>
+              <option value="" data-opt-pt="-- Nenhum --" data-opt-en="-- None --">-- Nenhum --</option>
               <option value="flat">$ Flat</option>
               <option value="percent">% Percent</option>
             </select>
@@ -2279,7 +2279,7 @@
           </div>
         </div>
         <div class="field-group">
-          <input type="text" id="ptDiscountNote" placeholder="motivo (opcional) / reason (optional)">
+          <input type="text" id="ptDiscountNote" data-ph-pt="motivo (opcional)" data-ph-en="reason (optional)" placeholder="motivo (opcional)">
         </div>
         <div style="font-size:13px;font-weight:700;margin:10px 0 16px;">
           <span class="show-pt">Total Ajustado: </span>
@@ -2420,7 +2420,7 @@
               <span class="show-pt">Crescimento (%)</span>
               <span class="show-en">Growth (%)</span>
             </label>
-            <input type="number" id="growthPercent" step="any" placeholder="ex: 345 / e.g. 345">
+            <input type="number" id="growthPercent" step="any" data-ph-pt="ex: 345" data-ph-en="e.g. 345" placeholder="ex: 345">
           </div>
         </div>
 
@@ -2478,13 +2478,13 @@
       </div>
       <div class="modal-body">
         <div class="field-group">
-          <input type="text" id="ctName" placeholder="Nome / Name *">
+          <input type="text" id="ctName" data-ph-pt="Nome *" data-ph-en="Name *" placeholder="Nome *">
         </div>
         <div class="field-group">
-          <input type="text" id="ctRole" placeholder="Cargo / Role (ex: CEO, CFO)">
+          <input type="text" id="ctRole" data-ph-pt="Cargo (ex: CEO, CFO)" data-ph-en="Role (e.g. CEO, CFO)" placeholder="Cargo (ex: CEO, CFO)">
         </div>
         <div class="field-group">
-          <input type="text" id="ctPhone" placeholder="Telefone / Phone">
+          <input type="text" id="ctPhone" data-ph-pt="Telefone" data-ph-en="Phone" placeholder="Telefone">
         </div>
         <div class="field-group">
           <input type="text" id="ctWhatsapp" placeholder="WhatsApp">
@@ -2533,7 +2533,7 @@
         <!-- Mode: create new inline -->
         <div id="arNewWrap" style="display:none;">
           <div class="field-group" style="margin-bottom:12px;">
-            <input type="text" id="arTitle" placeholder="Título / Title *">
+            <input type="text" id="arTitle" data-ph-pt="Título *" data-ph-en="Title *" placeholder="Título *">
           </div>
           <div style="display:flex;gap:12px;margin-bottom:12px;">
             <div class="field-group" style="flex:1;">
@@ -2541,21 +2541,21 @@
             </div>
             <div class="field-group" style="flex:1;">
               <select id="arType" onchange="onArTypeChange()">
-                <option value="contact">Contato / Contact</option>
-                <option value="file">Arquivo / File</option>
+                <option value="contact" data-opt-pt="Contato" data-opt-en="Contact">Contato</option>
+                <option value="file" data-opt-pt="Arquivo" data-opt-en="File">Arquivo</option>
                 <option value="link">Link</option>
               </select>
             </div>
           </div>
           <div class="field-group" id="arOtherWrap" style="display:none;margin-bottom:12px;">
-            <input type="text" id="arOtherCategory" placeholder="Nova categoria / New category *">
+            <input type="text" id="arOtherCategory" data-ph-pt="Nova categoria *" data-ph-en="New category *" placeholder="Nova categoria *">
           </div>
           <div class="field-group" style="margin-bottom:12px;">
-            <textarea id="arDescription" style="min-height:56px;" placeholder="Descrição / Description"></textarea>
+            <textarea id="arDescription" style="min-height:56px;" data-ph-pt="Descrição" data-ph-en="Description" placeholder="Descrição"></textarea>
           </div>
           <div id="arContactFields">
             <div class="field-group" style="margin-bottom:12px;">
-              <input type="text" id="arContactName" placeholder="Nome do contato / Contact name">
+              <input type="text" id="arContactName" data-ph-pt="Nome do contato" data-ph-en="Contact name" placeholder="Nome do contato">
             </div>
             <div style="display:flex;gap:12px;margin-bottom:12px;">
               <div class="field-group" style="flex:1;">
@@ -2600,10 +2600,11 @@
       <div class="modal-body">
         <div class="field-group">
           <select id="ssClientSelect" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:var(--surface);appearance:none;-webkit-appearance:none;cursor:pointer;">
-            <option value="">
-              <span class="show-pt">— selecionar cliente —</span>
-              <span class="show-en">— select client —</span>
-            </option>
+            <!-- An <option> cannot hold spans: the browser strips the markup
+                 and renders BOTH languages as plain text. Data attributes and
+                 applyBilingualAttrs() are the only mechanism that works here. -->
+            <option value="" data-opt-pt="— selecionar cliente —"
+                    data-opt-en="— select client —">— selecionar cliente —</option>
           </select>
         </div>
         <div class="field-group">
@@ -2611,7 +2612,7 @@
         </div>
         <div class="field-group">
           <select id="ssTime" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:var(--surface);">
-            <option value="">— horário / time —</option>
+            <option value="" data-opt-pt="— horário —" data-opt-en="— time —">— horário —</option>
             <option value="06:00">6:00 AM</option>
             <option value="06:30">6:30 AM</option>
             <option value="07:00">7:00 AM</option>
@@ -2667,7 +2668,7 @@
           </div>
         </div>
         <div class="field-group">
-          <textarea id="ssNotes" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:var(--surface);resize:vertical;min-height:80px;line-height:1.5;" placeholder="Notas (opcional) / Notes (optional)"></textarea>
+          <textarea id="ssNotes" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:var(--surface);resize:vertical;min-height:80px;line-height:1.5;" data-ph-pt="Notas (opcional)" data-ph-en="Notes (optional)" placeholder="Notas (opcional)"></textarea>
         </div>
         <button class="btn-primary" id="btnScheduleSubmit" onclick="handleScheduleSession()">
           <span class="show-pt">Agendar</span>
@@ -2821,7 +2822,7 @@
           <span class="show-pt">Pacote (obrigatório)</span><span class="show-en">Package (required)</span>
         </label>
         <select id="convertPackage" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--surface);color:var(--text);margin-bottom:14px;">
-          <option value="">-- Pacote / Package --</option>
+          <option value="" data-opt-pt="-- Pacote --" data-opt-en="-- Package --">-- Pacote --</option>
         </select>
         <button class="btn-primary" style="width:100%;" onclick="confirmConvertLead()">
           <span class="show-pt">Confirmar</span><span class="show-en">Confirm</span>
@@ -3316,7 +3317,7 @@
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
-        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
     }
 
@@ -3461,7 +3462,7 @@
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
-        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
     }
 
@@ -3628,7 +3629,7 @@
 
     function openFieldConfigModal() {
       document.getElementById("fieldConfigList").innerHTML =
-        '<div style="color:var(--muted);font-size:13px;padding:10px;">Carregando...</div>';
+        '<div style="color:var(--muted);font-size:13px;padding:10px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>';
       document.getElementById("fieldConfigStatus").textContent = "";
       document.getElementById("modalFieldConfig").hidden = false;
       apiFetch("/api/clients/" + CLIENT_ID + "/field-config")
@@ -3665,7 +3666,7 @@
             escHtml(isEnLang ? ind.label_en : ind.label_pt) +
             (isComputed ? ' <span style="color:var(--muted);font-size:11px;">(autom&aacute;tico)</span>' : '') +
             '</label>' +
-            '<input type="number" step="any" id="fc_meta_' + ind.key + '" placeholder="Meta" ' +
+            '<input type="number" step="any" id="fc_meta_' + ind.key + '" data-ph-pt="Meta" data-ph-en="Target" placeholder="Meta" ' +
             'value="' + (ind.meta_mensal === null || ind.meta_mensal === undefined ? "" : ind.meta_mensal) + '" ' +
             'style="width:90px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-family:\'Inter\',sans-serif;font-size:13px;">' +
             '</div>';
@@ -3979,19 +3980,21 @@
           '</div></div>' +
           '<div style="font-size:15px;font-weight:700;' + (neg ? 'color:#b44040;' : 'color:#C9A43A;') + '">' +
           formatGrowthPct(en.growth_percent) + '</div>' +
-          '<button class="btn-add" style="flex:none;" onclick="editGrowthEntry(\'' + escHtml(en.month_label) + '\')" title="Editar / Edit">&#9998;</button>' +
+          '<button class="btn-add" style="flex:none;" onclick="editGrowthEntry(\'' + escHtml(en.month_label) + '\')" data-title-attr-pt="Editar" data-title-attr-en="Edit" title="Editar">&#9998;</button>' +
           '</div>';
       }
       container.innerHTML = html;
+      // Freshly injected nodes carry data-*-pt/-en but not the applied value.
+      applyBilingualAttrs(container);
     }
 
     var growthMode = "raw";    // 'raw' (line items) | 'direct' (% only)
 
     function growthItemRowHtml(label, value) {
       return '<div class="growth-item-row" style="display:flex;gap:8px;margin-bottom:6px;">' +
-        '<input type="text" class="growth-item-label" placeholder="Trabalho / Job" value="' + escHtml(label || "") + '" style="flex:1;min-width:0;margin:0;">' +
+        '<input type="text" class="growth-item-label" data-ph-pt="Trabalho" data-ph-en="Job" placeholder="Trabalho" value="' + escHtml(label || "") + '" style="flex:1;min-width:0;margin:0;">' +
         '<input type="number" class="growth-item-value" inputmode="decimal" step="any" min="0" placeholder="$" value="' + (value === 0 || value ? escHtml(String(value)) : "") + '" oninput="recalcGrowth()" style="width:110px;flex:none;margin:0;">' +
-        '<button type="button" class="modal-close" style="flex:none;" onclick="this.parentNode.parentNode.removeChild(this.parentNode); recalcGrowth();" title="Remover / Remove">&times;</button>' +
+        '<button type="button" class="modal-close" style="flex:none;" onclick="this.parentNode.parentNode.removeChild(this.parentNode); recalcGrowth();" data-title-attr-pt="Remover" data-title-attr-en="Remove" title="Remover">&times;</button>' +
         '</div>';
     }
 
@@ -4190,7 +4193,7 @@
           initLeadPipeline(clientData);
         })
         .catch(function(e) {
-          document.getElementById("clientName").textContent = "Cliente não encontrado";
+          document.getElementById("clientName").textContent = t("Cliente não encontrado", "Client not found");
           console.error("Load client error:", e.message);
         });
     }
@@ -4224,7 +4227,7 @@
         })
         .catch(function(e) {
           document.getElementById("sessionsSection").innerHTML =
-            '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar sessões.</div>';
+            '<div style="padding:20px;color:#b44040;font-size:13px;">' + t("Erro ao carregar sessões.", "Could not load sessions.") + '</div>';
           console.error("Load sessions error:", e.message);
         });
     }
@@ -4748,27 +4751,30 @@
       }
     }
 
-    // The shared language toggle (apexNavToggleLang in nav.js) only swaps a
-    // body class — CSS handles show-pt/show-en, but text written by JS has no
-    // way to know the language changed. Watch the class attribute so these
-    // dropdowns (and the lead checklist) re-render live on toggle, not just on
-    // page load. Scoped here rather than added to nav.js, which every page shares.
+    // nav.js now announces the language change (apex:langchange) instead of
+    // silently swapping a body class, so this listens for the event rather
+    // than watching the class attribute through a MutationObserver. Same
+    // contract as everywhere else: re-render from cached data, never refetch.
     var leadLangObserverStarted = false;
     function initLeadLangObserver() {
-      if (leadLangObserverStarted || !window.MutationObserver) { return; }
+      if (leadLangObserverStarted) { return; }
       leadLangObserverStarted = true;
-      var lastEn = document.body.classList.contains("lang-en");
-      new MutationObserver(function() {
-        var nowEn = document.body.classList.contains("lang-en");
-        if (nowEn === lastEn) { return; }            // unrelated class change
-        lastEn = nowEn;
+      document.addEventListener("apex:langchange", function () {
+        // Placeholders and <option> labels carry both languages as data
+        // attributes; they are not spans and need an explicit swap.
+        applyBilingualAttrs();
         renderContactLogOptions();
         renderLeadHero();
         renderLeadContactActions();
         renderNextStep();
         if (lastLeadChecklist) { renderLeadChecklist(lastLeadChecklist); }
         if (lastContactLogEntries) { renderContactLog(lastContactLogEntries); }
-      }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+        // The page title is built from the client's name, so it is rebuilt
+        // here rather than through nav.js's data-title-pt/-en swap.
+        if (clientData) {
+          document.title = "Apex — " + (clientData.name || t("Cliente", "Client"));
+        }
+      });
     }
 
     // ── Call / WhatsApp: reach out and log in one tap ──────────────────────
@@ -4892,7 +4898,7 @@
       if (!digits) { return; }
       var waTab = window.open("https://wa.me/" + digits, "_blank");
       if (!waTab) {
-        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
       openContactLogModal("WhatsApp");
     }
@@ -4970,7 +4976,7 @@
           convertPackagesLoaded = true;
           var newPkgs    = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
           var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
-          var html = '<option value="">-- Pacote / Package --</option>';
+          var html = '<option value="" data-opt-pt="-- Pacote --" data-opt-en="-- Package --">-- Pacote --</option>';
           for (var i = 0; i < newPkgs.length; i++) {
             html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' + escHtml(newPkgs[i].short_name) + "</option>";
           }
@@ -5022,7 +5028,7 @@
 
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
-      document.title = "Apex — " + (client.name || "Cliente");
+      document.title = "Apex — " + (client.name || t("Cliente", "Client"));
 
       // Deep link into this client's analytics with them pre-selected.
       var caBtn = document.getElementById("btnClientAnalytics");
@@ -5078,7 +5084,9 @@
       if (canEdit) {
         var editBtn = document.createElement("button");
         editBtn.className = "pkg-edit-btn";
-        editBtn.title = "Editar pacote / Edit package";
+        editBtn.setAttribute("data-title-attr-pt", "Editar pacote");
+        editBtn.setAttribute("data-title-attr-en", "Edit package");
+        editBtn.title = t("Editar pacote", "Edit package");
         editBtn.textContent = "✎";
         editBtn.onclick = function() { openPackageEdit(client.package || ""); };
         pkgWrap.appendChild(editBtn);
@@ -5101,7 +5109,9 @@
       if (canEdit) {
         var statusEditBtn = document.createElement("button");
         statusEditBtn.className = "status-edit-btn";
-        statusEditBtn.title = "Editar status / Edit status";
+        statusEditBtn.setAttribute("data-title-attr-pt", "Editar status");
+        statusEditBtn.setAttribute("data-title-attr-en", "Edit status");
+        statusEditBtn.title = t("Editar status", "Edit status");
         statusEditBtn.textContent = "✎";
         (function(sv) {
           statusEditBtn.onclick = function() { openStatusEdit(sv); };
@@ -5210,7 +5220,9 @@
         loz.textContent = (clientData && clientData.package) ? clientData.package : "—";
         var editBtn = document.createElement("button");
         editBtn.className = "pkg-edit-btn";
-        editBtn.title = "Editar pacote / Edit package";
+        editBtn.setAttribute("data-title-attr-pt", "Editar pacote");
+        editBtn.setAttribute("data-title-attr-en", "Edit package");
+        editBtn.title = t("Editar pacote", "Edit package");
         editBtn.textContent = "✎";
         editBtn.onclick = function() { openPackageEdit(clientData ? clientData.package || "" : ""); };
         pkgWrap.appendChild(loz);
@@ -5230,7 +5242,9 @@
             loz.textContent = (clientData && clientData.package) ? clientData.package : "—";
             var editBtn = document.createElement("button");
             editBtn.className = "pkg-edit-btn";
-            editBtn.title = "Editar pacote / Edit package";
+            editBtn.setAttribute("data-title-attr-pt", "Editar pacote");
+        editBtn.setAttribute("data-title-attr-en", "Edit package");
+        editBtn.title = t("Editar pacote", "Edit package");
             editBtn.textContent = "✎";
             editBtn.onclick = function() { openPackageEdit(clientData ? clientData.package || "" : ""); };
             pkgWrap.appendChild(loz);
@@ -5462,7 +5476,7 @@
         var row = ptState.customRows[i];
         html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">';
         html += '<input type="number" class="form-input" style="width:120px;" min="0" step="0.01" value="' + (row.amount || 0) + '" data-idx="' + i + '" data-field="amount" onchange="onPtCustomRowChange(this)">';
-        html += '<input type="text" class="form-input" placeholder="rótulo (opcional) / label (optional)" value="' + (row.label || "").replace(/"/g, "&quot;") + '" data-idx="' + i + '" data-field="label" onchange="onPtCustomRowChange(this)">';
+        html += '<input type="text" class="form-input" data-ph-pt="rótulo (opcional)" data-ph-en="label (optional)" placeholder="rótulo (opcional)" value="' + (row.label || "").replace(/"/g, "&quot;") + '" data-idx="' + i + '" data-field="label" onchange="onPtCustomRowChange(this)">';
         html += '<button type="button" class="item-row-remove" onclick="removePtCustomRow(' + i + ')">&times;</button>';
         html += '</div>';
       }
@@ -5620,7 +5634,9 @@
             loz.setAttribute("data-status", newStatus);
             var btn = document.createElement("button");
             btn.className = "status-edit-btn";
-            btn.title = "Editar status / Edit status";
+            btn.setAttribute("data-title-attr-pt", "Editar status");
+            btn.setAttribute("data-title-attr-en", "Edit status");
+            btn.title = t("Editar status", "Edit status");
             btn.textContent = "✎";
             (function(sv) {
               btn.onclick = function() { openStatusEdit(sv); };
@@ -5645,7 +5661,9 @@
             loz.setAttribute("data-status", curStatus);
             var btn = document.createElement("button");
             btn.className = "status-edit-btn";
-            btn.title = "Editar status / Edit status";
+            btn.setAttribute("data-title-attr-pt", "Editar status");
+            btn.setAttribute("data-title-attr-en", "Edit status");
+            btn.title = t("Editar status", "Edit status");
             btn.textContent = "✎";
             (function(sv) {
               btn.onclick = function() { openStatusEdit(sv); };
@@ -5767,7 +5785,7 @@
           }
 
           if (canEdit && field.editable) {
-            valEl.title = "Clique para editar / Click to edit";
+            valEl.title = t("Clique para editar", "Click to edit");
             if (field.key === "_sourceType") {
               valEl.onclick = function() { startSourceTypeEdit(client, valEl); };
             } else if (field.key === "_sourceDetail") {
@@ -5903,7 +5921,7 @@
         var newEl = document.createElement("div");
         newEl.className = "overview-value";
         newEl.setAttribute("data-field", "_sourceType");
-        newEl.title = "Clique para editar / Click to edit";
+        newEl.title = t("Clique para editar", "Click to edit");
         newEl.onclick = function() { startSourceTypeEdit(client, newEl); };
         fillSourceValue("_sourceType", client, newEl);
         sel.replaceWith(newEl);
@@ -5968,7 +5986,7 @@
           var newEl = document.createElement("div");
           newEl.className = "overview-value";
           newEl.setAttribute("data-field", "_sourceDetail");
-          newEl.title = "Clique para editar / Click to edit";
+          newEl.title = t("Clique para editar", "Click to edit");
           newEl.onclick = function() { startSourceDetailEdit(client, newEl); };
           fillSourceValue("_sourceDetail", client, newEl);
           sel.replaceWith(newEl);
@@ -6023,7 +6041,7 @@
         var newEl = document.createElement("div");
         newEl.className = "overview-value";
         newEl.setAttribute("data-field", "_sourceDetail");
-        newEl.title = "Clique para editar / Click to edit";
+        newEl.title = t("Clique para editar", "Click to edit");
         newEl.onclick = function() { startSourceDetailEdit(client, newEl); };
         fillSourceValue("_sourceDetail", client, newEl);
         input.replaceWith(newEl);
@@ -6083,7 +6101,7 @@
             newValEl.className = "overview-value" + (newVal ? "" : " is-empty");
             newValEl.setAttribute("data-field", fieldKey);
             newValEl.textContent = newVal || "—";
-            newValEl.title = "Clique para editar / Click to edit";
+            newValEl.title = t("Clique para editar", "Click to edit");
             newValEl.onclick = function() { startOverviewEdit(fieldKey, client, newValEl); };
             input.replaceWith(newValEl);
           })
@@ -6093,7 +6111,7 @@
             revertEl.className = "overview-value" + (current ? "" : " is-empty");
             revertEl.setAttribute("data-field", fieldKey);
             revertEl.textContent = current || "—";
-            revertEl.title = "Clique para editar / Click to edit";
+            revertEl.title = t("Clique para editar", "Click to edit");
             revertEl.onclick = function() { startOverviewEdit(fieldKey, client, revertEl); };
             input.replaceWith(revertEl);
           });
@@ -6108,7 +6126,7 @@
           revertEl.className = "overview-value" + (current ? "" : " is-empty");
           revertEl.setAttribute("data-field", fieldKey);
           revertEl.textContent = current || "—";
-          revertEl.title = "Clique para editar / Click to edit";
+          revertEl.title = t("Clique para editar", "Click to edit");
           revertEl.onclick = function() { startOverviewEdit(fieldKey, client, revertEl); };
           input.replaceWith(revertEl);
         }
@@ -6128,7 +6146,7 @@
           '<div class="empty-icon">📅</div>' +
           '<div class="empty-title show-pt">Nenhuma sessão ainda</div>' +
           '<div class="empty-title show-en" style="display:none;">No sessions yet</div>' +
-          '<div class="empty-helper show-pt">Sessões, resumos e documentos aparecerao aqui após a primeira sessão.</div>' +
+          '<div class="empty-helper show-pt">Sessões, resumos e documentos aparecerão aqui após a primeira sessão.</div>' +
           '<div class="empty-helper show-en" style="display:none;">Sessions, summaries and documents will appear here after the first session.</div>';
         var ctaBtn = document.createElement("button");
         ctaBtn.className = "btn-cta";
@@ -6514,7 +6532,7 @@
     function renderSummaryCards(container, summary) {
       container.innerHTML = "";
       if (!summary) {
-        container.innerHTML = '<p style="color:var(--muted);font-size:13px;">Resumo não disponível.</p>';
+        container.innerHTML = '<p style="color:var(--muted);font-size:13px;">' + t("Resumo não disponível.", "No summary available.") + '</p>';
         return;
       }
 
@@ -6570,7 +6588,7 @@
       var btn        = document.getElementById("btnSaveSession");
 
       if (!transcript) {
-        statusEl.textContent = "O transcript é obrigatório.";
+        statusEl.textContent = t("O transcript é obrigatório.", "The transcript is required.");
         statusEl.className   = "pull-status is-error";
         return;
       }
@@ -6586,7 +6604,7 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          statusEl.textContent = "Sessão salva.";
+          statusEl.textContent = t("Sessão salva.", "Session saved.");
           statusEl.className   = "pull-status is-ok";
           setTimeout(function() {
             closeModalById("modalNewSession");
@@ -6616,7 +6634,7 @@
         pdfData = session.pdf_data ? JSON.parse(session.pdf_data) : null;
       } catch (e) {
         if (statusEl) {
-          statusEl.textContent = "Erro: não foi possível ler pdf_data.";
+          statusEl.textContent = t("Erro: não foi possível ler pdf_data.", "Error: could not read pdf_data.");
           statusEl.className   = "pdf-status is-error";
         }
         return;
@@ -6677,7 +6695,7 @@
         newTab.postMessage({ type: "apex-report-data", payload: data }, "https://apex.resonateai.online");
         if (btnEl) { btnEl.disabled = false; }
         if (statusEl) {
-          statusEl.textContent = "Diálogo de impressão aberto.";
+          statusEl.textContent = t("Diálogo de impressão aberto.", "Print dialog opened.");
           statusEl.className   = "pdf-status is-ok";
         }
       }
@@ -6903,7 +6921,7 @@
       var btn      = document.getElementById("btnSaveNote");
 
       if (!content) {
-        statusEl.textContent = "A nota não pode estar vazia.";
+        statusEl.textContent = t("A nota não pode estar vazia.", "The note cannot be empty.");
         statusEl.className   = "pull-status is-error";
         return;
       }
@@ -7413,7 +7431,7 @@
         })
         .catch(function() {
           document.getElementById("dpSection").innerHTML =
-            '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar presença digital.</div>';
+            '<div style="padding:20px;color:#b44040;font-size:13px;">' + t("Erro ao carregar presença digital.", "Could not load digital presence.") + '</div>';
         });
     }
 
@@ -7831,7 +7849,7 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           var clients = (data.clients || []).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
-          sel.innerHTML = '<option value="">— selecionar / select —</option>';
+          sel.innerHTML = '<option value="">' + t("— selecionar —", "— select —") + '</option>';
           for (var i = 0; i < clients.length; i++) {
             var opt = document.createElement("option");
             opt.value = clients[i].id;
@@ -7845,7 +7863,7 @@
         })
         .catch(function() {
           // Fallback: just show current client
-          sel.innerHTML = '<option value="">— selecionar / select —</option>';
+          sel.innerHTML = '<option value="">' + t("— selecionar —", "— select —") + '</option>';
           if (clientData) {
             var opt = document.createElement("option");
             opt.value = CLIENT_ID;
@@ -7877,7 +7895,7 @@
       var btn       = document.getElementById("btnScheduleSubmit");
 
       if (!clientId || !date || !time) {
-        if (statusEl) { statusEl.textContent = "Cliente, data e hora sao obrigatorios. / Client, date and time are required."; statusEl.className = "pull-status is-error"; }
+        if (statusEl) { statusEl.textContent = t("Cliente, data e hora são obrigatórios.", "Client, date and time are required."); statusEl.className = "pull-status is-error"; }
         return;
       }
       if (btn) { btn.disabled = true; }
@@ -7944,6 +7962,67 @@
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    // Language helpers. Function-call form works inside computed strings,
+    // where a .show-pt/.show-en span pair cannot go — status messages, toasts
+    // and document.title all need this.
+    function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+    // Placeholders and <option> labels can't hold spans either, so they carry
+    // both strings as data attributes and get swapped on toggle. Applied on
+    // load and again from the apex:langchange listener.
+    function applyBilingualAttrs(root) {
+      var scope = root || document;
+      var en = isEn();
+      // querySelectorAll skips the root itself, so an injected node that
+      // carries the attributes directly would be missed.
+      if (root && root.nodeType === 1 && root.hasAttribute("data-ph-pt")) {
+        root.setAttribute("placeholder", root.getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      if (root && root.nodeType === 1 && root.hasAttribute("data-title-attr-pt")) {
+        root.setAttribute("title", root.getAttribute(en ? "data-title-attr-en" : "data-title-attr-pt"));
+      }
+      if (root && root.nodeType === 1 && root.hasAttribute("data-opt-pt")) {
+        root.textContent = root.getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+      var phs = scope.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < phs.length; i++) {
+        phs[i].setAttribute("placeholder",
+          phs[i].getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      var opts = scope.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var j = 0; j < opts.length; j++) {
+        opts[j].textContent = opts[j].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+      // Tooltips: title="" is an attribute, so it cannot hold spans either.
+      var tips = scope.querySelectorAll("[data-title-attr-pt][data-title-attr-en]");
+      for (var k = 0; k < tips.length; k++) {
+        tips[k].setAttribute("title",
+          tips[k].getAttribute(en ? "data-title-attr-en" : "data-title-attr-pt"));
+      }
+    }
+
+    // Nineteen render functions inject markup carrying these attributes, and
+    // an innerHTML write produces nodes with the PT default still applied.
+    // Rather than remembering to call applyBilingualAttrs() at every one of
+    // those call sites — which the next new render would silently miss — watch
+    // for added nodes and fix them up. Cheap: it only queries subtrees that
+    // actually changed, and only while EN is active.
+    function initBilingualAttrObserver() {
+      if (!window.MutationObserver) { return; }
+      new MutationObserver(function (muts) {
+        if (!isEn()) { return; }        // PT is the authored default already
+        for (var i = 0; i < muts.length; i++) {
+          var added = muts[i].addedNodes;
+          for (var j = 0; j < added.length; j++) {
+            if (added[j].nodeType === 1) { applyBilingualAttrs(added[j]); }
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    }
 
     function escHtml(str) {
       return (str || "")
@@ -8067,6 +8146,11 @@
     // ── Bootstrap ──────────────────────────────────────────────────────────
     window.onload = function() {
       initHeroBg('clientHeroBg', 'clientHeroScrim');
+      // Placeholders and <option>s exist across the whole page, not just the
+      // lead panel, so the swap and the toggle listener are wired at boot.
+      applyBilingualAttrs();
+      initBilingualAttrObserver();
+      initLeadLangObserver();
       init();
       // Fetch live package list in the background; fail silently to PACKAGE_OPTIONS_FALLBACK
       loadLivePackageList()

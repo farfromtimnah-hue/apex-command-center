@@ -18471,6 +18471,505 @@ async function handlePostFinanceNewTransferReject(request, env) {
 }
 
 // ===========================================================================
+// FIXED BILLS + THE FORWARD VIEW.
+//
+// This is the reason the tool exists: "will there be enough to pay Rafa this
+// month, and when is it tight?"
+//
+// Apex has an advantage no consumer budgeting app has -- the invoices and the
+// client terms live in the same database as the bank feed, so future income
+// has real dates attached rather than being guessed from a trailing average.
+//
+// WORKS WITH INCOMPLETE DATA. Terms are entered as clients are set up, so the
+// answer must degrade honestly: say what is not yet known instead of going
+// blank or, worse, printing a confident wrong number. Every figure below
+// carries how it was derived.
+// ===========================================================================
+
+async function handleGetFinanceNewBills(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT * FROM fixed_bills WHERE active = 1 ORDER BY day_of_month, name"
+        ).all();
+        return jsonOk({ bills: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching bills: " + e.message, 500);
+    }
+}
+
+async function handlePostFinanceNewBill(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        if (body.delete_id) {
+            await env.DB.prepare("UPDATE fixed_bills SET active = 0 WHERE id = ?").bind(body.delete_id).run();
+            return jsonOk({ deleted: true });
+        }
+
+        var name = String(body.name || "").trim();
+        var cents = Math.round(Number(body.amount_cents));
+        var day = Math.round(Number(body.day_of_month));
+        if (!name) { return jsonErr("name required", 400); }
+        if (!isFinite(cents) || cents <= 0) { return jsonErr("amount must be positive", 400); }
+        if (!isFinite(day) || day < 1 || day > 31) { return jsonErr("day_of_month must be 1-31", 400); }
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO fixed_bills (id, name, amount_cents, day_of_month, purpose, notes, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            id, name, cents, day,
+            body.purpose === "business" ? "business" : "personal",
+            body.notes || null, actorName(user)
+        ).run();
+
+        return jsonOk({ id: id });
+    } catch (e) {
+        return jsonErr("Error saving bill: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/bills/suggestions — alice/rafa/developer only.
+//
+// The fixed-bills table ships empty and stays empty until Alice puts
+// something in it. Nothing is seeded: a bill is a real financial commitment
+// belonging to a real person, and the app has no business asserting what
+// anyone pays or to whom.
+//
+// But leaving her to type a dozen bills from memory is its own kind of
+// "demands time before it gives you anything", so this reads HER OWN
+// transaction history and proposes what looks recurring. Same contract as
+// invoice matching and the Apex Club P&L: suggest, never assert. Nothing
+// reaches fixed_bills without her pressing the button.
+//
+// A merchant qualifies when it has charged in at least 3 distinct months with
+// a stable amount and a stable day. That is deliberately strict -- a wrong
+// suggestion here quietly corrupts the forward view, which is the one number
+// she is meant to be able to trust.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewBillSuggestions(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT t.merchant_normalized AS m, t.amount_cents, t.date, a.purpose " +
+            "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+            "WHERE t.amount_cents < 0 AND t.is_transfer = 0 " +
+            "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+            "AND t.merchant_normalized IS NOT NULL AND t.merchant_normalized != '' " +
+            "AND t.date >= date('now', '-180 day')"
+        ).all();
+
+        // Anything already tracked is not a suggestion. Matched on name so a
+        // bill she typed by hand still suppresses the prompt for it.
+        var existing = await env.DB.prepare(
+            "SELECT UPPER(name) AS n FROM fixed_bills WHERE active = 1"
+        ).all();
+        var taken = {};
+        (existing.results || []).forEach(function(b) { taken[b.n] = true; });
+
+        var groups = {};
+        (rows.results || []).forEach(function(r) {
+            var g = groups[r.m] || (groups[r.m] = { amounts: [], days: [], months: {}, purpose: r.purpose });
+            g.amounts.push(Math.abs(r.amount_cents));
+            g.days.push(Number(String(r.date).slice(8, 10)));
+            g.months[String(r.date).slice(0, 7)] = true;
+        });
+
+        var out = [];
+        Object.keys(groups).forEach(function(name) {
+            var g = groups[name];
+            var monthCount = Object.keys(g.months).length;
+            // Two separate months is the minimum that can distinguish a
+            // recurring charge from a one-off. Three would be safer, but the
+            // Plaid history floor is 2026-07-01 and no merchant on this feed
+            // has three months yet -- a threshold nothing can reach is not
+            // caution, it is a feature that silently does nothing. The
+            // stability tests below carry the precision instead, and
+            // months_seen is returned so she can weigh it herself.
+            if (monthCount < 2) { return; }
+            if (taken[name.toUpperCase()]) { return; }
+
+            var median = function(arr) {
+                var s = arr.slice().sort(function(a, b) { return a - b; });
+                return s[Math.floor(s.length / 2)];
+            };
+            var medAmount = median(g.amounts);
+            var medDay = median(g.days);
+            if (!medAmount) { return; }
+
+            // Stability tests. A subscription that varies wildly month to
+            // month is not a fixed bill, and a charge that lands on a
+            // different day each time cannot be placed on a calendar.
+            var amountSpread = Math.max.apply(null, g.amounts) - Math.min.apply(null, g.amounts);
+            if (amountSpread > medAmount * 0.15) { return; }
+
+            var daySpread = Math.max.apply(null, g.days) - Math.min.apply(null, g.days);
+            if (daySpread > 5) { return; }
+
+            out.push({
+                name: name,
+                amount_cents: medAmount,
+                day_of_month: medDay,
+                purpose: g.purpose === "business" ? "business" : "personal",
+                months_seen: monthCount,
+                confidence: monthCount >= 3 && amountSpread === 0 ? "high" : "medium"
+            });
+        });
+
+        out.sort(function(a, b) { return b.amount_cents - a.amount_cents; });
+        return jsonOk({ suggestions: out });
+    } catch (e) {
+        return jsonErr("Error building bill suggestions: " + e.message, 500);
+    }
+}
+
+// A day-of-month clamped into a specific month: the 31st in February is the
+// 28th, not a rollover into March.
+function billDateFor(year, monthIdx, day) {
+    var last = new Date(Date.UTC(year, monthIdx + 1, 0)).getUTCDate();
+    var d = Math.min(day, last);
+    return year + "-" + String(monthIdx + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+}
+
+// Variable spending she cannot avoid but which is never the same twice:
+// groceries, fuel, restaurants. Estimated from HER OWN history rather than a
+// national average -- and reported as an estimate, with the sample size, so
+// she can see how much to trust it.
+async function estimateVariableSpend(env, purpose) {
+    var rows = await env.DB.prepare(
+        "SELECT t.date, t.amount_cents FROM transactions t " +
+        "JOIN accounts a ON a.id = t.account_id " +
+        "WHERE a.purpose = ? AND t.amount_cents < 0 AND t.is_transfer = 0 " +
+        "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+        "AND t.date >= date('now', '-90 day')"
+    ).bind(purpose).all();
+
+    var txns = rows.results || [];
+    if (!txns.length) { return { known: false, monthly_cents: 0, months: 0, sample: 0 }; }
+
+    // Group by month so a partial current month cannot drag the average down.
+    var byMonth = {};
+    txns.forEach(function(t) {
+        var k = String(t.date).slice(0, 7);
+        byMonth[k] = (byMonth[k] || 0) + Math.abs(t.amount_cents);
+    });
+
+    var keys = Object.keys(byMonth).sort();
+    var thisMonth = new Date().toISOString().slice(0, 7);
+    var complete = keys.filter(function(k) { return k !== thisMonth; });
+
+    // A single partial month is not a basis for a monthly figure.
+    if (!complete.length) { return { known: false, monthly_cents: 0, months: 0, sample: txns.length }; }
+
+    var total = complete.reduce(function(s, k) { return s + byMonth[k]; }, 0);
+    return {
+        known: true,
+        monthly_cents: Math.round(total / complete.length),
+        months: complete.length,
+        sample: txns.length
+    };
+}
+
+// Expected income with REAL DATES, from open invoices and client terms.
+//
+// recurrence_never_ends = 1 is a SCHEMA DEFAULT on rows where terms were never
+// entered, not a statement that the client pays forever. Treating it as a
+// business fact would invent income for clients whose terms are blank, so a
+// row only contributes when it carries an actual amount and cadence.
+async function projectExpectedIncome(env, fromIso, toIso) {
+    var items = [];
+    var unknownClients = [];
+
+    // 1. Open invoices already issued: the most certain future income there
+    //    is -- a real amount, a real due date, already sent.
+    var invRes = await env.DB.prepare(
+        "SELECT i.id, i.number, i.amount_cents, i.due_at, c.name AS client_name, " +
+        "COALESCE((SELECT SUM(p.amount_cents) FROM invoice_payments p " +
+        " WHERE p.invoice_id = i.id AND p.undone_at IS NULL), 0) AS paid_cents " +
+        "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id " +
+        "WHERE i.status = 'sent'"
+    ).all();
+
+    (invRes.results || []).forEach(function(inv) {
+        var remaining = (inv.amount_cents || 0) - (inv.paid_cents || 0);
+        if (remaining <= 0) { return; }
+        var due = inv.due_at || fromIso;
+        // An invoice already past due is still expected -- it has not been
+        // written off -- so it lands at the start of the window rather than
+        // disappearing from the forecast.
+        var when = due < fromIso ? fromIso : due;
+        if (when > toIso) { return; }
+        items.push({
+            date: when,
+            amount_cents: remaining,
+            label: inv.client_name || inv.number,
+            source: "invoice",
+            certainty: "issued"
+        });
+    });
+
+    // 2. Recurring terms for clients with no open invoice yet.
+    var termRes = await env.DB.prepare(
+        "SELECT t.*, c.name AS client_name, c.status AS client_status, " +
+        "c.package_started_at AS package_started_at " +
+        "FROM client_package_terms t LEFT JOIN clients c ON c.id = t.client_id"
+    ).all();
+
+    // Clients who already have an open invoice in the window are covered by
+    // it. Adding their recurring term on top would count the same money
+    // twice -- Prime Group's $997 appeared both as the open invoice and as a
+    // fresh term instalment on the same day.
+    var invoicedClients = {};
+    (invRes.results || []).forEach(function(inv) {
+        if (inv.client_name) { invoicedClients[inv.client_name] = true; }
+    });
+
+    (termRes.results || []).forEach(function(t) {
+        if (t.client_status && t.client_status !== "active") { return; }
+
+        var amount = t.installment_amount || t.adjusted_total || t.base_total || 0;
+        var unit = t.recurrence_unit;
+        var interval = t.recurrence_interval;
+
+        // No amount or no cadence means the terms were never really filled
+        // in. Named as unknown rather than silently skipped -- an absent
+        // client is exactly what makes a forecast quietly wrong.
+        if (!amount || !unit || !interval) {
+            unknownClients.push(t.client_name || t.client_id);
+            return;
+        }
+
+        var unitName = String(unit).replace(/s$/, "");   // "months" -> "month"
+
+        // Start one full interval after the client's last actual payment,
+        // NOT today. Starting every client at fromIso dropped a quarter's
+        // income into day one and produced a forecast that looked far
+        // healthier than reality: six clients "paid" $5,654 this morning.
+        var lastPaid = t.package_started_at || null;
+        var cursor;
+        if (lastPaid) {
+            cursor = addInterval(String(lastPaid).slice(0, 10), interval, unitName);
+            var spin = 0;
+            while (cursor < fromIso && spin++ < 60) {
+                cursor = addInterval(cursor, interval, unitName);
+            }
+        } else {
+            // No start date on file: place the first expected payment one
+            // interval out rather than today, so an unknown cadence cannot
+            // masquerade as money already in hand.
+            cursor = addInterval(fromIso, interval, unitName);
+        }
+
+        // A client already carrying an open invoice is represented by that
+        // invoice for this cycle; their term picks up afterwards.
+        if (invoicedClients[t.client_name]) {
+            cursor = addInterval(cursor, interval, unitName);
+        }
+
+        var guard = 0;
+        while (cursor <= toIso && guard++ < 24) {
+            items.push({
+                date: cursor,
+                amount_cents: Math.round(amount * 100),
+                label: t.client_name || t.client_id,
+                source: "terms",
+                certainty: "expected"
+            });
+            cursor = addInterval(cursor, interval, unitName);
+        }
+    });
+
+    items.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+    return { items: items, unknown_clients: unknownClients };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/forward — alice/rafa/developer only.
+//
+// Walks the next 90 days day by day from today's AVAILABLE balance (not the
+// balance -- available is what can actually be spent), applying fixed bills,
+// the variable estimate spread evenly, and expected income on its real dates.
+//
+// Returns the answer as a SENTENCE plus the series behind it. The sentence is
+// the product; the chart underneath is the evidence.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewForward(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var today = new Date().toISOString().slice(0, 10);
+        var horizon = addInterval(today, 90, "day");
+
+        var acctRes = await env.DB.prepare(
+            "SELECT purpose, balance_cents, available_cents FROM accounts WHERE status = 'active'"
+        ).all();
+        var accounts = acctRes.results || [];
+
+        // Start from available where the bank reports it. Balance is the
+        // optimistic figure and starting a runway calculation from it is how
+        // a forecast ends up cheerfully wrong.
+        //
+        // BUSINESS ONLY. The two accounts are separate purses: client income
+        // lands in the business account and Rafa's pay comes out of it, so
+        // "will there be enough to pay Rafa" is a question about that account
+        // alone. Summing them would let a personal overdraft (currently
+        // -$2,477) swallow the business position and answer a question nobody
+        // asked -- and would make the business look broke on a month it is
+        // fine. The personal side is reported separately below.
+        var startCents = 0;
+        var usedAvailable = true;
+        var personalCents = 0;
+        var personalKnown = false;
+
+        accounts.forEach(function(a) {
+            var v = (a.available_cents !== null && a.available_cents !== undefined)
+                ? a.available_cents : null;
+            if (a.purpose === "business") {
+                if (v === null) { startCents += a.balance_cents || 0; usedAvailable = false; }
+                else { startCents += v; }
+            } else {
+                personalKnown = true;
+                personalCents += (v === null ? (a.balance_cents || 0) : v);
+            }
+        });
+
+        // Business bills only, to match the business-only starting balance.
+        // Mixing a personal mortgage into the business runway would answer
+        // neither question correctly.
+        var billRes = await env.DB.prepare(
+            "SELECT * FROM fixed_bills WHERE active = 1 AND purpose = 'business'"
+        ).all();
+        var bills = billRes.results || [];
+
+        var allBillRes = await env.DB.prepare(
+            "SELECT purpose, COUNT(*) AS n, SUM(amount_cents) AS total " +
+            "FROM fixed_bills WHERE active = 1 GROUP BY purpose"
+        ).all();
+        var billsByPurpose = { business: { n: 0, total: 0 }, personal: { n: 0, total: 0 } };
+        (allBillRes.results || []).forEach(function(r) {
+            billsByPurpose[r.purpose] = { n: r.n, total: r.total || 0 };
+        });
+
+        var varBiz = await estimateVariableSpend(env, "business");
+        var varPer = await estimateVariableSpend(env, "personal");
+        var variableMonthly = varBiz.monthly_cents || 0;   // business walk
+        var variableDaily = Math.round(variableMonthly / 30);
+
+        var income = await projectExpectedIncome(env, today, horizon);
+
+        // Owner pay: money to the personal account is Rafa's pay. Tracked as
+        // its own line so the question stays "is the business generating
+        // enough to pay him consistently", never "why is money leaving".
+        var drawRes = await env.DB.prepare(
+            "SELECT t.date, t.amount_cents FROM transactions t " +
+            "JOIN accounts a ON a.id = t.account_id " +
+            "WHERE a.purpose = 'business' AND t.amount_cents < 0 " +
+            "AND t.date >= date('now', '-120 day') " +
+            "AND UPPER(COALESCE(t.merchant_normalized, '')) LIKE '%ALICE CORSINO%'"
+        ).all();
+        var draws = drawRes.results || [];
+        var drawTotal = draws.reduce(function(s, d) { return s + Math.abs(d.amount_cents); }, 0);
+        var drawMonths = {};
+        draws.forEach(function(d) { drawMonths[String(d.date).slice(0, 7)] = true; });
+        var drawMonthCount = Object.keys(drawMonths).length || 1;
+
+        // Day-by-day walk.
+        var series = [];
+        var running = startCents;
+        var lowest = { date: today, cents: running };
+        var firstNegative = null;
+        var cursor = today;
+        var guard = 0;
+
+        while (cursor <= horizon && guard++ < 400) {
+            var parts = cursor.split("-");
+            var y = Number(parts[0]), mIdx = Number(parts[1]) - 1, dNum = Number(parts[2]);
+
+            bills.forEach(function(b) {
+                if (billDateFor(y, mIdx, b.day_of_month) === cursor) { running -= b.amount_cents; }
+            });
+
+            income.items.forEach(function(it) {
+                if (it.date === cursor) { running += it.amount_cents; }
+            });
+
+            running -= variableDaily;
+
+            if (running < lowest.cents) { lowest = { date: cursor, cents: running }; }
+            if (running < 0 && !firstNegative) { firstNegative = cursor; }
+
+            series.push({ date: cursor, cents: running });
+            cursor = addInterval(cursor, 1, "day");
+        }
+
+        // How complete is the picture? Stated openly, because the honest
+        // answer to "will there be enough" sometimes is "I cannot tell yet".
+        var gaps = [];
+        if (!bills.length)                 { gaps.push("no_fixed_bills"); }
+        if (!varBiz.known)                 { gaps.push("no_variable_history"); }
+        if (income.unknown_clients.length) { gaps.push("clients_without_terms"); }
+        if (!usedAvailable)                { gaps.push("some_accounts_balance_only"); }
+
+        return jsonOk({
+            start_cents: startCents,
+            start_used_available: usedAvailable,
+            horizon_days: 90,
+            lowest: lowest,
+            first_negative_date: firstNegative,
+            end_cents: series.length ? series[series.length - 1].cents : startCents,
+            series: series,
+            scope: "business",
+            personal: {
+                known: personalKnown,
+                available_cents: personalCents,
+                fixed_bills_monthly_cents: billsByPurpose.personal.total,
+                variable_monthly_cents: varPer.monthly_cents || 0
+            },
+            fixed_bills: {
+                count: bills.length,
+                monthly_cents: bills.reduce(function(s, b) { return s + b.amount_cents; }, 0),
+                personal_count: billsByPurpose.personal.n
+            },
+            variable: {
+                monthly_cents: variableMonthly,
+                business: varBiz,
+                personal: varPer
+            },
+            expected_income: {
+                items: income.items,
+                total_cents: income.items.reduce(function(s, i) { return s + i.amount_cents; }, 0),
+                unknown_clients: income.unknown_clients
+            },
+            owner_pay: {
+                total_cents: drawTotal,
+                months: drawMonthCount,
+                monthly_avg_cents: Math.round(drawTotal / drawMonthCount),
+                payment_count: draws.length
+            },
+            gaps: gaps
+        });
+    } catch (e) {
+        return jsonErr("Error building forward view: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
 // APEX CLUB — event-scoped P&L.
 //
 // A dinner with a guest speaker, roughly monthly. $50 per person, $75 per
@@ -20427,6 +20926,10 @@ export default {
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
         if (path === "/api/finance-new/backfill-merchants" && method === "POST") { return handlePostFinanceNewBackfillMerchants(request, env); }
         if (path === "/api/finance-new/attention"         && method === "GET")  { return handleGetFinanceNewAttention(request, env); }
+        if (path === "/api/finance-new/bills"             && method === "GET")  { return handleGetFinanceNewBills(request, env); }
+        if (path === "/api/finance-new/bills/suggestions" && method === "GET")  { return handleGetFinanceNewBillSuggestions(request, env); }
+        if (path === "/api/finance-new/bills"             && method === "POST") { return handlePostFinanceNewBill(request, env); }
+        if (path === "/api/finance-new/forward"           && method === "GET")  { return handleGetFinanceNewForward(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }
         if (path === "/api/finance-new/club/confirm"      && method === "POST") { return handlePostFinanceNewClubConfirm(request, env); }

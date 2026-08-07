@@ -514,6 +514,32 @@
        instalment arriving on schedule is the system working. */
     .inv-remaining { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
+    /* ── Forward view ──
+       The sentence is the product. It gets the size, and everything under it
+       exists to justify it. "Aperta por volta do dia 12" is stated as a fact
+       about a date, not as a warning -- knowing when it is tight is what lets
+       her act early, which is the opposite of an alarm. */
+    .fwd-sentence { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.35; }
+    .fwd-sentence.is-ok { color: var(--green); }
+    .fwd-detail { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+    .fwd-gaps {
+      font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.55;
+    }
+    .fwd-gaps:empty { display: none; }
+    .fwd-owner {
+      margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+      font-size: 13px; line-height: 1.6;
+    }
+    .fwd-owner b { font-weight: 600; }
+    .fwd-bills { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .fwd-bills-head { font-size: 12px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .fwd-bill-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; padding: 5px 0; flex-wrap: wrap;
+    }
+    .fwd-bill-row .grow { flex: 1 1 auto; min-width: 120px; }
+
     /* ── Apex Club event P&L ──
        The verdict sentence carries the whole answer. A small loss on an event
        Apex is still learning to run is NOT a failure -- Apex went full time in
@@ -917,6 +943,54 @@
 
     <!-- ── Dashboard cards ── -->
     <div id="acctGrid" class="acct-grid"></div>
+
+    <!-- ── Forward view ──
+         The reason the tool exists: will there be enough to pay Rafa this
+         month, and when is it tight. The SENTENCE is the product; everything
+         below it is the evidence for the sentence. -->
+    <div id="forwardCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Pr&oacute;ximos 90 dias &mdash; conta comercial</span>
+        <span class="show-en">Next 90 days &mdash; business account</span>
+      </div>
+      <div id="fwdSentence" class="fwd-sentence"></div>
+      <div id="fwdDetail" class="fwd-detail"></div>
+      <div id="fwdGaps" class="fwd-gaps"></div>
+
+      <!-- Owner pay. Never framed as leakage or as an expense to minimise:
+           this is Rafa's pay and the question is whether the business is
+           generating enough to pay him consistently. -->
+      <div id="fwdOwnerPay" class="fwd-owner"></div>
+
+      <!-- Fixed bills. Ships EMPTY -- nothing is seeded, suggested, or
+           pre-filled. Alice enters what she wants tracked. -->
+      <div class="fwd-bills">
+        <div class="fwd-bills-head">
+          <span class="show-pt">Contas fixas</span>
+          <span class="show-en">Fixed bills</span>
+        </div>
+        <div id="billsList"></div>
+        <!-- Detected from her own history, never seeded. Nothing here is
+             tracked until she presses the button on that row. -->
+        <div id="billSuggest" class="club-suggest" hidden></div>
+        <div class="filter-row" style="margin-top:10px;margin-bottom:0">
+          <input id="billName" type="text" style="flex:2 1 150px"
+                 data-ph-pt="Nome da conta" data-ph-en="Bill name" placeholder="Nome da conta">
+          <input id="billAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
+                 data-ph-pt="Valor" data-ph-en="Amount" placeholder="Valor">
+          <input id="billDay" type="text" inputmode="numeric" style="flex:0 1 70px"
+                 data-ph-pt="Dia do m&ecirc;s" data-ph-en="Day" placeholder="Dia">
+          <select id="billPurpose" style="flex:0 1 120px">
+            <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
+            <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
+          </select>
+          <button class="btn btn-sm btn-gold" onclick="addFixedBill()">
+            <span class="show-pt">Adicionar</span>
+            <span class="show-en">Add</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Apex Club: event P&L ──
          Leads with one signed sentence. Detail sits underneath because the
@@ -1508,6 +1582,9 @@
     var SUMMARY       = null;
     var ATTENTION     = null;   // counts behind the "Precisa de voce" queue
     var CLUB_EVENTS   = [];     // Apex Club events, each with its own P&L
+    var FORWARD       = null;   // 90-day forward walk
+    var BILLS         = [];     // fixed bills SHE entered -- never seeded
+    var BILL_SUGGESTIONS = [];  // recurring charges detected in her own history
     var PENDING_LINK  = null;   // { purpose, public_token, accounts[] } mid-tagging
     var INVOICES      = [];
     var MATCHES       = [];
@@ -1855,6 +1932,256 @@
 
       card.hidden = false;
       applyFinBilingualAttrs();
+    }
+
+    // ── Forward view ────────────────────────────────────────────────────
+    //
+    // "Agosto: aperta por volta do dia 12" or "Coberto ate setembro". One
+    // sentence, then the evidence. The sentence is deliberately about a DATE
+    // rather than a score: knowing when it gets tight is what lets her act
+    // early, which is the opposite of an alarm going off.
+    //
+    // When the inputs are too thin to answer, it says so instead of printing
+    // a confident wrong number -- the same honesty threshold the net figure
+    // on the hero tiles already uses.
+    function renderForward() {
+      var card = document.getElementById("forwardCard");
+      if (!card || !FORWARD) { return; }
+      card.hidden = false;
+
+      var f = FORWARD;
+      var sentEl = document.getElementById("fwdSentence");
+      var noBills = f.gaps.indexOf("no_fixed_bills") !== -1;
+
+      // Without fixed bills the walk is missing its largest, most predictable
+      // outflow, so a cheerful "covered" would be actively misleading.
+      if (noBills) {
+        sentEl.className = "fwd-sentence";
+        sentEl.innerHTML =
+          '<span class="show-pt">Ainda n&atilde;o d&aacute; pra dizer se o m&ecirc;s aperta.</span>' +
+          '<span class="show-en">Not enough yet to say whether the month gets tight.</span>';
+      } else if (f.first_negative_date) {
+        sentEl.className = "fwd-sentence";
+        sentEl.innerHTML =
+          '<span class="show-pt">Aperta por volta do dia ' + fwdDayPhrase(f.first_negative_date, false) + ".</span>" +
+          '<span class="show-en">It gets tight around ' + fwdDayPhrase(f.first_negative_date, true) + ".</span>";
+      } else {
+        sentEl.className = "fwd-sentence is-ok";
+        sentEl.innerHTML =
+          '<span class="show-pt">Coberto pelos pr&oacute;ximos 90 dias.</span>' +
+          '<span class="show-en">Covered for the next 90 days.</span>';
+      }
+
+      // The evidence line. Lowest point is the number that matters after the
+      // date -- how close it actually comes.
+      document.getElementById("fwdDetail").innerHTML =
+        '<span class="show-pt">Come&ccedil;a com ' + fmtCents(f.start_cents) +
+          " &middot; ponto mais baixo " + fmtCents(f.lowest.cents) + " em " + fmtDate(f.lowest.date) +
+          " &middot; entradas previstas " + fmtCents(f.expected_income.total_cents) + "</span>" +
+        '<span class="show-en">Starts at ' + fmtCents(f.start_cents) +
+          " &middot; lowest point " + fmtCents(f.lowest.cents) + " on " + fmtDate(f.lowest.date) +
+          " &middot; expected income " + fmtCents(f.expected_income.total_cents) + "</span>";
+
+      // What is NOT known. Said plainly rather than hidden, because a
+      // forecast that quietly omits half the picture is the one that burns
+      // her. Each gap names the fix.
+      var gaps = [];
+      if (noBills) {
+        gaps.push([
+          "Nenhuma conta fixa cadastrada ainda &mdash; adicione abaixo e a previs&atilde;o passa a valer.",
+          "No fixed bills entered yet &mdash; add them below and the projection starts working."
+        ]);
+      }
+      if (f.gaps.indexOf("no_variable_history") !== -1) {
+        gaps.push([
+          "Ainda sem hist&oacute;rico suficiente para estimar gastos vari&aacute;veis.",
+          "Not enough history yet to estimate variable spending."
+        ]);
+      }
+      if (f.expected_income.unknown_clients.length) {
+        var names = f.expected_income.unknown_clients.slice(0, 4).map(esc).join(", ");
+        var more = f.expected_income.unknown_clients.length > 4
+          ? " +" + (f.expected_income.unknown_clients.length - 4) : "";
+        gaps.push([
+          "Sem valores combinados: " + names + more + ". A receita futura deles n&atilde;o est&aacute; contada.",
+          "No agreed terms: " + names + more + ". Their future income is not counted here."
+        ]);
+      }
+      document.getElementById("fwdGaps").innerHTML = gaps.map(function(g) {
+        return '<div><span class="show-pt">' + g[0] + '</span><span class="show-en">' + g[1] + "</span></div>";
+      }).join("");
+
+      // Owner pay -- Rafa's pay, never framed as leakage. The question is
+      // whether the business is generating enough to pay him consistently.
+      var op = f.owner_pay;
+      var ownerEl = document.getElementById("fwdOwnerPay");
+      if (op.payment_count > 0) {
+        ownerEl.innerHTML =
+          '<span class="show-pt">Retirada do propriet&aacute;rio: <b>' + fmtCents(op.monthly_avg_cents) +
+            "/m&ecirc;s</b> em m&eacute;dia &mdash; " + op.payment_count + " pagamento" +
+            (op.payment_count === 1 ? "" : "s") + " nos &uacute;ltimos " + op.months + " m&ecirc;s" +
+            (op.months === 1 ? "" : "es") + ".</span>" +
+          '<span class="show-en">Owner draw: <b>' + fmtCents(op.monthly_avg_cents) +
+            "/month</b> on average &mdash; " + op.payment_count + " payment" +
+            (op.payment_count === 1 ? "" : "s") + " over the last " + op.months + " month" +
+            (op.months === 1 ? "" : "s") + ".</span>";
+      } else {
+        ownerEl.innerHTML =
+          '<span class="show-pt">Retirada do propriet&aacute;rio: nenhum pagamento identificado ainda.</span>' +
+          '<span class="show-en">Owner draw: no payments identified yet.</span>';
+      }
+
+      renderBills();
+      applyFinBilingualAttrs();
+    }
+
+    // "dia 12" / "August 12" -- a date she can act on, not an ISO string.
+    function fwdDayPhrase(iso, en) {
+      var parts = String(iso).split("-");
+      var d = Number(parts[2]);
+      var monthsPt = ["janeiro","fevereiro","mar&ccedil;o","abril","maio","junho",
+                      "julho","agosto","setembro","outubro","novembro","dezembro"];
+      var monthsEn = ["January","February","March","April","May","June",
+                      "July","August","September","October","November","December"];
+      var mi = Number(parts[1]) - 1;
+      var thisMonth = new Date().toISOString().slice(0, 7);
+      var sameMonth = String(iso).slice(0, 7) === thisMonth;
+      if (en) { return sameMonth ? "the " + d + "th" : monthsEn[mi] + " " + d; }
+      return sameMonth ? d : d + " de " + monthsPt[mi];
+    }
+
+    function renderBills() {
+      var list = document.getElementById("billsList");
+      if (!list) { return; }
+      if (!BILLS.length) {
+        list.innerHTML = '<div class="tag-meta">' +
+          '<span class="show-pt">Nenhuma ainda.</span>' +
+          '<span class="show-en">None yet.</span></div>';
+        return;
+      }
+      list.innerHTML = BILLS.map(function(b) {
+        return '<div class="fwd-bill-row">' +
+          '<span class="grow">' + esc(b.name) +
+            ' <span class="tag-meta">' +
+              (isEn() ? "day " : "dia ") + b.day_of_month + " &middot; " +
+              (b.purpose === "business" ? (isEn() ? "business" : "comercial")
+                                        : (isEn() ? "personal" : "pessoal")) +
+            "</span></span>" +
+          "<b>" + fmtCents(b.amount_cents) + "</b>" +
+          '<button class="btn btn-sm" onclick="removeFixedBill(\'' + b.id + '\')">' +
+            '<span class="show-pt">Remover</span><span class="show-en">Remove</span></button>' +
+        "</div>";
+      }).join("");
+    }
+
+    // Recurring charges found in HER OWN history, offered for confirmation.
+    // The table itself ships empty and nothing is ever written to it without
+    // her pressing a button -- same suggest-never-assert contract as the
+    // invoice matches and the Apex Club P&L.
+    function renderBillSuggestions() {
+      var box = document.getElementById("billSuggest");
+      if (!box) { return; }
+
+      // Nothing detected is worth a sentence rather than silence. With about
+      // five weeks of history no charge has repeated across enough months to
+      // be called fixed, and saying so beats an empty space she reads as the
+      // feature being broken.
+      if (!BILL_SUGGESTIONS.length) {
+        if (BILLS.length) { box.hidden = true; return; }
+        box.hidden = false;
+        box.innerHTML = '<div class="club-suggest-head" style="margin-bottom:0">' +
+          '<span class="show-pt">Ainda n&atilde;o d&aacute; pra detectar contas fixas sozinho &mdash; ' +
+            'o extrato come&ccedil;a em julho. Adicione as suas acima.</span>' +
+          '<span class="show-en">Not enough statement history yet to spot fixed bills on its own &mdash; ' +
+            'it starts in July. Add yours above.</span>' +
+          "</div>";
+        return;
+      }
+      box.hidden = false;
+
+      box.innerHTML =
+        '<div class="club-suggest-head">' +
+          '<span class="show-pt">Cobran&ccedil;as que se repetem no seu extrato &mdash; s&atilde;o contas fixas?</span>' +
+          '<span class="show-en">Charges that repeat on your statement &mdash; are these fixed bills?</span>' +
+        "</div>" +
+        BILL_SUGGESTIONS.map(function(s, i) {
+          return '<div class="club-sug-row">' +
+            '<span class="grow">' + esc(s.name) +
+              ' <span class="tag-meta">' +
+                (isEn() ? "day " : "dia ") + s.day_of_month + " &middot; " +
+                (isEn() ? s.months_seen + " months" : s.months_seen + " meses") +
+              "</span></span>" +
+            "<b>" + fmtCents(s.amount_cents) + "</b>" +
+            '<button class="btn btn-sm btn-gold" onclick="acceptBillSuggestion(' + i + ')">' +
+              '<span class="show-pt">&Eacute; conta fixa</span>' +
+              '<span class="show-en">Yes, track it</span></button>' +
+          "</div>";
+        }).join("");
+    }
+
+    function acceptBillSuggestion(idx) {
+      var s = BILL_SUGGESTIONS[idx];
+      if (!s) { return; }
+      apiFetch("/api/finance-new/bills", {
+        method: "POST",
+        body: {
+          name: s.name, amount_cents: s.amount_cents,
+          day_of_month: s.day_of_month, purpose: s.purpose
+        }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          loadForward();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function loadForward() {
+      return Promise.all([
+        apiFetch("/api/finance-new/forward").then(function(r) { return r.json(); }).catch(function() { return null; }),
+        apiFetch("/api/finance-new/bills").then(function(r) { return r.json(); }).catch(function() { return null; }),
+        apiFetch("/api/finance-new/bills/suggestions").then(function(r) { return r.json(); }).catch(function() { return null; })
+      ]).then(function(res) {
+        FORWARD = res[0] && !res[0].error ? res[0] : null;
+        BILLS   = (res[1] && res[1].bills) || [];
+        BILL_SUGGESTIONS = (res[2] && res[2].suggestions) || [];
+        renderForward();
+        renderBillSuggestions();
+      });
+    }
+
+    function addFixedBill() {
+      var name = document.getElementById("billName").value.trim();
+      var amtRaw = document.getElementById("billAmount").value.trim().replace(/[^0-9.,-]/g, "").replace(",", ".");
+      var day = parseInt(document.getElementById("billDay").value, 10);
+      var purpose = document.getElementById("billPurpose").value;
+
+      if (!name) { toast(t("Informe o nome da conta.", "Enter the bill name.")); return; }
+      var amt = Number(amtRaw);
+      if (!isFinite(amt) || amt <= 0) { toast(t("Valor inv&aacute;lido.", "Invalid amount.")); return; }
+      if (!isFinite(day) || day < 1 || day > 31) { toast(t("Dia precisa ser 1-31.", "Day must be 1-31.")); return; }
+
+      apiFetch("/api/finance-new/bills", {
+        method: "POST",
+        body: { name: name, amount_cents: Math.round(amt * 100), day_of_month: day, purpose: purpose }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          document.getElementById("billName").value = "";
+          document.getElementById("billAmount").value = "";
+          document.getElementById("billDay").value = "";
+          loadForward();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function removeFixedBill(id) {
+      apiFetch("/api/finance-new/bills", { method: "POST", body: { delete_id: id } })
+        .then(function(r) { return r.json(); })
+        .then(function() { loadForward(); })
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     // ── Apex Club event P&L ─────────────────────────────────────────────
@@ -3532,6 +3859,7 @@
       loadInvoices();
       loadMatches();
       loadClub();
+      loadForward();
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
         apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),
@@ -3570,6 +3898,8 @@
       renderHero();
       renderAttention();
       renderAccountCards();
+      renderForward();
+      renderBillSuggestions();
       renderClub();
       renderCharts();
       renderLinked();

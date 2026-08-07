@@ -18760,6 +18760,16 @@ async function handleGetFinanceNewInvoices(request, env) {
 
         var res = await env.DB.prepare(sql).all();
 
+        // Payments already recorded against each invoice, so a part-paid
+        // invoice reports what is genuinely still owed. Fetched in one pass
+        // rather than per row.
+        var payRes = await env.DB.prepare(
+            "SELECT invoice_id, COALESCE(SUM(amount_cents), 0) AS paid " +
+            "FROM invoice_payments WHERE undone_at IS NULL GROUP BY invoice_id"
+        ).all();
+        var paidByInvoice = {};
+        (payRes.results || []).forEach(function(p) { paidByInvoice[p.invoice_id] = p.paid; });
+
         // Outstanding excludes paid, void and voided_mistake. Overdue is
         // DERIVED here from due_at, never stored as a status.
         var today = new Date().toISOString().slice(0, 10);
@@ -18768,9 +18778,20 @@ async function handleGetFinanceNewInvoices(request, env) {
         var drafts = 0;
         for (var i = 0; i < res.results.length; i++) {
             var inv = res.results[i];
+
+            // Partial payment is normal. These three fields are what the UI
+            // needs to say "$400 de $997 -- faltam $597" instead of showing a
+            // full invoice as though nothing had arrived.
+            inv.paid_cents = paidByInvoice[inv.id] || 0;
+            inv.remaining_cents = Math.max(0, (inv.amount_cents || 0) - inv.paid_cents);
+            inv.partially_paid = inv.status === "sent" && inv.paid_cents > 0;
+
             if (inv.status === "sent") {
-                outstanding += inv.amount_cents || 0;
-                if (inv.due_at && String(inv.due_at) < today) { overdue += inv.amount_cents || 0; }
+                // What is STILL OWED, not the face value. Counting the full
+                // amount here would have overstated outstanding by every
+                // dollar already collected on part-paid invoices.
+                outstanding += inv.remaining_cents;
+                if (inv.due_at && String(inv.due_at) < today) { overdue += inv.remaining_cents; }
             }
             if (inv.status === "draft") { drafts++; }
         }
@@ -19078,6 +19099,18 @@ function descriptionHasClientSignal(description, clientName, invoiceNumber) {
     return false;
 }
 
+// How much of an invoice is already covered by live (non-undone) payments.
+// Partial payment is NORMAL -- Prime Group owed $997 and paid $400 -- so the
+// remaining balance, not the face value, is what the next deposit is matched
+// against and what the UI reports as progress.
+async function invoicePaidCents(env, invoiceId) {
+    var row = await env.DB.prepare(
+        "SELECT COALESCE(SUM(amount_cents), 0) AS paid FROM invoice_payments " +
+        "WHERE invoice_id = ? AND undone_at IS NULL"
+    ).bind(invoiceId).first();
+    return (row && row.paid) || 0;
+}
+
 async function buildMatchCandidates(env) {
     // Open invoices only: paid, void and voided_mistake are never candidates.
     var invRes = await env.DB.prepare(
@@ -19087,10 +19120,28 @@ async function buildMatchCandidates(env) {
     ).all();
     var invoices = invRes.results || [];
 
+    // Payer aliases learned from matches she already approved. The deposit
+    // description says BRAZILIAN INC; the invoice says LIRA OUTDOOR LIVING.
+    // Without this the name test can never fire for that payer, so the match
+    // stays stuck at "suggest" forever no matter how often she confirms it.
+    var aliasRes = await env.DB.prepare(
+        "SELECT payer_key, client_id FROM client_payer_aliases"
+    ).all();
+    var aliasByKey = {};
+    (aliasRes.results || []).forEach(function(a) { aliasByKey[a.payer_key] = a.client_id; });
+
+    // Remaining balance per open invoice, so a second instalment matches
+    // against what is still owed rather than the original face value.
+    for (var q = 0; q < invoices.length; q++) {
+        invoices[q].paid_cents = await invoicePaidCents(env, invoices[q].id);
+        invoices[q].remaining_cents = (invoices[q].amount_cents || 0) - invoices[q].paid_cents;
+    }
+
     // Deposits: money IN, on a business account, not a transfer, not already
     // matched to a live (non-undone) payment.
     var depRes = await env.DB.prepare(
-        "SELECT t.id, t.amount_cents, t.date, t.description FROM transactions t " +
+        "SELECT t.id, t.amount_cents, t.date, t.description, t.memo, t.merchant_normalized " +
+        "FROM transactions t " +
         "JOIN accounts a ON a.id = t.account_id " +
         "WHERE t.amount_cents > 0 AND a.purpose = 'business' " +
         "AND t.transfer_status NOT IN ('suspected','confirmed') " +
@@ -19102,25 +19153,105 @@ async function buildMatchCandidates(env) {
     var out = [];
     for (var d = 0; d < deposits.length; d++) {
         var dep = deposits[d];
+        var aliasClient = aliasByKey[dep.merchant_normalized] || null;
 
         // How many open invoices sit near this amount? Two or more and we do
         // not guess at all -- this is the two-Gator-$1,500 guard.
+        //
+        // Compared against the REMAINING balance: once Prime Group's $997
+        // invoice has $400 against it, the next deposit to recognise is $597,
+        // not $997.
         var near = invoices.filter(function(inv) {
-            var diff = Math.abs((inv.amount_cents || 0) - dep.amount_cents);
-            var tol  = Math.min(Math.round((inv.amount_cents || 0) * 0.03), 5000);
+            var target = inv.remaining_cents > 0 ? inv.remaining_cents : (inv.amount_cents || 0);
+            var diff = Math.abs(target - dep.amount_cents);
+            var tol  = Math.min(Math.round(target * 0.03), 5000);
             return diff <= tol;
         });
+
+        // A known payer resolves the ambiguity the amount alone cannot: two
+        // open invoices of the same value stop being a coin-flip when the
+        // deposit comes from a payer already tied to one of those clients.
+        if (near.length > 1 && aliasClient) {
+            var byAlias = near.filter(function(inv) { return inv.client_id === aliasClient; });
+            if (byAlias.length === 1) { near = byAlias; }
+        }
         if (near.length > 1) {
             out.push({ transaction: dep, tier: "ambiguous", invoices: near.map(function(i) { return i.id; }) });
             continue;
         }
-        if (near.length === 0) { continue; }
+        // PARTIAL PAYMENTS ARE INVISIBLE TO AN AMOUNT-FIRST ENGINE.
+        //
+        // Prime Group owes $997 and paid $400. That is 60% off the balance --
+        // far outside the 3%/$50 tolerance, and no tolerance wide enough to
+        // catch it would still be precise enough to trust anywhere else. So
+        // the amount cannot be the signal here; the PAYER has to be.
+        //
+        // A deposit that is smaller than what is owed, from a payer whose
+        // name matches the client (or an alias she has already confirmed), on
+        // an invoice inside the window, is an instalment. It is offered as a
+        // suggestion she confirms -- never auto-applied, because "who paid"
+        // is weaker evidence than "the amount is exactly right".
+        if (near.length === 0) {
+            var partialHit = null;
+            for (var pi = 0; pi < invoices.length; pi++) {
+                var cand = invoices[pi];
+                var owed = cand.remaining_cents > 0 ? cand.remaining_cents : (cand.amount_cents || 0);
+                if (dep.amount_cents >= owed) { continue; }   // not a part payment
+
+                // An instalment is a MEANINGFUL fraction of the balance. Apex
+                // Club dinner tickets are $50 and $75 and are paid by the same
+                // people who owe invoices -- without this floor, a $50 ticket
+                // from Prime Group is offered as payment toward their $997,
+                // and a suggestion that obviously wrong costs more trust than
+                // the match saves. A quarter of the balance is the smallest
+                // instalment worth proposing on terms this size.
+                if (dep.amount_cents * 4 < owed) { continue; }
+
+                var candAnchor = cand.issued_at || cand.due_at;
+                var candAge = candAnchor ? daysBetween(candAnchor, dep.date) : 999;
+                if (candAge > 45) { continue; }
+
+                var byName  = descriptionHasClientSignal(dep.description, cand.client_name, cand.number);
+                var byAlias = aliasClient !== null && aliasClient === cand.client_id;
+                if (!byName && !byAlias) { continue; }
+
+                // Two open invoices for the same payer is ambiguous again --
+                // we would be guessing which one the money is for.
+                if (partialHit) { partialHit = null; break; }
+                partialHit = { inv: cand, age: candAge, alias: byAlias };
+            }
+
+            if (partialHit) {
+                out.push({
+                    transaction: dep,
+                    invoice: partialHit.inv,
+                    tier: "suggest",
+                    exact: false,
+                    signal: true,
+                    days: partialHit.age,
+                    force_review: true,
+                    via_alias: partialHit.alias,
+                    already_paid_cents: partialHit.inv.paid_cents,
+                    partial: true,
+                    partial_by_payer: true,
+                    remaining_after_cents:
+                        (partialHit.inv.amount_cents || 0) - partialHit.inv.paid_cents - dep.amount_cents
+                });
+            }
+            continue;
+        }
 
         var inv = near[0];
         var anchor = inv.issued_at || inv.due_at;
         var age = anchor ? daysBetween(anchor, dep.date) : 999;
-        var exact = (inv.amount_cents === dep.amount_cents);
-        var signal = descriptionHasClientSignal(dep.description, inv.client_name, inv.number);
+        var target = inv.remaining_cents > 0 ? inv.remaining_cents : (inv.amount_cents || 0);
+        var exact = (target === dep.amount_cents);
+
+        // The name test, plus the aliases she has already taught it. An alias
+        // is a signal she confirmed herself, so it counts at least as strongly
+        // as finding the client's name in the text.
+        var signal = descriptionHasClientSignal(dep.description, inv.client_name, inv.number) ||
+                     (aliasClient !== null && aliasClient === inv.client_id);
 
         var tier = null;
         if (exact && age <= 14 && signal)       { tier = "auto"; }
@@ -19133,6 +19264,11 @@ async function buildMatchCandidates(env) {
         var forceReview = (dep.amount_cents > 500000) || !exact;
         if (tier === "auto" && forceReview) { tier = "suggest"; }
 
+        // Would this deposit settle the invoice, or only move it forward?
+        // Partial is a normal, expected outcome -- not a failed match.
+        var wouldRemain = (inv.amount_cents || 0) - inv.paid_cents - dep.amount_cents;
+        var isPartial = wouldRemain > 0;
+
         out.push({
             transaction: dep,
             invoice: inv,
@@ -19140,7 +19276,11 @@ async function buildMatchCandidates(env) {
             exact: exact,
             signal: signal,
             days: age,
-            force_review: forceReview
+            force_review: forceReview,
+            via_alias: aliasClient !== null && aliasClient === inv.client_id,
+            already_paid_cents: inv.paid_cents,
+            partial: isPartial,
+            remaining_after_cents: isPartial ? wouldRemain : 0
         });
     }
     return out;
@@ -19195,10 +19335,10 @@ async function handlePostFinanceNewMatchApprove(request, env) {
             if (!m.invoice_id || !m.transaction_id) { continue; }
 
             var inv = await env.DB.prepare(
-                "SELECT id, amount_cents, status FROM invoices WHERE id = ?"
+                "SELECT id, client_id, amount_cents, status FROM invoices WHERE id = ?"
             ).bind(m.invoice_id).first();
             var txn = await env.DB.prepare(
-                "SELECT id, amount_cents FROM transactions WHERE id = ?"
+                "SELECT id, amount_cents, merchant_normalized FROM transactions WHERE id = ?"
             ).bind(m.transaction_id).first();
             if (!inv || !txn) { continue; }
             if (inv.status !== "sent") {
@@ -19206,9 +19346,14 @@ async function handlePostFinanceNewMatchApprove(request, env) {
                 continue;
             }
 
+            // Measured against what is STILL OWED, not the face value, so a
+            // second instalment on a part-paid invoice reads as exact.
+            var alreadyPaid = await invoicePaidCents(env, inv.id);
+            var remaining   = (inv.amount_cents || 0) - alreadyPaid;
+
             // A bulk approve may never sweep in a high-value or inexact match.
             // Those require a single, deliberate confirmation each.
-            var isExact = (inv.amount_cents === txn.amount_cents);
+            var isExact = (remaining === txn.amount_cents);
             var isBulk  = matches.length > 1;
             if (isBulk && (!isExact || inv.amount_cents > MATCH_FORCE_REVIEW_CENTS)) {
                 rejected.push({ invoice_id: m.invoice_id, reason: "requires individual review" });
@@ -19224,11 +19369,44 @@ async function handlePostFinanceNewMatchApprove(request, env) {
                 actorName(user)
             ).run();
 
-            await env.DB.prepare(
-                "UPDATE invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?"
-            ).bind(inv.id).run();
+            // PARTIAL PAYMENT IS NOT PAID. This used to mark the invoice paid
+            // on any approved match, so Prime Group's $997 invoice would have
+            // been settled by a $400 deposit and the $597 still owed would
+            // have silently vanished from every total on the dashboard.
+            // The invoice stays open until the payments actually cover it.
+            var coveredNow = alreadyPaid + txn.amount_cents;
+            var fullyPaid  = coveredNow >= (inv.amount_cents || 0);
 
-            applied.push({ invoice_id: inv.id, transaction_id: txn.id });
+            if (fullyPaid) {
+                await env.DB.prepare(
+                    "UPDATE invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?"
+                ).bind(inv.id).run();
+            }
+
+            // Learn the payer. The deposit says BRAZILIAN INC, the invoice
+            // says LIRA OUTDOOR LIVING; she has just confirmed they are the
+            // same, so the next deposit from that payer is recognised without
+            // her. Tedious once, never again.
+            //
+            // The key is merchant_normalized, which only became stable once
+            // the Zelle confirmation refs stopped shattering it. OR IGNORE:
+            // one payer maps to at most one client, and an existing alias is
+            // never silently repointed by a later match.
+            if (inv.client_id && txn.merchant_normalized) {
+                await env.DB.prepare(
+                    "INSERT OR IGNORE INTO client_payer_aliases (id, client_id, payer_key, source, created_by) " +
+                    "VALUES (?, ?, ?, 'approved', ?)"
+                ).bind(
+                    crypto.randomUUID(), inv.client_id, txn.merchant_normalized, actorName(user)
+                ).run();
+            }
+
+            applied.push({
+                invoice_id: inv.id,
+                transaction_id: txn.id,
+                fully_paid: fullyPaid,
+                remaining_cents: fullyPaid ? 0 : (inv.amount_cents || 0) - coveredNow
+            });
         }
 
         return jsonOk({ applied: applied, rejected: rejected });
@@ -19268,11 +19446,20 @@ async function handlePostFinanceNewMatchUndo(request, env) {
             "UPDATE invoice_payments SET undone_at = datetime('now'), undone_by = ? WHERE id = ?"
         ).bind(actorName(user), body.payment_id).run();
 
-        // Back to open unless another live payment still covers it.
-        var others = await env.DB.prepare(
-            "SELECT COUNT(*) AS n FROM invoice_payments WHERE invoice_id = ? AND undone_at IS NULL"
+        // Back to open unless the REMAINING live payments still cover it.
+        //
+        // This used to test whether any live payment row survived, which was
+        // right only while one payment always meant paid in full. With
+        // instalments an invoice can be covered by two payments, and undoing
+        // one of them leaves a row behind while the invoice is no longer
+        // covered -- it would have stayed marked paid on a balance she is
+        // still owed. Compare the summed total against the invoice instead.
+        var invRow = await env.DB.prepare(
+            "SELECT amount_cents FROM invoices WHERE id = ?"
         ).bind(pay.invoice_id).first();
-        if (!others || !others.n) {
+        var stillPaid = await invoicePaidCents(env, pay.invoice_id);
+
+        if (!invRow || stillPaid < (invRow.amount_cents || 0)) {
             await env.DB.prepare(
                 "UPDATE invoices SET status = 'sent', paid_at = NULL WHERE id = ? AND status = 'paid'"
             ).bind(pay.invoice_id).run();

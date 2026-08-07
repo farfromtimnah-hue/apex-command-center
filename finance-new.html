@@ -510,6 +510,10 @@
       .attn-count { min-width: 36px; height: 36px; font-size: 16px; }
     }
 
+    /* What is still owed on a part-paid invoice. Muted, not red: an
+       instalment arriving on schedule is the system working. */
+    .inv-remaining { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
     .acct-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -2481,6 +2485,15 @@
 
     function statusLabel(inv) {
       var today = new Date().toISOString().slice(0, 10);
+
+      // A client who is PAYING is not overdue, whatever the due date says.
+      // Prime Group owed $997, paid $400, and would otherwise have been
+      // labelled "vencida" for the balance -- turning an instalment that is
+      // going fine into a red flag. Money arriving outranks a date passing.
+      if (inv.status === "sent" && inv.partially_paid) {
+        return isEn() ? "part paid" : "parcial";
+      }
+
       if (inv.status === "sent" && inv.due_at && String(inv.due_at) < today) {
         return isEn() ? "overdue" : "vencida";
       }
@@ -3018,12 +3031,28 @@
             '<button class="btn btn-sm" onclick="markMistake(\'' + inv.id + '\')">' +
               '<span class="show-pt">Marcar como erro</span><span class="show-en">Mark as mistake</span></button>';
         }
+        // Part-paid invoices report progress, not a bare face value. Prime
+        // Group owing $997 and having paid $400 reads "$400 de $997 -- faltam
+        // $597": what arrived first, what is left second. Never OVERDUE,
+        // never red. This is exactly where the previous accountant-like tool
+        // lost her, by treating an instalment plan as a failure state.
+        var amountCell = fmtCents(inv.amount_cents);
+        if (inv.partially_paid) {
+          amountCell =
+            '<div>' + fmtCents(inv.paid_cents) +
+              '<span class="tag-meta"> ' + (isEn() ? "of" : "de") + " " + fmtCents(inv.amount_cents) + "</span></div>" +
+            '<div class="inv-remaining">' +
+              (isEn() ? fmtCents(inv.remaining_cents) + " to go"
+                      : "faltam " + fmtCents(inv.remaining_cents)) +
+            "</div>";
+        }
+
         return "<tr>" +
           "<td>" + esc(inv.number) + "</td>" +
           "<td>" + esc(inv.client_name || "") + "</td>" +
           "<td>" + fmtDate(inv.due_at) + "</td>" +
           '<td><span class="pill">' + esc(statusLabel(inv)) + "</span></td>" +
-          '<td class="num">' + fmtCents(inv.amount_cents) + "</td>" +
+          '<td class="num">' + amountCell + "</td>" +
           '<td class="num">' + actions + "</td>" +
         "</tr>";
       }).join("");
@@ -3220,12 +3249,35 @@
         var note = m.force_review
           ? '<div class="tag-meta">' + (isEn() ? "needs individual review" : "exige revis&atilde;o individual") + "</div>"
           : "";
+
+        // Why this deposit was tied to this client, when the payer name on
+        // the bank line is not the client's name. Saying so out loud is what
+        // makes the suggestion auditable rather than magic.
+        if (m.via_alias) {
+          note += '<div class="tag-meta">' +
+            (isEn() ? "known payer for this client" : "pagador j&aacute; conhecido deste cliente") + "</div>";
+        }
+
+        // Partial payment is PROGRESS, not a problem. Stated as what has
+        // arrived and what is left, with no overdue framing and no red.
+        var amountCell = fmtCents(m.transaction.amount_cents);
+        if (m.partial) {
+          var paidAfter = (m.already_paid_cents || 0) + m.transaction.amount_cents;
+          amountCell += '<div class="tag-meta">' +
+            (isEn()
+              ? fmtCents(paidAfter) + " of " + fmtCents(m.invoice.amount_cents) +
+                " &mdash; " + fmtCents(m.remaining_after_cents) + " to go"
+              : fmtCents(paidAfter) + " de " + fmtCents(m.invoice.amount_cents) +
+                " &mdash; faltam " + fmtCents(m.remaining_after_cents)) +
+            "</div>";
+        }
+
         return "<tr>" +
           "<td>" + fmtDate(m.transaction.date) + "<br><span class='tag-meta'>" +
             esc((m.transaction.description || "").slice(0, 42)) + "</span></td>" +
           "<td>" + esc(m.invoice.number) + "<br><span class='tag-meta'>" +
             esc(m.invoice.client_name || "") + "</span>" + note + "</td>" +
-          '<td class="num">' + fmtCents(m.transaction.amount_cents) + "</td>" +
+          '<td class="num">' + amountCell + "</td>" +
           '<td class="num"><button class="btn btn-sm" onclick="approveMatch(' + i + ')">' +
             '<span class="show-pt">Conciliar</span><span class="show-en">Match</span></button></td>' +
         "</tr>";

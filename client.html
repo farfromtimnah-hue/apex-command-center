@@ -4893,6 +4893,10 @@
         renderNextStep();
         if (lastLeadChecklist) { renderLeadChecklist(lastLeadChecklist); }
         if (lastContactLogEntries) { renderContactLog(lastContactLogEntries); }
+        // A Avaliação IA escolhe entre resumo_pt/resumo_en no momento em que
+        // desenha, então o texto só troca de idioma se a seção for redesenhada.
+        // Do cache, nunca refazendo o fetch — mesmo contrato do resto daqui.
+        if (dpData && Object.keys(dpData).length) { renderDpSection(dpData); }
         // The page title is built from the client's name, so it is rebuilt
         // here rather than through nav.js's data-title-pt/-en swap.
         if (clientData) {
@@ -7658,6 +7662,17 @@
              !(typeof v === "number" && isNaN(v));
     }
 
+    // Escolhe a variante de idioma de um campo de prosa do ai_assessment.
+    // Os três formatos coexistem de propósito: os registros são convertidos aos
+    // poucos, e o campo simples é o fallback que garante que nada apareça vazio
+    // durante a conversão.
+    function dpAiText(obj, key) {
+      if (!obj) { return ""; }
+      if (isEn() && dpAiHas(obj[key + "_en"])) { return obj[key + "_en"]; }
+      if (dpAiHas(obj[key + "_pt"])) { return obj[key + "_pt"]; }
+      return dpAiHas(obj[key]) ? obj[key] : "";
+    }
+
     // "2026-08-09" → "09/08/2026" (PT) / "08/09/2026" (EN), parsed as a plain
     // calendar date so it never shifts a day by timezone.
     function dpAiFmtDate(iso) {
@@ -7747,27 +7762,33 @@
 
       // 1 ─ Descobribilidade
       var desc = ai.descobribilidade || {};
-      if (dpAiHas(desc.nivel) || dpAiHas(desc.evidencia) || dpAiHas(desc.implicacao)) {
+      if (dpAiHas(desc.nivel) || dpAiText(desc, "evidencia") || dpAiText(desc, "implicacao")) {
         var g = dpAiGroup("Descobribilidade", "Discoverability");
         if (dpAiHas(desc.nivel)) {
           var badge = document.createElement("span");
+          // A cor continua derivada de nivel, que é sempre PT: nivel_en só
+          // troca o texto do selo, nunca a chave de cor.
           var key = String(desc.nivel).trim().toLowerCase();
           badge.className = "dp-ai-badge " + (DP_AI_LEVELS[key] || "lvl-none");
-          badge.textContent = desc.nivel;
+          badge.textContent = (isEn() && dpAiHas(desc.nivel_en)) ? desc.nivel_en : desc.nivel;
           g.appendChild(badge);
         }
-        if (dpAiHas(desc.evidencia))  { g.appendChild(dpAiLine(desc.evidencia)); }
-        if (dpAiHas(desc.implicacao)) { g.appendChild(dpAiLine(desc.implicacao, "dp-ai-sub")); }
+        var descEv = dpAiText(desc, "evidencia");
+        var descIm = dpAiText(desc, "implicacao");
+        if (descEv) { g.appendChild(dpAiLine(descEv)); }
+        if (descIm) { g.appendChild(dpAiLine(descIm, "dp-ai-sub")); }
         wrap.appendChild(g);
       }
 
       // 2 ─ Site
       var site = ai.site || {};
-      if (dpAiHas(site.status) || dpAiHas(site.detalhe) || dpAiHas(site.url)) {
+      var siteStatus = dpAiText(site, "status");
+      var siteDetalhe = dpAiText(site, "detalhe");
+      if (siteStatus || siteDetalhe || dpAiHas(site.url)) {
         var gs = dpAiGroup("Site", "Website");
         var lineEl = document.createElement("div");
         lineEl.className = "dp-ai-line";
-        if (dpAiHas(site.status)) { lineEl.appendChild(document.createTextNode(site.status)); }
+        if (siteStatus) { lineEl.appendChild(document.createTextNode(siteStatus)); }
         if (dpAiHas(site.url)) {
           var href = null;
           try {
@@ -7785,14 +7806,16 @@
           }
         }
         if (lineEl.childNodes.length) { gs.appendChild(lineEl); }
-        if (dpAiHas(site.detalhe)) { gs.appendChild(dpAiLine(site.detalhe, "dp-ai-sub")); }
+        if (siteDetalhe) { gs.appendChild(dpAiLine(siteDetalhe, "dp-ai-sub")); }
         wrap.appendChild(gs);
       }
 
       // 3 ─ Contatabilidade
       var ct = ai.contatabilidade || {};
+      var ctCanal = dpAiText(ct, "canal");
+      var ctObs = dpAiText(ct, "observacao");
       if (dpAiHas(ct.telefone_no_perfil) || dpAiHas(ct.email_no_perfil) ||
-          dpAiHas(ct.canal) || dpAiHas(ct.observacao)) {
+          ctCanal || ctObs) {
         var gc = dpAiGroup("Contatabilidade", "Contactability");
         var yn = document.createElement("div");
         yn.className = "dp-ai-yesno";
@@ -7806,8 +7829,8 @@
         if (dpAiHas(ct.telefone_no_perfil)) { yn.appendChild(ynItem(!!ct.telefone_no_perfil, "Telefone no perfil", "Phone on profile")); }
         if (dpAiHas(ct.email_no_perfil))    { yn.appendChild(ynItem(!!ct.email_no_perfil, "E-mail no perfil", "Email on profile")); }
         if (yn.childNodes.length) { gc.appendChild(yn); }
-        if (dpAiHas(ct.canal))      { gc.appendChild(dpAiLine(ct.canal, "dp-ai-sub")); }
-        if (dpAiHas(ct.observacao)) { gc.appendChild(dpAiLine(ct.observacao, "dp-ai-sub")); }
+        if (ctCanal) { gc.appendChild(dpAiLine(ctCanal, "dp-ai-sub")); }
+        if (ctObs)   { gc.appendChild(dpAiLine(ctObs, "dp-ai-sub")); }
         wrap.appendChild(gc);
       }
 
@@ -7836,8 +7859,10 @@
 
       // 5 ─ Engajamento (a ressalva avisa quando o percentual é ruído)
       var en_ = ai.engajamento || {};
+      var enBase = dpAiText(en_, "base");
+      var enRess = dpAiText(en_, "ressalva");
       if (dpAiHas(en_.curtidas_media) || dpAiHas(en_.comentarios_media) ||
-          dpAiHas(en_.base) || dpAiHas(en_.ressalva)) {
+          enBase || enRess) {
         var ge = dpAiGroup("Engajamento", "Engagement");
         var parts = [];
         if (dpAiHas(en_.curtidas_media)) {
@@ -7849,17 +7874,19 @@
                        dpAiNum(en_.comentarios_media) + " comments on average"));
         }
         if (parts.length) { ge.appendChild(dpAiLine(parts.join(" · "))); }
-        if (dpAiHas(en_.base)) {
-          ge.appendChild(dpAiLine(t("base: " + en_.base, "based on: " + en_.base), "dp-ai-sub"));
+        if (enBase) {
+          ge.appendChild(dpAiLine(t("base: " + enBase, "based on: " + enBase), "dp-ai-sub"));
         }
-        if (dpAiHas(en_.ressalva)) { ge.appendChild(dpAiLine(en_.ressalva, "dp-ai-sub")); }
+        if (enRess) { ge.appendChild(dpAiLine(enRess, "dp-ai-sub")); }
         wrap.appendChild(ge);
       }
 
       // 6 ─ Frequência. Conta parada mostra o tempo parado, nunca a frequência.
       var fq = ai.frequencia || {};
-      if (dpAiHas(fq.ativo) || dpAiHas(fq.ultimo_post) || dpAiHas(fq.media) ||
-          dpAiHas(fq.dias_desde_ultimo_post) || dpAiHas(fq.observacao)) {
+      var fqMedia = dpAiText(fq, "media");
+      var fqObs = dpAiText(fq, "observacao");
+      if (dpAiHas(fq.ativo) || dpAiHas(fq.ultimo_post) || fqMedia ||
+          dpAiHas(fq.dias_desde_ultimo_post) || fqObs) {
         var gf = dpAiGroup("Frequência", "Posting frequency");
         var lastTxt = dpAiHas(fq.ultimo_post)
           ? t("último post em " + dpAiFmtDate(fq.ultimo_post),
@@ -7867,7 +7894,7 @@
           : "";
 
         if (fq.ativo === true) {
-          if (dpAiHas(fq.media)) { gf.appendChild(dpAiLine(fq.media)); }
+          if (fqMedia) { gf.appendChild(dpAiLine(fqMedia)); }
           if (lastTxt) { gf.appendChild(dpAiLine(lastTxt, "dp-ai-sub")); }
         } else {
           // Age the audit's day-count forward to today before showing it.
@@ -7880,7 +7907,7 @@
           if (idle) { gf.appendChild(dpAiLine(idle, "dp-ai-line dp-ai-stale")); }
           if (lastTxt) { gf.appendChild(dpAiLine(lastTxt, "dp-ai-sub")); }
         }
-        if (dpAiHas(fq.observacao)) { gf.appendChild(dpAiLine(fq.observacao, "dp-ai-sub")); }
+        if (fqObs) { gf.appendChild(dpAiLine(fqObs, "dp-ai-sub")); }
         wrap.appendChild(gf);
       }
 
@@ -7894,20 +7921,22 @@
         b.className = "dp-ai-badge lvl-dificil";
         b.appendChild(dpAiBiling("Alerta", "Alert"));
         box.appendChild(b);
-        if (dpAiHas(cm.detalhe)) { box.appendChild(dpAiLine(cm.detalhe)); }
+        var cmDetalhe = dpAiText(cm, "detalhe");
+        if (cmDetalhe) { box.appendChild(dpAiLine(cmDetalhe)); }
         gm.appendChild(box);
         wrap.appendChild(gm);
       }
 
       // 8 ─ Resumo
-      if (dpAiHas(ai.resumo)) {
+      var resumo = dpAiText(ai, "resumo");
+      if (resumo) {
         var gr = document.createElement("div");
         gr.className = "dp-ai-group dp-ai-summary";
         var rl = document.createElement("div");
         rl.className = "dp-ai-label";
         rl.appendChild(dpAiBiling("Resumo", "Summary"));
         gr.appendChild(rl);
-        gr.appendChild(dpAiLine(ai.resumo));
+        gr.appendChild(dpAiLine(resumo));
         wrap.appendChild(gr);
       }
 

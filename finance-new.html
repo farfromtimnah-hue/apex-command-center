@@ -870,6 +870,11 @@
             <span class="show-en">Categories</span>
             <span class="fin-tab-badge" id="finBadgeCategorias" hidden>0</span>
           </button>
+          <button class="fin-tab-pill" id="finTabBtnEventos" onclick="switchFinanceTab('eventos')">
+            <span class="show-pt">Eventos</span>
+            <span class="show-en">Events</span>
+            <span class="fin-tab-badge" id="finBadgeEventos" hidden>0</span>
+          </button>
         </div>
       </div>
     </div>
@@ -989,28 +994,6 @@
             <span class="show-en">Add</span>
           </button>
         </div>
-      </div>
-    </div>
-
-    <!-- ── Apex Club: event P&L ──
-         Leads with one signed sentence. Detail sits underneath because the
-         answer she needs is "made money / lost a little / lost a lot", and
-         a table cannot say that in three seconds. -->
-    <div id="clubCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Apex Club</span>
-        <span class="show-en">Apex Club</span>
-      </div>
-      <div id="clubBody"></div>
-      <div id="clubEmpty" class="page-sub" hidden>
-        <span class="show-pt">Nenhum evento cadastrado ainda.</span>
-        <span class="show-en">No events set up yet.</span>
-      </div>
-      <div class="btn-row" style="margin-top:14px">
-        <button class="btn btn-sm" onclick="createClubEvent()">
-          <span class="show-pt">Novo evento</span>
-          <span class="show-en">New event</span>
-        </button>
       </div>
     </div>
 
@@ -1380,6 +1363,43 @@
       </div>
 
     </div><!-- /finPanelCategorias -->
+
+    <!-- ══ Panel: Eventos (Apex Club) ═══════════════════════════════════
+         One month at a time. Apex Club runs roughly monthly, so the picker
+         defaults to the newest month that actually HELD an event, derived
+         from the data -- never "now", which would land her on a blank
+         screen in any gap month, and never a hardcoded date. -->
+    <div id="finPanelEventos" class="fin-tab-panel" hidden>
+
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span>
+            <span class="show-pt">Apex Club</span>
+            <span class="show-en">Apex Club</span>
+          </span>
+          <input type="month" id="eventMonth" onchange="renderClub()">
+        </div>
+        <div class="net-note" style="margin-bottom:14px">
+          <span class="show-pt">Jantar mensal com palestrante. $50 por pessoa, $75 por casal.</span>
+          <span class="show-en">Monthly dinner with a guest speaker. $50 per person, $75 per couple.</span>
+        </div>
+
+        <div id="clubBody"></div>
+
+        <div id="clubEmpty" class="page-sub" hidden>
+          <span class="show-pt">Nenhum evento cadastrado ainda.</span>
+          <span class="show-en">No events set up yet.</span>
+        </div>
+
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn btn-sm" onclick="createClubEvent()">
+            <span class="show-pt">Novo evento</span>
+            <span class="show-en">New event</span>
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /finPanelEventos -->
 
     </div><!-- /fn-body -->
   </main>
@@ -2198,20 +2218,72 @@
     // is the headline; anything still only suggested is shown separately and
     // never folded into it, because a P&L that quietly includes guesses is
     // worse than one that admits what it does not know.
+    // The month the picker opens on: the newest month that actually HELD an
+    // event, meaning one with confirmed transactions behind it.
+    //
+    // Not the current month -- events run roughly monthly, so "now" lands her
+    // on a blank screen in any gap month, which reads as the feature being
+    // broken. Not a hardcoded date either, which goes stale the moment the
+    // next dinner happens. Derived from the data every time.
+    //
+    // Falls back to the newest event of any kind (one created but not yet
+    // matched is still the most relevant thing to show), and only then to the
+    // current month, which is reached only when there are no events at all.
+    function newestEventMonth() {
+      var withTxns = CLUB_EVENTS.filter(function(e) {
+        return e.confirmed && e.confirmed.txn_count > 0;
+      });
+      var pool = withTxns.length ? withTxns : CLUB_EVENTS;
+      if (!pool.length) { return new Date().toISOString().slice(0, 7); }
+
+      var newest = pool[0].event.event_date;
+      pool.forEach(function(e) {
+        if (e.event.event_date > newest) { newest = e.event.event_date; }
+      });
+      return String(newest).slice(0, 7);
+    }
+
+    function initEventMonth() {
+      var el = document.getElementById("eventMonth");
+      if (el && !el.value) { el.value = newestEventMonth(); }
+      renderClub();
+    }
+
     function renderClub() {
-      var card = document.getElementById("clubCard");
-      if (!card) { return; }
-      card.hidden = false;
+      var body = document.getElementById("clubBody");
+      if (!body) { return; }
 
       var empty = document.getElementById("clubEmpty");
       if (!CLUB_EVENTS.length) {
-        document.getElementById("clubBody").innerHTML = "";
+        body.innerHTML = "";
         empty.hidden = false;
         return;
       }
       empty.hidden = true;
 
-      document.getElementById("clubBody").innerHTML = CLUB_EVENTS.map(function(e) {
+      // One month at a time. Before the picker has a value (first paint, or
+      // a render triggered by the language toggle) show everything rather
+      // than nothing.
+      var monthEl = document.getElementById("eventMonth");
+      var month = monthEl && monthEl.value ? monthEl.value : null;
+      var shown = month
+        ? CLUB_EVENTS.filter(function(e) { return String(e.event.event_date).slice(0, 7) === month; })
+        : CLUB_EVENTS;
+
+      // A gap month is a normal state, not an error -- Apex Club is roughly
+      // monthly, not strictly. Say so plainly and leave the picker available
+      // so she can step to a month that did have one.
+      if (!shown.length) {
+        body.innerHTML =
+          '<div class="club-event"><div class="club-detail" style="margin-top:0">' +
+            '<span class="show-pt">Nenhum evento neste m&ecirc;s. Escolha outro m&ecirc;s acima.</span>' +
+            '<span class="show-en">No event this month. Pick another month above.</span>' +
+          "</div></div>";
+        applyFinBilingualAttrs();
+        return;
+      }
+
+      body.innerHTML = shown.map(function(e) {
         var c = e.confirmed;
         var net = c.net_cents;
 
@@ -2276,6 +2348,7 @@
         .then(function(d) {
           CLUB_EVENTS = (d && d.events) || [];
           renderClub();
+          updateFinanceBadges();
         })
         .catch(function() {});
     }
@@ -2305,6 +2378,10 @@
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.error) { toast(d.error); return; }
+          // Jump the picker to the month she just created in, or creating an
+          // event outside the current view looks like it did nothing.
+          var el = document.getElementById("eventMonth");
+          if (el) { el.value = date.slice(0, 7); }
           loadClub();
         })
         .catch(function() { toast(t("Erro", "Error")); });
@@ -3169,8 +3246,9 @@
     // entire dashboard first.
 
     var currentFinanceTab = "saude";
-    var FIN_TABS = ["saude", "faturas", "categorias"];
+    var FIN_TABS = ["saude", "faturas", "categorias", "eventos"];
     var categoriasLoaded = false;
+    var eventosLoaded = false;
 
     function switchFinanceTab(tab) {
       currentFinanceTab = tab;
@@ -3190,6 +3268,15 @@
         loadCategories();
         loadCategoryBreakdown();
         loadRules();
+      }
+
+      // Same bargain for events: they are their own set of queries, and
+      // someone who only wants balances should never pay for them. The month
+      // picker cannot be initialised until the events are in hand, since its
+      // default is derived from which months actually held one.
+      if (tab === "eventos" && !eventosLoaded) {
+        eventosLoaded = true;
+        loadClub().then(initEventMonth);
       }
     }
 
@@ -3211,6 +3298,18 @@
                t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
       }).length;
       setBadge("finBadgeCategorias", uncat);
+
+      // Eventos: transactions the engine thinks belong to an event and is
+      // waiting on her to confirm or reject. Counted across every event, not
+      // just the month on screen, since the badge's job is to tell her there
+      // is something here at all. Stays silent until the tab has been opened
+      // once -- CLUB_EVENTS is empty before then, and a badge that reads 0
+      // because nothing was fetched would be a lie rather than a fact.
+      var eventSuggestions = 0;
+      (CLUB_EVENTS || []).forEach(function(e) {
+        eventSuggestions += (e.suggestions || []).length;
+      });
+      setBadge("finBadgeEventos", eventSuggestions);
     }
 
     function setBadge(id, count) {
@@ -4022,7 +4121,9 @@
     function loadAll() {
       loadInvoices();
       loadMatches();
-      loadClub();
+      // loadClub() is deliberately NOT here: the Eventos tab lazy-loads on
+      // first open, so someone who only wants balances never pays for the
+      // event queries. See switchFinanceTab.
       loadForward();
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),

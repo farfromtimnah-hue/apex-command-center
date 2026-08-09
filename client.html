@@ -831,7 +831,12 @@
     .profile-header-shell {
       display: flex;
       align-items: flex-start;
-      gap: 20px;
+      /* Wrap, so a long client name pushes the action buttons onto their own
+         row instead of squeezing the name into a 3-line column and colliding
+         with them. row-gap is smaller than column-gap: once wrapped, the
+         buttons should read as part of the same tile, not a detached strip. */
+      flex-wrap: wrap;
+      gap: 14px 20px;
       background: rgba(26, 22, 18, 0.52);
       -webkit-backdrop-filter: blur(16px);
       backdrop-filter: blur(16px);
@@ -861,9 +866,13 @@
       object-fit: contain;
     }
 
+    /* min-width is the wrap trigger: below this the name column stops
+       shrinking and the actions wrap to the next row instead. Without it,
+       flex keeps shrinking this column toward zero and the name stacks one
+       word per line while the buttons ride over it. */
     .profile-header-meta {
-      flex: 1;
-      min-width: 0;
+      flex: 1 1 460px;
+      min-width: 260px;
     }
 
     .profile-header-meta .client-name {
@@ -923,12 +932,17 @@
       border: 1px solid rgba(255,255,255,0.2);
     }
 
+    /* margin-left:auto keeps the actions pinned right while they share the
+       row with the name, and lets them drop to a full-width row of their own
+       once the name needs the space. flex-shrink stays 0 so buttons never
+       squash their own labels. */
     .profile-header-actions {
       display: flex;
       gap: 10px;
       align-items: center;
       flex-shrink: 0;
       flex-wrap: wrap;
+      margin-left: auto;
     }
 
     /* ─── Inline status edit ────────────────────────────────────────────── */
@@ -5069,29 +5083,38 @@
       var role = sessionStorage.getItem("apex_role") || "";
       var canEdit = (role === "alice" || role === "rafa" || role === "developer");
 
-      var pkgWrap = document.createElement("span");
-      pkgWrap.id = "pkgWrap";
-      pkgWrap.style.display = "inline-flex";
-      pkgWrap.style.alignItems = "center";
-      pkgWrap.style.gap = "4px";
+      // A lead has no package yet, and an empty "—" lozenge is pure noise on
+      // every lead header. Skip the lozenge entirely when there is no package;
+      // editors still get the pencil so one can be set, so nothing is lost.
+      var hasPkg = !!(client.package && String(client.package).trim());
 
-      var pkgLozenge = document.createElement("span");
-      pkgLozenge.className = "package-lozenge";
-      pkgLozenge.id = "pkgLozenge";
-      pkgLozenge.textContent = client.package || "—";
-      pkgWrap.appendChild(pkgLozenge);
+      if (hasPkg || canEdit) {
+        var pkgWrap = document.createElement("span");
+        pkgWrap.id = "pkgWrap";
+        pkgWrap.style.display = "inline-flex";
+        pkgWrap.style.alignItems = "center";
+        pkgWrap.style.gap = "4px";
 
-      if (canEdit) {
-        var editBtn = document.createElement("button");
-        editBtn.className = "pkg-edit-btn";
-        editBtn.setAttribute("data-title-attr-pt", "Editar pacote");
-        editBtn.setAttribute("data-title-attr-en", "Edit package");
-        editBtn.title = t("Editar pacote", "Edit package");
-        editBtn.textContent = "✎";
-        editBtn.onclick = function() { openPackageEdit(client.package || ""); };
-        pkgWrap.appendChild(editBtn);
+        if (hasPkg) {
+          var pkgLozenge = document.createElement("span");
+          pkgLozenge.className = "package-lozenge";
+          pkgLozenge.id = "pkgLozenge";
+          pkgLozenge.textContent = client.package;
+          pkgWrap.appendChild(pkgLozenge);
+        }
+
+        if (canEdit) {
+          var editBtn = document.createElement("button");
+          editBtn.className = "pkg-edit-btn";
+          editBtn.setAttribute("data-title-attr-pt", hasPkg ? "Editar pacote" : "Definir pacote");
+          editBtn.setAttribute("data-title-attr-en", hasPkg ? "Edit package" : "Set package");
+          editBtn.title = hasPkg ? t("Editar pacote", "Edit package") : t("Definir pacote", "Set package");
+          editBtn.textContent = "✎";
+          editBtn.onclick = function() { openPackageEdit(client.package || ""); };
+          pkgWrap.appendChild(editBtn);
+        }
+        badgesEl.appendChild(pkgWrap);
       }
-      badgesEl.appendChild(pkgWrap);
 
       var statusVal = (client.status || "active").toLowerCase();
       var statusWrap = document.createElement("span");

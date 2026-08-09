@@ -932,17 +932,27 @@
       border: 1px solid rgba(255,255,255,0.2);
     }
 
-    /* margin-left:auto keeps the actions pinned right while they share the
-       row with the name, and lets them drop to a full-width row of their own
-       once the name needs the space. flex-shrink stays 0 so buttons never
-       squash their own labels. */
+    /* margin-left:auto pins the actions right while they share the row with
+       the name, and lets them take a row of their own once the name needs the
+       space.
+
+       min-width:0 is what makes the buttons wrap: this box is itself a flex
+       row, and its flex-wrap can only engage once the box is allowed to
+       narrow to the space available. With the default min-width:auto it sizes
+       to its widest content instead and the last buttons run off the tile.
+       The buttons keep flex-shrink:0 individually, so they wrap onto a new
+       line rather than squashing their own labels. */
     .profile-header-actions {
       display: flex;
       gap: 10px;
       align-items: center;
-      flex-shrink: 0;
       flex-wrap: wrap;
+      min-width: 0;
       margin-left: auto;
+    }
+
+    .profile-header-actions > * {
+      flex: 0 0 auto;
     }
 
     /* ─── Inline status edit ────────────────────────────────────────────── */

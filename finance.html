@@ -25,6 +25,79 @@
     html { scroll-behavior: smooth; }
 
     /* ─── Legacy-page banner ─────────────────────────────────────────────── */
+    /* ─── Switch-to-new-system prompt ────────────────────────────────────── */
+    .switch-new-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,29,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9000;
+    }
+    .switch-new-overlay[hidden] { display: none; }
+    .switch-new-box {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 26px 26px 20px;
+      max-width: 440px;
+      width: 100%;
+      text-align: left;
+    }
+    .switch-new-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .switch-new-body {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+    .switch-new-primary {
+      display: block;
+      width: 100%;
+      background: var(--gold);
+      color: #1a1a1d;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .switch-new-primary:hover { filter: brightness(1.08); }
+    .switch-new-secondary {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .switch-new-secondary:hover { border-color: var(--muted); color: var(--text); }
+    .switch-new-note {
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+
     /* Sits between the hero and the tab panels, so it carries the same 32px
        horizontal inset as .below-hero-section to line up with the cards. */
     .legacy-banner {
@@ -1497,6 +1570,36 @@
     </div>
   </div>
 
+  <!-- ═══════════════ SWITCH-TO-NEW-SYSTEM PROMPT ═════════════════════════ -->
+  <!-- Shown when someone reaches for invoicing on this retired page. Two doors
+       on purpose: the primary one moves her to the new system, the secondary
+       one keeps working here. This page exists precisely BECAUSE the new
+       invoice path is unproven, so the override must always be available. -->
+  <div id="switchNewOverlay" class="switch-new-overlay" hidden onclick="if(event.target===this)closeSwitchToNewPrompt()">
+    <div class="switch-new-box" role="dialog" aria-modal="true" aria-labelledby="switchNewTitle">
+      <h3 id="switchNewTitle" class="switch-new-title">
+        <span class="show-pt">As faturas mudaram de lugar</span>
+        <span class="show-en">Invoicing has moved</span>
+      </h3>
+      <p class="switch-new-body">
+        <span class="show-pt">As faturas agora ficam em <strong>Financeiro (Novo)</strong>. Vamos te levar direto para a aba de faturas de la.</span>
+        <span class="show-en">Invoices now live in <strong>Financial (New)</strong>. We'll take you straight to the invoices tab there.</span>
+      </p>
+      <a class="switch-new-primary" href="finance-new.html?highlight=invoice">
+        <span class="show-pt">Ir para o sistema novo &rarr;</span>
+        <span class="show-en">Go to the new system &rarr;</span>
+      </a>
+      <button type="button" class="switch-new-secondary" onclick="continueOnOldSystem()">
+        <span class="show-pt">Continuar aqui no sistema antigo</span>
+        <span class="show-en">Stay here and use the old system</span>
+      </button>
+      <p class="switch-new-note">
+        <span class="show-pt">Use o sistema antigo apenas se o novo nao funcionar. Faturas criadas aqui nao aparecem no sistema novo.</span>
+        <span class="show-en">Only use the old system if the new one isn't working. Invoices created here won't appear in the new system.</span>
+      </p>
+    </div>
+  </div>
+
   <!-- ═══════════════ NEW INVOICE MODAL (Nova Fatura) ═════════════════════ -->
   <div id="newInvoiceOverlay" hidden>
     <div id="newInvoiceModal" role="dialog" aria-modal="true">
@@ -2876,12 +2979,12 @@
     var FIN_TABS = ["saude", "faturas", "conciliacao", "aging", "fiscal", "ferramentas"];
 
     function switchFinanceTab(tab) {
-      // Invoicing lives on the new page now. Reaching for Faturas here is the
-      // habit worth intercepting — send her straight to the same tab on the new
-      // page rather than opening a Zoho-backed invoice list she should not be
-      // working from.
-      if (tab === "faturas") {
-        window.location.href = "finance-new.html?highlight=invoice";
+      // Invoicing lives on the new page now, but this page is the fallback for
+      // when the new one fails — so the Faturas tab OFFERS the move rather than
+      // forcing it. A hard redirect would strand her here with no way to
+      // invoice at all if the new system were broken.
+      if (tab === "faturas" && !newInvoiceOverrideAck) {
+        showSwitchToNewPrompt("tab");
         return;
       }
       currentFinanceTab = tab;
@@ -3234,6 +3337,46 @@
         });
     }
 
+    // ── Switch-to-new-system prompt ────────────────────────────────────────
+    //
+    // This page is the fallback for a new invoice path that has never been
+    // exercised on a real client. So invoicing here is redirected by INVITATION,
+    // never by force: if the new system fails, this is the only way to bill
+    // anyone, and a hard redirect would take that away at the worst moment.
+    //
+    // The override lasts for the current page view only. It deliberately does
+    // not persist — a one-off failure should not silently opt her out of the
+    // new system for good.
+    var newInvoiceOverrideAck = false;
+    var switchPromptSource = "create";
+
+    function showSwitchToNewPrompt(source) {
+      switchPromptSource = source || "create";
+      var ov = document.getElementById("switchNewOverlay");
+      if (!ov) {
+        // Never let a missing prompt block invoicing on the fallback page.
+        if (switchPromptSource === "create") { openNewInvoiceModalForced(); }
+        return;
+      }
+      ov.hidden = false;
+    }
+
+    function closeSwitchToNewPrompt() {
+      var ov = document.getElementById("switchNewOverlay");
+      if (ov) { ov.hidden = true; }
+    }
+
+    function continueOnOldSystem() {
+      newInvoiceOverrideAck = true;
+      closeSwitchToNewPrompt();
+      if (switchPromptSource === "tab") {
+        // Open the invoices tab she originally asked for.
+        switchFinanceTab("faturas");
+      } else {
+        openNewInvoiceModalForced();
+      }
+    }
+
     // ── Nova Fatura (new invoice creation, Zoho draft) ─────────────────────
 
     var newInvoiceClients  = null;
@@ -3241,6 +3384,16 @@
     var newInvoiceItems    = [];
 
     function openNewInvoiceModal() {
+      // Creating an invoice HERE writes a Zoho draft the new system never sees.
+      // Offer the move first; openNewInvoiceModalForced() is the override.
+      if (!newInvoiceOverrideAck) {
+        showSwitchToNewPrompt("create");
+        return;
+      }
+      openNewInvoiceModalForced();
+    }
+
+    function openNewInvoiceModalForced() {
       newInvoiceItems = [{ name: "", description: "", quantity: 1, rate: 0 }];
       var overlay = document.getElementById("newInvoiceOverlay");
       var pkgSel  = document.getElementById("niPackageSelect");

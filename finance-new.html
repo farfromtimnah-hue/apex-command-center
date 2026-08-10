@@ -26,6 +26,25 @@
 
     html { scroll-behavior: smooth; }
 
+    /* Arrival confirmation for a handoff from the old finance page. */
+    .arrived-coach {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 12px 16px;
+      background: var(--gold-dim);
+      border: 1px solid var(--gold);
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .arrived-coach[hidden] { display: none; }
+    .arrived-coach strong { display: inline; }
+    .arrived-coach > div > strong:first-child { display: block; margin-bottom: 2px; }
+    .arrived-coach-dot { color: var(--gold); font-size: 10px; line-height: 1.7; }
+
     /* Attention pulse for a handoff from the old finance page. Ring only —
        nothing moves or resizes, so it cannot shift the button under a cursor
        mid-click. */
@@ -1233,6 +1252,22 @@
       <div class="net-note">
         <span class="show-pt">M&aacute;ximo de 20 por vez. Valores acima de $5.000 ou que n&atilde;o batem exatamente exigem confirma&ccedil;&atilde;o individual.</span>
         <span class="show-en">Maximum 20 at a time. Amounts above $5,000 or that do not match exactly need individual confirmation.</span>
+      </div>
+    </div>
+
+    <!-- Confirms she landed where she meant to, for anyone arriving from the
+         old page's switch prompt. Stays until she clicks the tab or the create
+         button — a timed hint is too easy to miss on a page she is still
+         learning. -->
+    <div id="arrivedCoach" class="arrived-coach" hidden>
+      <span class="arrived-coach-dot" aria-hidden="true">&#9679;</span>
+      <div>
+        <strong>
+          <span class="show-pt">Voce esta nas Faturas do sistema novo.</span>
+          <span class="show-en">You're in Invoices on the new system.</span>
+        </strong>
+        <span class="show-pt">Use <strong>+ Nova fatura</strong> abaixo. Da proxima vez, venha pela aba <strong>Faturas</strong> aqui em cima.</span>
+        <span class="show-en">Use <strong>+ New invoice</strong> below. Next time, come straight to the <strong>Faturas</strong> tab up top.</span>
       </div>
     </div>
 
@@ -4313,10 +4348,17 @@
 
         var stop = function() {
           for (var j = 0; j < targets.length; j++) { targets[j].classList.remove("attn-pulse"); }
+          var c = document.getElementById("arrivedCoach");
+          if (c) { c.hidden = true; }
         };
         if (btn) { btn.addEventListener("click", stop, { once: true }); }
         if (tab) { tab.addEventListener("click", stop, { once: true }); }
-        setTimeout(stop, 9000);
+
+        // No timeout. She had trouble finding things on this page even with
+        // someone guiding her, so the marker stays until she actually clicks
+        // one of the two things it is pointing at.
+        var coach = document.getElementById("arrivedCoach");
+        if (coach) { coach.hidden = false; }
       }, 400);
     }
 

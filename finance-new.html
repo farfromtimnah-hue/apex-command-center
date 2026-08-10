@@ -39,10 +39,22 @@
       position: relative;
       z-index: 1;
     }
+    /* The active tab pill is already solid gold on a dark hero, so a gold ring
+       around it would be invisible. Ring it in white there instead. */
+    @keyframes attnPulseLight {
+      0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.9); }
+      70%  { box-shadow: 0 0 0 10px rgba(255,255,255,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+    }
+    .fin-tab-pill.attn-pulse { animation: attnPulseLight 1.4s ease-out 4; }
     @media (prefers-reduced-motion: reduce) {
       .attn-pulse {
         animation: none;
         box-shadow: 0 0 0 3px rgba(201,164,58,0.85);
+      }
+      .fin-tab-pill.attn-pulse {
+        animation: none;
+        box-shadow: 0 0 0 3px rgba(255,255,255,0.9);
       }
     }
 
@@ -4283,16 +4295,27 @@
       } catch (e) { return ""; }
     }
 
-    // Draw the eye to "+ New invoice" without blocking anything. Pulses a few
-    // times, then clears itself; clicking the button stops it immediately.
+    // Show her WHERE invoicing lives on this page, not just what to click.
+    // The Faturas tab pill is the thing to learn — it is the equivalent of the
+    // tab she just reached for on the old page — so that gets the highlight,
+    // with the create button pulsed alongside it.
     function flashNewInvoiceButton() {
       setTimeout(function() {
+        var tab = document.getElementById("finTabBtnFaturas");
         var btn = document.getElementById("btnNewInvoice");
-        if (!btn) { return; }
-        btn.classList.add("attn-pulse");
-        btn.scrollIntoView({ behavior: "smooth", block: "center" });
-        var stop = function() { btn.classList.remove("attn-pulse"); };
-        btn.addEventListener("click", stop, { once: true });
+        var targets = [];
+        if (tab) { targets.push(tab); }
+        if (btn) { targets.push(btn); }
+        if (!targets.length) { return; }
+
+        for (var i = 0; i < targets.length; i++) { targets[i].classList.add("attn-pulse"); }
+        (tab || btn).scrollIntoView({ behavior: "smooth", block: "center" });
+
+        var stop = function() {
+          for (var j = 0; j < targets.length; j++) { targets[j].classList.remove("attn-pulse"); }
+        };
+        if (btn) { btn.addEventListener("click", stop, { once: true }); }
+        if (tab) { tab.addEventListener("click", stop, { once: true }); }
         setTimeout(stop, 9000);
       }, 400);
     }

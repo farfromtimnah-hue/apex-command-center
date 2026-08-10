@@ -25,17 +25,22 @@
     html { scroll-behavior: smooth; }
 
     /* ─── Legacy-page banner ─────────────────────────────────────────────── */
+    /* Sits between the hero and the tab panels, so it carries the same 32px
+       horizontal inset as .below-hero-section to line up with the cards. */
     .legacy-banner {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
       flex-wrap: wrap;
-      margin: 0 0 18px;
+      margin: 28px 32px 0;
       padding: 14px 18px;
       background: var(--gold-dim);
       border: 1px solid var(--gold);
       border-radius: var(--radius);
+    }
+    @media (max-width: 768px) {
+      .legacy-banner { margin: 16px 16px 0; }
     }
     .legacy-banner-text {
       font-size: 13px;
@@ -1605,26 +1610,6 @@
   <!-- ═══════════════ MAIN ════════════════════════════════════════════════ -->
   <main id="appMain" hidden>
 
-    <!-- Migration banner. This page is the Zoho-backed original, kept only as a
-         fallback until the new page's invoice-creation path has been proven on a
-         real client. It stays reachable on purpose, but habit should not steer
-         anyone here — the link carries ?highlight=invoice so the new page can
-         point out the button to use. -->
-    <div class="legacy-banner">
-      <div class="legacy-banner-text">
-        <strong>
-          <span class="show-pt">Esta e a pagina antiga.</span>
-          <span class="show-en">This is the old page.</span>
-        </strong>
-        <span class="show-pt">O sistema novo de faturas esta em "Financeiro (Novo)". Esta pagina fica disponivel apenas como reserva.</span>
-        <span class="show-en">Invoicing has moved to "Financial (New)". This page stays available only as a fallback.</span>
-      </div>
-      <a class="legacy-banner-btn" href="finance-new.html?highlight=invoice">
-        <span class="show-pt">Ir para o sistema novo &rarr;</span>
-        <span class="show-en">Go to the new system &rarr;</span>
-      </a>
-    </div>
-
     <!-- Hero section -->
     <div class="finance-hero-section">
       <div id="financeHeroBg" aria-hidden="true"></div>
@@ -1696,6 +1681,26 @@
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- Migration banner, below the hero so it does not push the headline
+         figures down. This page is the Zoho-backed original, kept only as a
+         fallback until the new page's invoice-creation path has been proven on
+         a real client. Clicking the Faturas tab above redirects to the new page
+         outright; this is the standing reminder for everything else. -->
+    <div class="legacy-banner">
+      <div class="legacy-banner-text">
+        <strong>
+          <span class="show-pt">Esta e a pagina antiga.</span>
+          <span class="show-en">This is the old page.</span>
+        </strong>
+        <span class="show-pt">As faturas agora ficam em "Financeiro (Novo)". Esta pagina fica disponivel apenas como reserva.</span>
+        <span class="show-en">Invoicing now lives in "Financial (New)". This page stays available only as a fallback.</span>
+      </div>
+      <a class="legacy-banner-btn" href="finance-new.html?highlight=invoice">
+        <span class="show-pt">Ir para as faturas &rarr;</span>
+        <span class="show-en">Go to invoices &rarr;</span>
+      </a>
     </div>
 
     <!-- Tab panels -->
@@ -2871,6 +2876,14 @@
     var FIN_TABS = ["saude", "faturas", "conciliacao", "aging", "fiscal", "ferramentas"];
 
     function switchFinanceTab(tab) {
+      // Invoicing lives on the new page now. Reaching for Faturas here is the
+      // habit worth intercepting — send her straight to the same tab on the new
+      // page rather than opening a Zoho-backed invoice list she should not be
+      // working from.
+      if (tab === "faturas") {
+        window.location.href = "finance-new.html?highlight=invoice";
+        return;
+      }
       currentFinanceTab = tab;
       for (var i = 0; i < FIN_TABS.length; i++) {
         var t = FIN_TABS[i];

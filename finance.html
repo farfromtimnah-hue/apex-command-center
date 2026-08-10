@@ -1489,6 +1489,16 @@
           <span class="show-en">+ Line Item</span>
         </button>
       </div>
+      <!-- Whether this invoice counts toward the client's payment plan. Shown
+           only once a client with a saved plan is selected; unchecking keeps a
+           one-off charge out of the plan's tally. -->
+      <div class="form-group" id="niIsInstallmentWrap" hidden>
+        <label class="form-label" for="niIsInstallment" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="niIsInstallment">
+          <span class="show-pt">Contar como parcela do plano de pagamento</span>
+          <span class="show-en">Count as a payment-plan installment</span>
+        </label>
+      </div>
       <div class="form-group ni-recurring-toggle">
         <label class="form-label" for="niRecurringCheckbox" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" id="niRecurringCheckbox" onchange="onNiRecurringToggle()">
@@ -3301,20 +3311,47 @@
             else { newInvoiceItems[0] = line; }
             renderNewInvoiceItemRows();
 
-            // Recurrence: only pre-fill for genuinely new clients. Migrated/
-            // existing clients (is_new_client=0) never get auto-recurrence —
-            // we don't know how many installments they've already paid.
-            if (terms.is_new_client) {
+            // This invoice is a package payment unless Alice says otherwise —
+            // it was prefilled straight off the client's plan. Unchecking it
+            // keeps one-off charges (an Apex Club event, an extra service) out
+            // of the plan's paid tally.
+            var instCb = document.getElementById("niIsInstallment");
+            if (instCb) { instCb.checked = true; }
+            var instWrap = document.getElementById("niIsInstallmentWrap");
+            if (instWrap) { instWrap.hidden = false; }
+
+            // Recurrence prefill. This used to be limited to genuinely new
+            // clients, because Apex had no idea how many installments an
+            // existing client had already paid. The payment plan now records
+            // that (payments_made_before + the live tally), so an existing
+            // client gets a schedule for what's LEFT rather than nothing at
+            // all — which matters because nearly every Apex client predates
+            // this system.
+            var prog = terms.progress || {};
+            var remaining = (prog.remaining !== null && prog.remaining !== undefined) ? prog.remaining : null;
+            var canSchedule = terms.is_new_client || (remaining !== null && remaining > 0) || terms.recurrence_never_ends;
+
+            if (canSchedule) {
               var recurCb = document.getElementById("niRecurringCheckbox");
               var intervalEl = document.getElementById("niRecurringInterval");
               var unitEl = document.getElementById("niRecurringUnit");
               var neverEndsEl = document.getElementById("niRecurringNeverEnds");
               var occEl = document.getElementById("niRecurringOccurrences");
+              var startEl = document.getElementById("niRecurringStartDate");
               if (recurCb) { recurCb.checked = true; }
               if (intervalEl && terms.recurrence_interval) { intervalEl.value = terms.recurrence_interval; }
               if (unitEl && terms.recurrence_unit) { unitEl.value = terms.recurrence_unit; }
               if (neverEndsEl) { neverEndsEl.checked = !!terms.recurrence_never_ends; }
-              if (occEl && !terms.recurrence_never_ends && terms.installment_count) { occEl.value = terms.installment_count; }
+              // Occurrences = what's still owed, not the plan total. A client
+              // 4 payments into 8 gets 4 more, not 8 more.
+              if (occEl && !terms.recurrence_never_ends) {
+                if (remaining !== null && remaining > 0) { occEl.value = remaining; }
+                else if (terms.installment_count) { occEl.value = terms.installment_count; }
+              }
+              if (startEl && !startEl.value) {
+                var nextDue = prog.next_due_at || terms.first_due_date;
+                if (nextDue) { startEl.value = String(nextDue).slice(0, 10); }
+              }
               onNiRecurringToggle();
               onNiRecurringNeverEndsToggle();
             }
@@ -3431,7 +3468,12 @@
 
       var recurCb = document.getElementById("niRecurringCheckbox");
       var isRecurring = !!(recurCb && recurCb.checked);
-      var body = { client_id: clientSel.value, line_items: items };
+      var instCb = document.getElementById("niIsInstallment");
+      var body = {
+        client_id: clientSel.value,
+        line_items: items,
+        is_installment: !!(instCb && instCb.checked)
+      };
       if (isRecurring) {
         var intervalEl = document.getElementById("niRecurringInterval");
         var unitEl = document.getElementById("niRecurringUnit");

@@ -475,6 +475,97 @@
     .pull-status.is-error { color: #b44040; }
     .pull-status.is-ok    { color: #1a6640; }
 
+    /* ─── Payment plan (under the payment method) ────────────────────────── */
+    .pay-plan {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .pay-plan-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .pay-plan-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .pay-plan-empty {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 2px 0 8px;
+    }
+    .pay-plan-pkg {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .pay-plan-terms {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    /* The tally. Rows are the components (before / in Apex), then a ruled
+       total, so a wrong balance can be traced to which half is wrong. */
+    .pay-plan-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      font-size: 12.5px;
+      padding: 3px 0;
+    }
+    .pay-plan-row span:last-child {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    .pay-plan-row.is-sum {
+      border-top: 1px solid var(--border);
+      margin-top: 5px;
+      padding-top: 7px;
+      font-weight: 700;
+    }
+    .pay-plan-row.is-sum span:last-child { font-weight: 700; }
+    .pay-plan-owed {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--gold-dim);
+      border-radius: 7px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .pay-plan-owed span:last-child { font-variant-numeric: tabular-nums; }
+    .pay-plan-due {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .pay-plan-due strong { color: var(--text); font-variant-numeric: tabular-nums; }
+    .pay-plan-note {
+      margin-top: 8px;
+      font-size: 11.5px;
+      color: var(--brown);
+      line-height: 1.45;
+    }
+    .pay-plan-done {
+      margin-top: 8px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #1a6640;
+    }
+
     /* ─── Two-column layout ──────────────────────────────────────────────── */
     .two-col-layout {
       display: flex;
@@ -2086,6 +2177,29 @@
                 <option value="Stripe">Stripe</option>
               </select>
               <div class="pull-status" id="paymentStatus"></div>
+
+              <!-- Payment plan. Lives here, under the payment method, because
+                   this is where Alice already comes to fix what Rafa skipped at
+                   client creation. Opens the same Payment Terms modal rather
+                   than duplicating the engine. -->
+              <div class="pay-plan" id="payPlanBlock">
+                <div class="pay-plan-head">
+                  <span class="pay-plan-label">
+                    <span class="show-pt">Plano de Pagamento</span>
+                    <span class="show-en">Payment Plan</span>
+                  </span>
+                  <button class="btn-sm" id="payPlanEditBtn" onclick="openPaymentTermsFromCard()">
+                    <span class="show-pt">Editar</span>
+                    <span class="show-en">Edit</span>
+                  </button>
+                </div>
+                <div id="payPlanBody">
+                  <div class="pay-plan-empty">
+                    <span class="show-pt">Carregando...</span>
+                    <span class="show-en">Loading...</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2473,6 +2587,34 @@
           </button>
           <div style="font-size:13px;font-weight:600;margin-top:8px;" id="ptCustomSplitSum"></div>
         </div>
+
+        <!-- Progress + schedule. Most Apex clients signed before this system
+             existed, so their installment history lives nowhere — this is where
+             Alice enters what they had already paid. The due date is what lets
+             the plan feed recurring invoices at all. -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;">
+          <span class="show-pt">Progresso e Agendamento</span>
+          <span class="show-en">Progress &amp; Schedule</span>
+        </div>
+
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Pagamentos ja feitos (antes do sistema)</span>
+            <span class="show-en">Payments already made (before the system)</span>
+          </label>
+          <input type="number" id="ptPaymentsMadeBefore" min="0" step="1" value="0" oninput="recalcPaymentTerms()">
+        </div>
+
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Primeiro vencimento</span>
+            <span class="show-en">First payment due</span>
+          </label>
+          <input type="date" id="ptFirstDueDate" onchange="recalcPaymentTerms()">
+        </div>
+
+        <div style="font-size:12.5px;line-height:1.5;margin-top:6px;" id="ptProgressMath"></div>
+        <div style="font-size:11.5px;color:var(--brown);line-height:1.45;margin-top:6px;" id="ptScheduleNote"></div>
 
         <button class="btn-primary" id="btnSavePaymentTerms" onclick="handleSavePaymentTerms()" style="margin-top:16px;">
           <span class="show-pt">Salvar</span>
@@ -4315,6 +4457,9 @@
           initLogoDisplay(clientData);
           initPaymentMethod(clientData);
           initLeadPipeline(clientData);
+          // The plan card resolves its package name out of the live package
+          // list, so load that first rather than racing it.
+          loadLivePackageList().then(loadPaymentPlan);
         })
         .catch(function(e) {
           document.getElementById("clientName").textContent = t("Cliente não encontrado", "Client not found");
@@ -5423,13 +5568,45 @@
       return null;
     }
 
+    // Saved terms for this client, or null. Kept in sync by loadPaymentPlan()
+    // and refreshed after every save.
+    var savedTerms = null;
+
     function openPaymentTermsModal(packageShortName, isNewClient) {
       loadLivePackageList().then(function() {
         openPaymentTermsModalResolved(packageShortName, isNewClient);
       });
     }
 
-    function openPaymentTermsModalResolved(packageShortName, isNewClient) {
+    // Opened from the Payment Plan card rather than by changing the package.
+    // This is Alice's door to terms Rafa skipped at client creation: it keeps
+    // the client's CURRENT package and never re-PATCHes clients.package, so
+    // editing a plan can't restart the engagement clock.
+    function openPaymentTermsFromCard() {
+      var pkgName = (savedTerms && savedTerms.package_id && PACKAGE_OBJECTS_LIVE)
+        ? null
+        : (clientData ? clientData.package : null);
+      loadLivePackageList().then(function() {
+        var name = pkgName;
+        if (!name && savedTerms && savedTerms.package_id) {
+          for (var i = 0; i < PACKAGE_OBJECTS_LIVE.length; i++) {
+            if (PACKAGE_OBJECTS_LIVE[i].id === savedTerms.package_id) {
+              name = PACKAGE_OBJECTS_LIVE[i].short_name;
+              break;
+            }
+          }
+        }
+        if (!name) { name = clientData ? clientData.package : null; }
+        if (!name) {
+          alert(t("Selecione um pacote para este cliente primeiro.",
+                  "Assign a package to this client first."));
+          return;
+        }
+        openPaymentTermsModalResolved(name, false, true);
+      });
+    }
+
+    function openPaymentTermsModalResolved(packageShortName, isNewClient, termsOnly) {
       var pkg = findPackageByShortName(packageShortName);
       if (!pkg) {
         // Real fetch has completed and the package still isn't in
@@ -5454,6 +5631,12 @@
       ptState.isNewClient = !!isNewClient;
       ptState.splitMode = 'even';
       ptState.customRows = [];
+      ptState.termsOnly = !!termsOnly;
+
+      // Reopening on a client who already has terms must show those terms, not
+      // a blank form off the package list price. Without this the modal
+      // silently discarded a saved plan every time it was reopened.
+      var prior = (savedTerms && savedTerms.package_id === pkg.id) ? savedTerms : null;
 
       var hasUpfront = pkg.upfront_price !== null && pkg.upfront_price !== undefined;
       var hasInstallment = pkg.installment_total_price !== null && pkg.installment_total_price !== undefined;
@@ -5516,6 +5699,45 @@
       document.getElementById("ptDiscountNote").value = "";
       document.getElementById("ptStatus").textContent = "";
       document.getElementById("ptCustomRows").innerHTML = "";
+      document.getElementById("ptPaymentsMadeBefore").value = 0;
+      document.getElementById("ptFirstDueDate").value = "";
+
+      // Everything above set defaults from the package's list price. If this
+      // client already has a saved plan, those defaults are wrong — replace
+      // them with what was actually agreed.
+      if (prior) {
+        if (prior.pricing_option === "upfront" || prior.pricing_option === "installment") {
+          if (hasBothPrices) { selectPricingOption(prior.pricing_option); }
+        }
+        if (prior.base_total !== null && prior.base_total !== undefined) {
+          ptState.baseTotal = prior.base_total;
+        }
+        if (prior.discount_type) {
+          document.getElementById("ptDiscountType").value = prior.discount_type;
+          document.getElementById("ptDiscountValue").disabled = false;
+          document.getElementById("ptDiscountValue").value = (prior.discount_value !== null && prior.discount_value !== undefined) ? prior.discount_value : "";
+        }
+        document.getElementById("ptDiscountNote").value = prior.discount_note || "";
+
+        if (prior.split_mode === "custom") {
+          ptState.customRows = (prior.custom_installments || []).map(function(r) {
+            return { amount: Number(r.amount) || 0, label: r.label || "" };
+          });
+          setSplitMode("custom");
+          renderPtCustomRows();
+        } else {
+          setSplitMode("even");
+          if (prior.recurrence_interval) { document.getElementById("ptRecurringInterval").value = prior.recurrence_interval; }
+          if (prior.recurrence_unit) { document.getElementById("ptRecurringUnit").value = prior.recurrence_unit; }
+          document.getElementById("ptNeverEnds").checked = !!prior.recurrence_never_ends;
+          document.getElementById("ptInstallmentCount").value = prior.installment_count || "";
+          document.getElementById("ptInstallmentAmount").value = (prior.installment_amount !== null && prior.installment_amount !== undefined) ? prior.installment_amount : "";
+          onPtNeverEndsToggle();
+        }
+
+        document.getElementById("ptPaymentsMadeBefore").value = prior.payments_made_before || 0;
+        document.getElementById("ptFirstDueDate").value = prior.first_due_date || "";
+      }
 
       recalcPaymentTerms();
 
@@ -5657,6 +5879,75 @@
         sumEl.textContent = ptFmtCurrency(sum) + " / " + ptFmtCurrency(adjusted) +
           (Math.abs(sum - adjusted) < 0.01 ? " ✓" : "");
       }
+
+      recalcPlanProgress(adjusted);
+    }
+
+    // Live "how many are left" math inside the modal, mirroring what the card
+    // shows after saving. Balloon plans consume rows from the top rather than
+    // averaging, so the remaining balance is the real sum of unpaid rows.
+    function recalcPlanProgress(adjusted) {
+      var mathEl = document.getElementById("ptProgressMath");
+      var noteEl = document.getElementById("ptScheduleNote");
+      if (!mathEl) { return; }
+
+      var madeBefore = parseInt(document.getElementById("ptPaymentsMadeBefore").value, 10);
+      if (isNaN(madeBefore) || madeBefore < 0) { madeBefore = 0; }
+
+      var isCustom = (ptState.splitMode === "custom");
+      var total = null;
+      if (isCustom) {
+        total = ptState.customRows.length || null;
+      } else if (!document.getElementById("ptNeverEnds").checked) {
+        var c = parseInt(document.getElementById("ptInstallmentCount").value, 10);
+        total = (c > 0) ? c : null;
+      }
+
+      // Live tally of installments already paid through Apex. Only meaningful
+      // on an existing plan; a brand-new one has none by definition.
+      var paidInApex = (savedTerms && savedTerms.progress) ? (savedTerms.progress.made_in_apex || 0) : 0;
+
+      if (total === null) {
+        mathEl.innerHTML = '<span class="show-pt">Plano sem fim definido — sem total de parcelas.</span>' +
+                           '<span class="show-en">Never-expiring plan — no total number of payments.</span>';
+      } else if (madeBefore > total) {
+        mathEl.innerHTML = '<span style="color:#b44040;">' +
+          '<span class="show-pt">Pagamentos feitos (' + madeBefore + ') excede o total do plano (' + total + ').</span>' +
+          '<span class="show-en">Payments made (' + madeBefore + ') exceeds the plan total (' + total + ').</span></span>';
+      } else {
+        var remaining = total - madeBefore - paidInApex;
+        if (remaining < 0) { remaining = 0; }
+        var owed = 0;
+        if (isCustom) {
+          for (var i = madeBefore + paidInApex; i < ptState.customRows.length; i++) {
+            owed += (ptState.customRows[i].amount || 0);
+          }
+        } else {
+          owed = (parseFloat(document.getElementById("ptInstallmentAmount").value) || 0) * remaining;
+        }
+        var parts = total + " − " + madeBefore + (paidInApex ? " − " + paidInApex : "") + " = " + remaining;
+        mathEl.innerHTML =
+          '<span class="show-pt"><strong>' + parts + '</strong> parcelas restantes · ' + ptFmtCurrency(owed) + ' a receber</span>' +
+          '<span class="show-en"><strong>' + parts + '</strong> payments left · ' + ptFmtCurrency(owed) + ' owed</span>';
+      }
+
+      // Scheduling consequences, stated plainly. This screen now creates
+      // invoice drafts on a timer, and that should never be a surprise.
+      if (!noteEl) { return; }
+      var due = document.getElementById("ptFirstDueDate").value;
+      if (!due) {
+        noteEl.innerHTML = '<span class="show-pt">Sem data de vencimento, nenhuma fatura sera agendada.</span>' +
+                           '<span class="show-en">Without a due date, no invoices will be scheduled.</span>';
+      } else {
+        var todayStr = new Date().toISOString().slice(0, 10);
+        if (due < todayStr) {
+          noteEl.innerHTML = '<span class="show-pt">Data no passado — sera ajustada para hoje para nao gerar faturas retroativas.</span>' +
+                             '<span class="show-en">Date is in the past — it will be moved to today so no back-dated invoices are generated.</span>';
+        } else {
+          noteEl.innerHTML = '<span class="show-pt">Rascunhos de fatura serao gerados a partir desta data. Nada e enviado automaticamente.</span>' +
+                             '<span class="show-en">Invoice drafts will be generated from this date. Nothing is sent automatically.</span>';
+        }
+      }
     }
 
     function closePaymentTermsModal() {
@@ -5675,6 +5966,9 @@
       var discountValue = discountType ? (parseFloat(document.getElementById("ptDiscountValue").value) || 0) : null;
       var discountNote = document.getElementById("ptDiscountNote").value.trim() || null;
 
+      var madeBefore = parseInt(document.getElementById("ptPaymentsMadeBefore").value, 10);
+      if (isNaN(madeBefore) || madeBefore < 0) { madeBefore = 0; }
+
       var payload = {
         package_id: ptState.package.id,
         pricing_option: ptState.pricingOption,
@@ -5683,7 +5977,9 @@
         discount_value: discountValue,
         discount_note: discountNote,
         split_mode: ptState.splitMode,
-        is_new_client: !!ptState.isNewClient
+        is_new_client: !!ptState.isNewClient,
+        payments_made_before: madeBefore,
+        first_due_date: document.getElementById("ptFirstDueDate").value || null
       };
 
       if (ptState.splitMode === "even") {
@@ -5708,16 +6004,22 @@
       }).then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          // Keep clients.package (plain text) in sync in the UI too.
+          savedTerms = data.terms || null;
+          // A terms-only edit keeps the client's existing package, so there is
+          // nothing to sync and no reason to touch the engagement clock.
+          if (ptState.termsOnly) { return null; }
           return apiFetch("/api/clients/" + CLIENT_ID, {
             method: "PATCH",
             body: { package: ptState.package.short_name }
           }).then(function(res2) { return res2.json(); });
         })
         .then(function() {
-          if (clientData) { clientData.package = ptState.package.short_name; }
-          var lozEl = document.getElementById("pkgLozenge");
-          if (lozEl) { lozEl.textContent = ptState.package.short_name; }
+          if (!ptState.termsOnly) {
+            if (clientData) { clientData.package = ptState.package.short_name; }
+            var lozEl = document.getElementById("pkgLozenge");
+            if (lozEl) { lozEl.textContent = ptState.package.short_name; }
+          }
+          renderPaymentPlan(savedTerms);
           saveBtn.disabled = false;
           closePaymentTermsModal();
         })
@@ -7171,6 +7473,124 @@
       if (!sel) { return; }
       var current = (client && client.payment_method) ? client.payment_method : "";
       sel.value = current;
+    }
+
+    // ── Payment plan card ─────────────────────────────────────────────────
+
+    function payPlanFmtDate(iso) {
+      if (!iso) { return "—"; }
+      var parts = String(iso).slice(0, 10).split("-");
+      if (parts.length !== 3) { return iso; }
+      var months = t(
+        "jan,fev,mar,abr,mai,jun,jul,ago,set,out,nov,dez",
+        "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec"
+      ).split(",");
+      var mi = parseInt(parts[1], 10) - 1;
+      return (months[mi] || parts[1]) + " " + parseInt(parts[2], 10) + ", " + parts[0];
+    }
+
+    function loadPaymentPlan() {
+      return apiFetch("/api/clients/" + CLIENT_ID + "/package-terms")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          savedTerms = (data && data.terms) ? data.terms : null;
+          renderPaymentPlan(savedTerms);
+        })
+        .catch(function() {
+          var body = document.getElementById("payPlanBody");
+          if (body) {
+            body.innerHTML = '<div class="pay-plan-empty">' +
+              '<span class="show-pt">Nao foi possivel carregar o plano.</span>' +
+              '<span class="show-en">Could not load the payment plan.</span></div>';
+          }
+        });
+    }
+
+    function renderPaymentPlan(terms) {
+      var body = document.getElementById("payPlanBody");
+      var editBtn = document.getElementById("payPlanEditBtn");
+      if (!body) { return; }
+
+      if (!terms) {
+        body.innerHTML = '<div class="pay-plan-empty">' +
+          '<span class="show-pt">Nenhum plano definido.</span>' +
+          '<span class="show-en">No payment plan set.</span></div>';
+        if (editBtn) {
+          editBtn.innerHTML = '<span class="show-pt">Definir</span><span class="show-en">Set plan</span>';
+        }
+        return;
+      }
+      if (editBtn) {
+        editBtn.innerHTML = '<span class="show-pt">Editar</span><span class="show-en">Edit</span>';
+      }
+
+      var p = terms.progress || {};
+      var html = "";
+
+      var pkgName = "";
+      if (PACKAGE_OBJECTS_LIVE) {
+        for (var i = 0; i < PACKAGE_OBJECTS_LIVE.length; i++) {
+          if (PACKAGE_OBJECTS_LIVE[i].id === terms.package_id) { pkgName = PACKAGE_OBJECTS_LIVE[i].short_name; break; }
+        }
+      }
+      var optLabel = "";
+      if (terms.pricing_option === "upfront") { optLabel = t("a vista", "upfront"); }
+      else if (terms.pricing_option === "installment") { optLabel = t("parcelado", "installments"); }
+      html += '<div class="pay-plan-pkg">' + escHtml(pkgName || "—") +
+              (optLabel ? ' <span style="font-weight:500;color:var(--muted);">· ' + optLabel + '</span>' : '') + '</div>';
+
+      var total = (terms.adjusted_total !== null && terms.adjusted_total !== undefined) ? terms.adjusted_total : 0;
+      var termsLine = ptFmtCurrency(total);
+      if (terms.split_mode === "custom") {
+        termsLine += " · " + t("parcelas variaveis", "custom amounts");
+      } else if (terms.installment_amount) {
+        termsLine += " · " + ptFmtCurrency(terms.installment_amount);
+        if (p.total_payments) { termsLine += " × " + p.total_payments; }
+      }
+      html += '<div class="pay-plan-terms">' + escHtml(termsLine) + '</div>';
+
+      // The components, shown separately so a wrong balance is traceable.
+      html += '<div class="pay-plan-row"><span>' +
+              '<span class="show-pt">Pagos antes do sistema</span>' +
+              '<span class="show-en">Paid before Apex</span></span><span>' + (p.made_before || 0) + '</span></div>';
+      html += '<div class="pay-plan-row"><span>' +
+              '<span class="show-pt">Pagos no Apex</span>' +
+              '<span class="show-en">Paid in Apex</span></span><span>' + (p.made_in_apex || 0) + '</span></div>';
+
+      if (p.total_payments === null || p.total_payments === undefined) {
+        // A never-expiring plan has no total, so "how many are left" has no
+        // answer. Say that rather than printing a confident wrong number.
+        html += '<div class="pay-plan-row is-sum"><span>' +
+                '<span class="show-pt">Restantes</span><span class="show-en">Remaining</span></span><span>—</span></div>';
+        html += '<div class="pay-plan-note">' +
+                '<span class="show-pt">Plano recorrente sem fim definido. Defina o numero de parcelas para calcular o saldo.</span>' +
+                '<span class="show-en">Recurring plan with no end date. Set a number of payments to calculate a balance.</span></div>';
+      } else if (p.is_complete) {
+        html += '<div class="pay-plan-row is-sum"><span>' +
+                '<span class="show-pt">Restantes</span><span class="show-en">Remaining</span></span><span>0</span></div>';
+        html += '<div class="pay-plan-done">' +
+                '<span class="show-pt">Plano quitado.</span>' +
+                '<span class="show-en">Plan paid in full.</span></div>';
+      } else {
+        html += '<div class="pay-plan-row is-sum"><span>' +
+                '<span class="show-pt">Restantes</span><span class="show-en">Remaining</span></span><span>' +
+                p.remaining + ' / ' + p.total_payments + '</span></div>';
+        html += '<div class="pay-plan-owed"><span>' +
+                '<span class="show-pt">Saldo devedor</span><span class="show-en">Balance owed</span></span><span>' +
+                ptFmtCurrency(p.balance_owed || 0) + '</span></div>';
+      }
+
+      if (p.next_due_at && !p.is_complete) {
+        html += '<div class="pay-plan-due"><span>' +
+                '<span class="show-pt">Proximo vencimento</span><span class="show-en">Next payment due</span></span>' +
+                '<strong>' + escHtml(payPlanFmtDate(p.next_due_at)) + '</strong></div>';
+      } else if (!p.next_due_at && !p.is_complete) {
+        html += '<div class="pay-plan-note">' +
+                '<span class="show-pt">Sem data de vencimento — nenhuma fatura agendada.</span>' +
+                '<span class="show-en">No due date set — no invoices scheduled.</span></div>';
+      }
+
+      body.innerHTML = html;
     }
 
     function handlePaymentMethodChange(value) {

@@ -6797,6 +6797,201 @@ async function handlePostClientGrowth(id, request, env) {
 // Returns the client's real payment-terms record, or terms: null if none set.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// computePlanProgress — how far through their payment plan a client actually is.
+//
+// total_payments  = how many payments the plan calls for
+// made_before     = Alice's hand-entered count from before Apex existed
+// made_in_apex    = paid invoices tagged is_installment = 1 (today forward)
+// remaining       = total - (made_before + made_in_apex)
+// balance_owed    = what those remaining payments actually add up to
+//
+// The two "made" counts are returned separately on purpose. A single merged
+// number can be wrong with no way to tell which half is wrong; split, Alice can
+// look at the client page and see whether the pre-system count or the live
+// tally is the one that doesn't match reality.
+//
+// A never-expiring plan has no total, so remaining is genuinely unknowable
+// rather than zero — total_payments comes back null and the UI says so instead
+// of printing a confident wrong number. 4 of the 6 plans that existed when this
+// shipped were in exactly that state.
+//
+// Balloon plans do NOT average. Payments already made consume the custom
+// installment rows from the top, so someone on $500/$500/$7,788 who has paid
+// twice owes $7,788 — not two-thirds of the total.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// syncPlanRecurrence — make a saved payment plan drive invoicing.
+//
+// invoice_recurrence and its 4-hourly cron have existed since the finance
+// build; what was missing was any way to CREATE a row, because a schedule needs
+// a start date and nothing captured one. Zero recurrence rows existed before
+// this shipped.
+//
+// Three safety properties, in order of how much damage their absence would do:
+//
+// 1. next_due_at is never in the past. The cron generates every invoice whose
+//    due date has passed, so a plan saved with a start date of last year would
+//    spray back-dated drafts on the next run. A past date is clamped to today.
+// 2. end_after_n counts what is LEFT, not the plan total. A client 4 payments
+//    into 8 generates 4 more drafts and stops. This is the whole reason
+//    payments_made_before had to exist before existing clients could be given
+//    recurrence at all.
+// 3. Drafts only, never sends. That is the cron's own behavior and this does
+//    not change it — Alice still reviews and sends every invoice by hand.
+//
+// A plan with nothing left to pay deactivates its recurrence instead of
+// creating one.
+// ---------------------------------------------------------------------------
+
+async function syncPlanRecurrence(clientId, plan, env) {
+    var existing = await env.DB.prepare(
+        "SELECT id FROM invoice_recurrence WHERE client_id = ? AND active = 1"
+    ).bind(clientId).first();
+
+    function deactivate() {
+        if (!existing) { return Promise.resolve(); }
+        return env.DB.prepare("UPDATE invoice_recurrence SET active = 0 WHERE id = ?")
+            .bind(existing.id).run();
+    }
+
+    // No start date means Alice hasn't scheduled this plan yet — record the
+    // terms, schedule nothing.
+    if (!plan.firstDueDate) {
+        await deactivate();
+        await env.DB.prepare("UPDATE client_package_terms SET recurrence_id = NULL WHERE client_id = ?")
+            .bind(clientId).run();
+        return null;
+    }
+
+    // How many payments are still outstanding, and what each is worth.
+    var remaining = null;
+    var amount = null;
+    if (plan.splitMode === "custom") {
+        var rows = plan.customInstallments || [];
+        remaining = rows.length - plan.paymentsMadeBefore;
+        // A balloon schedule's payments differ from each other, so a single
+        // recurring amount cannot represent it. Use the next unpaid amount and
+        // let Alice adjust each draft; the plan card still shows the true
+        // remaining balance.
+        var nextIdx = plan.paymentsMadeBefore;
+        amount = (rows[nextIdx] && Number(rows[nextIdx].amount)) ? Number(rows[nextIdx].amount) : null;
+    } else if (!plan.neverEnds && plan.installmentCount) {
+        remaining = plan.installmentCount - plan.paymentsMadeBefore;
+        amount = plan.installmentAmount;
+    } else {
+        // Never-expiring plan: no end, bill until someone stops it.
+        remaining = null;
+        amount = plan.installmentAmount;
+    }
+
+    if (remaining !== null && remaining <= 0) {
+        await deactivate();
+        await env.DB.prepare("UPDATE client_package_terms SET recurrence_id = NULL WHERE client_id = ?")
+            .bind(clientId).run();
+        return null;
+    }
+    if (!amount || amount <= 0) {
+        await deactivate();
+        await env.DB.prepare("UPDATE client_package_terms SET recurrence_id = NULL WHERE client_id = ?")
+            .bind(clientId).run();
+        return null;
+    }
+
+    // Never schedule into the past — see safety property 1 above.
+    var today = localDateStrForTZ();
+    var nextDue = (plan.firstDueDate < today) ? today : plan.firstDueDate;
+
+    // invoice_recurrence stores singular units; the terms modal uses plurals.
+    var unitMap = { days: "day", weeks: "week", months: "month", years: "year" };
+    var unit = unitMap[plan.recurrenceUnit] || plan.recurrenceUnit || "month";
+    if (["day", "week", "month", "year"].indexOf(unit) === -1) { unit = "month"; }
+
+    var interval = plan.recurrenceInterval || 1;
+    if (interval < 1) { interval = 1; }
+
+    var amountCents = Math.round(amount * 100);
+
+    if (existing) {
+        await env.DB.prepare(
+            "UPDATE invoice_recurrence SET amount_cents = ?, interval_n = ?, interval_unit = ?, " +
+            "next_due_at = ?, end_after_n = ? WHERE id = ?"
+        ).bind(amountCents, interval, unit, nextDue, remaining, existing.id).run();
+        await env.DB.prepare("UPDATE client_package_terms SET recurrence_id = ? WHERE client_id = ?")
+            .bind(existing.id, clientId).run();
+        return existing.id;
+    }
+
+    var recId = crypto.randomUUID();
+    await env.DB.prepare(
+        "INSERT INTO invoice_recurrence (id, client_id, amount_cents, interval_n, interval_unit, " +
+        "next_due_at, end_after_n, generated_count, active) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1)"
+    ).bind(recId, clientId, amountCents, interval, unit, nextDue, remaining).run();
+    await env.DB.prepare("UPDATE client_package_terms SET recurrence_id = ? WHERE client_id = ?")
+        .bind(recId, clientId).run();
+    return recId;
+}
+
+async function computePlanProgress(clientId, row, customInstallments, env) {
+    var madeBefore = row.payments_made_before || 0;
+
+    var paidRow = await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM invoices " +
+        "WHERE client_id = ? AND is_installment = 1 AND status = 'paid'"
+    ).bind(clientId).first();
+    var madeInApex = (paidRow && paidRow.n) ? paidRow.n : 0;
+
+    var madeTotal = madeBefore + madeInApex;
+    var isCustom = (row.split_mode === "custom");
+
+    var totalPayments = null;
+    if (isCustom) {
+        totalPayments = customInstallments.length || null;
+    } else if (!row.recurrence_never_ends && row.installment_count) {
+        totalPayments = row.installment_count;
+    }
+
+    var remaining = null;
+    if (totalPayments !== null) {
+        remaining = totalPayments - madeTotal;
+        if (remaining < 0) { remaining = 0; }
+    }
+
+    // What the outstanding payments are actually worth.
+    var balanceOwed = null;
+    if (isCustom && customInstallments.length > 0) {
+        balanceOwed = 0;
+        for (var i = madeTotal; i < customInstallments.length; i++) {
+            balanceOwed += Number(customInstallments[i].amount) || 0;
+        }
+    } else if (remaining !== null) {
+        balanceOwed = (Number(row.installment_amount) || 0) * remaining;
+    }
+
+    // The live next-due date, which walks forward as the cron generates drafts.
+    // Falls back to the plan's original first_due_date when no recurrence has
+    // been created yet.
+    var nextDueAt = row.first_due_date || null;
+    if (row.recurrence_id) {
+        var rec = await env.DB.prepare(
+            "SELECT next_due_at, active FROM invoice_recurrence WHERE id = ?"
+        ).bind(row.recurrence_id).first();
+        if (rec && rec.active && rec.next_due_at) { nextDueAt = rec.next_due_at; }
+    }
+
+    return {
+        total_payments:  totalPayments,   // null = never-expiring plan, no total
+        made_before:     madeBefore,
+        made_in_apex:    madeInApex,
+        made_total:      madeTotal,
+        remaining:       remaining,       // null when total_payments is null
+        balance_owed:    balanceOwed,
+        next_due_at:     nextDueAt,
+        is_complete:     (remaining !== null && remaining === 0)
+    };
+}
+
 async function handleGetClientPackageTerms(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -6807,7 +7002,8 @@ async function handleGetClientPackageTerms(id, request, env) {
             "SELECT client_id, package_id, pricing_option, base_total, discount_type, discount_value, " +
             "discount_note, adjusted_total, split_mode, installment_count, installment_amount, " +
             "custom_installments, recurrence_unit, recurrence_interval, recurrence_never_ends, " +
-            "is_new_client, updated_at FROM client_package_terms WHERE client_id = ?"
+            "is_new_client, payments_made_before, first_due_date, recurrence_id, updated_at " +
+            "FROM client_package_terms WHERE client_id = ?"
         ).bind(id).first();
 
         if (!row) { return jsonOk({ terms: null }); }
@@ -6816,6 +7012,8 @@ async function handleGetClientPackageTerms(id, request, env) {
         if (row.custom_installments) {
             try { customInstallments = JSON.parse(row.custom_installments); } catch(e) { customInstallments = []; }
         }
+
+        var progress = await computePlanProgress(id, row, customInstallments, env);
 
         return jsonOk({ terms: {
             client_id:              row.client_id,
@@ -6834,7 +7032,11 @@ async function handleGetClientPackageTerms(id, request, env) {
             recurrence_interval:    row.recurrence_interval,
             recurrence_never_ends:  !!row.recurrence_never_ends,
             is_new_client:          !!row.is_new_client,
-            updated_at:             row.updated_at
+            payments_made_before:   row.payments_made_before || 0,
+            first_due_date:         row.first_due_date,
+            recurrence_id:          row.recurrence_id,
+            updated_at:             row.updated_at,
+            progress:               progress
         }});
     } catch (e) {
         return jsonErr("Error fetching package terms: " + e.message, 500);
@@ -6912,6 +7114,30 @@ async function handlePutClientPackageTerms(id, request, env) {
         var recurrenceNeverEnds = body.recurrence_never_ends ? 1 : 0;
         var isNewClient = body.is_new_client ? 1 : 0;
 
+        // Payments the client had already made before Apex existed. Alice owns
+        // this number by hand; everything from today forward is counted live
+        // off tagged invoices instead.
+        var paymentsMadeBefore = 0;
+        if (body.payments_made_before !== null && body.payments_made_before !== undefined && body.payments_made_before !== "") {
+            paymentsMadeBefore = parseInt(body.payments_made_before, 10);
+            if (isNaN(paymentsMadeBefore) || paymentsMadeBefore < 0) {
+                return jsonErr("payments_made_before must be a non-negative whole number", 400);
+            }
+        }
+
+        // Can't have already made more payments than the plan contains.
+        var plannedCount = (splitMode === "custom")
+            ? (Array.isArray(body.custom_installments) ? body.custom_installments.length : 0)
+            : (recurrenceNeverEnds ? null : installmentCount);
+        if (plannedCount !== null && plannedCount > 0 && paymentsMadeBefore > plannedCount) {
+            return jsonErr("payments_made_before (" + paymentsMadeBefore + ") cannot exceed the plan's " + plannedCount + " payments", 400);
+        }
+
+        var firstDueDate = body.first_due_date || null;
+        if (firstDueDate && !/^\d{4}-\d{2}-\d{2}$/.test(firstDueDate)) {
+            return jsonErr("first_due_date must be YYYY-MM-DD", 400);
+        }
+
         var pkgRow = null;
         if (body.package_id) {
             pkgRow = await env.DB.prepare("SELECT id, short_name FROM packages WHERE id = ?").bind(body.package_id).first();
@@ -6921,8 +7147,9 @@ async function handlePutClientPackageTerms(id, request, env) {
             "INSERT INTO client_package_terms (client_id, package_id, pricing_option, base_total, " +
             "discount_type, discount_value, discount_note, adjusted_total, split_mode, " +
             "installment_count, installment_amount, custom_installments, recurrence_unit, " +
-            "recurrence_interval, recurrence_never_ends, is_new_client, updated_at) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) " +
+            "recurrence_interval, recurrence_never_ends, is_new_client, payments_made_before, " +
+            "first_due_date, updated_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) " +
             "ON CONFLICT (client_id) DO UPDATE SET " +
             "package_id = excluded.package_id, pricing_option = excluded.pricing_option, " +
             "base_total = excluded.base_total, discount_type = excluded.discount_type, " +
@@ -6931,7 +7158,8 @@ async function handlePutClientPackageTerms(id, request, env) {
             "installment_count = excluded.installment_count, installment_amount = excluded.installment_amount, " +
             "custom_installments = excluded.custom_installments, recurrence_unit = excluded.recurrence_unit, " +
             "recurrence_interval = excluded.recurrence_interval, recurrence_never_ends = excluded.recurrence_never_ends, " +
-            "is_new_client = excluded.is_new_client, updated_at = datetime('now')"
+            "is_new_client = excluded.is_new_client, payments_made_before = excluded.payments_made_before, " +
+            "first_due_date = excluded.first_due_date, updated_at = datetime('now')"
         ).bind(
             id,
             body.package_id || null,
@@ -6948,8 +7176,26 @@ async function handlePutClientPackageTerms(id, request, env) {
             recurrenceUnit,
             recurrenceInterval,
             recurrenceNeverEnds,
-            isNewClient
+            isNewClient,
+            paymentsMadeBefore,
+            firstDueDate
         ).run();
+
+        // Push the plan into invoice_recurrence so it actually drives invoicing.
+        // This is what was missing: the recurrence engine and its 4-hourly
+        // draft cron have existed all along, but nothing could create a row
+        // without a first due date, so zero recurrences existed.
+        await syncPlanRecurrence(id, {
+            splitMode:          splitMode,
+            firstDueDate:       firstDueDate,
+            recurrenceUnit:     recurrenceUnit,
+            recurrenceInterval: recurrenceInterval,
+            neverEnds:          recurrenceNeverEnds,
+            installmentCount:   installmentCount,
+            installmentAmount:  installmentAmount,
+            customInstallments: (splitMode === "custom" && Array.isArray(body.custom_installments)) ? body.custom_installments : [],
+            paymentsMadeBefore: paymentsMadeBefore
+        }, env);
 
         // Keep clients.package (plain text) in sync so existing readers don't break.
         // A genuine package CHANGE restarts the engagement clock (see the
@@ -6969,13 +7215,16 @@ async function handlePutClientPackageTerms(id, request, env) {
             "SELECT client_id, package_id, pricing_option, base_total, discount_type, discount_value, " +
             "discount_note, adjusted_total, split_mode, installment_count, installment_amount, " +
             "custom_installments, recurrence_unit, recurrence_interval, recurrence_never_ends, " +
-            "is_new_client, updated_at FROM client_package_terms WHERE client_id = ?"
+            "is_new_client, payments_made_before, first_due_date, recurrence_id, updated_at " +
+            "FROM client_package_terms WHERE client_id = ?"
         ).bind(id).first();
 
         var savedCustom = [];
         if (saved.custom_installments) {
             try { savedCustom = JSON.parse(saved.custom_installments); } catch(e) { savedCustom = []; }
         }
+
+        var savedProgress = await computePlanProgress(id, saved, savedCustom, env);
 
         return jsonOk({ terms: {
             client_id:              saved.client_id,
@@ -6994,7 +7243,11 @@ async function handlePutClientPackageTerms(id, request, env) {
             recurrence_interval:    saved.recurrence_interval,
             recurrence_never_ends:  !!saved.recurrence_never_ends,
             is_new_client:          !!saved.is_new_client,
-            updated_at:             saved.updated_at
+            payments_made_before:   saved.payments_made_before || 0,
+            first_due_date:         saved.first_due_date,
+            recurrence_id:          saved.recurrence_id,
+            updated_at:             saved.updated_at,
+            progress:               savedProgress
         }});
     } catch (e) {
         return jsonErr("Error saving package terms: " + e.message, 500);
@@ -19588,9 +19841,10 @@ async function handlePostFinanceNewInvoice(request, env) {
         var id = crypto.randomUUID();
 
         await env.DB.prepare(
-            "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, source, notes) " +
-            "VALUES (?, ?, ?, ?, ?, ?, 'draft', 'manual', ?)"
-        ).bind(id, body.client_id, number, amountCents, issuedAt, dueAt, body.notes || null).run();
+            "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, source, notes, is_installment) " +
+            "VALUES (?, ?, ?, ?, ?, ?, 'draft', 'manual', ?, ?)"
+        ).bind(id, body.client_id, number, amountCents, issuedAt, dueAt, body.notes || null,
+               body.is_installment ? 1 : 0).run();
 
         if (body.satisfy_recurrence_id) {
             var rec = await env.DB.prepare(
@@ -20281,9 +20535,11 @@ async function runRecurringInvoices(env) {
 
         var number = await allocateInvoiceNumber(env);
         var invId = crypto.randomUUID();
+        // Generated off a recurrence, which now only ever comes from a client's
+        // payment plan — so these always count toward that plan.
         await env.DB.prepare(
             "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, " +
-            "source, recurrence_id, period_key) VALUES (?, ?, ?, ?, ?, ?, 'draft', 'recurrence', ?, ?)"
+            "source, recurrence_id, period_key, is_installment) VALUES (?, ?, ?, ?, ?, ?, 'draft', 'recurrence', ?, ?, 1)"
         ).bind(
             invId, rec.client_id, number, rec.amount_cents,
             rec.next_due_at, rec.next_due_at, rec.id, pk

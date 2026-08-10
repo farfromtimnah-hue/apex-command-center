@@ -2,6 +2,7 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <script src="native-bridge.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -5221,18 +5222,30 @@
     // is built from already-loaded clientData with no await in front of it.
     // Reaching window.open after an await is what got the popup blocked in the
     // "Pedir ajuda" white-screen incident (see the sendLoginViaWhatsapp note).
+    // Inside the iOS wrapper this hands the OpenPhone scheme to the OS instead
+    // of tel:. In a normal browser apexCallHref() returns the same tel: URL as
+    // before, so the live PWA is unchanged.
     function startLeadCall() {
       var tel = leadContactPhone();
       if (!tel) { return; }
-      window.location.href = "tel:" + tel.replace(/[^\d+]/g, "");
+      window.location.href = window.apexCallHref
+        ? apexCallHref(tel)
+        : "tel:" + tel.replace(/[^\d+]/g, "");
       openContactLogModal("Phone call");
     }
 
+    // window.open is blocked more aggressively in WKWebView than in Safari, so
+    // inside Capacitor apexOpenExternal() hands the URL to the OS directly.
+    // In a browser it still calls window.open and still reports a blocked
+    // popup, so the existing fallback alert is preserved.
     function startLeadWhatsapp() {
       var digits = leadWaDigits(leadContactPhone());
       if (!digits) { return; }
-      var waTab = window.open("https://wa.me/" + digits, "_blank");
-      if (!waTab) {
+      var waUrl = "https://wa.me/" + digits;
+      var opened = window.apexOpenExternal
+        ? apexOpenExternal(waUrl)
+        : !!window.open(waUrl, "_blank");
+      if (!opened) {
         window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
       openContactLogModal("WhatsApp");

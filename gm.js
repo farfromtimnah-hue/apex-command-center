@@ -420,11 +420,25 @@ function gmWaDigits(tel) {
   return digits;
 }
 
+// Inside the iOS wrapper the Call button hands the OpenPhone scheme to the OS
+// instead of tel:, so a rep lands in OpenPhone already dialing rather than in
+// the native phone dialer. In a normal browser gmCallHref() returns the same
+// tel: URL this always produced, so the live PWA is unchanged.
+// gmWaDigits() supplies the normalization; "+" makes it E.164.
+function gmCallHref(tel) {
+  if (!tel) { return ""; }
+  if (window.apexIsNative && apexIsNative()) {
+    // gmWaDigits() is the single normalization rule; "+" makes it E.164.
+    return "openphone://dial?number=" + encodeURIComponent("+" + gmWaDigits(tel)) + "&action=call";
+  }
+  return "tel:" + tel;
+}
+
 function gmContactButtonsHtml(tel) {
   var digits = gmWaDigits(tel);
   var dis = tel ? "" : ' aria-disabled="true"';
   return '<div class="gm-contact-row" data-tour="crm-detail-contact">' +
-    '<a class="gm-contact-btn gm-call"' + dis + ' href="tel:' + escHtml(tel || "") + '"' +
+    '<a class="gm-contact-btn gm-call"' + dis + ' href="' + escHtml(gmCallHref(tel)) + '"' +
       ' onclick="gmLogOutreach(\'Phone call\')">' +
       gmIcon("phone") + gmT("Ligar", "Call") + '</a>' +
     '<a class="gm-contact-btn gm-wa"' + dis + ' href="https://wa.me/' + digits + '" target="_blank" rel="noopener"' +

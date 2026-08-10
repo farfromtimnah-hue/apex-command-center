@@ -26,6 +26,26 @@
 
     html { scroll-behavior: smooth; }
 
+    /* Attention pulse for a handoff from the old finance page. Ring only —
+       nothing moves or resizes, so it cannot shift the button under a cursor
+       mid-click. */
+    @keyframes attnPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(201,164,58,0.75); }
+      70%  { box-shadow: 0 0 0 12px rgba(201,164,58,0); }
+      100% { box-shadow: 0 0 0 0 rgba(201,164,58,0); }
+    }
+    .attn-pulse {
+      animation: attnPulse 1.4s ease-out 4;
+      position: relative;
+      z-index: 1;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .attn-pulse {
+        animation: none;
+        box-shadow: 0 0 0 3px rgba(201,164,58,0.85);
+      }
+    }
+
     :root {
       --surface  : #f9f7f4;
       --header   : #1a1a1d;
@@ -1215,7 +1235,7 @@
           <span class="show-pt">Faturas</span>
           <span class="show-en">Invoices</span>
         </span>
-        <button class="btn btn-sm btn-gold" onclick="openNewInvoice()">
+        <button class="btn btn-sm btn-gold" id="btnNewInvoice" onclick="openNewInvoice()">
           <span class="show-pt">+ Nova fatura</span>
           <span class="show-en">+ New invoice</span>
         </button>
@@ -4242,9 +4262,39 @@
       applyFinBilingualAttrs();
       loadClients();
       switchInvoiceTab("draft");
-      switchFinanceTab("saude");
+      // Arriving from the old page's "go to the new system" link lands on the
+      // Invoices tab with the create button called out, rather than the default
+      // Financial Health tab — otherwise the handoff drops her somewhere that
+      // looks nothing like where she came from.
+      if (getHighlightTarget() === "invoice") {
+        switchFinanceTab("faturas");
+        flashNewInvoiceButton();
+      } else {
+        switchFinanceTab("saude");
+      }
       loadAll();
       preloadCategories();
+    }
+
+    // ?highlight=invoice — set by the legacy finance.html banner link.
+    function getHighlightTarget() {
+      try {
+        return new URLSearchParams(window.location.search).get("highlight") || "";
+      } catch (e) { return ""; }
+    }
+
+    // Draw the eye to "+ New invoice" without blocking anything. Pulses a few
+    // times, then clears itself; clicking the button stops it immediately.
+    function flashNewInvoiceButton() {
+      setTimeout(function() {
+        var btn = document.getElementById("btnNewInvoice");
+        if (!btn) { return; }
+        btn.classList.add("attn-pulse");
+        btn.scrollIntoView({ behavior: "smooth", block: "center" });
+        var stop = function() { btn.classList.remove("attn-pulse"); };
+        btn.addEventListener("click", stop, { once: true });
+        setTimeout(stop, 9000);
+      }, 400);
     }
 
     function init() {

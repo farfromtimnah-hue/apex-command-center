@@ -24,6 +24,41 @@
 
     html { scroll-behavior: smooth; }
 
+    /* ─── Legacy-page banner ─────────────────────────────────────────────── */
+    .legacy-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin: 0 0 18px;
+      padding: 14px 18px;
+      background: var(--gold-dim);
+      border: 1px solid var(--gold);
+      border-radius: var(--radius);
+    }
+    .legacy-banner-text {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      flex: 1 1 320px;
+    }
+    .legacy-banner-text strong { display: block; margin-bottom: 2px; }
+    .legacy-banner-btn {
+      flex: 0 0 auto;
+      background: var(--gold);
+      color: #1a1a1d;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      padding: 9px 16px;
+      border-radius: 7px;
+      white-space: nowrap;
+      transition: filter 0.15s;
+    }
+    .legacy-banner-btn:hover { filter: brightness(1.08); }
+
     :root {
       --surface  : #f9f7f4;
       --header   : #1a1a1d;
@@ -1569,6 +1604,26 @@
 
   <!-- ═══════════════ MAIN ════════════════════════════════════════════════ -->
   <main id="appMain" hidden>
+
+    <!-- Migration banner. This page is the Zoho-backed original, kept only as a
+         fallback until the new page's invoice-creation path has been proven on a
+         real client. It stays reachable on purpose, but habit should not steer
+         anyone here — the link carries ?highlight=invoice so the new page can
+         point out the button to use. -->
+    <div class="legacy-banner">
+      <div class="legacy-banner-text">
+        <strong>
+          <span class="show-pt">Esta e a pagina antiga.</span>
+          <span class="show-en">This is the old page.</span>
+        </strong>
+        <span class="show-pt">O sistema novo de faturas esta em "Financeiro (Novo)". Esta pagina fica disponivel apenas como reserva.</span>
+        <span class="show-en">Invoicing has moved to "Financial (New)". This page stays available only as a fallback.</span>
+      </div>
+      <a class="legacy-banner-btn" href="finance-new.html?highlight=invoice">
+        <span class="show-pt">Ir para o sistema novo &rarr;</span>
+        <span class="show-en">Go to the new system &rarr;</span>
+      </a>
+    </div>
 
     <!-- Hero section -->
     <div class="finance-hero-section">

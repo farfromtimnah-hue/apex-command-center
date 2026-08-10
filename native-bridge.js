@@ -219,6 +219,13 @@ function apexOpenExternal(url) {
 
 function apexInitNativeBridge() {
   if (!apexIsNative()) { return; }   // no-op in a normal browser
+  // Storage can be unavailable (disabled or throwing) in a WebView. This runs
+  // during parse, so an exception here would break the whole page.
+  try {
+    if (!window.localStorage) { return; }
+  } catch (e) {
+    return;
+  }
   apexInstallMirror();
   // Sync first so the auth gate sees the keys, then the async pass repairs
   // anything the cookie snapshot lost.

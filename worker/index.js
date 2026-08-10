@@ -17641,6 +17641,22 @@ function daysBetween(aIso, bIso) {
     return Math.abs(a - b) / 86400000;
 }
 
+// SIGNED age of a deposit relative to an invoice: positive = the deposit came
+// after the invoice, negative = BEFORE it existed.
+//
+// daysBetween() is absolute, which made "30 days early" look identical to
+// "30 days late" to the matcher. A real consequence: a $1,500 Zelle from DINIZ
+// on Jul 1 was offered as payment for Gator's INV-000015, issued Jul 30 —
+// money that arrived a month before the invoice existed, proposed against it
+// and swept into "Approve all". Nobody can pay an invoice that does not exist
+// yet; a deposit predating one is not a candidate for it.
+function depositAgeDays(invoiceAnchorIso, depositDateIso) {
+    var a = Date.parse(String(invoiceAnchorIso) + "T00:00:00Z");
+    var b = Date.parse(String(depositDateIso) + "T00:00:00Z");
+    if (isNaN(a) || isNaN(b)) { return 999; }
+    return Math.round((b - a) / 86400000);
+}
+
 // Find a row that is ALREADY this transaction, arriving under a new identity.
 //
 // Plaid re-issues transaction_id when a transaction settles from pending to
@@ -20230,7 +20246,9 @@ async function buildMatchCandidates(env) {
                 if (dep.amount_cents * 4 < owed) { continue; }
 
                 var candAnchor = cand.issued_at || cand.due_at;
-                var candAge = candAnchor ? daysBetween(candAnchor, dep.date) : 999;
+                var candSigned = candAnchor ? depositAgeDays(candAnchor, dep.date) : 999;
+                if (candSigned < -3) { continue; }   // predates the invoice
+                var candAge = Math.abs(candSigned);
                 if (candAge > 45) { continue; }
 
                 var byName  = descriptionHasClientSignal(dep.description, cand.client_name, cand.number);
@@ -20265,7 +20283,12 @@ async function buildMatchCandidates(env) {
 
         var inv = near[0];
         var anchor = inv.issued_at || inv.due_at;
-        var age = anchor ? daysBetween(anchor, dep.date) : 999;
+        var signedAge = anchor ? depositAgeDays(anchor, dep.date) : 999;
+        // A deposit that predates the invoice cannot be paying it. Small
+        // negative values are tolerated: an invoice back-dated by a day or two
+        // after the money landed is ordinary bookkeeping, a month is not.
+        if (signedAge < -3) { continue; }
+        var age = Math.abs(signedAge);
         var target = inv.remaining_cents > 0 ? inv.remaining_cents : (inv.amount_cents || 0);
         var exact = (target === dep.amount_cents);
 
@@ -20281,9 +20304,16 @@ async function buildMatchCandidates(env) {
         else if (!exact && age <= 30)           { tier = "suggest"; }   // fee/partial/over-payment
         if (!tier)                              { continue; }
 
-        // Forced individual review, never auto: high value, or any
-        // tolerance-based (non-exact) amount such as a processor fee.
-        var forceReview = (dep.amount_cents > 500000) || !exact;
+        // Forced individual review, never auto: high value, any tolerance-based
+        // (non-exact) amount such as a processor fee, or an amount that lines
+        // up while NOTHING ties the payer to the client.
+        //
+        // That last case is why the DINIZ deposit reached "Approve all"
+        // alongside the genuine Gator one: same $1,500, same open invoice, and
+        // the name test only ever promoted a match to `auto` — it was never
+        // required to keep one out of the bulk sweep. A right-sized amount from
+        // an unrecognised payer is exactly the match a human should look at.
+        var forceReview = (dep.amount_cents > 500000) || !exact || !signal;
         if (tier === "auto" && forceReview) { tier = "suggest"; }
 
         // Would this deposit settle the invoice, or only move it forward?

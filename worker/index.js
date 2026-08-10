@@ -6899,10 +6899,6 @@ async function syncPlanRecurrence(clientId, plan, env) {
         return null;
     }
 
-    // Never schedule into the past — see safety property 1 above.
-    var today = localDateStrForTZ();
-    var nextDue = (plan.firstDueDate < today) ? today : plan.firstDueDate;
-
     // invoice_recurrence stores singular units; the terms modal uses plurals.
     var unitMap = { days: "day", weeks: "week", months: "month", years: "year" };
     var unit = unitMap[plan.recurrenceUnit] || plan.recurrenceUnit || "month";
@@ -6910,6 +6906,26 @@ async function syncPlanRecurrence(clientId, plan, env) {
 
     var interval = plan.recurrenceInterval || 1;
     if (interval < 1) { interval = 1; }
+
+    // Never schedule into the past — see safety property 1 above.
+    //
+    // Rolling forward must preserve the CADENCE, not just clamp to today. A
+    // client paying weekly on Friday who enters last Friday's date was getting
+    // snapped to today, which silently moved her to whatever weekday "today"
+    // happened to be. Stepping forward in whole intervals keeps Friday on
+    // Friday, and lands on the next payment that hasn't come due yet.
+    var today = localDateStrForTZ();
+    var nextDue = plan.firstDueDate;
+    if (nextDue < today) {
+        var guard = 0;
+        while (nextDue < today && guard < 500) {
+            nextDue = addInterval(nextDue, interval, unit);
+            guard++;
+        }
+        // Degenerate interval that never advances — fall back to today rather
+        // than looping or scheduling in the past.
+        if (nextDue < today) { nextDue = today; }
+    }
 
     var amountCents = Math.round(amount * 100);
 

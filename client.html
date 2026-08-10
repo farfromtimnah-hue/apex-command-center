@@ -2543,17 +2543,6 @@
 
         <!-- Even split fields -->
         <div id="ptEvenSplitBlock">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-            <span class="show-pt">Repetir a cada</span>
-            <span class="show-en">Repeat every</span>
-            <input type="number" id="ptRecurringInterval" class="form-input" style="width:70px;" min="1" step="1" value="3" oninput="recalcPaymentTerms()">
-            <select id="ptRecurringUnit" class="form-input" style="width:auto;" onchange="recalcPaymentTerms()">
-              <option value="days">dias / days</option>
-              <option value="weeks">semanas / weeks</option>
-              <option value="months" selected>meses / months</option>
-              <option value="years">anos / years</option>
-            </select>
-          </div>
           <div class="field-group" style="display:flex;align-items:center;gap:8px;">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
               <input type="checkbox" id="ptNeverEnds" checked onchange="onPtNeverEndsToggle()">
@@ -2605,12 +2594,39 @@
           <input type="number" id="ptPaymentsMadeBefore" min="0" step="1" value="0" oninput="recalcPaymentTerms()">
         </div>
 
+        <!-- Frequency lives here, not inside the even-split block, because a
+             balloon plan has a schedule too. It used to sit inside
+             ptEvenSplitBlock, so choosing Custom/Balloon hid it entirely and
+             the plan silently saved with no frequency at all — which is how a
+             weekly client ended up on a monthly schedule. -->
         <div class="field-group">
           <label>
-            <span class="show-pt">Primeiro vencimento</span>
-            <span class="show-en">First payment due</span>
+            <span class="show-pt">Frequencia de cobranca</span>
+            <span class="show-en">Billing frequency</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="show-pt">Repetir a cada</span>
+            <span class="show-en">Repeat every</span>
+            <input type="number" id="ptRecurringInterval" class="form-input" style="width:70px;" min="1" step="1" value="1" oninput="recalcPaymentTerms()">
+            <select id="ptRecurringUnit" class="form-input" style="width:auto;" onchange="recalcPaymentTerms()">
+              <option value="days">dias / days</option>
+              <option value="weeks">semanas / weeks</option>
+              <option value="months" selected>meses / months</option>
+              <option value="years">anos / years</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Proximo vencimento</span>
+            <span class="show-en">Next payment due</span>
           </label>
           <input type="date" id="ptFirstDueDate" onchange="recalcPaymentTerms()">
+          <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">
+            <span class="show-pt">A proxima fatura a gerar — nao a primeira que ela ja pagou.</span>
+            <span class="show-en">The next invoice to generate, not the first one they already paid.</span>
+          </div>
         </div>
 
         <div style="font-size:12.5px;line-height:1.5;margin-top:6px;" id="ptProgressMath"></div>
@@ -5727,13 +5743,16 @@
           renderPtCustomRows();
         } else {
           setSplitMode("even");
-          if (prior.recurrence_interval) { document.getElementById("ptRecurringInterval").value = prior.recurrence_interval; }
-          if (prior.recurrence_unit) { document.getElementById("ptRecurringUnit").value = prior.recurrence_unit; }
           document.getElementById("ptNeverEnds").checked = !!prior.recurrence_never_ends;
           document.getElementById("ptInstallmentCount").value = prior.installment_count || "";
           document.getElementById("ptInstallmentAmount").value = (prior.installment_amount !== null && prior.installment_amount !== undefined) ? prior.installment_amount : "";
           onPtNeverEndsToggle();
         }
+
+        // Frequency applies to both split modes, so it restores outside the
+        // branch above.
+        if (prior.recurrence_unit) { document.getElementById("ptRecurringUnit").value = prior.recurrence_unit; }
+        if (prior.recurrence_interval) { document.getElementById("ptRecurringInterval").value = prior.recurrence_interval; }
 
         document.getElementById("ptPaymentsMadeBefore").value = prior.payments_made_before || 0;
         document.getElementById("ptFirstDueDate").value = prior.first_due_date || "";
@@ -5941,8 +5960,22 @@
       } else {
         var todayStr = new Date().toISOString().slice(0, 10);
         if (due < todayStr) {
-          noteEl.innerHTML = '<span class="show-pt">Data no passado — sera ajustada para hoje para nao gerar faturas retroativas.</span>' +
-                             '<span class="show-en">Date is in the past — it will be moved to today so no back-dated invoices are generated.</span>';
+          // Show the same roll-forward the worker will apply, so the date Alice
+          // ends up with is never a surprise.
+          var unitSel = document.getElementById("ptRecurringUnit").value;
+          var stepN = parseInt(document.getElementById("ptRecurringInterval").value, 10) || 1;
+          var days = { days: 1, weeks: 7, months: 0, years: 0 }[unitSel];
+          var rolled = due, guard = 0;
+          while (rolled < todayStr && guard < 500) {
+            var d = new Date(rolled + "T00:00:00Z");
+            if (days) { d.setUTCDate(d.getUTCDate() + days * stepN); }
+            else if (unitSel === "months") { d.setUTCMonth(d.getUTCMonth() + stepN); }
+            else { d.setUTCFullYear(d.getUTCFullYear() + stepN); }
+            rolled = d.toISOString().slice(0, 10);
+            guard++;
+          }
+          noteEl.innerHTML = '<span class="show-pt">Data no passado — a proxima cobranca sera ' + payPlanFmtDate(rolled) + ', mantendo o mesmo ciclo.</span>' +
+                             '<span class="show-en">Date is in the past — the next charge will be ' + payPlanFmtDate(rolled) + ', keeping the same cycle.</span>';
         } else {
           noteEl.innerHTML = '<span class="show-pt">Rascunhos de fatura serao gerados a partir desta data. Nada e enviado automaticamente.</span>' +
                              '<span class="show-en">Invoice drafts will be generated from this date. Nothing is sent automatically.</span>';
@@ -5984,19 +6017,23 @@
 
       if (ptState.splitMode === "even") {
         var neverEnds = document.getElementById("ptNeverEnds").checked;
-        payload.recurrence_unit = document.getElementById("ptRecurringUnit").value;
-        payload.recurrence_interval = parseInt(document.getElementById("ptRecurringInterval").value, 10) || 3;
         payload.recurrence_never_ends = neverEnds;
         payload.installment_count = neverEnds ? null : (parseInt(document.getElementById("ptInstallmentCount").value, 10) || null);
         payload.installment_amount = parseFloat(document.getElementById("ptInstallmentAmount").value) || null;
       } else {
-        payload.recurrence_unit = null;
-        payload.recurrence_interval = null;
-        payload.recurrence_never_ends = true;
+        // A balloon plan still has a billing frequency. This used to send null,
+        // which the worker defaulted to monthly — putting a weekly client on a
+        // monthly schedule with no way to correct it.
+        payload.recurrence_never_ends = false;
         payload.custom_installments = ptState.customRows.map(function(r) {
           return { amount: r.amount, label: r.label || undefined };
         });
       }
+
+      // Frequency applies to both split modes now that it lives outside the
+      // even-split block.
+      payload.recurrence_unit = document.getElementById("ptRecurringUnit").value;
+      payload.recurrence_interval = parseInt(document.getElementById("ptRecurringInterval").value, 10) || 1;
 
       apiFetch("/api/clients/" + CLIENT_ID + "/package-terms", {
         method: "PUT",

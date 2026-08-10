@@ -91,6 +91,38 @@
       transition: border-color 0.15s, color 0.15s;
     }
     .switch-new-secondary:hover { border-color: var(--muted); color: var(--text); }
+    /* The accidental-click exit. Deliberately the quietest control in the box:
+       backing out is not a decision about which system to use. */
+    .switch-new-cancel {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 12.5px;
+      padding: 8px;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .switch-new-cancel:hover { color: var(--text); }
+    .switch-new-box { position: relative; }
+    .switch-new-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 22px;
+      line-height: 1;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .switch-new-close:hover { color: var(--text); background: var(--surface); }
     .switch-new-note {
       font-size: 11.5px;
       line-height: 1.5;
@@ -1577,6 +1609,8 @@
        invoice path is unproven, so the override must always be available. -->
   <div id="switchNewOverlay" class="switch-new-overlay" hidden onclick="if(event.target===this)closeSwitchToNewPrompt()">
     <div class="switch-new-box" role="dialog" aria-modal="true" aria-labelledby="switchNewTitle">
+      <button type="button" class="switch-new-close" onclick="closeSwitchToNewPrompt()"
+              title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
       <h3 id="switchNewTitle" class="switch-new-title">
         <span class="show-pt">As faturas mudaram de lugar</span>
         <span class="show-en">Invoicing has moved</span>
@@ -1592,6 +1626,12 @@
       <button type="button" class="switch-new-secondary" onclick="continueOnOldSystem()">
         <span class="show-pt">Continuar aqui no sistema antigo</span>
         <span class="show-en">Stay here and use the old system</span>
+      </button>
+      <!-- Backing out is a third, distinct outcome: neither switch nor create.
+           Click-outside already did this, but nothing advertised it. -->
+      <button type="button" class="switch-new-cancel" onclick="closeSwitchToNewPrompt()">
+        <span class="show-pt">Cancelar</span>
+        <span class="show-en">Cancel</span>
       </button>
       <p class="switch-new-note">
         <span class="show-pt">Use o sistema antigo apenas se o novo nao funcionar. Faturas criadas aqui nao aparecem no sistema novo.</span>
@@ -3365,6 +3405,14 @@
       var ov = document.getElementById("switchNewOverlay");
       if (ov) { ov.hidden = true; }
     }
+
+    // Escape backs out too — the other reflex when a click lands somewhere
+    // unintended.
+    document.addEventListener("keydown", function(e) {
+      if (e.key !== "Escape") { return; }
+      var ov = document.getElementById("switchNewOverlay");
+      if (ov && !ov.hidden) { closeSwitchToNewPrompt(); }
+    });
 
     function continueOnOldSystem() {
       newInvoiceOverrideAck = true;

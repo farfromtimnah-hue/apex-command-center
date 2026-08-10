@@ -1,5 +1,12 @@
 import UIKit
 import Capacitor
+// Present only while @capacitor-firebase/authentication is installed. The
+// plugin is currently uninstalled pending GoogleService-Info.plist (see the
+// note in didFinishLaunchingWithOptions), so this is compiled conditionally
+// rather than as a hard import that would break the build in the meantime.
+#if canImport(FirebaseCore)
+import FirebaseCore
+#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +14,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // @capacitor-firebase/authentication requires the Firebase iOS SDK to be
+        // configured before any of its methods run.
+        //
+        // The presence check is deliberate. FirebaseApp.configure() raises an
+        // uncaught 'com.firebase.core' exception when GoogleService-Info.plist
+        // is missing from the bundle, which would turn a missing config file
+        // into a crash on launch for EVERY user, including the client accounts
+        // that never touch Google sign-in and whose password login does not
+        // need Firebase at all.
+        //
+        // NOTE: this guard alone is NOT sufficient. The plugin's own
+        // initializer runs `if FirebaseApp.app() == nil { FirebaseApp.configure() }`
+        // (FirebaseAuthentication.swift:26), so when this guard declines to
+        // configure, the plugin configures anyway and crashes. Verified on the
+        // iPhone 17 simulator: SIGABRT on launch with exactly that exception.
+        // The plist is therefore a hard prerequisite for shipping the plugin at
+        // all - it is not an optional enhancement that degrades gracefully.
+        #if canImport(FirebaseCore)
+        if Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist") != nil {
+            FirebaseApp.configure()
+        }
+        #endif
         return true
     }
 

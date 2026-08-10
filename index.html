@@ -456,10 +456,64 @@
     };
     // ─────────────────────────────────────────────────────────────────────────
 
-    firebase.initializeApp(FIREBASE_CONFIG);
+    // ── Firebase availability guard ─────────────────────────────────────────
+    // The two SDK <script> tags above come from gstatic.com. If either fails to
+    // load - a bad connection, a captive portal, a blocked CDN - `firebase` is
+    // undefined and an unguarded initializeApp() throws on the FIRST statement
+    // of this inline script. Everything below it, including the language
+    // toggle and the client username/password login, never gets defined, and
+    // the page renders as a blank white screen with no way to sign in and no
+    // explanation. This was hit on poor mobile signal, not just in the wrapper.
+    //
+    // So the SDK is probed before it is touched. When it is missing the page
+    // still renders and still works for client logins (that path is pure fetch
+    // and never needed Firebase); only Google sign-in is unavailable, and it
+    // says so. No authentication logic changes and no alternate login path is
+    // added - a CDN failure just degrades visibly instead of silently.
+    var FIREBASE_READY = false;
+    var auth      = null;
+    var gProvider = null;
 
-    var auth      = firebase.auth();
-    var gProvider = new firebase.auth.GoogleAuthProvider();
+    try {
+      if (typeof firebase !== "undefined" && firebase && firebase.initializeApp) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        auth      = firebase.auth();
+        gProvider = new firebase.auth.GoogleAuthProvider();
+        FIREBASE_READY = true;
+      }
+    } catch (e) {
+      // Leaves FIREBASE_READY false. Reported to the user by
+      // showFirebaseUnavailable() below, and logged rather than swallowed.
+      if (window.console && console.error) {
+        console.error("Firebase init failed:", e);
+      }
+    }
+
+    // Disable the Google button and explain why, in both languages, using the
+    // same show-pt/show-en spans the rest of the page uses so the existing
+    // language toggle keeps working on this message too.
+    function showFirebaseUnavailable() {
+      var btn = document.getElementById("signInBtn");
+      if (btn) {
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+      }
+      var el = document.getElementById("statusMsg");
+      if (!el) { return; }
+      el.className = "status-msg is-error";
+      el.innerHTML =
+        '<span class="show-pt">Entrar com Google indisponivel: nao foi possivel ' +
+        'carregar o servico de autenticacao. Verifique sua conexao e tente ' +
+        'novamente.</span>' +
+        '<span class="show-en">Google sign-in unavailable: the authentication ' +
+        'service could not be loaded. Check your connection and try again.</span>';
+    }
+
+    if (!FIREBASE_READY) {
+      // The button lives earlier in the document than this script, so it is
+      // already parsed and getElementById finds it without waiting for load.
+      showFirebaseUnavailable();
+    }
 
     function toggleLang() {
       var b = document.body;
@@ -474,16 +528,34 @@
 
     function setStatus(msg, isError) {
       var el = document.getElementById("statusMsg");
+      if (!el) { return; }
       el.textContent = msg;
       el.className = "status-msg" + (isError ? " is-error" : "");
     }
 
     function handleSignIn() {
+      // The button is already disabled when the SDK is missing, but a stray
+      // programmatic call must not throw on a null auth.
+      if (!FIREBASE_READY) { showFirebaseUnavailable(); return; }
+
       var btn = document.getElementById("signInBtn");
+      if (!btn) { return; }
       btn.disabled = true;
       setStatus("...");
 
-      auth.signInWithPopup(gProvider)
+      // Only the step that OBTAINS the credential differs between web and app.
+      // Inside Capacitor, signInWithPopup cannot work (capacitor://localhost
+      // origin, and Google blocks OAuth in embedded webviews), so the native
+      // Google SDK runs instead and its credential is placed into this same
+      // Firebase JS session. Both branches resolve to a normal UserCredential,
+      // so everything below - the ID token, the /api/role call, the role
+      // routing - is shared and unchanged, and the browser path is exactly
+      // what it was before.
+      var signInPromise = (typeof apexCanNativeGoogle === "function" && apexCanNativeGoogle())
+        ? apexNativeGoogleSignIn(firebase)
+        : auth.signInWithPopup(gProvider);
+
+      signInPromise
         .then(function(result) {
           return result.user.getIdToken();
         })
@@ -571,12 +643,17 @@
           clearClientSession();
         });
     }
-    auth.onAuthStateChanged(function(user) {
-      if (user && sessionStorage.getItem("apex_role")) {
-        var cached = sessionStorage.getItem("apex_role");
-        window.location.href = cached === "client" ? "portal.html" : "dashboard.html";
-      }
-    });
+    // Only the Google/admin path depends on this. With the SDK missing there is
+    // no Firebase session to restore, and the client-token check above has
+    // already run, so skipping it costs nothing that was reachable anyway.
+    if (FIREBASE_READY) {
+      auth.onAuthStateChanged(function(user) {
+        if (user && sessionStorage.getItem("apex_role")) {
+          var cached = sessionStorage.getItem("apex_role");
+          window.location.href = cached === "client" ? "portal.html" : "dashboard.html";
+        }
+      });
+    }
   </script>
 
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-

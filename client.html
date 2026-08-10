@@ -2545,15 +2545,19 @@
         <div id="ptEvenSplitBlock">
           <div class="field-group" style="display:flex;align-items:center;gap:8px;">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
-              <input type="checkbox" id="ptNeverEnds" checked onchange="onPtNeverEndsToggle()">
-              <span class="show-pt">Nunca expira</span>
-              <span class="show-en">Never expires</span>
+              <!-- NOT checked by default. Checked means the cron generates an
+                   invoice every interval forever, including long after the
+                   package is paid off — the wrong answer for a fixed-price
+                   package, which is nearly every Apex plan. -->
+              <input type="checkbox" id="ptNeverEnds" onchange="onPtNeverEndsToggle()">
+              <span class="show-pt">Cobranca continua (sem fim)</span>
+              <span class="show-en">Ongoing subscription (no end)</span>
             </label>
           </div>
           <div class="field-group" id="ptInstallmentCountWrap" hidden>
             <label>
-              <span class="show-pt">Após quantas faturas</span>
-              <span class="show-en">After how many invoices</span>
+              <span class="show-pt">Numero total de parcelas</span>
+              <span class="show-en">Total number of payments</span>
             </label>
             <input type="number" id="ptInstallmentCount" min="1" step="1" oninput="recalcPaymentTerms()">
           </div>
@@ -5689,8 +5693,11 @@
           ptState.pricingOption = 'upfront';
           ptState.baseTotal = pkg.upfront_price;
           setSplitMode('even');
+          // Paid upfront: exactly one invoice, then done. This used to set
+          // never-ends, which told the cron to bill a fully-paid client every
+          // interval forever.
           document.getElementById("ptInstallmentCount").value = 1;
-          document.getElementById("ptNeverEnds").checked = true;
+          document.getElementById("ptNeverEnds").checked = false;
           onPtNeverEndsToggle();
         } else if (hasInstallment) {
           ptState.pricingOption = 'installment';
@@ -5708,7 +5715,7 @@
           ptState.baseTotal = (pkg.base_price !== null && pkg.base_price !== undefined) ? pkg.base_price : 0;
           setSplitMode('even');
           document.getElementById("ptInstallmentCount").value = 1;
-          document.getElementById("ptNeverEnds").checked = true;
+          document.getElementById("ptNeverEnds").checked = false;
           onPtNeverEndsToggle();
         }
       }
@@ -5779,8 +5786,9 @@
       if (option === "upfront") {
         ptState.baseTotal = pkg.upfront_price;
         setSplitMode('even');
+        // One payment, then finished — not a standing charge.
         document.getElementById("ptInstallmentCount").value = 1;
-        document.getElementById("ptNeverEnds").checked = true;
+        document.getElementById("ptNeverEnds").checked = false;
         onPtNeverEndsToggle();
       } else {
         ptState.baseTotal = pkg.installment_total_price;
@@ -6003,6 +6011,17 @@
         mathEl.innerHTML =
           '<span class="show-pt"><strong>' + parts + '</strong> parcelas restantes · ' + ptFmtCurrency(owed) + ' a receber</span>' +
           '<span class="show-en"><strong>' + parts + '</strong> payments left · ' + ptFmtCurrency(owed) + ' owed</span>';
+      }
+
+      // A no-end plan on a fixed-price package bills past payoff, forever.
+      // Say so where Alice is looking rather than letting it save quietly.
+      if (ptState.splitMode === "even" && document.getElementById("ptNeverEnds").checked) {
+        var adjNow = getAdjustedTotal();
+        if (adjNow > 0) {
+          mathEl.innerHTML = '<span style="color:#b44040;font-weight:600;">' +
+            '<span class="show-pt">Cobranca sem fim: faturas continuarao apos o pacote de ' + ptFmtCurrency(adjNow) + ' ser quitado. Desmarque para encerrar apos N parcelas.</span>' +
+            '<span class="show-en">Ongoing charge: invoices keep generating after the ' + ptFmtCurrency(adjNow) + ' package is paid off. Uncheck it to stop after N payments.</span></span>';
+        }
       }
 
       // Scheduling consequences, stated plainly. This screen now creates

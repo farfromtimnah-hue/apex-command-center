@@ -19,14 +19,67 @@ var CLAUDE_MODEL       = "claude-sonnet-4-6";
 // the matching request Origin back -- do NOT revert this to "*". A wildcard
 // cannot be narrowed later without breaking whatever quietly came to depend
 // on it.
-var ALLOWED_ORIGIN = "https://apex.resonateai.online";
+//
+// That second origin arrived on 2026-08-10: the iOS Capacitor wrapper. Its
+// WKWebView serves the app from capacitor://localhost, NOT from the https
+// origin above, so every API call from the app was rejected before the app
+// could read the response -- it surfaced only as "load failed" on the client
+// login. An iOS PWA cannot launch a custom URL scheme, which is why the
+// wrapper exists at all (it deep-links reps into OpenPhone), so this origin
+// is a permanent second caller rather than a temporary workaround.
+//
+// The allowlist is matched by EXACT STRING EQUALITY. Not a prefix test, not
+// indexOf, not a regex: "capacitor://localhost.evil.com" and
+// "https://apex.resonateai.online.attacker.net" both start with an allowed
+// value and must both be rejected. A request whose Origin is absent or not an
+// exact member gets the locked-down https origin exactly as before, which a
+// browser then refuses -- the 2026-08-05 posture is unchanged for everyone
+// outside this list.
+var ALLOWED_ORIGINS = [
+    "https://apex.resonateai.online",
+    "capacitor://localhost"
+];
 
+// The default origin for any caller not on the allowlist. Also the value the
+// static CORS_HEADERS below carries, so a response built anywhere in this file
+// is locked down until withCorsOrigin() rewrites it at the fetch boundary.
+var DEFAULT_ORIGIN = "https://apex.resonateai.online";
+
+function corsOriginFor(request) {
+    var origin = request && request.headers ? request.headers.get("Origin") : null;
+    if (origin && ALLOWED_ORIGINS.indexOf(origin) !== -1) { return origin; }
+    return DEFAULT_ORIGIN;
+}
+
+// Allow-Origin is no longer static, but there are ~1520 jsonOk()/jsonErr()
+// call sites and 211 returns inside fetch(); threading a request through all
+// of them would be a far larger and riskier change than the fix warrants.
+// Instead every response keeps being built with these locked-down headers and
+// the fetch boundary rewrites the one header that varies. Vary: Origin stays
+// so caches never serve one origin's response to the other.
 var CORS_HEADERS = {
-    "Access-Control-Allow-Origin":  ALLOWED_ORIGIN,
+    "Access-Control-Allow-Origin":  DEFAULT_ORIGIN,
     "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Vary":                         "Origin"
 };
+
+// Rewrites Allow-Origin on an already-built response. Returns a new Response
+// because Response.headers is immutable once constructed. Bodyless statuses
+// (204/304) must not be given a body, hence the null.
+function withCorsOrigin(response, request) {
+    var origin = corsOriginFor(request);
+    if (response.headers.get("Access-Control-Allow-Origin") === origin) { return response; }
+    var headers = new Headers(response.headers);
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Vary", "Origin");
+    var body = (response.status === 204 || response.status === 304) ? null : response.body;
+    return new Response(body, {
+        status:     response.status,
+        statusText: response.statusText,
+        headers:    headers
+    });
+}
 
 // ---------------------------------------------------------------------------
 // Response helpers
@@ -20685,13 +20738,52 @@ async function handlePostFinanceNewRecurrence(request, env) {
 }
 
 export default {
-    fetch: async function(request, env) {
+    // Thin wrapper over the real handler. Every response leaving this Worker
+    // passes through withCorsOrigin(), so the allowlisted Origin is echoed
+    // back on ALL of them -- the OPTIONS preflight, the ~1520 jsonOk/jsonErr
+    // responses, the 404s and the file/image responses alike -- without
+    // touching a single one of those call sites. A throw is caught here too,
+    // since an exception response with the wrong origin is just as unreadable
+    // to the app as a rejected one.
+    fetch: async function(request, env, ctx) {
+        try {
+            var response = await handleFetch(request, env, ctx);
+            return withCorsOrigin(response, request);
+        } catch (err) {
+            return withCorsOrigin(jsonErr("Internal error", 500), request);
+        }
+    },
+
+    // -------------------------------------------------------------------
+    // Cron: runs on the schedule set by `crons` in wrangler.toml. Proactively
+    // exercises both getZohoAccessToken() and getGoogleAccessToken() -- a
+    // real refresh-token exchange against each provider, not just a DB read
+    // -- so a dead refresh token (revoked, expired from inactivity, or
+    // scope drift) is caught here instead of by a client hitting a broken
+    // button first. Alerts Nicole's own Telegram DM directly via the Bot
+    // API on any failure. Successes are silent (no daily "all good" noise).
+    // -------------------------------------------------------------------
+    scheduled: async function(event, env, ctx) {
+        return scheduledHandler(event, env, ctx);
+    }
+};
+
+async function handleFetch(request, env, ctx) {
+    {
         var url    = new URL(request.url);
         var path   = url.pathname;
         var method = request.method;
 
         if (method === "OPTIONS") {
-            return new Response(null, { status: 204, headers: CORS_HEADERS });
+            // Built per-request rather than from the static CORS_HEADERS: the
+            // preflight is the response that decides whether the browser will
+            // even ISSUE the real request, so it must carry the caller's own
+            // origin. (withCorsOrigin() at the boundary would fix this too --
+            // this is belt and braces on the one response that matters most.)
+            var preflight = Object.assign({}, CORS_HEADERS, {
+                "Access-Control-Allow-Origin": corsOriginFor(request)
+            });
+            return new Response(null, { status: 204, headers: preflight });
         }
 
         // Client-role isolation gate: a 'client' user can only reach the
@@ -21287,18 +21379,10 @@ export default {
         }
 
         return jsonErr("Not found", 404);
-    },
+    }
+}
 
-    // -------------------------------------------------------------------
-    // Cron: runs on the schedule set by `crons` in wrangler.toml. Proactively
-    // exercises both getZohoAccessToken() and getGoogleAccessToken() -- a
-    // real refresh-token exchange against each provider, not just a DB read
-    // -- so a dead refresh token (revoked, expired from inactivity, or
-    // scope drift) is caught here instead of by a client hitting a broken
-    // button first. Alerts Nicole's own Telegram DM directly via the Bot
-    // API on any failure. Successes are silent (no daily "all good" noise).
-    // -------------------------------------------------------------------
-    scheduled: async function(event, env, ctx) {
+async function scheduledHandler(event, env, ctx) {
         // Three INDEPENDENT waitUntil calls, deliberately not chained. A Zoho
         // refresh failure inside checkIntegrationHealth must not stop the Plaid
         // sync, and neither may stop recurring invoice generation -- a missed
@@ -21311,8 +21395,7 @@ export default {
         ctx.waitUntil(runRecurringInvoices(env).catch(function(e) {
             return notifyNicoleTelegram(env, "Recurring invoices failed: " + e.message).catch(function() {});
         }));
-    }
-};
+}
 
 async function checkIntegrationHealth(env) {
     var failures = [];

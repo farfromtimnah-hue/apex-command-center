@@ -2575,6 +2575,10 @@
             <span class="show-en">+ installment</span>
           </button>
           <div style="font-size:13px;font-weight:600;margin-top:8px;" id="ptCustomSplitSum"></div>
+          <!-- One click instead of mental arithmetic: drops whatever is still
+               unallocated into the last installment row. -->
+          <button type="button" class="btn-sm" id="ptFillRemainderBtn" hidden
+                  onclick="fillPtRemainder()" style="margin-top:8px;"></button>
         </div>
 
         <!-- Progress + schedule. Most Apex clients signed before this system
@@ -5838,7 +5842,14 @@
     }
 
     function addPtCustomRow() {
-      ptState.customRows.push({ amount: 0, label: "" });
+      // Seed a new row with whatever is still unallocated rather than 0. In the
+      // common case (the last installment absorbs the remainder) that is
+      // already the right answer, and it saves clearing a zero to type over it.
+      var adjusted = getAdjustedTotal();
+      var sum = 0;
+      for (var i = 0; i < ptState.customRows.length; i++) { sum += (ptState.customRows[i].amount || 0); }
+      var left = Math.round((adjusted - sum) * 100) / 100;
+      ptState.customRows.push({ amount: left > 0 ? left : 0, label: "" });
       renderPtCustomRows();
     }
 
@@ -5860,6 +5871,20 @@
       }
       wrap.innerHTML = html;
       recalcPaymentTerms();
+    }
+
+    // Put whatever is still unallocated into the last installment. Adds a row
+    // first if the list is empty, so it works from a standing start.
+    function fillPtRemainder() {
+      var adjusted = getAdjustedTotal();
+      var sum = 0;
+      for (var i = 0; i < ptState.customRows.length; i++) { sum += (ptState.customRows[i].amount || 0); }
+      var left = adjusted - sum;
+      if (left <= 0) { return; }
+      if (ptState.customRows.length === 0) { ptState.customRows.push({ amount: 0, label: "" }); }
+      var last = ptState.customRows[ptState.customRows.length - 1];
+      last.amount = Math.round(((last.amount || 0) + left) * 100) / 100;
+      renderPtCustomRows();
     }
 
     function onPtCustomRowChange(el) {
@@ -5892,11 +5917,41 @@
           mathEl.textContent = amt > 0 ? (ptFmtCurrency(amt) + " (recorrente / recurring)") : "";
         }
       } else {
+        // Show the REMAINDER, not just the running total. Alice was reaching
+        // for a calculator to work out that $997 − $500 leaves $497; with more
+        // than two installments that arithmetic gets slow and error-prone.
         var sum = 0;
         for (var i = 0; i < ptState.customRows.length; i++) { sum += (ptState.customRows[i].amount || 0); }
+        var left = adjusted - sum;
         var sumEl = document.getElementById("ptCustomSplitSum");
-        sumEl.textContent = ptFmtCurrency(sum) + " / " + ptFmtCurrency(adjusted) +
-          (Math.abs(sum - adjusted) < 0.01 ? " ✓" : "");
+        var fillBtn = document.getElementById("ptFillRemainderBtn");
+
+        var line = '<div style="display:flex;justify-content:space-between;gap:12px;">' +
+                   '<span style="font-weight:500;color:var(--muted);">' +
+                   '<span class="show-pt">Alocado</span><span class="show-en">Allocated</span></span>' +
+                   '<span style="font-variant-numeric:tabular-nums;">' + ptFmtCurrency(sum) + ' / ' + ptFmtCurrency(adjusted) + '</span></div>';
+
+        if (Math.abs(left) < 0.01) {
+          line += '<div style="display:flex;justify-content:space-between;gap:12px;color:#1a6640;margin-top:3px;">' +
+                  '<span><span class="show-pt">Totais conferem</span><span class="show-en">Totals match</span></span>' +
+                  '<span>✓</span></div>';
+          if (fillBtn) { fillBtn.hidden = true; }
+        } else if (left > 0) {
+          line += '<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px;">' +
+                  '<span><span class="show-pt">Falta alocar</span><span class="show-en">Left to allocate</span></span>' +
+                  '<span style="font-variant-numeric:tabular-nums;font-weight:700;">' + ptFmtCurrency(left) + '</span></div>';
+          if (fillBtn) {
+            fillBtn.hidden = false;
+            fillBtn.innerHTML = '<span class="show-pt">Usar ' + ptFmtCurrency(left) + ' na ultima parcela</span>' +
+                                '<span class="show-en">Put ' + ptFmtCurrency(left) + ' in the last installment</span>';
+          }
+        } else {
+          line += '<div style="display:flex;justify-content:space-between;gap:12px;color:#b44040;margin-top:3px;">' +
+                  '<span><span class="show-pt">Excedeu o total</span><span class="show-en">Over the total</span></span>' +
+                  '<span style="font-variant-numeric:tabular-nums;font-weight:700;">' + ptFmtCurrency(Math.abs(left)) + '</span></div>';
+          if (fillBtn) { fillBtn.hidden = true; }
+        }
+        sumEl.innerHTML = line;
       }
 
       recalcPlanProgress(adjusted);

@@ -7008,6 +7008,36 @@ async function computePlanProgress(clientId, row, customInstallments, env) {
     };
 }
 
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/payer-aliases — alice/rafa/developer only.
+//
+// Which bank payers the matcher has learned belong to this client. Every alias
+// here came from a match Alice confirmed herself, so this is the system showing
+// its work: "I now recognise money from BRAZILIAN INC as LIRA OUTDOOR LIVING."
+//
+// Surfaced on the client profile because the payer name a client actually
+// transfers under is real, useful information that used to live nowhere a human
+// could see it — Lira pays as BRAZILIAN INC, and until now the only record of
+// that was a row nobody looks at.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientPayerAliases(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT payer_key, source, created_by, created_at FROM client_payer_aliases " +
+            "WHERE client_id = ? ORDER BY created_at"
+        ).bind(id).all();
+
+        return jsonOk({ aliases: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching payer aliases: " + e.message, 500);
+    }
+}
+
 async function handleGetClientPackageTerms(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -20947,6 +20977,9 @@ export default {
             if (segs.length === 4 && segs[3] === "growth") {
                 if (method === "GET")  { return handleGetClientGrowth(cid, request, env); }
                 if (method === "POST") { return handlePostClientGrowth(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "payer-aliases" && method === "GET") {
+                return handleGetClientPayerAliases(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "package-terms") {
                 if (method === "GET") { return handleGetClientPackageTerms(cid, request, env); }

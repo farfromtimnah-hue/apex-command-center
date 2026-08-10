@@ -475,6 +475,32 @@
     .pull-status.is-error { color: #b44040; }
     .pull-status.is-ok    { color: #1a6640; }
 
+    /* Learned bank payers for this client. */
+    .payer-alias-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 14px 0 6px;
+    }
+    .payer-alias-chip {
+      display: block;
+      padding: 6px 10px;
+      margin-bottom: 5px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      word-break: break-word;
+    }
+    .payer-alias-note {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
     /* ─── Payment plan (under the payment method) ────────────────────────── */
     .pay-plan {
       margin-top: 16px;
@@ -2177,6 +2203,17 @@
                 <option value="Stripe">Stripe</option>
               </select>
               <div class="pull-status" id="paymentStatus"></div>
+
+              <!-- Payers the matcher has learned for this client, from matches
+                   Alice confirmed. Lira transfers as "BRAZILIAN INC"; that fact
+                   was real and useful and lived only in a table nobody opens. -->
+              <div id="payerAliasBlock" hidden>
+                <div class="payer-alias-label">
+                  <span class="show-pt">Paga como</span>
+                  <span class="show-en">Pays as</span>
+                </div>
+                <div id="payerAliasList"></div>
+              </div>
 
               <!-- Payment plan. Lives here, under the payment method, because
                    this is where Alice already comes to fix what Rafa skipped at
@@ -4484,6 +4521,7 @@
           // The plan card resolves its package name out of the live package
           // list, so load that first rather than racing it.
           loadLivePackageList().then(loadPaymentPlan);
+          loadPayerAliases();
         })
         .catch(function(e) {
           document.getElementById("clientName").textContent = t("Cliente não encontrado", "Client not found");
@@ -7598,6 +7636,36 @@
       ).split(",");
       var mi = parseInt(parts[1], 10) - 1;
       return (months[mi] || parts[1]) + " " + parseInt(parts[2], 10) + ", " + parts[0];
+    }
+
+    // Payers the matcher has learned for this client. Read-only: these are
+    // earned by confirming matches, not typed in, and every one shown here is
+    // a payer name Alice already vouched for.
+    function loadPayerAliases() {
+      return apiFetch("/api/clients/" + CLIENT_ID + "/payer-aliases")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var block = document.getElementById("payerAliasBlock");
+          var list  = document.getElementById("payerAliasList");
+          if (!block || !list) { return; }
+          var aliases = (data && data.aliases) ? data.aliases : [];
+          if (!aliases.length) { block.hidden = true; return; }
+
+          var html = "";
+          for (var i = 0; i < aliases.length; i++) {
+            // Strip the "ZELLE PAYMENT FROM " prefix — it is how the bank
+            // labels it, not the payer's name.
+            var key = String(aliases[i].payer_key || "");
+            var shown = key.replace(/^ZELLE (PAYMENT|TRANSFER) FROM /i, "");
+            html += '<span class="payer-alias-chip">' + escHtml(shown) + '</span>';
+          }
+          html += '<div class="payer-alias-note">' +
+                  '<span class="show-pt">Aprendido ao confirmar pagamentos. O sistema reconhece depositos deste pagador automaticamente.</span>' +
+                  '<span class="show-en">Learned from confirmed payments. Deposits from this payer are recognised automatically.</span></div>';
+          list.innerHTML = html;
+          block.hidden = false;
+        })
+        .catch(function() {});
     }
 
     function loadPaymentPlan() {

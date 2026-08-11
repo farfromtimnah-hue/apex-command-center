@@ -6143,10 +6143,14 @@ async function handleGetBusinessSettings(request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var row = await env.DB.prepare(
-            "SELECT zelle_qr_r2_key, stripe_payment_link, updated_at FROM business_settings WHERE id = 1"
+            "SELECT zelle_qr_r2_key, stripe_payment_link, zelle_handle, club_confirm_template, updated_at " +
+            "FROM business_settings WHERE id = 1"
         ).first();
 
-        return jsonOk({ settings: row || { zelle_qr_r2_key: null, stripe_payment_link: null, updated_at: null } });
+        return jsonOk({ settings: row || {
+            zelle_qr_r2_key: null, stripe_payment_link: null,
+            zelle_handle: null, club_confirm_template: null, updated_at: null
+        } });
     } catch (e) {
         return jsonErr("Error fetching business settings: " + e.message, 500);
     }
@@ -6175,6 +6179,25 @@ async function handlePatchBusinessSettings(request, env) {
             await env.DB.prepare(
                 "UPDATE business_settings SET stripe_payment_link = ?, updated_at = ? WHERE id = 1"
             ).bind(link || null, new Date().toISOString()).run();
+            updated = true;
+        }
+
+        if (body.hasOwnProperty("zelle_handle")) {
+            var handle = body.zelle_handle ? String(body.zelle_handle).trim() : null;
+            await env.DB.prepare(
+                "UPDATE business_settings SET zelle_handle = ?, updated_at = ? WHERE id = 1"
+            ).bind(handle || null, new Date().toISOString()).run();
+            updated = true;
+        }
+
+        // The Apex Club WhatsApp confirmation. Stored verbatim -- the
+        // placeholders ({nome}, {evento}, ...) are substituted at send time
+        // by the client, and Alice's own wording is never rewritten here.
+        if (body.hasOwnProperty("club_confirm_template")) {
+            var tpl = body.club_confirm_template ? String(body.club_confirm_template) : null;
+            await env.DB.prepare(
+                "UPDATE business_settings SET club_confirm_template = ?, updated_at = ? WHERE id = 1"
+            ).bind(tpl, new Date().toISOString()).run();
             updated = true;
         }
 

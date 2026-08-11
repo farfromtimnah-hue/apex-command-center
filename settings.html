@@ -974,6 +974,58 @@
             <div id="bizStripeLinkStatus" style="margin-top:6px;font-size:13px;"></div>
           </div>
 
+          <!-- Zelle handle. Shown as TEXT beside the QR on the invoice and
+               the Apex Club page, because someone reading either on their
+               phone cannot scan a QR on that same screen. There is no
+               tappable Zelle payment link -- see the worker comment on
+               buildInvoicePaymentBlock. -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">E-mail / Telefone do Zelle</span>
+              <span class="show-en">Zelle Email / Phone</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="bizZelleHandleInput" placeholder="nome@empresa.com" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);">
+              <button onclick="handleSaveBizZelleHandle()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+                <span class="show-pt">Salvar</span>
+                <span class="show-en">Save</span>
+              </button>
+            </div>
+            <div style="margin-top:6px;font-size:12px;color:var(--muted);">
+              <span class="show-pt">Aparece junto ao QR Code, para quem está lendo pelo celular e não consegue escanear.</span>
+              <span class="show-en">Shown next to the QR code, for anyone reading on a phone who cannot scan it.</span>
+            </div>
+            <div id="bizZelleHandleStatus" style="margin-top:6px;font-size:13px;"></div>
+          </div>
+
+          <!-- Apex Club WhatsApp confirmation template -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">Mensagem de confirmação — Apex Club</span>
+              <span class="show-en">Confirmation message — Apex Club</span>
+            </div>
+            <textarea id="bizClubTemplateInput" rows="8" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;line-height:1.6;background:var(--card);color:var(--text);resize:vertical;"></textarea>
+            <div style="margin-top:6px;font-size:12px;color:var(--muted);line-height:1.6;">
+              <span class="show-pt">Use <code>{nome}</code> <code>{evento}</code> <code>{data}</code> <code>{hora}</code> <code>{local}</code> <code>{valor}</code> — são substituídos automaticamente.</span>
+              <span class="show-en">Use <code>{nome}</code> <code>{evento}</code> <code>{data}</code> <code>{hora}</code> <code>{local}</code> <code>{valor}</code> — filled in automatically.</span>
+            </div>
+            <!-- Standing rule, carried from the LTC project: these messages
+                 must never offer a direct "no". A hard decline is culturally
+                 wrong here; the graceful out is handled on the guest list as
+                 "vou na próxima", not by the message text. -->
+            <div style="margin-top:8px;padding:9px 11px;border-radius:7px;background:rgba(201,164,58,0.10);border:1px solid rgba(201,164,58,0.35);font-size:12px;line-height:1.6;">
+              <span class="show-pt"><b>Peça a confirmação</b> — nunca ofereça uma opção de recusa direta. Quem não puder ir é marcado como “vai na próxima” na lista de convidados.</span>
+              <span class="show-en"><b>Ask them to confirm</b> — never offer a direct decline option. Anyone who cannot come is marked “next time” on the guest list instead.</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+              <button onclick="handleSaveBizClubTemplate()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+                <span class="show-pt">Salvar</span>
+                <span class="show-en">Save</span>
+              </button>
+              <div id="bizClubTemplateStatus" style="font-size:13px;"></div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -2408,6 +2460,12 @@
             var inp = document.getElementById("bizStripeLinkInput");
             if (inp) { inp.value = s.stripe_payment_link; }
           }
+          if (s.zelle_handle) {
+            var zh = document.getElementById("bizZelleHandleInput");
+            if (zh) { zh.value = s.zelle_handle; }
+          }
+          var tpl = document.getElementById("bizClubTemplateInput");
+          if (tpl) { tpl.value = s.club_confirm_template || ""; }
         })
         .catch(function() {});
     }
@@ -2461,6 +2519,41 @@
           statusEl.className = "template-status err";
           input.value = "";
         });
+    }
+
+    // Shared saver for the plain business_settings text fields.
+    function saveBizField(payload, statusId) {
+      var statusEl = document.getElementById(statusId);
+      statusEl.textContent = "Salvando...";
+      statusEl.className = "";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/settings", {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Salvo.";
+          statusEl.className = "template-status ok";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 2000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "template-status err";
+        });
+    }
+
+    function handleSaveBizZelleHandle() {
+      var v = (document.getElementById("bizZelleHandleInput").value || "").trim();
+      saveBizField({ zelle_handle: v || null }, "bizZelleHandleStatus");
+    }
+
+    function handleSaveBizClubTemplate() {
+      var v = (document.getElementById("bizClubTemplateInput").value || "").trim();
+      saveBizField({ club_confirm_template: v || null }, "bizClubTemplateStatus");
     }
 
     function handleSaveBizStripeLink() {

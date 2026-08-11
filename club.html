@@ -131,14 +131,14 @@
     .pay h2 { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
     .pay .price { font-size: 30px; font-weight: 700; color: var(--gold); margin: 12px 0 2px; letter-spacing: -0.5px; }
     .pay .price-note { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
-    .paybtn {
-      display: block; text-decoration: none;
-      font-size: 16px; font-weight: 700;
-      padding: 15px; border-radius: 11px; margin: 0 0 18px;
-      background: #6d1ed4; color: #fff;   /* Zelle purple — reads as "their" button */
-    }
-    .paybtn:active { opacity: 0.85; }
     .pay .qr-hint { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+    /* The Zelle handle in text. Scanning needs a second device, so anyone
+       reading this ON their phone needs something they can copy instead. */
+    .pay .handle {
+      margin-top: 14px; font-size: 14px; font-weight: 600;
+      word-break: break-all; color: var(--text);
+    }
+    .pay .handle-lbl { display: block; color: var(--muted); font-size: 12px; font-weight: 400; margin-bottom: 3px; }
     .pay img { width: 190px; max-width: 70%; border-radius: 10px; background: #fff; padding: 10px; }
     .memo {
       margin-top: 16px; padding: 12px 14px; border-radius: 9px;
@@ -210,11 +210,21 @@
           <h2>Pagamento</h2>
           <div class="price" id="payPrice"></div>
           <div class="price-note" id="payNote"></div>
-          <!-- Tappable first. Nearly everyone is ON the phone they would
-               otherwise have to scan with, and you cannot scan your own
-               screen. The QR stays below for anyone reading on a laptop. -->
-          <a id="payBtn" class="paybtn hidden" target="_blank" rel="noopener">Pagar com Zelle</a>
+          <!-- ⚠️ There is NO tappable Zelle pay link. Tried and reverted
+               2026-08-10: the QR decodes to enroll.zellepay.com, which LOOKS
+               like a payment URL but is Zelle's bank-finder / enrollment
+               landing page. The QR only works because a BANK APP's scanner
+               reads the token out of it -- opening the same URL in a browser
+               just shows a marketing page. Tested on a real phone: it
+               launched Zelle in a browser and could not pay.
+               A button there is worse than no button: it promises payment
+               and delivers a webpage. The QR + the handle is the honest
+               affordance. Do not "fix" this by adding a link back. -->
           <img id="zelleQr" alt="Zelle QR" class="hidden">
+          <div class="handle hidden" id="zelleHandle">
+            <span class="handle-lbl">Zelle</span>
+            <span id="zelleHandleVal"></span>
+          </div>
           <div class="memo" id="payMemo"></div>
         </div>
 
@@ -286,6 +296,11 @@
     // on the form itself, before anyone commits, and again after.
     if (ev.venue)    { rows.push({ i: "📍", l: "Local",      v: esc(ev.venue) }); }
     if (ev.speakers) { rows.push({ i: "🎤", l: "Convidados", v: esc(ev.speakers) }); }
+    // Whatever the fixed fields could not say. Line breaks are preserved
+    // because this is hand-typed prose, not a single value.
+    if (ev.notes) {
+        rows.push({ i: "ℹ️", l: "Observações", v: esc(ev.notes).replace(/\n/g, "<br>") });
+    }
 
     // The price is deliberately NOT here on the form. It IS shown on the
     // confirmation screen. Money placed in front of the commit button reads
@@ -391,12 +406,14 @@
     // otherwise anonymous Zelle identifiable when Alice reconciles the event
     // later -- July's feed is full of company names like PRIME GROUP BUILDS.
     $("payMemo").innerHTML =
+      "Envie pelo app do seu banco, no Zelle.<br>" +
       "<b>Coloque seu nome no memo</b> para identificarmos seu pagamento.";
 
-    if (EV.zelle_pay_url) {
-      var pb = $("payBtn");
-      pb.href = EV.zelle_pay_url;
-      pb.classList.remove("hidden");
+    // The handle carries the weight on mobile: scanning needs a second
+    // device, and most people are reading this on the only one they have.
+    if (EV.zelle_handle) {
+      $("zelleHandleVal").textContent = EV.zelle_handle;
+      $("zelleHandle").classList.remove("hidden");
     }
 
     var qr = $("zelleQr");

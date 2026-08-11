@@ -464,9 +464,21 @@
       color: #888;
     }
 
-    /* Screen-only pay buttons. Hidden from print (.no-print) because on a
-       PDF they would be a dead coloured rectangle -- the QR is the print
-       affordance, the button is the phone one. */
+    /* The Zelle handle as text. NOT hidden from print -- unlike a button it
+       is just as useful on paper, and it is the only thing a reader can act
+       on when they cannot scan (reading on the same phone, or from a PDF). */
+    .payment-tile .pt-handle {
+      margin-top: 5px;
+      font-size: 8.5px;
+      color: #555;
+      word-break: break-all;
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    /* Screen-only Stripe button. Hidden from print (.no-print) because on a
+       PDF a link is a dead coloured rectangle. Stripe IS a real payment
+       link; Zelle deliberately has no button -- see the tile markup. */
     .payment-tile .pt-btn {
       display: block;
       margin-top: 6px;
@@ -479,7 +491,6 @@
       text-align: center;
       letter-spacing: 0.02em;
     }
-    .payment-tile .pt-zelle  { background: #6d1ed4; }   /* Zelle purple  */
     .payment-tile .pt-stripe { background: #635bff; }   /* Stripe indigo */
 
     /* Stripe brand color text */
@@ -705,18 +716,20 @@
         <div class="bf-label">Formas de Pagamento</div>
         <div class="payment-tiles">
 
-          <!-- Zelle tile: the QR, and on screen also a TAPPABLE link.
-               These invoices are read on phones, where a QR is useless --
-               you cannot scan the screen you are reading it on. The QR
-               itself decodes to a plain enroll.zellepay.com URL, so the
-               same destination works as a link. Both are kept: the link
-               for the phone, the QR for print and desktop. -->
+          <!-- Zelle tile: QR + the handle as text.
+               ⚠️ There is NO tappable Zelle pay link. Tried and reverted
+               2026-08-10: the QR decodes to enroll.zellepay.com, which is
+               Zelle's bank-finder / enrollment page, not a payment flow.
+               The QR only works because a BANK APP's scanner reads the token
+               out of it. Proven on a phone -- the link opened a browser and
+               could not pay. The handle is here because someone reading the
+               invoice on their phone cannot scan their own screen. -->
           <div class="payment-tile">
             <div class="qr-placeholder" id="zelle-qr">
               <!-- Populated at load with an <img> pointing at GET /api/business/qr-image -->
             </div>
             <div class="pt-label">Zelle</div>
-            <a class="pt-btn pt-zelle no-print" id="zelle-pay-btn" target="_blank" rel="noopener" style="display:none;">Pagar com Zelle</a>
+            <div class="pt-handle" id="zelle-handle" style="display:none;"></div>
           </div>
 
           <!-- Stripe tile. The CTA below is replaced with a real link when
@@ -900,20 +913,23 @@
         'style="width:100%;height:100%;object-fit:contain;display:block;border-radius:3px;">';
     }
 
-    /* Tap-to-pay. data.pagamento carries { zelle_url, zelle_qr_url, stripe_url }
-       from the render-data endpoint. Each button only appears when a real URL
-       exists, so an invoice never shows a button that goes nowhere.
+    /* data.pagamento carries { zelle_handle, zelle_qr_url, stripe_url } from
+       the render-data endpoint. Each affordance appears only when its value
+       exists, so an invoice never shows one that goes nowhere.
 
-       Neither processor accepts an amount in a link -- Zelle has no such
-       parameter at all -- so the total is still typed by the payer. The
-       invoice number goes in the memo, which is what makes the payment
+       ⚠️ Zelle gets NO button, deliberately -- see the tile markup. Its QR's
+       URL is an enrollment page, not a payment flow, and a button there would
+       promise payment and deliver a webpage. Stripe IS a real link.
+
+       Neither carries an amount, so the total is still typed by the payer.
+       The invoice number goes in the memo, which is what makes the payment
        identifiable when it lands. */
     function loadPayButtons(pag) {
       if (!pag) { return; }
 
-      if (pag.zelle_url) {
-        var z = document.getElementById('zelle-pay-btn');
-        if (z) { z.href = pag.zelle_url; z.style.display = 'block'; }
+      if (pag.zelle_handle) {
+        var z = document.getElementById('zelle-handle');
+        if (z) { z.textContent = pag.zelle_handle; z.style.display = 'block'; }
       }
 
       if (pag.stripe_url) {

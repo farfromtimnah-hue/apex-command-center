@@ -19754,38 +19754,45 @@ function normalizeUsPhone(raw) {
 async function handleGetClubRegisterInfo(eventId, request, env) {
     try {
         var ev = await env.DB.prepare(
-            "SELECT id, name, event_date, start_time, venue, speakers, flyer_r2_key, " +
+            "SELECT id, name, event_date, start_time, venue, speakers, flyer_r2_key, notes, " +
             "price_single_cents, price_couple_cents, registration_open " +
             "FROM apex_club_events WHERE id = ?"
         ).bind(eventId).first();
 
         if (!ev) { return jsonErr("Event not found", 404); }
 
-        // The Zelle QR is just a URL -- enroll.zellepay.com with a base64
-        // payload of {name, action, token} -- so the same destination can be
-        // a TAPPABLE BUTTON. That matters because almost everyone opens this
-        // on the phone they would have to scan with, and you cannot scan a QR
-        // that is on the screen in your hand. The payload is a public payment
-        // handle, the same thing printed on a QR anyone can photograph.
+        // ⚠️ There is NO tappable Zelle payment link, and the QR's own URL is
+        // not one. Tried and reverted 2026-08-10: the QR decodes to
+        // enroll.zellepay.com/qr-codes?data=<base64 {name,action,token}>,
+        // which reads like a payment URL but is Zelle's bank-finder /
+        // enrollment landing page. The QR works only because a BANK APP's
+        // scanner extracts the token; opening that URL in a browser shows a
+        // marketing page. Proven on a real phone.
         //
-        // Zelle has no amount parameter (not in the link, not in the QR), so
-        // this carries WHO to pay, never how much. They still type the amount
-        // and the memo. It is a real shortcut, not tap-to-pay.
+        // So the page ships the QR plus the HANDLE as copyable text -- the
+        // handle is what someone reading on their own phone can actually use,
+        // since they cannot scan their own screen. Public information either
+        // way: it is the same address printed on a QR anyone can photograph.
         var pay = await env.DB.prepare(
-            "SELECT zelle_pay_url FROM business_settings WHERE id = 1"
+            "SELECT zelle_handle FROM business_settings WHERE id = 1"
         ).first();
 
         // Deliberately no guest list, no counts, no totals: this endpoint is
         // world-readable, and who is coming is Apex's business, not a
         // visitor's.
         return jsonOk({
-            zelle_pay_url: (pay && pay.zelle_pay_url) || null,
+            zelle_handle: (pay && pay.zelle_handle) || null,
             id: ev.id,
             name: ev.name,
             event_date: ev.event_date,
             start_time: ev.start_time,
             venue: ev.venue,
             speakers: ev.speakers,
+            // Free-text escape hatch for anything the fixed fields do not
+            // cover -- parking, dress code, "bring a business card". Optional,
+            // and PUBLIC: whatever is typed here is shown to attendees, so it
+            // is never a place for internal remarks.
+            notes: ev.notes,
             has_flyer: !!ev.flyer_r2_key,
             price_single_cents: ev.price_single_cents,
             price_couple_cents: ev.price_couple_cents,
@@ -20604,39 +20611,45 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Tap-to-pay for invoices.
+// Payment affordances for invoices.
 //
-// These go out digitally and get opened on a phone, where a QR code is
-// useless -- you cannot scan the screen you are reading it on. The Zelle QR
-// turns out to be nothing but a URL (enroll.zellepay.com carrying a base64
-// {name, action, token}), so the same destination works as a plain link.
-// That was the wall the first time an invoice pay-button was raised: there
-// was believed to be no Zelle link to point at. There is.
+// ⚠️ ZELLE HAS NO TAPPABLE PAY LINK, and the QR's own URL is not one.
+// Tried and reverted 2026-08-10: the QR decodes to
+// enroll.zellepay.com/qr-codes?data=<base64 {name,action,token}>, which reads
+// like a payment URL but is Zelle's bank-finder / enrollment landing page.
+// The QR works only because a BANK APP's scanner pulls the token out of it --
+// the same URL in a browser is a marketing page. Proven on a real phone: it
+// opened Zelle in a browser and could not pay. A button there is worse than
+// no button, because it promises payment and delivers a webpage.
+// Do not add one back.
 //
-// Zelle carries no amount, so the invoice total still has to be typed. The
-// invoice number belongs in the memo for the same reason a guest's name does
-// on the club page -- it is what makes the payment identifiable on arrival.
+// What ships instead: the QR (scannable from a bank app) and the handle as
+// text (usable by someone reading the invoice on the phone they would
+// otherwise have to scan with). STRIPE is a real link and does work.
+//
+// Neither carries an amount, so the invoice total is still typed. The invoice
+// number in the memo is what makes the payment identifiable on arrival.
 //
 // Shared by the Zoho-backed and D1-backed render-data routes so both produce
 // the same shape and the existing template stays the single renderer.
 // ---------------------------------------------------------------------------
 
 async function buildInvoicePaymentBlock(env) {
+    var empty = { zelle_handle: null, zelle_qr_url: null, stripe_url: null };
     try {
         var s = await env.DB.prepare(
-            "SELECT zelle_pay_url, stripe_payment_link, zelle_qr_r2_key FROM business_settings WHERE id = 1"
+            "SELECT zelle_handle, stripe_payment_link, zelle_qr_r2_key FROM business_settings WHERE id = 1"
         ).first();
-        if (!s) { return { zelle_url: null, zelle_qr_url: null, stripe_url: null }; }
+        if (!s) { return empty; }
 
         return {
-            zelle_url:    s.zelle_pay_url || null,
-            // Kept for print and desktop, where tapping is not an option.
+            zelle_handle: s.zelle_handle || null,
             zelle_qr_url: s.zelle_qr_r2_key ? (APEX_API_BASE + "/api/business/qr-image") : null,
             stripe_url:   s.stripe_payment_link || null
         };
     } catch (e) {
-        // A missing pay button must never break invoice rendering.
-        return { zelle_url: null, zelle_qr_url: null, stripe_url: null };
+        // A missing payment block must never break invoice rendering.
+        return empty;
     }
 }
 

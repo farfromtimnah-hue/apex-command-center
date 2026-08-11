@@ -19760,10 +19760,25 @@ async function handleGetClubRegisterInfo(eventId, request, env) {
 
         if (!ev) { return jsonErr("Event not found", 404); }
 
+        // The Zelle QR is just a URL -- enroll.zellepay.com with a base64
+        // payload of {name, action, token} -- so the same destination can be
+        // a TAPPABLE BUTTON. That matters because almost everyone opens this
+        // on the phone they would have to scan with, and you cannot scan a QR
+        // that is on the screen in your hand. The payload is a public payment
+        // handle, the same thing printed on a QR anyone can photograph.
+        //
+        // Zelle has no amount parameter (not in the link, not in the QR), so
+        // this carries WHO to pay, never how much. They still type the amount
+        // and the memo. It is a real shortcut, not tap-to-pay.
+        var pay = await env.DB.prepare(
+            "SELECT zelle_pay_url FROM business_settings WHERE id = 1"
+        ).first();
+
         // Deliberately no guest list, no counts, no totals: this endpoint is
         // world-readable, and who is coming is Apex's business, not a
         // visitor's.
         return jsonOk({
+            zelle_pay_url: (pay && pay.zelle_pay_url) || null,
             id: ev.id,
             name: ev.name,
             event_date: ev.event_date,

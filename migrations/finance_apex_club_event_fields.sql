@@ -102,3 +102,12 @@ WHERE id = 1 AND club_confirm_template IS NULL;
 -- calendar -- the .ics leaves the browser and the rest is invisible. Kept only
 -- to answer whether the button earns its place. Never read as attendance.
 ALTER TABLE apex_club_events ADD COLUMN calendar_clicks INTEGER NOT NULL DEFAULT 0;
+
+-- The Zelle QR decodes to a plain URL:
+--   https://enroll.zellepay.com/qr-codes?data=<base64 {name, action, token}>
+-- so the same destination can be a TAPPABLE BUTTON. That matters because
+-- nearly everyone opens the registration page on the phone they would
+-- otherwise have to scan with, and you cannot scan your own screen.
+-- Stored rather than hardcoded so it travels with the QR if Apex changes it.
+-- Zelle has no amount parameter, so this carries WHO to pay, never how much.
+ALTER TABLE business_settings ADD COLUMN zelle_pay_url TEXT;

@@ -122,6 +122,14 @@
     .pay h2 { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
     .pay .price { font-size: 30px; font-weight: 700; color: var(--gold); margin: 12px 0 2px; letter-spacing: -0.5px; }
     .pay .price-note { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .paybtn {
+      display: block; text-decoration: none;
+      font-size: 16px; font-weight: 700;
+      padding: 15px; border-radius: 11px; margin: 0 0 18px;
+      background: #6d1ed4; color: #fff;   /* Zelle purple — reads as "their" button */
+    }
+    .paybtn:active { opacity: 0.85; }
+    .pay .qr-hint { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
     .pay img { width: 190px; max-width: 70%; border-radius: 10px; background: #fff; padding: 10px; }
     .memo {
       margin-top: 16px; padding: 12px 14px; border-radius: 9px;
@@ -192,6 +200,10 @@
           <h2>Pagamento</h2>
           <div class="price" id="payPrice"></div>
           <div class="price-note" id="payNote"></div>
+          <!-- Tappable first. Nearly everyone is ON the phone they would
+               otherwise have to scan with, and you cannot scan your own
+               screen. The QR stays below for anyone reading on a laptop. -->
+          <a id="payBtn" class="paybtn hidden" target="_blank" rel="noopener">Pagar com Zelle</a>
           <img id="zelleQr" alt="Zelle QR" class="hidden">
           <div class="memo" id="payMemo"></div>
         </div>
@@ -248,7 +260,7 @@
     });
   }
 
-  function factsHtml(ev) {
+  function factsHtml(ev, opts) {
     var rows = [];
     rows.push({ i: "📅", l: "Data", v: ptDate(ev.event_date) + (ev.start_time ? " · " + esc(ev.start_time) : "") });
     // The venue changes every month, so it is never assumed -- it is shown
@@ -256,9 +268,18 @@
     if (ev.venue)    { rows.push({ i: "📍", l: "Local",      v: esc(ev.venue) }); }
     if (ev.speakers) { rows.push({ i: "🎤", l: "Convidados", v: esc(ev.speakers) }); }
 
-    var price = money(ev.price_single_cents) + " por pessoa";
-    if (ev.price_couple_cents) { price += " · " + money(ev.price_couple_cents) + " o casal"; }
-    rows.push({ i: "💵", l: "Valor", v: price });
+    // The price is deliberately NOT here on the form. It IS shown on the
+    // confirmation screen. Money placed in front of the commit button reads
+    // as a transaction and adds a hesitation beat for information they
+    // already have -- the price goes out in the WhatsApp message alongside
+    // the flyer, and July's payments arrived with no confusion about it.
+    // After the RSVP the same number stops being a hurdle and becomes what
+    // they actually need next: how much, how to pay, what to put in the memo.
+    if (opts && opts.withPrice) {
+        var price = money(ev.price_single_cents) + " por pessoa";
+        if (ev.price_couple_cents) { price += " · " + money(ev.price_couple_cents) + " o casal"; }
+        rows.push({ i: "💵", l: "Valor", v: price });
+    }
 
     return rows.map(function (r) {
       return '<div class="fact"><div class="ico">' + r.i + '</div>' +
@@ -334,18 +355,27 @@
     hide("screenForm");
 
     $("doneSub").innerHTML = "Obrigado, <b>" + esc(nome.split(" ")[0]) + "</b>! Já anotamos você na lista.";
-    $("doneFacts").innerHTML = factsHtml(EV);
+    $("doneFacts").innerHTML = factsHtml(EV, { withPrice: true });
 
     $("payPrice").textContent = money(EV.price_single_cents);
     $("payNote").textContent = EV.price_couple_cents
       ? "por pessoa · " + money(EV.price_couple_cents) + " o casal"
       : "por pessoa";
 
-    // The memo line is doing real work: it is what makes an anonymous Zelle
-    // identifiable when Alice reconciles the event afterwards.
+    // The memo line is doing real work: it is what makes an otherwise
+    // anonymous Zelle identifiable when Alice reconciles the event later --
+    // July's feed is full of company names like PRIME GROUP BUILDS LLC.
+    // "Or on the day" is stated plainly because that is what most people
+    // actually do, and pretending otherwise would just add pressure.
     $("payMemo").innerHTML =
-      "Pague por Zelle escaneando o código, ou no dia do evento.<br>" +
+      "Você pode pagar agora ou no dia do evento.<br>" +
       "<b>Coloque seu nome no memo</b> para identificarmos seu pagamento.";
+
+    if (EV.zelle_pay_url) {
+      var pb = $("payBtn");
+      pb.href = EV.zelle_pay_url;
+      pb.classList.remove("hidden");
+    }
 
     var qr = $("zelleQr");
     qr.onerror = function () { qr.classList.add("hidden"); };

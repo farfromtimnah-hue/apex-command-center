@@ -1693,10 +1693,26 @@ async function handleGetClients(request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
+        // ARCHIVED ROWS ARE EXCLUDED HERE, AT THE WORKER, so no page can
+        // forget: this one query feeds most screens and dropdowns in the app,
+        // and it previously had no status filter of any kind — which is why
+        // the two test clients showed up everywhere.
+        //
+        // ?include_archived=1 is the single explicit opt-in, used by the
+        // Clients page's own "show archived" view.
+        //
+        // COALESCE, not `archived = 0`: a row written before the column
+        // existed can carry NULL, and NULL = 0 evaluates to NULL in SQL, which
+        // would silently hide every legacy client.
+        var listUrl = new URL(request.url);
+        var includeArchived = listUrl.searchParams.get("include_archived") === "1";
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, created_at " +
-            "FROM clients ORDER BY name ASC"
+            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, created_at, " +
+            "COALESCE(archived, 0) AS archived, archived_at, archived_by " +
+            "FROM clients " +
+            (includeArchived ? "" : "WHERE COALESCE(archived, 0) = 0 ") +
+            "ORDER BY name ASC"
         ).all();
 
         return jsonOk({ clients: res.results });
@@ -1743,6 +1759,7 @@ async function handleGetClientEngagementDates(request, env) {
             "            AND s.status NOT IN ('discarded','cancelled')) AS first_session_on_file " +
             "FROM clients c " +
             "LEFT JOIN packages p ON p.short_name = c.package " +
+            "WHERE COALESCE(c.archived, 0) = 0 " +
             "ORDER BY c.name ASC"
         ).all();
 
@@ -1756,6 +1773,68 @@ async function handleGetClientEngagementDates(request, env) {
 // Route: POST /api/clients
 // Body: { name, owners?, industry?, location?, logo_url?, profile_pt?, profile_en? }
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/archive  — { archived: true|false }
+//
+// Hides a client from every list without deleting it. There is deliberately NO
+// delete counterpart: the two rows this exists for are named
+// "DO NOT USE" and "DO NOT CLOSE", and archiving is reversible where a delete
+// is not.
+//
+// alice/developer only. Rafa is deliberately excluded: he is in the client
+// lists all day and archiving is an administrative cleanup action, not a
+// day-to-day one.
+// ---------------------------------------------------------------------------
+async function handlePutClientArchive(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare(
+            "SELECT id, name, COALESCE(archived, 0) AS archived FROM clients WHERE id = ?"
+        ).bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var archived = body.archived ? 1 : 0;
+
+        if (archived === 1) {
+            // What the caller is about to hide. Returned so the UI can warn
+            // before archiving a client that still has live data — the point
+            // is to hide dead rows, and hiding a working one by accident is
+            // the failure mode worth a confirmation step.
+            var counts = await env.DB.prepare(
+                "SELECT (SELECT COUNT(*) FROM gm_leads WHERE client_id = ?) AS leads, " +
+                "       (SELECT COUNT(*) FROM gm_jobs  WHERE client_id = ?) AS jobs, " +
+                "       (SELECT COUNT(*) FROM client_logins WHERE client_id = ?) AS logins"
+            ).bind(id, id, id).first();
+            if (!body.confirm && counts &&
+                ((counts.leads || 0) > 0 || (counts.jobs || 0) > 0 || (counts.logins || 0) > 0)) {
+                return jsonOk({
+                    needs_confirm: true,
+                    name: client.name,
+                    leads: counts.leads || 0,
+                    jobs: counts.jobs || 0,
+                    logins: counts.logins || 0
+                });
+            }
+        }
+
+        await env.DB.prepare(
+            "UPDATE clients SET archived = ?, " +
+            "archived_at = CASE WHEN ? = 1 THEN datetime('now') ELSE NULL END, " +
+            "archived_by = CASE WHEN ? = 1 THEN ? ELSE NULL END " +
+            "WHERE id = ?"
+        ).bind(archived, archived, archived, actorName(user), id).run();
+
+        return jsonOk({ saved: true, id: id, archived: archived === 1 });
+    } catch (e) {
+        return jsonErr("Error archiving client: " + e.message, 500);
+    }
+}
 
 async function handlePostClients(request, env) {
     try {
@@ -7343,7 +7422,7 @@ async function handleGetSalesGrowthRanking(request, env) {
             "SELECT c.id AS client_id, c.name, g.growth_percent, g.entered_by, g.entered_at " +
             "FROM clients c " +
             "LEFT JOIN client_growth_entries g ON g.client_id = c.id AND g.month_label = ? " +
-            "WHERE c.status = 'active' " +
+            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
             "ORDER BY (g.growth_percent IS NULL) ASC, g.growth_percent DESC, c.name ASC"
         ).bind(month).all();
 
@@ -11941,7 +12020,8 @@ async function handleGetLeaderboard(request, env) {
         if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
 
         var clients = await env.DB.prepare(
-            "SELECT id, name FROM clients WHERE status = 'active' OR status IS NULL ORDER BY name"
+            "SELECT id, name FROM clients WHERE (status = 'active' OR status IS NULL) " +
+            "AND COALESCE(archived, 0) = 0 ORDER BY name"
         ).all();
 
         var CATEGORIES = ["financeiro", "clientes_mercado", "processos", "crescimento"];
@@ -12037,7 +12117,8 @@ async function handleGetClientsAverage(request, env) {
         // Same active-only filter the leaderboard uses. Test clients are
         // status='closed', so they never enter the aggregate.
         var clients = await env.DB.prepare(
-            "SELECT id, name FROM clients WHERE status = 'active' OR status IS NULL ORDER BY name"
+            "SELECT id, name FROM clients WHERE (status = 'active' OR status IS NULL) " +
+            "AND COALESCE(archived, 0) = 0 ORDER BY name"
         ).all();
         var list = clients.results || [];
 
@@ -21501,6 +21582,7 @@ async function handleGetFinanceNewAttention(request, env) {
         var termsRow = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM clients c " +
             "WHERE COALESCE(c.status,'active') = 'active' " +
+            "AND COALESCE(c.archived, 0) = 0 " +
             "AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id)"
         ).first();
 
@@ -22905,6 +22987,11 @@ export default {
             }
             if (segs.length === 4 && segs[3] === "lead-outcome" && method === "POST") {
                 return handlePostLeadOutcome(cid, request, env);
+            }
+            // Hide/unhide a client from every list. alice/developer only; the
+            // handler enforces that. Deliberately no DELETE counterpart.
+            if (segs.length === 4 && segs[3] === "archive" && method === "PUT") {
+                return handlePutClientArchive(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "logo" && method === "POST") {
                 return handlePostClientLogo(cid, request, env);

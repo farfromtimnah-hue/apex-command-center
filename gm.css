@@ -55,6 +55,58 @@
   color: #7a5f18;
 }
 
+/* ── Lead search ──────────────────────────────────────────────────────────
+   Filters the loaded list by name as you type; composes with the stage chips
+   (see gmLeadsInStage in gm.js). Sits above the list in both view modes. */
+.gm-lead-search { position: relative; margin: 0 0 10px; }
+.gm-lead-search-input {
+  width: 100%;
+  min-height: 48px;                 /* same touch target as the lead rows */
+  box-sizing: border-box;
+  padding: 12px 40px 12px 14px;     /* right padding clears the × button */
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  outline: none;
+  -webkit-appearance: none;         /* drop Safari's own search chrome */
+  appearance: none;
+}
+.gm-lead-search-input:focus { border-color: var(--gold); }
+.gm-lead-search-input::placeholder { color: var(--muted); }
+/* The native clear affordance is inconsistent across browsers and invisible
+   on this background, so it is suppressed in favour of the button below. */
+.gm-lead-search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.gm-lead-search-clear {
+  position: absolute;
+  top: 50%; right: 4px;
+  transform: translateY(-50%);
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; cursor: pointer;
+  color: var(--muted); font-size: 22px; line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-lead-search-clear:hover { color: var(--text); }
+
+/* Search matched nothing anywhere. Deliberately distinct from the
+   "no leads in this stage" line and from a client with no leads at all. */
+.gm-search-empty { text-align: center; padding: 26px 12px; }
+.gm-search-empty-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.gm-search-empty-sub {
+  font-size: 13px; color: var(--muted);
+  margin-bottom: 14px; overflow-wrap: anywhere;
+}
+
+/* Search matched nothing in the SELECTED stage but did match elsewhere.
+   Points at the stages that have hits instead of dead-ending on an empty one. */
+.gm-search-elsewhere { padding: 18px 2px 6px; }
+.gm-search-elsewhere-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.gm-search-elsewhere-sub { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.gm-search-elsewhere-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* ── Pipeline: stacked stage sections ─────────────────────────────────── */
 .gm-stage-section { margin-bottom: 4px; }
 .gm-stage-head {

@@ -626,6 +626,10 @@ function gmPipelineCreateOpen() {
 
 function gmLoadCrm() {
   gmCurrentTab = "gmcrm";   // the Pipeline container; section is gmPipelineSection
+  // A fresh visit to the tab starts unfiltered. The query is a transient view
+  // state, not a preference: coming back later to a list that is silently
+  // hiding 90 of 93 rows reads as data loss.
+  gmLeadSearch = "";
   var body = document.getElementById("gmCrmBody");
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
   Promise.all([gmLoadConfig(), gmApi("leads")])
@@ -657,10 +661,47 @@ function gmToggleViewMode() {
   gmApi("config/view-mode", { method: "PUT", body: { override: next } }).catch(function() {});
 }
 
+// ── Search by lead name ───────────────────────────────────────────────────
+// Filters the ALREADY-LOADED list client-side. At this scale (93 rows on the
+// largest client) a round trip per keystroke would buy nothing, and the whole
+// list is in memory anyway because the stacked view renders all of it.
+//
+// The query composes WITH the stage chips rather than replacing them: it is
+// applied inside gmLeadsInStage, so "Negociação" + "silva" means the Silvas in
+// Negociação, and every stage count on screen reflects the search. Searching
+// inside a stage never silently jumps you to another one.
+var gmLeadSearch = "";
+
+// Accent- and case-insensitive: the names are Brazilian and nobody types
+// "Conceição" with the cedilla when they are hunting for a row. NFD splits a
+// letter from its diacritic so the combining marks can be dropped.
+function gmSearchNorm(s) {
+  var out = String(s == null ? "" : s).toLowerCase();
+  if (out.normalize) { out = out.normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+  return out.trim();
+}
+
+function gmLeadMatchesSearch(lead) {
+  if (!gmLeadSearch) { return true; }
+  return gmSearchNorm(lead.cliente).indexOf(gmLeadSearch) !== -1;
+}
+
+// True when a search is active but nothing in the WHOLE pipeline matches --
+// distinct from a client who simply has no leads, which is a different message.
+function gmSearchHasNoMatches() {
+  if (!gmLeadSearch) { return false; }
+  var leads = (gmLeadsData && gmLeadsData.leads) || [];
+  if (!leads.length) { return false; }   // "no leads at all" wins
+  for (var i = 0; i < leads.length; i++) {
+    if (gmLeadMatchesSearch(leads[i])) { return false; }
+  }
+  return true;
+}
+
 function gmLeadsInStage(stage) {
   var out = [];
   ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) {
-    if (l.estagio === stage) { out.push(l); }
+    if (l.estagio === stage && gmLeadMatchesSearch(l)) { out.push(l); }
   });
   return out;
 }
@@ -741,10 +782,50 @@ function gmCrmSummaryHtml() {
     '</div>';
 }
 
+// The search box. Rendered ONCE by gmRenderCrm and then deliberately left
+// alone: re-rendering the <input> on every keystroke would blow away focus and
+// the caret mid-word. gmRenderCrmList() below repaints only the rows.
+function gmLeadSearchHtml() {
+  return '<div class="gm-lead-search">' +
+    '<input type="search" id="gmLeadSearch" class="gm-lead-search-input" ' +
+    'autocomplete="off" autocorrect="off" spellcheck="false" ' +
+    'placeholder="' + escHtml(gmT("Buscar lead pelo nome…", "Search leads by name…")) + '" ' +
+    'aria-label="' + escHtml(gmT("Buscar lead pelo nome", "Search leads by name")) + '" ' +
+    'value="' + escHtml(gmLeadSearch) + '" oninput="gmLeadSearchInput(this.value)">' +
+    '<button type="button" class="gm-lead-search-clear" id="gmLeadSearchClear"' +
+    (gmLeadSearch ? "" : " hidden") + ' aria-label="' +
+    escHtml(gmT("Limpar busca", "Clear search")) + '" onclick="gmLeadSearchClear()">×</button>' +
+    '</div>';
+}
+
+function gmLeadSearchInput(v) {
+  gmLeadSearch = gmSearchNorm(v);
+  var clear = document.getElementById("gmLeadSearchClear");
+  if (clear) { clear.hidden = !gmLeadSearch; }
+  gmRenderCrmList();
+}
+
+function gmLeadSearchClear() {
+  gmLeadSearch = "";
+  var input = document.getElementById("gmLeadSearch");
+  if (input) { input.value = ""; input.focus(); }
+  var clear = document.getElementById("gmLeadSearchClear");
+  if (clear) { clear.hidden = true; }
+  gmRenderCrmList();
+}
+
+// Repaints ONLY the stage sections / chip rail + rows, leaving the search
+// input (and its focus) untouched. Everything that depends on the query lives
+// inside this subtree, which is why the counts stay in step with the filter.
+function gmRenderCrmList() {
+  var host = document.getElementById("gmCrmList");
+  if (!host || !gmConfig || !gmLeadsData) { return; }
+  host.innerHTML = gmCrmListHtml();
+}
+
 function gmRenderCrm() {
   var body = document.getElementById("gmCrmBody");
   if (!gmConfig || !gmLeadsData) { return; }
-  var stages = gmConfig.method.stages;
   var mode = gmCrmViewMode();
   var html = '<div class="content-card">' + gmCrmSummaryHtml() + '</div>';
 
@@ -757,6 +838,34 @@ function gmRenderCrm() {
     (mode === "stacked"
       ? gmT("Ver por estágio", "View by stage")
       : gmT("Ver tudo empilhado", "View stacked")) + '</button></div>';
+
+  // Only worth showing when there is a list big enough to hunt through.
+  if (((gmLeadsData && gmLeadsData.leads) || []).length) { html += gmLeadSearchHtml(); }
+
+  html += '<div id="gmCrmList">' + gmCrmListHtml() + '</div>';
+  html += gmPipelineFabHtml();
+
+  body.innerHTML = html;
+}
+
+function gmCrmListHtml() {
+  var stages = gmConfig.method.stages;
+  var mode = gmCrmViewMode();
+  var html = "";
+
+  // A search that matches nothing anywhere: say so once, plainly, instead of
+  // repeating "no leads in this stage" eight times down an empty pipeline.
+  // Deliberately different wording from the never-had-a-lead case.
+  if (gmSearchHasNoMatches()) {
+    return '<div class="content-card"><div class="gm-search-empty">' +
+      '<div class="gm-search-empty-title">' +
+      gmT("Nenhum lead encontrado", "No leads found") + '</div>' +
+      '<div class="gm-search-empty-sub">' +
+      gmT("Nenhum lead corresponde a “", "No lead matches “") + escHtml(gmLeadSearch) + '”. ' +
+      gmT("Tente outro nome.", "Try another name.") + '</div>' +
+      '<button type="button" class="btn-outline" onclick="gmLeadSearchClear()">' +
+      gmT("Limpar busca", "Clear search") + '</button></div></div>';
+  }
 
   if (mode === "stacked") {
     html += '<div class="content-card">';
@@ -785,21 +894,48 @@ function gmRenderCrm() {
     html += '</div><div class="content-card">';
     var filtered = gmLeadsInStage(gmActiveStage);
     if (!filtered.length) {
-      html += '<p class="muted">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</p>';
+      // Under a search, "nothing in this stage" is misleading on its own: the
+      // matches usually exist one chip over, and the counts alone are easy to
+      // miss. Name the stages that DO have hits and make them tappable, so a
+      // search never dead-ends on the stage that happened to be selected.
+      var elsewhere = [];
+      if (gmLeadSearch) {
+        stages.forEach(function(s) {
+          if (s === gmActiveStage) { return; }
+          var n = gmLeadsInStage(s).length;
+          if (n) { elsewhere.push({ stage: s, n: n }); }
+        });
+      }
+      if (elsewhere.length) {
+        html += '<div class="gm-search-elsewhere">' +
+          '<div class="gm-search-elsewhere-title">' +
+          gmT("Nenhum resultado em ", "No matches in ") + escHtml(gmActiveStage) + '.</div>' +
+          '<div class="gm-search-elsewhere-sub">' +
+          gmT("Encontrado em:", "Found in:") + '</div><div class="gm-search-elsewhere-chips">';
+        elsewhere.forEach(function(e) {
+          html += '<button type="button" class="gm-stage-chip" onclick="gmPickStage(\'' +
+            escHtml(e.stage).replace(/'/g, "\\'") + '\')">' + escHtml(e.stage) +
+            ' <span class="gm-chip-count">' + e.n + '</span></button>';
+        });
+        html += '</div></div>';
+      } else {
+        html += '<p class="muted">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</p>';
+      }
     } else {
       filtered.forEach(function(l) { html += gmLeadRowHtml(l); });
     }
     html += '</div>';
   }
 
-  html += gmPipelineFabHtml();
-
-  body.innerHTML = html;
+  return html;
 }
 
+// Stage chips repaint the list only, so the search box keeps focus and the
+// query survives switching stages -- searching inside Negociação and then
+// tapping Fechado keeps the same query, now scoped to Fechado.
 function gmPickStage(stage) {
   gmActiveStage = stage;
-  gmRenderCrm();
+  gmRenderCrmList();
 }
 
 // ── Quick add: THREE fields (Nome, Telefone, Serviços-as-chips) ─────────

@@ -10662,6 +10662,10 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
                 // The note thread on their own lead or project.
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
+                // Their own company calendar. The payload also carries Apex
+                // Club INVITATIONS (name/date/venue/speakers/flyer/link only)
+                // — the handler never selects a price, a headcount or a guest.
+                if (gmRest === "events") { return true; }
                 // Progress photos on their own project, and the image itself.
                 // Client-visible by design: for a pool builder the project is a
                 // physical site and these are what the owner shows their own
@@ -10675,6 +10679,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
+                if (gmRest === "events") { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
             }
@@ -10687,6 +10692,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Their own note; the handler refuses anyone else's.
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^events\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
             if (method === "DELETE") {
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
@@ -10697,6 +10703,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // Their own lead's attachment, same reasoning.
                 if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^events\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
         }
     }
@@ -14372,7 +14379,17 @@ var GM_JOB_STATUSES = ["Em andamento", "Concluída", "Atrasada", "Pausada"];
 // real people or real planning cycle is a data leak. All three now start empty
 // and stay empty until the client fills them in — see the matching [] read
 // fallbacks in gmGetConfig().
-var GM_DEFAULT_SERVICOS = ["Pavers", "Pergola", "Outdoor Kitchen", "Fire Pit", "Turf", "Travertine", "Lighting", "Landscape", "Living Area", "Combo", "Sealer"];
+// ⚠️ NO DEFAULT SERVICOS LIST. There used to be a hardcoded hardscaping list
+// here (Pavers, Pergola, Outdoor Kitchen, Fire Pit, Turf, ...) seeded into
+// every client that did not have a gm_config row yet. It reached 12 of 16
+// clients including a bakery and a marketing agency, because the seed ran on
+// READ. The list is gone rather than emptied: a constant like that is a
+// standing invitation to point a fallback at it again. See gmGetConfig().
+
+// Mirrors the column DEFAULT in migrations/gm_growth_management.sql, used when
+// a client has no gm_config row at all so the pipeline view behaves the same
+// either way.
+var GM_DEFAULT_VIEW_THRESHOLD = 50;
 // The Entrada/Saída derivation table — tipo comes from HERE (or a client's
 // configured copy), never from a request body.
 var GM_DEFAULT_FINANCE_CATEGORIES = [
@@ -14418,32 +14435,43 @@ function gmParseJsonListNonEmpty(s, fallback) {
     return fallback;
 }
 
-// Load (and lazily seed) a client's gm_config row. Only servicos and the
-// admin-only finance_categories get seeded values; every other list starts empty.
+// Read a client's gm_config. A READ NEVER WRITES.
 //
-// target_margin is NOT in the insert column list, and the column no longer
-// carries a DEFAULT (see migrations/gm_config_target_margin_nullable.sql), so
-// a new client's margin floor starts NULL — unset, not 30. Do not add it back
-// here: the previous DEFAULT 30 put a fabricated floor on all 11 existing
-// clients, and a margin floor is a number an owner might actually act on.
+// ⚠️ THIS FUNCTION USED TO INSERT A ROW WHEN ONE WAS MISSING, seeded with a
+// hardcoded hardscaping servicos list. Two things came out of that, both seen
+// in production:
+//
+//   * 12 of 16 clients ended up with the identical Pavers/Pergola/Turf list —
+//     among them a bakery, a marketing agency, a consultant, a water-filter
+//     company and an interior designer. None of them typed it.
+//   * A gm_config row was written for a DELETED client with no login at all,
+//     purely because something read it. A read wrote data.
+//
+// Two earlier attempts "fixed" this by clearing the column, and both silently
+// came back, because clearing the DATA does not touch the WRITE PATH — and
+// because the read fallback below pointed at the same constant, so a NULL
+// column handed the hardscaping list straight back to the bakery. Both halves
+// are fixed here: no insert, and every list falls back to empty.
+//
+// A missing row is a real, ordinary state meaning "this client has configured
+// nothing yet". It returns empty lists. The row is created only by a
+// deliberate user action, through gmEnsureConfigRow() below.
+//
+// finance_categories is the one exception and stays seeded on READ: it is
+// admin-only and it drives the Entrada/Saída derivation for every finance
+// entry, so an empty list leaves a client unable to categorise anything. That
+// is a derivation table, not a client's vocabulary — nothing about it claims
+// to describe their business.
 async function gmGetConfig(env, clientId) {
     var row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
-    if (!row) {
-        await env.DB.prepare(
-            "INSERT INTO gm_config (client_id, servicos_json, vendedores_json, finance_categories_json, partner_types_json, cycle_months_json) " +
-            "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (client_id) DO NOTHING"
-        ).bind(
-            clientId,
-            JSON.stringify(GM_DEFAULT_SERVICOS),
-            "[]",   // vendedores — never seeded; real people's names are not a default
-            JSON.stringify(GM_DEFAULT_FINANCE_CATEGORIES),
-            "[]",   // partner_types — never seeded, same reason
-            "[]"    // cycle_months — never seeded; LIRA's planning window is not a default
-        ).run();
-        row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
-    }
+    // No row is not an error and is not a reason to create one. Answer from
+    // the same shape the parse helpers would produce for an unset column.
+    if (!row) { row = {}; }
     return {
-        servicos:            gmParseJsonList(row.servicos_json, GM_DEFAULT_SERVICOS),
+        // Empty, never a seed list. An empty list is honest and prompts
+        // the client to enter their own; a borrowed list is a lie about their
+        // business that they then have to notice and delete.
+        servicos:            gmParseJsonList(row.servicos_json, []),
         // vendedores, partner_types and cycle_months fall back to [], never to a
         // seed list. gmParseJsonList only reaches the fallback for a genuinely
         // unconfigured column (NULL / unparseable / non-array), but pointing that
@@ -14454,6 +14482,12 @@ async function gmGetConfig(env, clientId) {
         finance_categories:  gmParseJsonListNonEmpty(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
         partner_types:       gmParseJsonList(row.partner_types_json, []),
         cycle_months:        gmParseJsonList(row.cycle_months_json, []),
+        // The calendar's event-type vocabulary. Per client, stored, and NEVER
+        // derived from clients.industry — deriving a vocabulary from a coarse
+        // free-text label is exactly what produced the servicos mess above.
+        // Seeded once, deliberately, by migrations/gm_config_event_types.sql;
+        // never re-seeded on read, for the same reason servicos no longer is.
+        event_types:         gmParseJsonList(row.event_types_json, []),
         // NULL is a real, meaningful value here: the client has not set a
         // margin floor. It must never be coerced to 0 or to 30 on the way out
         // — every display path renders it as "not set" and prompts for one.
@@ -14461,9 +14495,36 @@ async function gmGetConfig(env, clientId) {
                                   ? null : row.target_margin,
         target_margin_set_by: row.target_margin_set_by || null,
         target_margin_set_at: row.target_margin_set_at || null,
-        pipeline_view_threshold: row.pipeline_view_threshold,
+        // Falls back to the column's own default for a client with no row yet,
+        // so the pipeline view-mode threshold behaves identically whether or
+        // not a config row happens to exist.
+        pipeline_view_threshold: (row.pipeline_view_threshold === null || row.pipeline_view_threshold === undefined)
+                                  ? GM_DEFAULT_VIEW_THRESHOLD : row.pipeline_view_threshold,
         pipeline_view_override:  row.pipeline_view_override || null
     };
+}
+
+// Create the gm_config row, for the WRITE paths only.
+//
+// This is the deliberate user action gmGetConfig() refuses to perform. Call it
+// before an UPDATE that needs a row to exist; never from a read.
+//
+// Nothing client-describing is seeded here: servicos, vendedores,
+// partner_types, cycle_months and event_types all start empty. Only
+// finance_categories is populated, because it is the admin-only Entrada/Saída
+// derivation table rather than a claim about the client's business.
+async function gmEnsureConfigRow(env, clientId) {
+    await env.DB.prepare(
+        "INSERT INTO gm_config (client_id, servicos_json, vendedores_json, finance_categories_json, partner_types_json, cycle_months_json) " +
+        "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (client_id) DO NOTHING"
+    ).bind(
+        clientId,
+        "[]",   // servicos — NOT seeded: see the block comment on gmGetConfig
+        "[]",   // vendedores — real people's names are not a default
+        JSON.stringify(GM_DEFAULT_FINANCE_CATEGORIES),
+        "[]",   // partner_types
+        "[]"    // cycle_months — another company's planning window is not a default
+    ).run();
 }
 
 function gmStr(v, max) {
@@ -14565,7 +14626,7 @@ async function handlePutGmConfig(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         var isAdmin = isAdminRole(user);
         if (!isAdmin && !requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
-        await gmGetConfig(env, id);   // ensure the row exists
+        await gmEnsureConfigRow(env, id);   // deliberate write: create the row if absent
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var sets = [], binds = [];
@@ -14593,6 +14654,8 @@ async function handlePutGmConfig(id, request, env) {
         setList("vendedores", "vendedores_json");
         setList("partner_types", "partner_types_json");
         setList("cycle_months", "cycle_months_json");
+        // The calendar vocabulary, client-editable like the four above.
+        setList("event_types", "event_types_json");
         if (isAdmin && Object.prototype.toString.call(body.finance_categories) === "[object Array]") {
             var cats = [];
             for (var i = 0; i < body.finance_categories.length; i++) {
@@ -14655,7 +14718,7 @@ async function handlePutGmViewMode(id, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
-        await gmGetConfig(env, id);
+        await gmEnsureConfigRow(env, id);   // deliberate write: create the row if absent
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var override = null;
@@ -16976,6 +17039,359 @@ async function handleDeleteGmLeadFile(id, leadId, fileId, request, env) {
         return jsonOk({ deleted: true });
     } catch (e) {
         return jsonErr("Error deleting file: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The client business's own calendar — gm_events.
+//
+// Native to the client tier. NO GOOGLE: no OAuth, no sync, no integration.
+// That was an explicit decision (see migrations/gm_events.sql), not a gap.
+//
+// The month payload carries three kinds of entry and the frontend renders
+// them differently because they mean different things:
+//
+//   own      — a gm_events row. Editable, deletable.
+//   derived  — read from gm_jobs at request time, NEVER stored. A project
+//              shows on its start date and its deadline. Not editable here:
+//              the job is edited on the job, and a mirrored gm_events row
+//              would drift the moment someone moved a deadline.
+//   club     — an Apex Club invitation. Apex-tier data, read-only, and
+//              stripped to invitation fields only. See the block below.
+//
+// Sellers reach none of it: sellerRequestAllowed() does not list these paths.
+// ---------------------------------------------------------------------------
+
+// A YYYY-MM-DD string, or null. Rejects anything else rather than letting a
+// malformed date into a column the month query filters on with string
+// comparison.
+function gmDateStr(v) {
+    var s = gmStr(v, 10);
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) { return null; }
+    return s;
+}
+
+// HH:MM, or null. Accepts HH:MM:SS from a time input and drops the seconds.
+function gmTimeStr(v) {
+    var s = gmStr(v, 8);
+    if (!s) { return null; }
+    var m = /^(\d{2}):(\d{2})(:\d{2})?$/.exec(s);
+    if (!m) { return null; }
+    var h = parseInt(m[1], 10), mi = parseInt(m[2], 10);
+    if (h > 23 || mi > 59) { return null; }
+    return m[1] + ":" + m[2];
+}
+
+function gmEventOut(row) {
+    return {
+        kind: "own",
+        id: row.id,
+        event_type: row.event_type,
+        title: row.title,
+        date: row.event_date,
+        start_time: row.start_time || null,
+        end_time: row.end_time || null,
+        all_day: row.all_day === 1,
+        location: row.location || null,
+        description: row.description || null,
+        job_id: row.job_id || null,
+        lead_id: row.lead_id || null,
+        assigned_to: row.assigned_to || null,
+        created_by: row.created_by || null,
+        created_at: row.created_at,
+        updated_by: row.updated_by || null,
+        updated_at: row.updated_at,
+        editable: true
+    };
+}
+
+// Validates and normalises a create/update body. Returns { error } or fields.
+// The linked job/lead are re-checked against THIS client, so a guessed id from
+// another business cannot be attached to an event.
+async function gmEventFields(env, clientId, body, partial) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+
+    if (!partial || has("event_type")) {
+        var et = gmStr(body.event_type, 80);
+        if (!et) { return { error: "O tipo de evento é obrigatório / Event type is required" }; }
+        out.event_type = et;
+    }
+    if (!partial || has("title")) {
+        var t = gmStr(body.title, 300);
+        if (!t) { return { error: "O título é obrigatório / Title is required" }; }
+        out.title = t;
+    }
+    if (!partial || has("event_date")) {
+        var d = gmDateStr(body.event_date);
+        if (!d) { return { error: "Data inválida / Invalid date" }; }
+        out.event_date = d;
+    }
+    if (has("start_time")) { out.start_time = gmTimeStr(body.start_time); }
+    if (has("end_time"))   { out.end_time   = gmTimeStr(body.end_time); }
+    if (has("all_day"))    { out.all_day    = body.all_day ? 1 : 0; }
+    if (has("location"))    { out.location    = gmStr(body.location, 300); }
+    if (has("description")) { out.description = gmStr(body.description, 4000); }
+    if (has("assigned_to")) { out.assigned_to = gmStr(body.assigned_to, 120); }
+
+    if (has("job_id")) {
+        var jid = gmStr(body.job_id, 80);
+        if (jid) {
+            var j = await env.DB.prepare("SELECT id FROM gm_jobs WHERE id = ? AND client_id = ?")
+                .bind(jid, clientId).first();
+            if (!j) { return { error: "Projeto não encontrado / Project not found" }; }
+        }
+        out.job_id = jid;
+    }
+    if (has("lead_id")) {
+        var lid = gmStr(body.lead_id, 80);
+        if (lid) {
+            var l = await env.DB.prepare("SELECT id FROM gm_leads WHERE id = ? AND client_id = ?")
+                .bind(lid, clientId).first();
+            if (!l) { return { error: "Lead não encontrado / Lead not found" }; }
+        }
+        out.lead_id = lid;
+    }
+    // An all-day event has no clock times; storing them would render a time
+    // on a chip that the form said had none.
+    if (out.all_day === 1) { out.start_time = null; out.end_time = null; }
+    return out;
+}
+
+// Projects rendered onto the calendar, DERIVED at read time from gm_jobs.
+//
+// Never written into gm_events: a mirrored row drifts from the job the moment
+// somebody moves a deadline, and then two records disagree with no way to tell
+// which is right. Each entry carries job_id so a tap opens the job itself.
+//
+// entrega_real (actual delivery) is included alongside the planned dates —
+// it is a real, dated, client-owned fact, and on a finished job it is the date
+// the owner actually cares about.
+async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
+    var rows = await env.DB.prepare(
+        "SELECT id, obra, inicio, prazo_previsto, entrega_real, status FROM gm_jobs " +
+        "WHERE client_id = ? AND (" +
+        "  (inicio         IS NOT NULL AND inicio         >= ? AND inicio         <= ?) OR " +
+        "  (prazo_previsto IS NOT NULL AND prazo_previsto >= ? AND prazo_previsto <= ?) OR " +
+        "  (entrega_real   IS NOT NULL AND entrega_real   >= ? AND entrega_real   <= ?))"
+    ).bind(clientId, fromDate, toDate, fromDate, toDate, fromDate, toDate).all();
+
+    var out = [];
+    (rows.results || []).forEach(function (j) {
+        // Each date gets its OWN entry, labelled, so a glance at the day says
+        // which of the three it is rather than just naming the project twice.
+        function push(dateVal, labelPt, labelEn, slot) {
+            if (!dateVal || dateVal < fromDate || dateVal > toDate) { return; }
+            out.push({
+                kind: "derived",
+                source: "job",
+                id: "job:" + j.id + ":" + slot,
+                job_id: j.id,
+                date: String(dateVal).slice(0, 10),
+                label_pt: labelPt,
+                label_en: labelEn,
+                title: j.obra,
+                status: j.status || null,
+                all_day: true,
+                editable: false
+            });
+        }
+        push(j.inicio,         "Início",  "Start",    "inicio");
+        push(j.prazo_previsto, "Prazo",   "Deadline", "prazo");
+        push(j.entrega_real,   "Entrega", "Delivered", "entrega");
+    });
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Apex Club invitations for a client business — A TIER BOUNDARY CROSSING.
+//
+// Apex Club is the one thing every client business has in common, so the
+// events show on every client's calendar. They live on the APEX tier
+// (apex_club_events) and the client portal is otherwise walled off from that
+// data, so this is a narrow, deliberate exception.
+//
+// WHAT GOES OUT: name, date, start time, venue, speakers, whether a flyer
+// exists, and the public registration link. That is the invitation, and all
+// of it is already public — the same information printed on a flyer forwarded
+// through WhatsApp groups.
+//
+// WHAT MUST NEVER GO OUT, and why this is a dedicated endpoint rather than a
+// filter over an Apex-tier route:
+//   * price / revenue / cost / P&L — price_single_cents, price_couple_cents
+//     and everything in apex_club_event_txns
+//   * the guest list, registrations, or headcount (apex_club_registrations)
+//   * anything from transactions
+// Filtering in the frontend would mean shipping the full row to the browser,
+// where a client can read the money straight out of the network response. The
+// SELECT below is the enforcement: the columns simply are not fetched.
+//
+// Precedent: the club build already renders one row three ways — Alice's
+// finance view has the P&L, Rafa's calendar view has flyer + count + guest
+// list and no money, and a client business is the third and narrowest
+// audience: invitation only, no money AND no counts.
+//
+// Read-only by construction: there is no client-reachable write route for
+// apex_club_events anywhere.
+// ---------------------------------------------------------------------------
+async function gmClubInviteEvents(env, fromDate, toDate) {
+    var rows = await env.DB.prepare(
+        // Explicit column list, never SELECT *. A future money column added to
+        // apex_club_events must not silently start flowing to clients.
+        "SELECT id, name, event_date, start_time, venue, speakers, flyer_r2_key " +
+        "FROM apex_club_events WHERE event_date >= ? AND event_date <= ? " +
+        "ORDER BY event_date ASC"
+    ).bind(fromDate, toDate).all();
+
+    return (rows.results || []).map(function (e) {
+        return {
+            kind: "club",
+            id: "club:" + e.id,
+            club_event_id: e.id,
+            date: String(e.event_date).slice(0, 10),
+            title: e.name,
+            start_time: e.start_time || null,
+            venue: e.venue || null,
+            speakers: e.speakers || null,
+            // A boolean, not the R2 key: the flyer is served by its own
+            // auth-free public route, and the key is an internal path.
+            has_flyer: !!e.flyer_r2_key,
+            flyer_url: e.flyer_r2_key ? "/api/club/flyer/" + e.id : null,
+            register_url: "club.html?e=" + e.id,
+            all_day: !e.start_time,
+            editable: false
+        };
+    });
+}
+
+// GET /api/clients/:id/gm/events?month=YYYY-MM
+// Returns the client's own events plus derived job dates plus Apex Club
+// invitations for that month, in one payload.
+async function handleGetGmEvents(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = gmStr(url.searchParams.get("month"), 7);
+        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+            return jsonErr("month=YYYY-MM is required", 400);
+        }
+        // Widened by a week either side so the grid's leading and trailing
+        // days (which belong to the neighbouring months) are not blank.
+        var first = month + "-01";
+        var y = parseInt(month.slice(0, 4), 10), m = parseInt(month.slice(5, 7), 10);
+        var lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        var last = month + "-" + (lastDay < 10 ? "0" + lastDay : lastDay);
+        var fromD = new Date(Date.UTC(y, m - 1, 1) - 7 * 86400000).toISOString().slice(0, 10);
+        var toD = new Date(Date.UTC(y, m - 1, lastDay) + 7 * 86400000).toISOString().slice(0, 10);
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_events WHERE client_id = ? AND event_date >= ? AND event_date <= ? " +
+            "ORDER BY event_date ASC, COALESCE(start_time,'') ASC"
+        ).bind(id, fromD, toD).all();
+
+        var own = (rows.results || []).map(gmEventOut);
+        var derived = await gmDerivedJobEvents(env, id, fromD, toD);
+        var club = await gmClubInviteEvents(env, fromD, toD);
+
+        return jsonOk({
+            month: month,
+            range: { from: fromD, to: toD, month_start: first, month_end: last },
+            events: own.concat(derived).concat(club)
+        });
+    } catch (e) {
+        return jsonErr("Error fetching calendar: " + e.message, 500);
+    }
+}
+
+async function handlePostGmEvent(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var f = await gmEventFields(env, id, body, false);
+        if (f.error) { return jsonErr(f.error, 400); }
+
+        var eventId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_events (id, client_id, event_type, title, event_date, start_time, end_time, " +
+            "all_day, location, description, job_id, lead_id, assigned_to, created_by, updated_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            eventId, id, f.event_type, f.title, f.event_date,
+            f.start_time || null, f.end_time || null, f.all_day || 0,
+            f.location || null, f.description || null,
+            f.job_id || null, f.lead_id || null, f.assigned_to || null,
+            actorName(user), actorName(user)
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_events WHERE id = ?").bind(eventId).first();
+        return jsonOk({ event: gmEventOut(row) });
+    } catch (e) {
+        return jsonErr("Error creating event: " + e.message, 500);
+    }
+}
+
+async function handlePutGmEvent(id, eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT id FROM gm_events WHERE id = ? AND client_id = ?"
+        ).bind(eventId, id).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        var body = await request.json();
+        var f = await gmEventFields(env, id, body, true);
+        if (f.error) { return jsonErr(f.error, 400); }
+
+        var cols = ["event_type", "title", "event_date", "start_time", "end_time",
+                    "all_day", "location", "description", "job_id", "lead_id", "assigned_to"];
+        var sets = [], binds = [];
+        cols.forEach(function (c) {
+            if (Object.prototype.hasOwnProperty.call(f, c)) {
+                sets.push(c + " = ?"); binds.push(f[c] === undefined ? null : f[c]);
+            }
+        });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        // Stamped from the session, never from the body.
+        sets.push("updated_by = ?"); binds.push(actorName(user));
+        sets.push("updated_at = datetime('now')");
+        binds.push(eventId, id);
+
+        await env.DB.prepare(
+            "UPDATE gm_events SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?"
+        ).bind(...binds).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_events WHERE id = ?").bind(eventId).first();
+        return jsonOk({ event: gmEventOut(row) });
+    } catch (e) {
+        return jsonErr("Error updating event: " + e.message, 500);
+    }
+}
+
+async function handleDeleteGmEvent(id, eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM gm_events WHERE id = ? AND client_id = ?"
+        ).bind(eventId, id).first();
+        if (!row) { return jsonErr("Event not found", 404); }
+
+        await env.DB.prepare("DELETE FROM gm_events WHERE id = ? AND client_id = ?")
+            .bind(eventId, id).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting event: " + e.message, 500);
     }
 }
 
@@ -22479,6 +22895,17 @@ export default {
                 if (segs.length === 9 && gmCol === "leads" && segs[6] === "files" &&
                     segs[8] === "file" && method === "GET") {
                     return handleGetGmLeadFileContent(cid, segs[5], segs[7], request, env);
+                }
+                // /gm/events — the client's own company calendar. The GET
+                // also carries derived gm_jobs dates and Apex Club
+                // invitations; see handleGetGmEvents.
+                if (segs.length === 5 && gmCol === "events") {
+                    if (method === "GET")  { return handleGetGmEvents(cid, request, env); }
+                    if (method === "POST") { return handlePostGmEvent(cid, request, env); }
+                }
+                if (segs.length === 6 && gmCol === "events") {
+                    if (method === "PUT")    { return handlePutGmEvent(cid, segs[5], request, env); }
+                    if (method === "DELETE") { return handleDeleteGmEvent(cid, segs[5], request, env); }
                 }
                 // /gm/leads/:id/notes and /gm/jobs/:id/notes — the dated note
                 // thread on either record. created_by/created_at are stamped

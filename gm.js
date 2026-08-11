@@ -3480,3 +3480,508 @@ function gmOnLangChange() {
     gmRenderJobPhotos(gmSheetRow.id);
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════════
+// Agenda — the client business's OWN company calendar
+// ═════════════════════════════════════════════════════════════════════════
+//
+// Rafa's clarification is why this exists: "no portal do meu cliente ele não
+// tem acesso ao calendário da empresa dele". Alice has a calendar on the Apex
+// side; the client tier had none.
+//
+// NO GOOGLE. No OAuth, no sync, no integration of any kind — an explicit
+// decision, not an omission.
+//
+// The month grid, chips and the mobile mini-month + agenda pattern all come
+// from calendar-grid.js, extracted from calendar.html rather than rewritten:
+// that file carries fixes for mobile layout, name truncation and time
+// formatting that exist nowhere else, and a fresh grid reintroduces all of
+// them. What is NOT reused is the Apex session CREATE FORM — Meet links,
+// Fireflies, meeting categories and the Apex client roster are the consulting
+// business's own calendar and mean nothing to a pool builder.
+//
+// Three kinds of entry, rendered differently because they mean different
+// things:
+//   own      — a gm_events row; editable.
+//   derived  — a gm_jobs date, read at request time and NEVER stored. Tapping
+//              opens the job; it is edited there, so the calendar cannot
+//              drift from the job record.
+//   club     — an Apex Club invitation. Read-only, visually distinct, and the
+//              payload carries no money, no headcount and no guest list.
+
+var gmCalMonth   = null;   // Date anchored on the 1st of the displayed month
+var gmCalData    = null;   // { events: [...] } for the displayed month
+var gmCalSelDate = null;   // mobile: the day whose agenda is open
+var gmCalDraft   = null;   // the composer's in-progress event
+
+function gmCalMonthKey(d) {
+  return d.getFullYear() + "-" + CalendarGrid.padZ(d.getMonth() + 1);
+}
+
+function gmLoadCalendar() {
+  gmCurrentTab = "gmcalendar";
+  if (!gmCalMonth) {
+    var now = new Date();
+    gmCalMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  var body = document.getElementById("gmCalendarBody");
+  body.innerHTML = '<div class="content-card"><p class="muted">' +
+    gmT("Carregando…", "Loading…") + '</p></div>';
+  // gmLoadConfig() is needed for the event-type list AND the vendedores list
+  // the composer offers; both come from the client's own gm_config.
+  //
+  // Jobs and leads are fetched too, because the composer links against them
+  // and both caches are empty until their own tabs are visited. Without this
+  // the "Projeto" and "Lead" pickers silently do not render on a fresh load
+  // and the composed title loses the half that makes it specific. Failures
+  // are swallowed to null: an unreachable lead list must cost you the picker,
+  // not the calendar.
+  Promise.all([
+    gmLoadConfig(),
+    gmApi("events?month=" + gmCalMonthKey(gmCalMonth)),
+    gmJobsData  ? Promise.resolve(gmJobsData)  : gmApi("jobs").catch(function() { return null; }),
+    gmLeadsData ? Promise.resolve(gmLeadsData) : gmApi("leads").catch(function() { return null; })
+  ])
+    .then(function(r) {
+      gmCalData = r[1];
+      if (r[2]) { gmJobsData = r[2]; }
+      if (r[3]) { gmLeadsData = r[3]; }
+      gmRenderCalendar();
+    })
+    .catch(function(e) {
+      body.innerHTML = '<div class="content-card"><p class="muted">' +
+        gmT("Não foi possível carregar a agenda.", "Could not load the calendar.") +
+        " " + escHtml(e.message) + '</p></div>';
+    });
+}
+
+function gmCalGo(delta) {
+  gmCalMonth = new Date(gmCalMonth.getFullYear(), gmCalMonth.getMonth() + delta, 1);
+  gmCalSelDate = null;   // the old selection is not in this month
+  gmLoadCalendar();
+}
+
+function gmCalToday() {
+  var now = new Date();
+  gmCalMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  gmCalSelDate = CalendarGrid.dateKey(now);
+  gmLoadCalendar();
+}
+
+// One chip for any of the three kinds. agenda=true is the roomier mobile form.
+function gmCalChip(ev) {
+  var btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "cgrid-chip " + (ev.kind === "club" ? "club" : ev.kind === "derived" ? "derived" : "own");
+
+  var name = document.createElement("span");
+  name.className = "cgrid-chip-name";
+  if (ev.kind === "derived") {
+    // Label the DATE, not just the project: three entries can share one
+    // project name and "which date is this?" is the only question that matters.
+    name.textContent = (isEn() ? ev.label_en : ev.label_pt) + ": " + (ev.title || "");
+  } else if (ev.kind === "club") {
+    name.textContent = "★ " + (ev.title || "Apex Club");
+  } else {
+    name.textContent = ev.title || "";
+  }
+  btn.appendChild(name);
+
+  var t = document.createElement("span");
+  t.className = "cgrid-chip-time";
+  if (ev.all_day || !ev.start_time) {
+    t.textContent = "";
+  } else {
+    t.textContent = " " + formatTime(ev.start_time);
+  }
+  btn.appendChild(t);
+
+  btn.onclick = function(e) {
+    e.stopPropagation();
+    if (ev.kind === "derived") { gmCalOpenJob(ev); }
+    else if (ev.kind === "club") { gmCalOpenClub(ev); }
+    else { gmCalOpenEvent(ev); }
+  };
+  return btn;
+}
+
+function gmRenderCalendar() {
+  var body = document.getElementById("gmCalendarBody");
+  if (!gmConfig || !gmCalData) { return; }
+  var months = CalendarGrid.monthNames(isEn());
+
+  var html = '<div class="gm-cal-head">' +
+    '<button type="button" class="gm-cal-nav" aria-label="' +
+      escHtml(gmT("Mês anterior", "Previous month")) + '" onclick="gmCalGo(-1)">‹</button>' +
+    '<div class="gm-cal-title">' + escHtml(months[gmCalMonth.getMonth()]) + ' ' +
+      gmCalMonth.getFullYear() + '</div>' +
+    '<button type="button" class="gm-cal-nav" aria-label="' +
+      escHtml(gmT("Próximo mês", "Next month")) + '" onclick="gmCalGo(1)">›</button>' +
+    '<button type="button" class="btn-outline gm-cal-today" onclick="gmCalToday()">' +
+      gmT("Hoje", "Today") + '</button>' +
+    '</div>' +
+    '<div id="gmCalGrid"></div>' +
+    // Legend: three visually distinct kinds need saying once, or the dashed
+    // and dark chips read as styling rather than meaning.
+    '<div class="gm-cal-legend">' +
+      '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
+      '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
+      '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
+    '</div>' +
+    '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +
+      gmT("+ Novo evento", "+ New event") + '</button>';
+
+  body.innerHTML = html;
+
+  CalendarGrid.renderCalendar(document.getElementById("gmCalGrid"), {
+    anchor: gmCalMonth,
+    events: gmCalData.events || [],
+    en: isEn(),
+    selectedDate: gmCalSelDate,
+    renderChip: gmCalChip,
+    emptyText: gmT("Nada agendado.", "Nothing scheduled."),
+    onSelectDate: function(d) { gmCalSelDate = d; gmRenderCalendar(); },
+    // Tapping an empty day starts a new event ON that day — the single most
+    // common way anyone adds something to a calendar.
+    onDayClick: function(d) { gmCalNew(d); }
+  });
+}
+
+// Re-render on a breakpoint crossing so a rotated phone gets the right
+// pattern. Registered once; the grid module only fires it on a real crossing.
+CalendarGrid.onBreakpointCross(function() {
+  if (gmCurrentTab === "gmcalendar" && gmCalData) { gmRenderCalendar(); }
+});
+
+// ── The composer ────────────────────────────────────────────────────────
+//
+// THE TITLE IS COMPOSED, NOT TYPED, and this is the whole point of the form.
+// Rafa's own Google Calendar has the same client as "RDE - METZ", "METZ - RDE"
+// and "Metz"; another as "RDE - Mazinho" (the owner's name, not the company
+// PERFECT SQUARE); and one entry with no title at all. None of that can be
+// grouped, counted or reported on. A free-text title field is what produced
+// it, so the default path here is three or four taps and almost no typing.
+//
+// "Outro" is the escape hatch: it drops the structure and gives a plain title
+// field. It must stay the slower path, or it becomes the default out of
+// laziness and we are back to free text.
+
+function gmCalNew(dateStr) {
+  gmCalDraft = {
+    id: null,
+    event_type: "",
+    title: "",
+    titleTouched: false,   // once they edit the title, stop regenerating it
+    date: dateStr || gmCalSelDate || CalendarGrid.dateKey(new Date()),
+    start_time: "",
+    end_time: "",
+    all_day: false,
+    location: "",
+    description: "",
+    job_id: "",
+    lead_id: "",
+    assigned_to: ""
+  };
+  gmCalRenderComposer();
+}
+
+function gmCalOpenEvent(ev) {
+  gmCalDraft = {
+    id: ev.id,
+    event_type: ev.event_type || "",
+    title: ev.title || "",
+    titleTouched: true,   // an existing title is never silently rewritten
+    date: ev.date,
+    start_time: ev.start_time || "",
+    end_time: ev.end_time || "",
+    all_day: !!ev.all_day,
+    location: ev.location || "",
+    description: ev.description || "",
+    job_id: ev.job_id || "",
+    lead_id: ev.lead_id || "",
+    assigned_to: ev.assigned_to || ""
+  };
+  gmCalRenderComposer();
+}
+
+// The generated title: "<event type> — <linked job or lead>". Same shape every
+// time, which is what makes the calendar reportable.
+function gmCalGenTitle(d) {
+  var type = d.event_type || "";
+  var who = "";
+  if (d.job_id && gmJobsData && gmJobsData.jobs) {
+    gmJobsData.jobs.forEach(function(j) { if (j.id === d.job_id) { who = j.obra || ""; } });
+  } else if (d.lead_id && gmLeadsData && gmLeadsData.leads) {
+    gmLeadsData.leads.forEach(function(l) { if (l.id === d.lead_id) { who = l.cliente || ""; } });
+  }
+  if (type && who) { return type + " — " + who; }
+  return type || who || "";
+}
+
+function gmCalIsOutro(d) { return (d.event_type || "").toLowerCase() === "outro"; }
+
+// The linked record also supplies the location, so nobody retypes an address
+// the system already holds (gm_leads carries address and city).
+function gmCalAutoLocation(d) {
+  if (d.job_id) { return ""; }   // gm_jobs has no address column
+  if (d.lead_id && gmLeadsData && gmLeadsData.leads) {
+    var out = "";
+    gmLeadsData.leads.forEach(function(l) {
+      if (l.id !== d.lead_id) { return; }
+      out = [l.address, l.city].filter(function(x) { return !!x; }).join(", ");
+    });
+    return out;
+  }
+  return "";
+}
+
+function gmCalRenderComposer() {
+  var d = gmCalDraft;
+  var types = (gmConfig.config.event_types || []);
+  var vends = (gmConfig.config.vendedores || []);
+  var outro = gmCalIsOutro(d);
+
+  var body = "";
+
+  // 1. Event type — required, first, and the thing that shapes the title.
+  body += '<label class="field-label">' + gmT("Tipo de evento", "Event type") + ' *</label>';
+  if (!types.length) {
+    body += '<p class="muted" style="font-size:12px;margin:0 0 10px;">' +
+      gmT("Nenhum tipo configurado ainda. Use “Outro” ou adicione tipos em Ajustes.",
+          "No types configured yet. Use “Outro” or add types in Settings.") + '</p>';
+  }
+  body += '<div class="gm-chip-set gm-cal-types">';
+  var shown = types.slice();
+  if (shown.indexOf("Outro") === -1) { shown.push("Outro"); }
+  shown.forEach(function(t) {
+    body += '<button type="button" class="gm-choice-chip' + (d.event_type === t ? " gm-chip-sel" : "") +
+      '" onclick="gmCalPickType(' + JSON.stringify(t).replace(/"/g, "&quot;") + ')">' +
+      escHtml(t) + '</button>';
+  });
+  body += '</div>';
+
+  // 2. Link to a job or a lead — optional, and what makes the title specific.
+  //    Hidden under "Outro": that path is deliberately unstructured.
+  if (!outro) {
+    var jobs = (gmJobsData && gmJobsData.jobs) || [];
+    var leads = (gmLeadsData && gmLeadsData.leads) || [];
+    if (jobs.length) {
+      body += '<label class="field-label" style="margin-top:12px;">' +
+        gmT("Projeto", "Project") + '</label>' +
+        '<div class="gm-editor-input"><select id="gmCalJob" onchange="gmCalPickLink(\'job\', this.value)">' +
+        '<option value="">' + gmT("— nenhum —", "— none —") + '</option>';
+      jobs.forEach(function(j) {
+        body += '<option value="' + escHtml(j.id) + '"' + (d.job_id === j.id ? " selected" : "") + '>' +
+          escHtml(j.obra || "") + '</option>';
+      });
+      body += '</select></div>';
+    }
+    if (leads.length) {
+      body += '<label class="field-label" style="margin-top:12px;">' +
+        gmT("Lead / cliente", "Lead / customer") + '</label>' +
+        '<div class="gm-editor-input"><select id="gmCalLead" onchange="gmCalPickLink(\'lead\', this.value)">' +
+        '<option value="">' + gmT("— nenhum —", "— none —") + '</option>';
+      // Live leads first and capped: a 93-row <select> is not a picker.
+      var live = leads.filter(function(l) { return l.estagio !== "Perdido"; });
+      live.slice(0, 60).forEach(function(l) {
+        body += '<option value="' + escHtml(l.id) + '"' + (d.lead_id === l.id ? " selected" : "") + '>' +
+          escHtml(l.cliente || "") + '</option>';
+      });
+      body += '</select></div>';
+    }
+  }
+
+  // 3. Assigned to — the client's own salespeople, when they have any.
+  if (!gmListEmpty(vends)) {
+    body += '<label class="field-label" style="margin-top:12px;">' +
+      gmT("Responsável", "Assigned to") + '</label>' +
+      '<div class="gm-editor-input"><select id="gmCalAssigned" onchange="gmCalDraft.assigned_to=this.value">' +
+      '<option value="">' + gmT("— ninguém —", "— nobody —") + '</option>';
+    vends.forEach(function(v) {
+      body += '<option value="' + escHtml(v) + '"' + (d.assigned_to === v ? " selected" : "") + '>' +
+        escHtml(v) + '</option>';
+    });
+    body += '</select></div>';
+  }
+
+  // 4. When.
+  body += '<label class="field-label" style="margin-top:12px;">' + gmT("Data", "Date") + ' *</label>' +
+    '<div class="gm-editor-input"><input type="date" id="gmCalDate" value="' + escHtml(d.date) +
+    '" onchange="gmCalDraft.date=this.value"></div>';
+
+  body += '<label class="gm-cal-allday"><input type="checkbox" id="gmCalAllDay"' +
+    (d.all_day ? " checked" : "") + ' onchange="gmCalToggleAllDay(this.checked)"> ' +
+    gmT("Dia inteiro", "All day") + '</label>';
+
+  if (!d.all_day) {
+    body += '<div class="gm-cal-times">' +
+      '<div><label class="field-label">' + gmT("Início", "Start") + '</label>' +
+      '<div class="gm-editor-input"><input type="time" id="gmCalStart" value="' + escHtml(d.start_time) +
+      '" onchange="gmCalDraft.start_time=this.value"></div></div>' +
+      '<div><label class="field-label">' + gmT("Fim", "End") + '</label>' +
+      '<div class="gm-editor-input"><input type="time" id="gmCalEnd" value="' + escHtml(d.end_time) +
+      '" onchange="gmCalDraft.end_time=this.value"></div></div>' +
+      '</div>';
+  }
+
+  // 5. Location — pre-filled from the link when there is one.
+  body += '<label class="field-label" style="margin-top:12px;">' + gmT("Local", "Location") + '</label>' +
+    '<div class="gm-editor-input"><input type="text" id="gmCalLoc" value="' + escHtml(d.location) +
+    '" oninput="gmCalDraft.location=this.value"></div>';
+
+  // 6. The generated title, shown live so they see what they are creating.
+  //    Editable — an override is their call — but the default is consistent.
+  var gen = d.titleTouched ? d.title : (outro ? d.title : gmCalGenTitle(d));
+  body += '<label class="field-label" style="margin-top:12px;">' +
+    (outro ? gmT("Título", "Title") + " *" : gmT("Título (gerado)", "Title (generated)")) + '</label>' +
+    '<div class="gm-editor-input"><input type="text" id="gmCalTitle" value="' + escHtml(gen) +
+    '" placeholder="' + escHtml(outro ? gmT("Descreva o evento", "Describe the event") : "") +
+    '" oninput="gmCalDraft.title=this.value;gmCalDraft.titleTouched=true;"></div>';
+  if (!outro) {
+    body += '<p class="muted" style="font-size:11px;margin:4px 2px 0;">' +
+      gmT("Gerado a partir das escolhas acima — edite se quiser.",
+          "Generated from the choices above — edit if you like.") + '</p>';
+  }
+
+  body += '<label class="field-label" style="margin-top:12px;">' + gmT("Notas", "Notes") + '</label>' +
+    '<div class="gm-editor-input"><textarea id="gmCalDesc" rows="2" ' +
+    'oninput="gmCalDraft.description=this.value">' + escHtml(d.description) + '</textarea></div>';
+
+  body += '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalSave()">' +
+    (d.id ? gmT("Salvar", "Save") : gmT("Criar evento", "Create event")) + '</button>';
+  if (d.id) {
+    body += '<button type="button" class="btn-outline gm-add-btn" ' +
+      'style="color:var(--red);border-color:var(--red);" onclick="gmCalDelete()">' +
+      gmT("Excluir evento", "Delete event") + '</button>';
+  }
+
+  gmSheetOpen(d.id ? gmT("Editar evento", "Edit event") : gmT("Novo evento", "New event"),
+              body, "gm-cal-composer");
+}
+
+function gmCalPickType(t) {
+  gmCalDraft.event_type = t;
+  // Switching type re-generates the title unless they have edited it.
+  gmCalRenderComposer();
+}
+
+function gmCalPickLink(kind, val) {
+  if (kind === "job") { gmCalDraft.job_id = val; if (val) { gmCalDraft.lead_id = ""; } }
+  else { gmCalDraft.lead_id = val; if (val) { gmCalDraft.job_id = ""; } }
+  // Auto-fill the location from the linked record, but never overwrite one
+  // they have already typed.
+  var auto = gmCalAutoLocation(gmCalDraft);
+  if (auto && !gmCalDraft.location) { gmCalDraft.location = auto; }
+  gmCalRenderComposer();
+}
+
+function gmCalToggleAllDay(on) {
+  gmCalDraft.all_day = !!on;
+  if (on) { gmCalDraft.start_time = ""; gmCalDraft.end_time = ""; }
+  gmCalRenderComposer();
+}
+
+function gmCalSave() {
+  var d = gmCalDraft;
+  var title = (document.getElementById("gmCalTitle").value || "").trim();
+  if (!title) { title = gmCalGenTitle(d); }
+  if (!d.event_type) {
+    gmToast(gmT("Escolha um tipo de evento.", "Pick an event type."));
+    return;
+  }
+  if (!title) {
+    gmToast(gmT("O evento precisa de um título.", "The event needs a title."));
+    return;
+  }
+  if (!d.date) {
+    gmToast(gmT("Escolha uma data.", "Pick a date."));
+    return;
+  }
+  var payload = {
+    event_type: d.event_type,
+    title: title,
+    event_date: d.date,
+    start_time: d.all_day ? null : (d.start_time || null),
+    end_time: d.all_day ? null : (d.end_time || null),
+    all_day: d.all_day,
+    location: d.location || null,
+    description: d.description || null,
+    job_id: d.job_id || null,
+    lead_id: d.lead_id || null,
+    assigned_to: d.assigned_to || null
+  };
+  var req = d.id
+    ? gmApi("events/" + encodeURIComponent(d.id), { method: "PUT", body: payload })
+    : gmApi("events", { method: "POST", body: payload });
+  req.then(function() {
+      gmSheetClose();
+      gmToast(d.id ? gmT("Evento salvo.", "Event saved.") : gmT("Evento criado.", "Event created."));
+      gmLoadCalendar();
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao salvar: ", "Could not save: ") + e.message);
+    });
+}
+
+function gmCalDelete() {
+  if (!gmCalDraft.id) { return; }
+  if (!window.confirm(gmT("Excluir este evento?", "Delete this event?"))) { return; }
+  gmApi("events/" + encodeURIComponent(gmCalDraft.id), { method: "DELETE" })
+    .then(function() {
+      gmSheetClose();
+      gmToast(gmT("Evento excluído.", "Event deleted."));
+      gmLoadCalendar();
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao excluir: ", "Could not delete: ") + e.message);
+    });
+}
+
+// A derived job date is NOT editable as a calendar entry — the job is edited
+// on the job. Tapping one takes you there.
+function gmCalOpenJob(ev) {
+  gmSheetClose();
+  switchTab("gmjobs");
+  // gmLoadJobs() is async; wait for the list before opening the sheet.
+  var tries = 0;
+  var t = setInterval(function() {
+    tries++;
+    if (gmJobsData && gmJobsData.jobs) {
+      clearInterval(t);
+      var idx = -1;
+      gmJobsData.jobs.forEach(function(j, i) { if (j.id === ev.job_id) { idx = i; } });
+      if (idx !== -1) { gmOpenJob(idx); }
+    } else if (tries > 40) { clearInterval(t); }
+  }, 100);
+}
+
+// An Apex Club invitation. Read-only, and deliberately money-free: the
+// endpoint never sends a price, a headcount or a guest list, so there is
+// nothing here to hide in the UI.
+function gmCalOpenClub(ev) {
+  var body = '<div class="gm-club-invite">';
+  if (ev.flyer_url) {
+    // The flyer route is public and auth-free, so a plain <img> works.
+    body += '<img class="gm-club-flyer" src="' + escHtml(ev.flyer_url) + '" alt="' +
+      escHtml(ev.title || "Apex Club") + '">';
+  }
+  body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Data", "Date") + '</span>' +
+    '<span class="gm-club-v">' + escHtml(formatDate(ev.date)) +
+    (ev.start_time ? " · " + escHtml(formatTime(ev.start_time)) : "") + '</span></div>';
+  if (ev.venue) {
+    body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Local", "Venue") + '</span>' +
+      '<span class="gm-club-v">' + escHtml(ev.venue) + '</span></div>';
+  }
+  if (ev.speakers) {
+    body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Palestrantes", "Speakers") + '</span>' +
+      '<span class="gm-club-v">' + escHtml(ev.speakers) + '</span></div>';
+  }
+  body += '</div>' +
+    '<a class="btn-gold gm-add-btn" style="display:block;text-align:center;text-decoration:none;" ' +
+      'href="' + escHtml(ev.register_url) + '" target="_blank" rel="noopener">' +
+      gmT("Confirmar presença", "Register") + '</a>' +
+    '<p class="muted" style="font-size:11px;padding:0 2px;">' +
+      gmT("Evento do Apex Club — organizado pela Apex.",
+          "An Apex Club event — hosted by Apex.") + '</p>';
+  gmSheetOpen(escHtml(ev.title || "Apex Club"), body, "gm-club-invite");
+}

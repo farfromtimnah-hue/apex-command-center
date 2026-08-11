@@ -11,6 +11,9 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <!-- Shared month-grid mechanics, extracted from calendar.html so the client
+       calendar does not reimplement (and re-break) it. See calendar-grid.js. -->
+  <script src="calendar-grid.js"></script>
   <!-- The single implementation of the Analytics view, shared with the admin
        per-client analytics page so the two can never drift apart. -->
   <script src="analytics-view.js"></script>
@@ -19,7 +22,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1786486417">
+  <link rel="stylesheet" href="gm.css?v=1786488083">
+  <link rel="stylesheet" href="calendar-grid.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1215,6 +1219,9 @@
         <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
           <span class="show-pt">Projetos</span><span class="show-en">Projects</span>
         </button>
+        <button class="portal-tab" data-tab="gmcalendar" onclick="switchTab('gmcalendar')">
+          <span class="show-pt">Agenda</span><span class="show-en">Calendar</span>
+        </button>
         <button class="portal-tab" data-tab="gmfinance" onclick="switchTab('gmfinance')">
           <span class="show-pt">Financeiro</span><span class="show-en">Finances</span>
         </button>
@@ -1430,6 +1437,7 @@
       <div id="tabGmroadmap" hidden><div id="gmRoadmapBody"></div></div>
       <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
       <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
+      <div id="tabGmcalendar" hidden><div id="gmCalendarBody"></div></div>
 
       <!-- Ajustes. The support card is STATIC markup outside #workschedBody on
            purpose: renderWorkSettings() early-returns when workSettings is null,
@@ -4155,6 +4163,7 @@
       // Pipeline (see #tabGmcrm). They remain valid tab ids for deep links.
       { tab: "gmcrm",      icon: "trend",        labelPt: "Pipeline",               labelEn: "Pipeline" },
       { tab: "gmjobs",     icon: "briefcase",    labelPt: "Projetos",               labelEn: "Projects" },
+      { tab: "gmcalendar", icon: "calendar",     labelPt: "Agenda",                 labelEn: "Calendar" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
       // apexOwned: the client's relationship with APEX rather than a tool for
@@ -4569,7 +4578,7 @@
       // bodies inside #tabGmcrm. Both ids reach that container through
       // GM_PIPELINE_ALIASES above.
       ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
-       "Gmcrm", "Gmroadmap", "Gmfinance", "Gmjobs",
+       "Gmcrm", "Gmroadmap", "Gmfinance", "Gmjobs", "Gmcalendar",
        "Assigned", "LockedPreview"]
         .concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) {
           return t.key.charAt(0).toUpperCase() + t.key.slice(1);
@@ -4600,6 +4609,7 @@
         if (tab === "gmroadmap") { gmLoadRoadmap(); }
         if (tab === "gmfinance") { gmLoadFinance(); }
         if (tab === "gmjobs") { gmLoadJobs(); }
+        if (tab === "gmcalendar") { gmLoadCalendar(); }
       }
     }
 
@@ -6200,7 +6210,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1786486418"></script>
+  <script src="gm.js?v=1786488084"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

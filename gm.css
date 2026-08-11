@@ -707,3 +707,70 @@
   cursor: pointer;
 }
 .gm-photo-del:hover { background: rgba(0, 0, 0, 0.78); }
+
+/* ── Agenda: the client's own company calendar ────────────────────────────
+   The month grid itself lives in calendar-grid.css (shared with the Apex
+   calendar). These are the portal-side surroundings: header, legend, the
+   composer's controls, and the Apex Club invitation card. */
+.gm-cal-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.gm-cal-title {
+  flex: 1; min-width: 0;
+  font-size: 16px; font-weight: 800;
+  text-align: center;
+}
+.gm-cal-nav {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text);
+  font-size: 20px; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-cal-nav:hover { border-color: var(--gold); }
+.gm-cal-today { flex-shrink: 0; width: auto; margin: 0; padding: 0 14px; min-height: 44px; }
+
+/* Three chip styles carry three different meanings; say so once. */
+.gm-cal-legend {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  padding: 12px 2px 4px;
+  font-size: 11px; color: var(--muted);
+}
+.gm-cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.gm-cal-legend i {
+  display: inline-block; width: 14px; height: 14px;
+  border-radius: 3px; padding: 0;
+}
+
+/* Composer */
+.gm-cal-types { margin-bottom: 4px; }
+.gm-cal-allday {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; margin-top: 12px;
+  font-size: 14px; cursor: pointer;
+}
+.gm-cal-allday input { width: 18px; height: 18px; }
+.gm-cal-times { display: flex; gap: 10px; }
+.gm-cal-times > div { flex: 1; min-width: 0; }
+
+/* Apex Club invitation — read-only, and there is no money in the payload to
+   render even if this wanted to. */
+.gm-club-invite { margin-bottom: 14px; }
+.gm-club-flyer {
+  display: block; width: 100%; height: auto;
+  border-radius: 10px; margin-bottom: 12px;
+}
+.gm-club-row {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+}
+.gm-club-row:last-child { border-bottom: none; }
+.gm-club-k {
+  flex-shrink: 0; width: 104px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--muted);
+}
+.gm-club-v { flex: 1; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }

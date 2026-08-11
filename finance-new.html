@@ -698,10 +698,37 @@
        push the P&L numbers off screen. A cropped band anchored to the top
        carries the brand, and a small full-aspect thumbnail keeps the whole
        flyer readable and clickable. */
+    /* Anchored near the TOP, not the middle. A flyer puts its wordmark in
+       the top strip; cropping from the centre grabs faces and cuts the
+       branding off, which is the one thing the band is for. 50% 0% is too
+       far -- it slices the logotype in half horizontally.
+       5.5% lands just under the "BUSINESS / APEXCLUB" kicker and shows the
+       whole APEX CLUB lockup. Checked against the real 960x1280 flyer, and
+       the required value only drifts 5.1-5.7% across every realistic card
+       width, so one number holds. */
+    .club-hero-wrap { position: relative; margin-bottom: 12px; }
+    /* A RATIO, not a fixed height. With a fixed 110px band the visible slice
+       of the flyer shrinks as the card widens -- rendered against the real
+       960x1280 flyer, a wide card cut the wordmark in half again even with
+       the right object-position. At 1/4.17 the band always shows the top
+       ~18%, which is exactly the APEX CLUB lockup, at every width.
+       max-height stops it dominating the P&L on a very wide window. */
     .club-hero {
-      display: block; width: 100%; height: 110px;
-      object-fit: cover; object-position: 50% 22%;
-      border-radius: 8px; margin-bottom: 12px; background: #111;
+      display: block; width: 100%;
+      aspect-ratio: 4.17 / 1; max-height: 190px;
+      object-fit: cover; object-position: 50% 5.5%;
+      border-radius: 8px; background: #111;
+    }
+    /* Feathered bottom edge. A hard horizontal cut through a photograph
+       reads as a rendering bug; fading into the card makes the crop look
+       deliberate. Sides get a touch too so the rounded corners do not
+       terminate the image abruptly. */
+    .club-hero-wrap::after {
+      content: ""; position: absolute; inset: 0; border-radius: 8px;
+      pointer-events: none;
+      background:
+        linear-gradient(to bottom, transparent 55%, var(--card) 100%),
+        linear-gradient(to right, var(--card) 0%, transparent 6%, transparent 94%, var(--card) 100%);
     }
     .club-head { display: flex; gap: 12px; align-items: flex-start; }
     .club-thumb {
@@ -716,6 +743,12 @@
     .club-count { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
     .club-count .n { color: var(--gold); font-size: 19px; }
     .club-count-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .club-guests-toggle {
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      background: none; border: 0; padding: 0 0 0 8px; cursor: pointer;
+      color: var(--muted); text-decoration: underline;
+    }
+    .club-guests-toggle:hover { color: var(--text); }
     .guest-row {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       padding: 9px 0; border-top: 1px solid var(--border); font-size: 13.5px;
@@ -1986,6 +2019,9 @@
     var ATTENTION     = null;   // counts behind the "Precisa de voce" queue
     var CLUB_EVENTS   = [];     // Apex Club events, each with its own P&L
     var CLUB_SHOW_DISMISSED = {}; // event_id -> is its dismissed list expanded
+    // event_id -> guest list expanded. Only holds an EXPLICIT choice; absent
+    // means "use the default", which is open for the newest event only.
+    var CLUB_SHOW_GUESTS = {};
     var BUSINESS_SETTINGS = null; // holds the WhatsApp confirmation template
 
     // Where the PUBLIC registration page lives. Not the worker: club.html is
@@ -2654,6 +2690,13 @@
         ? CLUB_EVENTS.filter(function(e) { return String(e.event.event_date).slice(0, 7) === month; })
         : CLUB_EVENTS;
 
+      // Newest first. The worker already orders by event_date DESC, but the
+      // most recent event is the one she is actually working, so sort here
+      // too rather than depending on the endpoint's order staying that way.
+      shown = shown.slice().sort(function(a, b) {
+        return String(a.event.event_date) < String(b.event.event_date) ? 1 : -1;
+      });
+
       // A gap month is a normal state, not an error -- Apex Club is roughly
       // monthly, not strictly. Say so plainly and leave the picker available
       // so she can step to a month that did have one.
@@ -2667,7 +2710,15 @@
         return;
       }
 
-      body.innerHTML = shown.map(function(e) {
+      // The newest event on screen is the one being worked; its guest list
+      // opens. Older ones collapse, or a year of forty-guest dinners makes
+      // this page scroll forever. Once she toggles one, her choice wins.
+      var newestId = shown.length ? shown[0].event.id : null;
+      // Stamped so the toggle can resolve the default without recomputing
+      // the sort.
+      body.setAttribute("data-newest", newestId || "");
+
+      body.innerHTML = shown.map(function(e, idx) {
         var c = e.confirmed;
         var net = c.net_cents;
 
@@ -2680,7 +2731,7 @@
         // thumbnail beside the title. Same image, two jobs: the band gives
         // the card its identity, the thumbnail keeps the flyer readable.
         var hero = flyerUrl
-          ? '<img class="club-hero" src="' + flyerUrl + '" alt="">'
+          ? '<div class="club-hero-wrap"><img class="club-hero" src="' + flyerUrl + '" alt=""></div>'
           : "";
 
         // The verdict. A negative event is stated plainly, never in alarm
@@ -2824,12 +2875,24 @@
             "</span></div>";
         }).join("");
 
+        // Open by default only on the newest event. CLUB_SHOW_GUESTS holds
+        // an explicit choice once she clicks, which then overrides the
+        // default in either direction.
+        var guestsOpen = CLUB_SHOW_GUESTS.hasOwnProperty(ev.id)
+          ? CLUB_SHOW_GUESTS[ev.id]
+          : (ev.id === newestId);
+
         guests =
           '<div class="club-guests">' +
             '<div class="club-count">' +
               '<span class="n">' + (r.going || 0) + "</span> " +
               (isEn() ? (r.going === 1 ? "person coming" : "people coming")
                       : (r.going === 1 ? "pessoa confirmada" : "pessoas confirmadas")) +
+              (regs.length
+                ? ' <button class="club-guests-toggle" onclick="toggleClubGuests(\'' + ev.id + '\')">' +
+                    (guestsOpen ? t("ocultar lista", "hide list") : t("ver lista", "show list")) +
+                  "</button>"
+                : "") +
             "</div>" +
             '<div class="club-count-sub">' +
               (isEn()
@@ -2842,11 +2905,12 @@
                   (r.attended ? " &middot; " + r.attended + " vieram" : "") +
                   (r.no_show ? " &middot; " + r.no_show + " n&atilde;o vieram" : "")) +
             "</div>" +
-            (guestRows ||
-              '<div class="club-count-sub" style="margin:0">' +
-                (isEn() ? "Nobody has signed up yet. Share the link."
-                        : "Ningu&eacute;m se inscreveu ainda. Compartilhe o link.") +
-              "</div>") +
+            (regs.length
+              ? (guestsOpen ? guestRows : "")
+              : '<div class="club-count-sub" style="margin:0">' +
+                  (isEn() ? "Nobody has signed up yet. Share the link."
+                          : "Ningu&eacute;m se inscreveu ainda. Compartilhe o link.") +
+                "</div>") +
             // The link is the whole growth path -- it has to be trivially
             // copyable, and Share opens the native sheet straight to WhatsApp.
             '<div class="club-link">' +
@@ -2933,6 +2997,18 @@
           loadClub();
         })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function toggleClubGuests(eventId) {
+      // Read the CURRENT state (default included) before flipping, so the
+      // first click on a collapsed past event opens it rather than being
+      // swallowed by an undefined.
+      var body = document.getElementById("clubBody");
+      var open = CLUB_SHOW_GUESTS.hasOwnProperty(eventId)
+        ? CLUB_SHOW_GUESTS[eventId]
+        : (body && body.getAttribute("data-newest") === eventId);
+      CLUB_SHOW_GUESTS[eventId] = !open;
+      renderClub();
     }
 
     function toggleClubDismissed(eventId) {

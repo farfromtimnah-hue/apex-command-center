@@ -19564,13 +19564,16 @@ async function handlePostFinanceNewClubEvent(request, env) {
         var id = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, notes, created_by, " +
-            "price_single_cents, price_couple_cents, venue, start_time, speakers, registration_open) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "price_single_cents, price_couple_cents, venue, start_time, speakers, registration_open, session_id) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             id, body.name, body.event_date, start, end, body.notes || null, actorName(user),
             prices.single, prices.couple,
             body.venue || null, body.start_time || null, body.speakers || null,
-            body.registration_open === false ? 0 : 1
+            body.registration_open === false ? 0 : 1,
+            // Set when the calendar's "+ Apex Club" creates both records at
+            // once, so the money-free calendar view resolves immediately.
+            body.session_id || null
         ).run();
 
         var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(id).first();

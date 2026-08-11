@@ -290,3 +290,5 @@
     onBreakpointCross: onBreakpointCross
   };
 })(window);
+
+// hook check: an edit to this file must change its ?v= key.

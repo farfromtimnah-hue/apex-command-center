@@ -19317,6 +19317,19 @@ function apexClubMemoHit(text) {
 }
 
 async function buildApexClubEventPL(env, event) {
+    // Prices belong to the event. The module constants are only the defaults
+    // a new event starts from, and older rows created before the columns
+    // existed fall back to them rather than matching nothing.
+    var singlePrice = event.price_single_cents || APEX_CLUB_PRICE_SINGLE;
+    // NULL is meaningful here: "this event has no couple rate", which is not
+    // the same as a couple rate of zero. Only fall back when the column is
+    // genuinely absent (pre-migration rows), never when it was set to NULL
+    // deliberately... but an existing row that predates the column reads as
+    // undefined, so distinguish the two.
+    var couplePrice = event.price_couple_cents === undefined
+        ? APEX_CLUB_PRICE_COUPLE
+        : event.price_couple_cents;
+
     // Confirmed membership first. These are the only rows that move the
     // number.
     var confirmedRes = await env.DB.prepare(
@@ -19368,11 +19381,13 @@ async function buildApexClubEventPL(env, event) {
         var memoHit = apexClubMemoHit(t.memo) || apexClubMemoHit(t.description);
 
         if (t.amount_cents > 0) {
-            // Income side: the price points are the primary tell. $50 and $75
-            // are distinctive enough on this feed to be worth proposing, and
-            // a memo hit raises confidence rather than creating the match.
-            var isSingle = t.amount_cents === APEX_CLUB_PRICE_SINGLE;
-            var isCouple = t.amount_cents === APEX_CLUB_PRICE_COUPLE;
+            // Income side: the price points are the primary tell. They come
+            // from the EVENT, not from a constant -- Apex Club is not a
+            // fixed-price dinner (June was a churrascaria at roughly $80), and
+            // when the price was hardcoded a non-$50 night matched nothing at
+            // all and said nothing about why.
+            var isSingle = t.amount_cents === singlePrice;
+            var isCouple = couplePrice !== null && t.amount_cents === couplePrice;
             if (!isSingle && !isCouple && !memoHit) { return; }
 
             suggestions.push({
@@ -19406,6 +19421,23 @@ async function buildApexClubEventPL(env, event) {
 
     suggestions.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
 
+    // The guest list. This is the number Alice orders food from -- it exists
+    // before any money does, which is the whole point: of nine confirmed July
+    // payments, six landed on the day of the dinner and one after it.
+    var regsRes = await env.DB.prepare(
+        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, created_at " +
+        "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
+    ).bind(event.id).all();
+    var regs = regsRes.results || [];
+
+    var goingCount = 0, nextTimeCount = 0, attendedCount = 0, noShowCount = 0;
+    regs.forEach(function(r) {
+        if (r.rsvp_state === "next_time") { nextTimeCount++; }
+        else { goingCount++; }
+        if (r.attended === 1) { attendedCount++; }
+        else if (r.attended === 0) { noShowCount++; }
+    });
+
     // What the number WOULD be if she accepted everything suggested. Kept
     // strictly separate from the confirmed figure so the headline never
     // silently includes a guess.
@@ -19436,7 +19468,16 @@ async function buildApexClubEventPL(env, event) {
         // Not part of the P&L in any direction -- these are transactions that
         // are simply not this event, still uncategorized, still waiting to be
         // filed somewhere else. Shipped so the UI can offer "show / undo".
-        dismissed: dismissed
+        dismissed: dismissed,
+        // The RSVP list. Deliberately NOT joined to any transaction: this is
+        // the food count, and it is answered before a single payment arrives.
+        registrations: regs,
+        rsvp: {
+            going: goingCount,
+            next_time: nextTimeCount,
+            attended: attendedCount,
+            no_show: noShowCount
+        }
     };
 }
 
@@ -19475,6 +19516,7 @@ async function handlePostFinanceNewClubEvent(request, env) {
 
         var body = await request.json().catch(function() { return {}; });
         if (!body.name || !body.event_date) { return jsonErr("name and event_date required", 400); }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(body.event_date)) { return jsonErr("event_date must be YYYY-MM-DD", 400); }
 
         // Default window: attendees pay from about two weeks before the
         // dinner to a week after, which is what the July cluster looks like.
@@ -19482,16 +19524,362 @@ async function handlePostFinanceNewClubEvent(request, env) {
         var start = body.window_start || addInterval(body.event_date, -14, "day");
         var end   = body.window_end   || addInterval(body.event_date, 7, "day");
 
+        var prices = parseClubPrices(body);
+        if (prices.error) { return jsonErr(prices.error, 400); }
+
         var id = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, notes, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)"
-        ).bind(id, body.name, body.event_date, start, end, body.notes || null, actorName(user)).run();
+            "INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, notes, created_by, " +
+            "price_single_cents, price_couple_cents, venue, start_time, speakers, registration_open) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            id, body.name, body.event_date, start, end, body.notes || null, actorName(user),
+            prices.single, prices.couple,
+            body.venue || null, body.start_time || null, body.speakers || null,
+            body.registration_open === false ? 0 : 1
+        ).run();
 
         var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(id).first();
         return jsonOk(await buildApexClubEventPL(env, row));
     } catch (e) {
         return jsonErr("Error creating event: " + e.message, 500);
+    }
+}
+
+// Shared by create and update. A couple price is optional -- an event can be
+// per-person only -- but a single price is what the matching rule runs on, so
+// it must be a real positive number rather than silently falling back to $50
+// on a night that cost $80.
+function parseClubPrices(body) {
+    var single = body.price_single_cents;
+    if (single === undefined || single === null || single === "") {
+        single = APEX_CLUB_PRICE_SINGLE;
+    }
+    single = parseInt(single, 10);
+    if (!isFinite(single) || single <= 0) {
+        return { error: "price_single_cents must be a positive number of cents" };
+    }
+
+    var couple = body.price_couple_cents;
+    if (couple === undefined || couple === null || couple === "") {
+        couple = null;   // no couple rate for this event
+    } else {
+        couple = parseInt(couple, 10);
+        if (!isFinite(couple) || couple <= 0) {
+            return { error: "price_couple_cents must be a positive number of cents, or blank" };
+        }
+    }
+
+    return { single: single, couple: couple };
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance-new/club/events/:id — edit an event
+// Route: DELETE /api/finance-new/club/events/:id — remove one
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceNewClubEvent(eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.name || !body.event_date) { return jsonErr("name and event_date required", 400); }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(body.event_date)) { return jsonErr("event_date must be YYYY-MM-DD", 400); }
+
+        var prices = parseClubPrices(body);
+        if (prices.error) { return jsonErr(prices.error, 400); }
+
+        var start = body.window_start || addInterval(body.event_date, -14, "day");
+        var end   = body.window_end   || addInterval(body.event_date, 7, "day");
+
+        await env.DB.prepare(
+            "UPDATE apex_club_events SET name = ?, event_date = ?, window_start = ?, window_end = ?, " +
+            "notes = ?, price_single_cents = ?, price_couple_cents = ?, venue = ?, start_time = ?, " +
+            "speakers = ?, registration_open = ? WHERE id = ?"
+        ).bind(
+            body.name, body.event_date, start, end, body.notes || null,
+            prices.single, prices.couple,
+            body.venue || null, body.start_time || null, body.speakers || null,
+            body.registration_open === false ? 0 : 1,
+            eventId
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        return jsonOk(await buildApexClubEventPL(env, row));
+    } catch (e) {
+        return jsonErr("Error updating event: " + e.message, 500);
+    }
+}
+
+async function handleDeleteFinanceNewClubEvent(eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        // Membership, dismissals and RSVPs are all meaningless without the
+        // event, so they go with it. The TRANSACTIONS are never touched --
+        // deleting an event un-files its money, it does not erase it.
+        await env.DB.prepare("DELETE FROM apex_club_event_txns WHERE event_id = ?").bind(eventId).run();
+        await env.DB.prepare("DELETE FROM apex_club_event_dismissed WHERE event_id = ?").bind(eventId).run();
+        await env.DB.prepare("DELETE FROM apex_club_registrations WHERE event_id = ?").bind(eventId).run();
+        await env.DB.prepare("DELETE FROM apex_club_events WHERE id = ?").bind(eventId).run();
+
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/club/events/:id/flyer — upload the promo image
+// Body: multipart/form-data with a 'flyer' file field.
+// Follows the business-QR / client-logo upload pattern already in this file.
+// ---------------------------------------------------------------------------
+
+async function handlePostClubFlyer(eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("flyer");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("flyer file is required", 400); }
+
+        var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+        if (allowed.indexOf(file.type) === -1) {
+            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, or WebP image.", 400);
+        }
+
+        // Flyers are full-size promo graphics, larger than a QR code.
+        var MAX_BYTES = 5 * 1024 * 1024;
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 5 MB.", 400);
+        }
+
+        var header = new Uint8Array(buf.slice(0, 12));
+        var isPng  = header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47;
+        var isJpg  = header[0] === 0xFF && header[1] === 0xD8;
+        var isGif  = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46;
+        var isWebp = header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50;
+        if (!isPng && !isJpg && !isGif && !isWebp) {
+            return jsonErr("File content does not match a supported image format.", 400);
+        }
+
+        var ext = isPng ? "png" : isGif ? "gif" : isWebp ? "webp" : "jpg";
+        var key = "club/flyer-" + eventId + "." + ext;
+
+        await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
+
+        await env.DB.prepare(
+            "UPDATE apex_club_events SET flyer_r2_key = ? WHERE id = ?"
+        ).bind(key, eventId).run();
+
+        return jsonOk({ flyer_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading flyer: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/club/flyer/:id — serves an event's flyer from R2.
+// Auth-free: it is a promo image that goes out in WhatsApp groups, and the
+// public registration page has to render it with a plain <img> tag.
+// ---------------------------------------------------------------------------
+
+async function handleGetClubFlyer(eventId, request, env) {
+    try {
+        var row = await env.DB.prepare(
+            "SELECT flyer_r2_key FROM apex_club_events WHERE id = ?"
+        ).bind(eventId).first();
+
+        if (!row || !row.flyer_r2_key) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        if (!/^club\/flyer-[A-Za-z0-9-]+\.(png|jpe?g|gif|webp)$/.test(row.flyer_r2_key)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(row.flyer_r2_key);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+
+        var headers = new Headers(CORS_HEADERS);
+        headers.set("Content-Type", obj.httpMetadata && obj.httpMetadata.contentType || "image/jpeg");
+        headers.set("Cache-Control", "public, max-age=86400");
+        return new Response(obj.body, { headers: headers });
+    } catch (e) {
+        return new Response(null, { status: 500, headers: CORS_HEADERS });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC registration — no auth by design.
+//
+// Route: GET  /api/club/register/:id — what the page needs to render itself
+// Route: POST /api/club/register/:id — { name, phone }
+//
+// This is the top of Apex's own funnel: Apex Club draws more than clients, and
+// people who get value from it tend to become clients, so the link is meant to
+// be forwarded by attendees to business owners nobody at Apex has met yet.
+// ---------------------------------------------------------------------------
+
+// A bare 10-digit US number silently breaks WhatsApp sends and wa.me links --
+// a real, still-open failure mode on the LTC project (waha_http_500), proven
+// there by four real numbers that worked the moment the country code was
+// added. Normalize on the way IN rather than trusting a phone keypad.
+function normalizeUsPhone(raw) {
+    var digits = String(raw || "").replace(/\D/g, "");
+    if (!digits) { return null; }
+    // Already carries a US country code.
+    if (digits.length === 11 && digits.charAt(0) === "1") { return digits; }
+    if (digits.length === 10) { return "1" + digits; }
+    // Brazilian numbers (55 + 10 or 11 digits) pass through -- Apex Club is a
+    // Brazilian-American room and some attendees will give a BR number.
+    if (digits.length >= 12 && digits.length <= 13 && digits.slice(0, 2) === "55") { return digits; }
+    return null;
+}
+
+async function handleGetClubRegisterInfo(eventId, request, env) {
+    try {
+        var ev = await env.DB.prepare(
+            "SELECT id, name, event_date, start_time, venue, speakers, flyer_r2_key, " +
+            "price_single_cents, price_couple_cents, registration_open " +
+            "FROM apex_club_events WHERE id = ?"
+        ).bind(eventId).first();
+
+        if (!ev) { return jsonErr("Event not found", 404); }
+
+        // Deliberately no guest list, no counts, no totals: this endpoint is
+        // world-readable, and who is coming is Apex's business, not a
+        // visitor's.
+        return jsonOk({
+            id: ev.id,
+            name: ev.name,
+            event_date: ev.event_date,
+            start_time: ev.start_time,
+            venue: ev.venue,
+            speakers: ev.speakers,
+            has_flyer: !!ev.flyer_r2_key,
+            price_single_cents: ev.price_single_cents,
+            price_couple_cents: ev.price_couple_cents,
+            registration_open: ev.registration_open === 1
+        });
+    } catch (e) {
+        return jsonErr("Error loading event: " + e.message, 500);
+    }
+}
+
+async function handlePostClubRegister(eventId, request, env) {
+    try {
+        var ev = await env.DB.prepare(
+            "SELECT id, registration_open FROM apex_club_events WHERE id = ?"
+        ).bind(eventId).first();
+        if (!ev) { return jsonErr("Event not found", 404); }
+        if (ev.registration_open !== 1) { return jsonErr("Registration is closed for this event", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var name = String(body.name || "").trim().slice(0, 120);
+        if (name.length < 2) { return jsonErr("Nome é obrigatório", 400); }
+
+        var phone = normalizeUsPhone(body.phone);
+        if (!phone) { return jsonErr("Número de WhatsApp inválido", 400); }
+
+        // Re-registering is not an error. Someone tapping twice, or a couple
+        // signing up from one phone, must never see a failure -- the UNIQUE
+        // constraint makes it idempotent and the page just says "you're in".
+        await env.DB.prepare(
+            "INSERT INTO apex_club_registrations (id, event_id, name, phone, source) " +
+            "VALUES (?, ?, ?, ?, 'public') " +
+            "ON CONFLICT(event_id, phone) DO UPDATE SET name = excluded.name, rsvp_state = 'going'"
+        ).bind(crypto.randomUUID(), eventId, name, phone).run();
+
+        return jsonOk({ registered: true });
+    } catch (e) {
+        return jsonErr("Error registering: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/club/calendar-click/:id — public, fire-and-forget.
+//
+// Records that someone TAPPED "add to calendar". It cannot know whether the
+// event actually reached their calendar -- the .ics leaves the browser and
+// what happens next is invisible -- so this is a weak signal, kept only to
+// answer "is this button worth having at all". Never surfaced as attendance.
+// ---------------------------------------------------------------------------
+
+async function handlePostClubCalendarClick(eventId, request, env) {
+    try {
+        await env.DB.prepare(
+            "UPDATE apex_club_events SET calendar_clicks = COALESCE(calendar_clicks, 0) + 1 WHERE id = ?"
+        ).bind(eventId).run();
+    } catch (e) { /* a lost count must never break the page */ }
+    return jsonOk({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/club/registrations/:id — admin edits to a guest
+// Body: { rsvp_state } | { attended } | { confirmed } | { remove: true }
+// ---------------------------------------------------------------------------
+
+async function handlePostClubRegistrationUpdate(regId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id, event_id FROM apex_club_registrations WHERE id = ?"
+        ).bind(regId).first();
+        if (!row) { return jsonErr("Registration not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        if (body.remove) {
+            await env.DB.prepare("DELETE FROM apex_club_registrations WHERE id = ?").bind(regId).run();
+            return jsonOk({ deleted: true });
+        }
+
+        if (body.rsvp_state === "going" || body.rsvp_state === "next_time") {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET rsvp_state = ? WHERE id = ?"
+            ).bind(body.rsvp_state, regId).run();
+        }
+
+        // Tri-state on purpose: 1 came, 0 no-show, null not marked yet. The
+        // gap between "said yes" and "came" is the empty place settings.
+        if (body.attended === 1 || body.attended === 0 || body.attended === null) {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET attended = ? WHERE id = ?"
+            ).bind(body.attended, regId).run();
+        }
+
+        if (body.confirmed === true) {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET confirmed_at = datetime('now') WHERE id = ?"
+            ).bind(regId).run();
+        } else if (body.confirmed === false) {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET confirmed_at = NULL WHERE id = ?"
+            ).bind(regId).run();
+        }
+
+        var ev = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(row.event_id).first();
+        return jsonOk(await buildApexClubEventPL(env, ev));
+    } catch (e) {
+        return jsonErr("Error updating registration: " + e.message, 500);
     }
 }
 
@@ -20780,6 +21168,21 @@ export default {
             }
         }
 
+        // PUBLIC Apex Club registration + flyer (no auth by design). The link
+        // is meant to be forwarded by attendees to people Apex has never met,
+        // so nothing here may require a login. GET returns only what the page
+        // renders -- never the guest list.
+        var clubRegPub = path.match(/^\/api\/club\/register\/([A-Za-z0-9-]+)$/);
+        if (clubRegPub) {
+            if (method === "GET")  { return handleGetClubRegisterInfo(clubRegPub[1], request, env); }
+            if (method === "POST") { return handlePostClubRegister(clubRegPub[1], request, env); }
+        }
+        var clubFlyerPub = path.match(/^\/api\/club\/flyer\/([A-Za-z0-9-]+)$/);
+        if (clubFlyerPub && method === "GET") { return handleGetClubFlyer(clubFlyerPub[1], request, env); }
+
+        var clubCalPub = path.match(/^\/api\/club\/calendar-click\/([A-Za-z0-9-]+)$/);
+        if (clubCalPub && method === "POST") { return handlePostClubCalendarClick(clubCalPub[1], request, env); }
+
         // PUBLIC partner-referral intake (no auth by design — see handlers).
         var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
         if (refMatch) {
@@ -21334,6 +21737,18 @@ export default {
         if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }
         if (path === "/api/finance-new/club/confirm"      && method === "POST") { return handlePostFinanceNewClubConfirm(request, env); }
+
+        // Edit / delete one event, and upload its flyer.
+        var clubEvMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)$/);
+        if (clubEvMatch) {
+            if (method === "PUT")    { return handlePutFinanceNewClubEvent(clubEvMatch[1], request, env); }
+            if (method === "DELETE") { return handleDeleteFinanceNewClubEvent(clubEvMatch[1], request, env); }
+        }
+        var clubFlyerMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)\/flyer$/);
+        if (clubFlyerMatch && method === "POST") { return handlePostClubFlyer(clubFlyerMatch[1], request, env); }
+
+        var clubRegMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)$/);
+        if (clubRegMatch && method === "POST") { return handlePostClubRegistrationUpdate(clubRegMatch[1], request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

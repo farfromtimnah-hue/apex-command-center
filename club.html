@@ -101,6 +101,15 @@
     }
     button.ghost:active { border-color: var(--gold); }
 
+    /* Set apart from the utility buttons above it -- this is the one action
+       on the page that grows the room, so it gets its own panel rather than
+       sitting in a stack of identical grey buttons. */
+    .invite {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 13px; padding: 20px; margin: 22px 0 8px; text-align: center;
+    }
+    .invite-copy { font-size: 15px; font-weight: 600; margin-bottom: 14px; line-height: 1.5; }
+
     .err {
       background: rgba(179,38,30,0.14); border: 1px solid rgba(179,38,30,0.5);
       color: #ff9d96; font-size: 13.5px; padding: 12px 14px;
@@ -194,8 +203,9 @@
 
         <div class="facts" id="doneFacts"></div>
 
-        <!-- Payment lives HERE, after the RSVP, never before it. People pay
-             at the door; this is a convenience, not a gate. -->
+        <!-- Payment lives HERE, after the RSVP, never before it. Offered, not
+             asked for: nothing on this page says when payment is due, because
+             that is Apex's call to communicate, not this page's to assume. -->
         <div class="pay" id="payBox">
           <h2>Pagamento</h2>
           <div class="price" id="payPrice"></div>
@@ -209,7 +219,16 @@
         </div>
 
         <button class="ghost" id="btnCal">📅 &nbsp;Adicionar ao calendário</button>
-        <button class="ghost" id="btnShare">↗︎ &nbsp;Convidar alguém</button>
+
+        <!-- The growth path, and the strongest argument for this page
+             existing over a poll in the group: a poll cannot leave the group,
+             a link can. Given its own block with a reason, because as a
+             second grey button identical to the calendar one it just read as
+             an afterthought and nobody would tap it. -->
+        <div class="invite">
+          <div class="invite-copy">Conhece alguém que ia gostar dessa noite?</div>
+          <button class="cta" id="btnShare">Compartilhar convite</button>
+        </div>
 
         <p class="fine">Nos vemos lá! Qualquer dúvida, é só chamar no WhatsApp.</p>
       </div>
@@ -362,13 +381,16 @@
       ? "por pessoa · " + money(EV.price_couple_cents) + " o casal"
       : "por pessoa";
 
-    // The memo line is doing real work: it is what makes an otherwise
-    // anonymous Zelle identifiable when Alice reconciles the event later --
-    // July's feed is full of company names like PRIME GROUP BUILDS LLC.
-    // "Or on the day" is stated plainly because that is what most people
-    // actually do, and pretending otherwise would just add pressure.
+    // Says nothing about WHEN to pay. Most people paid on the night, but
+    // that is an observed habit, not a policy Apex published -- stating "you
+    // can pay on the day" would be this page granting permission on their
+    // behalf. The button sits there, nothing pushes it, and anyone who wants
+    // to pay later simply does what they already do.
+    //
+    // The memo line is the part doing real work: it is what makes an
+    // otherwise anonymous Zelle identifiable when Alice reconciles the event
+    // later -- July's feed is full of company names like PRIME GROUP BUILDS.
     $("payMemo").innerHTML =
-      "Você pode pagar agora ou no dia do evento.<br>" +
       "<b>Coloque seu nome no memo</b> para identificarmos seu pagamento.";
 
     if (EV.zelle_pay_url) {
@@ -448,11 +470,22 @@
   // never met. navigator.share opens the native sheet straight into WhatsApp.
   $("btnShare").addEventListener("click", function () {
     var url = location.href;
-    var text = EV ? (EV.name + " — " + ptDate(EV.event_date)) : "Apex Club";
+
+    // What gets forwarded has to stand on its own -- the person receiving it
+    // has never heard of Apex Club and is reading it cold in WhatsApp. Name,
+    // date and place, then the link. No sales pitch: it carries more weight
+    // as a plain recommendation from someone they know.
+    var text = "Apex Club";
+    if (EV) {
+      text = EV.name + "\n📅 " + ptDate(EV.event_date) +
+             (EV.start_time ? " · " + EV.start_time : "") +
+             (EV.venue ? "\n📍 " + EV.venue : "");
+    }
+
     if (navigator.share) {
       navigator.share({ title: "Apex Club", text: text, url: url }).catch(function () {});
     } else {
-      window.open("https://wa.me/?text=" + encodeURIComponent(text + "\n" + url), "_blank");
+      window.open("https://wa.me/?text=" + encodeURIComponent(text + "\n\n" + url), "_blank");
     }
   });
 })();

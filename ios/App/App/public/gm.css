@@ -1,0 +1,571 @@
+/* APEX Growth Management (Part 1) — styles for the six data tabs in the
+   client portal (portal.html + gm.js). Mobile-first at ~390px; touch
+   targets 48px minimum; status is never colour-alone (colour + glyph +
+   word, WCAG 2.1 SC 1.4.1). Palette matches portal.html's :root vars. */
+
+/* ── Summary metric strip ─────────────────────────────────────────────── */
+.gm-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.gm-metric {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 0;
+}
+.gm-metric .gm-metric-name { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+.gm-metric .gm-metric-value { font-size: 19px; font-weight: 800; overflow-wrap: anywhere; }
+.gm-metric.gm-metric-bad .gm-metric-value { color: var(--red); }
+.gm-metric.gm-metric-good .gm-metric-value { color: var(--green); }
+.gm-metric .gm-metric-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* ── Status pills: colour + glyph + word, always ──────────────────────── */
+.gm-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.gm-pill.gm-gold   { background: rgba(201,164,58,0.18); color: #7a5f18; }
+.gm-pill.gm-green  { background: rgba(63,125,78,0.14);  color: #2f6b3e; }
+.gm-pill.gm-red    { background: rgba(180,64,64,0.13);  color: #a03636; }
+.gm-pill.gm-muted  { background: rgba(107,102,96,0.13); color: #575249; }
+
+/* "Nobody owns this lead yet." Deliberately quiet -- amber, not the red used
+   for a blown SLA. An unassigned lead is a routing gap for the owner to close,
+   not a failure, and on a client with several sellers plenty of rows can carry
+   it at once. Only rendered when the client actually has salespeople. */
+.gm-unassigned {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  vertical-align: middle;
+  background: rgba(201,164,58,0.18);
+  color: #7a5f18;
+}
+
+/* ── Pipeline: stacked stage sections ─────────────────────────────────── */
+.gm-stage-section { margin-bottom: 4px; }
+.gm-stage-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 12px 2px 6px;
+  border-bottom: 2px solid var(--border);
+}
+.gm-stage-name { font-size: 13px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; }
+.gm-stage-count {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 2px 10px;
+}
+.gm-stage-empty { font-size: 12px; color: var(--muted); padding: 10px 2px; }
+
+/* ── Lead rows (max 4 elements, 48px+ target) ─────────────────────────── */
+.gm-lead-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; min-height: 56px;
+  padding: 11px 2px; border: none; border-bottom: 1px solid var(--border);
+  background: none; cursor: pointer; text-align: left;
+  font-family: 'Inter', sans-serif; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-lead-row:last-child { border-bottom: none; }
+.gm-lead-main { flex: 1; min-width: 0; }
+.gm-lead-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-lead-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-lead-side { flex-shrink: 0; text-align: right; }
+
+/* ── Sticky stage chip rail (high-volume view) ────────────────────────── */
+.gm-stage-rail {
+  position: sticky;
+  top: 64px;                 /* below the fixed header */
+  z-index: 30;
+  display: flex; gap: 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  padding: 10px 0;
+  margin: 0 -2px 6px;
+  scrollbar-width: none;
+}
+.gm-stage-rail::-webkit-scrollbar { display: none; }
+.gm-stage-chip {
+  flex-shrink: 0;
+  min-height: 48px;
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1.5px solid var(--border); border-radius: 24px;
+  background: var(--card); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  padding: 10px 16px; cursor: pointer; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-stage-chip .gm-chip-count {
+  font-size: 11px; font-weight: 800;
+  background: var(--surface); border-radius: 10px; padding: 1px 8px;
+}
+.gm-stage-chip.gm-chip-active { background: var(--header); border-color: var(--header); color: var(--gold); }
+.gm-stage-chip.gm-chip-active .gm-chip-count { background: rgba(255,255,255,0.12); }
+
+/* ── View-mode toggle ─────────────────────────────────────────────────── */
+.gm-view-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin: 4px 0 8px;
+}
+.gm-view-toggle .btn-outline { min-height: 48px; }
+
+/* ── Pipeline sub-nav (Leads · Parceiros · Base de Ouro) ──────────────────
+   Built on .gm-stage-chip / .gm-chip-active rather than a new component, so
+   the pills read as the same control the stage rail already uses.
+
+   Deliberately NOT sticky and NOT position-anything: it is one row in normal
+   flow, so it costs its own height and nothing more — the pipeline summary
+   directly below it must not be pushed under the fold on a phone. (The stage
+   rail IS sticky; this is not, and must not inherit that.) It also does not
+   nest inside a scrolling panel the way finance.html / sessions.html /
+   documents.html do — see status file item #27.
+
+   Three fixed pills, so no horizontal scroll: they wrap rather than overflow
+   if a translation ever outgrows the row. */
+.gm-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.gm-subnav .gm-stage-chip {
+  /* Slightly tighter than a stage chip: three of these must fit 375px with
+     the longest PT label ("Base de Ouro") and still clear the 44px tap
+     target. No count badge here, so the padding can come in. */
+  min-height: 44px;
+  padding: 9px 13px;
+}
+
+/* ── Pipeline create menu (the FAB's three-way sheet) ─────────────────── */
+.gm-create-menu { display: flex; flex-direction: column; gap: 10px; }
+.gm-create-menu .gm-create-choice {
+  width: 100%;
+  min-height: 52px;
+  justify-content: center;
+}
+
+/* ── Quick-add FAB ────────────────────────────────────────────────────── */
+.gm-fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 940;
+  width: 58px; height: 58px; border-radius: 50%;
+  background: var(--gold); color: #fff; border: none;
+  font-size: 30px; line-height: 1; font-family: 'Inter', sans-serif;
+  box-shadow: 0 6px 20px rgba(26,26,29,0.35);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 767px) {
+  /* clear the fixed bottom dock */
+  .gm-fab { bottom: calc(78px + env(safe-area-inset-bottom)); }
+}
+
+/* The menu variant of the FAB (Parceiros / Base de Ouro): same circle, same
+   size and position, but a small caret marks it as "opens a chooser" rather
+   than "fires immediately". Only the glyph changes — nothing about the
+   button's footprint does, so the two cannot be told apart by position and
+   a user never has to hunt for a moved control. */
+.gm-fab-menu {
+  /* The "+" plus caret is wider than a lone "+", so pull the pair in a little
+     and let them sit as one unit rather than stretching the circle. */
+  font-size: 26px;
+  gap: 1px;
+}
+.gm-fab-caret {
+  font-size: 13px;
+  line-height: 1;
+  /* Optically centered against the "+" rather than baseline-aligned. */
+  margin-top: 3px;
+}
+
+/* ── Bottom sheets ────────────────────────────────────────────────────── */
+.gm-sheet-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(20,18,16,0.55);
+  z-index: 1000;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.gm-sheet {
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  width: 100%; max-width: 560px;
+  max-height: 86vh;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 14px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.3);
+}
+.gm-sheet-grabber {
+  width: 42px; height: 4px; border-radius: 2px;
+  background: var(--border); margin: 0 auto 10px;
+}
+.gm-sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 10px;
+}
+.gm-sheet-title { font-size: 17px; font-weight: 800; min-width: 0; overflow-wrap: anywhere; }
+.gm-sheet-close {
+  flex-shrink: 0;
+  width: 48px; height: 48px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 20px; line-height: 1; color: var(--text); cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Contact actions pinned in the lead-detail header */
+.gm-contact-row { display: flex; gap: 8px; margin: 4px 0 12px; }
+.gm-contact-btn {
+  flex: 1 1 0;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 48px; border-radius: 10px; text-decoration: none;
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+  border: none; cursor: pointer;
+}
+/* gmIcon() emits a viewBox-only <svg> with no width/height. Without an
+   explicit size here it stretches to fill the flex button (~200px) and
+   pushes the label off the edge. Matches the other icon treatments. */
+.gm-contact-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.gm-contact-btn.gm-call { background: var(--header); color: #fff; }
+.gm-contact-btn.gm-wa   { background: #1faa53; color: #fff; }
+.gm-contact-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+
+/* Tap-to-edit field rows inside a detail sheet */
+.gm-field-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; min-height: 52px;
+  padding: 10px 2px; background: none; border: none;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Inter', sans-serif; text-align: left; cursor: pointer;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.gm-field-value { font-size: 14px; font-weight: 600; margin-top: 2px; overflow-wrap: anywhere; }
+.gm-field-value.gm-empty { color: var(--muted); font-weight: 400; }
+.gm-field-chev { color: var(--gold); font-size: 14px; flex-shrink: 0; }
+
+/* Single-field editor */
+.gm-editor-input input, .gm-editor-input textarea, .gm-editor-input select {
+  width: 100%;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  font-family: 'Inter', sans-serif; font-size: 16px;
+  padding: 13px 12px; background: #fff; color: var(--text);
+  min-height: 48px;
+}
+.gm-editor-input textarea { min-height: 90px; resize: vertical; }
+.gm-editor-input input:focus, .gm-editor-input textarea:focus, .gm-editor-input select:focus {
+  outline: none; border-color: var(--gold);
+}
+.gm-editor-actions { display: flex; gap: 8px; margin-top: 14px; }
+.gm-editor-actions .btn-gold, .gm-editor-actions .btn-outline {
+  flex: 1 1 0; min-height: 48px;
+}
+.gm-derived-note {
+  font-size: 12px; color: var(--muted); margin-top: 8px;
+}
+
+/* Choice chips (≤5 options) */
+.gm-chip-set { display: flex; flex-wrap: wrap; gap: 8px; }
+.gm-choice-chip {
+  min-height: 48px;
+  border: 1.5px solid var(--border); border-radius: 12px;
+  background: var(--card); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+  padding: 12px 16px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-choice-chip.gm-chip-sel { background: var(--gold); border-color: var(--gold); color: #fff; }
+
+/* ── Generic list rows for the other five tabs ────────────────────────── */
+.gm-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; min-height: 56px;
+  padding: 11px 2px; border: none; border-bottom: 1px solid var(--border);
+  background: none; cursor: pointer; text-align: left;
+  font-family: 'Inter', sans-serif; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-row:last-child { border-bottom: none; }
+
+/* ── Parceiros ────────────────────────────────────────────────────────────
+   The Partner tab used to reuse the generic .gm-row / .gm-lead-* classes
+   shared by every other tab, which buried the two numbers that actually
+   matter (referrals sent, revenue generated) in small gray subtext. This
+   family gives Partners the same grouped-card vocabulary the lead detail
+   redesign uses: cards instead of flat rows, a hero value treatment for the
+   numbers, and icon+label+value rows under small uppercase section labels.
+   Naming follows .gm-field-row / .gm-month-card — one family, one prefix. */
+
+/* Partner list: one card per partner */
+.gm-partner-card {
+  display: block; width: 100%; text-align: left;
+  background: var(--card, #fff); border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px 14px; margin-bottom: 10px;
+  font-family: 'Inter', sans-serif; color: var(--text); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-partner-card-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px;
+}
+.gm-partner-card-name {
+  font-size: 15px; font-weight: 800;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gm-partner-card-type { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* The two numbers, given real visual weight instead of subtext */
+.gm-partner-stats {
+  display: flex; gap: 10px;
+  border-top: 1px solid var(--border); padding-top: 10px;
+}
+.gm-partner-stat { flex: 1 1 0; min-width: 0; }
+.gm-partner-stat-label {
+  font-size: 10px; font-weight: 800; color: var(--muted);
+  letter-spacing: 0.07em; text-transform: uppercase;
+}
+.gm-partner-stat-value {
+  font-size: 19px; font-weight: 800; color: var(--text); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gm-partner-stat-value.gm-partner-zero { color: var(--muted); font-weight: 700; }
+
+/* Detail sheets: grouped sections of icon rows.
+   Built for the Partner sheet first, then generalized to .gm-sheet-* when the
+   Lead sheet adopted the same language. The .gm-partner-* names are kept as
+   aliases so the two sheets are ONE system rather than two lookalikes — do
+   not add a third family; extend this one. */
+.gm-sheet-section, .gm-partner-section { margin-bottom: 18px; }
+.gm-sheet-section-title, .gm-partner-section-title {
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin: 0 0 8px 2px;
+}
+/* A section label can carry a quiet "tracked automatically" note beside it. */
+.gm-sheet-section-note {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  letter-spacing: 0; text-transform: none; opacity: 0.85;
+}
+.gm-sheet-group, .gm-partner-group {
+  background: var(--card, #fff); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.gm-sheet-row, .gm-partner-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 56px; padding: 11px 13px;
+  background: none; border: none; border-bottom: 1px solid var(--border);
+  font-family: 'Inter', sans-serif; text-align: left; color: var(--text);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gm-sheet-row:last-child, .gm-partner-row:last-child { border-bottom: none; }
+.gm-sheet-row-icon, .gm-partner-row-icon {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: var(--surface, #f9f7f4); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.gm-sheet-row-icon svg, .gm-partner-row-icon svg { width: 15px; height: 15px; color: #8a6f22; }
+/* Label, value and sub are <span>s — inline by default, which ran them
+   together ("OrigemParceiro"). Stack them so each occupies its own line and
+   the existing margin-top on the value/sub takes effect. */
+.gm-sheet-row-body, .gm-partner-row-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.gm-sheet-row-label, .gm-partner-row-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.gm-sheet-row-value, .gm-partner-row-value { font-size: 14px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
+.gm-sheet-row-value.gm-empty, .gm-partner-row-value.gm-empty { color: var(--muted); font-weight: 400; }
+.gm-sheet-row-chev, .gm-partner-row-chev { color: var(--gold); flex-shrink: 0; display: flex; align-items: center; }
+.gm-sheet-row-chev svg, .gm-partner-row-chev svg { width: 14px; height: 14px; }
+/* Secondary text under a value — the exact timestamp beneath a relative age. */
+.gm-sheet-row-sub { font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 1px; }
+
+/* Hero card: the two things asked first — what stage, and how much.
+   Deliberately NOT a row in the list; it is the sheet's headline.
+
+   Both halves are STACKED full-width buttons rather than a left/right split.
+   Advancing the stage is the most important action in the CRM and it used to
+   hide behind a bare pill that read as a status badge: no chevron, no hint,
+   no accessible name. Stacking gives each half the same full-width hit target
+   and same right-edge chevron as .gm-sheet-row, so the hero now announces
+   itself as tappable the way every other row on the sheet does. */
+.gm-sheet-hero {
+  background: var(--card, #fff); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 18px; overflow: hidden;
+}
+.gm-sheet-hero-half {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 60px; padding: 12px 14px;
+  background: none; border: none; border-bottom: 1px solid var(--border);
+  font-family: 'Inter', sans-serif; text-align: left; color: var(--text);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gm-sheet-hero-half:last-child { border-bottom: none; }
+.gm-sheet-hero-body { flex: 1; min-width: 0; }
+.gm-sheet-hero-chev { color: var(--gold); flex-shrink: 0; display: flex; align-items: center; }
+.gm-sheet-hero-chev svg { width: 14px; height: 14px; }
+/* All spans, not divs: these live inside a <button>, which only accepts
+   phrasing content. display:block makes them stack — .gm-sheet-hero-body is
+   a plain block, so inline spans would all share one line. Same reason
+   gmSheetRowHtml builds its rows out of spans. */
+.gm-sheet-hero-pill, .gm-sheet-hero-age,
+.gm-sheet-hero-hint, .gm-sheet-hero-label,
+.gm-sheet-hero-value { display: block; }
+.gm-sheet-hero-pill { margin-top: 5px; }
+.gm-sheet-hero-age { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 5px; }
+.gm-sheet-hero-hint { font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+.gm-sheet-hero-label {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.gm-sheet-hero-value { font-size: 20px; font-weight: 800; color: var(--text); margin-top: 2px; }
+.gm-sheet-hero-value.gm-empty { color: var(--muted); font-weight: 600; font-size: 15px; }
+
+/* "More ways to reach out" — SMS/Email collapsed under Call/WhatsApp.
+   Mirrored by .cl-contact-more in client.html so both tiers behave alike. */
+.gm-contact-more { margin: -6px 0 12px; }
+.gm-contact-more-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; padding: 4px 2px;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+  color: var(--muted);
+}
+.gm-contact-more-btn svg { width: 13px; height: 13px; transition: transform 0.15s; }
+.gm-contact-more-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+.gm-contact-more-panel { display: flex; gap: 8px; margin-top: 8px; }
+.gm-contact-more-panel[hidden] { display: none; }
+.gm-contact-btn.gm-sms, .gm-contact-btn.gm-email {
+  background: var(--surface, #f9f7f4); color: var(--text); border: 1px solid var(--border);
+}
+/* An unavailable channel states the reason instead of looking broken. */
+.gm-contact-btn.gm-reason { font-weight: 500; font-size: 12px; }
+
+/* Referral link / QR block — same card treatment, icon buttons */
+.gm-partner-ref-url {
+  font-size: 12px; word-break: break-all; background: var(--surface, #f9f7f4);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
+}
+.gm-partner-ref-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.gm-partner-ref-btn {
+  flex: 1 1 0; min-width: 96px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 48px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--card, #fff);
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
+  color: var(--text); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-partner-ref-btn svg { width: 15px; height: 15px; color: var(--muted); flex-shrink: 0; }
+.gm-partner-qr { text-align: center; margin-top: 12px; }
+
+/* ── Financeiro ───────────────────────────────────────────────────────── */
+.gm-month-card {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.gm-month-title { font-size: 14px; font-weight: 800; margin-bottom: 8px; }
+.gm-month-line { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+.gm-finance-svg { width: 100%; height: auto; display: block; }
+
+/* ── Toast / snackbar ─────────────────────────────────────────────────── */
+.gm-toast {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 1100;
+  background: var(--header); color: #fff;
+  border-radius: 12px; padding: 13px 18px;
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  max-width: calc(100vw - 32px);
+}
+.gm-toast button {
+  background: none; border: none; color: var(--gold);
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 800;
+  cursor: pointer; padding: 6px;
+}
+
+/* Add buttons inside tab cards */
+.gm-add-btn { width: 100%; min-height: 48px; margin-top: 12px; }
+
+/* Warning line (ALVO?, SLA) */
+.gm-warn { color: var(--red); font-weight: 700; }
+.gm-ok   { color: var(--green); font-weight: 700; }
+
+/* Deep-link highlight. A client sent to the referral settings from the partner
+   sheet or the first-partner prompt lands part-way down a long page, so the
+   card announces itself briefly instead of leaving them to hunt for it. */
+.gm-flash { animation: gmFlash 2s ease-out; }
+@keyframes gmFlash {
+  0%, 60% { box-shadow: 0 0 0 2px var(--gold); }
+  100%    { box-shadow: 0 0 0 2px transparent; }
+}
+
+/* ── Project photos ──────────────────────────────────────────────────────
+   Progress photos on a project (gm_job_photos). The client sees these in
+   their own portal, so they are laid out to be looked at rather than
+   scanned: a two-up grid that goes one-up on a narrow phone.
+
+   The images are fetched as authenticated blobs and swapped in, so each one
+   starts with no src — .gm-photo-loading keeps that empty box from
+   collapsing the grid while it arrives. */
+.gm-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  padding: 10px 12px;
+}
+.gm-photo {
+  position: relative;
+  margin: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2, #f1ede6);
+}
+.gm-photo img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--surface-2, #f1ede6);
+}
+.gm-photo img.gm-photo-loading { opacity: 0.35; }
+.gm-photo figcaption {
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+/* Sits over the image, so it needs its own contrast rather than inheriting
+   the card's — a photo can be any colour underneath. */
+.gm-photo-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.gm-photo-del:hover { background: rgba(0, 0, 0, 0.78); }

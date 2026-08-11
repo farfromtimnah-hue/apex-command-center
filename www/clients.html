@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <script src="native-bridge.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title data-title-pt="Apex — Clientes" data-title-en="Apex &#8212; Clients">Apex — Clientes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --brown:    #7a5c2e;
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Bilingual ───────────────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .logo-img { height: 32px; width: auto; display: block; }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge {
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .btn-header {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
+      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn {
+      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ── Loading screen ──────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── App main ────────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Hero photo section ──────────────────────────────────────────────── */
+    .hero-section {
+      position: relative;
+      padding: 32px 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    #heroBgImage {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #heroBgImage.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #heroBgScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Page heading (white over photo) ────────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ── Glass tiles ─────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 20px 24px;
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .glass-tile-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 34px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .glass-tile-value.is-gold { color: var(--gold); }
+    .glass-tile-value.is-red  { color: #f87171; }
+
+    /* ── Pending resource sends strip (glass, above the stat tiles) ──────── */
+    .pending-strip {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(201,164,58,0.4);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pending-strip[hidden] { display: none !important; }
+
+    .pending-strip-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .pending-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .pending-row-info { flex: 1; min-width: 0; }
+    .pending-row-client { font-size: 13px; font-weight: 600; color: #fff; }
+    .pending-row-resource { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 1px; }
+
+    .pending-category {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.5);
+      color: var(--gold);
+      white-space: nowrap;
+    }
+
+    .btn-whatsapp-send {
+      background: #1fa855;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .btn-whatsapp-send:hover    { opacity: 0.88; }
+    .btn-whatsapp-send:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Below-hero section ──────────────────────────────────────────────── */
+    .below-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Below-hero header row ───────────────────────────────────────────── */
+    .below-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 16px;
+    }
+
+    /* ── Clients card ────────────────────────────────────────────────────── */
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    /* ── Clients table ───────────────────────────────────────────────────── */
+    .clients-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .clients-table th {
+      padding: 10px 20px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .clients-table td {
+      padding: 14px 20px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .clients-table tr:last-child td { border-bottom: none; }
+    .clients-table tbody tr:hover td { background: #fdf7eb; }
+
+    .client-name-link {
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      transition: color 0.12s;
+    }
+    .client-name-link:hover { color: var(--gold); }
+
+    /* ── Lead pipeline: stacked stage sections ───────────────────────────────
+       Deliberately stacked vertical sections, NOT a left-to-right kanban:
+       chosen over a chip rail after side-by-side review at mobile width.
+       The chip rail below is only the high-volume fallback. Stage changes
+       always happen in the lead's detail view — there is no drag-and-drop
+       on either layout, at any lead count. */
+    .lead-stage-section { margin-bottom: 22px; }
+    .lead-stage-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .lead-stage-name {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .lead-stage-count {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      background: rgba(0,0,0,0.05);
+      border-radius: 20px;
+      padding: 2px 9px;
+    }
+    /* "Raio X recebido" is the one stage that demands action — Alice must
+       schedule the meeting. Flagged so it cannot be mistaken for a passive
+       status like the others. */
+    .lead-stage-section[data-flagged="1"] .lead-stage-header {
+      background: rgba(201,164,58,0.14);
+      border-color: var(--gold);
+    }
+    .lead-stage-section[data-flagged="1"] .lead-stage-name { color: var(--brown); }
+    .lead-stage-flag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--brown);
+      margin-left: auto;
+    }
+    .lead-empty {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 12px 10px;
+      font-style: italic;
+    }
+    .lead-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .lead-row:last-child { border-bottom: none; }
+    .lead-row:hover { background: #fdf7eb; }
+    .lead-row-name { font-weight: 600; color: var(--text); text-decoration: none; flex: 1; }
+    .lead-row-name:hover { color: var(--gold); }
+    .lead-row-meta { font-size: 12px; color: var(--muted); }
+
+    /* Chip rail — the automatic high-volume layout. Horizontal scroll is
+       contained here so the page body never scrolls sideways. */
+    .lead-chip-rail { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+    .lead-chip-col {
+      min-width: 210px;
+      flex: 0 0 210px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .lead-chip-col[data-flagged="1"] {
+      background: rgba(201,164,58,0.14);
+      border-color: var(--gold);
+    }
+    .lead-chip-col .lead-stage-name { font-size: 11px; }
+    .lead-chip {
+      display: block;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .lead-chip:hover { border-color: var(--gold); color: var(--gold); }
+
+    .lead-layout-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .lead-layout-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .lead-layout-toggle:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* Consolidados split: dormant leads stack ABOVE consolidated clients,
+       so the revisitable list is what Rafa sees first. */
+    .cons-group-header {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--text);
+      padding: 10px 12px 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .cons-group-sub {
+      font-size: 12px;
+      font-style: italic;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+    .cons-group { margin-bottom: 26px; }
+
+    /* ── Lozenges ────────────────────────────────────────────────────────── */
+    .package-lozenge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.5);
+      color: var(--brown);
+    }
+    .status-lozenge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-lozenge[data-status="active"]   { background: #ddfaec; color: #1a6640; }
+    .status-lozenge[data-status="inactive"] { background: #fdf3dc; color: #8a6200; }
+    .status-lozenge[data-status="paused"]   { background: #fdf3dc; color: #8a6200; }
+    .status-lozenge[data-status="lead"]     { background: #dce8fd; color: #1a4a8a; }
+    .status-lozenge[data-status="closed"]   { background: #f2f2f2; color: #555; }
+    /* A dormant lead is revisitable, never "lost" — kept in the lead blue
+       family rather than the closed grey, so it reads as still in play. */
+    .status-lozenge[data-status="lead_dormant"] { background: #e8eefb; color: #3a5a8a; }
+
+    body.lang-pt .status-lozenge[data-status="active"]::before   { content: "Ativo"; }
+    body.lang-pt .status-lozenge[data-status="inactive"]::before { content: "Pausado"; }
+    body.lang-pt .status-lozenge[data-status="paused"]::before   { content: "Pausado"; }
+    body.lang-pt .status-lozenge[data-status="lead"]::before     { content: "Lead"; }
+    body.lang-pt .status-lozenge[data-status="closed"]::before   { content: "Encerrado"; }
+    body.lang-pt .status-lozenge[data-status="lead_dormant"]::before { content: "Para reativar"; }
+    body.lang-en .status-lozenge[data-status="active"]::before   { content: "Active"; }
+    body.lang-en .status-lozenge[data-status="inactive"]::before { content: "Paused"; }
+    body.lang-en .status-lozenge[data-status="paused"]::before   { content: "Paused"; }
+    body.lang-en .status-lozenge[data-status="lead"]::before     { content: "Lead"; }
+    body.lang-en .status-lozenge[data-status="closed"]::before   { content: "Closed"; }
+    body.lang-en .status-lozenge[data-status="lead_dormant"]::before { content: "To reactivate"; }
+
+    /* ── Apex's own referral partners (.ap-*) ────────────────────────────────
+       Task 2's partner-card language applied to Apex's own roster: card per
+       partner, the two numbers that matter at full weight, then grouped
+       icon+label+value rows. Always Apex's own black-and-gold — this is an
+       internal tool, so there is no per-partner branding to honor. */
+    .ap-intro { font-size: 13px; color: var(--muted); line-height: 1.55; margin: 14px 0 12px; }
+    .ap-add {
+      width: 100%; min-height: 46px; margin-bottom: 14px;
+      border: 1.5px solid var(--gold); border-radius: 10px;
+      background: var(--gold-dim); color: var(--brown);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .ap-add:hover { background: var(--gold); color: #1a1a1d; }
+    .ap-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 15px; margin-bottom: 12px;
+    }
+    .ap-card-top {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 10px; margin-bottom: 12px;
+    }
+    .ap-card-name { font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+    .ap-card-type { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .ap-pill {
+      flex-shrink: 0; font-size: 11px; font-weight: 700;
+      padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    }
+    .ap-pill-gold  { background: rgba(201,164,58,0.18); color: #7a5f18; }
+    .ap-pill-green { background: rgba(63,125,78,0.14);  color: #2f6b3e; }
+    .ap-pill-muted { background: rgba(107,102,96,0.13); color: #575249; }
+    .ap-stats {
+      display: flex; gap: 12px;
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      padding: 10px 0; margin-bottom: 4px;
+    }
+    .ap-stat { flex: 1 1 0; min-width: 0; }
+    .ap-stat-label {
+      font-size: 10px; font-weight: 800; color: var(--muted);
+      letter-spacing: 0.07em; text-transform: uppercase;
+    }
+    .ap-stat-value { font-size: 19px; font-weight: 800; margin-top: 2px; }
+    .ap-stat-value.ap-zero { color: var(--muted); font-weight: 700; }
+    .ap-rows { margin-top: 2px; }
+    .ap-row {
+      display: flex; align-items: center; gap: 11px;
+      padding: 9px 0; border-bottom: 1px solid var(--border);
+    }
+    .ap-row:last-child { border-bottom: none; }
+    .ap-row-icon {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ap-row-icon svg { width: 14px; height: 14px; color: var(--brown); }
+    .ap-row-body { flex: 1; min-width: 0; }
+    .ap-row-label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+    .ap-row-value { display: block; font-size: 13px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
+    .ap-row-value.ap-empty { color: var(--muted); font-weight: 400; }
+    .ap-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .ap-btn {
+      flex: 1 1 0; min-width: 120px; min-height: 42px;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
+      color: var(--text); cursor: pointer;
+    }
+    .ap-btn:hover { border-color: var(--gold); color: var(--brown); }
+    .ap-btn svg { width: 14px; height: 14px; color: var(--muted); flex-shrink: 0; }
+
+    /* ── Client status sub-tabs (copied from finance.html .inv-subtab-bar) ── */
+    .inv-subtab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 6px;
+    }
+    .inv-subtab {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 10px 14px 9px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .inv-subtab:hover { color: var(--text); }
+    .inv-subtab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* ── Empty state ─────────────────────────────────────────────────────── */
+    .empty-state {
+      padding: 52px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ── Error state ─────────────────────────────────────────────────────── */
+    .error-msg {
+      padding: 20px;
+      color: #b44040;
+      font-size: 13px;
+    }
+
+    /* ── Add client button ───────────────────────────────────────────────── */
+    .btn-add-client {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .btn-add-client:hover { opacity: 0.88; }
+
+    /* ── Modal ───────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,29,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay[hidden] { display: none !important; }
+
+    .modal-box {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 8px 48px rgba(26,26,29,0.22);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--card);
+      z-index: 1;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 700; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    .modal-body {
+      padding: 20px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-group label { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+    .field-group input,
+    .field-group select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 11px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .field-group input:focus,
+    .field-group select:focus { outline: none; border-color: var(--gold); }
+
+    .field-row { display: flex; gap: 12px; }
+    .field-row .field-group { flex: 1; }
+
+    .btn-primary {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 11px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+    .btn-primary:hover    { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .form-status {
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 16px;
+    }
+    .form-status.is-error { color: #b44040; }
+    .form-status.is-ok    { color: #1a6640; }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .hero-section { padding: 20px 16px; }
+      .below-section { padding: 16px; }
+      .glass-tile { min-width: 100px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #heroBgImage.is-loaded { animation: none; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+      <div id="loadingScreen">
+        <div class="spinner"></div>
+        <span class="show-pt">Carregando...</span>
+        <span class="show-en">Loading...</span>
+      </div>
+      <main id="appMain" hidden>
+
+        <!-- Hero section with background photo and glass tiles -->
+        <div class="hero-section">
+          <div id="heroBgImage" aria-hidden="true"></div>
+          <div id="heroBgScrim" aria-hidden="true"></div>
+          <div class="hero-content">
+            <h1 class="page-heading-hero">
+              <span class="show-pt">Clientes</span>
+              <span class="show-en">Clients</span>
+            </h1>
+            <div class="glass-tile-row">
+              <div class="glass-tile">
+                <div class="glass-tile-label">
+                  <span class="show-pt">Clientes Ativos</span>
+                  <span class="show-en">Active Clients</span>
+                </div>
+                <div class="glass-tile-value is-gold" id="statActive">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Raio-X</div>
+                <div class="glass-tile-value" id="statRaioX">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Sprint</div>
+                <div class="glass-tile-value" id="statSprint">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Premium</div>
+                <div class="glass-tile-value" id="statPremium">--</div>
+              </div>
+              <div class="glass-tile">
+                <div class="glass-tile-label">Executivo</div>
+                <div class="glass-tile-value" id="statExecutivo">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Below hero: Add button + client table -->
+        <div class="below-section">
+          <!-- Pending resource sends (Resource Hub) — hidden when queue is empty -->
+          <div class="pending-strip" id="pendingStrip" hidden>
+            <div class="pending-strip-title">
+              <span class="show-pt">Recursos Pendentes de Envio</span>
+              <span class="show-en">Pending Resource Sends</span>
+            </div>
+            <div id="pendingStripRows"></div>
+          </div>
+          <div class="below-header-row">
+            <button class="btn-add-client" id="btnAddClient" onclick="openNewClientModal()">
+              <span class="show-pt">+ Novo Cliente</span>
+              <span class="show-en">+ Add New Client</span>
+            </button>
+          </div>
+          <div class="content-card">
+            <div class="inv-subtab-bar m-scroll-tabs">
+              <button class="inv-subtab" id="subtabClientsLeads" onclick="switchClientsTab('leads')">
+                <span class="show-pt">Leads</span>
+                <span class="show-en">Leads</span>
+              </button>
+              <button class="inv-subtab active" id="subtabClientsActive" onclick="switchClientsTab('active')">
+                <span class="show-pt">Ativos</span>
+                <span class="show-en">Active</span>
+              </button>
+              <button class="inv-subtab" id="subtabClientsConsolidados" onclick="switchClientsTab('consolidados')">
+                <span class="show-pt">Consolidados</span>
+                <span class="show-en">Consolidated</span>
+              </button>
+              <!-- APEX's OWN referral partners — who sends coaching clients TO
+                   Apex. Not a client's gm_partners (that lives in the portal,
+                   one tier below). Admin-only data; the routes enforce it. -->
+              <button class="inv-subtab" id="subtabClientsParceiros" onclick="switchClientsTab('parceiros')">
+                <span class="show-pt">Parceiros</span>
+                <span class="show-en">Partners</span>
+              </button>
+            </div>
+            <div id="clientsListContainer">
+              <div class="empty-state show-pt">Carregando clientes...</div>
+              <div class="empty-state show-en">Loading clients...</div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: Novo Cliente / Add New Client ══════════════════════════════ -->
+  <!-- ══ MODAL: Parceiro Apex / Apex partner ═══════════════════════════════
+       Apex's OWN referral partner. Deliberately simpler than a client's
+       gm_partners sheet: no language picker and no color picker, because this
+       is Apex's internal tool and always wears Apex's own black-and-gold. -->
+  <div id="modalApexPartner" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:460px;">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Parceiro Apex</span>
+          <span class="show-en">Apex Partner</span>
+        </h3>
+        <button class="modal-close" onclick="document.getElementById('modalApexPartner').hidden=true">&#215;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label><span class="show-pt">Nome *</span><span class="show-en">Name *</span></label>
+          <input type="text" id="apName" maxlength="200">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span class="show-pt">Tipo</span><span class="show-en">Type</span></label>
+            <input type="text" id="apTipo" maxlength="100" data-ph-pt="Contador, Ex-cliente…" data-ph-en="Accountant, Former client…" placeholder="Contador, Ex-cliente…">
+          </div>
+          <div class="field-group">
+            <label><span class="show-pt">Status</span><span class="show-en">Status</span></label>
+            <select id="apStatus"></select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label><span class="show-pt">Contato</span><span class="show-en">Contact</span></label>
+          <input type="text" id="apContato" maxlength="200">
+        </div>
+        <div class="field-group">
+          <label><span class="show-pt">Última interação</span><span class="show-en">Last interaction</span></label>
+          <input type="date" id="apUltima">
+        </div>
+        <div class="field-group">
+          <label><span class="show-pt">Próxima ação</span><span class="show-en">Next action</span></label>
+          <input type="text" id="apProxima" maxlength="500">
+        </div>
+        <div class="form-status" id="apStatusMsg"></div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button class="btn-primary" style="flex:1;" onclick="saveApexPartner()">
+            <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+          </button>
+          <button class="ap-btn" id="apDelete" style="flex:0 0 auto;color:#b44040;border-color:#b44040;" onclick="deleteApexPartner()">
+            <span class="show-pt">Remover</span><span class="show-en">Remove</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalNewClient" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Novo Cliente</span>
+          <span class="show-en">Add New Client</span>
+        </h3>
+        <button class="modal-close" onclick="document.getElementById('modalNewClient').hidden=true">&#215;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Business info -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">
+          <span class="show-pt">Empresa</span><span class="show-en">Business</span>
+        </div>
+        <div class="field-group">
+          <input type="text" id="ncName" data-ph-pt="Nome da empresa *" data-ph-en="Company name *" placeholder="Nome da empresa *">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <select id="ncPackage">
+              <option value="" data-opt-pt="-- Pacote" data-opt-en="Package --">-- Pacote</option>
+              <option value="Raio-X">Raio-X</option>
+              <option value="Sprint">Sprint</option>
+              <option value="Premium">Premium</option>
+              <option value="Executivo">Executivo</option>
+            </select>
+            <!-- Replaced with live /api/settings/packages options (new packages + divider + legacy) by loadNewClientPackageOptions() -->
+          </div>
+          <div class="field-group">
+            <select id="ncStatus">
+              <option value="active" data-opt-pt="Ativo" data-opt-en="Active">Ativo</option>
+              <option value="lead">Lead</option>
+              <option value="paused" data-opt-pt="Pausado" data-opt-en="Paused">Pausado</option>
+              <option value="closed" data-opt-pt="Encerrado" data-opt-en="Closed">Encerrado</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <input type="text" id="ncIndustry" data-ph-pt="Setor" data-ph-en="Industry" placeholder="Setor">
+          </div>
+          <div class="field-group">
+            <input type="text" id="ncLocation" data-ph-pt="Localizacao" data-ph-en="Location" placeholder="Localizacao">
+          </div>
+        </div>
+        <!-- Primary contact -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-top:4px;margin-bottom:2px;">
+          <span class="show-pt">Contato Principal</span><span class="show-en">Primary Contact</span>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <input type="text" id="nc1Name" data-ph-pt="Nome" data-ph-en="Name" placeholder="Nome">
+          </div>
+          <div class="field-group">
+            <input type="text" id="nc1Role" data-ph-pt="Cargo" data-ph-en="Role" placeholder="Cargo">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <input type="text" id="nc1Phone" data-ph-pt="Tel" data-ph-en="WhatsApp" placeholder="Tel">
+          </div>
+          <div class="field-group">
+            <input type="email" id="nc1Email" placeholder="Email">
+          </div>
+        </div>
+        <!-- Second contact (hidden by default) -->
+        <div id="nc2Wrap" style="display:none;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-top:4px;margin-bottom:2px;">
+            <span class="show-pt">Segundo Contato</span><span class="show-en">Second Contact</span>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <input type="text" id="nc2Name" data-ph-pt="Nome" data-ph-en="Name" placeholder="Nome">
+            </div>
+            <div class="field-group">
+              <input type="text" id="nc2Role" data-ph-pt="Cargo" data-ph-en="Role" placeholder="Cargo">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <input type="text" id="nc2Phone" data-ph-pt="Tel" data-ph-en="WhatsApp" placeholder="Tel">
+            </div>
+            <div class="field-group">
+              <input type="email" id="nc2Email" placeholder="Email">
+            </div>
+          </div>
+        </div>
+        <button type="button" id="btnAddSecondContact" onclick="toggleSecondContact()" style="background:none;border:none;color:var(--gold);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;text-align:left;">
+          + <span class="show-pt">Adicionar segundo contato</span><span class="show-en">Add second contact</span>
+        </button>
+        <button class="btn-primary" id="btnSaveNewClient" onclick="handleSaveNewClient()">
+          <span class="show-pt">Salvar Cliente</span>
+          <span class="show-en">Save Client</span>
+        </button>
+        <div class="form-status" id="ncStatus2"></div>
+      </div>
+    </div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script src="nav.js"></script>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var auth        = null;
+    var currentUser = null;
+
+    function handleSignOut() {
+      auth.signOut().then(function () {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        sessionStorage.removeItem("apex_display_name");
+        sessionStorage.removeItem("apex_avatar_url");
+        window.location.href = "index.html";
+      });
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function apiFetch(path) {
+      return getToken().then(function (token) {
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+      });
+    }
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl    = document.getElementById(imgElId);
+      var scrimEl = document.getElementById(scrimElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function () {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function () {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      var canCreate = (role === "alice" || role === "developer" || role === "rafa");
+      var addBtn = document.getElementById("btnAddClient");
+      if (addBtn) { addBtn.style.display = canCreate ? "" : "none"; }
+
+      window.initNav && window.initNav();
+      initHeroBg("heroBgImage", "heroBgScrim");
+      loadMessageTemplates();
+      loadClients();
+      loadPendingResources();
+      applyClientsDeepLink();
+    }
+
+    // ── Deep link ──────────────────────────────────────────────────────────
+    //
+    // ?tab=parceiros[&partner=<id>] — the Source row on a client's Overview
+    // links here so "who referred them" taps through to the actual partner.
+    // The roster has no per-partner page of its own, so the link opens the tab
+    // and, when an id is given, that partner's sheet.
+    //
+    // Guarded on role: switchClientsTab('parceiros') calls the admin-only
+    // /api/apex-partners, so a non-admin arriving with the query string stays
+    // on the default tab rather than triggering a 403.
+    function applyClientsDeepLink() {
+      var role = sessionStorage.getItem("apex_role") || "";
+      if (role !== "alice" && role !== "rafa" && role !== "developer") { return; }
+
+      var params = new URLSearchParams(window.location.search || "");
+      if (params.get("tab") !== "parceiros") { return; }
+
+      var partnerId = params.get("partner") || "";
+      var result = switchClientsTab("parceiros");
+      if (!partnerId) { return; }
+
+      // The modal reads from apexPartners, so it can only open once the roster
+      // has actually loaded. A partner deleted since the link was rendered
+      // simply leaves the tab open — openApexPartnerModal would show an empty
+      // sheet, which reads as "new partner" and is worse than nothing.
+      Promise.resolve(result).then(function () {
+        var found = false;
+        apexPartners.forEach(function (p) { if (p.id === partnerId) { found = true; } });
+        if (found) { openApexPartnerModal(partnerId); }
+      }).catch(function () { /* roster failed to load; tab stays open */ });
+    }
+
+    // ── Pending resource sends strip (Resource Hub) ────────────────────────
+
+    var pendingResources = [];
+
+    function loadPendingResources() {
+      apiFetch("/api/client-resources/pending")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          pendingResources = data.pending || [];
+          renderPendingStrip();
+        })
+        .catch(function () {
+          // Strip is supplementary — a load failure must not break the Clients page.
+          document.getElementById("pendingStrip").hidden = true;
+        });
+    }
+
+    function renderPendingStrip() {
+      var strip = document.getElementById("pendingStrip");
+      var rows  = document.getElementById("pendingStripRows");
+      if (!strip || !rows) { return; }
+
+      if (pendingResources.length === 0) {
+        strip.hidden = true;
+        return;
+      }
+
+      var html = "";
+      for (var i = 0; i < pendingResources.length; i++) {
+        var p = pendingResources[i];
+        html +=
+          '<div class="pending-row">' +
+          '<div class="pending-row-info">' +
+          '<div class="pending-row-client">' + escHtml(p.client_name) + '</div>' +
+          '<div class="pending-row-resource">' + escHtml(p.title) + '</div>' +
+          '</div>' +
+          '<span class="pending-category">' + escHtml(p.category) + '</span>' +
+          '<button class="btn-whatsapp-send" onclick="handleSendResource(' + i + ', this)">' +
+          '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>' +
+          '</button>' +
+          '</div>';
+      }
+      rows.innerHTML = html;
+      strip.hidden   = false;
+    }
+
+    // Pre-fetched at page load (see setupPage) so handleSendResource() can
+    // build the wa.me URL and call window.open() synchronously in the click
+    // handler -- any await first risks a blocked popup (see
+    // bugs/apex-whatsapp-popup-blocked.md).
+    var messageTemplates = null;
+
+    function loadMessageTemplates() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          messageTemplates = {};
+          (data.templates || []).forEach(function(t) {
+            messageTemplates[t.template_key] = t.template_text;
+          });
+        })
+        .catch(function() { messageTemplates = null; });
+    }
+
+    // Client-facing WhatsApp message is PT-only (standing project decision).
+    function buildResourceMessage(p) {
+      var introTpl = (messageTemplates && messageTemplates.resource_send) ||
+        t("Olá! Segue uma recomendação da Apex Business & Leadership:", "Hello! Here is a recommendation from Apex Business & Leadership:");
+      var lines = [introTpl, "", p.title];
+      if (p.description) { lines.push(p.description); }
+      if (p.resource_type === "contact") {
+        var parts = [];
+        if (p.contact_name)  { parts.push(p.contact_name); }
+        if (p.contact_phone) { parts.push("Tel: " + p.contact_phone); }
+        if (p.contact_email) { parts.push("Email: " + p.contact_email); }
+        if (parts.length) { lines.push("Contato: " + parts.join(" — ")); }
+      } else if (p.resource_type === "link" && p.url) {
+        lines.push(p.url);
+      } else if (p.resource_type === "file" && p.file_url) {
+        lines.push(WORKER_URL + "/api/resources/" + p.resource_id + "/file");
+      }
+      return lines.join("\n");
+    }
+
+    function handleSendResource(index, btn) {
+      var p = pendingResources[index];
+      if (!p) { return; }
+
+      // window.open must run synchronously in the click handler — any await gap
+      // before it lets the popup blocker fire (confirmed project lesson).
+      var digits = (p.client_whatsapp || p.client_phone || "").replace(/\D/g, "");
+      var waUrl  = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+                   "?text=" + encodeURIComponent(buildResourceMessage(p));
+      var waTab = window.open(waUrl, "_blank");
+      if (!waTab) {
+        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        return;
+      }
+
+      btn.disabled = true;
+      getToken().then(function (token) {
+        return fetch(WORKER_URL + "/api/client-resources/" + encodeURIComponent(p.id) + "/mark-sent", {
+          method:  "POST",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          loadPendingResources();
+        })
+        .catch(function (e) {
+          btn.disabled = false;
+          window.alert("WhatsApp aberto, mas houve erro ao registrar o envio: " + e.message +
+                       " / WhatsApp opened, but recording the send failed: " + e.message);
+        });
+    }
+
+    var allClients = [];
+    var currentClientsTab = "active";
+
+    function loadClients() {
+      apiFetch("/api/clients")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          allClients = data.clients || [];
+          renderTiles(allClients);
+          renderClients(filterClientsForTab(currentClientsTab));
+        })
+        .catch(function (e) {
+          var el = document.getElementById("clientsListContainer");
+          if (el) {
+            el.innerHTML = '<div class="error-msg">Erro ao carregar clientes: ' + escHtml(e.message) + '</div>';
+          }
+        });
+    }
+
+    // ── Lead pipeline ──────────────────────────────────────────────────────
+    // Fixed ladder, mirrors LEAD_STAGES in worker/index.js. Terminal outcomes
+    // are NOT stages — they change clients.status and leave this tab.
+    var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
+    var LEAD_STAGE_FLAGGED = "Raio X recebido";   // the one stage that demands action
+
+    // Past this many LIVE leads the stacked sections become unwieldy and the
+    // layout auto-switches to a chip rail. Terminal records never reach this
+    // tab at all (they change status), so nothing terminal can inflate it.
+    var LEAD_CHIP_RAIL_THRESHOLD = 50;
+
+    // Manual override of the automatic choice, persisted. null = follow the count.
+    function leadLayoutOverride() {
+      try { return window.localStorage.getItem("apexLeadLayout"); } catch (e) { return null; }
+    }
+    function setLeadLayoutOverride(v) {
+      try {
+        if (v === null) { window.localStorage.removeItem("apexLeadLayout"); }
+        else { window.localStorage.setItem("apexLeadLayout", v); }
+      } catch (e) { /* private mode — fall back to the automatic choice */ }
+    }
+
+    function leadStageOf(c) {
+      // NULL lead_stage = a lead created before the pipeline shipped; read as
+      // the first stage rather than backfilled, so "never moved" stays visible.
+      var s = c.lead_stage || "Lead";
+      return LEAD_STAGES.indexOf(s) < 0 ? "Lead" : s;
+    }
+
+    function filterClientsForTab(tab) {
+      return allClients.filter(function (c) {
+        var st = (c.status || "").toLowerCase();
+        if (tab === "leads")        { return st === "lead"; }
+        // Consolidados holds both closed clients and dormant (revisitable) leads.
+        if (tab === "consolidados") { return st === "closed" || st === "lead_dormant"; }
+        return st !== "closed" && st !== "lead" && st !== "lead_dormant";
+      });
+    }
+
+    function switchClientsTab(tab) {
+      currentClientsTab = tab;
+      var btnLeads        = document.getElementById("subtabClientsLeads");
+      var btnActive       = document.getElementById("subtabClientsActive");
+      var btnConsolidados = document.getElementById("subtabClientsConsolidados");
+      var btnParceiros    = document.getElementById("subtabClientsParceiros");
+      if (btnLeads)        { btnLeads.classList.toggle("active", tab === "leads"); }
+      if (btnActive)       { btnActive.classList.toggle("active", tab === "active"); }
+      if (btnConsolidados) { btnConsolidados.classList.toggle("active", tab === "consolidados"); }
+      if (btnParceiros)    { btnParceiros.classList.toggle("active", tab === "parceiros"); }
+
+      // Parceiros is Apex's OWN partner roster, not a filtered view of
+      // clients — the "+ Novo Cliente" button above the list would create the
+      // wrong kind of record here, so it is hidden while this tab is open.
+      var addBtn = document.getElementById("btnAddClient");
+      if (addBtn) { addBtn.hidden = (tab === "parceiros"); }
+
+      if (tab === "parceiros") { return loadApexPartners(); }
+      renderClients(filterClientsForTab(tab));
+    }
+
+    function toggleLeadLayout() {
+      var leads = filterClientsForTab("leads");
+      var auto  = leads.length > LEAD_CHIP_RAIL_THRESHOLD ? "rail" : "stacked";
+      var cur   = leadLayoutOverride() || auto;
+      var next  = cur === "rail" ? "stacked" : "rail";
+      // Clearing the override when it matches the automatic choice again keeps
+      // the layout responsive to future volume changes instead of pinning it.
+      setLeadLayoutOverride(next === auto ? null : next);
+      renderClients(leads);
+    }
+
+    function renderLeadsTab(container, leads) {
+      var auto     = leads.length > LEAD_CHIP_RAIL_THRESHOLD ? "rail" : "stacked";
+      var override = leadLayoutOverride();
+      var layout   = override || auto;
+      var en       = document.body.classList.contains("lang-en");
+
+      container.innerHTML = "";
+
+      var bar = document.createElement("div");
+      bar.className = "lead-layout-bar";
+      var label = document.createElement("span");
+      label.textContent = leads.length + (en ? " leads" : " leads") +
+        (override ? (en ? " · manual view" : " · visão manual") : "");
+      var btn = document.createElement("button");
+      btn.className = "lead-layout-toggle";
+      btn.type = "button";
+      btn.textContent = layout === "rail"
+        ? (en ? "Switch to stacked view" : "Ver em seções")
+        : (en ? "Switch to column view" : "Ver em colunas");
+      btn.onclick = toggleLeadLayout;
+      bar.appendChild(label);
+      bar.appendChild(btn);
+      container.appendChild(bar);
+
+      if (leads.length === 0) {
+        var empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = en ? "No leads yet." : "Nenhum lead ainda.";
+        container.appendChild(empty);
+        return;
+      }
+
+      var byStage = {};
+      for (var s = 0; s < LEAD_STAGES.length; s++) { byStage[LEAD_STAGES[s]] = []; }
+      for (var i = 0; i < leads.length; i++) { byStage[leadStageOf(leads[i])].push(leads[i]); }
+
+      if (layout === "rail") {
+        var rail = document.createElement("div");
+        rail.className = "lead-chip-rail";
+        for (var r = 0; r < LEAD_STAGES.length; r++) {
+          var stage = LEAD_STAGES[r];
+          var col = document.createElement("div");
+          col.className = "lead-chip-col";
+          if (stage === LEAD_STAGE_FLAGGED) { col.setAttribute("data-flagged", "1"); }
+          var ch = document.createElement("div");
+          ch.className = "lead-stage-header";
+          ch.innerHTML = '<span class="lead-stage-name"></span><span class="lead-stage-count"></span>';
+          ch.querySelector(".lead-stage-name").textContent = stage;
+          ch.querySelector(".lead-stage-count").textContent = byStage[stage].length;
+          col.appendChild(ch);
+          for (var q = 0; q < byStage[stage].length; q++) {
+            var chip = document.createElement("a");
+            chip.className = "lead-chip";
+            chip.href = "client.html?id=" + encodeURIComponent(byStage[stage][q].id);
+            chip.textContent = byStage[stage][q].name || "--";
+            col.appendChild(chip);
+          }
+          rail.appendChild(col);
+        }
+        container.appendChild(rail);
+        return;
+      }
+
+      for (var k = 0; k < LEAD_STAGES.length; k++) {
+        var st2 = LEAD_STAGES[k];
+        var sec = document.createElement("div");
+        sec.className = "lead-stage-section";
+        if (st2 === LEAD_STAGE_FLAGGED) { sec.setAttribute("data-flagged", "1"); }
+
+        var head = document.createElement("div");
+        head.className = "lead-stage-header";
+        head.innerHTML = '<span class="lead-stage-name"></span><span class="lead-stage-count"></span>' +
+          (st2 === LEAD_STAGE_FLAGGED ? '<span class="lead-stage-flag"></span>' : "");
+        head.querySelector(".lead-stage-name").textContent = st2;
+        head.querySelector(".lead-stage-count").textContent = byStage[st2].length;
+        if (st2 === LEAD_STAGE_FLAGGED) {
+          head.querySelector(".lead-stage-flag").textContent =
+            en ? "Action needed — schedule" : "Ação necessária — agendar";
+        }
+        sec.appendChild(head);
+
+        if (byStage[st2].length === 0) {
+          var none = document.createElement("div");
+          none.className = "lead-empty";
+          none.textContent = en ? "No leads at this stage." : "Nenhum lead nesta etapa.";
+          sec.appendChild(none);
+        } else {
+          for (var m = 0; m < byStage[st2].length; m++) {
+            var c2 = byStage[st2][m];
+            var row = document.createElement("div");
+            row.className = "lead-row";
+            var a = document.createElement("a");
+            a.className = "lead-row-name";
+            a.href = "client.html?id=" + encodeURIComponent(c2.id);
+            a.textContent = c2.name || "--";
+            row.appendChild(a);
+            if (c2.phone || c2.whatsapp) {
+              var meta = document.createElement("span");
+              meta.className = "lead-row-meta";
+              meta.textContent = c2.whatsapp || c2.phone;
+              row.appendChild(meta);
+            }
+            sec.appendChild(row);
+          }
+        }
+        container.appendChild(sec);
+      }
+    }
+
+    // Consolidados, split in two. Dormant leads come FIRST: they are
+    // revisitable and Rafa works the list to revive them.
+    function renderConsolidadosTab(container, rows) {
+      var en = document.body.classList.contains("lang-en");
+      var dormant = rows.filter(function (c) { return (c.status || "").toLowerCase() === "lead_dormant"; });
+      var closed  = rows.filter(function (c) { return (c.status || "").toLowerCase() === "closed"; });
+
+      container.innerHTML = "";
+
+      var groups = [
+        { rows: dormant,
+          title: en ? "Leads to reactivate" : "Leads para reativar",
+          sub:   en ? "did not move forward yet — worth revisiting"
+                   : "ainda não seguiram adiante — vale revisitar" },
+        { rows: closed,
+          title: en ? "Consolidated clients" : "Clientes consolidados",
+          sub:   "" }
+      ];
+
+      for (var g = 0; g < groups.length; g++) {
+        var grp = document.createElement("div");
+        grp.className = "cons-group";
+        var h = document.createElement("div");
+        h.className = "cons-group-header";
+        h.textContent = groups[g].title + " (" + groups[g].rows.length + ")";
+        if (groups[g].sub) {
+          var sub = document.createElement("span");
+          sub.className = "cons-group-sub";
+          sub.textContent = groups[g].sub;
+          h.appendChild(sub);
+        }
+        grp.appendChild(h);
+        var body = document.createElement("div");
+        grp.appendChild(body);
+        renderClientsTable(body, groups[g].rows);
+        container.appendChild(grp);
+      }
+    }
+
+    function renderTiles(clients) {
+      var activeCount    = 0;
+      var raioXCount     = 0;
+      var sprintCount    = 0;
+      var premiumCount   = 0;
+      var executivoCount = 0;
+
+      for (var i = 0; i < clients.length; i++) {
+        var c = clients[i];
+        if (c.status && c.status.toLowerCase() === "active") { activeCount++; }
+        if (c.package === "Raio-X")    { raioXCount++; }
+        if (c.package === "Sprint")    { sprintCount++; }
+        if (c.package === "Premium")   { premiumCount++; }
+        if (c.package === "Executivo") { executivoCount++; }
+      }
+
+      var elActive    = document.getElementById("statActive");
+      var elRaioX     = document.getElementById("statRaioX");
+      var elSprint    = document.getElementById("statSprint");
+      var elPremium   = document.getElementById("statPremium");
+      var elExecutivo = document.getElementById("statExecutivo");
+
+      if (elActive)    { elActive.textContent    = activeCount; }
+      if (elRaioX)     { elRaioX.textContent     = raioXCount; }
+      if (elSprint)    { elSprint.textContent    = sprintCount; }
+      if (elPremium)   { elPremium.textContent   = premiumCount; }
+      if (elExecutivo) { elExecutivo.textContent = executivoCount; }
+    }
+
+    function renderClients(clients) {
+      var container = document.getElementById("clientsListContainer");
+      if (!container) { return; }
+      if (currentClientsTab === "leads")        { return renderLeadsTab(container, clients); }
+      if (currentClientsTab === "consolidados") { return renderConsolidadosTab(container, clients); }
+      renderClientsTable(container, clients);
+    }
+
+    // ══ APEX'S OWN REFERRAL PARTNERS ═════════════════════════════════════════
+    // Who sends coaching clients TO Apex. NOT a client's gm_partners (that is
+    // one tier below, in the portal). Apex-internal: PT/EN follows the rest of
+    // this admin page, always Apex's own black-and-gold, no per-partner
+    // branding — those are all client-tier concerns that do not apply here.
+    //
+    // Visual language is Task 2's partner redesign, reused via the .ap-*
+    // family: cards with the numbers that matter at full weight, then grouped
+    // icon rows in the detail view.
+
+    var apexPartners = [];
+    var apexPartnerStatuses = ["Prospectando", "Ativo", "Inativo"];
+    var apexOpenPartnerId = null;
+
+    // Same inline-SVG approach as gm.js — real stroked paths, never glyphs.
+    var AP_ICONS = {
+      person:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/>',
+      calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+      check:    '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+      link:     '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+      copy:     '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    };
+    function apIcon(name) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+        'stroke-linecap="round" stroke-linejoin="round">' + (AP_ICONS[name] || "") + "</svg>";
+    }
+
+    // apiFetch() here is GET-only; writes need their own body-carrying call.
+    function apexApi(path, method, body) {
+      return getToken().then(function (token) {
+        var opts = {
+          method: method || "GET",
+          headers: { "Authorization": "Bearer " + token }
+        };
+        if (body) {
+          opts.headers["Content-Type"] = "application/json";
+          opts.body = JSON.stringify(body);
+        }
+        return fetch(WORKER_URL + path, opts);
+      }).then(function (res) {
+        return res.json().then(function (d) {
+          if (!res.ok || d.error) { throw new Error(d.error || "HTTP " + res.status); }
+          return d;
+        });
+      });
+    }
+
+    function loadApexPartners() {
+      var container = document.getElementById("clientsListContainer");
+      if (!container) { return; }
+      var en = document.body.classList.contains("lang-en");
+      container.innerHTML = '<div class="empty-state">' + (en ? "Loading…" : "Carregando…") + "</div>";
+      return apexApi("/api/apex-partners")
+        .then(function (d) {
+          apexPartners = d.partners || [];
+          if (d.statuses && d.statuses.length) { apexPartnerStatuses = d.statuses; }
+          renderApexPartners();
+        })
+        .catch(function (e) {
+          container.innerHTML = '<div class="empty-state">' + escHtml(e.message) + "</div>";
+        });
+    }
+
+    function apexStatusClass(status) {
+      if (status === "Ativo")    { return "ap-pill-green"; }
+      if (status === "Inativo")  { return "ap-pill-muted"; }
+      return "ap-pill-gold";
+    }
+
+    function renderApexPartners() {
+      var container = document.getElementById("clientsListContainer");
+      var en = document.body.classList.contains("lang-en");
+
+      var html = '<p class="ap-intro">' +
+        (en
+          ? "Apex's own referral partners — people and businesses who send clients to Apex. A referral through a partner's link lands directly in the Leads pipeline, already attributed."
+          : "Os parceiros de indicação da própria Apex — pessoas e empresas que indicam clientes para a Apex. Uma indicação pelo link do parceiro cai direto no pipeline de Leads, já atribuída.") +
+        "</p>";
+
+      html += '<button type="button" class="ap-add" onclick="openApexPartnerModal(null)">' +
+        (en ? "+ New partner" : "+ Novo parceiro") + "</button>";
+
+      if (!apexPartners.length) {
+        html += '<div class="empty-state">' +
+          (en ? "No partners yet." : "Nenhum parceiro cadastrado ainda.") + "</div>";
+        container.innerHTML = html;
+        return;
+      }
+
+      apexPartners.forEach(function (p) {
+        var indicados  = p.clientes_indicados || 0;
+        var convertidos = p.clientes_convertidos || 0;
+        html += '<div class="ap-card">' +
+          '<div class="ap-card-top">' +
+            '<div style="min-width:0;">' +
+              '<div class="ap-card-name">' + escHtml(p.name) + "</div>" +
+              (p.tipo ? '<div class="ap-card-type">' + escHtml(p.tipo) + "</div>" : "") +
+            "</div>" +
+            '<span class="ap-pill ' + apexStatusClass(p.status) + '">' + escHtml(p.status) + "</span>" +
+          "</div>" +
+          '<div class="ap-stats">' +
+            '<div class="ap-stat">' +
+              '<div class="ap-stat-label">' + (en ? "Clients referred" : "Clientes indicados") + "</div>" +
+              '<div class="ap-stat-value' + (indicados ? "" : " ap-zero") + '">' + indicados + "</div>" +
+            "</div>" +
+            '<div class="ap-stat">' +
+              '<div class="ap-stat-label">' + (en ? "Became clients" : "Viraram clientes") + "</div>" +
+              '<div class="ap-stat-value' + (convertidos ? "" : " ap-zero") + '">' + convertidos + "</div>" +
+            "</div>" +
+          "</div>" +
+          '<div class="ap-rows">' +
+            apexRowHtml("person", en ? "Contact" : "Contato", p.contato) +
+            apexRowHtml("calendar", en ? "Last interaction" : "Última interação", p.ultima_interacao) +
+            apexRowHtml("check", en ? "Next action" : "Próxima ação", p.proxima_acao) +
+          "</div>" +
+          '<div class="ap-actions">' +
+            '<button type="button" class="ap-btn" onclick="openApexPartnerModal(\'' + escHtml(p.id) + '\')">' +
+              (en ? "Edit" : "Editar") + "</button>" +
+            (p.referral_slug
+              ? '<button type="button" class="ap-btn" onclick="copyApexReferral(\'' + escHtml(p.referral_slug) + '\')">' +
+                  apIcon("copy") + (en ? "Copy referral link" : "Copiar link de indicação") + "</button>"
+              : "") +
+          "</div>" +
+          "</div>";
+      });
+
+      container.innerHTML = html;
+    }
+
+    function apexRowHtml(icon, label, value) {
+      var en = document.body.classList.contains("lang-en");
+      return '<div class="ap-row">' +
+        '<span class="ap-row-icon">' + apIcon(icon) + "</span>" +
+        '<span class="ap-row-body">' +
+          '<span class="ap-row-label">' + escHtml(label) + "</span>" +
+          '<span class="ap-row-value' + (value ? "" : " ap-empty") + '">' +
+            escHtml(value || (en ? "Not set" : "Não preenchido")) + "</span>" +
+        "</span></div>";
+    }
+
+    function apexReferralUrl(slug) {
+      return window.location.origin + "/apex-referral.html?p=" + slug;
+    }
+
+    function copyApexReferral(slug) {
+      var url = apexReferralUrl(slug);
+      var en = document.body.classList.contains("lang-en");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url)
+          .then(function () { window.alert(en ? "Link copied." : "Link copiado."); })
+          .catch(function () { window.prompt(en ? "Copy the link:" : "Copie o link:", url); });
+      } else {
+        window.prompt(en ? "Copy the link:" : "Copie o link:", url);
+      }
+    }
+
+    function openApexPartnerModal(id) {
+      apexOpenPartnerId = id;
+      var p = null;
+      if (id) {
+        apexPartners.forEach(function (x) { if (x.id === id) { p = x; } });
+      }
+      document.getElementById("apName").value    = p ? (p.name || "") : "";
+      document.getElementById("apTipo").value    = p ? (p.tipo || "") : "";
+      document.getElementById("apContato").value = p ? (p.contato || "") : "";
+      document.getElementById("apUltima").value  = p ? (p.ultima_interacao || "") : "";
+      document.getElementById("apProxima").value = p ? (p.proxima_acao || "") : "";
+
+      var sel = document.getElementById("apStatus");
+      sel.innerHTML = apexPartnerStatuses.map(function (s) {
+        return '<option value="' + escHtml(s) + '">' + escHtml(s) + "</option>";
+      }).join("");
+      sel.value = p ? (p.status || "Prospectando") : "Prospectando";
+
+      document.getElementById("apStatusMsg").textContent = "";
+      document.getElementById("apDelete").hidden = !id;
+      document.getElementById("modalApexPartner").hidden = false;
+    }
+
+    function saveApexPartner() {
+      var msg = document.getElementById("apStatusMsg");
+      var en = document.body.classList.contains("lang-en");
+      var name = document.getElementById("apName").value.trim();
+      if (!name) {
+        msg.textContent = en ? "Name is required." : "O nome é obrigatório.";
+        return;
+      }
+      msg.textContent = en ? "Saving…" : "Salvando…";
+      var body = {
+        name: name,
+        tipo: document.getElementById("apTipo").value.trim() || null,
+        contato: document.getElementById("apContato").value.trim() || null,
+        status: document.getElementById("apStatus").value,
+        ultima_interacao: document.getElementById("apUltima").value || null,
+        proxima_acao: document.getElementById("apProxima").value.trim() || null
+      };
+      var req = apexOpenPartnerId
+        ? apexApi("/api/apex-partners/" + apexOpenPartnerId, "PUT", body)
+        : apexApi("/api/apex-partners", "POST", body);
+      req.then(function () {
+          document.getElementById("modalApexPartner").hidden = true;
+          return loadApexPartners();
+        })
+        .catch(function (e) { msg.textContent = e.message; });
+    }
+
+    function deleteApexPartner() {
+      if (!apexOpenPartnerId) { return; }
+      var en = document.body.classList.contains("lang-en");
+      // Leads this partner referred are NOT deleted server-side — only their
+      // attribution is cleared. Say so, so the confirm is an informed one.
+      if (!window.confirm(en
+        ? "Remove this partner? Leads they referred stay in the pipeline, but lose their attribution."
+        : "Remover este parceiro? Os leads indicados por ele continuam no pipeline, mas perdem a atribuição.")) { return; }
+      apexApi("/api/apex-partners/" + apexOpenPartnerId, "DELETE")
+        .then(function () {
+          document.getElementById("modalApexPartner").hidden = true;
+          return loadApexPartners();
+        })
+        .catch(function (e) { document.getElementById("apStatusMsg").textContent = e.message; });
+    }
+
+    function renderClientsTable(container, clients) {
+      if (!container) { return; }
+
+      if (clients.length === 0) {
+        container.innerHTML =
+          '<div class="empty-state"><span class="show-pt">Nenhum cliente encontrado.</span>' +
+          '<span class="show-en">No clients found.</span></div>';
+        return;
+      }
+
+      var table = document.createElement("table");
+      table.className = "clients-table mc-table";
+
+      var thead = document.createElement("thead");
+      thead.innerHTML =
+        "<tr>" +
+          '<th><span class="show-pt">Nome</span><span class="show-en">Name</span></th>' +
+          '<th><span class="show-pt">Pacote</span><span class="show-en">Package</span></th>' +
+          '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>' +
+        "</tr>";
+      table.appendChild(thead);
+
+      var tbody = document.createElement("tbody");
+      for (var i = 0; i < clients.length; i++) {
+        (function (c) {
+          var tr = document.createElement("tr");
+          var profileUrl = "client.html?id=" + encodeURIComponent(c.id);
+          // Mobile: the whole card is one tap target for the profile.
+          // Taps on links/buttons inside the card keep their own behavior.
+          tr.setAttribute("data-mc-href", profileUrl);
+          tr.addEventListener("click", function (ev) {
+            if (!window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) { return; }
+            var t = ev.target;
+            while (t && t !== tr) {
+              if (t.tagName === "A" || t.tagName === "BUTTON") { return; }
+              t = t.parentNode;
+            }
+            window.location.href = profileUrl;
+          });
+
+          var tdName = document.createElement("td");
+          tdName.className = "mc-head";
+          var link   = document.createElement("a");
+          link.className   = "client-name-link";
+          link.href        = "client.html?id=" + encodeURIComponent(c.id);
+          link.textContent = c.name || "--";
+          tdName.appendChild(link);
+          tr.appendChild(tdName);
+
+          var tdPkg = document.createElement("td");
+          tdPkg.className = "mc-field";
+          tdPkg.setAttribute("data-label-pt", "Pacote");
+          tdPkg.setAttribute("data-label-en", "Package");
+          if (c.package) {
+            var pkgEl = document.createElement("span");
+            pkgEl.className   = "package-lozenge";
+            pkgEl.textContent = c.package;
+            tdPkg.appendChild(pkgEl);
+          } else {
+            tdPkg.textContent  = "--";
+            tdPkg.style.color  = "var(--muted)";
+          }
+          tr.appendChild(tdPkg);
+
+          var tdStatus = document.createElement("td");
+          tdStatus.className = "mc-field";
+          tdStatus.setAttribute("data-label-pt", "Status");
+          tdStatus.setAttribute("data-label-en", "Status");
+          var statusEl = document.createElement("span");
+          statusEl.className = "status-lozenge";
+          statusEl.setAttribute("data-status", (c.status || "active").toLowerCase());
+          tdStatus.appendChild(statusEl);
+          tr.appendChild(tdStatus);
+
+          tbody.appendChild(tr);
+        })(clients[i]);
+      }
+
+      table.appendChild(tbody);
+      container.innerHTML = "";
+      container.appendChild(table);
+    }
+
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    var newClientPackagesLoaded = false;
+    function loadNewClientPackageOptions() {
+      if (newClientPackagesLoaded) { return; }
+      var sel = document.getElementById("ncPackage");
+      if (!sel) { return; }
+      apiFetch("/api/settings/packages")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var pkgs = data.packages || [];
+          if (pkgs.length === 0) { return; }
+          newClientPackagesLoaded = true;
+          var newPkgs = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
+          var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
+          var html = '<option value="" data-opt-pt="-- Pacote" data-opt-en="Package --">-- Pacote</option>';
+          for (var i = 0; i < newPkgs.length; i++) {
+            html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' + escHtml(newPkgs[i].short_name) + '</option>';
+          }
+          if (newPkgs.length > 0 && legacyPkgs.length > 0) {
+            html += '<option value="" disabled data-opt-pt="----- Legacy" data-opt-en="Legado -----">----- Legacy</option>';
+          }
+          for (var j = 0; j < legacyPkgs.length; j++) {
+            html += '<option value="' + escHtml(legacyPkgs[j].short_name) + '">' + escHtml(legacyPkgs[j].short_name) + '</option>';
+          }
+          sel.innerHTML = html;
+        })
+        .catch(function() { /* fail silently to the static fallback options already in the DOM */ });
+    }
+
+    function openNewClientModal() {
+      loadNewClientPackageOptions();
+      var ids = ["ncName","ncIndustry","ncLocation","nc1Name","nc1Role","nc1Phone","nc1Email","nc2Name","nc2Role","nc2Phone","nc2Email"];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) { el.value = ""; }
+      }
+      var ncPackageEl  = document.getElementById("ncPackage");
+      var ncStatusEl   = document.getElementById("ncStatus");
+      var ncStatus2El  = document.getElementById("ncStatus2");
+      var ncSaveBtn    = document.getElementById("btnSaveNewClient");
+      var nc2WrapEl    = document.getElementById("nc2Wrap");
+      var nc2BtnEl     = document.getElementById("btnAddSecondContact");
+      var modalEl      = document.getElementById("modalNewClient");
+
+      if (ncPackageEl)  { ncPackageEl.value   = ""; }
+      if (ncStatusEl)   { ncStatusEl.value    = "active"; }
+      if (ncStatus2El)  { ncStatus2El.textContent = ""; ncStatus2El.className = "form-status"; }
+      if (ncSaveBtn)    { ncSaveBtn.disabled   = false; }
+      if (nc2WrapEl)    { nc2WrapEl.style.display = "none"; }
+      if (nc2BtnEl)     { nc2BtnEl.style.display  = ""; }
+      if (modalEl)      { modalEl.hidden        = false; }
+    }
+
+    function toggleSecondContact() {
+      var wrap = document.getElementById("nc2Wrap");
+      var btn  = document.getElementById("btnAddSecondContact");
+      if (!wrap || !btn) { return; }
+      if (wrap.style.display === "none") {
+        wrap.style.display = "";
+        btn.style.display  = "none";
+      }
+    }
+
+    function buildContactFromFields(nameId, roleId, phoneId, emailId) {
+      var name  = (document.getElementById(nameId)  ? document.getElementById(nameId).value  : "").trim();
+      var role  = (document.getElementById(roleId)  ? document.getElementById(roleId).value  : "").trim();
+      var phone = (document.getElementById(phoneId) ? document.getElementById(phoneId).value : "").trim();
+      var email = (document.getElementById(emailId) ? document.getElementById(emailId).value : "").trim();
+      if (!name && !phone && !email) { return null; }
+      return {
+        name:     name  || null,
+        role:     role  || null,
+        phone:    phone || null,
+        whatsapp: null,
+        email:    email || null
+      };
+    }
+
+    function handleSaveNewClient() {
+      var ncNameEl    = document.getElementById("ncName");
+      var ncStatus2El = document.getElementById("ncStatus2");
+      var ncSaveBtn   = document.getElementById("btnSaveNewClient");
+
+      if (!ncNameEl || !ncStatus2El || !ncSaveBtn) { return; }
+
+      var name = (ncNameEl.value || "").trim();
+
+      if (!name) {
+        ncStatus2El.textContent = "Nome e obrigatorio. / Name is required.";
+        ncStatus2El.className   = "form-status is-error";
+        return;
+      }
+
+      ncSaveBtn.disabled       = true;
+      ncStatus2El.textContent  = "Salvando...";
+      ncStatus2El.className    = "form-status";
+
+      var contacts = [];
+      var c1 = buildContactFromFields("nc1Name", "nc1Role", "nc1Phone", "nc1Email");
+      if (c1) { contacts.push(c1); }
+      var c2 = buildContactFromFields("nc2Name", "nc2Role", "nc2Phone", "nc2Email");
+      if (c2) { contacts.push(c2); }
+
+      var ncIndustryEl = document.getElementById("ncIndustry");
+      var ncLocationEl = document.getElementById("ncLocation");
+      var ncPackageEl  = document.getElementById("ncPackage");
+      var ncStatusEl   = document.getElementById("ncStatus");
+
+      var payload = {
+        name:     name,
+        industry: (ncIndustryEl ? (ncIndustryEl.value || "").trim() : null) || null,
+        location: (ncLocationEl ? (ncLocationEl.value || "").trim() : null) || null,
+        package:  (ncPackageEl  ? ncPackageEl.value  : null) || null,
+        status:   (ncStatusEl   ? ncStatusEl.value   : "active") || "active",
+        contacts: contacts.length > 0 ? JSON.stringify(contacts) : null
+      };
+
+      getToken().then(function (token) {
+        return fetch(WORKER_URL + "/api/clients", {
+          method:  "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body:    JSON.stringify(payload)
+        });
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          if (data.zoho_warning) { window.alert(data.zoho_warning); }
+          var newClientSuffix = payload.package ? "&newpkg=1" : "";
+          window.location.href = "client.html?id=" + encodeURIComponent(data.client_id) + newClientSuffix;
+        })
+        .catch(function (e) {
+          if (ncSaveBtn)   { ncSaveBtn.disabled    = false; }
+          if (ncStatus2El) { ncStatus2El.textContent = "Erro: " + e.message; ncStatus2El.className = "form-status is-error"; }
+        });
+    }
+
+    document.addEventListener("click", function (e) {
+      var m = document.getElementById("modalNewClient");
+      if (m && !m.hidden && e.target === m) { m.hidden = true; }
+    });
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function (user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                window.location.href = "index.html";
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function () {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    window.onload = function () { init(); };
+  
+    // ── Bilingual attributes ──────────────────────────────────────────────
+    // placeholder, title and <option> text cannot hold .show-pt/.show-en
+    // spans, so they carry both languages as data attributes and are swapped
+    // here — on load and on every apex:langchange.
+    function applyPageBilingualAttrs() {
+      var en = window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+      var ph = document.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < ph.length; i++) {
+        ph[i].setAttribute("placeholder", ph[i].getAttribute(en ? "data-ph-en" : "data-ph-pt"));
+      }
+      var op = document.querySelectorAll("[data-opt-pt][data-opt-en]");
+      for (var j = 0; j < op.length; j++) {
+        op[j].textContent = op[j].getAttribute(en ? "data-opt-en" : "data-opt-pt");
+      }
+      var ti = document.querySelectorAll("[data-title-attr-pt][data-title-attr-en]");
+      for (var k = 0; k < ti.length; k++) {
+        ti[k].setAttribute("title", ti[k].getAttribute(en ? "data-title-attr-en" : "data-title-attr-pt"));
+      }
+    }
+    document.addEventListener("apex:langchange", applyPageBilingualAttrs);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyPageBilingualAttrs);
+    } else { applyPageBilingualAttrs(); }
+  </script>
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

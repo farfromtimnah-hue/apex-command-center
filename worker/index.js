@@ -19338,6 +19338,20 @@ async function buildApexClubEventPL(env, event) {
         }
     });
 
+    // Rows she already ruled OUT of this event. The suggester rebuilds its
+    // candidate list from the rule on every load, so without a stored no the
+    // same not-a-dinner-ticket $50 comes back forever and the only button on
+    // the row is "Belongs here". Returned to the UI too, so a dismissal is
+    // visibly undoable rather than something that silently vanished.
+    var dismissedRes = await env.DB.prepare(
+        "SELECT d.transaction_id, t.amount_cents, t.date, t.description, t.memo " +
+        "FROM apex_club_event_dismissed d JOIN transactions t ON t.id = d.transaction_id " +
+        "WHERE d.event_id = ? ORDER BY t.date"
+    ).bind(event.id).all();
+    var dismissed = dismissedRes.results || [];
+    var dismissedIds = {};
+    dismissed.forEach(function(r) { dismissedIds[r.transaction_id] = true; });
+
     // Candidates in the window that she has NOT ruled on yet.
     var candRes = await env.DB.prepare(
         "SELECT t.id, t.amount_cents, t.date, t.description, t.memo, t.merchant_normalized " +
@@ -19349,6 +19363,7 @@ async function buildApexClubEventPL(env, event) {
     var suggestions = [];
     (candRes.results || []).forEach(function(t) {
         if (confirmedIds[t.id]) { return; }
+        if (dismissedIds[t.id]) { return; }
 
         var memoHit = apexClubMemoHit(t.memo) || apexClubMemoHit(t.description);
 
@@ -19417,7 +19432,11 @@ async function buildApexClubEventPL(env, event) {
             net_cents: projIncome - projExpense,
             people: projPeople
         },
-        suggestions: suggestions
+        suggestions: suggestions,
+        // Not part of the P&L in any direction -- these are transactions that
+        // are simply not this event, still uncategorized, still waiting to be
+        // filed somewhere else. Shipped so the UI can offer "show / undo".
+        dismissed: dismissed
     };
 }
 
@@ -19486,10 +19505,49 @@ async function handlePostFinanceNewClubConfirm(request, env) {
         if (!body.event_id) { return jsonErr("event_id required", 400); }
         var items = Array.isArray(body.items) ? body.items : [];
 
-        var added = 0, removed = 0;
+        var added = 0, removed = 0, dismissed = 0, restored = 0;
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
             if (!it.transaction_id) { continue; }
+
+            // "Not this event" -- the answer that had no button. Records the
+            // no so the rule stops re-proposing it, and drops any existing
+            // confirmation, since saying it does not belong here also means
+            // it should stop counting toward the P&L.
+            if (it.dismiss) {
+                await env.DB.prepare(
+                    "DELETE FROM apex_club_event_txns WHERE event_id = ? AND transaction_id = ?"
+                ).bind(body.event_id, it.transaction_id).run();
+                await env.DB.prepare(
+                    "INSERT INTO apex_club_event_dismissed (event_id, transaction_id, dismissed_by) " +
+                    "VALUES (?, ?, ?) ON CONFLICT(event_id, transaction_id) DO NOTHING"
+                ).bind(body.event_id, it.transaction_id, actorName(user)).run();
+
+                // If a previous confirmation had filed this under Apex Club,
+                // that categorization is now wrong -- it was derived from a
+                // membership she just took back. Clear it so the transaction
+                // returns to Categorias to be filed where it really belongs.
+                // Anything she categorized by hand is left alone.
+                await env.DB.prepare(
+                    "UPDATE transactions SET category_id = NULL, category_source = NULL, " +
+                    "categorized_at = NULL " +
+                    "WHERE id = ? AND COALESCE(category_source, '') != 'manual' " +
+                    "AND category_id IN ('cat_apex_club_receita', 'cat_apex_club_despesa')"
+                ).bind(it.transaction_id).run();
+
+                dismissed++;
+                continue;
+            }
+
+            // Undo a dismissal: the row goes back to being an ordinary
+            // candidate and the rule decides again on the next build.
+            if (it.undismiss) {
+                await env.DB.prepare(
+                    "DELETE FROM apex_club_event_dismissed WHERE event_id = ? AND transaction_id = ?"
+                ).bind(body.event_id, it.transaction_id).run();
+                restored++;
+                continue;
+            }
 
             if (it.remove) {
                 await env.DB.prepare(
@@ -19498,6 +19556,12 @@ async function handlePostFinanceNewClubConfirm(request, env) {
                 removed++;
                 continue;
             }
+
+            // Confirming clears any earlier no on the same row, or the
+            // dismissal filter would immediately hide what she just accepted.
+            await env.DB.prepare(
+                "DELETE FROM apex_club_event_dismissed WHERE event_id = ? AND transaction_id = ?"
+            ).bind(body.event_id, it.transaction_id).run();
 
             await env.DB.prepare(
                 "INSERT INTO apex_club_event_txns (event_id, transaction_id, side, people, confirmed_by) " +
@@ -19531,6 +19595,8 @@ async function handlePostFinanceNewClubConfirm(request, env) {
         var pl = await buildApexClubEventPL(env, row);
         pl.added = added;
         pl.removed = removed;
+        pl.dismissed_count = dismissed;
+        pl.restored = restored;
         return jsonOk(pl);
     } catch (e) {
         return jsonErr("Error confirming event transactions: " + e.message, 500);

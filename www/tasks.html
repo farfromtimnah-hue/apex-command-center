@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <script src="native-bridge.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
+  <title data-title-pt="Apex — Tarefas" data-title-en="Apex &#8212; Tasks">Apex — Tarefas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Bilingual toggle ──────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .logo-img { height: 32px; width: auto; display: block; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Tasks hero section ─────────────────────────────────────────────── */
+    .tasks-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #tasksHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #tasksHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #tasksHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .tasks-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ─── Page header row ────────────────────────────────────────────────── */
+    .page-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── Help requests (same-day, always visible) ──────────────────────── */
+    .help-requests-section {
+      margin-bottom: 18px;
+    }
+
+    .help-requests-heading {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: #e8c96a;
+      margin-bottom: 8px;
+    }
+
+    #helpRequestsContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .task-row.help-request {
+      border-left: 3px solid #b44040;
+    }
+
+    /* ─── Role tabs (Consultant / Client) — hero dark bg ────────────────── */
+    .role-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid rgba(255,255,255,0.15);
+    }
+
+    .role-tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      padding: 10px 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+
+    .role-tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--gold);
+    }
+
+    .role-tab-btn:not(.active):hover {
+      color: rgba(255,255,255,0.85);
+    }
+
+    .role-tab-count {
+      display: inline-block;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      margin-left: 6px;
+      color: rgba(255,255,255,0.65);
+      vertical-align: middle;
+    }
+
+    .role-tab-btn.active .role-tab-count {
+      background: rgba(201,164,58,0.3);
+      border-color: rgba(201,164,58,0.5);
+      color: #e8c96a;
+    }
+
+    /* ─── Controls bar (sort + done count) ──────────────────────────────── */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── View toggle pills — hero dark bg ──────────────────────────────── */
+    .view-toggle {
+      display: flex;
+      gap: 0;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+    }
+
+    .view-toggle-btn {
+      background: transparent;
+      border: none;
+      padding: 7px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+
+    .view-toggle-btn + .view-toggle-btn {
+      border-left: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .view-toggle-btn.active {
+      background: var(--gold);
+      color: #000;
+    }
+
+    .view-toggle-btn:not(.active):hover {
+      color: #fff;
+    }
+
+    /* ─── Done counter chip ──────────────────────────────────────────────── */
+    .done-chip {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+    }
+
+    /* ─── Client filter — hero dark bg ──────────────────────────────────── */
+    .client-filter-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      white-space: nowrap;
+    }
+
+    /* ─── Below hero section ─────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ─── Task cards container ───────────────────────────────────────────── */
+    #tasksContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ─── Group heading (by-type view) ──────────────────────────────────── */
+    .group-heading {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 16px 0 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    .group-heading:first-child {
+      padding-top: 0;
+    }
+
+    /* ─── Task row ───────────────────────────────────────────────────────── */
+    .task-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      transition: border-color 0.12s, opacity 0.15s;
+    }
+
+    .task-row:hover {
+      border-color: rgba(201,164,58,0.5);
+    }
+
+    /* .task-row.done intentionally removed — done tasks leave the tab entirely */
+
+    /* ─── Checkbox toggle ────────────────────────────────────────────────── */
+    .task-check {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.12s, background 0.12s;
+      padding: 0;
+    }
+
+    .task-check:hover {
+      border-color: var(--gold);
+    }
+
+    .task-check.checked {
+      border-color: #888;
+      background: #888;
+    }
+
+    .task-check.checked::after {
+      content: "";
+      display: block;
+      width: 5px;
+      height: 9px;
+      border: 1.5px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
+
+    .task-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-text {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .task-client {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brown);
+      text-decoration: none;
+    }
+    .task-client:hover { text-decoration: underline; }
+
+    .task-session-date {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .task-due {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 2px 7px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .task-due.overdue {
+      color: #b44040;
+      border-color: rgba(180,64,64,0.3);
+      background: #fff0f0;
+    }
+
+    .task-type-tag {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .task-type-tag.rafa   { color: var(--brown); border-color: rgba(201,164,58,0.4); background: var(--gold-dim); }
+    .task-type-tag.client { color: #3a5f9a; border-color: rgba(58,95,154,0.3); background: rgba(58,95,154,0.08); }
+
+    /* ─── Empty state ────────────────────────────────────────────────────── */
+    .tasks-empty {
+      padding: 52px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tasks-empty-icon {
+      font-size: 36px;
+      opacity: 0.5;
+    }
+
+    /* ─── Session source note (footer-style) ────────────────────────────── */
+    .tasks-footer-note {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+
+    /* ─── Overdue section (in-tab) ──────────────────────────────────────── */
+    .overdue-section-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #b44040;
+      padding: 14px 0 6px;
+      border-bottom: 1px solid rgba(180,64,64,0.25);
+      margin-bottom: 4px;
+    }
+
+    .overdue-section-header:first-child {
+      padding-top: 0;
+    }
+
+    /* ─── Done section headers (inside Done tab) ─────────────────────────── */
+    .done-section-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 14px 0 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    .done-section-header:first-child {
+      padding-top: 0;
+    }
+
+    /* ─── Client filter row ─────────────────────────────────────────────── */
+    .client-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .client-filter-select {
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: #fff;
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      max-width: 200px;
+    }
+    .client-filter-select:focus { border-color: var(--gold); }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .tasks-hero-section { padding: 16px; }
+      .below-hero-section { padding: 16px; }
+      .glass-tile { min-width: 100px; padding: 12px 14px; }
+      .glass-tile-value { font-size: 22px; }
+      .task-meta { gap: 6px; }
+      .overdue-row { gap: 6px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #tasksHeroBg.is-loaded { animation: none; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- Hero section with background photo, glass tiles, and header controls -->
+    <div class="tasks-hero-section">
+      <div id="tasksHeroBg" aria-hidden="true"></div>
+      <div id="tasksHeroScrim" aria-hidden="true"></div>
+      <div class="tasks-hero-content">
+
+        <!-- Glass stat tiles -->
+        <div class="glass-tile-row">
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TAREFAS DO CONSULTOR</span>
+              <span class="show-en">CONSULTANT TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileConsultant">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TAREFAS DO CLIENTE</span>
+              <span class="show-en">CLIENT TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileClient">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">ATRASADAS</span>
+              <span class="show-en">OVERDUE</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileOverdue">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">CONCLUIDAS</span>
+              <span class="show-en">COMPLETED</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileCompleted">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TOTAL DE TAREFAS</span>
+              <span class="show-en">TOTAL TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileTotal">--</div>
+          </div>
+        </div>
+
+        <!-- Page heading -->
+        <div class="page-header-row">
+          <h1 class="page-heading-hero">
+            <span class="show-pt">Tarefas</span>
+            <span class="show-en">Tasks</span>
+          </h1>
+        </div>
+
+        <!-- Help requests: same-day, always visible, separate from the tabs below -->
+        <div id="helpRequestsSection" class="help-requests-section" hidden>
+          <div class="help-requests-heading">
+            <span class="show-pt">Pedidos de Ajuda — Hoje</span>
+            <span class="show-en">Help Requests — Today</span>
+          </div>
+          <div id="helpRequestsContainer"><!-- Rendered by JS --></div>
+        </div>
+
+        <!-- Role tabs -->
+        <div class="role-tabs">
+          <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
+            <span class="show-pt">Consultor</span>
+            <span class="show-en">Consultant</span>
+            <span class="role-tab-count" id="tabCountConsultant">0</span>
+          </button>
+          <button class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
+            <span class="role-tab-count" id="tabCountClient">0</span>
+          </button>
+          <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
+            <span class="show-pt">Concluidas</span>
+            <span class="show-en">Done</span>
+            <span class="role-tab-count" id="tabCountDone">0</span>
+          </button>
+        </div>
+
+        <!-- Client filter -->
+        <div class="client-filter-row">
+          <span class="client-filter-label show-pt">Cliente:</span>
+          <span class="client-filter-label show-en">Client:</span>
+          <select class="client-filter-select" id="clientFilterSelect" onchange="onClientFilterChange()">
+            <option value="">Todos os Clientes / All Clients</option>
+          </select>
+        </div>
+
+        <!-- Sort controls + done chip -->
+        <div class="controls-bar">
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" id="btnViewDate" onclick="setTaskView('date')">
+              <span class="show-pt">Por Data</span>
+              <span class="show-en">By Date</span>
+            </button>
+            <button class="view-toggle-btn" id="btnViewType" onclick="setTaskView('type')">
+              <span class="show-pt">Por Tipo</span>
+              <span class="show-en">By Type</span>
+            </button>
+          </div>
+          <span class="done-chip" id="doneChip"></span>
+        </div>
+
+      </div><!-- /tasks-hero-content -->
+    </div><!-- /tasks-hero-section -->
+
+    <!-- Below hero: task rows -->
+    <div class="below-hero-section">
+      <div id="tasksContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+  </main><!-- /appMain -->
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
+  <script>
+    // ── Configuration ──────────────────────────────────────────────────────
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth         = null;
+    var currentUser  = null;
+    var taskView     = "date";         // "date" | "type"
+    var tabRole      = "consultant";   // "consultant" | "client" | "done"
+    var clientFilter = "";             // "" = all clients, otherwise clientName string
+    var overdueOnly  = false;          // true when arrived via ?overdue=1 (dashboard tile deep link)
+    var allTasks     = [];             // all derived task rows (both tabs)
+    var completedMap = {};             // taskKey → true/false; keyed per session
+
+    // ── Month abbrev map for parsing "DD Mon" due strings ─────────────────
+    // "fev"/"feb" mapped to 0 here, so February parsed as January. With the
+    // six-months-ago rollover in parseDueDate() that pushed February tasks a
+    // full year forward, where they never read as overdue. Kept in sync with
+    // MONTH_MAP in scripts/task-unification/derive.mjs.
+    var MONTH_MAP = {
+      "jan": 0, "fev": 1, "feb": 1,
+      "mar": 2,
+      "abr": 3, "apr": 3,
+      "mai": 4, "may": 4,
+      "jun": 5,
+      "jul": 6,
+      "ago": 7, "aug": 7,
+      "set": 8, "sep": 8,
+      "out": 9, "oct": 9,
+      "nov": 10,
+      "dez": 11, "dec": 11
+    };
+
+    // ── Completion persistence ────────────────────────────────────────────
+    // Completion now lives in the `tasks` table and is loaded per-request in
+    // rowsToTasks(). The old localStorage cache is deliberately no longer read
+    // or written: it was keyed by the "{sessionId}_{type}_{index}" derivation
+    // keys, so it would both mis-key against real row ids and let this page
+    // show a completion the client profile and Overview tile never saw.
+    // The stale key is cleared once so it cannot resurface.
+
+    function completionStorageKey() {
+      var email = sessionStorage.getItem("apex_email") || "unknown";
+      return "apex_task_completions_" + email;
+    }
+
+    function loadLocalCompletions() {
+      try { localStorage.removeItem(completionStorageKey()); } catch(e) {}
+      completedMap = {};
+    }
+
+    function saveLocalCompletions() {
+      // Intentionally a no-op — D1 is the only store for completion state.
+    }
+
+    // ── Hero background ────────────────────────────────────────────────────
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
+    // ── Hero stat tiles ────────────────────────────────────────────────────
+
+    function updateTasksHeroTiles() {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var consultantCount = allTasks.filter(function(t) {
+        return (t.type === "rafa" || t.type === "text") && !completedMap[t.key];
+      }).length;
+
+      var clientCount = allTasks.filter(function(t) {
+        return t.type === "client" && !completedMap[t.key];
+      }).length;
+
+      var overdueCount = allTasks.filter(function(t) {
+        return t.dueDate && t.dueDate < today && !completedMap[t.key];
+      }).length;
+
+      var completedCount = allTasks.filter(function(t) {
+        return !!completedMap[t.key];
+      }).length;
+
+      var totalCount = allTasks.length;
+
+      var tileConsultant = document.getElementById("heroTileConsultant");
+      var tileClient     = document.getElementById("heroTileClient");
+      var tileOverdue    = document.getElementById("heroTileOverdue");
+      var tileCompleted  = document.getElementById("heroTileCompleted");
+      var tileTotal      = document.getElementById("heroTileTotal");
+
+      if (tileConsultant) { tileConsultant.textContent = consultantCount; }
+      if (tileClient)     { tileClient.textContent     = clientCount; }
+      if (tileOverdue)    { tileOverdue.textContent    = overdueCount; }
+      if (tileCompleted)  { tileCompleted.textContent  = completedCount; }
+      if (tileTotal)      { tileTotal.textContent      = totalCount; }
+    }
+
+    // ── Auth & bootstrap ───────────────────────────────────────────────────
+
+    function handleSignOut() {
+      currentUser = null;
+      sessionStorage.removeItem("apex_role");
+      sessionStorage.removeItem("apex_email");
+      sessionStorage.removeItem("apex_display_name");
+      sessionStorage.removeItem("apex_avatar_url");
+      sessionStorage.removeItem("apex_dev_view");
+      auth.signOut().then(function() {
+        window.location.href = "index.html";
+      });
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function fetchAndApplyRole() {
+      return user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      window.initNav && window.initNav();
+      initHeroBg('tasksHeroBg', 'tasksHeroScrim');
+      applyOverdueParam();
+      loadLocalCompletions();
+      loadTasks();
+      if (role === "rafa" || role === "alice" || role === "developer") {
+        loadHelpRequests();
+      }
+    }
+
+    // Deep link from the dashboard's overdue-tasks tile (?overdue=1): lands on the
+    // Consultant tab pre-filtered to overdue tasks. Rafa's dashboard tile counts
+    // consultant tasks specifically (/api/tasks/consultant/overdue), so this always
+    // targets that tab regardless of role.
+    function applyOverdueParam() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("overdue") !== "1") { return; }
+      overdueOnly = true;
+      tabRole = "consultant";
+      var btnConsultant = document.getElementById("tabBtnConsultant");
+      var btnClient      = document.getElementById("tabBtnClient");
+      var btnDone        = document.getElementById("tabBtnDone");
+      if (btnConsultant) { btnConsultant.className = "role-tab-btn active"; }
+      if (btnClient)      { btnClient.className      = "role-tab-btn"; }
+      if (btnDone)        { btnDone.className        = "role-tab-btn"; }
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                window.location.href = "index.html";
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function() {
+          if (!cached) {
+            window.location.href = "index.html";
+          }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    // ── Data: fetch sessions and derive tasks ──────────────────────────────
+
+    function loadTasks() {
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          allTasks = rowsToTasks(data.tasks || []);
+          updateTabCounts();
+          updateTasksHeroTiles();
+          populateClientFilter();
+          renderTaskView();
+        })
+        .catch(function(e) {
+          document.getElementById("tasksContainer").innerHTML =
+            '<div class="tasks-empty" style="color:#b44040;">' + t("Erro ao carregar tarefas: ", "Could not load tasks: ") + escHtml(e.message) + '</div>';
+        });
+    }
+
+    // ── Data: fetch today's help-request tasks ─────────────────────────────
+    // source=help_request is load-bearing. This section used to filter on
+    // type='consultant' alone, which only worked while help requests were the
+    // only consultant rows in the table; once session-derived tasks were
+    // migrated in, four of them due today showed up here.
+
+    function loadHelpRequests() {
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/consultant?scope=today&source=help_request", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          var tasks = (data.tasks || []).filter(function(t) { return t.status === "pending"; });
+          renderHelpRequests(tasks);
+        })
+        .catch(function() {
+          // Fail quiet: this section is a same-day-urgency add-on, not the primary
+          // task list — a failed fetch here should not block the rest of the page.
+          document.getElementById("helpRequestsSection").hidden = true;
+        });
+    }
+
+    function renderHelpRequests(tasks) {
+      var section   = document.getElementById("helpRequestsSection");
+      var container = document.getElementById("helpRequestsContainer");
+      if (!tasks.length) { section.hidden = true; return; }
+      section.hidden = false;
+      container.innerHTML = tasks.map(function(t) {
+        return (
+          '<div class="task-row help-request">' +
+            '<button class="task-check" onclick="toggleHelpRequest(\'' + t.id + '\', this)"></button>' +
+            '<div class="task-body">' +
+              '<div class="task-text">' + escHtml(t.description || "") + '</div>' +
+              '<div class="task-meta">' +
+                '<span class="task-client">' + escHtml(t.client_name || "") + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join("");
+    }
+
+    function toggleHelpRequest(taskId, btnEl) {
+      var row = btnEl.closest(".task-row");
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/" + taskId, {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "done" })
+        });
+      }).then(function() {
+        if (row) { row.remove(); }
+        var remaining = document.querySelectorAll("#helpRequestsContainer .task-row").length;
+        if (!remaining) { document.getElementById("helpRequestsSection").hidden = true; }
+      }).catch(function() {});
+    }
+
+    function user_getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    // ── Task derivation ────────────────────────────────────────────────────
+    // Primary: pdf_data.consultant_followups (Rafa) + pdf_data.client_actions (client)
+    //   — structured array [{text, due}] with per-item due dates
+    // Fallback: summary_json.rafa_followups.pt/en — free text block, one task per session
+    //
+    // Completion state from task_completions column is merged into completedMap.
+    // Task key format: "{sessionId}_{type}_{index}"
+
+    // ── D1 rows → task view model ─────────────────────────────────────────
+    // Since the task unification the `tasks` table is the single source of
+    // truth. `key` is the row's real id (not the old "{sessionId}_{type}_{i}"
+    // derivation key) and completion comes from status, so a checkbox ticked
+    // here is the same fact the client profile and Overview tile read.
+    // deriveTasks() below is retained only as the historical reference for
+    // how these rows were originally produced from sessions.pdf_data.
+
+    function rowsToTasks(rows) {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return rows.map(function(r) {
+        var dueDate = null;
+        if (r.due_date) {
+          var p = String(r.due_date).split("-");
+          dueDate = new Date(+p[0], +p[1] - 1, +p[2]);
+          dueDate.setHours(0, 0, 0, 0);
+        }
+        var isDone = r.status === "done";
+
+        // Drive the completion map straight off DB status — no localStorage
+        // merge, which is what previously let the three views disagree.
+        completedMap[r.id] = isDone;
+
+        return {
+          key:         r.id,
+          type:        r.type === "consultant" ? "rafa" : "client",
+          text:        r.description || "",
+          due:         r.due_date || null,
+          dueDate:     dueDate,
+          overdue:     (!isDone && dueDate) ? dueDate < today : false,
+          clientName:  r.client_name || "—",
+          clientId:    r.client_id || null,
+          sessionDate: r.session_date || null,
+          sessionId:   r.session_id || null
+        };
+      });
+    }
+
+    function deriveTasks(sessions) {
+      var tasks = [];
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        if (s.status === "discarded") { continue; }
+        if (!s.summary_json && !s.pdf_data) { continue; }
+
+        var clientName  = s.client_name || "—";
+        var clientId    = s.client_id   || null;
+        var sessionDate = s.date        || null;
+        var sessionYear = sessionDate ? parseInt(sessionDate.split("-")[0], 10) : today.getFullYear();
+        var sessionId   = s.id;
+
+        // Merge backend completions into completedMap (backend wins over local for this session)
+        if (s.task_completions) {
+          try {
+            var backendMap = JSON.parse(s.task_completions);
+            var bkeys = Object.keys(backendMap);
+            for (var bk = 0; bk < bkeys.length; bk++) {
+              completedMap[bkeys[bk]] = backendMap[bkeys[bk]];
+            }
+          } catch(e) {}
+        }
+
+        var pdfData = null;
+        if (s.pdf_data) {
+          try { pdfData = JSON.parse(s.pdf_data); } catch(e) { pdfData = null; }
+        }
+
+        if (pdfData && pdfData.consultant_followups && pdfData.consultant_followups.length) {
+          for (var j = 0; j < pdfData.consultant_followups.length; j++) {
+            var cf = pdfData.consultant_followups[j];
+            var taskKey = sessionId + "_rafa_" + j;
+            var dueDate = parseDueDate(cf.due, sessionYear, today);
+            tasks.push({
+              key:         taskKey,
+              type:        "rafa",
+              text:        cf.text || "",
+              due:         cf.due  || null,
+              dueDate:     dueDate,
+              overdue:     dueDate ? dueDate < today : false,
+              clientName:  clientName,
+              clientId:    clientId,
+              sessionDate: sessionDate,
+              sessionId:   sessionId
+            });
+          }
+        }
+
+        if (pdfData && pdfData.client_actions && pdfData.client_actions.length) {
+          for (var k = 0; k < pdfData.client_actions.length; k++) {
+            var ca = pdfData.client_actions[k];
+            var taskKey2 = sessionId + "_client_" + k;
+            var dueDate2 = parseDueDate(ca.due, sessionYear, today);
+            tasks.push({
+              key:         taskKey2,
+              type:        "client",
+              text:        ca.text || "",
+              due:         ca.due  || null,
+              dueDate:     dueDate2,
+              overdue:     dueDate2 ? dueDate2 < today : false,
+              clientName:  clientName,
+              clientId:    clientId,
+              sessionDate: sessionDate,
+              sessionId:   sessionId
+            });
+          }
+        }
+
+        // Fallback: rafa_followups text block (no pdf_data)
+        if (!pdfData && s.summary_json) {
+          var sj = null;
+          try { sj = JSON.parse(s.summary_json); } catch(e) { sj = null; }
+          if (sj && sj.rafa_followups) {
+            var rfText = document.body.classList.contains("lang-en")
+              ? (sj.rafa_followups.en || sj.rafa_followups.pt || "")
+              : (sj.rafa_followups.pt || sj.rafa_followups.en || "");
+            if (rfText) {
+              var taskKey3 = sessionId + "_text_0";
+              tasks.push({
+                key:         taskKey3,
+                type:        "text",
+                text:        rfText,
+                due:         null,
+                dueDate:     null,
+                overdue:     false,
+                clientName:  clientName,
+                clientId:    clientId,
+                sessionDate: sessionDate,
+                sessionId:   sessionId
+              });
+            }
+          }
+        }
+      }
+
+      return tasks;
+    }
+
+    // Parse "DD Mon" string (e.g. "20 Jun") into a Date object.
+    function parseDueDate(dueStr, sessionYear, today) {
+      if (!dueStr) { return null; }
+      var parts = dueStr.trim().split(/\s+/);
+      if (parts.length < 2) { return null; }
+      var day = parseInt(parts[0], 10);
+      var mon = MONTH_MAP[parts[1].toLowerCase().slice(0, 3)];
+      if (isNaN(day) || mon === undefined) { return null; }
+
+      var d = new Date(sessionYear, mon, day);
+      d.setHours(0, 0, 0, 0);
+
+      var sixMonthsAgo = new Date(today);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      if (d < sixMonthsAgo) {
+        d = new Date(sessionYear + 1, mon, day);
+        d.setHours(0, 0, 0, 0);
+      }
+
+      return d;
+    }
+
+    // ── Tab + view control ─────────────────────────────────────────────────
+
+    function setTabRole(role) {
+      tabRole = role;
+      clientFilter = "";
+      overdueOnly = false;
+      var sel = document.getElementById("clientFilterSelect");
+      if (sel) { sel.value = ""; }
+      document.getElementById("tabBtnConsultant").className =
+        "role-tab-btn" + (role === "consultant" ? " active" : "");
+      document.getElementById("tabBtnClient").className =
+        "role-tab-btn" + (role === "client" ? " active" : "");
+      document.getElementById("tabBtnDone").className =
+        "role-tab-btn" + (role === "done" ? " active" : "");
+
+      // Hide sort/filter controls on Done tab — not applicable
+      var controlsBar   = document.querySelector(".controls-bar");
+      var clientFilterRow = document.querySelector(".client-filter-row");
+      if (controlsBar)    { controlsBar.style.display   = role === "done" ? "none" : ""; }
+      if (clientFilterRow){ clientFilterRow.style.display = role === "done" ? "none" : ""; }
+
+      renderTaskView();
+    }
+
+    function onClientFilterChange() {
+      var sel = document.getElementById("clientFilterSelect");
+      if (sel) { clientFilter = sel.value; }
+      renderTaskView();
+    }
+
+    function setTaskView(view) {
+      taskView = view;
+      document.getElementById("btnViewDate").className =
+        "view-toggle-btn" + (view === "date" ? " active" : "");
+      document.getElementById("btnViewType").className =
+        "view-toggle-btn" + (view === "type" ? " active" : "");
+      renderTaskView();
+    }
+
+    function getTabTasks() {
+      var base;
+      if (tabRole === "consultant") {
+        base = allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
+      } else {
+        base = allTasks.filter(function(t) { return t.type === "client"; });
+      }
+      if (clientFilter) {
+        base = base.filter(function(t) { return t.clientName === clientFilter; });
+      }
+      if (overdueOnly) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        base = base.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      }
+      return base;
+    }
+
+    function updateTabCounts() {
+      var consultantTotal = allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; }).length;
+      var clientTotal     = allTasks.filter(function(t) { return t.type === "client"; }).length;
+
+      var consultantPending = allTasks.filter(function(t) {
+        return (t.type === "rafa" || t.type === "text") && !completedMap[t.key];
+      }).length;
+      var clientPending = allTasks.filter(function(t) {
+        return t.type === "client" && !completedMap[t.key];
+      }).length;
+
+      var doneCount = allTasks.filter(function(t) { return !!completedMap[t.key]; }).length;
+
+      document.getElementById("tabCountConsultant").textContent = consultantPending + "/" + consultantTotal;
+      document.getElementById("tabCountClient").textContent     = clientPending + "/" + clientTotal;
+      document.getElementById("tabCountDone").textContent       = doneCount;
+    }
+
+    function updateDoneChip(tabTasks) {
+      var chip = document.getElementById("doneChip");
+      if (tabRole === "done") { chip.textContent = ""; return; }
+      var done  = tabTasks.filter(function(t) { return completedMap[t.key]; }).length;
+      var total = tabTasks.length;
+      if (done === 0) {
+        chip.textContent = "";
+      } else {
+        chip.innerHTML =
+          '<span class="show-pt">' + done + ' de ' + total + ' concluída' + (done !== 1 ? 's' : '') + '</span>' +
+          '<span class="show-en">' + done + ' of ' + total + ' done</span>';
+      }
+    }
+
+    // ── Overdue header (prepended inside tabs) ────────────────────────────
+
+    function makeOverdueSectionHeader(count) {
+      var el = document.createElement("div");
+      el.className = "overdue-section-header";
+      el.innerHTML =
+        '<span class="show-pt">ATRASADO (' + count + ')</span>' +
+        '<span class="show-en">OVERDUE (' + count + ')</span>';
+      return el;
+    }
+
+    function makeUpcomingSectionHeader() {
+      var el = document.createElement("div");
+      el.className = "group-heading";
+      el.innerHTML =
+        '<span class="show-pt">Próximas</span>' +
+        '<span class="show-en">Upcoming</span>';
+      return el;
+    }
+
+    // ── Client filter ──────────────────────────────────────────────────────
+
+    function populateClientFilter() {
+      var sel = document.getElementById("clientFilterSelect");
+      if (!sel) { return; }
+
+      // Collect unique client names from all tasks
+      var seen = {};
+      var names = [];
+      for (var i = 0; i < allTasks.length; i++) {
+        var cn = allTasks[i].clientName;
+        if (cn && !seen[cn]) {
+          seen[cn] = true;
+          names.push(cn);
+        }
+      }
+      names.sort();
+
+      // Rebuild options — keep default "all" option
+      sel.innerHTML = '<option value="">' + t("Todos os Clientes", "All Clients") + '</option>';
+      for (var j = 0; j < names.length; j++) {
+        var opt = document.createElement("option");
+        opt.value = names[j];
+        opt.textContent = names[j];
+        sel.appendChild(opt);
+      }
+      sel.value = clientFilter;
+    }
+
+    function renderTaskView() {
+      if (tabRole === "done") {
+        renderDoneTab();
+      } else if (taskView === "date") {
+        renderByDate();
+      } else {
+        renderByType();
+      }
+      updateDoneChip(getTabTasks());
+    }
+
+    // ── Render: by date ────────────────────────────────────────────────────
+
+    function renderByDate() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      var tabTasks = getTabTasks();
+      var showTypeTag = tabRole === "consultant";
+
+      if (tabTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var overdueTasks   = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var remainingTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
+
+      overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
+
+      if (overdueTasks.length > 0) {
+        container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
+        for (var oi = 0; oi < overdueTasks.length; oi++) {
+          container.appendChild(makeTaskRow(overdueTasks[oi], showTypeTag));
+        }
+      }
+
+      var dated   = [];
+      var undated = [];
+      for (var i = 0; i < remainingTasks.length; i++) {
+        if (remainingTasks[i].dueDate) { dated.push(remainingTasks[i]); }
+        else                            { undated.push(remainingTasks[i]); }
+      }
+      dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
+      undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
+
+      var sorted = dated.concat(undated);
+
+      if (overdueTasks.length > 0 && sorted.length > 0) {
+        container.appendChild(makeUpcomingSectionHeader());
+      }
+
+      for (var j = 0; j < sorted.length; j++) {
+        container.appendChild(makeTaskRow(sorted[j], showTypeTag));
+      }
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── Render: by type ────────────────────────────────────────────────────
+
+    function renderByType() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      var tabTasks = getTabTasks();
+
+      if (tabTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var overdueTasks    = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var nonOverdueTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
+
+      if (overdueTasks.length > 0) {
+        overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
+        container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
+        for (var oi = 0; oi < overdueTasks.length; oi++) {
+          container.appendChild(makeTaskRow(overdueTasks[oi], false));
+        }
+      }
+
+      function sortGroup(arr) {
+        var dated   = arr.filter(function(t) { return t.dueDate; });
+        var undated = arr.filter(function(t) { return !t.dueDate; });
+        dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
+        undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
+        return dated.concat(undated);
+      }
+
+      function appendGroup(labelPt, labelEn, tasks) {
+        if (tasks.length === 0) { return; }
+        var heading = document.createElement("div");
+        heading.className = "group-heading";
+        heading.innerHTML =
+          '<span class="show-pt">' + escHtml(labelPt) + ' (' + tasks.length + ')</span>' +
+          '<span class="show-en">' + escHtml(labelEn) + ' (' + tasks.length + ')</span>';
+        container.appendChild(heading);
+        var sorted = sortGroup(tasks);
+        for (var i = 0; i < sorted.length; i++) {
+          container.appendChild(makeTaskRow(sorted[i], false));
+        }
+      }
+
+      if (tabRole === "consultant") {
+        var rafaTasks = nonOverdueTasks.filter(function(t) { return t.type === "rafa"; });
+        var textTasks = nonOverdueTasks.filter(function(t) { return t.type === "text"; });
+        appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks);
+        appendGroup("Resumo de Follow-ups",     "Follow-up Summary",    textTasks);
+      } else {
+        appendGroup("Ações do Cliente", "Client Action Items", nonOverdueTasks);
+      }
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── Render: Done tab ──────────────────────────────────────────────────
+
+    function renderDoneTab() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      var doneTasks = allTasks.filter(function(t) { return !!completedMap[t.key]; });
+
+      if (doneTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      var consultantDone = doneTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
+      var clientDone     = doneTasks.filter(function(t) { return t.type === "client"; });
+
+      function sortDoneGroup(arr) {
+        arr.sort(function(a, b) {
+          if (a.dueDate && b.dueDate) { return a.dueDate - b.dueDate; }
+          if (a.dueDate) { return -1; }
+          if (b.dueDate) { return 1; }
+          return a.clientName.localeCompare(b.clientName);
+        });
+        return arr;
+      }
+
+      function appendDoneGroup(labelPt, labelEn, tasks) {
+        if (tasks.length === 0) { return; }
+        var heading = document.createElement("div");
+        heading.className = "done-section-header";
+        heading.innerHTML =
+          '<span class="show-pt">' + escHtml(labelPt) + ' (' + tasks.length + ')</span>' +
+          '<span class="show-en">' + escHtml(labelEn) + ' (' + tasks.length + ')</span>';
+        container.appendChild(heading);
+        var sorted = sortDoneGroup(tasks);
+        for (var i = 0; i < sorted.length; i++) {
+          container.appendChild(makeTaskRow(sorted[i], false, true));
+        }
+      }
+
+      appendDoneGroup("Consultor", "Consultant", consultantDone);
+      appendDoneGroup("Cliente",   "Client",     clientDone);
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── Completion toggle ──────────────────────────────────────────────────
+
+    // taskKey is the tasks-table row id. The write goes to /api/tasks/:id, so
+    // the same row backs Rafa's page, the client profile and the Overview
+    // tile — previously this wrote to sessions.task_completions, which only
+    // this page ever read.
+    function toggleComplete(taskKey, sessionId) {
+      var newVal = !completedMap[taskKey];
+      completedMap[taskKey] = newVal;
+
+      // Optimistic: repaint now, reconcile if the write fails.
+      updateTabCounts();
+      updateTasksHeroTiles();
+      updateDoneChip(getTabTasks());
+      renderTaskView();
+
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/" + encodeURIComponent(taskKey), {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newVal ? "done" : "pending" })
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+      }).catch(function() {
+        // Roll back rather than fail silently: leaving the checkbox ticked
+        // while D1 still says pending is the exact divergence this unification
+        // was meant to remove.
+        completedMap[taskKey] = !newVal;
+        updateTabCounts();
+        updateTasksHeroTiles();
+        updateDoneChip(getTabTasks());
+        renderTaskView();
+      });
+    }
+
+    // ── DOM builders ───────────────────────────────────────────────────────
+
+    function makeTaskRow(task, showTypeTag, suppressDoneStyle) {
+      var isDone = !!completedMap[task.key];
+      var showDone = isDone && !suppressDoneStyle;
+
+      var row = document.createElement("div");
+      row.className = "task-row" + (showDone ? " done" : "");
+
+      // Checkbox toggle button
+      var check = document.createElement("button");
+      check.className = "task-check" + (showDone ? " checked" : "");
+      check.title = t("Marcar como concluída", "Mark complete");
+      check.setAttribute("aria-label", "Toggle complete");
+      // Use a self-contained closure via data attributes to avoid closure issues in loops
+      (function(tKey, sId) {
+        check.onclick = function() { toggleComplete(tKey, sId); };
+      })(task.key, task.sessionId);
+      row.appendChild(check);
+
+      var body = document.createElement("div");
+      body.className = "task-body";
+
+      // Task text
+      var textEl = document.createElement("div");
+      textEl.className = "task-text";
+      textEl.textContent = task.text;
+      body.appendChild(textEl);
+
+      // Meta line
+      var meta = document.createElement("div");
+      meta.className = "task-meta";
+
+      // Client name (link if has client_id)
+      if (task.clientId) {
+        var clientLink = document.createElement("a");
+        clientLink.className = "task-client";
+        clientLink.href = "client.html?id=" + encodeURIComponent(task.clientId);
+        clientLink.textContent = task.clientName;
+        meta.appendChild(clientLink);
+      } else if (task.clientName) {
+        var clientSpan = document.createElement("span");
+        clientSpan.className = "task-client";
+        clientSpan.style.textDecoration = "none";
+        clientSpan.textContent = task.clientName;
+        meta.appendChild(clientSpan);
+      }
+
+      // Session date
+      if (task.sessionDate) {
+        var sep = document.createElement("span");
+        sep.style.cssText = "color:var(--border);font-size:11px;";
+        sep.textContent = "·";
+        meta.appendChild(sep);
+
+        var sdEl = document.createElement("span");
+        sdEl.className = "task-session-date";
+        sdEl.innerHTML =
+          '<span class="show-pt">Sessão ' + escHtml(formatDate(task.sessionDate)) + '</span>' +
+          '<span class="show-en">Session ' + escHtml(formatDate(task.sessionDate)) + '</span>';
+        meta.appendChild(sdEl);
+      }
+
+      // Due date pill
+      if (task.due) {
+        var sep2 = document.createElement("span");
+        sep2.style.cssText = "color:var(--border);font-size:11px;";
+        sep2.textContent = "·";
+        meta.appendChild(sep2);
+
+        var dueEl = document.createElement("span");
+        dueEl.className = "task-due" + (task.overdue && !isDone ? " overdue" : "");
+        dueEl.innerHTML =
+          '<span class="show-pt">Prazo: ' + escHtml(task.due) + '</span>' +
+          '<span class="show-en">Due: ' + escHtml(task.due) + '</span>';
+        meta.appendChild(dueEl);
+      }
+
+      // Type tag (only shown in consultant tab, by-date view)
+      if (showTypeTag && task.type !== "client") {
+        var tagEl = document.createElement("span");
+        if (task.type === "rafa") {
+          tagEl.className = "task-type-tag rafa";
+          tagEl.innerHTML = '<span class="show-pt">Consultor</span><span class="show-en">Consultant</span>';
+        } else {
+          tagEl.className = "task-type-tag";
+          tagEl.innerHTML = '<span class="show-pt">Resumo</span><span class="show-en">Summary</span>';
+        }
+        meta.appendChild(tagEl);
+      }
+
+      body.appendChild(meta);
+      row.appendChild(body);
+      return row;
+    }
+
+    function makeEmpty() {
+      var el = document.createElement("div");
+      el.className = "tasks-empty";
+      el.innerHTML =
+        '<div class="tasks-empty-icon">&#10003;</div>' +
+        '<span class="show-pt">Nenhuma tarefa encontrada.<br>Tarefas aparecem aqui após sessões serem resumidas.</span>' +
+        '<span class="show-en">No tasks found.<br>Tasks appear here after sessions are summarized.</span>';
+      return el;
+    }
+
+    function makeFooterNote() {
+      var el = document.createElement("div");
+      el.className = "tasks-footer-note";
+      el.innerHTML =
+        '<span class="show-pt">Tarefas derivadas automaticamente dos resumos de sessão.</span>' +
+        '<span class="show-en">Tasks automatically derived from session summaries.</span>';
+      return el;
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+    window.onload = function() { init(); };
+  </script>
+
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

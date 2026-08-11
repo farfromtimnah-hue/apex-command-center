@@ -2,6 +2,7 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <script src="native-bridge.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -664,21 +665,6 @@
       font-size: 12.5px; padding: 4px 0; flex-wrap: wrap;
     }
     .club-sug-row .grow { flex: 1 1 auto; min-width: 140px; }
-    /* Dismissed rows sit below the open questions, quieter than them --
-       answered, not pending, but still reachable to undo. */
-    .club-dismissed { margin-top: 10px; }
-    .club-dismissed-toggle {
-      font-family: 'Inter', sans-serif;
-      font-size: 12.5px;
-      color: var(--muted);
-      background: none;
-      border: 0;
-      padding: 4px 0;
-      cursor: pointer;
-      text-decoration: underline;
-    }
-    .club-dismissed-toggle:hover { color: var(--text); }
-    .club-dismissed .club-sug-row { opacity: 0.75; }
 
     .acct-grid {
       display: grid;
@@ -1802,7 +1788,6 @@
     var SUMMARY       = null;
     var ATTENTION     = null;   // counts behind the "Precisa de voce" queue
     var CLUB_EVENTS   = [];     // Apex Club events, each with its own P&L
-    var CLUB_SHOW_DISMISSED = {}; // event_id -> is its dismissed list expanded
     var FORWARD       = null;   // 90-day forward walk
     var BILLS         = [];     // fixed bills SHE entered -- never seeded
     var BILL_SUGGESTIONS = [];  // recurring charges detected in her own history
@@ -2524,50 +2509,12 @@
                     "','" + s.transaction_id + "','" + s.side + "'," + s.people + ')">' +
                     '<span class="show-pt">&Eacute; deste evento</span>' +
                     '<span class="show-en">Belongs here</span></button>' +
-                  // The other half of the question. Without it the only move
-                  // is "yes", so anything that merely looks like a ticket sits
-                  // here through every refresh with no way to clear it.
-                  '<button class="btn btn-sm" onclick="dismissClubTxn(\'' + e.event.id +
-                    "','" + s.transaction_id + '\')">' +
-                    '<span class="show-pt">N&atilde;o &eacute;</span>' +
-                    '<span class="show-en">Not this one</span></button>' +
                   "</div>";
               }).join("") +
             "</div>";
         }
 
-        // Dismissed rows, collapsed. Kept reachable rather than gone, so a
-        // wrong no costs one click to undo -- and so the count is visible
-        // instead of the list just quietly getting shorter.
-        var dis = "";
-        var dl = (e.dismissed || []);
-        if (dl.length) {
-          var open = CLUB_SHOW_DISMISSED[e.event.id];
-          dis =
-            '<div class="club-dismissed">' +
-              '<button class="club-dismissed-toggle" onclick="toggleClubDismissed(\'' + e.event.id + '\')">' +
-                '<span class="show-pt">' + dl.length + " marcado(s) como n&atilde;o sendo deste evento &mdash; " +
-                  (open ? "ocultar" : "mostrar") + "</span>" +
-                '<span class="show-en">' + dl.length + " marked as not this event &mdash; " +
-                  (open ? "hide" : "show") + "</span>" +
-              "</button>" +
-              (open
-                ? dl.map(function(s) {
-                    return '<div class="club-sug-row">' +
-                      '<span class="grow">' + fmtDate(s.date) + " &middot; " +
-                        esc((s.memo || s.description || "").slice(0, 40)) + "</span>" +
-                      "<b>" + fmtCents(s.amount_cents) + "</b>" +
-                      '<button class="btn btn-sm" onclick="undismissClubTxn(\'' + e.event.id +
-                        "','" + s.transaction_id + '\')">' +
-                        '<span class="show-pt">Desfazer</span>' +
-                        '<span class="show-en">Undo</span></button>' +
-                      "</div>";
-                  }).join("")
-                : "") +
-            "</div>";
-        }
-
-        return '<div class="club-event">' + verdict + detail + sug + dis + "</div>";
+        return '<div class="club-event">' + verdict + detail + sug + "</div>";
       }).join("");
 
       applyFinBilingualAttrs();
@@ -2595,42 +2542,6 @@
           loadClub();
         })
         .catch(function() { toast(t("Erro", "Error")); });
-    }
-
-    // "Not this one." Scoped to THIS event on purpose -- she can say a payment
-    // is not the July dinner from what is on screen; she cannot say it is
-    // never Apex Club. The transaction is not touched and stays in Categorias
-    // waiting to be filed wherever it actually belongs.
-    function dismissClubTxn(eventId, txnId) {
-      apiFetch("/api/finance-new/club/confirm", {
-        method: "POST",
-        body: { event_id: eventId, items: [{ transaction_id: txnId, dismiss: true }] }
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          if (d.error) { toast(d.error); return; }
-          toast(t("Removido deste evento", "Removed from this event"));
-          loadClub();
-        })
-        .catch(function() { toast(t("Erro", "Error")); });
-    }
-
-    function undismissClubTxn(eventId, txnId) {
-      apiFetch("/api/finance-new/club/confirm", {
-        method: "POST",
-        body: { event_id: eventId, items: [{ transaction_id: txnId, undismiss: true }] }
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          if (d.error) { toast(d.error); return; }
-          loadClub();
-        })
-        .catch(function() { toast(t("Erro", "Error")); });
-    }
-
-    function toggleClubDismissed(eventId) {
-      CLUB_SHOW_DISMISSED[eventId] = !CLUB_SHOW_DISMISSED[eventId];
-      renderClub();
     }
 
     function createClubEvent() {

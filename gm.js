@@ -1567,11 +1567,124 @@ function gmRenderLeadSheet() {
   // field on the lead record and stays exactly where it is.
   body += '<div id="gmNotesSection"></div>';
 
+  // ── History ──────────────────────────────────────────────
+  // What happened, who did it, when. Distinct from Notes: a note is something
+  // a person chose to write, history is what the system recorded.
+  body += '<div id="gmLeadHistorySection"></div>';
+
   body += '<button type="button" class="btn-outline gm-add-btn" style="color:var(--red);border-color:var(--red);" onclick="gmDeleteLead()">' +
     gmT("Excluir lead", "Delete lead") + '</button>';
   gmSheetOpen(escHtml(lead.cliente), body, "crm-lead-detail");
   gmLoadLeadFiles(lead.id);
   gmLoadNotes("lead", lead.id);
+  gmLoadLeadHistory(lead.id);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Lead history — who did what, and when
+// ══════════════════════════════════════════════════════════════════════
+//
+// Reads gm_lead_events. Every entry is rendered from KEYS through the same
+// label tables as the rest of the UI, so the history is bilingual too — an
+// audit log full of raw Portuguese would recreate the bug §1 fixed.
+//
+// Deliberately plain: no reporting, no per-seller dashboards, no charts.
+// Nobody asked for those and they are a separate build.
+var gmLeadHistory = {};
+
+function gmLoadLeadHistory(leadId) {
+  gmApi("leads/" + encodeURIComponent(leadId) + "/events")
+    .then(function(d) {
+      gmLeadHistory[leadId] = d.events || [];
+      gmRenderLeadHistory(leadId);
+    })
+    .catch(function() {
+      gmLeadHistory[leadId] = [];
+      gmRenderLeadHistory(leadId, true);
+    });
+}
+
+// The human-readable field name. Falls back to the raw column for anything
+// not listed, which is honest rather than blank.
+function gmLeadFieldLabel(field) {
+  var map = {
+    cliente:              [ "Nome",                 "Name" ],
+    telefone:             [ "Telefone",             "Phone" ],
+    email:                [ "Email",                "Email" ],
+    origem:               [ "Origem",               "Source" ],
+    parceiro_id:          [ "Parceiro",             "Partner" ],
+    servico:              [ "Serviço",              "Service" ],
+    observacao:           [ "Observação",           "Job notes" ],
+    vendedor:             [ "Vendedor",             "Salesperson" ],
+    valor:                [ "Valor",                "Value" ],
+    proxima_acao:         [ "Próxima ação",         "Next action" ],
+    data_contato:         [ "Data do contato",      "Contact date" ],
+    data_estimate:        [ "Data do estimate",     "Estimate date" ],
+    mes_lead:             [ "Mês lead",             "Lead month" ],
+    mes_fechamento:       [ "Mês fechamento",       "Closing month" ],
+    address:              [ "Endereço",             "Address" ],
+    city:                 [ "Cidade",               "City" ],
+    servico_desc:         [ "O que o cliente quer", "What the client wants" ],
+    status_financiamento: [ "Status financiamento", "Financing status" ],
+    followups:            [ "Follow-ups",           "Follow-ups" ],
+    estagio:              [ "Estágio",              "Stage" ]
+  };
+  var m = map[field];
+  return m ? gmT(m[0], m[1]) : (field || "");
+}
+
+// A stored value rendered for display: stage keys become labels, origem and
+// the other fixed lists translate, money is formatted, everything else is
+// shown as written.
+function gmLeadHistValue(field, v) {
+  if (v === null || v === undefined || v === "") { return gmT("(vazio)", "(empty)"); }
+  if (field === "estagio") { return gmStageLabel(v); }
+  if (field === "origem")  { return gmStatusLabel(v); }
+  if (field === "valor")   { return fmtNum(Number(v), "currency"); }
+  return String(v);
+}
+
+function gmRenderLeadHistory(leadId, failed) {
+  var box = document.getElementById("gmLeadHistorySection");
+  if (!box) { return; }
+  var events = gmLeadHistory[leadId] || [];
+
+  var inner = "";
+  if (failed) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Não foi possível carregar o histórico.", "Could not load the history.") + '</p>';
+  } else if (!events.length) {
+    // True for every lead created before this shipped: the row exists, the
+    // history does not. Says so plainly rather than implying nothing happened.
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Nenhum registro ainda.", "Nothing recorded yet.") + '</p>';
+  } else {
+    events.forEach(function(e) {
+      var who = e.actor || gmT("desconhecido", "unknown");
+      var when = e.created_at ? formatDateTimeUTC(e.created_at) : "";
+      var line;
+      if (e.action === "stage_changed") {
+        line = gmT("Movido para ", "Moved to ") + "<strong>" +
+               escHtml(gmStageLabel(e.new_value)) + "</strong>" +
+               (e.old_value ? gmT(" (de ", " (from ") + escHtml(gmStageLabel(e.old_value)) + ")" : "");
+      } else if (e.action === "created") {
+        line = gmT("Lead criado", "Lead created");
+      } else if (e.action === "deleted") {
+        line = gmT("Lead excluído", "Lead deleted");
+      } else {
+        line = "<strong>" + escHtml(gmLeadFieldLabel(e.field)) + "</strong>: " +
+               escHtml(gmLeadHistValue(e.field, e.old_value)) + " → " +
+               escHtml(gmLeadHistValue(e.field, e.new_value));
+      }
+      inner += '<div class="gm-hist">' +
+        '<div class="gm-hist-line">' + line + '</div>' +
+        '<div class="gm-hist-meta">' + gmT("por ", "by ") + escHtml(who) +
+        (when ? ' · ' + escHtml(when) : "") + '</div>' +
+        '</div>';
+    });
+  }
+
+  box.innerHTML = gmSheetSection(gmT("Histórico", "History"), inner);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -3508,6 +3621,15 @@ function gmOnLangChange() {
   if (gmSheetKind === "job" && gmSheetRow && gmSheetRow.id &&
       document.getElementById("gmJobPhotosSection")) {
     gmRenderJobPhotos(gmSheetRow.id);
+  }
+
+  // An open LEAD sheet re-renders too. It carries more translated text than
+  // any other sheet now — field labels, the stage pill, origem, and the whole
+  // history — and it was previously left in the old language until closed and
+  // reopened. Rebuilt from gmDetailLead, so nothing is refetched; the files,
+  // notes and history sections repaint from their own caches.
+  if (document.getElementById("gmLeadHistorySection") && gmDetailLead) {
+    gmRenderLeadSheet();
   }
 }
 

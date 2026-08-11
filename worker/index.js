@@ -10660,6 +10660,8 @@ function clientRequestAllowed(path, method, clientId) {
                 // record, re-scoped by client_id AND lead_id in the handlers.
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
+                // The lead's audit trail — read-only.
+                if (/^leads\/[A-Za-z0-9-]+\/events$/.test(gmRest)) { return true; }
                 // The note thread on their own lead or project.
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
                 // Their own company calendar. The payload also carries Apex
@@ -10757,6 +10759,12 @@ function sellerRequestAllowed(path, method, clientId) {
         // The outreach log of a lead. handleGetGmLeadContacts re-checks that
         // the lead is this seller's before returning anything.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        // The audit trail of a lead, same contract: handleGetGmLeadEvents
+        // re-checks the lead is this seller's by vendedor before returning
+        // anything, so this grants NO access a seller did not already have —
+        // it is history on rows they can already read. Read-only; there is
+        // deliberately no POST counterpart anywhere.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/events$/.test(rest)) { return true; }
         // Shared sales material (Materiais do Vendedor). Both handlers narrow
         // to visibility='seller' off the session, so what comes back is the
         // shared material only — never the client's own documents, and never a
@@ -14941,19 +14949,76 @@ async function gmLeadFields(body, config, partial, env, clientId) {
 }
 
 // ---------------------------------------------------------------------------
+// Lead audit trail — gm_lead_events.
+//
+// gm_leads recorded no author at all, so when four leads worth $342,000 moved
+// to Fechado inside two minutes the database could not say who closed them.
+// Every gm_leads write path now appends events here, and created_by /
+// updated_by are stamped on the row itself.
+//
+// ⚠️ LOGGING MUST NEVER BREAK THE WRITE. Appending an event is bookkeeping
+// about the caller's real work, not the work itself: if it fails, the lead
+// write still succeeds. Same non-throwing contract as advanceLeadStage().
+//
+// `actor` is ALWAYS actorName(user) — server-side, from the session. It is
+// never read from the request body, so a seller cannot claim another name.
+// gm_lead_contacts and the gm_notes handler enforce exactly this.
+//
+// Stage values are logged as KEYS ('fechado'), never display strings: an audit
+// log full of raw Portuguese would recreate the bug §1 just fixed.
+// ---------------------------------------------------------------------------
+
+// Fields worth a history entry. Deliberately not every column: updated_at and
+// stage_changed_at are bookkeeping, and logging them would bury the two or
+// three changes a human actually made under noise.
+var GM_LEAD_LOGGED_FIELDS = [
+    "cliente", "telefone", "email", "origem", "parceiro_id", "servico",
+    "observacao", "vendedor", "valor", "proxima_acao", "data_contato",
+    "data_estimate", "mes_lead", "mes_fechamento", "address", "city",
+    "servico_desc", "status_financiamento", "followups"
+];
+
+// Append one or more events. Accepts an array so a multi-field edit is a
+// single batched call. Never throws.
+async function gmLogLeadEvents(env, clientId, leadId, actor, events) {
+    if (!events || !events.length) { return; }
+    try {
+        var stmts = events.map(function(e) {
+            return env.DB.prepare(
+                "INSERT INTO gm_lead_events (id, lead_id, client_id, action, field, old_value, new_value, actor) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(
+                crypto.randomUUID(), leadId, clientId, e.action,
+                e.field || null,
+                e.old_value === undefined || e.old_value === null ? null : String(e.old_value),
+                e.new_value === undefined || e.new_value === null ? null : String(e.new_value),
+                actor || null
+            );
+        });
+        await env.DB.batch(stmts);
+    } catch (e) {
+        // Swallow: an audit append must never fail the lead write it describes.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/clients/:id/gm/leads
 // ---------------------------------------------------------------------------
 
 // The ONE lead-insert path — the authenticated quick-add and the public
 // referral form both go through here, so a referral lead is a normal lead
 // in every way (summary metrics, partner attribution, detail sheet).
-async function gmInsertLead(env, clientId, f) {
+// `actor` is the display name from the session, or null for the PUBLIC
+// referral form, which has no authenticated user — a referral genuinely has no
+// human author on our side, and NULL says that honestly rather than inventing
+// one.
+async function gmInsertLead(env, clientId, f, actor) {
     var leadId = crypto.randomUUID();
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
-        "address, city) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "address, city, created_by, updated_by) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -14974,8 +15039,13 @@ async function gmInsertLead(env, clientId, f) {
         f.proxima_acao !== undefined ? f.proxima_acao : null,
         f.mes_fechamento !== undefined ? f.mes_fechamento : null,
         f.address !== undefined ? f.address : null,
-        f.city !== undefined ? f.city : null
+        f.city !== undefined ? f.city : null,
+        actor || null,
+        actor || null
     ).run();
+    await gmLogLeadEvents(env, clientId, leadId, actor, [
+        { action: "created", field: "estagio", old_value: null, new_value: f.estagio }
+    ]);
     return leadId;
 }
 
@@ -14995,7 +15065,7 @@ async function handlePostGmLead(id, request, env) {
         // including by hand-crafting the JSON.
         var postSeller = sessionSellerName(user);
         if (postSeller) { parsed.fields.vendedor = postSeller; }
-        var leadId = await gmInsertLead(env, id, parsed.fields);
+        var leadId = await gmInsertLead(env, id, parsed.fields, actorName(user));
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ created: true, lead: row });
     } catch (e) {
@@ -15040,13 +15110,42 @@ async function handlePutGmLead(id, leadId, request, env) {
             binds.push(f[k]);
         });
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
-        if (f.estagio !== undefined && f.estagio !== existing.estagio) {
+        var stageMoved = f.estagio !== undefined && f.estagio !== existing.estagio;
+        if (stageMoved) {
             sets.push("stage_changed_at = datetime('now')");
         }
+        // Stamped from the SESSION on every update, never from the body.
+        var actor = actorName(user);
+        sets.push("updated_by = ?");
+        binds.push(actor);
         sets.push("updated_at = datetime('now')");
         binds.push(leadId);
         binds.push(id);
         await gmRunUpdate(env, "UPDATE gm_leads SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+
+        // Build the history from the SAME comparison the handler already makes
+        // against the existing row: one event per genuinely changed field, and
+        // a distinct stage_changed carrying from/to. The stage event is the one
+        // that answers "who closed the deal", so it is kept separate from the
+        // generic field updates rather than buried among them.
+        var events = [];
+        if (stageMoved) {
+            events.push({ action: "stage_changed", field: "estagio",
+                          old_value: existing.estagio, new_value: f.estagio });
+        }
+        GM_LEAD_LOGGED_FIELDS.forEach(function(k) {
+            if (f[k] === undefined) { return; }
+            var before = existing[k] === undefined ? null : existing[k];
+            var after  = f[k];
+            // Loose-ish compare via String() so 5 and "5" are not logged as a
+            // change; null and "" are both "empty" and equal for this purpose.
+            var b = (before === null || before === undefined) ? "" : String(before);
+            var a = (after  === null || after  === undefined) ? "" : String(after);
+            if (a === b) { return; }
+            events.push({ action: "updated", field: k, old_value: before, new_value: after });
+        });
+        await gmLogLeadEvents(env, id, leadId, actor, events);
+
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ saved: true, lead: row });
     } catch (e) {
@@ -15069,6 +15168,40 @@ async function handlePutGmLead(id, leadId, request, env) {
 // The method/result vocabularies are the SAME constants the Apex side
 // validates against, so one word means one thing across both tiers.
 // ---------------------------------------------------------------------------
+
+// GET /api/clients/:id/gm/leads/:leadId/events — the lead's history.
+//
+// Sellers CAN read this, for leads they can already see. That grants no new
+// access: the row-level filter in handleGetGmLeads already limits a seller to
+// their own leads, and the same vendedor check is re-applied here before any
+// event is returned. Read-only — events are written by the lead write paths
+// and there is deliberately no POST counterpart.
+async function handleGetGmLeadEvents(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var lead = await env.DB.prepare(
+            "SELECT id, vendedor FROM gm_leads WHERE id = ? AND client_id = ?"
+        ).bind(leadId, id).first();
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        var sellerName = effectiveSellerName(user, request);
+        if (sellerName && (lead.vendedor || "") !== sellerName) {
+            return jsonErr("Lead not found", 404);
+        }
+
+        var rows = await env.DB.prepare(
+            "SELECT id, action, field, old_value, new_value, actor, created_at " +
+            "FROM gm_lead_events WHERE lead_id = ? AND client_id = ? " +
+            "ORDER BY created_at DESC, rowid DESC LIMIT 200"
+        ).bind(leadId, id).all();
+
+        return jsonOk({ events: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching lead history: " + e.message, 500);
+    }
+}
 
 async function handleGetGmLeadContacts(id, leadId, request, env) {
     try {
@@ -15367,9 +15500,16 @@ async function handlePostGmBaseOuroReactivate(id, rowId, request, env) {
         var mesLead = gmStr(body.mes_lead, 40);
         var leadId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, servico, origem, estagio) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'Base de Clientes', 'novo_lead')"
-        ).bind(leadId, id, mesLead, dataLead, row.cliente, row.telefone, null).run();
+            "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, servico, origem, estagio, " +
+            "created_by, updated_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'Base de Clientes', 'novo_lead', ?, ?)"
+        ).bind(leadId, id, mesLead, dataLead, row.cliente, row.telefone, null,
+               actorName(user), actorName(user)).run();
+        // The SECOND lead-insert path, easy to miss: reactivating a dormant
+        // customer creates a real lead, so it gets a real 'created' event.
+        await gmLogLeadEvents(env, id, leadId, actorName(user), [
+            { action: "created", field: "estagio", old_value: null, new_value: "novo_lead" }
+        ]);
         await env.DB.prepare(
             "UPDATE gm_base_ouro SET status = 'Reativado', reactivated_lead_id = ?, updated_at = datetime('now') WHERE id = ?"
         ).bind(leadId, rowId).run();
@@ -15934,7 +16074,7 @@ async function handlePostReferralLead(slug, request, env) {
             data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
             mes_lead: mesLead,
             observacao: "Recebido pelo link de indicação do parceiro."
-        });
+        });   // no actor: the public referral form has no authenticated user
         // Deliberately no lead id / no data in the public response.
         return jsonOk({ created: true });
     } catch (e) {
@@ -17953,6 +18093,19 @@ async function handleDeleteGmRow(id, collection, rowId, request, env) {
             await env.DB.prepare(
                 "UPDATE gm_base_ouro SET reactivated_lead_id = NULL WHERE reactivated_lead_id = ?"
             ).bind(rowId).run();
+            // Written BEFORE the row goes, and it deliberately OUTLIVES the
+            // lead: gm_lead_events has no FK and no cascade, so the record of
+            // a deletion survives the thing it describes. Cascading would
+            // erase the history at the exact moment the most important event
+            // happens, leaving "who deleted the $145,000 lead?" unanswerable.
+            //
+            // The lead's NAME goes in new_value because once the row is gone
+            // an id resolves to nothing, and an orphaned id is not an audit
+            // record.
+            await gmLogLeadEvents(env, id, rowId, actorName(user), [
+                { action: "deleted", field: "cliente",
+                  old_value: existing.estagio, new_value: existing.cliente }
+            ]);
         }
         await env.DB.prepare("DELETE FROM " + table + " WHERE id = ? AND client_id = ?")
             .bind(rowId, id).run();
@@ -22923,6 +23076,10 @@ export default {
                     return handlePostGmBaseOuroReactivate(cid, segs[5], request, env);
                 }
                 // /gm/leads/:leadId/contacts — the client CRM's outreach log
+                // /gm/leads/:leadId/events — the audit trail, read-only.
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "events" && method === "GET") {
+                    return handleGetGmLeadEvents(cid, segs[5], request, env);
+                }
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "contacts") {
                     if (method === "GET")  { return handleGetGmLeadContacts(cid, segs[5], request, env); }
                     if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }

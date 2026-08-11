@@ -774,3 +774,11 @@
   text-transform: uppercase; color: var(--muted);
 }
 .gm-club-v { flex: 1; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+
+/* ── Lead history (gm_lead_events) ────────────────────────────────────────
+   What happened, who did it, when. Distinct from Notes above it: a note is
+   something a person chose to write; history is what the system recorded. */
+.gm-hist { padding: 9px 12px; border-top: 1px solid var(--border); }
+.gm-hist:first-child { border-top: none; }
+.gm-hist-line { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.gm-hist-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }

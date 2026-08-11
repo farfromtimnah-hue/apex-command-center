@@ -1532,9 +1532,134 @@ function gmRenderLeadSheet() {
   });
   body += gmSheetSection(gmT("Outros campos", "Other fields"), rest);
 
+  // ── Attachments ─────────────────────────────────────────
+  // Rendered empty and filled asynchronously, so a slow file list never holds
+  // up the sheet -- same contract as the project gallery.
+  body += '<div id="gmLeadFilesSection"></div>';
+
   body += '<button type="button" class="btn-outline gm-add-btn" style="color:var(--red);border-color:var(--red);" onclick="gmDeleteLead()">' +
     gmT("Excluir lead", "Delete lead") + '</button>';
   gmSheetOpen(escHtml(lead.cliente), body, "crm-lead-detail");
+  gmLoadLeadFiles(lead.id);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Lead attachments -- "PDF ou fotos" on a lead
+// ══════════════════════════════════════════════════════════════════════
+//
+// The signed estimate, a permit, site photos from WhatsApp. Images get a
+// thumbnail, PDFs get a file row with the original filename -- see
+// gmFileRowHtml. A salesperson never reaches these routes; the seller session
+// is refused at sellerRequestAllowed(), which does not list them.
+//
+// Cached per lead so re-rendering the sheet does not refetch every row.
+var gmLeadFiles = {};
+
+function gmLoadLeadFiles(leadId) {
+  gmApi("leads/" + encodeURIComponent(leadId) + "/files")
+    .then(function(d) {
+      gmLeadFiles[leadId] = d.files || [];
+      gmRenderLeadFiles(leadId);
+    })
+    .catch(function() {
+      // A failed attachment load must not take the rest of the lead sheet
+      // with it -- the fields above are what the sheet is primarily for.
+      gmLeadFiles[leadId] = [];
+      gmRenderLeadFiles(leadId, true);
+    });
+}
+
+function gmRenderLeadFiles(leadId, failed) {
+  var box = document.getElementById("gmLeadFilesSection");
+  if (!box) { return; }
+  var files = gmLeadFiles[leadId] || [];
+
+  var inner = "";
+  if (failed) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("N\u00e3o foi poss\u00edvel carregar os arquivos.", "Could not load the files.") + '</p>';
+  } else if (!files.length) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Nenhum arquivo ainda.", "No files yet.") + '</p>';
+  } else {
+    var images = files.filter(function(f) { return f.is_image !== false; });
+    var docs   = files.filter(function(f) { return f.is_image === false; });
+    if (images.length) {
+      inner += '<div class="gm-photo-grid">';
+      images.forEach(function(f) {
+        inner += '<figure class="gm-photo">' +
+          '<img id="gmPhotoImg_' + escHtml(f.id) + '" class="gm-photo-loading" ' +
+               'alt="' + escHtml(f.caption || f.file_name || gmT("Anexo", "Attachment")) + '">' +
+          (f.caption ? '<figcaption>' + escHtml(f.caption) + '</figcaption>' : "") +
+          '<button type="button" class="gm-photo-del" ' +
+            'aria-label="' + escHtml(gmT("Remover arquivo", "Remove file")) + '" ' +
+            'onclick="gmDeleteLeadFile(' + JSON.stringify(leadId).replace(/"/g, "&quot;") + ',' +
+                      JSON.stringify(f.id).replace(/"/g, "&quot;") + ')">&times;</button>' +
+          '</figure>';
+      });
+      inner += '</div>';
+    }
+    docs.forEach(function(f) {
+      inner += gmFileRowHtml(f, "gmOpenAuthedFile",
+        "gmDeleteLeadFile(" + JSON.stringify(leadId).replace(/"/g, "&quot;") + "," +
+        JSON.stringify(f.id).replace(/"/g, "&quot;") + ")");
+    });
+  }
+
+  inner += '<input type="file" id="gmLeadFileInput" accept="image/*,application/pdf" hidden ' +
+    'onchange="gmUploadLeadFile(' + JSON.stringify(leadId).replace(/"/g, "&quot;") + ', this)">' +
+    '<button type="button" class="btn-gold gm-add-btn" ' +
+      'onclick="document.getElementById(\'gmLeadFileInput\').click()">' +
+    gmT("+ Adicionar PDF ou foto", "+ Add PDF or photo") + '</button>';
+
+  box.innerHTML = gmSheetSection(gmT("Arquivos", "Files"), inner);
+  files.filter(function(f) { return f.is_image !== false; }).forEach(gmHydratePhoto);
+}
+
+function gmUploadLeadFile(leadId, input) {
+  if (!input.files || !input.files[0]) { return; }
+  var file = input.files[0];
+
+  // Checked here as well as in the Worker so a phone user gets an immediate
+  // answer instead of waiting out a 15 MB upload to be told no.
+  var MAX = 15 * 1024 * 1024;
+  if (file.size > MAX) {
+    gmToast(gmT("Arquivo muito grande. M\u00e1ximo 15 MB.", "File too large. Maximum 15 MB."));
+    input.value = "";
+    return;
+  }
+
+  var fd = new FormData();
+  fd.append("file", file);
+
+  gmToast(gmT("Enviando arquivo...", "Uploading file..."));
+  // formData, not body: apiFetch sets a JSON content-type for `body`, which
+  // would break the multipart boundary.
+  gmApi("leads/" + encodeURIComponent(leadId) + "/files", { method: "POST", formData: fd })
+    .then(function(d) {
+      if (!gmLeadFiles[leadId]) { gmLeadFiles[leadId] = []; }
+      gmLeadFiles[leadId].push(d.file);
+      gmRenderLeadFiles(leadId);
+      gmToast(gmT("Arquivo adicionado.", "File added."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao enviar o arquivo: ", "Could not upload the file: ") + e.message);
+    })
+    .then(function() { input.value = ""; });
+}
+
+function gmDeleteLeadFile(leadId, fileId) {
+  if (!window.confirm(gmT("Remover este arquivo?", "Remove this file?"))) { return; }
+  gmApi("leads/" + encodeURIComponent(leadId) + "/files/" + encodeURIComponent(fileId),
+        { method: "DELETE" })
+    .then(function() {
+      gmLeadFiles[leadId] = (gmLeadFiles[leadId] || []).filter(function(f) { return f.id !== fileId; });
+      gmRenderLeadFiles(leadId);
+      gmToast(gmT("Arquivo removido.", "File removed."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao remover o arquivo: ", "Could not remove the file: ") + e.message);
+    });
 }
 
 function gmOpenStagePicker() {
@@ -2159,8 +2284,13 @@ function gmRenderJobPhotos(jobId, failed) {
     inner = '<p class="muted" style="padding:10px 12px;">' +
       gmT("Nenhuma foto ainda.", "No photos yet.") + '</p>';
   } else {
-    inner = '<div class="gm-photo-grid">';
-    photos.forEach(function(p) {
+    // Images go in the thumbnail grid; PDFs are listed underneath as file
+    // rows. A PDF has no thumbnail, and rendering one into an <img> is the
+    // broken-image icon this split exists to avoid.
+    var images = photos.filter(function(p) { return p.is_image !== false; });
+    var docs   = photos.filter(function(p) { return p.is_image === false; });
+    inner = images.length ? '<div class="gm-photo-grid">' : '';
+    images.forEach(function(p) {
       inner += '<figure class="gm-photo">' +
         '<img id="gmPhotoImg_' + escHtml(p.id) + '" class="gm-photo-loading" ' +
              'alt="' + escHtml(p.caption || gmT("Foto do projeto", "Project photo")) + '">' +
@@ -2171,22 +2301,74 @@ function gmRenderJobPhotos(jobId, failed) {
                     JSON.stringify(p.id).replace(/"/g, "&quot;") + ')">&times;</button>' +
         '</figure>';
     });
-    inner += '</div>';
+    if (images.length) { inner += '</div>'; }
+    docs.forEach(function(p) {
+      inner += gmFileRowHtml(p, "gmOpenAuthedFile",
+        "gmDeleteJobPhoto(" + JSON.stringify(jobId).replace(/"/g, "&quot;") + "," +
+        JSON.stringify(p.id).replace(/"/g, "&quot;") + ")");
+    });
   }
 
   // The file input is hidden behind a styled button — same pattern the logo
-  // and document uploads use.
-  inner += '<input type="file" id="gmJobPhotoInput" accept="image/*" hidden ' +
+  // and document uploads use. PDFs are accepted alongside images now: the
+  // client asked to archive documents on a project, not only progress photos.
+  inner += '<input type="file" id="gmJobPhotoInput" accept="image/*,application/pdf" hidden ' +
     'onchange="gmUploadJobPhoto(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', this)">' +
     '<button type="button" class="btn-gold gm-add-btn" ' +
       'onclick="document.getElementById(\'gmJobPhotoInput\').click()">' +
-    gmT("+ Adicionar foto", "+ Add photo") + '</button>' +
+    gmT("+ Adicionar foto ou PDF", "+ Add photo or PDF") + '</button>' +
     '<p class="muted" style="font-size:11px;padding:0 12px 8px;">' +
-    gmT("O cliente v\u00ea estas fotos no portal dele.",
-        "Your client sees these photos in their portal.") + '</p>';
+    gmT("O cliente v\u00ea estes arquivos no portal dele.",
+        "Your client sees these files in their portal.") + '</p>';
 
-  box.innerHTML = gmSheetSection(gmT("Fotos do projeto", "Project photos"), inner);
-  photos.forEach(gmHydratePhoto);
+  box.innerHTML = gmSheetSection(gmT("Arquivos do projeto", "Project files"), inner);
+  // Only images are hydrated: a PDF row has no <img> to fill.
+  photos.filter(function(p) { return p.is_image !== false; }).forEach(gmHydratePhoto);
+}
+
+// One row for a non-image attachment, shared by the project gallery and the
+// lead attachment list. Shows the original filename, because one PDF icon
+// looks like every other.
+function gmFileRowHtml(f, openFn, deleteCall) {
+  var label = f.file_name || gmT("Documento", "Document");
+  return '<div class="gm-file-row">' +
+    '<span class="gm-file-ico" aria-hidden="true">PDF</span>' +
+    '<button type="button" class="gm-file-main" ' +
+      'onclick="' + openFn + '(' + JSON.stringify(f.file_url).replace(/"/g, "&quot;") + ')">' +
+      '<span class="gm-file-name">' + escHtml(label) + '</span>' +
+      (f.caption ? '<span class="gm-file-cap">' + escHtml(f.caption) + '</span>' : "") +
+    '</button>' +
+    '<button type="button" class="gm-file-del" aria-label="' +
+      escHtml(gmT("Remover arquivo", "Remove file")) + '" ' +
+      'onclick="' + deleteCall + '">&times;</button>' +
+    '</div>';
+}
+
+// Opens an authenticated file in a new tab. An <a href> would arrive without
+// the Authorization header and 401, so the bytes are fetched as a blob and
+// handed to the browser as an object URL.
+//
+// The tab is opened BEFORE the fetch: Safari blocks a window.open() that does
+// not descend directly from the tap that triggered it.
+function gmOpenAuthedFile(fileUrl) {
+  var tab = window.open("", "_blank");
+  apiFetch(fileUrl)
+    .then(function(res) { return res.ok ? res.blob() : null; })
+    .then(function(blob) {
+      if (!blob) {
+        if (tab) { tab.close(); }
+        gmToast(gmT("N\u00e3o foi poss\u00edvel abrir o arquivo.", "Could not open the file."));
+        return;
+      }
+      var url = URL.createObjectURL(blob);
+      if (tab) { tab.location = url; } else { window.location = url; }
+      // Revoked late: revoking immediately can race the new tab's load.
+      setTimeout(function() { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
+    })
+    .catch(function() {
+      if (tab) { tab.close(); }
+      gmToast(gmT("N\u00e3o foi poss\u00edvel abrir o arquivo.", "Could not open the file."));
+    });
 }
 
 function gmUploadJobPhoto(jobId, input) {
@@ -2197,7 +2379,7 @@ function gmUploadJobPhoto(jobId, input) {
   // answer instead of waiting out a 15 MB upload to be told no.
   var MAX = 15 * 1024 * 1024;
   if (file.size > MAX) {
-    gmToast(gmT("Foto muito grande. M\u00e1ximo 15 MB.", "Photo too large. Maximum 15 MB."));
+    gmToast(gmT("Arquivo muito grande. M\u00e1ximo 15 MB.", "File too large. Maximum 15 MB."));
     input.value = "";
     return;
   }

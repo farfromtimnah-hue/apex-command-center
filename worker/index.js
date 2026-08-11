@@ -10655,6 +10655,11 @@ function clientRequestAllowed(path, method, clientId) {
                     gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
                     gmRest === "jobs") { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
+                // Attachments on their own lead, and the file itself. Same
+                // reasoning as the project photos below: the client's own
+                // record, re-scoped by client_id AND lead_id in the handlers.
+                if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
+                if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
                 // Progress photos on their own project, and the image itself.
                 // Client-visible by design: for a pool builder the project is a
                 // physical site and these are what the owner shows their own
@@ -10666,6 +10671,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
                     gmRest === "partners" || gmRest === "finance" || gmRest === "jobs") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
+                if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
             }
@@ -10683,6 +10689,8 @@ function clientRequestAllowed(path, method, clientId) {
                 // delete the project itself; the handler removes the R2 object
                 // as well as the row, so nothing is orphaned.
                 if (/^jobs\/[A-Za-z0-9-]+\/photos\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                // Their own lead's attachment, same reasoning.
+                if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
         }
     }
@@ -16585,17 +16593,32 @@ async function handleGetGmJobs(id, request, env) {
 // Key layout mirrors client-documents: job-photos/<clientId>/<photoId>.<ext>.
 // ---------------------------------------------------------------------------
 
+// The table is named gm_job_photos and now holds PDFs too — the client asked
+// for documents on projects after photos were already shipping. See
+// migrations/gm_job_files.sql for why the name was not changed.
 var JOB_PHOTO_TYPES = {
     "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
-    "image/gif": "gif", "image/webp": "webp", "image/heic": "heic"
+    "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
+    "application/pdf": "pdf"
 };
 
 // Phones produce large files. 15 MB accepts a modern phone photo without
 // resizing while still refusing something pathological.
 var JOB_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
 
-// One shape for every photo row the API returns. file_url is an API path, not
-// an R2 key — raw R2 paths are never exposed to the frontend.
+// Is this attachment an image (thumbnail) or a document (file row)?
+//
+// NULL counts as an image: rows predating the content_type column are all
+// images, and gm_job_files.sql backfills them — this keeps a row that somehow
+// escaped the backfill rendering exactly as it does today rather than turning
+// into a broken file entry.
+function gmIsImageType(contentType) {
+    if (!contentType) { return true; }
+    return String(contentType).slice(0, 6) === "image/";
+}
+
+// One shape for every attachment row the API returns. file_url is an API
+// path, not an R2 key — raw R2 paths are never exposed to the frontend.
 function gmJobPhotoOut(row, clientId) {
     return {
         id: row.id,
@@ -16603,6 +16626,10 @@ function gmJobPhotoOut(row, clientId) {
         caption: row.caption || null,
         uploaded_by: row.uploaded_by || null,
         created_at: row.created_at,
+        // Both null on pre-widening rows; the frontend treats that as an image.
+        content_type: row.content_type || null,
+        file_name: row.file_name || null,
+        is_image: gmIsImageType(row.content_type),
         file_url: "/api/clients/" + clientId + "/gm/jobs/" + row.job_id + "/photos/" + row.id + "/file"
     };
 }
@@ -16650,16 +16677,23 @@ async function handlePostGmJobPhoto(id, jobId, request, env) {
 
         var ext = JOB_PHOTO_TYPES[file.type];
         if (!ext) {
-            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, WebP or HEIC image.", 400);
+            return jsonErr("Invalid file type. Upload a PDF or a JPG, PNG, GIF, WebP or HEIC image.", 400);
         }
 
         var buf = await file.arrayBuffer();
         if (buf.byteLength > JOB_PHOTO_MAX_BYTES) {
-            return jsonErr("Photo too large. Maximum size is 15 MB.", 400);
+            return jsonErr("File too large. Maximum size is 15 MB.", 400);
         }
 
         var capField = form.get("caption");
         var caption = (typeof capField === "string" && capField.trim()) ? capField.trim().slice(0, 300) : null;
+
+        // The name the file arrived with, kept so a PDF row can be identified
+        // in the gallery. Never used to build the R2 key (that comes from the
+        // validated type allowlist above) and never trusted as a path: strip
+        // any directory part and cap the length.
+        var nameField = (file.name && typeof file.name === "string") ? file.name : "";
+        var fileName = nameField.split(/[\\/]/).pop().trim().slice(0, 200) || null;
 
         var photoId = crypto.randomUUID();
         var key = "job-photos/" + id + "/" + photoId + "." + ext;
@@ -16667,11 +16701,12 @@ async function handlePostGmJobPhoto(id, jobId, request, env) {
         await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
 
         await env.DB.prepare(
-            "INSERT INTO gm_job_photos (id, job_id, client_id, r2_key, caption, uploaded_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO gm_job_photos (id, job_id, client_id, r2_key, caption, uploaded_by, content_type, file_name) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             photoId, jobId, id, key, caption,
-            user.display_name || user.role || null
+            user.display_name || user.role || null,
+            file.type, fileName
         ).run();
 
         var row = await env.DB.prepare("SELECT * FROM gm_job_photos WHERE id = ?").bind(photoId).first();
@@ -16688,9 +16723,9 @@ async function handleGetGmJobPhotoFile(id, jobId, photoId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
         // Scoped by client AND job: an id from another client's project is a
-        // 404 here, not a served image.
+        // 404 here, not a served file.
         var row = await env.DB.prepare(
-            "SELECT r2_key FROM gm_job_photos WHERE id = ? AND job_id = ? AND client_id = ?"
+            "SELECT r2_key, content_type, file_name FROM gm_job_photos WHERE id = ? AND job_id = ? AND client_id = ?"
         ).bind(photoId, jobId, id).first();
         if (!row) { return jsonErr("Photo not found", 404); }
 
@@ -16704,8 +16739,17 @@ async function handleGetGmJobPhotoFile(id, jobId, photoId, request, env) {
         if (!obj) { return jsonErr("Photo not found", 404); }
 
         var headers = new Headers();
-        headers.set("Content-Type", (obj.httpMetadata && obj.httpMetadata.contentType) || "image/jpeg");
+        headers.set("Content-Type",
+            (obj.httpMetadata && obj.httpMetadata.contentType) || row.content_type || "image/jpeg");
         headers.set("Cache-Control", "private, max-age=3600");
+        // Images render inline as before. A PDF opens in the browser's own
+        // viewer, but carries its original name so a "save" lands as
+        // "estimate-jm.pdf" rather than a bare UUID. Quotes escaped, and the
+        // name is already stripped of any path at upload.
+        if (!gmIsImageType(row.content_type) && row.file_name) {
+            headers.set("Content-Disposition",
+                'inline; filename="' + String(row.file_name).replace(/["\\]/g, "") + '"');
+        }
         return new Response(obj.body, { headers: headers });
     } catch (e) {
         return jsonErr("Error fetching photo: " + e.message, 500);
@@ -16739,6 +16783,193 @@ async function handleDeleteGmJobPhoto(id, jobId, photoId, request, env) {
         return jsonOk({ deleted: true });
     } catch (e) {
         return jsonErr("Error deleting photo: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Lead attachments — gm_lead_files + R2.
+//
+// Asked for by Rafa in the client's words: archive "PDF ou fotos" against a
+// lead — the signed estimate, a permit, site photos from WhatsApp.
+//
+// Built on the gm_job_photos pattern one tier over, carrying the same safety
+// properties deliberately: client-scoped reads, a strict r2_key regex before
+// R2 is touched, and a delete that removes the object AND the row.
+//
+// SELLERS CANNOT REACH THESE ROUTES. sellerRequestAllowed() is a strict
+// allowlist and none of these paths are in it, so a seller session is refused
+// before any handler runs. Adding one there would be the mistake.
+//
+// Key layout mirrors the job photos: lead-files/<leadId>/<fileId>.<ext>.
+// ---------------------------------------------------------------------------
+
+// Images plus PDF, because the ask was explicitly "PDF ou fotos".
+var LEAD_FILE_TYPES = {
+    "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+    "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
+    "application/pdf": "pdf"
+};
+
+// Same ceiling as project photos: a modern phone photo or a scanned estimate
+// fits; something pathological does not.
+var LEAD_FILE_MAX_BYTES = 15 * 1024 * 1024;
+
+// Keyed on the lead, so a guessed id from another business cannot be written
+// through or read back.
+async function gmLeadBelongsToClient(env, clientId, leadId) {
+    var row = await env.DB.prepare(
+        "SELECT id FROM gm_leads WHERE id = ? AND client_id = ?"
+    ).bind(leadId, clientId).first();
+    return !!row;
+}
+
+function gmLeadFileOut(row, clientId) {
+    return {
+        id: row.id,
+        lead_id: row.lead_id,
+        caption: row.caption || null,
+        file_name: row.file_name || null,
+        content_type: row.content_type,
+        is_image: gmIsImageType(row.content_type),
+        uploaded_by: row.uploaded_by || null,
+        created_at: row.created_at,
+        file_url: "/api/clients/" + clientId + "/gm/leads/" + row.lead_id + "/files/" + row.id + "/file"
+    };
+}
+
+async function handleGetGmLeadFiles(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_lead_files WHERE lead_id = ? AND client_id = ? ORDER BY created_at ASC"
+        ).bind(leadId, id).all();
+
+        return jsonOk({
+            files: (rows.results || []).map(function(r) { return gmLeadFileOut(r, id); })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching lead files: " + e.message, 500);
+    }
+}
+
+async function handlePostGmLeadFile(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("file");
+        if (!file || typeof file.arrayBuffer !== "function") {
+            return jsonErr("file is required", 400);
+        }
+
+        var ext = LEAD_FILE_TYPES[file.type];
+        if (!ext) {
+            return jsonErr("Invalid file type. Upload a PDF or a JPG, PNG, GIF, WebP or HEIC image.", 400);
+        }
+
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > LEAD_FILE_MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 15 MB.", 400);
+        }
+
+        var capField = form.get("caption");
+        var caption = (typeof capField === "string" && capField.trim()) ? capField.trim().slice(0, 300) : null;
+
+        // Kept for display only. The R2 key is built from the validated type
+        // above, never from this; any directory part is stripped so a name
+        // like "../../x.pdf" cannot influence a path.
+        var nameField = (file.name && typeof file.name === "string") ? file.name : "";
+        var fileName = nameField.split(/[\\/]/).pop().trim().slice(0, 200) || null;
+
+        var fileId = crypto.randomUUID();
+        var key = "lead-files/" + leadId + "/" + fileId + "." + ext;
+
+        await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
+
+        await env.DB.prepare(
+            "INSERT INTO gm_lead_files (id, lead_id, client_id, r2_key, file_name, content_type, caption, uploaded_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            fileId, leadId, id, key, fileName, file.type, caption,
+            user.display_name || user.role || null
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_lead_files WHERE id = ?").bind(fileId).first();
+        return jsonOk({ file: gmLeadFileOut(row, id) });
+    } catch (e) {
+        return jsonErr("Error uploading file: " + e.message, 500);
+    }
+}
+
+async function handleGetGmLeadFileContent(id, leadId, fileId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        // Scoped by client AND lead: an id from another client's lead is a 404
+        // here, not a served file.
+        var row = await env.DB.prepare(
+            "SELECT r2_key, content_type, file_name FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(fileId, leadId, id).first();
+        if (!row) { return jsonErr("File not found", 404); }
+
+        // Never hand R2 a path shape we did not write ourselves.
+        if (!/^lead-files\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.r2_key)) {
+            return jsonErr("File not found", 404);
+        }
+
+        var obj = await env.ASSETS.get(row.r2_key);
+        if (!obj) { return jsonErr("File not found", 404); }
+
+        var headers = new Headers();
+        headers.set("Content-Type",
+            (obj.httpMetadata && obj.httpMetadata.contentType) || row.content_type || "application/octet-stream");
+        headers.set("Cache-Control", "private, max-age=3600");
+        if (!gmIsImageType(row.content_type) && row.file_name) {
+            headers.set("Content-Disposition",
+                'inline; filename="' + String(row.file_name).replace(/["\\]/g, "") + '"');
+        }
+        return new Response(obj.body, { headers: headers });
+    } catch (e) {
+        return jsonErr("Error fetching file: " + e.message, 500);
+    }
+}
+
+async function handleDeleteGmLeadFile(id, leadId, fileId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT r2_key FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(fileId, leadId, id).first();
+        if (!row) { return jsonErr("File not found", 404); }
+
+        if (!/^lead-files\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.r2_key)) {
+            return jsonErr("File not found", 404);
+        }
+
+        // The R2 object goes first. If the row were dropped first and this
+        // threw, the object would be orphaned with nothing pointing at it —
+        // unreachable and undeletable through the API.
+        await env.ASSETS.delete(row.r2_key);
+
+        await env.DB.prepare(
+            "DELETE FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(fileId, leadId, id).run();
+
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting file: " + e.message, 500);
     }
 }
 
@@ -22067,6 +22298,23 @@ export default {
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "contacts") {
                     if (method === "GET")  { return handleGetGmLeadContacts(cid, segs[5], request, env); }
                     if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }
+                }
+                // /gm/leads/:leadId/files — attachments on a lead (PDF or
+                // image). NOT in sellerRequestAllowed, so a seller session is
+                // refused upstream — do not add them there.
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "files") {
+                    if (method === "GET")  { return handleGetGmLeadFiles(cid, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmLeadFile(cid, segs[5], request, env); }
+                }
+                // /gm/leads/:leadId/files/:fileId
+                if (segs.length === 8 && gmCol === "leads" && segs[6] === "files" && method === "DELETE") {
+                    return handleDeleteGmLeadFile(cid, segs[5], segs[7], request, env);
+                }
+                // /gm/leads/:leadId/files/:fileId/file — serves the bytes; no
+                // raw R2 path is ever exposed to the frontend.
+                if (segs.length === 9 && gmCol === "leads" && segs[6] === "files" &&
+                    segs[8] === "file" && method === "GET") {
+                    return handleGetGmLeadFileContent(cid, segs[5], segs[7], request, env);
                 }
                 // /gm/jobs/:jobId/photos — progress photos on a project.
                 // Client-visible on purpose (the owner shows these to their own

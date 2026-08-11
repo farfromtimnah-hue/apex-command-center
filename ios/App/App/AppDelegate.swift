@@ -1,9 +1,9 @@
 import UIKit
 import Capacitor
-// Present only while @capacitor-firebase/authentication is installed. The
-// plugin is currently uninstalled pending GoogleService-Info.plist (see the
-// note in didFinishLaunchingWithOptions), so this is compiled conditionally
-// rather than as a hard import that would break the build in the meantime.
+// Present only while @capacitor-firebase/authentication is installed, which
+// is what pulls in FirebaseCore. Kept conditional so that removing the plugin
+// again (as this branch did while waiting on GoogleService-Info.plist) does
+// not break the build.
 #if canImport(FirebaseCore)
 import FirebaseCore
 #endif
@@ -24,13 +24,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // that never touch Google sign-in and whose password login does not
         // need Firebase at all.
         //
-        // NOTE: this guard alone is NOT sufficient. The plugin's own
-        // initializer runs `if FirebaseApp.app() == nil { FirebaseApp.configure() }`
+        // NOTE: this guard alone is NOT sufficient to survive a missing plist.
+        // The plugin's own initializer runs
+        // `if FirebaseApp.app() == nil { FirebaseApp.configure() }`
         // (FirebaseAuthentication.swift:26), so when this guard declines to
         // configure, the plugin configures anyway and crashes. Verified on the
         // iPhone 17 simulator: SIGABRT on launch with exactly that exception.
         // The plist is therefore a hard prerequisite for shipping the plugin at
         // all - it is not an optional enhancement that degrades gracefully.
+        //
+        // Configuring HERE rather than leaving it to the plugin is still the
+        // right order: this runs at didFinishLaunchingWithOptions, before any
+        // plugin method can be called, which is what the Firebase iOS SDK asks
+        // for. The plugin's own call then becomes the no-op branch.
         #if canImport(FirebaseCore)
         if Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist") != nil {
             FirebaseApp.configure()

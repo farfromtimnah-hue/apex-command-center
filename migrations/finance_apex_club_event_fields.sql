@@ -119,3 +119,11 @@ ALTER TABLE business_settings ADD COLUMN zelle_pay_url TEXT;
 -- matches what the couple rate already means, and a rare third guest is
 -- something Alice can fix on the list. Counts as 2 seats, never 2 rows.
 ALTER TABLE apex_club_registrations ADD COLUMN plus_one INTEGER NOT NULL DEFAULT 0;
+
+-- Links an Apex Club event to its calendar session, so the SAME event can be
+-- opened from the calendar with a money-free view. Rafa runs the event and
+-- Alice runs the finances, and the P&L does not exist until after the night,
+-- so the guest list cannot live only behind the finance page.
+-- Nullable: an event created from the finance tab has no session yet, and a
+-- calendar entry that is not an Apex Club night never gets a row here.
+ALTER TABLE apex_club_events ADD COLUMN session_id TEXT;

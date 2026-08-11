@@ -1868,6 +1868,25 @@
           <div class="detail-notes-text" id="detailNotes"></div>
         </div>
 
+        <!-- ══ Apex Club panel ═══════════════════════════════════════════
+             Appears only when this calendar entry is linked to an
+             apex_club_events row. Deliberately carries NO money: no P&L, no
+             transaction suggestions, no totals. Rafa runs the event and
+             Alice runs the finances, and the P&L does not exist until after
+             the night anyway -- so the guest list must be reachable without
+             going through the finance page. Same event row, second view. -->
+        <div id="clubPanel" hidden style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border);">
+          <div class="field-label" style="margin-bottom:8px;">
+            <span class="show-pt">Apex Club &mdash; inscri&ccedil;&otilde;es</span>
+            <span class="show-en">Apex Club &mdash; registrations</span>
+          </div>
+          <img id="clubPanelFlyer" hidden style="display:block;width:100%;aspect-ratio:4.17/1;max-height:150px;object-fit:cover;object-position:50% 5.5%;border-radius:8px;margin-bottom:10px;background:#111;">
+          <div id="clubPanelCount" style="font-size:15px;font-weight:700;margin-bottom:2px;"></div>
+          <div id="clubPanelSub" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+          <div id="clubPanelGuests"></div>
+          <div id="clubPanelLink" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;"></div>
+        </div>
+
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
           <button class="btn-whatsapp" id="btnWhatsApp" onclick="handleWhatsApp()">
             <span class="show-pt">Enviar WhatsApp</span>
@@ -4787,9 +4806,123 @@
       return start + " – " + formatTime(endHHMM);
     }
 
+    // ── Apex Club panel on a calendar entry ─────────────────────────────
+    //
+    // Money-free by design. See the panel markup and the worker's
+    // handleGetClubBySession for why the P&L is not here.
+    var CLUB_PANEL = null;
+
+    function loadClubPanel(sessionId) {
+      var panel = document.getElementById("clubPanel");
+      panel.hidden = true;
+      CLUB_PANEL = null;
+      if (!sessionId) { return; }
+
+      apiFetch("/api/finance-new/club/by-session/" + sessionId)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          // A 404 just means this entry is not an Apex Club night. Normal.
+          if (!d || d.error || !d.event) { return; }
+          CLUB_PANEL = d;
+          renderClubPanel();
+          panel.hidden = false;
+        })
+        .catch(function() {});
+    }
+
+    function renderClubPanel() {
+      if (!CLUB_PANEL) { return; }
+      var en = isEn();
+      var ev = CLUB_PANEL.event;
+      var r = CLUB_PANEL.rsvp || {};
+      var regs = CLUB_PANEL.registrations || [];
+
+      var flyer = document.getElementById("clubPanelFlyer");
+      if (ev.flyer_r2_key) {
+        flyer.src = WORKER_URL + "/api/club/flyer/" + ev.id;
+        flyer.hidden = false;
+      } else {
+        flyer.hidden = true;
+      }
+
+      // The headline is SEATS -- a plus one is two people at the table.
+      // This is the number the food is ordered from.
+      document.getElementById("clubPanelCount").innerHTML =
+        '<span style="color:var(--gold);font-size:19px;">' + (r.going || 0) + "</span> " +
+        (en ? (r.going === 1 ? "person coming" : "people coming")
+            : (r.going === 1 ? "pessoa confirmada" : "pessoas confirmadas"));
+
+      document.getElementById("clubPanelSub").textContent =
+        (en
+          ? (r.going_rows || 0) + " registration(s)" +
+            (r.next_time ? " · " + r.next_time + " coming next time" : "") +
+            (r.attended ? " · " + r.attended + " came" : "")
+          : (r.going_rows || 0) + " inscrição(ões)" +
+            (r.next_time ? " · " + r.next_time + " na próxima" : "") +
+            (r.attended ? " · " + r.attended + " vieram" : ""));
+
+      document.getElementById("clubPanelGuests").innerHTML = regs.length
+        ? regs.map(function(g) {
+            var isNext = g.rsvp_state === "next_time";
+            return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;' +
+              (isNext ? "opacity:.6;" : "") + '">' +
+              '<span style="flex:1;">' + escHtml(g.name) +
+                (g.plus_one ? ' <span style="color:var(--gold);font-weight:600;font-size:12px;">+1</span>' : "") +
+                (isNext ? ' <span style="color:var(--muted);font-size:12px;">(' + (en ? "next time" : "próxima") + ")</span>" : "") +
+              "</span>" +
+              '<a href="https://wa.me/' + escHtml(g.phone) + '" target="_blank" rel="noopener" ' +
+                'style="font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:6px;border:1.5px solid #25d366;color:#128c3e;text-decoration:none;">WhatsApp</a>' +
+              "</div>";
+          }).join("")
+        : '<div style="font-size:12px;color:var(--muted);">' +
+            (en ? "Nobody has signed up yet. Share the link."
+                : "Ninguém se inscreveu ainda. Compartilhe o link.") +
+          "</div>";
+
+      // Share is the point of this panel for Rafa: the link is what grows
+      // the room, and it has to be reachable without the finance page.
+      var url = clubPublicBase() + "/club.html?e=" + ev.id;
+      document.getElementById("clubPanelLink").innerHTML =
+        '<code style="flex:1 1 180px;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+          escHtml(url) + "</code>" +
+        '<button class="btn-fix-meet" onclick="copyClubPanelLink()">' + (en ? "Copy" : "Copiar") + "</button>" +
+        '<button class="btn-whatsapp" onclick="shareClubPanelLink()">' + (en ? "Share" : "Compartilhar") + "</button>";
+    }
+
+    function clubPublicBase() {
+      return (location.protocol === "http:" || location.protocol === "https:")
+        ? location.origin + location.pathname.replace(/\/[^\/]*$/, "")
+        : "https://apex.resonateai.online";
+    }
+
+    function clubPanelUrl() {
+      return CLUB_PANEL ? clubPublicBase() + "/club.html?e=" + CLUB_PANEL.event.id : "";
+    }
+
+    function copyClubPanelLink() {
+      var url = clubPanelUrl();
+      if (!url) { return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).catch(function() { window.prompt("Link:", url); });
+      } else {
+        window.prompt("Link:", url);
+      }
+    }
+
+    function shareClubPanelLink() {
+      var url = clubPanelUrl();
+      if (!url) { return; }
+      if (navigator.share) {
+        navigator.share({ title: "Apex Club", url: url }).catch(function() {});
+      } else {
+        window.open("https://wa.me/?text=" + encodeURIComponent(url), "_blank");
+      }
+    }
+
     function openDetail(session) {
       activeDetailSession = session;
       var en = isEn();
+      loadClubPanel(session.id);
       var isExternal = isExternalSession(session);
       var isEventCat = session.meeting_category === "event";
 

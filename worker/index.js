@@ -19875,6 +19875,73 @@ async function handlePostClubRegister(eventId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/club/by-session/:sessionId
+//
+// The SAME event, rendered for the calendar instead of the finance page.
+// Rafa runs Apex Club; Alice runs the money. The P&L does not even exist
+// until after the night, so putting the guest list behind the finance tab
+// blocks him from the only part he needs.
+//
+// Deliberately returns NO financial fields: no P&L, no suggestions, no
+// dismissed transactions, no totals. Guest list, counts, and what the event
+// is. Same row in D1 -- never a second copy.
+// ---------------------------------------------------------------------------
+
+async function handleGetClubBySession(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var ev = await env.DB.prepare(
+            "SELECT * FROM apex_club_events WHERE session_id = ?"
+        ).bind(sessionId).first();
+
+        // Not every calendar entry is an Apex Club night. A plain 404 lets
+        // the calendar simply not render the panel.
+        if (!ev) { return jsonErr("No Apex Club event linked to this session", 404); }
+
+        var regsRes = await env.DB.prepare(
+            "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at " +
+            "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
+        ).bind(ev.id).all();
+        var regs = regsRes.results || [];
+
+        var going = 0, goingRows = 0, nextTime = 0, attended = 0, noShow = 0;
+        regs.forEach(function(r) {
+            var seats = r.plus_one === 1 ? 2 : 1;
+            if (r.rsvp_state === "next_time") { nextTime++; }
+            else { goingRows++; going += seats; }
+            if (r.attended === 1) { attended += seats; }
+            else if (r.attended === 0) { noShow++; }
+        });
+
+        return jsonOk({
+            event: {
+                id: ev.id,
+                name: ev.name,
+                event_date: ev.event_date,
+                start_time: ev.start_time,
+                venue: ev.venue,
+                speakers: ev.speakers,
+                notes: ev.notes,
+                flyer_r2_key: ev.flyer_r2_key,
+                price_single_cents: ev.price_single_cents,
+                price_couple_cents: ev.price_couple_cents,
+                registration_open: ev.registration_open
+            },
+            registrations: regs,
+            rsvp: {
+                going: going, going_rows: goingRows,
+                next_time: nextTime, attended: attended, no_show: noShow
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error loading club event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/club/calendar-click/:id — public, fire-and-forget.
 //
 // Records that someone TAPPED "add to calendar". It cannot know whether the
@@ -21864,6 +21931,10 @@ export default {
 
         var clubRegMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)$/);
         if (clubRegMatch && method === "POST") { return handlePostClubRegistrationUpdate(clubRegMatch[1], request, env); }
+
+        // The calendar's money-free view of the same event.
+        var clubBySession = path.match(/^\/api\/finance-new\/club\/by-session\/([A-Za-z0-9-]+)$/);
+        if (clubBySession && method === "GET") { return handleGetClubBySession(clubBySession[1], request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

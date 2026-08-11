@@ -20146,6 +20146,17 @@ async function handlePostPushSubscribe(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
 
         var body = await request.json().catch(function() { return {}; });
+
+        // Turning the toggle off. The browser has already revoked the
+        // subscription; this drops our copy so nothing tries to send to a
+        // dead endpoint.
+        if (body.unsubscribe && body.endpoint) {
+            await env.DB.prepare(
+                "DELETE FROM push_subscriptions WHERE endpoint = ? AND user_email = ?"
+            ).bind(body.endpoint, user.email).run();
+            return jsonOk({ unsubscribed: true });
+        }
+
         var sub = body.subscription;
         if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
             return jsonErr("A full PushSubscription is required", 400);

@@ -8870,7 +8870,8 @@ async function handleGetInvoiceRenderData(zohoInvoiceId, request, env) {
                 valor_total:    inv.total !== undefined      ? formatCurrency(inv.total)     : "---"
             },
             observacoes:      inv.notes || "",
-            formas_pagamento: paymentMethod
+            formas_pagamento: paymentMethod,
+            pagamento: await buildInvoicePaymentBlock(env)
         };
 
         return jsonOk(renderData);
@@ -20592,12 +20593,50 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
             },
             observacoes:      inv.notes || "",
             formas_pagamento: inv.payment_method ||
-                "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente."
+                "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente.",
+            pagamento: await buildInvoicePaymentBlock(env)
         };
 
         return jsonOk(renderData);
     } catch (e) {
         return jsonErr("Error building invoice render data: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tap-to-pay for invoices.
+//
+// These go out digitally and get opened on a phone, where a QR code is
+// useless -- you cannot scan the screen you are reading it on. The Zelle QR
+// turns out to be nothing but a URL (enroll.zellepay.com carrying a base64
+// {name, action, token}), so the same destination works as a plain link.
+// That was the wall the first time an invoice pay-button was raised: there
+// was believed to be no Zelle link to point at. There is.
+//
+// Zelle carries no amount, so the invoice total still has to be typed. The
+// invoice number belongs in the memo for the same reason a guest's name does
+// on the club page -- it is what makes the payment identifiable on arrival.
+//
+// Shared by the Zoho-backed and D1-backed render-data routes so both produce
+// the same shape and the existing template stays the single renderer.
+// ---------------------------------------------------------------------------
+
+async function buildInvoicePaymentBlock(env) {
+    try {
+        var s = await env.DB.prepare(
+            "SELECT zelle_pay_url, stripe_payment_link, zelle_qr_r2_key FROM business_settings WHERE id = 1"
+        ).first();
+        if (!s) { return { zelle_url: null, zelle_qr_url: null, stripe_url: null }; }
+
+        return {
+            zelle_url:    s.zelle_pay_url || null,
+            // Kept for print and desktop, where tapping is not an option.
+            zelle_qr_url: s.zelle_qr_r2_key ? (APEX_API_BASE + "/api/business/qr-image") : null,
+            stripe_url:   s.stripe_payment_link || null
+        };
+    } catch (e) {
+        // A missing pay button must never break invoice rendering.
+        return { zelle_url: null, zelle_qr_url: null, stripe_url: null };
     }
 }
 

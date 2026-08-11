@@ -464,6 +464,24 @@
       color: #888;
     }
 
+    /* Screen-only pay buttons. Hidden from print (.no-print) because on a
+       PDF they would be a dead coloured rectangle -- the QR is the print
+       affordance, the button is the phone one. */
+    .payment-tile .pt-btn {
+      display: block;
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-decoration: none;
+      color: #fff;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+    .payment-tile .pt-zelle  { background: #6d1ed4; }   /* Zelle purple  */
+    .payment-tile .pt-stripe { background: #635bff; }   /* Stripe indigo */
+
     /* Stripe brand color text */
     .stripe-wordmark {
       font-size: 16px;
@@ -687,19 +705,28 @@
         <div class="bf-label">Formas de Pagamento</div>
         <div class="payment-tiles">
 
-          <!-- Zelle tile with the real uploaded QR code -->
+          <!-- Zelle tile: the QR, and on screen also a TAPPABLE link.
+               These invoices are read on phones, where a QR is useless --
+               you cannot scan the screen you are reading it on. The QR
+               itself decodes to a plain enroll.zellepay.com URL, so the
+               same destination works as a link. Both are kept: the link
+               for the phone, the QR for print and desktop. -->
           <div class="payment-tile">
             <div class="qr-placeholder" id="zelle-qr">
               <!-- Populated at load with an <img> pointing at GET /api/business/qr-image -->
             </div>
             <div class="pt-label">Zelle</div>
+            <a class="pt-btn pt-zelle no-print" id="zelle-pay-btn" target="_blank" rel="noopener" style="display:none;">Pagar com Zelle</a>
           </div>
 
-          <!-- Stripe tile with brand wordmark (text approximation, #635BFF) -->
+          <!-- Stripe tile. The CTA below is replaced with a real link when
+               business_settings carries one; it falls back to the old
+               "sent by email" text when it does not. -->
           <div class="payment-tile">
             <div class="stripe-wordmark">Stripe</div>
             <div class="pt-label">Pagar com Stripe</div>
-            <div class="pt-cta">Link enviado por email</div>
+            <div class="pt-cta" id="stripe-cta">Link enviado por email</div>
+            <a class="pt-btn pt-stripe no-print" id="stripe-pay-btn" target="_blank" rel="noopener" style="display:none;">Pagar com Stripe</a>
           </div>
 
         </div>
@@ -873,6 +900,32 @@
         'style="width:100%;height:100%;object-fit:contain;display:block;border-radius:3px;">';
     }
 
+    /* Tap-to-pay. data.pagamento carries { zelle_url, zelle_qr_url, stripe_url }
+       from the render-data endpoint. Each button only appears when a real URL
+       exists, so an invoice never shows a button that goes nowhere.
+
+       Neither processor accepts an amount in a link -- Zelle has no such
+       parameter at all -- so the total is still typed by the payer. The
+       invoice number goes in the memo, which is what makes the payment
+       identifiable when it lands. */
+    function loadPayButtons(pag) {
+      if (!pag) { return; }
+
+      if (pag.zelle_url) {
+        var z = document.getElementById('zelle-pay-btn');
+        if (z) { z.href = pag.zelle_url; z.style.display = 'block'; }
+      }
+
+      if (pag.stripe_url) {
+        var s = document.getElementById('stripe-pay-btn');
+        if (s) { s.href = pag.stripe_url; s.style.display = 'block'; }
+        /* The old "link enviado por email" line was a workaround for having
+           no link. With a real one it is just wrong, so it goes. */
+        var cta = document.getElementById('stripe-cta');
+        if (cta) { cta.style.display = 'none'; }
+      }
+    }
+
     function setText(id, value) {
       var el = document.getElementById(id);
       if (el) { el.textContent = value || '--'; }
@@ -883,6 +936,8 @@
       var empresa = data.empresa || {};
       var cliente = data.cliente || {};
       var totais = data.totais || {};
+
+      loadPayButtons(data.pagamento);
 
       // Apex logo
       var apexLogo = document.getElementById('apex-logo');

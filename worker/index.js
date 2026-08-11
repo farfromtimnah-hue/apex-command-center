@@ -19944,6 +19944,295 @@ async function handleGetClubBySession(sessionId, request, env) {
     }
 }
 
+// ===========================================================================
+// WEB PUSH
+//
+// Real push notifications to an installed PWA, including on iPhone (iOS 16.4+
+// home-screen web apps). Deliberately web push and NOT native: native push in
+// the Capacitor wrapper requires the paid Apple Developer program and APNs,
+// while this costs nothing and works today. The wrapper can gain native push
+// later without changing any of this.
+//
+// Implemented directly rather than with a library because Workers cannot use
+// the Node crypto that web-push depends on. Two pieces:
+//   1. VAPID  -- an ES256 JWT proving who is sending, signed with the private
+//                key in the VAPID_PRIVATE_KEY secret.
+//   2. aes128gcm -- the payload is encrypted to the subscription's own keys.
+//                   The push service never sees the message text.
+// ===========================================================================
+
+var VAPID_PUBLIC_KEY = "BB2FU9n-Nm_LcDWEdML34BlMWvmsj2aEJkeoYHBA6ILqJmjZIvYmnaqtxU2R601HJNeXnU6ZwDAjJjsVV69WDw0";
+var VAPID_SUBJECT    = "mailto:nlepage.ao.ail@gmail.com";
+
+function b64urlToBytes(s) {
+    s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) { s += "="; }
+    var bin = atob(s);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i); }
+    return out;
+}
+
+function bytesToB64url(buf) {
+    var b = new Uint8Array(buf), s = "";
+    for (var i = 0; i < b.length; i++) { s += String.fromCharCode(b[i]); }
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function concatBytes(arrays) {
+    var len = 0, i;
+    for (i = 0; i < arrays.length; i++) { len += arrays[i].length; }
+    var out = new Uint8Array(len), off = 0;
+    for (i = 0; i < arrays.length; i++) { out.set(arrays[i], off); off += arrays[i].length; }
+    return out;
+}
+
+// The VAPID JWT. Identifies the sender to the push service; without a valid
+// one the request is rejected with 401.
+async function buildVapidJwt(env, audience) {
+    var header  = { typ: "JWT", alg: "ES256" };
+    var payload = {
+        aud: audience,
+        exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
+        sub: VAPID_SUBJECT
+    };
+    var enc = new TextEncoder();
+    var signingInput =
+        bytesToB64url(enc.encode(JSON.stringify(header))) + "." +
+        bytesToB64url(enc.encode(JSON.stringify(payload)));
+
+    var key = await crypto.subtle.importKey(
+        "pkcs8", b64urlToBytes(env.VAPID_PRIVATE_KEY),
+        { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]
+    );
+    var sig = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" }, key, enc.encode(signingInput)
+    );
+    return signingInput + "." + bytesToB64url(sig);
+}
+
+async function hkdf(salt, ikm, info, length) {
+    var key = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+    var bits = await crypto.subtle.deriveBits(
+        { name: "HKDF", hash: "SHA-256", salt: salt, info: info }, key, length * 8
+    );
+    return new Uint8Array(bits);
+}
+
+// RFC 8291 aes128gcm. The push service relays an opaque blob; only the
+// subscribed browser can read it.
+async function encryptPushPayload(payloadText, p256dhB64, authB64) {
+    var enc = new TextEncoder();
+    var plaintext = enc.encode(payloadText);
+
+    var clientPub = b64urlToBytes(p256dhB64);
+    var authSecret = b64urlToBytes(authB64);
+
+    var localKp = await crypto.subtle.generateKey(
+        { name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]
+    );
+    var localPubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", localKp.publicKey));
+
+    var clientKey = await crypto.subtle.importKey(
+        "raw", clientPub, { name: "ECDH", namedCurve: "P-256" }, false, []
+    );
+    var shared = new Uint8Array(await crypto.subtle.deriveBits(
+        { name: "ECDH", public: clientKey }, localKp.privateKey, 256
+    ));
+
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+
+    var keyInfo = concatBytes([
+        enc.encode("WebPush: info\0"), clientPub, localPubRaw
+    ]);
+    var ikm = await hkdf(authSecret, shared, keyInfo, 32);
+
+    var cek   = await hkdf(salt, ikm, enc.encode("Content-Encoding: aes128gcm\0"), 16);
+    var nonce = await hkdf(salt, ikm, enc.encode("Content-Encoding: nonce\0"), 12);
+
+    var aesKey = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
+    // A single 0x02 delimiter marks the last (only) record.
+    var padded = concatBytes([plaintext, new Uint8Array([2])]);
+    var ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: nonce }, aesKey, padded
+    ));
+
+    // Header: salt(16) | record size(4) | key id length(1) | key id
+    var rs = new Uint8Array(4);
+    new DataView(rs.buffer).setUint32(0, 4096);
+    return concatBytes([
+        salt, rs, new Uint8Array([localPubRaw.length]), localPubRaw, ciphertext
+    ]);
+}
+
+// Sends to ONE subscription. Returns { ok, gone } -- `gone` means the browser
+// dropped it (404/410) and the row should be deleted rather than retried.
+async function sendWebPush(env, sub, payloadObj) {
+    try {
+        var url = new URL(sub.endpoint);
+        var jwt = await buildVapidJwt(env, url.origin);
+        var body = await encryptPushPayload(JSON.stringify(payloadObj), sub.p256dh, sub.auth);
+
+        var res = await fetch(sub.endpoint, {
+            method: "POST",
+            headers: {
+                "Authorization": "vapid t=" + jwt + ", k=" + VAPID_PUBLIC_KEY,
+                "Content-Encoding": "aes128gcm",
+                "Content-Type": "application/octet-stream",
+                "TTL": "86400",
+                "Urgency": "normal"
+            },
+            body: body
+        });
+
+        if (res.status === 404 || res.status === 410) { return { ok: false, gone: true }; }
+        if (!res.ok) {
+            var txt = await res.text().catch(function() { return ""; });
+            return { ok: false, gone: false, error: res.status + " " + txt.slice(0, 120) };
+        }
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, gone: false, error: e.message };
+    }
+}
+
+// Fan-out helper. `emails` null = every subscription.
+async function pushToUsers(env, emails, payloadObj) {
+    var q = emails && emails.length
+        ? "SELECT * FROM push_subscriptions WHERE user_email IN (" +
+          emails.map(function() { return "?"; }).join(",") + ")"
+        : "SELECT * FROM push_subscriptions";
+    var stmt = env.DB.prepare(q);
+    if (emails && emails.length) { stmt = stmt.bind.apply(stmt, emails); }
+
+    var subs = (await stmt.all()).results || [];
+    var sent = 0, removed = 0, failed = 0;
+
+    for (var i = 0; i < subs.length; i++) {
+        var r = await sendWebPush(env, subs[i], payloadObj);
+        if (r.ok) {
+            sent++;
+            await env.DB.prepare(
+                "UPDATE push_subscriptions SET last_sent_at = datetime('now'), last_error = NULL WHERE id = ?"
+            ).bind(subs[i].id).run();
+        } else if (r.gone) {
+            // The browser revoked it -- uninstalled, cleared data. Keeping it
+            // would mean failing forever.
+            removed++;
+            await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(subs[i].id).run();
+        } else {
+            failed++;
+            await env.DB.prepare(
+                "UPDATE push_subscriptions SET last_error = ? WHERE id = ?"
+            ).bind(String(r.error || "unknown").slice(0, 200), subs[i].id).run();
+        }
+    }
+    return { sent: sent, removed: removed, failed: failed, total: subs.length };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET  /api/push/key        — the VAPID public key (auth-free, public)
+// Route: POST /api/push/subscribe  — store this device's subscription
+// Route: POST /api/push/test       — send a test notification to myself
+// ---------------------------------------------------------------------------
+
+function handleGetPushKey() {
+    return jsonOk({ key: VAPID_PUBLIC_KEY });
+}
+
+async function handlePostPushSubscribe(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var sub = body.subscription;
+        if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+            return jsonErr("A full PushSubscription is required", 400);
+        }
+
+        // Re-subscribing on the same device returns the same endpoint, so
+        // upsert -- otherwise every reinstall would add a duplicate and send
+        // the same notification twice.
+        await env.DB.prepare(
+            "INSERT INTO push_subscriptions (id, user_email, endpoint, p256dh, auth, user_agent) " +
+            "VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT(endpoint) DO UPDATE SET " +
+            "user_email = excluded.user_email, p256dh = excluded.p256dh, " +
+            "auth = excluded.auth, user_agent = excluded.user_agent, last_error = NULL"
+        ).bind(
+            crypto.randomUUID(), user.email, sub.endpoint,
+            sub.keys.p256dh, sub.keys.auth,
+            String(body.user_agent || "").slice(0, 200) || null
+        ).run();
+
+        return jsonOk({ subscribed: true });
+    } catch (e) {
+        return jsonErr("Error saving push subscription: " + e.message, 500);
+    }
+}
+
+async function handlePostPushTest(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var result = await pushToUsers(env, [user.email], {
+            title: "Apex Command Center",
+            body: "Notificações ativadas. Funcionou! 🎉",
+            url: "/dashboard.html",
+            tag: "apex-test"
+        });
+
+        if (!result.total) {
+            return jsonErr("No device is subscribed for this account yet", 400);
+        }
+        return jsonOk(result);
+    } catch (e) {
+        return jsonErr("Error sending test notification: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/club/unlinked
+//
+// Apex Club nights that exist on the CALENDAR but have no club event, so no
+// price, no flyer and no registration page.
+//
+// Why this has to exist: Rafa creates events in Google Calendar, not in Apex
+// (adoption is still sporadic -- he asked for access and then kept using
+// Google). Google cannot prompt him for a price or a flyer, so that data can
+// only ever be collected later, inside Apex. Without this the gap is silent
+// and someone has to happen to open the right calendar entry to notice it.
+//
+// Matched on the session name, which is what an externally-created entry
+// actually carries -- July's arrived from Google as "APEX CLUB ", trailing
+// space and all.
+// ---------------------------------------------------------------------------
+
+async function handleGetClubUnlinked(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT s.id, s.client_name, s.date, s.time, s.location, s.calendar_provider " +
+            "FROM sessions s " +
+            "WHERE REPLACE(UPPER(TRIM(COALESCE(s.client_name,''))), '  ', ' ') LIKE '%APEX CLUB%' " +
+            "AND s.id NOT IN (SELECT COALESCE(session_id,'') FROM apex_club_events) " +
+            // A prep task ("Impressão certificados + preparação para o Apex
+            // Club") is not the dinner. Only the entry that IS the event.
+            "AND UPPER(TRIM(COALESCE(s.client_name,''))) NOT LIKE '%PREPARA%' " +
+            "ORDER BY s.date DESC LIMIT 20"
+        ).all();
+
+        return jsonOk({ sessions: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error finding unlinked Apex Club events: " + e.message, 500);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Route: POST /api/club/calendar-click/:id — public, fire-and-forget.
 //
@@ -21938,6 +22227,15 @@ export default {
         // The calendar's money-free view of the same event.
         var clubBySession = path.match(/^\/api\/finance-new\/club\/by-session\/([A-Za-z0-9-]+)$/);
         if (clubBySession && method === "GET") { return handleGetClubBySession(clubBySession[1], request, env); }
+
+        // Apex Club nights on the calendar with no registration page yet.
+        if (path === "/api/finance-new/club/unlinked" && method === "GET") { return handleGetClubUnlinked(request, env); }
+
+        // Web push. The key is public by design -- it is the VAPID public
+        // key and the client needs it before it can subscribe.
+        if (path === "/api/push/key"       && method === "GET")  { return handleGetPushKey(); }
+        if (path === "/api/push/subscribe" && method === "POST") { return handlePostPushSubscribe(request, env); }
+        if (path === "/api/push/test"      && method === "POST") { return handlePostPushTest(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

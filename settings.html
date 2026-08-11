@@ -998,6 +998,32 @@
             <div id="bizZelleHandleStatus" style="margin-top:6px;font-size:13px;"></div>
           </div>
 
+          <!-- ══ Push notifications ═══════════════════════════════════════
+               Web push, which works on an installed home-screen PWA
+               including iPhone (iOS 16.4+) with NO paid Apple account. The
+               Capacitor wrapper would need the $99/yr program and APNs.
+               iOS rules this markup exists to satisfy:
+                 - only works when installed via Share > Add to Home Screen
+                 - the permission prompt MUST come from a tap, never on load -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">Notificações</span>
+              <span class="show-en">Notifications</span>
+            </div>
+            <div id="pushState" style="font-size:13px;line-height:1.6;margin-bottom:10px;color:var(--muted);"></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button id="pushEnableBtn" onclick="handleEnablePush()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+                <span class="show-pt">Ativar notificações</span>
+                <span class="show-en">Enable notifications</span>
+              </button>
+              <button id="pushTestBtn" onclick="handleTestPush()" hidden style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+                <span class="show-pt">Enviar teste</span>
+                <span class="show-en">Send test</span>
+              </button>
+            </div>
+            <div id="pushStatus" style="margin-top:6px;font-size:13px;"></div>
+          </div>
+
           <!-- Apex Club WhatsApp confirmation template -->
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
@@ -1175,6 +1201,7 @@
       loadTemplates();
       loadPackages();
       loadBusinessSettings();
+      refreshPushState();
     }
 
     function init() {
@@ -2539,6 +2566,163 @@
           statusEl.textContent = "Salvo.";
           statusEl.className = "template-status ok";
           setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 2000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "template-status err";
+        });
+    }
+
+    // ── Web push ────────────────────────────────────────────────────────
+    //
+    // iOS will only deliver push to a PWA that was installed via
+    // Share > Add to Home Screen, and will only show the permission prompt in
+    // response to a real tap. Both are enforced by the OS -- this code just
+    // has to not violate them, and has to SAY so when the requirements are
+    // not met, or "Enable" silently does nothing and looks broken.
+
+    function pushSupported() {
+      return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    }
+
+    function isStandalonePwa() {
+      return window.matchMedia("(display-mode: standalone)").matches ||
+             window.navigator.standalone === true;
+    }
+
+    function isIos() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent);
+    }
+
+    function refreshPushState() {
+      var stateEl = document.getElementById("pushState");
+      var enableBtn = document.getElementById("pushEnableBtn");
+      var testBtn = document.getElementById("pushTestBtn");
+      if (!stateEl) { return; }
+
+      if (!pushSupported()) {
+        stateEl.textContent = t("Este navegador não suporta notificações.",
+                                "This browser does not support notifications.");
+        enableBtn.disabled = true;
+        return;
+      }
+
+      // The single most common reason push "doesn't work" on iPhone: the site
+      // is open in Safari rather than installed. Say it plainly.
+      if (isIos() && !isStandalonePwa()) {
+        stateEl.innerHTML = t(
+          "No iPhone, as notificações só funcionam com o app instalado na tela de início.<br>Toque em <b>Compartilhar &rarr; Adicionar à Tela de Início</b>, abra por lá e volte aqui.",
+          "On iPhone, notifications only work when the app is installed to the Home Screen.<br>Tap <b>Share &rarr; Add to Home Screen</b>, open it from there, and come back."
+        );
+        enableBtn.disabled = true;
+        return;
+      }
+
+      if (Notification.permission === "denied") {
+        stateEl.textContent = t(
+          "As notificações foram bloqueadas. Libere nas configurações do sistema para este app.",
+          "Notifications are blocked. Allow them in your system settings for this app."
+        );
+        enableBtn.disabled = true;
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        navigator.serviceWorker.ready.then(function(reg) {
+          return reg.pushManager.getSubscription();
+        }).then(function(sub) {
+          if (sub) {
+            stateEl.textContent = t("Notificações ativadas neste dispositivo.",
+                                    "Notifications are on for this device.");
+            enableBtn.hidden = true;
+            testBtn.hidden = false;
+          } else {
+            stateEl.textContent = t("Permissão concedida. Toque para ativar neste dispositivo.",
+                                    "Permission granted. Tap to turn on for this device.");
+          }
+        });
+        return;
+      }
+
+      stateEl.textContent = t("Receba avisos do Apex neste dispositivo.",
+                              "Get Apex alerts on this device.");
+    }
+
+    function handleEnablePush() {
+      var statusEl = document.getElementById("pushStatus");
+      statusEl.textContent = "";
+      statusEl.className = "";
+
+      // Must be inside the tap handler -- iOS rejects a prompt requested any
+      // other way, and it cannot be asked again afterwards.
+      Notification.requestPermission().then(function(perm) {
+        if (perm !== "granted") {
+          statusEl.textContent = t("Permissão negada.", "Permission denied.");
+          statusEl.className = "template-status err";
+          refreshPushState();
+          return;
+        }
+        return subscribeForPush().then(function() {
+          statusEl.textContent = t("Pronto!", "Done!");
+          statusEl.className = "template-status ok";
+          refreshPushState();
+        });
+      }).catch(function(e) {
+        statusEl.textContent = "Erro: " + e.message;
+        statusEl.className = "template-status err";
+      });
+    }
+
+    function urlB64ToUint8Array(base64String) {
+      var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      var raw = atob(base64);
+      var out = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) { out[i] = raw.charCodeAt(i); }
+      return out;
+    }
+
+    function subscribeForPush() {
+      return fetch(WORKER_URL + "/api/push/key")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || !d.key) { throw new Error("No VAPID key"); }
+          return navigator.serviceWorker.ready.then(function(reg) {
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlB64ToUint8Array(d.key)
+            });
+          });
+        })
+        .then(function(sub) {
+          return getToken().then(function(token) {
+            return fetch(WORKER_URL + "/api/push/subscribe", {
+              method: "POST",
+              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+              body: JSON.stringify({ subscription: sub.toJSON(), user_agent: navigator.userAgent })
+            });
+          });
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(d) { if (d.error) { throw new Error(d.error); } });
+    }
+
+    function handleTestPush() {
+      var statusEl = document.getElementById("pushStatus");
+      statusEl.textContent = t("Enviando...", "Sending...");
+      statusEl.className = "";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/push/test", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          statusEl.textContent = t("Enviado para " + d.sent + " dispositivo(s).",
+                                   "Sent to " + d.sent + " device(s).");
+          statusEl.className = "template-status ok";
         })
         .catch(function(e) {
           statusEl.textContent = "Erro: " + e.message;

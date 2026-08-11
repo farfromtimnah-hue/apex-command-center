@@ -1693,6 +1693,14 @@
 
         <div id="clubBody"></div>
 
+        <!-- Apex Club nights that exist on the CALENDAR but have no
+             registration page. Rafa creates events in Google Calendar, and
+             Google cannot prompt him for a price or a flyer -- so that data
+             can only be collected later, here. Without this the gap is
+             silent and depends on someone happening to open the right
+             calendar entry. -->
+        <div id="clubUnlinked" hidden></div>
+
         <div id="clubEmpty" class="page-sub" hidden>
           <span class="show-pt">Nenhum evento cadastrado ainda.</span>
           <span class="show-en">No events set up yet.</span>
@@ -2943,8 +2951,106 @@
         .catch(function() {});
     }
 
+    // Apex Club nights sitting on the calendar with no registration page.
+    // Loaded alongside the events so the gap surfaces itself in Alice's
+    // workflow rather than waiting to be noticed.
+    var CLUB_UNLINKED = [];
+
+    function loadClubUnlinked() {
+      return apiFetch("/api/finance-new/club/unlinked")
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          CLUB_UNLINKED = (d && d.sessions) || [];
+          renderClubUnlinked();
+          updateFinanceBadges();
+        })
+        .catch(function() {});
+    }
+
+    function renderClubUnlinked() {
+      var box = document.getElementById("clubUnlinked");
+      if (!box) { return; }
+      if (!CLUB_UNLINKED.length) { box.hidden = true; box.innerHTML = ""; return; }
+
+      box.hidden = false;
+      box.innerHTML = CLUB_UNLINKED.map(function(s) {
+        return '<div class="club-unlinked-row">' +
+          '<div class="grow">' +
+            "<b>" + esc(s.client_name || "Apex Club") + "</b> &middot; " + fmtDate(s.date) +
+            '<div class="club-unlinked-sub">' +
+              '<span class="show-pt">Está no calendário, mas ainda não tem página de inscrição.</span>' +
+              '<span class="show-en">On the calendar, but has no registration page yet.</span>' +
+            "</div>" +
+          "</div>" +
+          '<button class="btn btn-sm btn-gold" onclick="setUpClubFromSession(\'' + s.id + '\')">' +
+            '<span class="show-pt">Configurar</span>' +
+            '<span class="show-en">Set up</span>' +
+          "</button>" +
+        "</div>";
+      }).join("");
+      applyFinBilingualAttrs();
+    }
+
+    // Creates the club event from what the calendar entry already knows, then
+    // opens the edit modal for the parts Google could never have asked for:
+    // price, flyer, speakers.
+    function setUpClubFromSession(sessionId) {
+      var s = null;
+      for (var i = 0; i < CLUB_UNLINKED.length; i++) {
+        if (CLUB_UNLINKED[i].id === sessionId) { s = CLUB_UNLINKED[i]; break; }
+      }
+      if (!s) { return; }
+
+      apiFetch("/api/finance-new/club/events", {
+        method: "POST",
+        body: {
+          name: (s.client_name || "Apex Club").trim(),
+          event_date: s.date,
+          start_time: s.time ? fmtTime12(s.time) : null,
+          venue: s.location || null,
+          session_id: s.id
+        }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          var el = document.getElementById("eventMonth");
+          if (el && s.date) { el.value = String(s.date).slice(0, 7); }
+          // Reload, then open the modal so she lands straight on the fields
+          // that are still missing.
+          // Refresh both lists, then open the modal on the new event so she
+          // lands straight on the fields that are still missing. Calls the
+          // two loaders directly rather than loadClub(), which would re-enter
+          // loadClubUnlinked and loop.
+          return apiFetch("/api/finance-new/club/events")
+            .then(function(r2) { return r2.json(); })
+            .then(function(d2) {
+              CLUB_EVENTS = (d2 && d2.events) || [];
+              renderClub();
+              return loadClubUnlinked();
+            })
+            .then(function() {
+              if (d.event && d.event.id) { openClubEvModal(d.event.id); }
+            });
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // "19:30" -> "7:30 PM". The calendar stores 24h; the event carries the
+    // string that gets printed on the registration page.
+    function fmtTime12(hhmm) {
+      var p = String(hhmm || "").split(":");
+      if (p.length < 2) { return null; }
+      var h = parseInt(p[0], 10), m = p[1];
+      if (!isFinite(h)) { return null; }
+      var ap = h >= 12 ? "PM" : "AM";
+      var h12 = h % 12; if (h12 === 0) { h12 = 12; }
+      return h12 + ":" + m + " " + ap;
+    }
+
     function loadClub() {
       loadBusinessSettings();
+      loadClubUnlinked();
       return apiFetch("/api/finance-new/club/events")
         .then(function(r) { return r.json(); })
         .then(function(d) {
@@ -4165,6 +4271,11 @@
       (CLUB_EVENTS || []).forEach(function(e) {
         eventSuggestions += (e.suggestions || []).length;
       });
+      // An Apex Club sitting on the calendar with no registration page is
+      // also something waiting on her, and it is the one that is otherwise
+      // invisible -- Rafa creates these in Google, which cannot ask him for
+      // a price or a flyer.
+      eventSuggestions += (CLUB_UNLINKED || []).length;
       setBadge("finBadgeEventos", eventSuggestions);
     }
 

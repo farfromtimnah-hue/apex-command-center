@@ -9,7 +9,7 @@
 // overwritten. This is what makes the activate handler's cache cleanup below
 // actually fire on each deploy instead of silently serving stale
 // nav.js/pwa.js/mobile.css/icons forever.
-var CACHE_NAME = "apex-static-1786423141";
+var CACHE_NAME = "apex-static-1786424742";
 
 var PRECACHE_URLS = [
   "nav.js",
@@ -151,6 +151,46 @@ self.addEventListener("fetch", function (event) {
         }
         return res;
       });
+    })
+  );
+});
+
+// ═══════════════ WEB PUSH ═══════════════════════════════════════════════
+//
+// Works on an installed home-screen PWA, iPhone included (iOS 16.4+). It does
+// NOT work in a plain Safari tab, and the permission prompt must come from a
+// real tap -- both are iOS rules, not choices made here.
+
+self.addEventListener("push", function (event) {
+  var data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
+
+  var title = data.title || "Apex Command Center";
+  var options = {
+    body: data.body || "",
+    icon: "icons/icon-192.png",
+    badge: "icons/icon-192.png",
+    // A tag replaces an earlier notification with the same tag instead of
+    // stacking duplicates -- a daily check must not pile up.
+    tag: data.tag || "apex",
+    data: { url: data.url || "/dashboard.html" },
+    renotify: true
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  var target = (event.notification.data && event.notification.data.url) || "/dashboard.html";
+
+  // Focus an already-open window rather than opening a second copy.
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url.indexOf(target) !== -1 && "focus" in list[i]) { return list[i].focus(); }
+      }
+      if (clients.openWindow) { return clients.openWindow(target); }
     })
   );
 });

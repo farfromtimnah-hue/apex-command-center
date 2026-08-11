@@ -14,6 +14,8 @@
   <!-- Shared month-grid mechanics, extracted from calendar.html so the client
        calendar does not reimplement (and re-break) it. See calendar-grid.js. -->
   <script src="calendar-grid.js?v=1786488217"></script>
+  <!-- Stored keys -> displayed labels. Must load BEFORE gm.js, which uses it. -->
+  <script src="gm-labels.js?v=1786490363"></script>
   <!-- The single implementation of the Analytics view, shared with the admin
        per-client analytics page so the two can never drift apart. -->
   <script src="analytics-view.js"></script>
@@ -6210,7 +6212,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1786488084"></script>
+  <script src="gm.js?v=1786490362"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

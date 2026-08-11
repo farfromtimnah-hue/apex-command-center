@@ -116,16 +116,23 @@ function gmDaysSince(iso) {
 }
 
 // ── Status pills: colour + glyph + word, never colour alone ─────────────
+//
+// Keyed by the STAGE KEY, not by a Portuguese label: gm_leads.estagio stores
+// 'negociacao' and the visible word is looked up per language at render time.
+// See gm-labels.js for why.
 var GM_STAGE_PILL = {
-  "Novo Lead":        { band: "gm-gold",  glyph: "●" },
-  "Contato Feito":    { band: "gm-gold",  glyph: "●" },
-  "Visita Agendada":  { band: "gm-gold",  glyph: "●" },
-  "Estimate Enviado": { band: "gm-gold",  glyph: "◆" },
-  "Follow-up":        { band: "gm-gold",  glyph: "◆" },
-  "Negociação":       { band: "gm-gold",  glyph: "◆" },
-  "Fechado":          { band: "gm-green", glyph: "✓" },
-  "Perdido":          { band: "gm-red",   glyph: "✕" }
+  "novo_lead":        { band: "gm-gold",  glyph: "●" },
+  "contato_feito":    { band: "gm-gold",  glyph: "●" },
+  "visita_agendada":  { band: "gm-gold",  glyph: "●" },
+  "estimate_enviado": { band: "gm-gold",  glyph: "◆" },
+  "follow_up":        { band: "gm-gold",  glyph: "◆" },
+  "negociacao":       { band: "gm-gold",  glyph: "◆" },
+  "fechado":          { band: "gm-green", glyph: "✓" },
+  "perdido":          { band: "gm-red",   glyph: "✕" }
 };
+
+// The visible label for a stage key, in the current language.
+function gmStageLabel(key) { return GmLabels.stageLabel(key, isEn()); }
 var GM_STATUS_PILLS = {
   roadmap: {
     "Realizado":    { band: "gm-green", glyph: "✓" },
@@ -752,7 +759,7 @@ function gmLeadRowHtml(lead) {
     (line2 ? '<div class="gm-lead-sub">' + line2 + '</div>' : "") +
     (line3 ? '<div class="gm-lead-sub">' + line3 + '</div>' : "") +
     '</span>' +
-    '<span class="gm-lead-side">' + gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) + '</span>' +
+    '<span class="gm-lead-side">' + gmPillHtml(gmStageLabel(lead.estagio), GM_STAGE_PILL[lead.estagio]) + '</span>' +
     '</button>';
 }
 
@@ -872,7 +879,7 @@ function gmCrmListHtml() {
     stages.forEach(function(stage, i) {
       var leads = gmLeadsInStage(stage);
       html += '<div class="gm-stage-section"' + (i === 0 ? ' data-tour="crm-stage-section"' : '') + '>' +
-        '<div class="gm-stage-head"><span class="gm-stage-name">' + escHtml(stage) + '</span>' +
+        '<div class="gm-stage-head"><span class="gm-stage-name">' + escHtml(gmStageLabel(stage)) + '</span>' +
         '<span class="gm-stage-count">' + leads.length + '</span></div>';
       if (!leads.length) {
         html += '<div class="gm-stage-empty">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</div>';
@@ -889,7 +896,7 @@ function gmCrmListHtml() {
       var n = gmLeadsInStage(stage).length;
       html += '<button type="button" class="gm-stage-chip' + (stage === gmActiveStage ? " gm-chip-active" : "") +
         '" onclick="gmPickStage(\'' + escHtml(stage).replace(/'/g, "\\'") + '\')">' +
-        escHtml(stage) + ' <span class="gm-chip-count">' + n + '</span></button>';
+        escHtml(gmStageLabel(stage)) + ' <span class="gm-chip-count">' + n + '</span></button>';
     });
     html += '</div><div class="content-card">';
     var filtered = gmLeadsInStage(gmActiveStage);
@@ -909,12 +916,12 @@ function gmCrmListHtml() {
       if (elsewhere.length) {
         html += '<div class="gm-search-elsewhere">' +
           '<div class="gm-search-elsewhere-title">' +
-          gmT("Nenhum resultado em ", "No matches in ") + escHtml(gmActiveStage) + '.</div>' +
+          gmT("Nenhum resultado em ", "No matches in ") + escHtml(gmStageLabel(gmActiveStage)) + '.</div>' +
           '<div class="gm-search-elsewhere-sub">' +
           gmT("Encontrado em:", "Found in:") + '</div><div class="gm-search-elsewhere-chips">';
         elsewhere.forEach(function(e) {
           html += '<button type="button" class="gm-stage-chip" onclick="gmPickStage(\'' +
-            escHtml(e.stage).replace(/'/g, "\\'") + '\')">' + escHtml(e.stage) +
+            escHtml(e.stage).replace(/'/g, "\\'") + '\')">' + escHtml(gmStageLabel(e.stage)) +
             ' <span class="gm-chip-count">' + e.n + '</span></button>';
         });
         html += '</div></div>';
@@ -969,8 +976,11 @@ function gmQuickAddOpen() {
     '<label class="field-label" style="margin-top:12px;">' + gmT("Serviço", "Service") + '</label>' +
     '<div class="gm-chip-set" id="gmQaServicos">' + chips + '</div>' +
     '<div class="gm-derived-note">' +
-    gmT("Estágio: Novo Lead · Data: agora. Depois de salvar você pode adicionar os detalhes.",
-        "Stage: Novo Lead · Date: now. You can add details after saving.") + '</div>' +
+    // The stage name is interpolated from the label table rather than written
+    // into the sentence: the English copy used to read "Stage: Novo Lead",
+    // English chrome around an untranslatable Portuguese value.
+    gmT("Estágio: " + gmStageLabel("novo_lead") + " · Data: agora. Depois de salvar você pode adicionar os detalhes.",
+        "Stage: " + gmStageLabel("novo_lead") + " · Date: now. You can add details after saving.") + '</div>' +
     '<div class="gm-editor-actions">' +
     '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
     '<button type="button" class="btn-gold" onclick="gmQuickAddSave()">' + gmT("Salvar lead", "Save lead") + '</button>' +
@@ -1026,7 +1036,7 @@ function gmQuickAddSave() {
     address: addr || null,
     city: city || null,
     servico: gmQuickServicos.length ? gmQuickServicos.join(", ") : null,
-    estagio: "Novo Lead",
+    estagio: "novo_lead",
     data_lead: gmNowLocalIso(),
     mes_lead: gmCurrentCycleMonth()
   };
@@ -1447,7 +1457,7 @@ function gmRenderLeadSheet() {
       '<span class="gm-sheet-hero-body">' +
         '<span class="gm-sheet-hero-label">' + gmT("Estágio", "Stage") + '</span>' +
         '<span class="gm-sheet-hero-pill">' +
-        gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) + '</span>' +
+        gmPillHtml(gmStageLabel(lead.estagio), GM_STAGE_PILL[lead.estagio]) + '</span>' +
         (days !== null ? '<span class="gm-sheet-hero-age">' +
           (isEn() ? days + " day(s) in this stage" : days + " dia(s) neste estágio") + '</span>' : "") +
         '<span class="gm-sheet-hero-hint">' + gmT("Toque para mudar", "Tap to change") + '</span>' +
@@ -1811,7 +1821,7 @@ function gmOpenStagePicker() {
   stages.forEach(function(stage) {
     body += '<button type="button" class="gm-choice-chip' + (stage === lead.estagio ? " gm-chip-sel" : "") +
       '" style="text-align:left;" onclick="gmSetStage(\'' + escHtml(stage).replace(/'/g, "\\'") + '\')">' +
-      gmPillHtml(stage, GM_STAGE_PILL[stage]) + '</button>';
+      gmPillHtml(gmStageLabel(stage), GM_STAGE_PILL[stage]) + '</button>';
   });
   body += '</div>' +
     '<button type="button" class="btn-outline gm-add-btn" onclick="gmRenderLeadSheet()">' + gmT("Cancelar", "Cancel") + '</button>';
@@ -3782,7 +3792,7 @@ function gmCalRenderComposer() {
         '<div class="gm-editor-input"><select id="gmCalLead" onchange="gmCalPickLink(\'lead\', this.value)">' +
         '<option value="">' + gmT("— nenhum —", "— none —") + '</option>';
       // Live leads first and capped: a 93-row <select> is not a picker.
-      var live = leads.filter(function(l) { return l.estagio !== "Perdido"; });
+      var live = leads.filter(function(l) { return l.estagio !== "perdido"; });
       live.slice(0, 60).forEach(function(l) {
         body += '<option value="' + escHtml(l.id) + '"' + (d.lead_id === l.id ? " selected" : "") + '>' +
           escHtml(l.cliente || "") + '</option>';

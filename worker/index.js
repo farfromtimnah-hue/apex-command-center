@@ -14350,14 +14350,52 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
 //   months, target margin %, pipeline view threshold.
 // ---------------------------------------------------------------------------
 
-var GM_STAGES = ["Novo Lead", "Contato Feito", "Visita Agendada", "Estimate Enviado", "Follow-up", "Negociação", "Fechado", "Perdido"];
+// ⚠️ STAGES ARE STORED AS LANGUAGE-NEUTRAL KEYS, NOT AS DISPLAY STRINGS.
+//
+// gm_leads.estagio used to hold "Negociação" as literal text, which meant an
+// English-speaking owner could never see an English pipeline no matter how
+// good the toggle was — a stored display string cannot be translated. The
+// eight stages are a fixed ladder no client can add to, so the stored value is
+// now a key and the label is looked up at render time (gm-labels.js, shared
+// with the frontend so a label is defined exactly once).
+//
+// EVERY comparison against a stage must use the KEY. A missed one is not a
+// cosmetic bug: receita_fechada matching 'Fechado' against a row storing
+// 'fechado' returns $0, which reads as a real business result.
+var GM_STAGE_DEFS = [
+    { key: "novo_lead",        pt: "Novo Lead",        en: "New Lead" },
+    { key: "contato_feito",    pt: "Contato Feito",    en: "Contacted" },
+    { key: "visita_agendada",  pt: "Visita Agendada",  en: "Visit Scheduled" },
+    { key: "estimate_enviado", pt: "Estimate Enviado", en: "Estimate Sent" },
+    { key: "follow_up",        pt: "Follow-up",        en: "Follow-up" },
+    { key: "negociacao",       pt: "Negociação",       en: "Negotiation" },
+    { key: "fechado",          pt: "Fechado",          en: "Closed" },
+    { key: "perdido",          pt: "Perdido",          en: "Lost" }
+];
+var GM_STAGES = GM_STAGE_DEFS.map(function(s) { return s.key; });
 // Pipeline ativo ($) sums VALOR over EXACTLY these three stages — Visita
 // Agendada and Contato Feito deliberately do NOT count (the client's rule).
-var GM_ACTIVE_PIPELINE_STAGES = ["Estimate Enviado", "Follow-up", "Negociação"];
+// The rule is unchanged; only the representation moved from label to key.
+var GM_ACTIVE_PIPELINE_STAGES = ["estimate_enviado", "follow_up", "negociacao"];
 // "Live" leads for the pipeline view-mode threshold: everything except
-// Fechado and Perdido. Closed/lost history must never force the crowded-
+// fechado and perdido. Closed/lost history must never force the crowded-
 // pipeline chip-rail view on someone managing 20 live leads.
-var GM_LIVE_STAGES = ["Novo Lead", "Contato Feito", "Visita Agendada", "Estimate Enviado", "Follow-up", "Negociação"];
+var GM_LIVE_STAGES = ["novo_lead", "contato_feito", "visita_agendada", "estimate_enviado", "follow_up", "negociacao"];
+
+// Accepts a key, or a Portuguese/English label from an older client build, and
+// returns the key. NULL for anything unrecognised — an unknown stage is never
+// silently coerced into a real one.
+var GM_STAGE_KEY_BY_LABEL = {};
+GM_STAGE_DEFS.forEach(function(s) {
+    GM_STAGE_KEY_BY_LABEL[s.key] = s.key;
+    GM_STAGE_KEY_BY_LABEL[s.pt]  = s.key;
+    GM_STAGE_KEY_BY_LABEL[s.en]  = s.key;
+});
+function gmStageKey(v) {
+    if (v === null || v === undefined) { return null; }
+    var s = String(v).trim();
+    return GM_STAGE_KEY_BY_LABEL[s] || null;
+}
 var GM_ORIGENS = ["Orgânico", "Tráfego pago", "Indicação", "Base de Clientes", "Parceiro", "Google", "Instagram", "Site", "Outro"];
 var GM_ROADMAP_STATUSES = ["Realizado", "Em andamento", "Pendente", "Atrasado", "Cancelado"];
 var GM_FRENTES = ["Comercial", "Gestão", "Base de Ouro", "Financeiro", "Parcerias", "Marketing", "Operação"];
@@ -14583,7 +14621,10 @@ async function handleGetGmConfig(id, request, env) {
             config: config,
             referral_share_template: referralTemplateText,
             method: {
+                // Keys, not labels. stage_defs carries the pt/en pair so a
+                // client that has not reloaded gm-labels.js still renders.
                 stages: GM_STAGES,
+                stage_defs: GM_STAGE_DEFS,
                 active_pipeline_stages: GM_ACTIVE_PIPELINE_STAGES,
                 live_stages: GM_LIVE_STAGES,
                 origens: GM_ORIGENS,
@@ -14787,14 +14828,14 @@ async function handleGetGmLeads(id, request, env) {
         ).bind(...leadBinds).all();
         var summary = await env.DB.prepare(
             "SELECT COUNT(*) AS leads_totais, " +
-            "SUM(CASE WHEN estagio IN ('Estimate Enviado','Follow-up','Negociação') THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
-            "SUM(CASE WHEN estagio = 'Fechado' THEN COALESCE(valor,0) ELSE 0 END) AS receita_fechada, " +
-            "SUM(CASE WHEN estagio = 'Fechado' THEN 1 ELSE 0 END) AS fechados, " +
+            "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
+            "SUM(CASE WHEN estagio = 'fechado' THEN COALESCE(valor,0) ELSE 0 END) AS receita_fechada, " +
+            "SUM(CASE WHEN estagio = 'fechado' THEN 1 ELSE 0 END) AS fechados, " +
             "SUM(CASE WHEN data_lead IS NOT NULL AND data_contato IS NOT NULL " +
             "AND (julianday(data_contato) - julianday(data_lead)) * 1440.0 > 5.0 THEN 1 ELSE 0 END) AS fora_sla_contato, " +
             "SUM(CASE WHEN data_lead IS NOT NULL AND data_estimate IS NOT NULL " +
             "AND (julianday(data_estimate) - julianday(data_lead)) > 1.0 THEN 1 ELSE 0 END) AS fora_sla_estimate, " +
-            "SUM(CASE WHEN estagio NOT IN ('Fechado','Perdido') THEN 1 ELSE 0 END) AS live_count " +
+            "SUM(CASE WHEN estagio NOT IN ('fechado','perdido') THEN 1 ELSE 0 END) AS live_count " +
             "FROM gm_leads WHERE client_id = ?" + (sellerName ? " AND vendedor = ?" : "")
         ).bind(...leadBinds).first();
         var leadsTotais = (summary && summary.leads_totais) || 0;
@@ -14854,7 +14895,7 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         out.cliente = cliente;
     }
     if (!partial || has("estagio")) {
-        var estagio = body.estagio === undefined || body.estagio === null ? "Novo Lead" : body.estagio;
+        var estagio = body.estagio === undefined || body.estagio === null ? "novo_lead" : gmStageKey(body.estagio);
         if (GM_STAGES.indexOf(estagio) === -1) { return { error: "Estágio inválido" }; }
         out.estagio = estagio;
     }
@@ -15327,7 +15368,7 @@ async function handlePostGmBaseOuroReactivate(id, rowId, request, env) {
         var leadId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, servico, origem, estagio) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'Base de Clientes', 'Novo Lead')"
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'Base de Clientes', 'novo_lead')"
         ).bind(leadId, id, mesLead, dataLead, row.cliente, row.telefone, null).run();
         await env.DB.prepare(
             "UPDATE gm_base_ouro SET status = 'Reativado', reactivated_lead_id = ?, updated_at = datetime('now') WHERE id = ?"
@@ -15374,7 +15415,7 @@ async function handleGetGmPartners(id, request, env) {
         var rows = await env.DB.prepare(
             "SELECT p.*, " +
             "(SELECT COUNT(*) FROM gm_leads l WHERE l.parceiro_id = p.id) AS leads_indicados, " +
-            "(SELECT COALESCE(SUM(l.valor), 0) FROM gm_leads l WHERE l.parceiro_id = p.id AND l.estagio = 'Fechado') AS receita_gerada " +
+            "(SELECT COALESCE(SUM(l.valor), 0) FROM gm_leads l WHERE l.parceiro_id = p.id AND l.estagio = 'fechado') AS receita_gerada " +
             "FROM gm_partners p WHERE p.client_id = ? ORDER BY p.name COLLATE NOCASE"
         ).bind(id).all();
         return jsonOk({ partners: rows.results || [] });
@@ -15889,7 +15930,7 @@ async function handlePostReferralLead(slug, request, env) {
             servico: servico,
             origem: "Parceiro",
             parceiro_id: partner.id,
-            estagio: "Novo Lead",
+            estagio: "novo_lead",
             data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
             mes_lead: mesLead,
             observacao: "Recebido pelo link de indicação do parceiro."
@@ -16306,8 +16347,8 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             if (!c.objection) { return; }
             var st = leadStageById[c.lead_id] || c.estagio;
             if (!objOutcome[c.objection]) { objOutcome[c.objection] = { won: 0, lost: 0, open: 0 }; }
-            if (st === "Fechado") { objOutcome[c.objection].won++; }
-            else if (st === "Perdido") { objOutcome[c.objection].lost++; }
+            if (st === "fechado") { objOutcome[c.objection].won++; }
+            else if (st === "perdido") { objOutcome[c.objection].lost++; }
             else { objOutcome[c.objection].open++; }
         });
         var objectionOutcomes = Object.keys(objOutcome).sort(function(a, b) {
@@ -16336,8 +16377,8 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         // that exists in both tables is not counted twice. `jobs` is loaded
         // further down (it is also what the money tiles use); the lookup is
         // built here and consumed after that query runs.
-        var wonLeads = leads.filter(function(l) { return l.estagio === "Fechado"; }).length;
-        var lost = leads.filter(function(l) { return l.estagio === "Perdido"; }).length;
+        var wonLeads = leads.filter(function(l) { return l.estagio === "fechado"; }).length;
+        var lost = leads.filter(function(l) { return l.estagio === "perdido"; }).length;
 
         // ── Metric 9 — average deal value on closed deals ───────────────────
         // Catches DISCOUNTING, which a closing ratio alone hides: a seller
@@ -16347,7 +16388,7 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         // produced an average over an empty set. Computed after `jobs` loads.
         var closedValues = [];
         leads.forEach(function(l) {
-            if (l.estagio === "Fechado" && l.valor !== null && l.valor !== undefined) {
+            if (l.estagio === "fechado" && l.valor !== null && l.valor !== undefined) {
                 closedValues.push(l.valor);
             }
         });
@@ -16360,7 +16401,7 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         // leads that were worked to a decision, which is what the tile says.
         var touchCounts = [];
         leads.forEach(function(l) {
-            if (l.estagio !== "Fechado" && l.estagio !== "Perdido") { return; }
+            if (l.estagio !== "fechado" && l.estagio !== "perdido") { return; }
             var n = contacts.filter(function(c) { return c.lead_id === l.id; }).length;
             touchCounts.push(n);
         });
@@ -16422,9 +16463,9 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             return best ? { valor: best.valor, nome: gmDiagDealLabel(best.nome) } : null;
         }
 
-        var lostLeads = leads.filter(function(l) { return l.estagio === "Perdido"; });
+        var lostLeads = leads.filter(function(l) { return l.estagio === "perdido"; });
         var activeLeads = leads.filter(function(l) {
-            return l.estagio !== "Perdido" && l.estagio !== "Fechado";
+            return l.estagio !== "perdido" && l.estagio !== "fechado";
         });
 
         // WON comes from gm_jobs, not from gm_leads: a job is the signed work,

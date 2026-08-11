@@ -111,3 +111,11 @@ ALTER TABLE apex_club_events ADD COLUMN calendar_clicks INTEGER NOT NULL DEFAULT
 -- Stored rather than hardcoded so it travels with the QR if Apex changes it.
 -- Zelle has no amount parameter, so this carries WHO to pay, never how much.
 ALTER TABLE business_settings ADD COLUMN zelle_pay_url TEXT;
+
+-- Is this person bringing a spouse/guest? Attendees can bring one, and the
+-- couple price already implies it, but nothing captured it -- so the food
+-- count silently treated every registration as one seat. A checkbox rather
+-- than a number: it is one tap on top of an AutoFilled two-field form, it
+-- matches what the couple rate already means, and a rare third guest is
+-- something Alice can fix on the list. Counts as 2 seats, never 2 rows.
+ALTER TABLE apex_club_registrations ADD COLUMN plus_one INTEGER NOT NULL DEFAULT 0;

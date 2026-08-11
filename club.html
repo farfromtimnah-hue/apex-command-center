@@ -83,6 +83,39 @@
     input:focus { outline: none; border-color: var(--gold); }
     input::placeholder { color: #55504a; }
 
+    /* iOS-style switch. Apple's HIG uses a switch (not a checkbox) for a
+       binary on/off setting, and this page is opened on a phone almost
+       without exception. Built from a real <input type=checkbox role=switch>
+       so it stays keyboard- and screen-reader-accessible; only the visuals
+       are custom. Dimensions follow the iOS control: 51x31 with a 27 knob. */
+    .switch-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; margin: 2px 0 20px; padding: 14px 16px;
+      background: var(--panel); border: 1.5px solid var(--border);
+      border-radius: 11px; cursor: pointer;
+      font-size: 15px; font-weight: 500;
+    }
+    .switch-text { flex: 1; }
+    .switch { position: relative; flex: none; width: 51px; height: 31px; }
+    .switch input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; padding: 0; opacity: 0; cursor: pointer; z-index: 2;
+    }
+    .switch .track {
+      position: absolute; inset: 0; border-radius: 999px;
+      background: #3a3a42; transition: background 0.2s ease;
+      display: block; pointer-events: none;
+    }
+    .switch .knob {
+      position: absolute; top: 2px; left: 2px;
+      width: 27px; height: 27px; border-radius: 50%;
+      background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+      transition: transform 0.2s ease;
+    }
+    .switch input:checked + .track { background: var(--gold); }
+    .switch input:checked + .track .knob { transform: translateX(20px); }
+    .switch input:focus-visible + .track { outline: 2px solid var(--gold); outline-offset: 3px; }
+
     button.cta {
       width: 100%; font-family: inherit; font-size: 17px; font-weight: 700;
       padding: 17px; border: 0; border-radius: 11px;
@@ -128,8 +161,12 @@
       background: var(--panel); border: 1px solid var(--border);
       border-radius: 13px; padding: 22px; margin: 24px 0 20px; text-align: center;
     }
-    .pay h2 { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
-    .pay .price { font-size: 30px; font-weight: 700; color: var(--gold); margin: 12px 0 2px; letter-spacing: -0.5px; }
+    /* Quieter than the invite above it. This is reference material they
+       come back to, not the next thing being asked of them -- a 30px gold
+       number under the confirmation read as a demand. */
+    .pay { opacity: 0.94; }
+    .pay h2 { font-size: 13px; font-weight: 700; margin: 0 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .pay .price { font-size: 24px; font-weight: 700; color: var(--text); margin: 10px 0 2px; letter-spacing: -0.4px; }
     .pay .price-note { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
     .pay .qr-hint { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
     /* The Zelle handle in text. Scanning needs a second device, so anyone
@@ -189,6 +226,20 @@
                  autocomplete="tel" inputmode="tel"
                  placeholder="(813) 555-0100" required>
 
+          <!-- Plus one. A SWITCH, not a checkbox: per Apple's HIG a switch is
+               the iOS control for a binary on/off setting, and effectively
+               everyone opens this on a phone. Off by default, so the common
+               case is still just AutoFill + submit and nobody has to touch
+               it. Counts as a second seat on the same row -- one phone, one
+               person to message, two places at the table. -->
+          <label class="switch-row" for="plusOne">
+            <span class="switch-text">Vou com acompanhante</span>
+            <span class="switch">
+              <input type="checkbox" id="plusOne" name="plusOne" role="switch">
+              <span class="track"><span class="knob"></span></span>
+            </span>
+          </label>
+
           <button type="submit" class="cta" id="submitBtn">Eu vou</button>
         </form>
 
@@ -203,8 +254,27 @@
 
         <div class="facts" id="doneFacts"></div>
 
-        <!-- Payment lives HERE, after the RSVP, never before it. Offered, not
-             asked for: nothing on this page says when payment is due, because
+        <!-- ORDER MATTERS HERE. Confirmation -> invite -> calendar -> payment.
+             Payment used to sit directly under the tick, which read as
+             "you're in, now pay" -- a transaction. Leading with the invite
+             makes it "you're in, bring someone, and here's how to pay when
+             you're ready", and drops payment to reference material at the
+             bottom. Nobody pre-pays anyway: six of nine July payments landed
+             on the day of the dinner. Do not move payment back up. -->
+
+        <!-- The growth path, and the strongest argument for this page
+             existing over a poll in the group: a poll cannot leave the group,
+             a link can. Given its own block with a reason, because as a
+             grey button identical to the calendar one it read as an
+             afterthought and nobody would tap it. -->
+        <div class="invite">
+          <div class="invite-copy">Conhece alguém que ia gostar dessa noite?</div>
+          <button class="cta" id="btnShare">Compartilhar convite</button>
+        </div>
+
+        <button class="ghost" id="btnCal">📅 &nbsp;Adicionar ao calendário</button>
+
+        <!-- Offered, not asked for. Nothing here says when payment is due --
              that is Apex's call to communicate, not this page's to assume. -->
         <div class="pay" id="payBox">
           <h2>Pagamento</h2>
@@ -226,18 +296,6 @@
             <span id="zelleHandleVal"></span>
           </div>
           <div class="memo" id="payMemo"></div>
-        </div>
-
-        <button class="ghost" id="btnCal">📅 &nbsp;Adicionar ao calendário</button>
-
-        <!-- The growth path, and the strongest argument for this page
-             existing over a poll in the group: a poll cannot leave the group,
-             a link can. Given its own block with a reason, because as a
-             second grey button identical to the calendar one it just read as
-             an afterthought and nobody would tap it. -->
-        <div class="invite">
-          <div class="invite-copy">Conhece alguém que ia gostar dessa noite?</div>
-          <button class="cta" id="btnShare">Compartilhar convite</button>
         </div>
 
         <p class="fine">Nos vemos lá! Qualquer dúvida, é só chamar no WhatsApp.</p>
@@ -366,7 +424,7 @@
     fetch(WORKER_URL + "/api/club/register/" + encodeURIComponent(EVENT_ID), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: nome, phone: tel })
+      body: JSON.stringify({ name: nome, phone: tel, plus_one: $("plusOne").checked })
     })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
@@ -374,7 +432,7 @@
           btn.disabled = false; btn.textContent = "Eu vou";
           return fail((res.d && res.d.error) || "Não deu certo. Tente de novo.");
         }
-        done(nome);
+        done(nome, $("plusOne").checked);
       })
       .catch(function () {
         btn.disabled = false; btn.textContent = "Eu vou";
@@ -385,16 +443,32 @@
   });
 
   // ── Screen two ──────────────────────────────────────────────────────
-  function done(nome) {
+  function done(nome, plusOne) {
     hide("screenForm");
 
-    $("doneSub").innerHTML = "Obrigado, <b>" + esc(nome.split(" ")[0]) + "</b>! Já anotamos você na lista.";
+    // Say the plus one back to them. It is the one thing they could have got
+    // wrong in a hurry, and seeing "você e mais uma pessoa" is how they catch
+    // it before Alice orders food for the wrong number.
+    $("doneSub").innerHTML = "Obrigado, <b>" + esc(nome.split(" ")[0]) + "</b>! " +
+      (plusOne
+        ? "Anotamos você e mais uma pessoa na lista."
+        : "Já anotamos você na lista.");
     $("doneFacts").innerHTML = factsHtml(EV, { withPrice: true });
 
-    $("payPrice").textContent = money(EV.price_single_cents);
-    $("payNote").textContent = EV.price_couple_cents
-      ? "por pessoa · " + money(EV.price_couple_cents) + " o casal"
-      : "por pessoa";
+    // Lead with the price that actually applies to them.
+    if (plusOne && EV.price_couple_cents) {
+      $("payPrice").textContent = money(EV.price_couple_cents);
+      $("payNote").textContent = "para duas pessoas";
+    } else if (plusOne) {
+      // No couple rate on this event: two people at the per-person price.
+      $("payPrice").textContent = money(EV.price_single_cents * 2);
+      $("payNote").textContent = "para duas pessoas · " + money(EV.price_single_cents) + " por pessoa";
+    } else {
+      $("payPrice").textContent = money(EV.price_single_cents);
+      $("payNote").textContent = EV.price_couple_cents
+        ? "por pessoa · " + money(EV.price_couple_cents) + " o casal"
+        : "por pessoa";
+    }
 
     // Says nothing about WHEN to pay. Most people paid on the night, but
     // that is an observed habit, not a policy Apex published -- stating "you

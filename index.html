@@ -551,6 +551,11 @@
       // so everything below - the ID token, the /api/role call, the role
       // routing - is shared and unchanged, and the browser path is exactly
       // what it was before.
+      // Suppress the biometric lock for the duration of the sign-in. The OAuth
+      // sheet necessarily backgrounds and resumes the app, and a Face ID prompt
+      // landing on top of it would deadlock the very login it protects.
+      if (typeof apexSetSignInInFlight === "function") { apexSetSignInInFlight(true); }
+
       var signInPromise = (typeof apexCanNativeGoogle === "function" && apexCanNativeGoogle())
         ? apexNativeGoogleSignIn(firebase)
         : auth.signInWithPopup(gProvider);
@@ -576,6 +581,10 @@
           window.location.href = data.role === "client" ? "portal.html" : "dashboard.html";
         })
         .catch(function(e) {
+          // Cleared on failure only: a successful sign-in navigates away, which
+          // resets the flag with the page. Leaving it set after a cancelled
+          // sign-in would silently disable the biometric lock for the session.
+          if (typeof apexSetSignInInFlight === "function") { apexSetSignInInFlight(false); }
           btn.disabled = false;
           setStatus((document.body.classList.contains("lang-en")
             ? "Error: " : "Erro: ") + e.message, true);
@@ -648,11 +657,41 @@
     // already run, so skipping it costs nothing that was reachable anyway.
     if (FIREBASE_READY) {
       auth.onAuthStateChanged(function(user) {
-        if (user && sessionStorage.getItem("apex_role")) {
-          var cached = sessionStorage.getItem("apex_role");
+        if (!user) { return; }
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
           window.location.href = cached === "client" ? "portal.html" : "dashboard.html";
+          return;
         }
+        // No cached role. On the web this means nothing to do - the user is
+        // mid-sign-in and handleSignIn will set it. Inside the app it is the
+        // normal state after a force-quit: sessionStorage is gone but the
+        // native Firebase session was just restored, so the role has to be
+        // re-fetched or the admin would sit on the login page holding a
+        // perfectly valid session. Same /api/role call the sign-in path makes.
+        if (typeof apexIsNative !== "function" || !apexIsNative()) { return; }
+        user.getIdToken().then(function(token) {
+          return fetch(WORKER_URL + "/api/role", {
+            headers: { "Authorization": "Bearer " + token }
+          });
+        }).then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        }).then(function(data) {
+          sessionStorage.setItem("apex_role",  data.role);
+          sessionStorage.setItem("apex_email", data.email);
+          window.location.href = data.role === "client" ? "portal.html" : "dashboard.html";
+        }).catch(function() {
+          // Restored session is not usable (revoked, offline, role removed).
+          // Stay on the login page rather than bouncing into a broken app.
+        });
       });
+
+      // Restore the admin session from the native keychain, and put the
+      // biometric cover up before it can reveal anything.
+      if (typeof apexBootstrapNativeSession === "function") {
+        apexBootstrapNativeSession(firebase);
+      }
     }
   </script>
 

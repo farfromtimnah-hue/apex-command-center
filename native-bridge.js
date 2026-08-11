@@ -294,6 +294,440 @@ function apexNativeGoogleSignIn(firebaseSdk) {
   });
 }
 
+// --- Admin session persistence -----------------------------------------------
+
+// The client token survives a force-quit because the Preferences mirror above
+// covers its localStorage keys. The ADMIN session did not: Firebase's JS SDK
+// keeps its session under its own storage keys, and WKWebView does not persist
+// those reliably, so Nicole/Alice/Rafa had to sign in with Google again after
+// every force-quit.
+//
+// The fix does NOT mirror Firebase's storage keys. Those names are internal
+// (firebase:authUser:<apiKey>:[DEFAULT]) and would break on an SDK upgrade.
+//
+// Instead it uses what the plugin already gives us. Because skipNativeAuth is
+// false, the NATIVE Firebase iOS SDK performs the sign-in and stores its
+// session in the iOS keychain, which survives force-quit by design. So the
+// session is already durable on disk - only the JS SDK forgets it. On launch we
+// ask the native side whether a user is still signed in and, if the JS SDK has
+// none, rebuild the JS session from the native ID token. onAuthStateChanged
+// then fires exactly as it does after a fresh sign-in, so all 32 call sites and
+// the Worker ID-token flow are untouched.
+
+// Rebuilds the JS SDK session from the native one. Resolves true if a session
+// was restored, false if there was nothing to restore. Never rejects: a failed
+// restore must land the user on the login page, not on a broken page.
+function apexRestoreFirebaseSession(firebaseSdk) {
+  var plugin = apexFirebaseAuthPlugin();
+  if (!apexIsNative() || !plugin) { return Promise.resolve(false); }
+  if (!firebaseSdk || !firebaseSdk.auth) { return Promise.resolve(false); }
+
+  // Already signed in on the JS side - nothing to do. This is the common case
+  // on in-app navigation between pages.
+  try {
+    if (firebaseSdk.auth().currentUser) { return Promise.resolve(false); }
+  } catch (e) {
+    return Promise.resolve(false);
+  }
+
+  return plugin.getCurrentUser().then(function (res) {
+    if (!res || !res.user) { return false; }
+    // A native user exists. Get a fresh Firebase ID token for it.
+    return plugin.getIdToken().then(function (tokenRes) {
+      var token = tokenRes && tokenRes.token ? tokenRes.token : null;
+      if (!token) { return false; }
+      // The ID token is a Google-issued OIDC credential for this Firebase
+      // project, so it goes back into the JS SDK as a GoogleAuthProvider
+      // credential - the same shape apexNativeGoogleSignIn builds after an
+      // interactive sign-in. No new auth path: this is the existing one
+      // replayed from a session the user already established.
+      var jsCred = firebaseSdk.auth.GoogleAuthProvider.credential(token);
+      return firebaseSdk.auth().signInWithCredential(jsCred).then(function () {
+        return true;
+      });
+    });
+  }).catch(function () {
+    // Expired/revoked native session, or the plugin is unavailable. Fall
+    // through to the normal signed-out state and let the user sign in.
+    return false;
+  });
+}
+
+// A real sign-out must clear the NATIVE session too. Without this the keychain
+// copy would survive and the restore above would resurrect a user who had just
+// signed out - the same rule the client-token mirror already follows.
+//
+// Every one of the 15 handleSignOut() implementations across the app funnels
+// through firebase auth().signOut(), so wrapping that one method covers them
+// all without editing 15 files or changing any call site.
+function apexInstallSignOutHook(firebaseSdk) {
+  var plugin = apexFirebaseAuthPlugin();
+  if (!apexIsNative() || !plugin) { return; }
+  if (!firebaseSdk || !firebaseSdk.auth) { return; }
+
+  var authInstance;
+  try {
+    authInstance = firebaseSdk.auth();
+  } catch (e) {
+    return;
+  }
+  if (!authInstance || typeof authInstance.signOut !== "function") { return; }
+  if (authInstance.apexSignOutHooked) { return; }
+  authInstance.apexSignOutHooked = true;
+
+  var origSignOut = authInstance.signOut;
+  authInstance.signOut = function () {
+    var args = arguments;
+    var self = this;
+    // Native first. If it fails we still sign out of the JS SDK rather than
+    // trapping the user in a session they asked to leave, but the failure is
+    // logged instead of swallowed.
+    return plugin.signOut().catch(function (e) {
+      if (window.console && console.error) {
+        console.error("Native sign-out failed:", e);
+      }
+    }).then(function () {
+      // Biometric unlock state belongs to the signed-in session. Clearing it
+      // means the next user has to authenticate rather than inheriting an
+      // unlocked app.
+      apexClearUnlock();
+      return origSignOut.apply(self, args);
+    });
+  };
+}
+
+// --- Biometric unlock --------------------------------------------------------
+
+// With the admin session now persisting, the app reopens straight into a CRM
+// full of client leads, pipeline values and financial data. The threat is an
+// unlocked phone left on a table, not a rep switching apps mid-call - so this
+// gates VIEWING a persisted session behind Face ID / Touch ID.
+//
+// It is NOT a login method. It never creates, replaces or bypasses a session:
+// with no session there is nothing to unlock and the user goes to the login
+// page as usual. Google sign-in and the client token flow are untouched.
+
+// 15 minutes. Long enough that the OpenPhone hand-off - tap "Ligar", talk,
+// come back - never prompts, which is the core workflow of this app. Short
+// enough that a phone left on a table is covered.
+var APEX_UNLOCK_GRACE_MS = 15 * 60 * 1000;
+
+// Where the unlock timestamp lives. Preferences (native UserDefaults) rather
+// than localStorage: it must survive the WebView storage eviction that the
+// whole auth mirror above exists to work around.
+var APEX_UNLOCK_KEY = "apex_unlock_at";
+
+// The app is mid-sign-in. The biometric prompt must never fire on top of the
+// Google OAuth sheet - the sign-in itself triggers a background/resume cycle,
+// and prompting there would deadlock the login this is meant to protect.
+var apexSignInInFlight = false;
+var apexUnlockInFlight = false;
+
+function apexBiometricPlugin() {
+  if (!window.Capacitor || !window.Capacitor.Plugins) { return null; }
+  return window.Capacitor.Plugins.BiometricAuthNative || null;
+}
+
+// Called by index.html around the Google sign-in so the resume that the OAuth
+// sheet causes cannot raise a Face ID prompt on top of it.
+function apexSetSignInInFlight(v) {
+  apexSignInInFlight = !!v;
+}
+
+// MONOTONIC TIME, deliberately not a calendar value.
+//
+// The grace period is an elapsed DURATION, so it must not be computed from
+// wall-clock dates. Date.now() and performance.timeOrigin are both wall-clock
+// derived and move when the clock is corrected by NTP, when the user edits the
+// clock, or across a DST boundary - any of which could either expire the unlock
+// early or, far worse, extend it well past 15 minutes. This project has already
+// shipped four bugs from local-vs-UTC date math; none of that machinery belongs
+// anywhere near a security timer.
+//
+// The web platform's only monotonic clock is performance.now(), and it restarts
+// on every page navigation - which this app does constantly. A JS-only timer
+// would therefore have to either re-prompt on every page click (unusable) or
+// compare wall-clock values (unsafe).
+//
+// So the reading comes from the native side: ApexUptimePlugin returns
+// ProcessInfo.systemUptime, milliseconds since the device booted. It counts
+// forward only, ignores every clock change, and lives in the OS rather than the
+// WebView - so it survives both page navigation and backgrounding. "15 minutes
+// since unlock" therefore means 15 real minutes no matter what happens to the
+// calendar.
+function apexUptimePlugin() {
+  if (!window.Capacitor || !window.Capacitor.Plugins) { return null; }
+  return window.Capacitor.Plugins.ApexUptime || null;
+}
+
+// Resolves to milliseconds since boot, or null if the clock is unavailable.
+// A null reading means the grace period cannot be evaluated safely, and every
+// caller treats that as "locked" rather than guessing with a calendar value.
+function apexMonotonicMs() {
+  var plugin = apexUptimePlugin();
+  if (!plugin) { return Promise.resolve(null); }
+  return plugin.now().then(function (res) {
+    if (!res || typeof res.ms !== "number") { return null; }
+    return Math.round(res.ms);
+  }).catch(function () {
+    return null;
+  });
+}
+
+// Records a successful unlock as a boot-relative reading. Stored in
+// Preferences (native UserDefaults) so it survives both page navigation and
+// the WebView storage eviction the auth mirror above exists to work around.
+function apexMarkUnlocked() {
+  var prefs = apexPrefs();
+  if (!prefs) { return Promise.resolve(); }
+  return apexMonotonicMs().then(function (ms) {
+    if (ms === null) { return; }
+    // The promise is RETURNED, not fired and forgotten. Preferences.set is
+    // async, and not awaiting it let the page navigate before the record
+    // landed - the next page then found no unlock and prompted for Face ID a
+    // second time. Observed on the device going from index to dashboard.
+    return prefs.set({ key: APEX_UNLOCK_KEY, value: String(ms) }).catch(function () {
+      // Unlock still succeeded for this resume; worst case the next one
+      // prompts again, which fails safe.
+    });
+  });
+}
+
+function apexClearUnlock() {
+  var prefs = apexPrefs();
+  try {
+    if (prefs) { prefs.remove({ key: APEX_UNLOCK_KEY }); }
+  } catch (e) {
+    // Nothing to do - a missing record means "locked", which fails safe.
+  }
+}
+
+// Resolves true when a previous unlock is still inside the grace window.
+//
+// Elapsed time is measured against the STORED reading and the deadline is
+// fixed at the moment of unlock, so repeatedly backgrounding and foregrounding
+// cannot extend the window - which is the property the brief called for.
+//
+// A cold launch after a REBOOT yields a smaller uptime than the stored value,
+// giving a negative elapsed time, which is treated as locked. A cold launch
+// without a reboot is handled by apexClearUnlock() at startup, so a killed and
+// relaunched app always re-prompts.
+function apexUnlockIsFresh() {
+  var prefs = apexPrefs();
+  if (!prefs) { return Promise.resolve(false); }
+
+  return prefs.get({ key: APEX_UNLOCK_KEY }).then(function (res) {
+    var raw = res && res.value ? res.value : null;
+    if (!raw) { return false; }
+    var at = parseInt(raw, 10);
+    if (isNaN(at)) { return false; }
+
+    return apexMonotonicMs().then(function (nowMs) {
+      // No trustworthy clock means no trustworthy grace period.
+      if (nowMs === null) { return false; }
+      var elapsed = nowMs - at;
+      // Negative means the device rebooted (uptime reset) or the record was
+      // tampered with. Either way, require authentication.
+      if (elapsed < 0) { return false; }
+      return elapsed < APEX_UNLOCK_GRACE_MS;
+    });
+  }).catch(function () {
+    return false;
+  });
+}
+
+// The opaque cover that hides the CRM while locked. Injected rather than added
+// to every page's markup, for the same reason the safe-area CSS is: 25 pages,
+// nine of which do not even link mobile.css.
+//
+// It is added synchronously during parse so there is never a frame in which
+// lead data is painted before the lock appears.
+var APEX_LOCK_ID = "apex-biometric-lock";
+
+function apexShowLock() {
+  if (document.getElementById(APEX_LOCK_ID)) { return; }
+  var el = document.createElement("div");
+  el.id = APEX_LOCK_ID;
+  el.setAttribute("role", "presentation");
+  el.style.cssText = [
+    "position:fixed", "inset:0", "z-index:2147483647",
+    "background:#141210",
+    "display:flex", "align-items:center", "justify-content:center",
+    "flex-direction:column", "gap:18px"
+  ].join(";");
+
+  // No text: the OS presents its own Face ID sheet on top, and a half-second
+  // of branding behind it reads as a flash. A plain field is calmer.
+  var btn = document.createElement("button");
+  btn.id = "apex-biometric-retry";
+  btn.type = "button";
+  btn.textContent = "Desbloquear / Unlock";
+  btn.style.cssText = [
+    "background:transparent", "border:1.5px solid #C9A43A", "color:#C9A43A",
+    "font-family:'Inter',sans-serif", "font-size:14px", "font-weight:700",
+    "letter-spacing:0.8px", "padding:14px 26px", "border-radius:10px",
+    "min-height:48px", "cursor:pointer", "display:none"
+  ].join(";");
+  btn.onclick = function () { apexRunUnlock(true); };
+
+  el.appendChild(btn);
+  (document.body || document.documentElement).appendChild(el);
+}
+
+function apexHideLock() {
+  var el = document.getElementById(APEX_LOCK_ID);
+  if (el && el.parentNode) { el.parentNode.removeChild(el); }
+}
+
+// Reveals the manual retry button. Reached when the user cancels the sheet or
+// authentication fails - the app stays covered, but there is a way back in
+// without force-quitting.
+function apexShowRetry() {
+  var btn = document.getElementById("apex-biometric-retry");
+  if (btn) { btn.style.display = "block"; }
+}
+
+// Is there anything worth locking? With no session there is nothing to protect
+// and the user is headed for the login page anyway, so prompting would be
+// pure friction. Covers BOTH session kinds: the admin Firebase session and the
+// client token.
+function apexHasSession() {
+  try {
+    if (window.localStorage.getItem("apex_client_token")) { return true; }
+  } catch (e) {
+    // fall through to the Firebase check
+  }
+  // The Firebase JS session may not be restored yet at this point, so the
+  // native session is the authoritative signal on a cold launch.
+  return apexNativeSessionPresent;
+}
+
+// Set by the startup restore so apexHasSession() can answer synchronously.
+var apexNativeSessionPresent = false;
+
+// Runs the biometric prompt. `manual` is true when the user tapped Unlock.
+function apexRunUnlock(manual) {
+  var plugin = apexBiometricPlugin();
+  if (!plugin) {
+    // No plugin: nothing can be verified, so do not strand the user behind a
+    // cover they cannot clear.
+    apexHideLock();
+    return Promise.resolve(true);
+  }
+  // Guard against the plugin renaming its methods on an upgrade. Without this
+  // a missing method is just a rejected promise, which is indistinguishable
+  // from a failed authentication and easy to mistake for working code.
+  if (typeof plugin.internalAuthenticate !== "function" ||
+      typeof plugin.checkBiometry !== "function") {
+    if (window.console && console.error) {
+      console.error("Biometric plugin API changed - lock cannot run.");
+    }
+    apexShowLock();
+    apexShowRetry();
+    return Promise.resolve(false);
+  }
+
+  if (apexUnlockInFlight && !manual) { return Promise.resolve(false); }
+  apexUnlockInFlight = true;
+
+  return plugin.checkBiometry().then(function (info) {
+    // deviceIsSecure is false when there is neither biometrics NOR a passcode.
+    // Locking such a device would lock the owner out of their own tool with no
+    // way to authenticate, so the app opens normally. This is the explicit
+    // "do not lock anyone out" requirement, not an oversight.
+    if (!info || (!info.isAvailable && !info.deviceIsSecure)) {
+      apexHideLock();
+      apexUnlockInFlight = false;
+      return true;
+    }
+
+    // internalAuthenticate, NOT authenticate. The plugin's authenticate() is a
+    // JS-side wrapper that exists only in the bundled ESM module; the method
+    // actually registered on the native plugin is internalAuthenticate, and
+    // this app reaches the plugin through Capacitor.Plugins directly because it
+    // has no bundler. Calling the wrapper name here silently rejected with
+    // "not implemented", which the catch below turned into a fail-open - the
+    // app opened with no prompt at all. Verified on the device.
+    return plugin.internalAuthenticate({
+      reason: "Unlock Apex Command Center",
+      cancelTitle: "Cancelar",
+      // The passcode fallback. With biometrics unavailable, failed, or
+      // locked out after too many attempts, iOS falls back to the device
+      // passcode - never to no authentication at all.
+      allowDeviceCredential: true,
+      iosFallbackTitle: "Usar senha / Use passcode"
+    }).then(function () {
+      // The lock is lifted only AFTER the unlock is durably stored. Hiding it
+      // first would let a fast navigation start a new page before Preferences
+      // had the record, and that page would prompt again - observed on the
+      // device as a second Face ID prompt going from index to dashboard.
+      return apexMarkUnlocked().then(function () {
+        apexHideLock();
+        apexUnlockInFlight = false;
+        return true;
+      });
+    }).catch(function (err) {
+      // Cancelled or failed. The app stays covered; the retry button gives a
+      // way back in. Logged rather than swallowed.
+      if (window.console && console.warn) {
+        console.warn("Biometric unlock failed:", err && err.message ? err.message : err);
+      }
+      apexShowRetry();
+      apexUnlockInFlight = false;
+      return false;
+    });
+  }).catch(function (err) {
+    // checkBiometry itself failed, or a plugin method was missing. This must
+    // FAIL CLOSED: an earlier version failed open here, and a single wrong
+    // method name (authenticate vs internalAuthenticate) silently disabled the
+    // entire lock while still looking like it worked. The cover stays up and
+    // the retry button is offered.
+    //
+    // This cannot strand a user who has no way to authenticate: the
+    // deviceIsSecure branch above already lets those devices straight through
+    // BEFORE any prompt is attempted, so reaching here means the device does
+    // have biometrics or a passcode.
+    if (window.console && console.error) {
+      console.error("Biometric check failed:", err && err.message ? err.message : err);
+    }
+    apexShowRetry();
+    apexUnlockInFlight = false;
+    return false;
+  });
+}
+
+// Decides whether this resume needs the prompt, then runs it.
+function apexMaybeLock() {
+  // Never prompt on top of the Google OAuth sheet. Signing in necessarily
+  // backgrounds and resumes the app, and prompting there would deadlock the
+  // very login this is meant to protect.
+  if (apexSignInInFlight) { return; }
+  if (!apexHasSession()) { return; }
+
+  apexUnlockIsFresh().then(function (fresh) {
+    if (fresh) { return; }
+    apexShowLock();
+    apexRunUnlock(false);
+  });
+}
+
+// Wires the resume listener and performs the cold-launch lock.
+function apexInstallBiometricLock() {
+  if (!apexIsNative()) { return; }
+  if (!apexBiometricPlugin()) { return; }
+
+  // A cold launch must always re-prompt, so any unlock left over from the
+  // previous run is dropped before it can be read.
+  apexClearUnlock();
+
+  var appPlugin = (window.Capacitor.Plugins || {}).App;
+  if (appPlugin && appPlugin.addListener) {
+    appPlugin.addListener("appStateChange", function (state) {
+      if (state && state.isActive) { apexMaybeLock(); }
+    });
+  }
+}
+
 // --- Safe area ---------------------------------------------------------------
 
 // Marks the document as running inside the native shell. Everything below is
@@ -390,8 +824,106 @@ function apexInitNativeBridge() {
   // anything the cookie snapshot lost.
   apexRestoreAuthSync();
   apexRestoreAuth(null);
+
+  // COLD-LAUNCH LOCK. Put the cover up before any page content can paint, so
+  // there is never a frame showing lead data to whoever picked the phone up.
+  // Only when a session actually exists: with none, the user is headed to the
+  // login page and locking would be pure friction.
+  //
+  // The client token is readable synchronously (the restore above just ran).
+  // The admin case is resolved a moment later by apexBootstrapNativeSession,
+  // which raises the cover itself if it finds a native session.
+  try {
+    if (apexBiometricPlugin() && window.localStorage.getItem("apex_client_token")) {
+      apexShowLock();
+    }
+  } catch (e) {
+    // No storage - nothing to protect that we can see from here.
+  }
+
+  apexInstallBiometricLock();
+}
+
+// Restores the admin session and applies the cold-launch lock for it.
+//
+// Separate from apexInitNativeBridge because it needs the Firebase JS SDK,
+// which is loaded per-page AFTER this file. index.html calls this once the SDK
+// is initialized; pages that have no Firebase simply never call it and keep
+// their existing client-token behaviour.
+function apexBootstrapNativeSession(firebaseSdk) {
+  if (!apexIsNative()) { return Promise.resolve(false); }
+
+  apexInstallSignOutHook(firebaseSdk);
+
+  var plugin = apexFirebaseAuthPlugin();
+  if (!plugin) { return Promise.resolve(false); }
+
+  // Ask the native side first. If a session exists, cover the screen BEFORE
+  // restoring it, so the restore cannot briefly reveal the app.
+  return plugin.getCurrentUser().then(function (res) {
+    if (!res || !res.user) { return false; }
+    apexNativeSessionPresent = true;
+    if (apexBiometricPlugin()) {
+      apexShowLock();
+      apexMaybeLock();
+    }
+    return apexRestoreFirebaseSession(firebaseSdk);
+  }).catch(function () {
+    return false;
+  });
 }
 
 // Runs immediately, not on window.onload: page code reads the auth keys during
 // initial parse, so waiting for load would restore them after the first read.
 apexInitNativeBridge();
+
+// SELF-BOOTSTRAP FOR THE INNER PAGES.
+//
+// index.html calls apexBootstrapNativeSession itself, right where it owns the
+// SDK. The other 23 pages each call firebase.initializeApp() inside their own
+// init(), and every one of them redirects to index.html when onAuthStateChanged
+// reports no user - so after a force-quit they would bounce an admin to the
+// login page before the native session could be restored.
+//
+// Editing 23 init() functions would mean 23 chances to get it wrong, so instead
+// the restore is hooked onto initializeApp itself: whichever page calls it, the
+// native session is restored immediately afterwards, before that page's
+// onAuthStateChanged has a signed-out state to react to. One mechanism, no page
+// edits, and a no-op in a browser because the whole thing is behind
+// apexIsNative().
+(function () {
+  if (!apexIsNative()) { return; }
+
+  var installed = false;
+
+  function hookInitializeApp() {
+    if (installed) { return true; }
+    if (typeof window.firebase === "undefined" || !window.firebase) { return false; }
+    if (typeof window.firebase.initializeApp !== "function") { return false; }
+
+    var orig = window.firebase.initializeApp;
+    window.firebase.initializeApp = function () {
+      var app = orig.apply(window.firebase, arguments);
+      try {
+        apexBootstrapNativeSession(window.firebase);
+      } catch (e) {
+        // A failed restore must not stop the page initializing; the user
+        // simply lands on the login page as they did before.
+      }
+      return app;
+    };
+    installed = true;
+    return true;
+  }
+
+  // The SDK <script> tags sit at the END of every page, while this file loads
+  // in <head>, so firebase does not exist yet. Poll briefly rather than wait
+  // for DOMContentLoaded: the pages call initializeApp from inline scripts that
+  // can run before that event, and the hook has to be in place first.
+  if (hookInitializeApp()) { return; }
+  var tries = 0;
+  var timer = window.setInterval(function () {
+    tries = tries + 1;
+    if (hookInitializeApp() || tries > 600) { window.clearInterval(timer); }
+  }, 10);
+}());

@@ -583,6 +583,48 @@
   padding: 10px 12px;
 }
 
+/* ── Notes: a dated thread on a lead or a project ─────────────────────────
+   Add box on top (writing is why the section is open), entries below,
+   newest first, each carrying its author and timestamp. */
+.gm-note-add { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; }
+.gm-note-input {
+  flex: 1; min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+}
+.gm-note-input:focus { border-color: var(--gold); }
+.gm-note-input::placeholder { color: var(--muted); }
+.gm-note-save { flex-shrink: 0; min-height: 44px; margin: 0; width: auto; padding: 0 18px; }
+
+.gm-note { padding: 10px 12px; border-top: 1px solid var(--border); }
+.gm-note-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 4px;
+}
+.gm-note-who { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+.gm-note-when { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+/* white-space: pre-wrap keeps the line breaks somebody typed. */
+.gm-note-body { font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gm-note-actions { display: flex; gap: 6px; margin-top: 6px; }
+.gm-note-act {
+  min-height: 36px; padding: 6px 12px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: none; color: var(--muted); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-note-act:hover { color: var(--text); }
+.gm-note-act-del:hover { color: var(--red, #b3261e); border-color: var(--red, #b3261e); }
+
 /* ── Non-image attachment (PDF) ───────────────────────────────────────────
    A PDF has no thumbnail, so it gets a file row carrying its original
    filename instead of a broken <img>. Shared by the lead attachment list and

@@ -10660,6 +10660,8 @@ function clientRequestAllowed(path, method, clientId) {
                 // record, re-scoped by client_id AND lead_id in the handlers.
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
+                // The note thread on their own lead or project.
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
                 // Progress photos on their own project, and the image itself.
                 // Client-visible by design: for a pool builder the project is a
                 // physical site and these are what the owner shows their own
@@ -10672,6 +10674,7 @@ function clientRequestAllowed(path, method, clientId) {
                     gmRest === "partners" || gmRest === "finance" || gmRest === "jobs") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
             }
@@ -10682,6 +10685,8 @@ function clientRequestAllowed(path, method, clientId) {
                 // ignores the admin-only keys.
                 if (gmRest === "config") { return true; }
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                // Their own note; the handler refuses anyone else's.
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
             if (method === "DELETE") {
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
@@ -10691,6 +10696,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^jobs\/[A-Za-z0-9-]+\/photos\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Their own lead's attachment, same reasoning.
                 if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
         }
     }
@@ -16973,6 +16979,164 @@ async function handleDeleteGmLeadFile(id, leadId, fileId, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Notes on a lead or a project — gm_notes.
+//
+// A dated thread with an author, not a text field. gm_leads.observacao is a
+// FIELD ON THE LEAD ("observação do trabalho") and is deliberately untouched
+// by all of this: see migrations/gm_notes.sql.
+//
+// created_by / created_at are SERVER-SET from the authenticated session and
+// never read from the request body — the client_notes and lead_contact_log
+// convention. A caller can send created_by; it is ignored.
+//
+// Editing and deleting are limited to your OWN note, matched on the same
+// actor string the insert stamped. Sellers never reach these routes.
+// ---------------------------------------------------------------------------
+
+var GM_NOTE_PARENTS = { lead: "gm_leads", job: "gm_jobs" };
+
+// The parent row must exist AND belong to this client before a note can be
+// read or written against it, so a guessed id from another business is a 404
+// rather than a thread.
+async function gmNoteParentOk(env, clientId, parentType, parentId) {
+    var table = GM_NOTE_PARENTS[parentType];
+    if (!table) { return false; }
+    var row = await env.DB.prepare(
+        "SELECT id FROM " + table + " WHERE id = ? AND client_id = ?"
+    ).bind(parentId, clientId).first();
+    return !!row;
+}
+
+// Who the session is, for stamping and for the "is this mine?" check. One
+// helper so the insert and the ownership test can never drift apart.
+function gmNoteActor(user) {
+    return user.display_name || user.email || user.username || user.role || null;
+}
+
+function gmNoteOut(row, actor) {
+    return {
+        id: row.id,
+        parent_type: row.parent_type,
+        parent_id: row.parent_id,
+        body: row.body,
+        created_by: row.created_by || null,
+        created_at: row.created_at,
+        // Drives whether the UI offers edit/delete. The server re-checks on
+        // every write regardless — this is a hint, not the enforcement.
+        is_mine: !!actor && row.created_by === actor
+    };
+}
+
+async function handleGetGmNotes(id, parentType, parentId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!GM_NOTE_PARENTS[parentType]) { return jsonErr("Invalid note parent", 400); }
+        if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
+            return jsonErr("Record not found", 404);
+        }
+
+        // Newest first: a thread is read from the most recent entry.
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_notes WHERE client_id = ? AND parent_type = ? AND parent_id = ? " +
+            "ORDER BY created_at DESC, rowid DESC"
+        ).bind(id, parentType, parentId).all();
+
+        var actor = gmNoteActor(user);
+        return jsonOk({
+            notes: (rows.results || []).map(function(r) { return gmNoteOut(r, actor); })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching notes: " + e.message, 500);
+    }
+}
+
+async function handlePostGmNote(id, parentType, parentId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!GM_NOTE_PARENTS[parentType]) { return jsonErr("Invalid note parent", 400); }
+        if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
+            return jsonErr("Record not found", 404);
+        }
+
+        var body = await request.json();
+        var text = gmStr(body.body, 4000);
+        if (!text) { return jsonErr("A nota não pode ficar vazia / Note cannot be empty", 400); }
+
+        var noteId = crypto.randomUUID();
+        // created_by comes from the SESSION. Anything the caller sent under
+        // that name is discarded here, not sanitised.
+        await env.DB.prepare(
+            "INSERT INTO gm_notes (id, client_id, parent_type, parent_id, body, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(noteId, id, parentType, parentId, text, gmNoteActor(user)).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_notes WHERE id = ?").bind(noteId).first();
+        return jsonOk({ note: gmNoteOut(row, gmNoteActor(user)) });
+    } catch (e) {
+        return jsonErr("Error saving note: " + e.message, 500);
+    }
+}
+
+async function handlePutGmNote(id, parentType, parentId, noteId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
+        ).bind(noteId, id, parentType, parentId).first();
+        if (!existing) { return jsonErr("Note not found", 404); }
+
+        // Your own note only. Enforced server-side, not by hiding a button.
+        var actor = gmNoteActor(user);
+        if (!actor || existing.created_by !== actor) {
+            return jsonErr("You can only edit your own note", 403);
+        }
+
+        var body = await request.json();
+        var text = gmStr(body.body, 4000);
+        if (!text) { return jsonErr("A nota não pode ficar vazia / Note cannot be empty", 400); }
+
+        // Only the body is writable. created_by and created_at are never
+        // updated: the author and the time it was written are the record.
+        await env.DB.prepare("UPDATE gm_notes SET body = ? WHERE id = ?").bind(text, noteId).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_notes WHERE id = ?").bind(noteId).first();
+        return jsonOk({ note: gmNoteOut(row, actor) });
+    } catch (e) {
+        return jsonErr("Error updating note: " + e.message, 500);
+    }
+}
+
+async function handleDeleteGmNote(id, parentType, parentId, noteId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
+        ).bind(noteId, id, parentType, parentId).first();
+        if (!existing) { return jsonErr("Note not found", 404); }
+
+        var actor = gmNoteActor(user);
+        if (!actor || existing.created_by !== actor) {
+            return jsonErr("You can only delete your own note", 403);
+        }
+
+        await env.DB.prepare("DELETE FROM gm_notes WHERE id = ?").bind(noteId).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting note: " + e.message, 500);
+    }
+}
+
 function gmJobFields(body, partial) {
     var out = {};
     function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
@@ -22315,6 +22479,21 @@ export default {
                 if (segs.length === 9 && gmCol === "leads" && segs[6] === "files" &&
                     segs[8] === "file" && method === "GET") {
                     return handleGetGmLeadFileContent(cid, segs[5], segs[7], request, env);
+                }
+                // /gm/leads/:id/notes and /gm/jobs/:id/notes — the dated note
+                // thread on either record. created_by/created_at are stamped
+                // from the session in the handler, never from the body.
+                // NOT in sellerRequestAllowed.
+                if (segs.length === 7 && (gmCol === "leads" || gmCol === "jobs") && segs[6] === "notes") {
+                    var noteParent = gmCol === "leads" ? "lead" : "job";
+                    if (method === "GET")  { return handleGetGmNotes(cid, noteParent, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmNote(cid, noteParent, segs[5], request, env); }
+                }
+                // /gm/leads|jobs/:id/notes/:noteId — edit or delete your own.
+                if (segs.length === 8 && (gmCol === "leads" || gmCol === "jobs") && segs[6] === "notes") {
+                    var noteParent2 = gmCol === "leads" ? "lead" : "job";
+                    if (method === "PUT")    { return handlePutGmNote(cid, noteParent2, segs[5], segs[7], request, env); }
+                    if (method === "DELETE") { return handleDeleteGmNote(cid, noteParent2, segs[5], segs[7], request, env); }
                 }
                 // /gm/jobs/:jobId/photos — progress photos on a project.
                 // Client-visible on purpose (the owner shows these to their own

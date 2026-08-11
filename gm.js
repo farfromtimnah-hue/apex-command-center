@@ -1537,10 +1537,16 @@ function gmRenderLeadSheet() {
   // up the sheet -- same contract as the project gallery.
   body += '<div id="gmLeadFilesSection"></div>';
 
+  // ── Notes ────────────────────────────────────────────────
+  // The dated thread. Distinct from "Observação do trabalho" above, which is a
+  // field on the lead record and stays exactly where it is.
+  body += '<div id="gmNotesSection"></div>';
+
   body += '<button type="button" class="btn-outline gm-add-btn" style="color:var(--red);border-color:var(--red);" onclick="gmDeleteLead()">' +
     gmT("Excluir lead", "Delete lead") + '</button>';
   gmSheetOpen(escHtml(lead.cliente), body, "crm-lead-detail");
   gmLoadLeadFiles(lead.id);
+  gmLoadNotes("lead", lead.id);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1614,6 +1620,142 @@ function gmRenderLeadFiles(leadId, failed) {
 
   box.innerHTML = gmSheetSection(gmT("Arquivos", "Files"), inner);
   files.filter(function(f) { return f.is_image !== false; }).forEach(gmHydratePhoto);
+}
+
+// ══════════════════════════════════════════════════════
+// Notes -- a dated thread on a lead or a project
+// ══════════════════════════════════════════════════════
+//
+// One entry per note, newest first, each showing who wrote it and when.
+// Author and timestamp come from the server and are never sent by the
+// browser -- see the handlers in worker/index.js.
+//
+// gm_leads.observacao is a FIELD on the lead ("Observa\u00e7\u00e3o do trabalho") and
+// still lives in the field list above. This is the history beside it.
+//
+// Keyed "lead:<id>" / "job:<id>" so both parents share one cache and one
+// renderer without either being able to read the other's thread.
+var gmNotes = {};
+
+function gmNotesKey(parentType, parentId) { return parentType + ":" + parentId; }
+
+function gmNotesPath(parentType, parentId) {
+  return (parentType === "lead" ? "leads/" : "jobs/") + encodeURIComponent(parentId) + "/notes";
+}
+
+function gmLoadNotes(parentType, parentId) {
+  gmApi(gmNotesPath(parentType, parentId))
+    .then(function(d) {
+      gmNotes[gmNotesKey(parentType, parentId)] = d.notes || [];
+      gmRenderNotes(parentType, parentId);
+    })
+    .catch(function() {
+      // A failed note load must not take the rest of the sheet with it.
+      gmNotes[gmNotesKey(parentType, parentId)] = [];
+      gmRenderNotes(parentType, parentId, true);
+    });
+}
+
+function gmRenderNotes(parentType, parentId, failed) {
+  var box = document.getElementById("gmNotesSection");
+  if (!box) { return; }
+  var notes = gmNotes[gmNotesKey(parentType, parentId)] || [];
+  var pj = JSON.stringify(parentType).replace(/"/g, "&quot;");
+  var idj = JSON.stringify(parentId).replace(/"/g, "&quot;");
+
+  // Add box FIRST: writing a note is the reason the section is open, and on a
+  // long thread a box at the bottom is a scroll away.
+  var inner = '<div class="gm-note-add">' +
+    '<textarea id="gmNoteInput" class="gm-note-input" rows="2" ' +
+      'placeholder="' + escHtml(gmT("Escrever uma nota\u2026", "Write a note\u2026")) + '" ' +
+      'aria-label="' + escHtml(gmT("Nova nota", "New note")) + '"></textarea>' +
+    '<button type="button" class="btn-gold gm-note-save" ' +
+      'onclick="gmAddNote(' + pj + ',' + idj + ')">' +
+      gmT("Adicionar", "Add") + '</button></div>';
+
+  if (failed) {
+    inner += '<p class="muted" style="padding:10px 12px;">' +
+      gmT("N\u00e3o foi poss\u00edvel carregar as notas.", "Could not load the notes.") + '</p>';
+  } else if (!notes.length) {
+    inner += '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Nenhuma nota ainda.", "No notes yet.") + '</p>';
+  } else {
+    notes.forEach(function(n) {
+      var when = n.created_at ? formatDateTimeUTC(n.created_at) : "";
+      inner += '<div class="gm-note">' +
+        '<div class="gm-note-head">' +
+          '<span class="gm-note-who">' + escHtml(n.created_by || gmT("Desconhecido", "Unknown")) + '</span>' +
+          '<span class="gm-note-when">' + escHtml(when) + '</span>' +
+        '</div>' +
+        '<div class="gm-note-body" id="gmNoteBody_' + escHtml(n.id) + '">' + escHtml(n.body) + '</div>' +
+        // Only your own note offers edit/delete. The server refuses anyone
+        // else's regardless -- this hides a button that would only ever 403.
+        (n.is_mine ?
+          '<div class="gm-note-actions">' +
+            '<button type="button" class="gm-note-act" onclick="gmEditNote(' + pj + ',' + idj + ',' +
+              JSON.stringify(n.id).replace(/"/g, "&quot;") + ')">' + gmT("Editar", "Edit") + '</button>' +
+            '<button type="button" class="gm-note-act gm-note-act-del" onclick="gmDeleteNote(' + pj + ',' + idj + ',' +
+              JSON.stringify(n.id).replace(/"/g, "&quot;") + ')">' + gmT("Excluir", "Delete") + '</button>' +
+          '</div>' : "") +
+        '</div>';
+    });
+  }
+
+  box.innerHTML = gmSheetSection(gmT("Notas", "Notes"), inner);
+}
+
+function gmAddNote(parentType, parentId) {
+  var input = document.getElementById("gmNoteInput");
+  if (!input) { return; }
+  var text = (input.value || "").trim();
+  if (!text) { return; }
+  input.disabled = true;
+  gmApi(gmNotesPath(parentType, parentId), { method: "POST", body: { body: text } })
+    .then(function(d) {
+      var k = gmNotesKey(parentType, parentId);
+      if (!gmNotes[k]) { gmNotes[k] = []; }
+      gmNotes[k].unshift(d.note);   // newest first
+      gmRenderNotes(parentType, parentId);
+      gmToast(gmT("Nota adicionada.", "Note added."));
+    })
+    .catch(function(e) {
+      input.disabled = false;
+      gmToast(gmT("Erro ao salvar a nota: ", "Could not save the note: ") + e.message);
+    });
+}
+
+function gmEditNote(parentType, parentId, noteId) {
+  var k = gmNotesKey(parentType, parentId);
+  var note = (gmNotes[k] || []).filter(function(n) { return n.id === noteId; })[0];
+  if (!note) { return; }
+  var next = window.prompt(gmT("Editar nota", "Edit note"), note.body);
+  if (next === null) { return; }
+  next = next.trim();
+  if (!next) { return; }
+  gmApi(gmNotesPath(parentType, parentId) + "/" + encodeURIComponent(noteId),
+        { method: "PUT", body: { body: next } })
+    .then(function(d) {
+      gmNotes[k] = (gmNotes[k] || []).map(function(n) { return n.id === noteId ? d.note : n; });
+      gmRenderNotes(parentType, parentId);
+      gmToast(gmT("Nota atualizada.", "Note updated."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao atualizar a nota: ", "Could not update the note: ") + e.message);
+    });
+}
+
+function gmDeleteNote(parentType, parentId, noteId) {
+  if (!window.confirm(gmT("Excluir esta nota?", "Delete this note?"))) { return; }
+  var k = gmNotesKey(parentType, parentId);
+  gmApi(gmNotesPath(parentType, parentId) + "/" + encodeURIComponent(noteId), { method: "DELETE" })
+    .then(function() {
+      gmNotes[k] = (gmNotes[k] || []).filter(function(n) { return n.id !== noteId; });
+      gmRenderNotes(parentType, parentId);
+      gmToast(gmT("Nota exclu\u00edda.", "Note deleted."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao excluir a nota: ", "Could not delete the note: ") + e.message);
+    });
 }
 
 function gmUploadLeadFile(leadId, input) {
@@ -2211,8 +2353,12 @@ function gmRenderJobs() {
 function gmOpenJob(idx) {
   gmSheetRow = idx === -1 ? null : gmJobsData.jobs[idx];
   gmRenderSimpleSheet("job");
-  // A brand-new project has no id yet, so it has nothing to attach photos to.
-  if (gmSheetRow && gmSheetRow.id) { gmLoadJobPhotos(gmSheetRow.id); }
+  // A brand-new project has no id yet, so it has nothing to attach photos or
+  // notes to.
+  if (gmSheetRow && gmSheetRow.id) {
+    gmLoadJobPhotos(gmSheetRow.id);
+    gmLoadNotes("job", gmSheetRow.id);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -2766,6 +2912,10 @@ function gmRenderSimpleSheet(kind) {
     // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
     // sheet opens immediately instead of waiting on the network.
     body += '<div id="gmJobPhotosSection"></div>';
+
+    // ── Notes ───────────────────────────────────────────────────────────
+    // Same dated thread as the lead sheet, same server-set author and time.
+    body += '<div id="gmNotesSection"></div>';
   }
   if (kind === "base") {
     if (row.reactivated_lead_id) {

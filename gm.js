@@ -133,6 +133,12 @@ var GM_STAGE_PILL = {
 
 // The visible label for a stage key, in the current language.
 function gmStageLabel(key) { return GmLabels.stageLabel(key, isEn()); }
+
+// The visible label for the other FIXED system lists (job/roadmap/base/partner
+// status, frente, origem). Unlike stages these are still STORED in Portuguese
+// and translated only at the display layer — see the note in gm-labels.js for
+// why that trade was made deliberately.
+function gmStatusLabel(v) { return GmLabels.statusLabel(v, isEn()); }
 var GM_STATUS_PILLS = {
   roadmap: {
     "Realizado":    { band: "gm-green", glyph: "✓" },
@@ -161,8 +167,9 @@ var GM_STATUS_PILLS = {
   }
 };
 
-// Portuguese status words are the spreadsheet's own vocabulary; the EN
-// toggle is a developer QA aid, so statuses stay PT in both languages.
+// `word` is the ALREADY-LOCALISED label. It used to be the raw stored value,
+// on the reasoning that "the EN toggle is a developer QA aid" — no longer
+// true: real clients use the toggle, and Resonate sells bilingual systems.
 function gmPillHtml(word, def) {
   var d = def || { band: "gm-muted", glyph: "○" };
   return '<span class="gm-pill ' + d.band + '">' + d.glyph + ' ' + escHtml(word) + '</span>';
@@ -318,14 +325,19 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml) {
     if ((options || []).length <= 5) {
       inner = '<div class="gm-chip-set" id="gmEditorChips">';
       options.forEach(function(opt, i) {
+        // The chip shows a localised label where one exists and the stored
+        // value otherwise. gmStatusLabel echoes back anything it does not
+        // know, which is what keeps CLIENT-AUTHORED lists (servicos,
+        // vendedores, cycle months) displaying exactly as the client typed
+        // them — this renderer is shared with those fields.
         inner += '<button type="button" class="gm-choice-chip' + (opt === value ? " gm-chip-sel" : "") +
-          '" data-opt-idx="' + i + '" onclick="gmEditorPickChip(this)">' + escHtml(opt) + '</button>';
+          '" data-opt-idx="' + i + '" onclick="gmEditorPickChip(this)">' + escHtml(gmStatusLabel(opt)) + '</button>';
       });
       inner += '</div>';
     } else {
       inner = '<select id="gmEditorInput"><option value="">—</option>';
       options.forEach(function(opt) {
-        inner += '<option value="' + escHtml(opt) + '"' + (opt === value ? " selected" : "") + '>' + escHtml(opt) + '</option>';
+        inner += '<option value="' + escHtml(opt) + '"' + (opt === value ? " selected" : "") + '>' + escHtml(gmStatusLabel(opt)) + '</option>';
       });
       inner += '</select>';
     }
@@ -1396,6 +1408,9 @@ function gmLeadFieldDisplay(lead, def) {
   if (def.type === "datetime") { return escHtml(formatDateTime(v)); }
   if (def.key === "parceiro_id") { return escHtml(lead.parceiro_name || ""); }
   if (def.type === "multichoice") { return escHtml(gmServicoList(v).join(", ")); }
+  // origem is a fixed system list, so it translates. servico/servico_desc and
+  // the other free-text fields fall through gmStatusLabel unchanged.
+  if (def.key === "origem") { return escHtml(gmStatusLabel(v)); }
   return escHtml(String(v));
 }
 
@@ -1929,7 +1944,7 @@ function gmRenderRoadmap() {
         '<div class="gm-lead-sub">' +
         [item.mes, item.frente, item.responsavel].filter(function(x) { return !!x; }).map(escHtml).join(" · ") +
         '</div></span>' +
-        '<span class="gm-lead-side" data-tour="roadmap-status">' + gmPillHtml(item.status, GM_STATUS_PILLS.roadmap[item.status]) + '</span>' +
+        '<span class="gm-lead-side" data-tour="roadmap-status">' + gmPillHtml(gmStatusLabel(item.status), GM_STATUS_PILLS.roadmap[item.status]) + '</span>' +
         '</button>';
     });
   }
@@ -1980,7 +1995,7 @@ function gmRenderBase() {
         '</div>' +
         (item.data_contato ? '<div class="gm-lead-sub">' + gmT("Contato: ", "Contacted: ") + formatDate(item.data_contato) + '</div>' : "") +
         '</span>' +
-        '<span class="gm-lead-side">' + gmPillHtml(item.status, GM_STATUS_PILLS.base[item.status]) + '</span>' +
+        '<span class="gm-lead-side">' + gmPillHtml(gmStatusLabel(item.status), GM_STATUS_PILLS.base[item.status]) + '</span>' +
         '</button>';
     });
   }
@@ -2151,7 +2166,7 @@ function gmRenderPartners() {
             '<span class="gm-partner-card-name">' + escHtml(p.name) + '</span>' +
             (p.tipo ? '<span class="gm-partner-card-type">' + escHtml(p.tipo) + '</span>' : '') +
           '</span>' +
-          '<span class="gm-lead-side">' + gmPillHtml(p.status, GM_STATUS_PILLS.partner[p.status]) + '</span>' +
+          '<span class="gm-lead-side">' + gmPillHtml(gmStatusLabel(p.status), GM_STATUS_PILLS.partner[p.status]) + '</span>' +
         '</span>' +
         '<span class="gm-partner-stats">' +
           '<span class="gm-partner-stat">' +
@@ -2351,7 +2366,7 @@ function gmRenderJobs() {
           .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
         '<div class="gm-lead-sub">' + [margemHtml, prazoHtml].filter(function(x) { return !!x; }).join(" · ") + '</div>' +
         '</span>' +
-        '<span class="gm-lead-side" data-tour="jobs-status">' + gmPillHtml(j.status, GM_STATUS_PILLS.job[j.status]) + '</span>' +
+        '<span class="gm-lead-side" data-tour="jobs-status">' + gmPillHtml(gmStatusLabel(j.status), GM_STATUS_PILLS.job[j.status]) + '</span>' +
         '</button>';
     });
   }
@@ -2678,7 +2693,7 @@ function gmSimpleFieldDisplay(row, def) {
   if (def.type === "currency") { return escHtml(fmtNum(v, "currency")); }
   if (def.type === "date") { return escHtml(formatDate(v)); }
   if (def.type === "jobref") { return escHtml(row.obra_name || ""); }
-  if (def.pills) { return gmPillHtml(String(v), def.pills[v]); }
+  if (def.pills) { return gmPillHtml(gmStatusLabel(v), def.pills[v]); }
   return escHtml(String(v));
 }
 
@@ -3481,6 +3496,11 @@ function gmOnLangChange() {
   if (gmCurrentTab === "gmroadmap" && gmRoadmapData) { gmRenderRoadmap(); }
   if (gmCurrentTab === "gmfinance" && gmFinanceData) { gmRenderFinance(); }
   if (gmCurrentTab === "gmjobs" && gmJobsData) { gmRenderJobs(); }
+  // The calendar carries THREE kinds of translated text — event-type labels,
+  // titles recomposed per language, and the derived "Início / Prazo / Entrega"
+  // job labels — so it has to repaint like every other tab. It was missing
+  // from this list, which is why a toggle left the grid in the old language.
+  if (gmCurrentTab === "gmcalendar" && gmCalData) { gmRenderCalendar(); }
 
   // An open project sheet re-renders too, so the photo gallery's own labels
   // ("No photos yet", "+ Add photo") switch with everything else. Replayed
@@ -3593,7 +3613,7 @@ function gmCalChip(ev) {
   } else if (ev.kind === "club") {
     name.textContent = "★ " + (ev.title || "Apex Club");
   } else {
-    name.textContent = ev.title || "";
+    name.textContent = gmCalDisplayTitle(ev);
   }
   btn.appendChild(name);
 
@@ -3681,6 +3701,9 @@ function gmCalNew(dateStr) {
     id: null,
     event_type: "",
     title: "",
+    // A STORED flag, carried through to the row. Set only when the user
+    // actually edits the field, so a generated title keeps translating.
+    title_overridden: false,
     titleTouched: false,   // once they edit the title, stop regenerating it
     date: dateStr || gmCalSelDate || CalendarGrid.dateKey(new Date()),
     start_time: "",
@@ -3700,7 +3723,11 @@ function gmCalOpenEvent(ev) {
     id: ev.id,
     event_type: ev.event_type || "",
     title: ev.title || "",
-    titleTouched: true,   // an existing title is never silently rewritten
+    title_overridden: !!ev.title_overridden,
+    // Only an OVERRIDDEN title is left alone. A generated one keeps
+    // regenerating, so editing the type or the link updates it and the
+    // language toggle keeps working on it.
+    titleTouched: !!ev.title_overridden,
     date: ev.date,
     start_time: ev.start_time || "",
     end_time: ev.end_time || "",
@@ -3714,21 +3741,63 @@ function gmCalOpenEvent(ev) {
   gmCalRenderComposer();
 }
 
-// The generated title: "<event type> — <linked job or lead>". Same shape every
-// time, which is what makes the calendar reportable.
-function gmCalGenTitle(d) {
-  var type = d.event_type || "";
-  var who = "";
+// The label for an event-type KEY, in the current language, looked up in this
+// client's own configured list. A type the client added themselves stores the
+// same text in pt and en, so it displays identically either way — their
+// vocabulary is theirs and is never machine-translated.
+function gmEventTypeLabel(key) {
+  return GmLabels.eventTypeLabel(key, (gmConfig && gmConfig.config && gmConfig.config.event_types) || [], isEn());
+}
+
+// The linked record's own name — the job's obra or the lead's cliente. Stays
+// exactly as the client wrote it: correctly untranslated.
+function gmCalLinkName(d) {
   if (d.job_id && gmJobsData && gmJobsData.jobs) {
-    gmJobsData.jobs.forEach(function(j) { if (j.id === d.job_id) { who = j.obra || ""; } });
-  } else if (d.lead_id && gmLeadsData && gmLeadsData.leads) {
-    gmLeadsData.leads.forEach(function(l) { if (l.id === d.lead_id) { who = l.cliente || ""; } });
+    for (var i = 0; i < gmJobsData.jobs.length; i++) {
+      if (gmJobsData.jobs[i].id === d.job_id) { return gmJobsData.jobs[i].obra || ""; }
+    }
   }
+  if (d.lead_id && gmLeadsData && gmLeadsData.leads) {
+    for (var j = 0; j < gmLeadsData.leads.length; j++) {
+      if (gmLeadsData.leads[j].id === d.lead_id) { return gmLeadsData.leads[j].cliente || ""; }
+    }
+  }
+  return "";
+}
+
+// The generated title: "<event type> — <linked job or lead>".
+//
+// COMPOSED AT RENDER TIME, not stored. Storing the composed string is what
+// made titles untranslatable: toggling the language cannot rewrite saved text.
+// The PARTS are stored (the event_type key plus job_id/lead_id) and the
+// sentence is rebuilt per language on every render, so the type half
+// translates while the customer's own name stays as they wrote it.
+function gmCalGenTitle(d) {
+  var type = d.event_type ? gmEventTypeLabel(d.event_type) : "";
+  var who = gmCalLinkName(d);
   if (type && who) { return type + " — " + who; }
   return type || who || "";
 }
 
-function gmCalIsOutro(d) { return (d.event_type || "").toLowerCase() === "outro"; }
+// The title to DISPLAY for a stored event. An override (or an "Outro" event,
+// which has no structure to compose from) shows its stored text; anything else
+// is recomposed in the current language.
+//
+// title_overridden is a stored FLAG, never inferred by string-comparing the
+// saved title against a freshly generated one — that comparison would flip to
+// "overridden" the moment a translation changed.
+function gmCalDisplayTitle(ev) {
+  if (ev.title_overridden || ev.event_type === GmLabels.OUTRO_KEY) {
+    return ev.title || gmEventTypeLabel(ev.event_type);
+  }
+  var composed = gmCalGenTitle(ev);
+  return composed || ev.title || "";
+}
+
+// Compared as a KEY, never as a lowercased display string: "Other" and "Outro"
+// are the same escape hatch, and a string compare gets that wrong the moment
+// the UI is in English.
+function gmCalIsOutro(d) { return (d.event_type || "") === GmLabels.OUTRO_KEY; }
 
 // The linked record also supplies the location, so nobody retypes an address
 // the system already holds (gm_leads carries address and city).
@@ -3761,12 +3830,14 @@ function gmCalRenderComposer() {
           "No types configured yet. Use “Outro” or add types in Settings.") + '</p>';
   }
   body += '<div class="gm-chip-set gm-cal-types">';
-  var shown = types.slice();
-  if (shown.indexOf("Outro") === -1) { shown.push("Outro"); }
+  // The chip SHOWS the label for the current language and STORES the key.
+  var shown = GmLabels.normalizeEventTypes(types);
+  var hasOutro = shown.some(function(t) { return t.key === GmLabels.OUTRO_KEY; });
+  if (!hasOutro) { shown = shown.concat([{ key: GmLabels.OUTRO_KEY, pt: "Outro", en: "Other" }]); }
   shown.forEach(function(t) {
-    body += '<button type="button" class="gm-choice-chip' + (d.event_type === t ? " gm-chip-sel" : "") +
-      '" onclick="gmCalPickType(' + JSON.stringify(t).replace(/"/g, "&quot;") + ')">' +
-      escHtml(t) + '</button>';
+    body += '<button type="button" class="gm-choice-chip' + (d.event_type === t.key ? " gm-chip-sel" : "") +
+      '" onclick="gmCalPickType(' + JSON.stringify(t.key).replace(/"/g, "&quot;") + ')">' +
+      escHtml(isEn() ? t.en : t.pt) + '</button>';
   });
   body += '</div>';
 
@@ -3846,7 +3917,7 @@ function gmCalRenderComposer() {
     (outro ? gmT("Título", "Title") + " *" : gmT("Título (gerado)", "Title (generated)")) + '</label>' +
     '<div class="gm-editor-input"><input type="text" id="gmCalTitle" value="' + escHtml(gen) +
     '" placeholder="' + escHtml(outro ? gmT("Descreva o evento", "Describe the event") : "") +
-    '" oninput="gmCalDraft.title=this.value;gmCalDraft.titleTouched=true;"></div>';
+    '" oninput="gmCalDraft.title=this.value;gmCalDraft.titleTouched=true;gmCalDraft.title_overridden=true;"></div>';
   if (!outro) {
     body += '<p class="muted" style="font-size:11px;margin:4px 2px 0;">' +
       gmT("Gerado a partir das escolhas acima — edite se quiser.",
@@ -3910,6 +3981,9 @@ function gmCalSave() {
   var payload = {
     event_type: d.event_type,
     title: title,
+    // Stored, never inferred. An "Outro" event is always an override: there is
+    // no structure to compose a title from.
+    title_overridden: !!d.title_overridden || gmCalIsOutro(d),
     event_date: d.date,
     start_time: d.all_day ? null : (d.start_time || null),
     end_time: d.all_day ? null : (d.end_time || null),

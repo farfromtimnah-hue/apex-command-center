@@ -221,7 +221,81 @@
     return key === null || key === undefined ? "" : String(key);
   }
 
+  // ── Other FIXED system lists ───────────────────────────────────────────
+  //
+  // Job status, roadmap status/frente, Base de Ouro status, partner status and
+  // lead origem are all fixed lists a client cannot add to, so they have the
+  // same defect stages had: the stored value IS the display string.
+  //
+  // TRANSLATED AT THE DISPLAY LAYER ONLY — the stored values stay Portuguese
+  // and NO data migration is performed. That is a deliberate, narrower fix
+  // than the one applied to stages, and the reason is risk asymmetry:
+  //
+  //   * Stages earned a full key migration because gm_leads.estagio is
+  //     compared in revenue SQL (receita_fechada, pipeline_ativo), so the
+  //     stored representation had to be language-neutral to be safe.
+  //   * These five are compared in far fewer places and none of them produce
+  //     a money figure, so a lookup table at render time buys the whole
+  //     bilingual benefit at none of the migration risk (~950 live rows).
+  //
+  // NOT DONE, deliberately: gm_finance.tipo (Entrada / Saída). It is DERIVED
+  // from gm_config.finance_categories_json, whose category names are
+  // admin-editable per client and which embeds tipo per category. Migrating
+  // the column means migrating that JSON for every client and re-deriving
+  // every row — real risk to money classification for a two-value list.
+  // Left alone on purpose; see the report.
+  var STATUS_EN = {
+    // gm_jobs.status
+    "Em andamento": "In progress",
+    "Concluída": "Completed",
+    "Atrasada": "Late",
+    "Pausada": "Paused",
+    // gm_roadmap.status ("Em andamento" shared with jobs above)
+    "Realizado": "Done",
+    "Pendente": "Pending",
+    "Atrasado": "Late",
+    "Cancelado": "Cancelled",
+    // gm_base_ouro.status
+    "Não contatado": "Not contacted",
+    "Contatado": "Contacted",
+    "Interessado": "Interested",
+    "Reativado": "Reactivated",
+    "Sem interesse": "Not interested",
+    // gm_partners.status
+    "Prospectando": "Prospecting",
+    "Ativo": "Active",
+    "Inativo": "Inactive",
+    // gm_roadmap.frente
+    "Comercial": "Sales",
+    "Gestão": "Management",
+    "Base de Ouro": "Golden Base",
+    "Financeiro": "Finance",
+    "Parcerias": "Partnerships",
+    "Marketing": "Marketing",
+    "Operação": "Operations",
+    // gm_leads.origem
+    "Orgânico": "Organic",
+    "Tráfego pago": "Paid traffic",
+    "Indicação": "Referral",
+    "Base de Clientes": "Customer base",
+    "Parceiro": "Partner",
+    "Google": "Google",
+    "Instagram": "Instagram",
+    "Site": "Website",
+    "Outro": "Other"
+  };
+
+  // An unknown value is echoed back rather than blanked: showing the stored
+  // word is more honest than showing nothing.
+  function statusLabel(v, en) {
+    if (v === null || v === undefined || v === "") { return ""; }
+    if (!en) { return String(v); }
+    return STATUS_EN[v] || String(v);
+  }
+
   global.GmLabels = {
+    STATUS_EN: STATUS_EN,
+    statusLabel: statusLabel,
     STAGES: STAGES,
     STAGE_KEYS: STAGE_KEYS,
     STAGE_BY_KEY: STAGE_BY_KEY,

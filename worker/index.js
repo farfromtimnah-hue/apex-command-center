@@ -17129,6 +17129,12 @@ function gmEventOut(row) {
         id: row.id,
         event_type: row.event_type,
         title: row.title,
+        // Stored, never inferred by comparing the saved title against a
+        // freshly generated one — that comparison flips to "overridden" the
+        // moment a translation is corrected. An event whose title is NOT
+        // overridden has its title recomposed per language by the frontend
+        // from event_type + job_id/lead_id.
+        title_overridden: row.title_overridden === 1,
         date: row.event_date,
         start_time: row.start_time || null,
         end_time: row.end_time || null,
@@ -17171,6 +17177,7 @@ async function gmEventFields(env, clientId, body, partial) {
     if (has("start_time")) { out.start_time = gmTimeStr(body.start_time); }
     if (has("end_time"))   { out.end_time   = gmTimeStr(body.end_time); }
     if (has("all_day"))    { out.all_day    = body.all_day ? 1 : 0; }
+    if (has("title_overridden")) { out.title_overridden = body.title_overridden ? 1 : 0; }
     if (has("location"))    { out.location    = gmStr(body.location, 300); }
     if (has("description")) { out.description = gmStr(body.description, 4000); }
     if (has("assigned_to")) { out.assigned_to = gmStr(body.assigned_to, 120); }
@@ -17359,11 +17366,11 @@ async function handlePostGmEvent(id, request, env) {
 
         var eventId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO gm_events (id, client_id, event_type, title, event_date, start_time, end_time, " +
+            "INSERT INTO gm_events (id, client_id, event_type, title, title_overridden, event_date, start_time, end_time, " +
             "all_day, location, description, job_id, lead_id, assigned_to, created_by, updated_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
-            eventId, id, f.event_type, f.title, f.event_date,
+            eventId, id, f.event_type, f.title, f.title_overridden || 0, f.event_date,
             f.start_time || null, f.end_time || null, f.all_day || 0,
             f.location || null, f.description || null,
             f.job_id || null, f.lead_id || null, f.assigned_to || null,
@@ -17392,7 +17399,7 @@ async function handlePutGmEvent(id, eventId, request, env) {
         var f = await gmEventFields(env, id, body, true);
         if (f.error) { return jsonErr(f.error, 400); }
 
-        var cols = ["event_type", "title", "event_date", "start_time", "end_time",
+        var cols = ["event_type", "title", "title_overridden", "event_date", "start_time", "end_time",
                     "all_day", "location", "description", "job_id", "lead_id", "assigned_to"];
         var sets = [], binds = [];
         cols.forEach(function (c) {

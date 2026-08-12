@@ -517,9 +517,59 @@ final class ApexLockCover {
     var onSignOut: (() -> Void)?
 
     // The single vertical stack that owns every element on the cover -- the
-    // wordmark from the start, plus the message and buttons once recovery is
+    // logo from the start, plus the message and buttons once recovery is
     // shown. One stack means nothing on this screen can overlap anything else.
     private var contentStack: UIStackView?
+
+    // BRANDED LAUNCH TREATMENT.
+    //
+    // The photo is a background view on the host, BEHIND the scroll view; the
+    // logo is an arranged subview INSIDE contentStack. That split matters: the
+    // photo is decoration that must fill the screen edge to edge, while the
+    // logo is content that the recovery message and buttons have to lay out
+    // below without colliding. Centring the logo independently in the window
+    // is exactly what b49b6db removed, and it is not being reintroduced here.
+    private weak var photoView: UIImageView?
+    private weak var logoView: UIImageView?
+    private weak var sweepLayer: CAGradientLayer?
+
+    // The logo's real master is 393x147 (no vector exists anywhere -- see the
+    // asset catalog note), so it is capped rather than scaled to fit. Above
+    // roughly this width the upscaling is visible.
+    private static let logoMaxWidth: CGFloat = 300
+    private static let logoWidthFraction: CGFloat = 0.62
+
+    // Decoding happens once per process, off the main thread, and the result is
+    // reused by every later cover. The first cover of a cold launch therefore
+    // pays the decode and every subsequent one is free.
+    private static var cachedPhoto: UIImage?
+    private static var cachedLogo: UIImage?
+    private static let assetQueue = DispatchQueue(label: "pro.apexbusiness.lockcover.assets", qos: .userInitiated)
+
+    // ANIMATION IS FOR WAITING, NOT FOR WORKING.
+    //
+    // The core workflow is: tap Ligar, talk on OpenPhone, come back and log the
+    // call. That resume happens inside the 15-minute grace period, many times an
+    // hour, and it is not a wait -- it is the middle of a task. A logo animation
+    // there would read as the app being slow every single time.
+    //
+    // So the treatment runs ONLY on a cold launch, where the user is genuinely
+    // waiting on authentication and the animation gives that wait a reason to
+    // exist. Every other path gets the cover instantly and silently.
+    //
+    // WHY THE REASON STRING AND NOT THE `existing` BRANCH: the brief suggested
+    // the early-return at the top of show() as the seam, but it is not one.
+    // hide() tears the window down (overlayWindow = nil), so whether show()
+    // finds an existing window depends on whether the cover happened to be up
+    // when the app was backgrounded -- sceneWillResignActive raises it, so a
+    // grace-period resume DOES hit that branch, but so does the cold-launch
+    // retry one runloop turn after "scene-launch". The branch conflates the two.
+    // The reason string does not: only SceneDelegate's willConnectTo pair
+    // reports a launch, and every resume arrives as resign-active,
+    // did-enter-background, or JS's "maybeLock" re-arm.
+    private static func isColdLaunch(reason: String) -> Bool {
+        return reason.hasPrefix("scene-launch")
+    }
     // Non-nil once the recovery UI has been added, so it is only added once.
     private var recoveryStack: UIStackView?
 
@@ -592,11 +642,143 @@ final class ApexLockCover {
         return out
     }
 
+    // Decodes the two images off the main thread and hands them back on it.
+    //
+    // THE COVER MUST NOT WAIT FOR THIS. Decoding the photo on the main thread
+    // would delay first paint, which is the one thing that must never happen --
+    // the cover's entire job is to be up before the WebView can paint. So the
+    // cover goes up solid #141210 immediately and this fades in underneath it
+    // whenever it is ready. If it is never ready, the cover simply stays solid.
+    private func loadAssets(_ done: @escaping (UIImage?, UIImage?) -> Void) {
+        if let p = Self.cachedPhoto, let l = Self.cachedLogo {
+            done(p, l)
+            return
+        }
+        Self.assetQueue.async {
+            // force-decode now, on this thread, rather than lazily at draw time
+            // on the main thread -- otherwise the work just moves to first paint.
+            let photo = Self.cachedPhoto ?? Self.decoded(UIImage(named: "LockCoverPhoto"))
+            let logo = Self.cachedLogo ?? Self.decoded(UIImage(named: "LockCoverLogo"))
+            DispatchQueue.main.async {
+                if Self.cachedPhoto == nil { Self.cachedPhoto = photo }
+                if Self.cachedLogo == nil { Self.cachedLogo = logo }
+                done(photo, logo)
+            }
+        }
+    }
+
+    private static func decoded(_ image: UIImage?) -> UIImage? {
+        guard let image = image, let cg = image.cgImage else { return image }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = image.scale
+        format.opaque = false
+        let size = CGSize(width: CGFloat(cg.width) / image.scale,
+                          height: CGFloat(cg.height) / image.scale)
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    // Fades the photo and logo in, then loops the sweep.
+    //
+    // REDUCE MOTION: the fades stay, the sweep does not. Reduce Motion is about
+    // movement, not opacity -- stripping the fade too would leave a hard cut
+    // that is harsher than what it replaced.
+    private func runLaunchAnimation(photo: UIImageView, logo: UIImageView) {
+        let reduceMotion = UIAccessibility.isReduceMotionEnabled
+
+        photo.alpha = 0
+        logo.alpha = 0
+
+        UIView.animate(withDuration: 1.2, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+            photo.alpha = 1
+        }
+        UIView.animate(withDuration: 0.6, delay: 0.3, options: [.curveEaseOut, .allowUserInteraction]) {
+            logo.alpha = 1
+        }
+
+        guard !reduceMotion else {
+            trace("COVER launch animation: fades only (Reduce Motion is on)")
+            return
+        }
+        // The sweep is started after the logo has faded in, and loops gently
+        // rather than running once: the cover can be up for a while, and a
+        // single pass would leave a static screen for the rest of that wait.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self, weak logo] in
+            guard let self = self, let logo = logo, logo.window != nil else { return }
+            self.startSweep(on: logo)
+        }
+    }
+
+    // A gradient mask travelling left to right across the logo, about a quarter
+    // of its width, so it reads as light catching the gold rather than a shine
+    // gimmick pasted over the top.
+    private func startSweep(on logo: UIImageView) {
+        logo.layoutIfNeeded()
+        let w = logo.bounds.width
+        let h = logo.bounds.height
+        guard w > 1, h > 1 else { return }
+        // No logo image means nothing to catch the light. The cover is fine
+        // without the sweep; it is the one part of this that is pure decoration.
+        guard let glyphs = logo.image?.cgImage else { return }
+
+        // The band is a white overlay confined to the logo's OWN PIXELS.
+        //
+        // The logo is a transparent PNG, so a plain rectangular overlay would
+        // light up the empty space around the glyphs as well -- a bright bar
+        // sliding across the screen instead of gold catching the light. Using
+        // the logo image itself as the overlay, tinted white, means only the
+        // glyphs can ever brighten.
+        let shine = CALayer()
+        shine.frame = CGRect(x: 0, y: 0, width: w, height: h)
+        shine.contents = glyphs
+        shine.contentsGravity = .resizeAspect
+        shine.backgroundColor = UIColor.clear.cgColor
+        // Tints the glyphs white while keeping the image's alpha, so the shape
+        // is the logo's and the colour is the highlight's.
+        shine.compositingFilter = "screenBlendMode"
+        shine.opacity = 0.55
+
+        let mask = CAGradientLayer()
+        mask.frame = CGRect(x: -w, y: 0, width: w, height: h)
+        mask.startPoint = CGPoint(x: 0, y: 0.5)
+        mask.endPoint = CGPoint(x: 1, y: 0.5)
+        mask.colors = [
+            UIColor.clear.cgColor,
+            UIColor.white.cgColor,
+            UIColor.clear.cgColor
+        ]
+        // ~25% of the logo width, centred in the travelling layer.
+        mask.locations = [0.375, 0.5, 0.625]
+        shine.mask = mask
+        logo.layer.addSublayer(shine)
+        sweepLayer = mask
+
+        let travel = CABasicAnimation(keyPath: "position.x")
+        travel.byValue = 2 * w
+        travel.duration = 2.0
+        travel.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        // One 2s pass, then a 1.8s rest before the next -- the pause is what
+        // keeps a looping highlight from turning into a strobe.
+        let group = CAAnimationGroup()
+        group.animations = [travel]
+        group.duration = 2.0 + 1.8
+        group.repeatCount = .infinity
+        group.isRemovedOnCompletion = false
+        mask.add(group, forKey: "apexSweep")
+        trace("COVER launch animation: photo+logo fade, sweep looping")
+    }
+
     // Raises the cover. Safe to call repeatedly.
     func show(reason: String) {
         if let existing = overlayWindow {
             existing.isHidden = false
             existing.windowLevel = Self.coverLevel
+            // A cover that is already up keeps whatever state it had. It is NOT
+            // re-animated: this branch is reached by the cold-launch retry a
+            // runloop turn after "scene-launch" (where the animation is already
+            // running and restarting it would stutter) and by every re-arm on a
+            // resume (where no animation should run at all).
             trace("COVER re-shown (reason=\(reason)) \(describeWindows())")
             startStallTimer()
             return
@@ -631,19 +813,81 @@ final class ApexLockCover {
         content.spacing = 18
         content.translatesAutoresizingMaskIntoConstraints = false
 
-        // A quiet wordmark so a slow launch reads as "locked", not "broken".
-        let label = UILabel()
-        label.text = "APEX"
-        label.textColor = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0)
-        // Dynamic Type: scales with the user's text size instead of being
-        // pinned at 15pt, and the whole stack grows with it.
-        label.font = UIFontMetrics(forTextStyle: .footnote)
-            .scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .bold))
-        label.adjustsFontForContentSizeCategory = true
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        content.addArrangedSubview(label)
+        // The full logo, so a slow launch reads as "locked", not "broken".
+        //
+        // It joins the SAME stack the recovery message and buttons append to,
+        // rather than being centred in the window on its own. See b49b6db: two
+        // independently-centred groups is precisely the bug that produced.
+        let logo = UIImageView()
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        logo.contentMode = .scaleAspectFit
+        logo.isAccessibilityElement = true
+        logo.accessibilityLabel = "Apex"
+        content.addArrangedSubview(logo)
+        logoView = logo
+
+        // 62% of the screen, capped at 300pt. The cap is a resolution limit,
+        // not a taste one -- the master is 393x147 and no vector exists.
+        let target = min(UIScreen.main.bounds.width * Self.logoWidthFraction, Self.logoMaxWidth)
+        let logoWidth = logo.widthAnchor.constraint(equalToConstant: target)
+        // Below required priority so the stack's own 32pt insets win on a very
+        // narrow screen instead of producing an unsatisfiable layout.
+        logoWidth.priority = .defaultHigh
+        // Aspect ratio comes from the real asset (393:147) so the height is
+        // reserved before the image has decoded -- otherwise the stack would
+        // reflow, and shift the recovery buttons, the moment the logo arrives.
+        NSLayoutConstraint.activate([
+            logoWidth,
+            logo.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor),
+            logo.heightAnchor.constraint(equalTo: logo.widthAnchor, multiplier: 147.0 / 393.0)
+        ])
+
         contentStack = content
+
+        // THE PHOTO, AND THE SCRIM OVER IT.
+        //
+        // Both are added to host.view BEFORE the scroll view, so they sit
+        // behind every piece of content and cannot intercept a tap aimed at a
+        // recovery button. They fill the whole view rather than the safe area:
+        // a background that stopped at the notch would read as a letterboxed
+        // image instead of a full-bleed one.
+        //
+        // The image itself is set later, once it has decoded off-thread. Until
+        // then these are an empty view over the solid cover colour, which is
+        // exactly what the cover looks like today.
+        let photo = UIImageView()
+        photo.translatesAutoresizingMaskIntoConstraints = false
+        photo.contentMode = .scaleAspectFill
+        photo.clipsToBounds = true
+        photo.isUserInteractionEnabled = false
+        photo.alpha = 0
+        host.view.addSubview(photo)
+        photoView = photo
+
+        // Gold on a photograph fails contrast without this. It is not optional,
+        // and it is also what keeps the recovery text readable once that
+        // appears on top of the same background.
+        let scrim = UIView()
+        scrim.translatesAutoresizingMaskIntoConstraints = false
+        scrim.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        scrim.isUserInteractionEnabled = false
+        host.view.addSubview(scrim)
+
+        NSLayoutConstraint.activate([
+            photo.topAnchor.constraint(equalTo: host.view.topAnchor),
+            photo.bottomAnchor.constraint(equalTo: host.view.bottomAnchor),
+            photo.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+            photo.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+
+            scrim.topAnchor.constraint(equalTo: photo.topAnchor),
+            scrim.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
+            scrim.leadingAnchor.constraint(equalTo: photo.leadingAnchor),
+            scrim.trailingAnchor.constraint(equalTo: photo.trailingAnchor)
+        ])
+        // The scrim rides with the photo: no photo, no dimming over the flat
+        // cover colour, which is already dark enough on its own.
+        scrim.alpha = 0
+        photo.accessibilityElementsHidden = true
 
         // Scrollable, so that at the largest accessibility text sizes -- or in
         // landscape on a small device, where the usable height is a couple of
@@ -711,6 +955,36 @@ final class ApexLockCover {
 
         trace("COVER SHOWN (reason=\(reason)) level=\(w.windowLevel.rawValue) \(describeWindows())")
         startStallTimer()
+
+        // Everything above this line has already run: the cover is up, opaque,
+        // and covering the app. The branding is strictly additive from here, so
+        // nothing below can delay or gate the cover appearing.
+        let animate = Self.isColdLaunch(reason: reason)
+        loadAssets { [weak self, weak photo, weak scrim, weak logo] p, l in
+            guard let self = self, let photo = photo, let scrim = scrim, let logo = logo else { return }
+            // The cover may already have come down during the decode.
+            guard photo.window != nil else { return }
+            photo.image = p
+            logo.image = l
+
+            if animate {
+                scrim.alpha = 1
+                self.runLaunchAnimation(photo: photo, logo: logo)
+            } else {
+                // RESUME PATH: no animation at all.
+                //
+                // Inside the 15-minute grace period this cover is up for a few
+                // hundred milliseconds between tapping back into the app and JS
+                // confirming the unlock is still fresh. Fading anything in over
+                // 1.2s there would mean the user watches a logo animation on
+                // every single return from a call -- the cover would become the
+                // slowest part of the workflow rather than an invisible one.
+                photo.alpha = 1
+                scrim.alpha = 1
+                logo.alpha = 1
+                self.trace("COVER branding: instant, no animation (reason=\(reason))")
+            }
+        }
     }
 
     // Disables the buttons and shows progress while a native action runs, so a
@@ -787,6 +1061,12 @@ final class ApexLockCover {
             trace("COVER hide called but no cover present (reason=\(reason))")
             return
         }
+        // Stop the looping sweep before the layer tree is discarded. An
+        // infinitely-repeating animation on a detached layer keeps ticking, and
+        // this cover goes up and down many times an hour.
+        sweepLayer?.removeAllAnimations()
+        sweepLayer = nil
+
         w.isHidden = true
         w.rootViewController = nil
         overlayWindow = nil
@@ -794,6 +1074,8 @@ final class ApexLockCover {
         // later show() must build a fresh stack rather than append to a dead one.
         recoveryStack = nil
         contentStack = nil
+        photoView = nil
+        logoView = nil
         trace("COVER HIDDEN (reason=\(reason))  <-- APP NOW VISIBLE")
     }
 

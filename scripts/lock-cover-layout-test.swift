@@ -30,14 +30,52 @@ func buildCover(size: CGSize, traits: UITraitCollection, message: String, canRet
     content.spacing = 18
     content.translatesAutoresizingMaskIntoConstraints = false
 
-    let label = UILabel()
-    label.text = "APEX"
-    label.textColor = gold
-    label.font = UIFontMetrics(forTextStyle: .footnote)
-        .scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .bold), compatibleWith: traits)
-    label.textAlignment = .center
-    label.numberOfLines = 0
-    content.addArrangedSubview(label)
+    // The full logo, mirroring show(). The asset catalog is not reachable from
+    // this standalone harness, so a placeholder at the REAL master aspect ratio
+    // (393x147) stands in -- what is being asserted is the geometry the logo
+    // imposes on the stack, and that comes from the ratio and the width cap,
+    // not from the pixels.
+    let logo = UIImageView()
+    logo.translatesAutoresizingMaskIntoConstraints = false
+    logo.contentMode = .scaleAspectFit
+    logo.backgroundColor = gold
+    content.addArrangedSubview(logo)
+
+    let logoTarget = min(size.width * 0.62, 300)
+    let logoWidth = logo.widthAnchor.constraint(equalToConstant: logoTarget)
+    logoWidth.priority = .defaultHigh
+    NSLayoutConstraint.activate([
+        logoWidth,
+        logo.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor),
+        logo.heightAnchor.constraint(equalTo: logo.widthAnchor, multiplier: 147.0 / 393.0)
+    ])
+
+    // The photo and its scrim sit BEHIND the scroll view and outside the safe
+    // area, so they take no part in the stack's layout. They are mirrored here
+    // only so the harness proves they cannot cover or intercept the buttons.
+    let photo = UIImageView()
+    photo.translatesAutoresizingMaskIntoConstraints = false
+    photo.contentMode = .scaleAspectFill
+    photo.clipsToBounds = true
+    photo.isUserInteractionEnabled = false
+    host.view.addSubview(photo)
+
+    let scrim = UIView()
+    scrim.translatesAutoresizingMaskIntoConstraints = false
+    scrim.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+    scrim.isUserInteractionEnabled = false
+    host.view.addSubview(scrim)
+
+    NSLayoutConstraint.activate([
+        photo.topAnchor.constraint(equalTo: host.view.topAnchor),
+        photo.bottomAnchor.constraint(equalTo: host.view.bottomAnchor),
+        photo.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+        photo.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+        scrim.topAnchor.constraint(equalTo: photo.topAnchor),
+        scrim.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
+        scrim.leadingAnchor.constraint(equalTo: photo.leadingAnchor),
+        scrim.trailingAnchor.constraint(equalTo: photo.trailingAnchor)
+    ])
 
     let scroll = UIScrollView()
     scroll.translatesAutoresizingMaskIntoConstraints = false
@@ -95,7 +133,7 @@ func buildCover(size: CGSize, traits: UITraitCollection, message: String, canRet
 
     host.view.setNeedsLayout()
     host.view.layoutIfNeeded()
-    return (host.view, content, [label, text] + buttons)
+    return (host.view, content, [logo, text] + buttons)
 }
 
 struct Case { let name: String; let size: CGSize; let cat: UIContentSizeCategory; let msg: String; let canRetry: Bool }

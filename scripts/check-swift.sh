@@ -62,6 +62,11 @@ open class CAPBridgeViewController: UIViewController {
     open func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
         return WKWebViewConfiguration()
     }
+    // Real signature from CAPBridgeViewController.swift:154 -- called AFTER
+    // userContentController has been replaced, so scripts added here survive.
+    open func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {
+        return WKWebView(frame: frame, configuration: configuration)
+    }
 }
 public class SceneDelegateProxy: NSObject, UISceneDelegate {
     public static let shared = SceneDelegateProxy()

@@ -100,8 +100,24 @@ class ApexBridgeViewController: CAPBridgeViewController {
     //     not depend on the Capacitor plugin bridge existing yet -- which is
     //     exactly the thing that may not have happened when the error fires;
     //   - forMainFrameOnly false, so an error in a subframe is caught too.
-    override open func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
-        let config = super.webViewConfiguration(for: instanceConfiguration)
+    // INJECTED FROM webView(with:configuration:), NOT webViewConfiguration(for:).
+    //
+    // The previous attempt overrode webViewConfiguration(for:) and added the
+    // user script there. It produced ZERO output on device, and the reason is
+    // one line of Capacitor's own code:
+    //
+    //   let webConfig = webViewConfiguration(for: configuration)   // :295
+    //   webConfig.setURLSchemeHandler(...)                         // :296
+    //   webConfig.userContentController = delegationHandler.contentController  // :297
+    //
+    // Line 297 REPLACES the whole content controller immediately after calling
+    // the override, so every user script and message handler added there is
+    // discarded before the WebView is created. That hook could never have
+    // fired. webView(with:configuration:) (:154) is called on the NEXT line
+    // with the final configuration, so anything added here survives.
+    override open func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {
+        NSLog("[APEXTRACE] BRIDGE webView(with:configuration:) called - installing JS error hook")
+        let config = configuration
 
         let js = """
         (function () {
@@ -132,8 +148,12 @@ class ApexBridgeViewController: CAPBridgeViewController {
         """
         let script = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         config.userContentController.addUserScript(script)
+        // Remove first: this method can be called more than once, and adding a
+        // duplicate handler name is a hard crash rather than a warning.
+        config.userContentController.removeScriptMessageHandler(forName: "apexJSError")
         config.userContentController.add(ApexJSErrorHandler.shared, name: "apexJSError")
-        return config
+
+        return super.webView(with: frame, configuration: config)
     }
 }
 

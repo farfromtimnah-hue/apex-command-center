@@ -10888,6 +10888,15 @@ function sellerRequestAllowed(path, method, clientId) {
         // it is history on rows they can already read. Read-only; there is
         // deliberately no POST counterpart anywhere.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/events$/.test(rest)) { return true; }
+        // Notes and attachments on a lead. A salesperson owns their lead end
+        // to end -- they carry the customer relationship and are paid
+        // commission on it -- so they read and write the whole record, not a
+        // trimmed version of it. Row-level scoping to their OWN leads is
+        // gmSellerLeadGuard inside each handler; this list only says which
+        // routes exist for them.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
         // Shared sales material (Materiais do Vendedor). Both handlers narrow
         // to visibility='seller' off the session, so what comes back is the
         // shared material only — never the client's own documents, and never a
@@ -10902,10 +10911,24 @@ function sellerRequestAllowed(path, method, clientId) {
     if (method === "POST") {
         if (rest === "gm/leads") { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        // Add a note, and upload a proposal / estimate / site photo. The
+        // upload is the point: the seller is the one at the house with the
+        // pictures, and Alice and the owner review what they attach.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
         return false;
     }
     if (method === "PUT") {
         if (/^gm\/leads\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        // Edit a note. The handler additionally limits this to the caller's
+        // OWN note, on the same actor string the insert stamped.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        return false;
+    }
+    if (method === "DELETE") {
+        // Same own-note rule as PUT, and their own lead's attachments.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         return false;
     }
     return false;
@@ -17198,6 +17221,30 @@ async function gmLeadBelongsToClient(env, clientId, leadId) {
     return !!row;
 }
 
+// A SELLER may only touch their OWN leads — the same contract
+// handleGetGmLeadContacts enforces inline (lead.vendedor !== cSeller → 403).
+//
+// This exists because notes and lead files were opened to the portal
+// allowlists so a salesperson can work a lead end to end: they own it, they
+// carry the customer relationship, and they are paid commission on it. But
+// the allowlist only controls WHICH ROUTES a session may call — without this,
+// any of JM's four sellers could read and edit notes and files on every other
+// seller's leads. This is what controls WHICH ROWS.
+//
+// Returns an error Response to hand straight back, or null when the caller may
+// proceed. sessionSellerName is null for admins and for owner (non-seller)
+// client sessions, so this is a no-op on every path except a seller session.
+async function gmSellerLeadGuard(env, user, clientId, leadId) {
+    var seller = sessionSellerName(user);
+    if (!seller) { return null; }
+    var lead = await env.DB.prepare(
+        "SELECT vendedor FROM gm_leads WHERE id = ? AND client_id = ?"
+    ).bind(leadId, clientId).first();
+    if (!lead) { return jsonErr("Lead not found", 404); }
+    if (lead.vendedor !== seller) { return jsonErr("Forbidden", 403); }
+    return null;
+}
+
 function gmLeadFileOut(row, clientId) {
     return {
         id: row.id,
@@ -17218,6 +17265,8 @@ async function handleGetGmLeadFiles(id, leadId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
 
         var rows = await env.DB.prepare(
             "SELECT * FROM gm_lead_files WHERE lead_id = ? AND client_id = ? ORDER BY created_at ASC"
@@ -17237,6 +17286,8 @@ async function handlePostGmLeadFile(id, leadId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
 
         var form = await request.formData();
         var file = form.get("file");
@@ -17289,6 +17340,9 @@ async function handleGetGmLeadFileContent(id, leadId, fileId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
+
         // Scoped by client AND lead: an id from another client's lead is a 404
         // here, not a served file.
         var row = await env.DB.prepare(
@@ -17323,6 +17377,9 @@ async function handleDeleteGmLeadFile(id, leadId, fileId, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
 
         var row = await env.DB.prepare(
             "SELECT r2_key FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
@@ -17766,6 +17823,14 @@ async function handleGetGmNotes(id, parentType, parentId, request, env) {
         if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
             return jsonErr("Record not found", 404);
         }
+        // Notes hang off leads AND jobs. Only the lead side has a vendedor to
+        // check, and a seller has no route to a job note at all (gm/jobs is
+        // absent from sellerRequestAllowed), so guarding the lead parent is
+        // the complete check for a seller session.
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
+        }
 
         // Newest first: a thread is read from the most recent entry.
         var rows = await env.DB.prepare(
@@ -17790,6 +17855,14 @@ async function handlePostGmNote(id, parentType, parentId, request, env) {
         if (!GM_NOTE_PARENTS[parentType]) { return jsonErr("Invalid note parent", 400); }
         if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
             return jsonErr("Record not found", 404);
+        }
+        // Notes hang off leads AND jobs. Only the lead side has a vendedor to
+        // check, and a seller has no route to a job note at all (gm/jobs is
+        // absent from sellerRequestAllowed), so guarding the lead parent is
+        // the complete check for a seller session.
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
         }
 
         var body = await request.json();
@@ -17816,6 +17889,11 @@ async function handlePutGmNote(id, parentType, parentId, noteId, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
+        }
 
         var existing = await env.DB.prepare(
             "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
@@ -17848,6 +17926,11 @@ async function handleDeleteGmNote(id, parentType, parentId, noteId, request, env
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
+        }
 
         var existing = await env.DB.prepare(
             "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
@@ -23265,8 +23348,9 @@ async function handleFetch(request, env, ctx) {
                     if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }
                 }
                 // /gm/leads/:leadId/files — attachments on a lead (PDF or
-                // image). NOT in sellerRequestAllowed, so a seller session is
-                // refused upstream — do not add them there.
+                // image). Sellers reach these too (2026-08-12): they are the
+                // ones on site with the photos and the estimate. Scoped to
+                // their OWN leads by gmSellerLeadGuard in each handler.
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "files") {
                     if (method === "GET")  { return handleGetGmLeadFiles(cid, segs[5], request, env); }
                     if (method === "POST") { return handlePostGmLeadFile(cid, segs[5], request, env); }
@@ -23295,7 +23379,8 @@ async function handleFetch(request, env, ctx) {
                 // /gm/leads/:id/notes and /gm/jobs/:id/notes — the dated note
                 // thread on either record. created_by/created_at are stamped
                 // from the session in the handler, never from the body.
-                // NOT in sellerRequestAllowed.
+                // Sellers reach the LEAD side (2026-08-12), scoped to their
+                // own leads by gmSellerLeadGuard; gm/jobs stays admin+owner.
                 if (segs.length === 7 && (gmCol === "leads" || gmCol === "jobs") && segs[6] === "notes") {
                     var noteParent = gmCol === "leads" ? "lead" : "job";
                     if (method === "GET")  { return handleGetGmNotes(cid, noteParent, segs[5], request, env); }

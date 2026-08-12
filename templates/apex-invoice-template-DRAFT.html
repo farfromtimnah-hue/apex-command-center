@@ -2,6 +2,17 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <!-- Loaded FIRST, synchronously, exactly as on the 24 top-level pages: it
+       arms the paint cover during head parse so no invoice data can be painted
+       before biometric unlock inside the iOS app. A no-op on the web.
+
+       This page needs it because client.html:9182 and finance.html:3125 link
+       it by RELATIVE path, so in the app it opens on capacitor://localhost --
+       in-app-reachable, and it renders client invoice data by definition. The
+       sibling apex-strategic-report-wired.html deliberately does NOT load this:
+       all four of its callers open it by ABSOLUTE https URL, so it is never the
+       native shell. -->
+  <script src="../native-bridge.js?v=1786506215"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fatura - Apex Business &amp; Leadership</title>
   <style>

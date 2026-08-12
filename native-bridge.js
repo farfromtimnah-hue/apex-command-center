@@ -45,6 +45,105 @@
 
 var APEX_AUTH_KEYS = ["apex_client_token", "apex_client_id", "apex_client_name", "apexLeadLayout"];
 
+// ---------------------------------------------------------------------------
+// PAINT-BLOCKING COVER  (must stay the first executable code in this file)
+//
+// THE BUG THIS EXISTS FOR: on a fresh install the app showed the dashboard,
+// with real client data, for SEVERAL SECONDS before going black and prompting
+// for Face ID. Neither the grace period nor a stale timestamp explains it.
+//
+// WHY THE PREVIOUS FIX COULD NOT CLOSE IT: 76f07cf corrected the ordering
+// INSIDE apexMaybeLock (cover first, then check freshness) and that fix is
+// correct and still here. But the cold-launch cover in apexInitNativeBridge is
+// gated on apexBiometricPlugin() -- and the whole function returns early on
+// !apexIsNative(). BOTH read window.Capacitor.Plugins, which Capacitor injects
+// and populates ASYNCHRONOUSLY, after the WebView has begun loading the
+// document. At head-parse time on a cold start those are routinely absent, the
+// gate fails, apexShowLock() is skipped entirely, and the page paints. The
+// cover then arrives only once Capacitor is ready -- seconds later on a fresh
+// install, which is exactly the reported window. Moving the JS earlier cannot
+// fix it: there is no point in the document where the plugin is reliably
+// present but content has not painted.
+//
+// THE FIX: stop asking Capacitor anything. Hide the document by default, via
+// CSS applied during head parse, and let JS only ever REVEAL. Paint-then-cover
+// becomes covered-then-reveal, so there is no frame in which content is
+// readable without a successful unlock.
+//
+// DETECTION SIGNAL -- location.protocol, NOT display-mode/standalone:
+//   Capacitor app  -> capacitor://localhost   (webDir "www", no server.url set,
+//                                              same origin the Worker CORS list
+//                                              allowlists for the iOS app)
+//   Installed PWA  -> https://apex.resonateai.online
+// Both run standalone on iOS, so navigator.standalone and
+// (display-mode: standalone) match BOTH and would wrongly cover the PWA that
+// Rafa and Alice use every day. The ORIGIN is what actually differs, it is
+// available synchronously in <head> with no Capacitor object, and it cannot be
+// spoofed by a home-screen install. That is the only signal used here.
+//
+// FAIL-CLOSED: any unexpected iOS-shell-like protocol (capacitor:, ionic:,
+// file:) covers. http/https never covers, so the web app and the installed PWA
+// are untouched -- no new blank-screen risk on the path Alice and Rafa use.
+//
+// FAIL-SAFE ON REVEAL: a cover that is on by default must never be able to
+// strand a user. apexRevealIfNothingToProtect() below runs from several
+// independent triggers, and the watchdog reveals unconditionally if nothing
+// has resolved in time.
+// ---------------------------------------------------------------------------
+
+var APEX_COVER_STYLE_ID = "apex-paint-cover";
+
+// Synchronous, no Capacitor dependency. See the block comment above.
+function apexLooksLikeNativeShell() {
+  try {
+    var p = String(window.location.protocol || "").toLowerCase();
+    // Exact matches only. An https origin -- browser or installed PWA -- is
+    // never the native shell.
+    if (p === "capacitor:" || p === "ionic:") { return true; }
+    // A Capacitor build can be configured to load over file://. Not the
+    // current configuration, but covering it costs a web user nothing.
+    if (p === "file:") { return true; }
+    return false;
+  } catch (e) {
+    // Cannot read location: assume the safer of the two. A briefly covered web
+    // page is recoverable; briefly exposed client data is not.
+    return true;
+  }
+}
+
+// Applies the cover as a <style> in the document, during parse, before <body>
+// exists. visibility (not display) so layout still resolves underneath and the
+// reveal is a single property flip with no reflow.
+//
+// html itself is painted the lock background so there is no white flash and
+// nothing readable at any point -- not the shell, not a spinner, not a
+// half-built header.
+function apexArmPaintCover() {
+  if (!apexLooksLikeNativeShell()) { return; }
+  if (document.getElementById(APEX_COVER_STYLE_ID)) { return; }
+  var css =
+    "html.apex-cover-armed{background:#141210 !important}" +
+    "html.apex-cover-armed>body{visibility:hidden !important}";
+  var style = document.createElement("style");
+  style.id = APEX_COVER_STYLE_ID;
+  style.appendChild(document.createTextNode(css));
+  // <head> exists by definition: this file is a synchronous script inside it.
+  (document.head || document.documentElement).appendChild(style);
+  document.documentElement.className += " apex-cover-armed";
+}
+
+// The ONLY way the cover comes off. Idempotent.
+function apexDisarmPaintCover() {
+  var el = document.documentElement;
+  if (!el) { return; }
+  el.className = String(el.className || "").replace(/\bapex-cover-armed\b/g, "").trim();
+}
+
+// ARMED IMMEDIATELY, at parse time, before anything below runs and before any
+// markup after this <script> tag is parsed. Everything else in this file --
+// including apexIsNative() and every plugin lookup -- may safely be late.
+apexArmPaintCover();
+
 function apexIsNative() {
   return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 }
@@ -653,6 +752,18 @@ function apexShowLock() {
 }
 
 function apexHideLock() {
+  // The paint cover comes off HERE and nowhere else on the success path.
+  //
+  // Every route that legitimately opens the app already funnels through this
+  // one function -- a successful internalAuthenticate (after apexMarkUnlocked
+  // has been awaited), the deviceIsSecure fail-open, a fresh grace period, and
+  // the no-session bootstrap. Disarming here therefore inherits all four
+  // behaviours exactly as they are documented, and adds no new way in.
+  //
+  // Deliberately NOT disarmed in apexShowRetry() or on a failed/cancelled
+  // authentication: those keep the app covered, which is the point.
+  apexDisarmPaintCover();
+
   var el = document.getElementById(APEX_LOCK_ID);
   if (!el) { return; }
   // Drop the reveal timer with the element, so a cover removed inside the
@@ -993,16 +1104,31 @@ function apexInitNativeBridge() {
   // just wrote, so the admin session is known synchronously too. Raising the
   // cover here is safe even if it turns out there is no session: the bootstrap
   // and the resume path both hide it again once that is established.
+  // NOT gated on apexBiometricPlugin() any more. That gate is the cold-launch
+  // bug: window.Capacitor.Plugins is populated asynchronously, so on a fresh
+  // install it is routinely empty at this point, the condition failed, and the
+  // page painted uncovered until Capacitor caught up seconds later. Whether the
+  // plugin exists is a question about how to UNLOCK, not about whether there is
+  // something to protect -- and it is answered later, in apexRunUnlock, which
+  // already handles a missing plugin by opening the app rather than stranding
+  // the user.
+  //
+  // The paint cover (armed at parse time) is already up regardless. This raises
+  // the in-document lock UI on top of it so there is something to look at and a
+  // retry button to tap.
   var coverRaised = false;
   try {
-    if (apexBiometricPlugin() &&
-        (window.localStorage.getItem("apex_client_token") || apexNativeSessionHint())) {
+    if (window.localStorage.getItem("apex_client_token") || apexNativeSessionHint()) {
       apexShowLock();
       coverRaised = true;
     }
   } catch (e) {
     // No storage - nothing to protect that we can see from here.
   }
+
+  // Nothing to protect: take the paint cover down now. Without this a launch
+  // with no session would sit behind the armed cover with no prompt coming.
+  if (!coverRaised) { apexDisarmPaintCover(); }
 
   apexInstallBiometricLock();
 
@@ -1114,4 +1240,42 @@ apexInitNativeBridge();
     tries = tries + 1;
     if (hookInitializeApp() || tries > 600) { window.clearInterval(timer); }
   }, 10);
+}());
+
+// ---------------------------------------------------------------------------
+// PAINT-COVER WATCHDOG — last-resort reveal.
+//
+// The cover is CSS-default-ON, which inverts the old failure mode: previously a
+// bug meant NO cover (data exposed); now a bug could mean a PERMANENT cover (an
+// app nobody can open). That trade is only acceptable with a guaranteed way
+// out, and it must not depend on any of the code above having run correctly --
+// apexInitNativeBridge() throwing, storage being unavailable, or Capacitor
+// never arriving must all still end with a usable app.
+//
+// This deliberately does NOT weaken the lock. It fires only when the cover is
+// still armed after the timeout, which means no legitimate path resolved -- not
+// a failed authentication (that keeps the in-document lock UI up, drawn on top,
+// with its own retry button) and not a cancelled prompt.
+//
+// 12 seconds: comfortably longer than a slow post-install cold start with an
+// unwarmed WebView, short enough that a stranded user is not left wondering.
+// ---------------------------------------------------------------------------
+(function () {
+  if (!apexLooksLikeNativeShell()) { return; }
+  window.setTimeout(function () {
+    try {
+      var el = document.documentElement;
+      if (!el || String(el.className || "").indexOf("apex-cover-armed") === -1) { return; }
+      // Still armed. Something failed to resolve; do not strand the user.
+      if (window.console && console.error) {
+        console.error("[Apex] paint cover watchdog fired - revealing after timeout.");
+      }
+      apexDisarmPaintCover();
+      // The in-document lock UI, if it is up, is untouched and still covers the
+      // page: a real locked session stays locked and keeps its retry button.
+    } catch (e) {
+      // Never let the safety net itself be the thing that strands anyone.
+      try { apexDisarmPaintCover(); } catch (e2) {}
+    }
+  }, 12000);
 }());

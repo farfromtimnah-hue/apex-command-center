@@ -919,9 +919,36 @@
          Over file:// or when param is absent, fall back to local JSON.
          ------------------------------------------------------------------ */
       var invoiceId = null;
+      var renderPath = '/api/invoices/';
       if (window.location.protocol === 'https:') {
         var params = new URLSearchParams(window.location.search);
-        invoiceId = params.get('invoice_id') || null;
+        // Accept ?id= as well as ?invoice_id=.
+        //
+        // finance-new.html built ?id= while this file only ever read
+        // invoice_id, so it found nothing, fell through to the LOCAL FALLBACK
+        // below, and rendered apex-invoice-data-DRAFT.json -- a demo file whose
+        // client is "Metz Corp" and whose valor_total is the literal "---".
+        // That is exactly what appeared on JM Luxury Pool's INV-000018.
+        // finance-new now sends invoice_id, but accepting both means any link
+        // ALREADY SENT to a client over WhatsApp with ?id= still renders
+        // correctly instead of showing another client's branding.
+        invoiceId = params.get('invoice_id') || params.get('id') || null;
+
+        // TWO DATA SOURCES, and picking the wrong one is fatal.
+        //
+        // /api/invoices/:id/render-data fetches from ZOHO BOOKS. A natively
+        // created invoice (source='manual') does not exist in Zoho, so that
+        // route cannot serve it. /api/finance-new/invoices/:id/render-data
+        // reads the same shape from D1.
+        //
+        // src=finance-new is stamped on the link by finance-new.html's
+        // invoiceLinkFor, so the template knows which store the id belongs to.
+        // Links from client.html and finance.html carry no src and keep the
+        // Zoho path they have always used -- the migrated invoices that already
+        // work are untouched.
+        if (params.get('src') === 'finance-new') {
+          renderPath = '/api/finance-new/invoices/';
+        }
       }
 
       if (invoiceId) {
@@ -942,7 +969,7 @@
           }
           user.getIdToken().then(function(token) {
             return fetch(
-              APEX_API_BASE + '/api/invoices/' + encodeURIComponent(invoiceId) + '/render-data',
+              APEX_API_BASE + renderPath + encodeURIComponent(invoiceId) + '/render-data',
               { method: 'GET', headers: { 'Authorization': 'Bearer ' + token } }
             );
           }).then(function(res) {

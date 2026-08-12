@@ -1,5 +1,6 @@
 import Foundation
 import Capacitor
+import WebKit
 
 // A monotonic clock for the biometric unlock grace period.
 //
@@ -78,14 +79,73 @@ class ApexBridgeViewController: CAPBridgeViewController {
         ApexLockCover.shared.trace("BRIDGE capacitorDidLoad - plugins registered, WebView about to load")
     }
 
-    // Deliberately NO WKNavigationDelegate overrides here.
+    // Deliberately NO WKNavigationDelegate overrides in this class. Their exact
+    // signatures belong to the Capacitor version in use (8.5.0 via SPM, sources
+    // not vendored here), and a wrong `override` is a COMPILE error rather than
+    // a degraded log. The JS side stamps HEAD-PARSE / NAVIGATE-AWAY into the
+    // same native timeline, so the document chain is still visible.
+
+    // NATIVE-SIDE JS ERROR CAPTURE.
     //
-    // Native navigation callbacks would be the authoritative record of the
-    // document chain, but their exact signatures belong to the Capacitor
-    // version in use (8.5.0 via SPM, sources not vendored in this repo), and a
-    // wrong `override` is a COMPILE error rather than a degraded log. The JS
-    // side already stamps HEAD-PARSE / NAVIGATE-AWAY into this same native
-    // timeline through ApexLockCover.trace, so the chain is still visible in
-    // one ordered log -- without risking the build on an unverifiable
-    // signature.
+    // "⚡️ JS Eval error A JavaScript exception occurred" is all Capacitor
+    // prints (CapacitorBridge.swift:643/659), and every downstream symptom --
+    // no WIRE-INIT, no WIRE-POLL, no replay block, hasListeners=false forever --
+    // is consistent with a script dying early. The actual message, file, line
+    // and stack have to come from somewhere else.
+    //
+    // This is deliberately BELOW the page's own inline hook, not instead of it:
+    //   - injected at .atDocumentStart, so it is installed before ANY page
+    //     script, including one that throws on its first line;
+    //   - delivered over a WKScriptMessageHandler straight to NSLog, so it does
+    //     not depend on the Capacitor plugin bridge existing yet -- which is
+    //     exactly the thing that may not have happened when the error fires;
+    //   - forMainFrameOnly false, so an error in a subframe is caught too.
+    override open func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
+        let config = super.webViewConfiguration(for: instanceConfiguration)
+
+        let js = """
+        (function () {
+          function send(kind, detail) {
+            try {
+              window.webkit.messageHandlers.apexJSError.postMessage(kind + ' | ' + detail);
+            } catch (e) {}
+          }
+          window.addEventListener('error', function (ev) {
+            if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+              send('RESOURCE', ev.target.tagName + ' failed: ' + (ev.target.src || ev.target.href || '?'));
+              return;
+            }
+            var e = ev && ev.error;
+            send('ERROR', (ev && ev.message ? ev.message : '?') +
+              ' @ ' + (ev && ev.filename ? ev.filename : '?') +
+              ':' + (ev && ev.lineno !== undefined ? ev.lineno : '?') +
+              ':' + (ev && ev.colno !== undefined ? ev.colno : '?') +
+              ' | stack=' + (e && e.stack ? String(e.stack).slice(0, 500) : 'none'));
+          }, true);
+          window.addEventListener('unhandledrejection', function (ev) {
+            var r = ev && ev.reason;
+            send('REJECTION', (r && r.message ? r.message : String(r)) +
+              ' | stack=' + (r && r.stack ? String(r.stack).slice(0, 500) : 'none'));
+          });
+          send('HOOK', 'native error hook installed at documentStart on ' + window.location.href);
+        })();
+        """
+        let script = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        config.userContentController.addUserScript(script)
+        config.userContentController.add(ApexJSErrorHandler.shared, name: "apexJSError")
+        return config
+    }
+}
+
+// Receives the messages posted by the injected hook above and writes them into
+// the same native timeline as everything else.
+final class ApexJSErrorHandler: NSObject, WKScriptMessageHandler {
+    static let shared = ApexJSErrorHandler()
+
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        let body = String(describing: message.body)
+        ApexLockCover.shared.trace("JSERROR \(body)")
+    }
+
 }

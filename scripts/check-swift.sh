@@ -25,6 +25,7 @@ trap 'rm -rf "$WORK"' EXIT
 cat > "$WORK/CapacitorStub.swift" <<'EOF'
 import Foundation
 import UIKit
+import WebKit
 public struct CAPPluginMethodReturnType { }
 public let CAPPluginReturnPromise = CAPPluginMethodReturnType()
 public class CAPPluginMethod {
@@ -53,9 +54,14 @@ public protocol CAPBridgedPlugin {
 public protocol CAPBridgeProtocol {
     func registerPluginInstance(_ p: CAPPlugin)
 }
+public class InstanceConfiguration: NSObject {}
 open class CAPBridgeViewController: UIViewController {
     open var bridge: CAPBridgeProtocol? { return nil }
     open func capacitorDidLoad() {}
+    // Real signature from CAPBridgeViewController.swift:119
+    open func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
+        return WKWebViewConfiguration()
+    }
 }
 public class SceneDelegateProxy: NSObject, UISceneDelegate {
     public static let shared = SceneDelegateProxy()

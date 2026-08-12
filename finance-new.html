@@ -2,6 +2,79 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1786542767"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -4170,8 +4243,23 @@
 
     // ═══════════════ INVOICES ═════════════════════════════════════════════
 
+    // ?invoice_id=, NOT ?id=.
+    //
+    // The template reads params.get('invoice_id') (line ~924) and has NO
+    // fallback to any other name. With ?id= it found nothing, took the
+    // LOCAL FALLBACK branch, and rendered templates/apex-invoice-data-DRAFT.json
+    // -- a static demo file whose cliente.nome is "Metz Corp" and whose
+    // totais.valor_total is the literal string "---". That is exactly what
+    // Alice saw on JM Luxury Pool's INV-000018: another client's logo and no
+    // total. Both symptoms, one cause.
+    //
+    // Worse than a preview bug: this same function builds the link that goes
+    // out over WhatsApp (sendInvoiceWhatsApp), so every invoice already sent
+    // from this screen carries a link that renders Metz's branding to the
+    // client. client.html:9254 and finance.html:3196 always used the correct
+    // name, which is why the old finance screen never showed this.
     function invoiceLinkFor(inv) {
-      return "https://apex.resonateai.online/templates/apex-invoice-template-DRAFT.html?id=" +
+      return "https://apex.resonateai.online/templates/apex-invoice-template-DRAFT.html?v=1786543393&invoice_id=" +
         encodeURIComponent(inv.id) + "&src=finance-new";
     }
 
@@ -4826,6 +4914,18 @@
 
       document.getElementById("invoiceBody").innerHTML = rows.map(function(inv) {
         var actions = "";
+        // VIEW FIRST, ON EVERY STATUS.
+        //
+        // There was no view button at all, so the only thing to press while
+        // hunting for a preview was WhatsApp -- which SENDS, and marks the
+        // invoice 'sent'. That is how INV-000018 was sent before anyone had
+        // seen it. View is deliberately first in the row and NOT gold, so the
+        // send button is no longer the only obvious target.
+        //
+        // Every status: a paid or voided invoice still needs to be readable.
+        actions +=
+          '<button class="btn btn-sm" onclick="viewInvoice(\'' + inv.id + '\')">' +
+            '<span class="show-pt">Ver</span><span class="show-en">View</span></button> ';
         if (inv.status === "draft" || inv.status === "sent") {
           actions +=
             '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
@@ -4873,8 +4973,11 @@
           "<td>" + esc(inv.number) + "</td>" +
           "<td>" + esc(inv.client_name || "") + "</td>" +
           '<td class="num">' + fmtCents(inv.amount_cents) + "</td>" +
-          '<td class="num"><button class="btn btn-sm btn-gold" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
-            '<span class="show-pt">Enviar</span><span class="show-en">Send</span></button></td>' +
+          '<td class="num">' +
+            '<button class="btn btn-sm" onclick="viewInvoice(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Ver</span><span class="show-en">View</span></button> ' +
+            '<button class="btn btn-sm btn-gold" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Enviar</span><span class="show-en">Send</span></button></td>' +
         "</tr>";
       }).join("");
     }
@@ -4889,13 +4992,46 @@
     // reason, so nothing has to be awaited before the window exists.
     // Same shape as finance.html's doSendInvoiceWhatsApp, inline literal
     // fallback included.
-    function sendInvoiceWhatsApp(invoiceId) {
-      var waWindow = window.open("", "_blank");
-
+    // Opens the invoice for reading. Never sends, never changes status.
+    //
+    // window.open runs synchronously as the first statement, before any lookup,
+    // for the same popup-blocker reason documented on sendInvoiceWhatsApp: a
+    // popup opened after an async hop loses the user-gesture context and is
+    // silently blocked.
+    function viewInvoice(invoiceId) {
+      var win = window.open("", "_blank");
       var inv = null;
       for (var i = 0; i < INVOICES.length; i++) {
         if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; }
       }
+      if (!inv) { if (win) { win.close(); } return; }
+      var url = invoiceLinkFor(inv);
+      if (win) { win.location.href = url; } else { window.open(url, "_blank"); }
+    }
+
+    function sendInvoiceWhatsApp(invoiceId) {
+      var inv = null;
+      for (var i = 0; i < INVOICES.length; i++) {
+        if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; }
+      }
+      if (!inv) { return; }
+
+      // CONFIRM BEFORE SENDING. Sending is irreversible from the client's
+      // point of view -- the message is in their WhatsApp -- and it flips the
+      // invoice to 'sent'. INV-000018 went out before anyone had previewed it
+      // because this button was the only one on the row. The confirm names the
+      // client and the amount so a mis-click on the wrong row is caught too.
+      //
+      // Deliberately BEFORE window.open: confirm() is synchronous and preserves
+      // the user-gesture context, so the popup-blocker fix below still holds.
+      var who = inv.client_name || "";
+      var amount = fmtCents(inv.amount_cents);
+      var ask = isEn()
+        ? "Send invoice " + inv.number + " (" + amount + ") to " + who + " on WhatsApp now?"
+        : "Enviar a fatura " + inv.number + " (" + amount + ") para " + who + " no WhatsApp agora?";
+      if (!window.confirm(ask)) { return; }
+
+      var waWindow = window.open("", "_blank");
       if (!inv) { if (waWindow) { waWindow.close(); } return; }
 
       var invoiceLink = invoiceLinkFor(inv);

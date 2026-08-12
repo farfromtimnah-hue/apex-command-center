@@ -2,6 +2,89 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <!-- Loaded FIRST, synchronously, exactly as on the 24 top-level pages: it
+       arms the paint cover during head parse so no invoice data can be painted
+       before biometric unlock inside the iOS app. A no-op on the web.
+
+       This page needs it because client.html:9182 and finance.html:3125 link
+       it by RELATIVE path, so in the app it opens on capacitor://localhost --
+       in-app-reachable, and it renders client invoice data by definition. The
+       sibling apex-strategic-report-wired.html deliberately does NOT load this:
+       all four of its callers open it by ABSOLUTE https URL, so it is never the
+       native shell. -->
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="../native-bridge.js?v=1786542767"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fatura - Apex Business &amp; Leadership</title>
   <style>
@@ -836,9 +919,36 @@
          Over file:// or when param is absent, fall back to local JSON.
          ------------------------------------------------------------------ */
       var invoiceId = null;
+      var renderPath = '/api/invoices/';
       if (window.location.protocol === 'https:') {
         var params = new URLSearchParams(window.location.search);
-        invoiceId = params.get('invoice_id') || null;
+        // Accept ?id= as well as ?invoice_id=.
+        //
+        // finance-new.html built ?id= while this file only ever read
+        // invoice_id, so it found nothing, fell through to the LOCAL FALLBACK
+        // below, and rendered apex-invoice-data-DRAFT.json -- a demo file whose
+        // client is "Metz Corp" and whose valor_total is the literal "---".
+        // That is exactly what appeared on JM Luxury Pool's INV-000018.
+        // finance-new now sends invoice_id, but accepting both means any link
+        // ALREADY SENT to a client over WhatsApp with ?id= still renders
+        // correctly instead of showing another client's branding.
+        invoiceId = params.get('invoice_id') || params.get('id') || null;
+
+        // TWO DATA SOURCES, and picking the wrong one is fatal.
+        //
+        // /api/invoices/:id/render-data fetches from ZOHO BOOKS. A natively
+        // created invoice (source='manual') does not exist in Zoho, so that
+        // route cannot serve it. /api/finance-new/invoices/:id/render-data
+        // reads the same shape from D1.
+        //
+        // src=finance-new is stamped on the link by finance-new.html's
+        // invoiceLinkFor, so the template knows which store the id belongs to.
+        // Links from client.html and finance.html carry no src and keep the
+        // Zoho path they have always used -- the migrated invoices that already
+        // work are untouched.
+        if (params.get('src') === 'finance-new') {
+          renderPath = '/api/finance-new/invoices/';
+        }
       }
 
       if (invoiceId) {
@@ -859,7 +969,7 @@
           }
           user.getIdToken().then(function(token) {
             return fetch(
-              APEX_API_BASE + '/api/invoices/' + encodeURIComponent(invoiceId) + '/render-data',
+              APEX_API_BASE + renderPath + encodeURIComponent(invoiceId) + '/render-data',
               { method: 'GET', headers: { 'Authorization': 'Bearer ' + token } }
             );
           }).then(function(res) {

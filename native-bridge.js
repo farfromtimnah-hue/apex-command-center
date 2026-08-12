@@ -168,6 +168,46 @@ window.apexResetTrace = function () {
   return "trace cleared";
 };
 
+// REPLAY EARLY LINES INTO THE NATIVE LOG.
+//
+// apexTrace reaches the native (Console.app) log only through
+// ApexLockCover.trace, which needs the plugin -- and the plugin registers
+// asynchronously. Every line written BEFORE that lands in console.log and the
+// cookie buffer only, and console.log from a WKWebView does not reliably show
+// up in Console.app. So the earliest and most important lines -- the ones that
+// say whether the wiring IIFE ran at all -- are exactly the ones most likely to
+// be missing from a captured log, which is indistinguishable from "the code
+// never ran".
+//
+// This polls for the plugin and, once it exists, replays the whole cookie
+// buffer into the native timeline, marked so it is not confused with live
+// lines. Read-only: it emits nothing new, it just makes what already happened
+// visible.
+(function () {
+  var proto = String(window.location.protocol || "").toLowerCase();
+  if (proto !== "capacitor:" && proto !== "ionic:" && proto !== "file:") { return; }
+  var flushed = false;
+  var tries = 0;
+  var timer = window.setInterval(function () {
+    tries++;
+    if (tries > 1500) { window.clearInterval(timer); return; }
+    if (flushed) { window.clearInterval(timer); return; }
+    var p = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins.ApexLockCover : null;
+    if (!p || typeof p.trace !== "function") { return; }
+    flushed = true;
+    window.clearInterval(timer);
+    try {
+      var buf = apexTraceRawCookie(APEX_TRACE_COOKIE) || "";
+      var lines = buf ? buf.split("\n") : [];
+      p.trace({ message: "===== REPLAY of " + lines.length + " pre-plugin JS trace lines =====" });
+      for (var i = 0; i < lines.length; i++) {
+        p.trace({ message: "REPLAY " + lines[i] });
+      }
+      p.trace({ message: "===== END REPLAY (plugin became available after " + tries + " polls) =====" });
+    } catch (e) {}
+  }, 20);
+}());
+
 // ---------------------------------------------------------------------------
 // PAINT-BLOCKING COVER  (must stay the first executable code in this file)
 //
@@ -1627,7 +1667,22 @@ function apexBootstrapNativeSession(firebaseSdk) {
 
 // Runs immediately, not on window.onload: page code reads the auth keys during
 // initial parse, so waiting for load would restore them after the first read.
-apexInitNativeBridge();
+//
+// WRAPPED, and the wrap is diagnostic rather than cosmetic. This call is a
+// TOP-LEVEL statement in a plain <script>: if it throws, the exception
+// propagates out of the script and EVERY later top-level statement in this file
+// is silently skipped -- including the recovery-wiring IIFE below. That failure
+// is invisible unless it is caught and logged, and it exactly matches a log
+// with earlier traces present and zero WIRE-POLL lines.
+apexTrace("INIT", "calling apexInitNativeBridge() on doc=" + apexTraceDoc());
+try {
+  apexInitNativeBridge();
+  apexTrace("INIT", "apexInitNativeBridge() returned normally");
+} catch (e) {
+  apexTrace("INIT", "apexInitNativeBridge() THREW: " +
+    (e && e.message ? e.message : e) +
+    " | stack=" + ((e && e.stack) ? String(e.stack).slice(0, 300) : "none"));
+}
 
 // ---------------------------------------------------------------------------
 // WIRE THE NATIVE COVER'S BUTTONS.
@@ -1650,7 +1705,17 @@ apexInitNativeBridge();
 // initialised correctly.
 // ---------------------------------------------------------------------------
 (function () {
-  if (!apexLooksLikeNativeShell()) { return; }
+  // TRACE BEFORE THE BRANCH, not after. Zero WIRE-POLL lines in the last log
+  // means either this IIFE never ran, or it returned at the protocol check.
+  // These two lines tell them apart: the first proves the file reached this
+  // point at all, the second proves which way the branch went.
+  apexTrace("WIRE-INIT", "reached wiring IIFE on doc=" + apexTraceDoc() +
+    " protocol=" + window.location.protocol);
+  var isShell = apexLooksLikeNativeShell();
+  apexTrace("WIRE-INIT", "looksLikeNativeShell=" + isShell +
+    (isShell ? " -> starting poll" : " -> RETURNING, no wiring"));
+  if (!isShell) { return; }
+
   apexWireNativeRecovery();
   if (apexRecoveryWired) { return; }
   var tries = 0;
@@ -1662,6 +1727,12 @@ apexInitNativeBridge();
     if (apexRecoveryWired || tries > 1500) { window.clearInterval(timer); }
   }, 20);
 }());
+
+// END-OF-FILE MARKER. If this line appears in the log but WIRE-INIT does not,
+// something between them threw. If NEITHER appears, the file stopped executing
+// before this point -- an exception higher up, which a plain <script> swallows
+// silently, leaving every later top-level statement unrun.
+apexTrace("FILE-END", "native-bridge.js finished executing on doc=" + apexTraceDoc());
 
 // SELF-BOOTSTRAP FOR THE INNER PAGES.
 //

@@ -340,6 +340,7 @@ function apexWireNativeRecovery() {
   var cover = apexLockCoverPlugin();
   if (!cover || typeof cover.addListener !== "function") { return; }
   apexRecoveryWired = true;
+  apexTrace("RECOVERY", "button listeners ATTACHED - taps will now be handled");
 
   cover.addListener("apexLockRetry", function () {
     apexTrace("RECOVERY", "retry tapped -> re-running unlock");
@@ -909,6 +910,9 @@ var apexUnlockReadable = true;
 // Resolves once the cold-launch clear has landed. Every freshness read waits on
 // this, so no read can race the remove.
 var apexUnlockCleared = Promise.resolve();
+// Distinct from apexUnlockCleared, which starts resolved: this records whether
+// the clear has actually been STARTED, so it runs once and is never skipped.
+var apexUnlockClearStarted = false;
 
 // Resolves true when a previous unlock is still inside the grace window.
 //
@@ -1276,9 +1280,19 @@ function apexMaybeLock() {
 }
 
 // Wires the resume listener and performs the cold-launch lock.
+//
+// GATED ON THE PROTOCOL, NOT apexIsNative(). The old `if (!apexIsNative())
+// return; if (!apexBiometricPlugin()) return;` pair read
+// window.Capacitor.Plugins, which is populated asynchronously -- so on a cold
+// start this routinely returned before installing anything, and the resume
+// listener was never attached at all. That meant backgrounding the app and
+// coming back would not re-lock it. Same async gate as the original exposure.
+//
+// The App plugin is what genuinely arrives late, so poll for it rather than
+// giving up on the first miss.
+var apexResumeWired = false;
 function apexInstallBiometricLock() {
-  if (!apexIsNative()) { return; }
-  if (!apexBiometricPlugin()) { return; }
+  if (!apexLooksLikeNativeShell()) { return; }
 
   // A cold launch must always re-prompt, so any unlock left over from the
   // previous run is dropped BEFORE it can be read. The promise is kept in
@@ -1286,14 +1300,35 @@ function apexInstallBiometricLock() {
   // forgetting it let apexMaybeLock() read a stale timestamp and open the app
   // with no prompt at all (reproduced by any Xcode rebuild, and by the
   // post-install first launch on a client's phone).
-  apexUnlockCleared = apexClearUnlock();
+  // Runs exactly once per document. apexUnlockCleared starts as a RESOLVED
+  // promise (not null), so an `if (!apexUnlockCleared)` guard would never fire
+  // and the stale unlock would never be cleared -- a cold launch would then
+  // read the previous run's timestamp and open with no prompt, which is the
+  // bug this clear exists to prevent.
+  if (!apexUnlockClearStarted) {
+    apexUnlockClearStarted = true;
+    apexUnlockCleared = apexClearUnlock();
+  }
 
-  var appPlugin = (window.Capacitor.Plugins || {}).App;
-  if (appPlugin && appPlugin.addListener) {
+  function wireResume() {
+    if (apexResumeWired) { return true; }
+    var plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
+    var appPlugin = plugins.App;
+    if (!appPlugin || !appPlugin.addListener) { return false; }
+    apexResumeWired = true;
     appPlugin.addListener("appStateChange", function (state) {
       if (state && state.isActive) { apexMaybeLock(); }
     });
+    apexTrace("RESUME", "appStateChange listener ATTACHED");
+    return true;
   }
+
+  if (wireResume()) { return; }
+  var tries = 0;
+  var timer = window.setInterval(function () {
+    tries = tries + 1;
+    if (wireResume() || tries > 1500) { window.clearInterval(timer); }
+  }, 20);
 }
 
 // --- Safe area ---------------------------------------------------------------
@@ -1465,21 +1500,6 @@ function apexInitNativeBridge() {
     apexTrace("SESSION-CHECK", "nothing visible at parse - staying covered until getCurrentUser answers");
   }
 
-  // Wire the native cover's Retry / Sign out buttons. Polled briefly because
-  // Capacitor may not have registered the plugin yet at this point -- the same
-  // async registration that caused the original bug. Harmless if it never
-  // arrives: the stall timer only draws buttons when the plugin exists to draw
-  // them, and the cover never reveals either way.
-  apexWireNativeRecovery();
-  if (!apexRecoveryWired) {
-    var wireTries = 0;
-    var wireTimer = window.setInterval(function () {
-      wireTries = wireTries + 1;
-      apexWireNativeRecovery();
-      if (apexRecoveryWired || wireTries > 300) { window.clearInterval(wireTimer); }
-    }, 20);
-  }
-
   apexInstallBiometricLock();
 
   // Raising the cover is not enough on its own - something has to actually run
@@ -1554,6 +1574,40 @@ function apexBootstrapNativeSession(firebaseSdk) {
 // Runs immediately, not on window.onload: page code reads the auth keys during
 // initial parse, so waiting for load would restore them after the first read.
 apexInitNativeBridge();
+
+// ---------------------------------------------------------------------------
+// WIRE THE NATIVE COVER'S BUTTONS.
+//
+// OUTSIDE apexInitNativeBridge() ON PURPOSE. That function returns immediately
+// on !apexIsNative(), and apexIsNative() reads window.Capacitor.Plugins, which
+// Capacitor populates ASYNCHRONOUSLY -- so on a cold start it is routinely
+// false at parse time and everything after that early return never runs. The
+// wiring lived there, which is why "Desbloquear / Unlock" did nothing: the
+// native button faithfully fired notifyListeners and there was no listener on
+// the other end.
+//
+// This is the same async-Capacitor gate that caused the original exposure, now
+// found in a third place. Gate on the PROTOCOL instead -- synchronous, correct
+// during head parse, and the same signal the paint cover already uses -- then
+// poll for the plugin, which is the thing that genuinely arrives late.
+//
+// The buttons are the last-resort affordance on a screen that only appears when
+// everything else has failed, so this must not depend on anything else having
+// initialised correctly.
+// ---------------------------------------------------------------------------
+(function () {
+  if (!apexLooksLikeNativeShell()) { return; }
+  apexWireNativeRecovery();
+  if (apexRecoveryWired) { return; }
+  var tries = 0;
+  var timer = window.setInterval(function () {
+    tries = tries + 1;
+    apexWireNativeRecovery();
+    // 20ms x 1500 = 30s. Long enough for the slowest post-install cold start;
+    // the interval stops as soon as the listener is attached.
+    if (apexRecoveryWired || tries > 1500) { window.clearInterval(timer); }
+  }, 20);
+}());
 
 // SELF-BOOTSTRAP FOR THE INNER PAGES.
 //

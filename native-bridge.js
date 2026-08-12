@@ -390,8 +390,15 @@ function apexInstallSignOutHook(firebaseSdk) {
       // Biometric unlock state belongs to the signed-in session. Clearing it
       // means the next user has to authenticate rather than inheriting an
       // unlocked app.
-      apexClearUnlock();
-      return origSignOut.apply(self, args);
+      apexUnlockCleared = apexClearUnlock();
+      // The session is gone, so the next cold launch must not raise a cover
+      // for it. Left set, the login page would sit behind a lock the user
+      // cannot clear.
+      apexNativeSessionPresent = false;
+      apexSetNativeSessionHint(false);
+      return apexUnlockCleared.then(function () {
+        return origSignOut.apply(self, args);
+      });
     });
   };
 }
@@ -493,14 +500,36 @@ function apexMarkUnlocked() {
   });
 }
 
+// Drops any unlock record from a previous run. The promise is RETURNED, not
+// fired and forgotten: nothing awaited it before, so apexUnlockIsFresh() could
+// read the PREVIOUS run's timestamp before the remove landed and open the app
+// with no prompt at all. An Xcode rebuild reproduces this every time - it
+// replaces the app but leaves native UserDefaults intact, so the stale unlock
+// survives - and a post-install first launch takes the same path.
+// Callers must chain off this before any freshness read.
 function apexClearUnlock() {
   var prefs = apexPrefs();
+  if (!prefs) { return Promise.resolve(); }
   try {
-    if (prefs) { prefs.remove({ key: APEX_UNLOCK_KEY }); }
+    return Promise.resolve(prefs.remove({ key: APEX_UNLOCK_KEY })).catch(function () {
+      // A failed remove means the stale record may still be there. Treat the
+      // grace period as unusable for this launch rather than trusting it.
+      apexUnlockReadable = false;
+    });
   } catch (e) {
-    // Nothing to do - a missing record means "locked", which fails safe.
+    // Same reasoning as the catch above: fail safe, do not trust the record.
+    apexUnlockReadable = false;
+    return Promise.resolve();
   }
 }
+
+// Gate for the grace period. False means "a stale unlock may be readable, so
+// do not honour freshness on this launch" - it fails closed into a prompt.
+var apexUnlockReadable = true;
+
+// Resolves once the cold-launch clear has landed. Every freshness read waits on
+// this, so no read can race the remove.
+var apexUnlockCleared = Promise.resolve();
 
 // Resolves true when a previous unlock is still inside the grace window.
 //
@@ -516,7 +545,12 @@ function apexUnlockIsFresh() {
   var prefs = apexPrefs();
   if (!prefs) { return Promise.resolve(false); }
 
-  return prefs.get({ key: APEX_UNLOCK_KEY }).then(function (res) {
+  // Wait for the cold-launch clear before reading. Without this the read could
+  // return the previous run's timestamp and skip the prompt entirely.
+  return apexUnlockCleared.then(function () {
+    if (!apexUnlockReadable) { return null; }
+    return prefs.get({ key: APEX_UNLOCK_KEY });
+  }).then(function (res) {
     var raw = res && res.value ? res.value : null;
     if (!raw) { return false; }
     var at = parseInt(raw, 10);
@@ -556,8 +590,44 @@ function apexShowLock() {
     "flex-direction:column", "gap:18px"
   ].join(";");
 
-  // No text: the OS presents its own Face ID sheet on top, and a half-second
-  // of branding behind it reads as a flash. A plain field is calmer.
+  // No branding for the first second: the OS presents its own Face ID sheet on
+  // top, and a half-second of branding behind it reads as a flash. A plain
+  // field is calmer.
+  //
+  // That reasoning holds for half a second, not for twenty. The first launch
+  // after a fresh install is slow for ordinary reasons - iOS finishing the
+  // install, WebView cold start, nothing cached - and that is not a defect to
+  // chase. But a bare dark field for that long is indistinguishable from a
+  // broken app: Nicole assumed exactly that and put the phone down, and a
+  // client with no one to ask will do the same. So the mark fades in only if
+  // the cover has been up longer than a second: the fast path still looks
+  // clean, and a slow one says "locked", not "dead".
+  var mark = document.createElement("div");
+  mark.id = "apex-biometric-mark";
+  mark.textContent = "APEX";
+  mark.style.cssText = [
+    "font-family:'Inter',sans-serif", "font-size:15px", "font-weight:700",
+    "letter-spacing:3px", "color:#C9A43A",
+    "opacity:0", "transition:opacity 400ms ease"
+  ].join(";");
+
+  var sub = document.createElement("div");
+  sub.id = "apex-biometric-sub";
+  sub.textContent = "Bloqueado / Locked";
+  sub.style.cssText = [
+    "font-family:'Inter',sans-serif", "font-size:12px", "letter-spacing:0.6px",
+    "color:#7A7168", "margin-top:-8px",
+    "opacity:0", "transition:opacity 400ms ease"
+  ].join(";");
+
+  // window.setTimeout, not a CSS animation-delay: the element is removed the
+  // instant the unlock lands, so on the fast path this never fires at all.
+  var reveal = window.setTimeout(function () {
+    mark.style.opacity = "1";
+    sub.style.opacity = "1";
+  }, 1000);
+  el.setAttribute("data-apex-reveal-timer", String(reveal));
+
   var btn = document.createElement("button");
   btn.id = "apex-biometric-retry";
   btn.type = "button";
@@ -570,13 +640,26 @@ function apexShowLock() {
   ].join(";");
   btn.onclick = function () { apexRunUnlock(true); };
 
+  el.appendChild(mark);
+  el.appendChild(sub);
   el.appendChild(btn);
+  // During head parse document.body does not exist yet - on dashboard.html
+  // this file runs at line 5 and <body> opens at line 622 - so the cover is
+  // appended to <html> instead. Verified in a browser that a fixed, full-inset
+  // element parented to <html> before <body> is parsed still covers the page
+  // and still wins the hit test at the content's coordinates, so this is a
+  // real cover and not merely an early one.
   (document.body || document.documentElement).appendChild(el);
 }
 
 function apexHideLock() {
   var el = document.getElementById(APEX_LOCK_ID);
-  if (el && el.parentNode) { el.parentNode.removeChild(el); }
+  if (!el) { return; }
+  // Drop the reveal timer with the element, so a cover removed inside the
+  // first second cannot fire a callback against a detached node.
+  var t = el.getAttribute("data-apex-reveal-timer");
+  if (t) { window.clearTimeout(parseInt(t, 10)); }
+  if (el.parentNode) { el.parentNode.removeChild(el); }
 }
 
 // Reveals the manual retry button. Reached when the user cancels the sheet or
@@ -599,11 +682,47 @@ function apexHasSession() {
   }
   // The Firebase JS session may not be restored yet at this point, so the
   // native session is the authoritative signal on a cold launch.
-  return apexNativeSessionPresent;
+  //
+  // apexNativeSessionHint() covers the window BEFORE getCurrentUser() has
+  // answered: on a cold launch the flag from the previous run is the only
+  // synchronous evidence an admin session exists, and without it this returns
+  // false and the prompt never fires. If the hint turns out to be stale the
+  // bootstrap clears it and hides the cover, so the cost of trusting it is a
+  // brief cover on an unlocked app - the cheap direction to be wrong in.
+  return apexNativeSessionPresent || apexNativeSessionHint();
 }
 
 // Set by the startup restore so apexHasSession() can answer synchronously.
 var apexNativeSessionPresent = false;
+
+// A durable, SYNCHRONOUSLY readable marker that an admin session existed on the
+// last run.
+//
+// The admin session itself is deliberately not mirrored into localStorage - it
+// lives in the iOS keychain and is only discoverable through the async
+// getCurrentUser(). That async-ness is exactly what left the dashboard
+// uncovered on a cold launch: the cover could not go up until a plugin round
+// trip finished, and the page painted meanwhile.
+//
+// So we record only the FACT that a session exists, in the same cookie
+// snapshot the auth mirror already uses (it survives force-quit, unlike
+// sessionStorage, and is readable during head parse, unlike Preferences). It
+// holds no credential - just a flag - so the keychain remains the only place a
+// real session lives.
+var APEX_ADMIN_HINT_KEY = "apex_admin_session";
+
+function apexNativeSessionHint() {
+  return apexReadSnapshot(APEX_ADMIN_HINT_KEY) === "1";
+}
+
+// Written when a native session is confirmed, cleared on sign-out. A stale
+// "1" is harmless: it raises the cover on a launch with no session, and the
+// bootstrap hides it again the moment getCurrentUser() reports nobody. The
+// reverse mistake - a missing marker - is the one that exposes data, so this
+// errs toward covering.
+function apexSetNativeSessionHint(present) {
+  apexMirrorSnapshot(APEX_ADMIN_HINT_KEY, present ? "1" : null);
+}
 
 // Runs the biometric prompt. `manual` is true when the user tapped Unlock.
 function apexRunUnlock(manual) {
@@ -702,11 +821,34 @@ function apexMaybeLock() {
   // backgrounds and resumes the app, and prompting there would deadlock the
   // very login this is meant to protect.
   if (apexSignInInFlight) { return; }
+  // apexHasSession() is synchronous BY DESIGN (see apexNativeSessionPresent),
+  // so "is there anything to protect" is answered without awaiting anything.
   if (!apexHasSession()) { return; }
 
+  // COVER FIRST, ASK QUESTIONS AFTER.
+  //
+  // This used to await apexUnlockIsFresh() - a round trip through native
+  // Preferences AND the uptime plugin - and only then raise the cover.
+  // Everything the page rendered during that round trip was visible with no
+  // cover at all.
+  //
+  // The proof is a screenshot taken while the iOS "Face Not Recognized / Usar
+  // senha / Cancelar" sheet was on screen - i.e. authentication had NOT
+  // succeeded - with the dashboard fully readable behind it: the greeting,
+  // PENDENTES/RESUMIDOS counts, and two real client records. Whether some
+  // OTHER launch painted after a very fast legitimate unlock is unknown and
+  // does not matter here; that one frame is sufficient on its own.
+  //
+  // The cover now goes up synchronously and comes back down if the grace
+  // period turns out to be fresh. A brief cover on an unlocked app is
+  // harmless; a brief exposure of client data is not.
+  apexShowLock();
+
   apexUnlockIsFresh().then(function (fresh) {
-    if (fresh) { return; }
-    apexShowLock();
+    if (fresh) { apexHideLock(); return; }
+    apexRunUnlock(false);
+  }).catch(function () {
+    // Freshness unknown - stay covered and prompt. Fails closed.
     apexRunUnlock(false);
   });
 }
@@ -717,8 +859,12 @@ function apexInstallBiometricLock() {
   if (!apexBiometricPlugin()) { return; }
 
   // A cold launch must always re-prompt, so any unlock left over from the
-  // previous run is dropped before it can be read.
-  apexClearUnlock();
+  // previous run is dropped BEFORE it can be read. The promise is kept in
+  // apexUnlockCleared and every freshness read chains off it - firing this and
+  // forgetting it let apexMaybeLock() read a stale timestamp and open the app
+  // with no prompt at all (reproduced by any Xcode rebuild, and by the
+  // post-install first launch on a client's phone).
+  apexUnlockCleared = apexClearUnlock();
 
   var appPlugin = (window.Capacitor.Plugins || {}).App;
   if (appPlugin && appPlugin.addListener) {
@@ -812,6 +958,7 @@ function apexInitNativeBridge() {
     // A failed inset injection must not take the auth mirror down with it.
   }
 
+
   // Storage can be unavailable (disabled or throwing) in a WebView. This runs
   // during parse, so an exception here would break the whole page.
   try {
@@ -830,18 +977,47 @@ function apexInitNativeBridge() {
   // Only when a session actually exists: with none, the user is headed to the
   // login page and locking would be pure friction.
   //
+  // Both session kinds are covered synchronously here.
+  //
   // The client token is readable synchronously (the restore above just ran).
-  // The admin case is resolved a moment later by apexBootstrapNativeSession,
-  // which raises the cover itself if it finds a native session.
+  //
+  // The ADMIN case used to be left to apexBootstrapNativeSession, which raises
+  // the cover only after the Firebase SDK has loaded, the initializeApp hook
+  // has fired, AND getCurrentUser() has resolved. On dashboard.html this file
+  // runs at line 5 while initializeApp is on line 1226, so the entire dashboard
+  // - header, counts, client rows - painted in that window with no cover. That
+  // is precisely the reported exposure, and an admin session is the case
+  // Nicole's screenshot was taken from.
+  //
+  // apexNativeSessionHint() reads the mirrored auth key that the restore above
+  // just wrote, so the admin session is known synchronously too. Raising the
+  // cover here is safe even if it turns out there is no session: the bootstrap
+  // and the resume path both hide it again once that is established.
+  var coverRaised = false;
   try {
-    if (apexBiometricPlugin() && window.localStorage.getItem("apex_client_token")) {
+    if (apexBiometricPlugin() &&
+        (window.localStorage.getItem("apex_client_token") || apexNativeSessionHint())) {
       apexShowLock();
+      coverRaised = true;
     }
   } catch (e) {
     // No storage - nothing to protect that we can see from here.
   }
 
   apexInstallBiometricLock();
+
+  // Raising the cover is not enough on its own - something has to actually run
+  // the prompt, or the app sits behind a dark field with no way through. The
+  // cold launch previously relied on apexBootstrapNativeSession to do that,
+  // which only runs on pages that initialise Firebase; a client-token launch
+  // therefore covered and never prompted. Drive the unlock here instead, once
+  // the stale-unlock clear has landed so the grace period cannot be read from
+  // the previous run.
+  if (coverRaised) {
+    apexUnlockCleared.then(function () {
+      apexMaybeLock();
+    });
+  }
 }
 
 // Restores the admin session and applies the cold-launch lock for it.
@@ -861,14 +1037,26 @@ function apexBootstrapNativeSession(firebaseSdk) {
   // Ask the native side first. If a session exists, cover the screen BEFORE
   // restoring it, so the restore cannot briefly reveal the app.
   return plugin.getCurrentUser().then(function (res) {
-    if (!res || !res.user) { return false; }
+    if (!res || !res.user) {
+      // No admin session. Clear the hint so the next cold launch does not
+      // raise a cover for a session that no longer exists, and take down any
+      // cover this launch raised on the strength of a stale hint.
+      apexSetNativeSessionHint(false);
+      if (!apexHasSession()) { apexHideLock(); }
+      return false;
+    }
     apexNativeSessionPresent = true;
+    // Record the session for the NEXT cold launch, so the cover can go up
+    // during head parse instead of waiting on this round trip.
+    apexSetNativeSessionHint(true);
     if (apexBiometricPlugin()) {
       apexShowLock();
       apexMaybeLock();
     }
     return apexRestoreFirebaseSession(firebaseSdk);
   }).catch(function () {
+    // Unknown session state. Leave any cover in place and leave the hint
+    // alone - both fail toward protecting data rather than exposing it.
     return false;
   });
 }

@@ -377,7 +377,6 @@ final class ApexLockCover {
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.alwaysBounceVertical = false
         scroll.showsVerticalScrollIndicator = false
-        scroll.addSubview(content)
         host.view.addSubview(scroll)
 
         // VERTICAL CENTRING THAT DEGRADES TO SCROLLING.
@@ -520,6 +519,44 @@ final class ApexLockCover {
         }
 
         recoveryStack = content
+
+        // Force a layout pass so the frames below are the real post-constraint
+        // values rather than the pre-layout zeros.
+        overlayWindow?.layoutIfNeeded()
+
+        // FRAME / ANCESTRY DUMP. hitTest returning a plain UIView at the
+        // buttons' coordinates means the touch is stopping somewhere above
+        // them; this names where. For each button: its frame in WINDOW
+        // coordinates, then every ancestor with frame, bounds, clipsToBounds
+        // and isUserInteractionEnabled.
+        //
+        // A view draws outside its parent's bounds but does NOT receive touches
+        // there -- UIView.hitTest returns nil for any point outside self.bounds
+        // before it ever consults its subviews. So an ancestor whose bounds do
+        // not enclose the button is the classic cause of exactly this symptom.
+        for b in buttons {
+            let inWindow = b.convert(b.bounds, to: nil)
+            trace("BTN '\(b.titleLabel?.text ?? "?")' windowFrame=\(Self.r(inWindow)) " +
+                  "enabled=\(b.isEnabled) userInteraction=\(b.isUserInteractionEnabled) " +
+                  "hidden=\(b.isHidden) alpha=\(b.alpha)")
+            var v: UIView? = b.superview
+            var depth = 1
+            while let cur = v, depth < 10 {
+                let curInWindow = cur.convert(cur.bounds, to: nil)
+                // Does this ancestor's own bounds actually contain the button's
+                // centre, expressed in that ancestor's coordinate space? If
+                // NO, hit-testing stops here and never reaches the button.
+                let centreInCur = b.convert(CGPoint(x: b.bounds.midX, y: b.bounds.midY), to: cur)
+                let contains = cur.bounds.contains(centreInCur)
+                trace("   ^\(depth) \(type(of: cur)) frame=\(Self.r(curInWindow)) " +
+                      "bounds=\(Self.r(cur.bounds)) clips=\(cur.clipsToBounds) " +
+                      "userInteraction=\(cur.isUserInteractionEnabled) " +
+                      "containsButtonCentre=\(contains)\(contains ? "" : "   <-- TOUCH STOPS HERE")")
+                v = cur.superview
+                depth += 1
+            }
+        }
+
         trace("RECOVERY UI shown on top of cover (reason=\(reason) canRetry=\(canRetry)) - COVER STAYS UP")
     }
 
@@ -534,6 +571,11 @@ final class ApexLockCover {
     // This button is the last thing standing between a stuck user and a dead
     // app, so it is worth it being built on the current API rather than one
     // that is already ignored in some code paths.
+    // Compact rect formatter, so a hierarchy dump stays readable in the log.
+    private static func r(_ rect: CGRect) -> String {
+        return "(\(Int(rect.origin.x)),\(Int(rect.origin.y)) \(Int(rect.width))x\(Int(rect.height)))"
+    }
+
     private static func makeButton(title: String, action: UIAction) -> UIButton {
         let gold = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0)
 

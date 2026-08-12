@@ -240,7 +240,7 @@ final class ApexLockCover {
             existing.isHidden = false
             existing.windowLevel = Self.coverLevel
             trace("COVER re-shown (reason=\(reason)) \(describeWindows())")
-            startWatchdog()
+            startStallTimer()
             return
         }
 
@@ -346,15 +346,34 @@ final class ApexLockCover {
         trace("RECOVERY UI shown on top of cover (reason=\(reason) canRetry=\(canRetry)) - COVER STAYS UP")
     }
 
+    // Built entirely with UIButton.Configuration.
+    //
+    // contentEdgeInsets is deprecated as of iOS 15 and is IGNORED once a
+    // configuration is in play, so mixing the two APIs silently loses the
+    // padding. The deployment target here is iOS 15 (see Package.swift), so
+    // the configuration API is available unconditionally -- no availability
+    // check needed.
+    //
+    // This button is the last thing standing between a stuck user and a dead
+    // app, so it is worth it being built on the current API rather than one
+    // that is already ignored in some code paths.
     private static func makeButton(title: String, action: UIAction) -> UIButton {
-        let b = UIButton(type: .system)
-        b.setTitle(title, for: .normal)
-        b.setTitleColor(UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0), for: .normal)
-        b.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
-        b.layer.borderWidth = 1.5
-        b.layer.borderColor = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0).cgColor
-        b.layer.cornerRadius = 10
-        b.contentEdgeInsets = UIEdgeInsets(top: 13, left: 24, bottom: 13, right: 24)
+        let gold = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0)
+
+        var config = UIButton.Configuration.plain()
+        config.contentInsets = NSDirectionalEdgeInsets(top: 13, leading: 24, bottom: 13, trailing: 24)
+        config.baseForegroundColor = gold
+        // The title carries its own font through the configuration, which is
+        // what keeps it from being reset when the button re-renders.
+        var attributed = AttributedString(title)
+        attributed.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        config.attributedTitle = attributed
+        config.background.backgroundColor = .clear
+        config.background.strokeColor = gold
+        config.background.strokeWidth = 1.5
+        config.background.cornerRadius = 10
+
+        let b = UIButton(configuration: config)
         b.addAction(action, for: .touchUpInside)
         return b
     }

@@ -2281,6 +2281,10 @@
 
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
   <script src="nav.js"></script>
+  <!-- Shared month-grid mechanics. calendar.html was the ORIGINAL home of this
+       code; it now consumes the extracted module so the client portal and this
+       page cannot drift. See calendar-grid.js. -->
+  <script src="calendar-grid.js?v=1786493218"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -3130,63 +3134,48 @@
 
     // ── Month view ─────────────────────────────────────────────────────────
 
+    // MIGRATED ONTO THE SHARED MODULE (calendar-grid.js).
+    //
+    // The six-week grid, the leading/trailing days, the "stop after a complete
+    // row" rule and the day cells now live in ONE place shared with the client
+    // portal, so a grid fix no longer has to be made twice — the standing
+    // problem dashboard.html already has.
+    //
+    // classPrefix "cal" keeps every existing .cal-* rule in this file's own
+    // <style> block working untouched, including the two fixes that exist
+    // nowhere else: chips WRAP rather than ellipsis (min-width: 0 on cell and
+    // chip), and mobile is a different layout rather than a narrower grid.
+    //
+    // WHAT DELIBERATELY DID NOT MOVE: makeMonthChip stays here and is passed
+    // in as the renderer. It is entirely session-specific — Meet-link repair
+    // warnings, EXT badges for google_external rows, meeting_category colours
+    // — and none of that belongs in a module the client portal also loads.
     function renderMonth() {
       var content = document.getElementById("calendarContent");
-      var today   = new Date();
-      today.setHours(0,0,0,0);
       var map = buildSessionMap();
-      var en  = isEn();
-      var days = en ? DAYS_EN : DAYS_PT;
 
-      var firstOfMonth = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
-      var lastOfMonth  = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0);
+      // The module groups by an `date` field; sessions already carry one.
+      var events = [];
+      Object.keys(map).forEach(function (k) {
+        map[k].forEach(function (sess) { events.push(sess); });
+      });
 
-      // Grid starts on Sunday of the week containing day 1
-      var gridStart = new Date(firstOfMonth);
-      gridStart.setDate(gridStart.getDate() - gridStart.getDay());
-
-      var html = '<div class="cal-grid-wrap">';
-      // Day headers
-      html += '<div class="cal-day-headers">';
-      for (var d = 0; d < 7; d++) {
-        html += '<div class="cal-day-header">' + days[d] + '</div>';
-      }
-      html += '</div>';
-      html += '<div class="cal-grid" id="monthGrid">';
-      html += '</div></div>';
-
-      content.innerHTML = html;
-
-      var grid = document.getElementById("monthGrid");
-      var cur  = new Date(gridStart);
-
-      // Render up to 6 weeks
-      for (var w = 0; w < 6; w++) {
-        for (var dw = 0; dw < 7; dw++) {
-          var isCurrentMonth = cur.getMonth() === curDate.getMonth();
-          var isToday = cur.getTime() === today.getTime();
-          var key = dateKey(cur);
-          var sessions = map[key] || [];
-
-          var cell = document.createElement("div");
-          cell.className = "cal-cell" + (isCurrentMonth ? "" : " other-month") + (isToday ? " today" : "");
-
-          var dayNum = document.createElement("div");
-          dayNum.className = "cal-day-num";
-          dayNum.textContent = cur.getDate();
-          cell.appendChild(dayNum);
-
-          // Session chips
-          for (var si = 0; si < sessions.length; si++) {
-            cell.appendChild(makeMonthChip(sessions[si]));
-          }
-
-          grid.appendChild(cell);
-          cur = new Date(cur.getTime() + 86400000);
-        }
-        // Stop if we've passed the month and it's a complete row
-        if (cur.getMonth() !== curDate.getMonth() && cur.getDay() === 0) { break; }
-      }
+      CalendarGrid.renderMonthGrid(content, {
+        anchor: curDate,
+        events: events,
+        en: isEn(),
+        // The existing class names, exactly as this file's <style> block
+        // already defines them.
+        classes: {
+          wrap:    "cal-grid-wrap",
+          headers: "cal-day-headers",
+          header:  "cal-day-header",
+          grid:    "cal-grid",
+          cell:    "cal-cell",
+          dayNum:  "cal-day-num"
+        },
+        renderChip: function (sess) { return makeMonthChip(sess); }
+      });
     }
 
     // calendar_provider is the real external/Apex signal. Live D1 holds FOUR

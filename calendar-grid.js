@@ -75,10 +75,16 @@
 
   // Events for a day, all-day first then by start time. A stable order matters:
   // without it the same day reshuffles on every re-render.
+  // `time` is accepted alongside `start_time` because the Apex session rows
+  // carry the former. Without it every session in a day would look untimed and
+  // the day's order would change on migration — a silent behaviour change is
+  // exactly what a shared module must not introduce.
+  function eventStart(e) { return e.start_time || e.time || ""; }
+
   function sortDayEvents(list) {
     return (list || []).slice().sort(function (a, b) {
-      var ta = a.start_time || "";
-      var tb = b.start_time || "";
+      var ta = eventStart(a);
+      var tb = eventStart(b);
       if (ta === tb) { return 0; }
       if (!ta) { return -1; }   // all-day sits at the top
       if (!tb) { return 1; }
@@ -95,6 +101,21 @@
     var map = buildDateMap(opts.events);
     var days = dayNames(opts.en);
     var today = new Date(); today.setHours(0, 0, 0, 0);
+    // Class names, so a page that already has grid CSS can adopt this renderer
+    // without restyling a single rule. calendar.html passes its own map and
+    // keeps every .cal-* rule it already had — including the two fixes that
+    // exist nowhere else (chips wrap rather than ellipsis; mobile is a
+    // different layout). An EXPLICIT MAP rather than a prefix, because the
+    // existing names are not uniformly prefixed: the wrapper is
+    // .cal-grid-wrap, not .cal-wrap, and a derived prefix would silently emit
+    // a class no stylesheet matches.
+    var C = opts.classes || {};
+    var cWrap    = C.wrap       || "cgrid-wrap";
+    var cHeaders = C.headers    || "cgrid-day-headers";
+    var cHeader  = C.header     || "cgrid-day-header";
+    var cGrid    = C.grid       || "cgrid";
+    var cCell    = C.cell       || "cgrid-cell";
+    var cDayNum  = C.dayNum     || "cgrid-day-num";
 
     var firstOfMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     // The grid starts on the Sunday of the week containing day 1, so the
@@ -103,20 +124,20 @@
     gridStart.setDate(gridStart.getDate() - gridStart.getDay());
 
     var wrap = document.createElement("div");
-    wrap.className = "cgrid-wrap";
+    wrap.className = cWrap;
 
     var headers = document.createElement("div");
-    headers.className = "cgrid-day-headers";
+    headers.className = cHeaders;
     for (var d = 0; d < 7; d++) {
       var h = document.createElement("div");
-      h.className = "cgrid-day-header";
+      h.className = cHeader;
       h.textContent = days[d];
       headers.appendChild(h);
     }
     wrap.appendChild(headers);
 
     var grid = document.createElement("div");
-    grid.className = "cgrid";
+    grid.className = cGrid;
 
     var cur = new Date(gridStart);
     for (var w = 0; w < 6; w++) {
@@ -125,12 +146,12 @@
         var key = dateKey(cur);
 
         var cell = document.createElement("div");
-        cell.className = "cgrid-cell" + (inMonth ? "" : " other-month") +
+        cell.className = cCell + (inMonth ? "" : " other-month") +
                          (cur.getTime() === today.getTime() ? " today" : "");
         cell.setAttribute("data-date", key);
 
         var num = document.createElement("div");
-        num.className = "cgrid-day-num";
+        num.className = cDayNum;
         num.textContent = cur.getDate();
         cell.appendChild(num);
 

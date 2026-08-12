@@ -44,6 +44,11 @@ public protocol CAPBridgedPlugin {
 @objc open class CAPPlugin: NSObject {
     @objc open func load() {}
     @objc open func notifyListeners(_ name: String, data: [String: Any]) {}
+    // Real signature from CAPPlugin.h:23 -- the retaining variant queues an
+    // event when no listener is attached yet.
+    @objc open func notifyListeners(_ name: String, data: [String: Any], retainUntilConsumed retain: Bool) {}
+    // CAPPlugin.h:25
+    @objc open func hasListeners(_ name: String) -> Bool { return false }
 }
 public protocol CAPBridgeProtocol {
     func registerPluginInstance(_ p: CAPPlugin)

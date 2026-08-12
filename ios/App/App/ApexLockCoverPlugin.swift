@@ -110,19 +110,96 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     public override func load() {
+        // POINT 0: proves load() ran at all. If this line is absent from the
+        // log, the plugin was never registered and onRetry/onSignOut are nil,
+        // so the buttons would fire an action that calls nothing.
+        ApexLockCover.shared.trace("PLUGIN load() ran - installing tap handlers")
+
         // The cover's buttons are native, so the taps arrive here. They are
         // forwarded to JS as events, because the DECISION of what to do (re-run
         // the biometric prompt, or sign out) belongs to the JS side where all
         // the auth policy lives. Native never authenticates and never reveals
         // on its own.
+        // retainUntilConsumed: TRUE, and this is load-bearing rather than
+        // defensive. Capacitor's notifyListeners (CAPPlugin.m:82) does this:
+        //
+        //     if (listenersForEvent == nil || count == 0) {
+        //         if (retain == YES) { ...queue it... }
+        //         return;                       // <-- otherwise DROPPED
+        //     }
+        //
+        // So an event fired before JS has called addListener is silently
+        // discarded. The JS side attaches its listener by polling for the
+        // plugin, so there is a real window on a cold start where the cover is
+        // already up, the buttons are already tappable, and no listener exists
+        // yet -- a tap in that window vanishes with no error anywhere. With
+        // retain, the event is queued and delivered the moment JS subscribes.
         ApexLockCover.shared.onRetry = { [weak self] in
-            ApexLockCover.shared.trace("RECOVERY retry tapped -> notifying JS")
-            self?.notifyListeners("apexLockRetry", data: [:])
+            // POINT 3: notifyListeners returns Void, so "was anyone listening"
+            // is invisible at the call site. hasListeners answers it, and is
+            // the difference between "delivered" and "sent into the void".
+            let has = self?.hasListeners("apexLockRetry") ?? false
+            ApexLockCover.shared.trace("RECOVERY retry -> notifyListeners(apexLockRetry) hasListeners=\(has)")
+            self?.notifyListeners("apexLockRetry", data: [:], retainUntilConsumed: true)
         }
         ApexLockCover.shared.onSignOut = { [weak self] in
-            ApexLockCover.shared.trace("RECOVERY sign-out tapped -> notifying JS")
-            self?.notifyListeners("apexLockSignOut", data: [:])
+            let has = self?.hasListeners("apexLockSignOut") ?? false
+            ApexLockCover.shared.trace("RECOVERY signout -> notifyListeners(apexLockSignOut) hasListeners=\(has)")
+            self?.notifyListeners("apexLockSignOut", data: [:], retainUntilConsumed: true)
         }
+    }
+}
+
+// DIAGNOSTIC WINDOW. Logs every hit-test and every touch that reaches the
+// cover window, so "the button does nothing" can be split into:
+//   1. the touch never reaches the button,
+//   2. it reaches the button but no listener is attached,
+//   3. the listener fires and what it calls no-ops.
+// Each is logged separately below and they look identical from the outside.
+final class ApexCoverWindow: UIWindow {
+    private var loggedHits = 0
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let result = super.hitTest(point, with: event)
+        // Only log the first few, so a scroll does not flood the log.
+        if loggedHits < 12 {
+            loggedHits += 1
+            let name = result.map { String(describing: type(of: $0)) } ?? "nil"
+            ApexLockCover.shared.trace(
+                "HITTEST point=(\(Int(point.x)),\(Int(point.y))) -> \(name) " +
+                "windowHidden=\(isHidden) userInteraction=\(isUserInteractionEnabled) " +
+                "rootVC=\(rootViewController == nil ? "NIL" : "present") level=\(Int(windowLevel.rawValue))")
+        }
+        return result
+    }
+
+    override func sendEvent(_ event: UIEvent) {
+        if event.type == .touches, let touches = event.allTouches {
+            for t in touches where t.phase == .began {
+                let v = t.view.map { String(describing: type(of: $0)) } ?? "nil"
+                ApexLockCover.shared.trace("TOUCH began on \(v)")
+            }
+        }
+        super.sendEvent(event)
+    }
+}
+
+// A UIButton that reports every touch it receives, independently of whether its
+// action fires. If TOUCH-ON-BUTTON appears but ACTION-FIRED does not, the
+// target/action wiring is the fault; if neither appears, the touch never
+// arrived.
+final class ApexTracingButton: UIButton {
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        ApexLockCover.shared.trace("TOUCH-ON-BUTTON began: \(titleLabel?.text ?? "?")")
+        super.touchesBegan(touches, with: event)
+    }
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        ApexLockCover.shared.trace("TOUCH-ON-BUTTON ended: \(titleLabel?.text ?? "?")")
+        super.touchesEnded(touches, with: event)
+    }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        ApexLockCover.shared.trace("TOUCH-ON-BUTTON CANCELLED: \(titleLabel?.text ?? "?")")
+        super.touchesCancelled(touches, with: event)
     }
 }
 
@@ -256,7 +333,7 @@ final class ApexLockCover {
             return
         }
 
-        let w = UIWindow(windowScene: scene)
+        let w = ApexCoverWindow(windowScene: scene)
         w.windowLevel = Self.coverLevel
         w.backgroundColor = Self.coverColor
         // Swallow taps aimed at the page underneath.
@@ -404,7 +481,13 @@ final class ApexLockCover {
         if canRetry {
             buttons.append(Self.makeButton(
                 title: "Desbloquear / Unlock",
-                action: UIAction { [weak self] _ in self?.onRetry?() }
+                action: UIAction { [weak self] _ in
+                    // POINT 2: the action fired. Distinct from the touch
+                    // arriving (logged by ApexTracingButton) and from the JS
+                    // listener existing (logged at the notifyListeners call).
+                    ApexLockCover.shared.trace("ACTION-FIRED: Unlock  handlerSet=\(ApexLockCover.shared.onRetry != nil)")
+                    self?.onRetry?()
+                }
             ))
         }
         // Always offered. If authentication genuinely cannot run on this device,
@@ -412,7 +495,10 @@ final class ApexLockCover {
         // the session and lands on the login page with nothing to protect.
         buttons.append(Self.makeButton(
             title: "Sair / Sign out",
-            action: UIAction { [weak self] _ in self?.onSignOut?() }
+            action: UIAction { [weak self] _ in
+                ApexLockCover.shared.trace("ACTION-FIRED: SignOut  handlerSet=\(ApexLockCover.shared.onSignOut != nil)")
+                self?.onSignOut?()
+            }
         ))
 
         for b in buttons {
@@ -470,7 +556,7 @@ final class ApexLockCover {
         config.background.strokeWidth = 1.5
         config.background.cornerRadius = 10
 
-        let b = UIButton(configuration: config)
+        let b = ApexTracingButton(configuration: config, primaryAction: nil)
         b.addAction(action, for: .touchUpInside)
         return b
     }

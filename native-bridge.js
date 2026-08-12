@@ -46,6 +46,129 @@
 var APEX_AUTH_KEYS = ["apex_client_token", "apex_client_id", "apex_client_name", "apexLeadLayout"];
 
 // ---------------------------------------------------------------------------
+// STARTUP TRACE  —  TEMPORARY DIAGNOSTIC, REMOVE ONCE THE LOCK IS FIXED.
+//
+// Pure observation: this block changes NO behaviour. It only records what the
+// existing code does, so the cold-launch sequence can be read off a device
+// instead of inferred from source.
+//
+// WHY A COOKIE BUFFER AND NOT JUST console.log: a cold launch with a session is
+// MORE THAN ONE DOCUMENT (index.html redirects to dashboard.html or
+// portal.html). Each navigation tears down the JS context, so a buffer held in
+// a variable — or in sessionStorage, which the app already relies on being
+// cleared — loses everything logged before the redirect. Cookies are the one
+// store this codebase already trusts across navigation on capacitor://localhost
+// (see apexMirrorSnapshot), they are readable synchronously during head parse,
+// and they survive the redirect chain. Every line is ALSO console.log'd so the
+// native console shows them live and in order.
+//
+// WHY A SHARED TIME BASE: performance.now() restarts at zero in every document,
+// so it cannot measure "how long was the login screen up" across a navigation.
+// The first document to run stamps a wall-clock origin into the cookie and
+// every later document measures against that same origin — so t= is comparable
+// across the whole chain, which is exactly what is needed to line the log up
+// against "black, then login for a few seconds, then black, then dashboard".
+// Date.now() is correct HERE precisely because this measures elapsed real time
+// for a human reading a log; it is not, and must never become, an input to the
+// grace-period logic, which stays on the monotonic native uptime clock.
+// ---------------------------------------------------------------------------
+
+var APEX_TRACE_COOKIE = "apextrace";
+var APEX_TRACE_ORIGIN_COOKIE = "apextraceorigin";
+var APEX_TRACE_MAX = 7000;   // keep well under the ~4KB-per-cookie practical cap
+
+function apexTraceRawCookie(name) {
+  try {
+    var needle = name + "=";
+    var parts = String(document.cookie || "").split(";");
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      while (p.charAt(0) === " ") { p = p.substring(1); }
+      if (p.indexOf(needle) === 0) { return decodeURIComponent(p.substring(needle.length)); }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function apexTraceWriteCookie(name, value) {
+  try {
+    document.cookie = name + "=" + encodeURIComponent(String(value)) +
+      "; max-age=86400; path=/";
+  } catch (e) {}
+}
+
+// Milliseconds since the FIRST document of this launch began parsing.
+function apexTraceElapsed() {
+  try {
+    var origin = apexTraceRawCookie(APEX_TRACE_ORIGIN_COOKIE);
+    var now = Date.now();
+    if (!origin) {
+      apexTraceWriteCookie(APEX_TRACE_ORIGIN_COOKIE, String(now));
+      return 0;
+    }
+    return now - parseInt(origin, 10);
+  } catch (e) {
+    return -1;
+  }
+}
+
+// Short document name, so each line says which document it came from.
+function apexTraceDoc() {
+  try {
+    var path = String(window.location.pathname || "");
+    var seg = path.split("/").pop();
+    return seg || "(root)";
+  } catch (e) {
+    return "(unknown)";
+  }
+}
+
+function apexTrace(event, detail) {
+  try {
+    // NATIVE SHELL ONLY. The trace is a diagnostic for the iOS wrapper, and it
+    // must leave the web path byte-for-byte unchanged -- no cookies, no console
+    // noise, no work at all on apex.resonateai.online or the installed PWA.
+    // Inlined rather than calling apexLooksLikeNativeShell() because this runs
+    // before that function is defined.
+    var proto = String(window.location.protocol || "").toLowerCase();
+    if (proto !== "capacitor:" && proto !== "ionic:" && proto !== "file:") { return; }
+
+    var line = "t=" + apexTraceElapsed() + "ms [" + apexTraceDoc() + "] " + event +
+               (detail ? " " + detail : "");
+    // Live view in the native console.
+    if (window.console && console.log) { console.log("[APEXTRACE] " + line); }
+    // Also push into the NATIVE timeline, so web and native lines interleave in
+    // one ordered log against one clock instead of two that must be reconciled
+    // by hand. Best-effort: before Capacitor registers, the console.log above
+    // and the cookie buffer below still capture the line.
+    try {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ApexLockCover) {
+        window.Capacitor.Plugins.ApexLockCover.trace({ message: "[" + apexTraceDoc() + "] " + event + (detail ? " " + detail : "") });
+      }
+    } catch (e) {}
+    // Durable view that survives the redirect chain.
+    var buf = apexTraceRawCookie(APEX_TRACE_COOKIE) || "";
+    buf = buf + (buf ? "\n" : "") + line;
+    if (buf.length > APEX_TRACE_MAX) { buf = buf.slice(buf.length - APEX_TRACE_MAX); }
+    apexTraceWriteCookie(APEX_TRACE_COOKIE, buf);
+  } catch (e) {}
+}
+
+// Typed into Safari's console (or any page) to read the whole chain at once.
+window.apexDumpTrace = function () {
+  var buf = apexTraceRawCookie(APEX_TRACE_COOKIE) || "(empty)";
+  if (window.console && console.log) { console.log("\n===== APEX STARTUP TRACE =====\n" + buf + "\n===== END =====\n"); }
+  return buf;
+};
+
+// Clears the buffer so a fresh launch starts a clean trace.
+window.apexResetTrace = function () {
+  apexTraceWriteCookie(APEX_TRACE_COOKIE, "");
+  apexTraceWriteCookie(APEX_TRACE_ORIGIN_COOKIE, "");
+  return "trace cleared";
+};
+
+// ---------------------------------------------------------------------------
 // PAINT-BLOCKING COVER  (must stay the first executable code in this file)
 //
 // THE BUG THIS EXISTS FOR: on a fresh install the app showed the dashboard,
@@ -86,9 +209,10 @@ var APEX_AUTH_KEYS = ["apex_client_token", "apex_client_id", "apex_client_name",
 // are untouched -- no new blank-screen risk on the path Alice and Rafa use.
 //
 // FAIL-SAFE ON REVEAL: a cover that is on by default must never be able to
-// strand a user. apexRevealIfNothingToProtect() below runs from several
-// independent triggers, and the watchdog reveals unconditionally if nothing
-// has resolved in time.
+// strand a user. Reveal happens through the single choke point
+// apexDisarmPaintCover(), reached from apexHideLock() on every legitimate
+// path, and the NATIVE 20s watchdog in ApexLockCover is the unconditional
+// backstop if nothing ever resolves.
 // ---------------------------------------------------------------------------
 
 var APEX_COVER_STYLE_ID = "apex-paint-cover";
@@ -119,8 +243,14 @@ function apexLooksLikeNativeShell() {
 // nothing readable at any point -- not the shell, not a spinner, not a
 // half-built header.
 function apexArmPaintCover() {
-  if (!apexLooksLikeNativeShell()) { return; }
-  if (document.getElementById(APEX_COVER_STYLE_ID)) { return; }
+  if (!apexLooksLikeNativeShell()) {
+    apexTrace("ARM-SKIPPED", "not-native-shell protocol=" + window.location.protocol);
+    return;
+  }
+  if (document.getElementById(APEX_COVER_STYLE_ID)) {
+    apexTrace("ARM-SKIPPED", "already-armed");
+    return;
+  }
   var css =
     "html.apex-cover-armed{background:#141210 !important}" +
     "html.apex-cover-armed>body{visibility:hidden !important}";
@@ -130,19 +260,103 @@ function apexArmPaintCover() {
   // <head> exists by definition: this file is a synchronous script inside it.
   (document.head || document.documentElement).appendChild(style);
   document.documentElement.className += " apex-cover-armed";
+  apexTrace("ARMED", "cover up at head-parse");
 }
 
-// The ONLY way the cover comes off. Idempotent.
-function apexDisarmPaintCover() {
+// The native cover plugin, or null before Capacitor has registered it.
+function apexLockCoverPlugin() {
+  if (!window.Capacitor || !window.Capacitor.Plugins) { return null; }
+  return window.Capacitor.Plugins.ApexLockCover || null;
+}
+
+// THE SINGLE REVEAL CHOKE POINT.
+//
+// Takes down BOTH covers: the CSS one owned by this document, and the native
+// UIView owned by SceneDelegate. They must come off together and only here --
+// two independent reveal paths is how the last three attempts each opened a new
+// window.
+//
+// The native cover is the authoritative one. If this call cannot be delivered
+// (Capacitor not yet registered), the native side stays covered and its own
+// 20s watchdog is the backstop -- the app is never permanently bricked, and it
+// is never revealed early by a missing plugin either.
+//
+// `reason` names WHICH caller revealed, which is the single most useful fact
+// when the app shows data before authenticating.
+function apexDisarmPaintCover(reason) {
+  var why = reason || "unspecified";
+
   var el = document.documentElement;
-  if (!el) { return; }
-  el.className = String(el.className || "").replace(/\bapex-cover-armed\b/g, "").trim();
+  if (el) {
+    var wasArmed = String(el.className || "").indexOf("apex-cover-armed") !== -1;
+    el.className = String(el.className || "").replace(/\bapex-cover-armed\b/g, "").trim();
+    if (wasArmed) {
+      apexTrace("DISARM-WEB", "reason=" + why);
+    }
+  }
+
+  var cover = apexLockCoverPlugin();
+  if (cover && typeof cover.hide === "function") {
+    apexTrace("DISARM-NATIVE", "reason=" + why + "  <-- APP NOW VISIBLE");
+    try { cover.hide({ reason: why }); } catch (e) {
+      apexTrace("DISARM-NATIVE", "hide() threw: " + (e && e.message));
+    }
+  } else {
+    // Not an error: the native cover stays up, which is the safe direction.
+    apexTrace("DISARM-NATIVE", "SKIPPED (plugin not ready) - native cover STAYS UP, reason=" + why);
+  }
+}
+
+// Puts the native cover back up. Used when a resume needs to re-protect the app
+// before the freshness check has answered.
+function apexReArmNativeCover(reason) {
+  var cover = apexLockCoverPlugin();
+  if (cover && typeof cover.show === "function") {
+    try { cover.show({ reason: reason || "re-arm" }); } catch (e) {}
+  }
 }
 
 // ARMED IMMEDIATELY, at parse time, before anything below runs and before any
 // markup after this <script> tag is parsed. Everything else in this file --
 // including apexIsNative() and every plugin lookup -- may safely be late.
+apexTrace("HEAD-PARSE", "document begins; readyState=" + document.readyState);
 apexArmPaintCover();
+
+// NAVIGATION TRACE (diagnostic only; no behaviour change).
+//
+// The cold-launch sequence spans several documents, and the redirect that ends
+// one document is the event that explains why its cover stopped mattering.
+// Recording the moment a navigation is REQUESTED, and by whom, is what turns
+// "login screen appeared for a few seconds" into a measured interval.
+(function () {
+  if (!apexLooksLikeNativeShell()) { return; }
+  try {
+    // pagehide fires on the outgoing document for a real navigation.
+    window.addEventListener("pagehide", function () {
+      apexTrace("NAVIGATE-AWAY", "document unloading");
+    });
+    // Attribute the navigation to its caller by wrapping the two APIs the app
+    // actually uses. These wrappers only observe and then perform the original
+    // navigation unchanged.
+    var loc = window.location;
+    var origAssign = loc.assign ? loc.assign.bind(loc) : null;
+    var origReplace = loc.replace ? loc.replace.bind(loc) : null;
+    if (origAssign) {
+      loc.assign = function (u) { apexTrace("NAV-REQUESTED", "location.assign -> " + u); return origAssign(u); };
+    }
+    if (origReplace) {
+      loc.replace = function (u) { apexTrace("NAV-REQUESTED", "location.replace -> " + u); return origReplace(u); };
+    }
+    // location.href = "..." cannot be wrapped on the real Location object, so
+    // DOMContentLoaded/visibility milestones below give the timeline anyway.
+    document.addEventListener("DOMContentLoaded", function () {
+      apexTrace("DOM-READY", "armed=" + (String(document.documentElement.className || "").indexOf("apex-cover-armed") !== -1));
+    });
+    window.addEventListener("load", function () {
+      apexTrace("WINDOW-LOAD", "armed=" + (String(document.documentElement.className || "").indexOf("apex-cover-armed") !== -1));
+    });
+  } catch (e) {}
+}());
 
 function apexIsNative() {
   return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -679,6 +893,7 @@ var APEX_LOCK_ID = "apex-biometric-lock";
 
 function apexShowLock() {
   if (document.getElementById(APEX_LOCK_ID)) { return; }
+  apexTrace("SHOWLOCK", "in-document lock UI raised");
   var el = document.createElement("div");
   el.id = APEX_LOCK_ID;
   el.setAttribute("role", "presentation");
@@ -762,7 +977,7 @@ function apexHideLock() {
   //
   // Deliberately NOT disarmed in apexShowRetry() or on a failed/cancelled
   // authentication: those keep the app covered, which is the point.
-  apexDisarmPaintCover();
+  apexDisarmPaintCover("apexHideLock");
 
   var el = document.getElementById(APEX_LOCK_ID);
   if (!el) { return; }
@@ -878,6 +1093,7 @@ function apexRunUnlock(manual) {
     // has no bundler. Calling the wrapper name here silently rejected with
     // "not implemented", which the catch below turned into a fail-open - the
     // app opened with no prompt at all. Verified on the device.
+    apexTrace("PROMPT", "calling internalAuthenticate (Face ID sheet should appear NOW)");
     return plugin.internalAuthenticate({
       reason: "Unlock Apex Command Center",
       cancelTitle: "Cancelar",
@@ -891,12 +1107,14 @@ function apexRunUnlock(manual) {
       // first would let a fast navigation start a new page before Preferences
       // had the record, and that page would prompt again - observed on the
       // device as a second Face ID prompt going from index to dashboard.
+      apexTrace("AUTH-OK", "authentication SUCCEEDED");
       return apexMarkUnlocked().then(function () {
         apexHideLock();
         apexUnlockInFlight = false;
         return true;
       });
     }).catch(function (err) {
+      apexTrace("AUTH-FAILED", "cancelled/failed: " + (err && err.message ? err.message : err));
       // Cancelled or failed. The app stays covered; the retry button gives a
       // way back in. Logged rather than swallowed.
       if (window.console && console.warn) {
@@ -931,10 +1149,11 @@ function apexMaybeLock() {
   // Never prompt on top of the Google OAuth sheet. Signing in necessarily
   // backgrounds and resumes the app, and prompting there would deadlock the
   // very login this is meant to protect.
-  if (apexSignInInFlight) { return; }
+  if (apexSignInInFlight) { apexTrace("MAYBELOCK", "skipped: signIn in flight"); return; }
   // apexHasSession() is synchronous BY DESIGN (see apexNativeSessionPresent),
   // so "is there anything to protect" is answered without awaiting anything.
-  if (!apexHasSession()) { return; }
+  if (!apexHasSession()) { apexTrace("MAYBELOCK", "skipped: no session"); return; }
+  apexTrace("MAYBELOCK", "session present -> cover + freshness check");
 
   // COVER FIRST, ASK QUESTIONS AFTER.
   //
@@ -954,12 +1173,19 @@ function apexMaybeLock() {
   // period turns out to be fresh. A brief cover on an unlocked app is
   // harmless; a brief exposure of client data is not.
   apexShowLock();
+  // The native cover too: on a RESUME, SceneDelegate already raised it in
+  // sceneWillResignActive, but on a cold launch where Capacitor registered late
+  // this is the first chance to be sure it is up before the freshness round
+  // trip. Idempotent on the native side.
+  apexReArmNativeCover("maybeLock");
 
   apexUnlockIsFresh().then(function (fresh) {
+    apexTrace("GRACE", fresh ? "FRESH -> reveal without prompting" : "STALE -> prompt");
     if (fresh) { apexHideLock(); return; }
     apexRunUnlock(false);
-  }).catch(function () {
+  }).catch(function (e) {
     // Freshness unknown - stay covered and prompt. Fails closed.
+    apexTrace("GRACE", "check failed, failing closed -> prompt: " + (e && e.message));
     apexRunUnlock(false);
   });
 }
@@ -1118,17 +1344,40 @@ function apexInitNativeBridge() {
   // retry button to tap.
   var coverRaised = false;
   try {
-    if (window.localStorage.getItem("apex_client_token") || apexNativeSessionHint()) {
+    var hasClientToken = !!window.localStorage.getItem("apex_client_token");
+    var hasAdminHint = apexNativeSessionHint();
+    apexTrace("SESSION-CHECK",
+      "clientToken=" + hasClientToken + " adminHint=" + hasAdminHint +
+      " plugin=" + (apexBiometricPlugin() ? "present" : "NULL") +
+      " capacitorPlugins=" + ((window.Capacitor && window.Capacitor.Plugins) ? "present" : "NULL"));
+    if (hasClientToken || hasAdminHint) {
       apexShowLock();
       coverRaised = true;
     }
   } catch (e) {
     // No storage - nothing to protect that we can see from here.
+    apexTrace("SESSION-CHECK", "threw: " + (e && e.message));
   }
 
-  // Nothing to protect: take the paint cover down now. Without this a launch
-  // with no session would sit behind the armed cover with no prompt coming.
-  if (!coverRaised) { apexDisarmPaintCover(); }
+  // DELIBERATELY DOES NOT REVEAL WHEN NO SESSION IS VISIBLE HERE.
+  //
+  // This used to call apexDisarmPaintCover("no-session-visible-at-parse"), and
+  // that was the bug behind the login screen appearing on a fresh install: the
+  // client token lives in localStorage and the admin hint in a cookie, and a
+  // FRESH INSTALL has neither, because the WebView data store starts empty. But
+  // the real admin session lives in the iOS KEYCHAIN, which survives reinstall
+  // and is only readable through the async getCurrentUser(). So "no session
+  // visible at parse" meant "unknown", not "none" -- and revealing on unknown
+  // is what showed the login page, then the dashboard, before the prompt.
+  //
+  // Unknown must mean COVERED. The reveal now happens only where the answer is
+  // positive: apexBootstrapNativeSession calls apexHideLock() once
+  // getCurrentUser() has actually reported nobody, and a successful unlock
+  // reveals through the same path. The native watchdog is the backstop if
+  // neither ever resolves.
+  if (!coverRaised) {
+    apexTrace("SESSION-CHECK", "nothing visible at parse - staying covered until getCurrentUser answers");
+  }
 
   apexInstallBiometricLock();
 
@@ -1162,25 +1411,39 @@ function apexBootstrapNativeSession(firebaseSdk) {
 
   // Ask the native side first. If a session exists, cover the screen BEFORE
   // restoring it, so the restore cannot briefly reveal the app.
+  apexTrace("BOOTSTRAP", "calling getCurrentUser (async keychain lookup)");
   return plugin.getCurrentUser().then(function (res) {
     if (!res || !res.user) {
+      apexTrace("GETCURRENTUSER", "NO user in keychain");
       // No admin session. Clear the hint so the next cold launch does not
       // raise a cover for a session that no longer exists, and take down any
       // cover this launch raised on the strength of a stale hint.
       apexSetNativeSessionHint(false);
-      if (!apexHasSession()) { apexHideLock(); }
+      if (!apexHasSession()) {
+        apexTrace("BOOTSTRAP", "no session anywhere -> apexHideLock()");
+        apexHideLock();
+      }
       return false;
     }
+    apexTrace("GETCURRENTUSER", "USER PRESENT (admin session in keychain)");
     apexNativeSessionPresent = true;
     // Record the session for the NEXT cold launch, so the cover can go up
     // during head parse instead of waiting on this round trip.
     apexSetNativeSessionHint(true);
-    if (apexBiometricPlugin()) {
-      apexShowLock();
-      apexMaybeLock();
-    }
+    // NOT gated on apexBiometricPlugin() any more -- that gate was the second
+    // half of the same async-Capacitor bug. When Plugins was not yet populated
+    // the whole lock was silently skipped on THIS document: session confirmed,
+    // no cover raised, no prompt, and the dashboard painted. apexRunUnlock
+    // already handles a missing plugin correctly (it opens the app rather than
+    // stranding the user), so asking here only created a way to skip.
+    apexTrace("BOOTSTRAP", "user present -> showLock + maybeLock (plugin=" +
+      (apexBiometricPlugin() ? "present" : "NULL, maybeLock will handle it") + ")");
+    apexShowLock();
+    apexMaybeLock();
+    apexTrace("BOOTSTRAP", "restoring firebase session (will fire onAuthStateChanged)");
     return apexRestoreFirebaseSession(firebaseSdk);
-  }).catch(function () {
+  }).catch(function (e) {
+    apexTrace("GETCURRENTUSER", "threw: " + (e && e.message ? e.message : e));
     // Unknown session state. Leave any cover in place and leave the hint
     // alone - both fail toward protecting data rather than exposing it.
     return false;
@@ -1243,39 +1506,24 @@ apexInitNativeBridge();
 }());
 
 // ---------------------------------------------------------------------------
-// PAINT-COVER WATCHDOG — last-resort reveal.
+// The 12-SECOND WEB WATCHDOG THAT USED TO LIVE HERE IS DELIBERATELY GONE.
 //
-// The cover is CSS-default-ON, which inverts the old failure mode: previously a
-// bug meant NO cover (data exposed); now a bug could mean a PERMANENT cover (an
-// app nobody can open). That trade is only acceptable with a guaranteed way
-// out, and it must not depend on any of the code above having run correctly --
-// apexInitNativeBridge() throwing, storage being unavailable, or Capacitor
-// never arriving must all still end with a usable app.
+// It existed because a CSS-default-ON cover inverted the failure mode from "no
+// cover" to "permanent cover", and something had to guarantee a way out. That
+// requirement has not changed -- it has MOVED, to ApexLockCover's own 20s
+// watchdog on the native side, which is strictly better placed: it survives
+// navigation, it does not depend on this file having run at all, and it owns
+// the view it is revealing.
 //
-// This deliberately does NOT weaken the lock. It fires only when the cover is
-// still armed after the timeout, which means no legitimate path resolved -- not
-// a failed authentication (that keeps the in-document lock UI up, drawn on top,
-// with its own retry button) and not a cancelled prompt.
+// Keeping both was actively harmful once apexDisarmPaintCover started taking
+// the NATIVE cover down too: the 12s timer would fire first and hide the native
+// cover on a document that had never authenticated, which is the exact class of
+// early reveal this whole effort is about. Two watchdogs on the same resource
+// with different timeouts means the shorter one silently wins.
 //
-// 12 seconds: comfortably longer than a slow post-install cold start with an
-// unwarmed WebView, short enough that a stranded user is not left wondering.
+// What remains in the web layer, and why it is still worth having as defence in
+// depth: hide-by-default CSS armed at head parse (covers the window before the
+// native plugin bridge is reachable from JS), the location.protocol shell check
+// (so the PWA and desktop web are untouched), and failing closed on unknown
+// protocols.
 // ---------------------------------------------------------------------------
-(function () {
-  if (!apexLooksLikeNativeShell()) { return; }
-  window.setTimeout(function () {
-    try {
-      var el = document.documentElement;
-      if (!el || String(el.className || "").indexOf("apex-cover-armed") === -1) { return; }
-      // Still armed. Something failed to resolve; do not strand the user.
-      if (window.console && console.error) {
-        console.error("[Apex] paint cover watchdog fired - revealing after timeout.");
-      }
-      apexDisarmPaintCover();
-      // The in-document lock UI, if it is up, is untouched and still covers the
-      // page: a real locked session stays locked and keeps its retry button.
-    } catch (e) {
-      // Never let the safety net itself be the thing that strands anyone.
-      try { apexDisarmPaintCover(); } catch (e2) {}
-    }
-  }, 12000);
-}());

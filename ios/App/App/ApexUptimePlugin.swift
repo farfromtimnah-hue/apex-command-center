@@ -51,5 +51,22 @@ public class ApexUptimePlugin: CAPPlugin, CAPBridgedPlugin {
 class ApexBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(ApexUptimePlugin())
+        // The native biometric cover. Same app-target registration requirement
+        // as ApexUptime above: without this line the plugin compiles and is
+        // silently unreachable from JS, which would leave the cover up until
+        // its watchdog fired.
+        bridge?.registerPluginInstance(ApexLockCoverPlugin())
+        ApexLockCover.shared.trace("BRIDGE capacitorDidLoad - plugins registered, WebView about to load")
     }
+
+    // Deliberately NO WKNavigationDelegate overrides here.
+    //
+    // Native navigation callbacks would be the authoritative record of the
+    // document chain, but their exact signatures belong to the Capacitor
+    // version in use (8.5.0 via SPM, sources not vendored in this repo), and a
+    // wrong `override` is a COMPILE error rather than a degraded log. The JS
+    // side already stamps HEAD-PARSE / NAVIGATE-AWAY into this same native
+    // timeline through ApexLockCover.trace, so the chain is still visible in
+    // one ordered log -- without risking the build on an unverifiable
+    // signature.
 }

@@ -73,6 +73,13 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func state(_ call: CAPPluginCall) {
+        // hasListeners is read HERE, on the plugin, because that is the only
+        // place the native listener table is visible. It is the ground truth
+        // for "did the JS subscribe actually land", which a JS-side "addListener
+        // returned" cannot answer -- the call is async and goes through
+        // cap.nativeCallback.
+        let retry = hasListeners("apexLockRetry")
+        let signout = hasListeners("apexLockSignOut")
         DispatchQueue.main.async {
             call.resolve([
                 "visible": ApexLockCover.shared.isVisible,
@@ -80,6 +87,8 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
                 // WebView is visible==true and covering==false, which is exactly
                 // the failure this distinguishes.
                 "covering": ApexLockCover.shared.isActuallyCovering,
+                "hasRetryListener": retry,
+                "hasSignOutListener": signout,
                 "sinceLaunchMs": ApexLockCover.shared.millisSinceLaunch()
             ])
         }
@@ -113,7 +122,15 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
         // POINT 0: proves load() ran at all. If this line is absent from the
         // log, the plugin was never registered and onRetry/onSignOut are nil,
         // so the buttons would fire an action that calls nothing.
-        ApexLockCover.shared.trace("PLUGIN load() ran - installing tap handlers")
+        //
+        // The INSTANCE ADDRESS matters: if capacitorDidLoad runs more than once
+        // (a WebView reload re-creates the bridge), a SECOND plugin instance is
+        // registered and overwrites onRetry/onSignOut. JS would then be
+        // subscribed to instance A while the buttons call instance B -- and
+        // instance B's hasListeners is legitimately false. Comparing this
+        // address against the one in the notifyListeners lines settles it.
+        ApexLockCover.shared.trace(
+            "PLUGIN load() ran on instance \(UInt(bitPattern: ObjectIdentifier(self).hashValue)) - installing tap handlers")
 
         // The cover's buttons are native, so the taps arrive here. They are
         // forwarded to JS as events, because the DECISION of what to do (re-run
@@ -139,12 +156,14 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
             // is invisible at the call site. hasListeners answers it, and is
             // the difference between "delivered" and "sent into the void".
             let has = self?.hasListeners("apexLockRetry") ?? false
-            ApexLockCover.shared.trace("RECOVERY retry -> notifyListeners(apexLockRetry) hasListeners=\(has)")
+            let inst = self.map { UInt(bitPattern: ObjectIdentifier($0).hashValue) } ?? 0
+            ApexLockCover.shared.trace("RECOVERY retry -> notifyListeners(apexLockRetry) hasListeners=\(has) onInstance=\(inst)")
             self?.notifyListeners("apexLockRetry", data: [:], retainUntilConsumed: true)
         }
         ApexLockCover.shared.onSignOut = { [weak self] in
             let has = self?.hasListeners("apexLockSignOut") ?? false
-            ApexLockCover.shared.trace("RECOVERY signout -> notifyListeners(apexLockSignOut) hasListeners=\(has)")
+            let inst = self.map { UInt(bitPattern: ObjectIdentifier($0).hashValue) } ?? 0
+            ApexLockCover.shared.trace("RECOVERY signout -> notifyListeners(apexLockSignOut) hasListeners=\(has) onInstance=\(inst)")
             self?.notifyListeners("apexLockSignOut", data: [:], retainUntilConsumed: true)
         }
     }
@@ -165,10 +184,36 @@ final class ApexCoverWindow: UIWindow {
         if loggedHits < 12 {
             loggedHits += 1
             let name = result.map { String(describing: type(of: $0)) } ?? "nil"
-            ApexLockCover.shared.trace(
-                "HITTEST point=(\(Int(point.x)),\(Int(point.y))) -> \(name) " +
+            var line = "HITTEST point=(\(Int(point.x)),\(Int(point.y))) -> \(name) " +
+                "windowFrame=\(ApexLockCover.rect(frame)) " +
                 "windowHidden=\(isHidden) userInteraction=\(isUserInteractionEnabled) " +
-                "rootVC=\(rootViewController == nil ? "NIL" : "present") level=\(Int(windowLevel.rawValue))")
+                "rootVC=\(rootViewController == nil ? "NIL" : "present") level=\(Int(windowLevel.rawValue))"
+            // Name WHICH view was returned, since several of ours are plain
+            // UIView and the class name alone cannot tell them apart. This is
+            // the difference between "the touch reached the scroll view" and
+            // "it stopped at the host view", which is the whole question.
+            if let hit = result {
+                if hit === rootViewController?.view { line += "  [= host.view]" }
+                else if hit === ApexLockCover.shared.debugContainer { line += "  [= container]" }
+                else if hit === ApexLockCover.shared.debugScroll { line += "  [= scrollView]" }
+                else if hit === ApexLockCover.shared.debugStack { line += "  [= contentStack]" }
+                else { line += "  [= unrecognised view]" }
+            }
+            ApexLockCover.shared.trace(line)
+
+            // Walk the chain UIKit would: for each candidate, does it contain
+            // the point in its own coordinate space, and is it interactive?
+            if let host = rootViewController?.view {
+                for (label, v) in ApexLockCover.shared.debugChain() {
+                    let p = convert(point, to: v)
+                    let inside = v.bounds.contains(p)
+                    ApexLockCover.shared.trace(
+                        "   probe \(label) frame=\(ApexLockCover.rect(v.convert(v.bounds, to: nil))) " +
+                        "pointInIts Coords=(\(Int(p.x)),\(Int(p.y))) inside=\(inside) " +
+                        "ui=\(v.isUserInteractionEnabled) hidden=\(v.isHidden) alpha=\(v.alpha)")
+                }
+                _ = host
+            }
         }
         return result
     }
@@ -274,6 +319,29 @@ final class ApexLockCover {
     private var contentStack: UIStackView?
     // Non-nil once the recovery UI has been added, so it is only added once.
     private var recoveryStack: UIStackView?
+
+    // DIAGNOSTIC references, so the hit-test log can say WHICH view was
+    // returned. Several views in this hierarchy are plain UIView, so the class
+    // name alone cannot distinguish "stopped at host.view" from "reached the
+    // container" -- and that distinction is the whole question.
+    fileprivate weak var debugScroll: UIScrollView?
+    fileprivate weak var debugContainer: UIView?
+    fileprivate weak var debugStack: UIStackView?
+    fileprivate weak var debugButton: UIButton?
+
+    fileprivate func debugChain() -> [(String, UIView)] {
+        var out: [(String, UIView)] = []
+        if let v = overlayWindow?.rootViewController?.view { out.append(("host.view", v)) }
+        if let v = debugScroll { out.append(("scrollView", v)) }
+        if let v = debugContainer { out.append(("container", v)) }
+        if let v = debugStack { out.append(("contentStack", v)) }
+        if let v = debugButton { out.append(("button", v)) }
+        return out
+    }
+
+    static func rect(_ r: CGRect) -> String {
+        return "(\(Int(r.origin.x)),\(Int(r.origin.y)) \(Int(r.width))x\(Int(r.height)))"
+    }
 
     private init() {}
 
@@ -400,6 +468,10 @@ final class ApexLockCover {
         scroll.addSubview(container)
         container.addSubview(content)
 
+        debugScroll = scroll
+        debugContainer = container
+        debugStack = content
+
         NSLayoutConstraint.activate([
             // The scroll view fills the safe area, so nothing lands under the
             // notch, the status bar or the home indicator in either orientation.
@@ -500,6 +572,7 @@ final class ApexLockCover {
             }
         ))
 
+        debugButton = buttons.first
         for b in buttons {
             content.addArrangedSubview(b)
             // Full width of the stack, so a long localized title wraps inside
@@ -536,7 +609,7 @@ final class ApexLockCover {
         // not enclose the button is the classic cause of exactly this symptom.
         for b in buttons {
             let inWindow = b.convert(b.bounds, to: nil)
-            trace("BTN '\(b.titleLabel?.text ?? "?")' windowFrame=\(Self.r(inWindow)) " +
+            trace("BTN '\(b.titleLabel?.text ?? "?")' windowFrame=\(Self.rect(inWindow)) " +
                   "enabled=\(b.isEnabled) userInteraction=\(b.isUserInteractionEnabled) " +
                   "hidden=\(b.isHidden) alpha=\(b.alpha)")
             var v: UIView? = b.superview
@@ -548,8 +621,8 @@ final class ApexLockCover {
                 // NO, hit-testing stops here and never reaches the button.
                 let centreInCur = b.convert(CGPoint(x: b.bounds.midX, y: b.bounds.midY), to: cur)
                 let contains = cur.bounds.contains(centreInCur)
-                trace("   ^\(depth) \(type(of: cur)) frame=\(Self.r(curInWindow)) " +
-                      "bounds=\(Self.r(cur.bounds)) clips=\(cur.clipsToBounds) " +
+                trace("   ^\(depth) \(type(of: cur)) frame=\(Self.rect(curInWindow)) " +
+                      "bounds=\(Self.rect(cur.bounds)) clips=\(cur.clipsToBounds) " +
                       "userInteraction=\(cur.isUserInteractionEnabled) " +
                       "containsButtonCentre=\(contains)\(contains ? "" : "   <-- TOUCH STOPS HERE")")
                 v = cur.superview
@@ -571,11 +644,6 @@ final class ApexLockCover {
     // This button is the last thing standing between a stuck user and a dead
     // app, so it is worth it being built on the current API rather than one
     // that is already ignored in some code paths.
-    // Compact rect formatter, so a hierarchy dump stays readable in the log.
-    private static func r(_ rect: CGRect) -> String {
-        return "(\(Int(rect.origin.x)),\(Int(rect.origin.y)) \(Int(rect.width))x\(Int(rect.height)))"
-    }
-
     private static func makeButton(title: String, action: UIAction) -> UIButton {
         let gold = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0)
 

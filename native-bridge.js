@@ -335,31 +335,85 @@ function apexShowNativeRecovery(reason, canRetry, message) {
 // whether to re-prompt, and what signing out means -- stays here, with the rest
 // of the auth policy.
 var apexRecoveryWired = false;
+var apexWirePollCount = 0;
 function apexWireNativeRecovery() {
   if (apexRecoveryWired) { return; }
+  apexWirePollCount++;
   var cover = apexLockCoverPlugin();
-  if (!cover || typeof cover.addListener !== "function") { return; }
+  if (!cover || typeof cover.addListener !== "function") {
+    // Log the first attempt and then every 50th, so "polling forever" is
+    // visible without flooding the log.
+    if (apexWirePollCount === 1 || apexWirePollCount % 50 === 0) {
+      apexTrace("WIRE-POLL", "attempt " + apexWirePollCount +
+        " plugin=" + (cover ? "present" : "NULL") +
+        " addListener=" + (cover ? typeof cover.addListener : "n/a") +
+        " CapacitorPlugins=" + ((window.Capacitor && window.Capacitor.Plugins) ? "present" : "NULL"));
+    }
+    return;
+  }
+  // Flag set only AFTER addListener has been called AND resolved, so a failed
+  // or never-resolving subscribe does not silently stop the poll. This used to
+  // be set before the calls, which is why a failure looked identical to
+  // success from the JS side.
+  apexTrace("WIRE-POLL", "plugin found on attempt " + apexWirePollCount +
+    " (doc=" + apexTraceDoc() + ") - calling addListener");
+
+  var retryHandle, signoutHandle;
+  try {
+    retryHandle = cover.addListener("apexLockRetry", function () {
+      apexTrace("RECOVERY", "retry tapped -> re-running unlock");
+      // manual = true: bypasses the in-flight guard, exactly as the in-document
+      // retry button does.
+      apexRunUnlock(true);
+    });
+
+    signoutHandle = cover.addListener("apexLockSignOut", function () {
+      apexTrace("RECOVERY", "sign-out tapped -> clearing session");
+      // Signing out is safe to honour from behind the cover BECAUSE it destroys
+      // the thing being protected rather than exposing it. Once there is no
+      // session, there is nothing to authenticate for, and the login page is not
+      // sensitive -- so the reveal that follows is not an unauthenticated reveal
+      // of client data.
+      try { apexClearAllSessions(); } catch (e) {}
+      apexDisarmPaintCover("signed-out-nothing-to-protect");
+      try { window.location.href = "index.html"; } catch (e) {}
+    });
+  } catch (e) {
+    apexTrace("WIRE-POLL", "addListener THREW: " + (e && e.message ? e.message : e));
+    return;   // leave apexRecoveryWired false so the poll keeps trying
+  }
+
+  apexTrace("WIRE-POLL", "addListener returned: retry=" + (typeof retryHandle) +
+    " signout=" + (typeof signoutHandle) +
+    " retryIsPromise=" + !!(retryHandle && typeof retryHandle.then === "function"));
+
+  // CONFIRM THE SUBSCRIBE ACTUALLY LANDED NATIVELY.
+  //
+  // addListener goes through cap.nativeCallback, which is asynchronous, so a
+  // JS-side "it returned" proves nothing -- hasListeners=false on the native
+  // side across 22 taps says the subscribe never arrived. state() reports the
+  // native truth, so ask it rather than assume.
+  function confirmSubscription(attempt) {
+    if (!cover.state) { return; }
+    try {
+      var res = cover.state();
+      if (res && typeof res.then === "function") {
+        res.then(function (st) {
+          apexTrace("WIRE-CONFIRM", "attempt " + attempt + " nativeState=" + JSON.stringify(st));
+        }).catch(function (e) {
+          apexTrace("WIRE-CONFIRM", "attempt " + attempt + " state() rejected: " + (e && e.message));
+        });
+      }
+    } catch (e) {
+      apexTrace("WIRE-CONFIRM", "attempt " + attempt + " state() threw: " + (e && e.message));
+    }
+  }
+  confirmSubscription(1);
+  window.setTimeout(function () { confirmSubscription(2); }, 1500);
+
   apexRecoveryWired = true;
-  apexTrace("RECOVERY", "button listeners ATTACHED - taps will now be handled");
-
-  cover.addListener("apexLockRetry", function () {
-    apexTrace("RECOVERY", "retry tapped -> re-running unlock");
-    // manual = true: bypasses the in-flight guard, exactly as the in-document
-    // retry button does.
-    apexRunUnlock(true);
-  });
-
-  cover.addListener("apexLockSignOut", function () {
-    apexTrace("RECOVERY", "sign-out tapped -> clearing session");
-    // Signing out is safe to honour from behind the cover BECAUSE it destroys
-    // the thing being protected rather than exposing it. Once there is no
-    // session, there is nothing to authenticate for, and the login page is not
-    // sensitive -- so the reveal that follows is not an unauthenticated reveal
-    // of client data.
-    try { apexClearAllSessions(); } catch (e) {}
-    apexDisarmPaintCover("signed-out-nothing-to-protect");
-    try { window.location.href = "index.html"; } catch (e) {}
-  });
+  apexTrace("RECOVERY", "button listeners ATTACHED on doc=" + apexTraceDoc() +
+    " - if a navigation follows, this document's listeners die with it");
 }
 
 // Clears every session kind this app has, so "sign out" from the lock screen

@@ -26,10 +26,23 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // only readable asynchronously -- and "unknown" must mean "covered".
         // The JS side calls hide() once it has positively established either
         // that authentication succeeded or that there is no session at all.
-        ApexLockCover.shared.attach(to: window!)
         ApexLockCover.shared.show(reason: "scene-launch")
+        // The scene is not foregroundActive yet at willConnectTo, so the first
+        // show() can legitimately defer. Retry on the next runloop turn, once
+        // the scene is attached, so the cover is up before the WebView has had
+        // any chance to paint. Both calls are idempotent.
+        DispatchQueue.main.async {
+            ApexLockCover.shared.show(reason: "scene-launch-retry")
+        }
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        // Belt and braces with willResignActive: whichever fires, the app is
+        // covered before it can be snapshotted for the app switcher.
+        ApexLockCover.shared.trace("SCENE didEnterBackground - covering")
+        ApexLockCover.shared.show(reason: "did-enter-background")
     }
 
     // Re-cover when the app is backgrounded, so the app-switcher snapshot and

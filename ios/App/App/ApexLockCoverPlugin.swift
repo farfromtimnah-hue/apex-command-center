@@ -75,6 +75,10 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             call.resolve([
                 "visible": ApexLockCover.shared.isVisible,
+                // "attached" is not the same as "covering": a cover behind the
+                // WebView is visible==true and covering==false, which is exactly
+                // the failure this distinguishes.
+                "covering": ApexLockCover.shared.isActuallyCovering,
                 "sinceLaunchMs": ApexLockCover.shared.millisSinceLaunch()
             ])
         }
@@ -104,28 +108,61 @@ final class ApexLockCover {
 
     static let shared = ApexLockCover()
 
-    private var coverView: UIView?
-    private weak var hostWindow: UIWindow?
+    // The cover lives in its OWN UIWindow, not as a subview of the app window.
+    //
+    // Z-ORDER IS THE WHOLE GAME, and getting it wrong produces exactly the
+    // symptom reported three times: a cover that exists in code, logs as
+    // "shown", and is invisible on screen with the dashboard fully readable
+    // behind the Face ID sheet.
+    //
+    // WHY NOT addSubview ON THE APP WINDOW (the first attempt):
+    // CAPBridgeViewController.loadView() does `view = webView` -- the bridge
+    // VC's ROOT VIEW *is* the WKWebView. When UIKit loads that root view it
+    // inserts it into the window, so a cover added earlier as a plain subview
+    // can end up beneath it. Fighting that with bringSubviewToFront is a race
+    // against every later view insertion, every navigation, and every plugin.
+    //
+    // A UIWindow at a higher windowLevel is not a race. UIKit composites
+    // windows strictly by level, so this sits above the app window regardless
+    // of anything happening inside it. It is the same mechanism system alerts
+    // use, which is why it survives what a subview cannot.
+    private var overlayWindow: UIWindow?
+
     private var launchTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
     private var lines: [String] = []
     private let lock = NSLock()
 
+    // Above .alert so nothing the app or a plugin presents lands on top. The
+    // iOS biometric sheet is presented by the system OUTSIDE the app's window
+    // hierarchy, so it still appears above this -- which is correct: the sheet
+    // must be visible and interactive, and what must NOT be visible is the app
+    // content behind it.
+    private static let coverLevel = UIWindow.Level.alert + 1
+
+    // Same #141210 the web cover paints, so the handoff between the two layers
+    // has no visible seam.
+    private static let coverColor = UIColor(red: 20.0/255.0, green: 18.0/255.0, blue: 16.0/255.0, alpha: 1.0)
+
     // WATCHDOG. A cover that can never be removed is its own outage: if the JS
-    // side dies before it can call hide(), the app would be permanently black
-    // with no way in. This is the native mirror of the 12s web watchdog.
-    //
-    // 20s, deliberately longer than the web one, so on a normal slow launch the
-    // web layer resolves first and this never fires. If it DOES fire, the
-    // in-document lock UI (if the web layer got that far) is still on top, so a
-    // genuinely locked session is not thereby exposed -- and the log records it
-    // loudly as an abnormal reveal.
+    // side dies before calling hide(), the app would be permanently dark with
+    // no way in. This is the last-resort reveal, and it is the ONLY watchdog in
+    // the system now -- the 12s web-layer one was removed precisely because two
+    // watchdogs on one resource means the shorter one silently wins.
     private var watchdog: Timer?
     private let watchdogSeconds: TimeInterval = 20.0
 
     private init() {}
 
+    // Attached AND actually on screen.
     var isVisible: Bool {
-        return coverView != nil && coverView?.superview != nil
+        guard let w = overlayWindow else { return false }
+        return !w.isHidden
+    }
+
+    // For the window-based cover these are the same thing, which is the point:
+    // there is no "attached but behind something" state to be wrong about.
+    var isActuallyCovering: Bool {
+        return isVisible
     }
 
     func millisSinceLaunch() -> Double {
@@ -142,8 +179,8 @@ final class ApexLockCover {
         lines.append(line)
         if lines.count > 400 { lines.removeFirst(lines.count - 400) }
         lock.unlock()
-        // NSLog rather than print: print goes only to the Xcode debug console,
-        // while NSLog reaches the unified system log, so the trace is readable
+        // NSLog rather than print: print reaches only the Xcode debug console,
+        // while NSLog goes to the unified system log, so the trace is readable
         // in Console.app with the phone plugged in and no debugger attached.
         NSLog("[APEXTRACE] %@", line)
     }
@@ -155,59 +192,66 @@ final class ApexLockCover {
         return out
     }
 
-    // Installs the cover into the window. Safe to call repeatedly.
+    // Raises the cover. Safe to call repeatedly.
     func show(reason: String) {
-        guard let window = hostWindow ?? Self.keyWindow() else {
-            trace("COVER show FAILED - no window yet (reason=\(reason))")
-            return
-        }
-        hostWindow = window
-
-        if let existing = coverView, existing.superview != nil {
-            window.bringSubviewToFront(existing)
-            trace("COVER already up, re-raised (reason=\(reason))")
+        if let existing = overlayWindow {
+            existing.isHidden = false
+            existing.windowLevel = Self.coverLevel
+            trace("COVER re-shown (reason=\(reason)) \(describeWindows())")
+            startWatchdog()
             return
         }
 
-        let view = UIView(frame: window.bounds)
-        // Same #141210 the web cover paints, so the handoff between the two is
-        // invisible -- no flash of a different shade at the seam.
-        view.backgroundColor = UIColor(red: 20.0/255.0, green: 18.0/255.0, blue: 16.0/255.0, alpha: 1.0)
-        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        view.isUserInteractionEnabled = true   // swallow taps aimed at the page underneath
-        view.accessibilityViewIsModal = true
+        guard let scene = Self.activeWindowScene() else {
+            // No scene yet. Not fatal and not a silent failure: SceneDelegate
+            // calls show() again once the scene exists.
+            trace("COVER show DEFERRED - no UIWindowScene yet (reason=\(reason))")
+            return
+        }
 
-        // A quiet wordmark, matching the web cover, so a slow launch reads as
-        // "locked" rather than "broken".
+        let w = UIWindow(windowScene: scene)
+        w.windowLevel = Self.coverLevel
+        w.backgroundColor = Self.coverColor
+        // Swallow taps aimed at the page underneath.
+        w.isUserInteractionEnabled = true
+
+        let host = UIViewController()
+        host.view.backgroundColor = Self.coverColor
+
+        // A quiet wordmark so a slow launch reads as "locked", not "broken".
         let label = UILabel()
         label.text = "APEX"
         label.textColor = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0)
         label.font = UIFont.systemFont(ofSize: 15, weight: .bold)
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(label)
+        host.view.addSubview(label)
         NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            label.centerXAnchor.constraint(equalTo: host.view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: host.view.centerYAnchor)
         ])
 
-        window.addSubview(view)
-        window.bringSubviewToFront(view)
-        coverView = view
-        trace("COVER SHOWN (reason=\(reason))")
+        w.rootViewController = host
+        // makeKeyAndVisible would steal key status from the app window; the
+        // cover only needs to be VISIBLE, and taking key could interfere with
+        // the biometric sheet's own presentation.
+        w.isHidden = false
+        overlayWindow = w
 
+        trace("COVER SHOWN (reason=\(reason)) level=\(w.windowLevel.rawValue) \(describeWindows())")
         startWatchdog()
     }
 
     // The ONLY way the cover comes down.
     func hide(reason: String) {
         cancelWatchdog()
-        guard let view = coverView else {
+        guard let w = overlayWindow else {
             trace("COVER hide called but no cover present (reason=\(reason))")
             return
         }
-        view.removeFromSuperview()
-        coverView = nil
+        w.isHidden = true
+        w.rootViewController = nil
+        overlayWindow = nil
         trace("COVER HIDDEN (reason=\(reason))  <-- APP NOW VISIBLE")
     }
 
@@ -226,19 +270,21 @@ final class ApexLockCover {
         watchdog = nil
     }
 
-    // Attaches to a window created after the cover was first requested.
-    func attach(to window: UIWindow) {
-        hostWindow = window
+    // Diagnostic: every window and its level, so the log can prove the cover is
+    // above the app window rather than merely existing.
+    private func describeWindows() -> String {
+        guard let scene = Self.activeWindowScene() else { return "[no scene]" }
+        let desc = scene.windows.map { w -> String in
+            let tag = (w === overlayWindow) ? "APEXCOVER" : String(describing: type(of: w))
+            return "\(tag)@\(Int(w.windowLevel.rawValue))\(w.isHidden ? "(hidden)" : "")"
+        }
+        return "[windows: \(desc.joined(separator: " | "))]"
     }
 
-    private static func keyWindow() -> UIWindow? {
-        return UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ??
-            UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap { $0.windows }
-                .first
+    private static func activeWindowScene() -> UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first { $0.activationState == .foregroundActive }
+            ?? scenes.first { $0.activationState == .foregroundInactive }
+            ?? scenes.first
     }
 }

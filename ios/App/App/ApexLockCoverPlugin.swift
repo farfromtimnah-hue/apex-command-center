@@ -191,6 +191,11 @@ final class ApexLockCover {
     var onRetry: (() -> Void)?
     var onSignOut: (() -> Void)?
 
+    // The single vertical stack that owns every element on the cover -- the
+    // wordmark from the start, plus the message and buttons once recovery is
+    // shown. One stack means nothing on this screen can overlap anything else.
+    private var contentStack: UIStackView?
+    // Non-nil once the recovery UI has been added, so it is only added once.
     private var recoveryStack: UIStackView?
 
     private init() {}
@@ -260,17 +265,85 @@ final class ApexLockCover {
         let host = UIViewController()
         host.view.backgroundColor = Self.coverColor
 
+        // ONE vertical stack owns every element on this screen.
+        //
+        // The wordmark used to be centred in the window independently while the
+        // recovery UI was centred separately at +40pt, so once the recovery UI
+        // appeared the two occupied the same space and the wordmark sat on top
+        // of the message and the first button. Anything added later joins THIS
+        // stack, which cannot collide with itself.
+        let content = UIStackView()
+        content.axis = .vertical
+        content.alignment = .center
+        content.spacing = 18
+        content.translatesAutoresizingMaskIntoConstraints = false
+
         // A quiet wordmark so a slow launch reads as "locked", not "broken".
         let label = UILabel()
         label.text = "APEX"
         label.textColor = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0)
-        label.font = UIFont.systemFont(ofSize: 15, weight: .bold)
+        // Dynamic Type: scales with the user's text size instead of being
+        // pinned at 15pt, and the whole stack grows with it.
+        label.font = UIFontMetrics(forTextStyle: .footnote)
+            .scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .bold))
+        label.adjustsFontForContentSizeCategory = true
         label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        host.view.addSubview(label)
+        label.numberOfLines = 0
+        content.addArrangedSubview(label)
+        contentStack = content
+
+        // Scrollable, so that at the largest accessibility text sizes -- or in
+        // landscape on a small device, where the usable height is a couple of
+        // hundred points -- the buttons can still be reached instead of being
+        // clipped off the bottom.
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.alwaysBounceVertical = false
+        scroll.showsVerticalScrollIndicator = false
+        scroll.addSubview(content)
+        host.view.addSubview(scroll)
+
+        // VERTICAL CENTRING THAT DEGRADES TO SCROLLING.
+        //
+        // The content sits in a container pinned to the scroll view's content
+        // guide, and that container is at least as tall as the viewport. The
+        // stack is then centred INSIDE the container. When the content is
+        // short, the container is exactly viewport-height and centring puts the
+        // group in the middle of the screen. When the content is taller (AX5
+        // text, or landscape on a small device) the container grows past the
+        // viewport and the whole thing scrolls, with nothing clipped.
+        //
+        // An earlier attempt centred the stack directly against the content
+        // guide with a low-priority "at least viewport height" constraint on
+        // the stack itself. That stretched the STACK rather than a container,
+        // which made the arranged subviews top-align inside it -- the group
+        // rendered against the top of the screen instead of centred. Verified
+        // in the simulator before and after.
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(container)
+        container.addSubview(content)
+
         NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: host.view.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: host.view.centerYAnchor)
+            // The scroll view fills the safe area, so nothing lands under the
+            // notch, the status bar or the home indicator in either orientation.
+            scroll.topAnchor.constraint(equalTo: host.view.safeAreaLayoutGuide.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: host.view.safeAreaLayoutGuide.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: host.view.safeAreaLayoutGuide.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: host.view.safeAreaLayoutGuide.trailingAnchor),
+
+            container.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+            container.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+            container.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+            container.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+            container.heightAnchor.constraint(greaterThanOrEqualTo: scroll.frameLayoutGuide.heightAnchor),
+
+            content.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            content.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 32),
+            content.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -32),
+            content.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor, constant: 24),
+            content.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -24)
         ])
 
         w.rootViewController = host
@@ -297,52 +370,70 @@ final class ApexLockCover {
         w.isHidden = true
         w.rootViewController = nil
         overlayWindow = nil
+        // Both cleared: the views belonged to the discarded root VC, and a
+        // later show() must build a fresh stack rather than append to a dead one.
         recoveryStack = nil
+        contentStack = nil
         trace("COVER HIDDEN (reason=\(reason))  <-- APP NOW VISIBLE")
     }
 
     // Surfaces RETRY / SIGN OUT on top of the cover. The cover stays up.
+    //
+    // Appends into the SAME stack that already holds the wordmark, rather than
+    // laying out a second independently-centred group. That is what caused the
+    // wordmark to sit on top of the message and the first button: two views
+    // both centred in the window, unaware of each other. One stack cannot
+    // overlap itself, and anything added here inherits its spacing and width.
     func showRecovery(reason: String, canRetry: Bool, message: String?) {
-        guard let host = overlayWindow?.rootViewController, recoveryStack == nil else { return }
+        guard let content = contentStack, recoveryStack == nil else { return }
         cancelStallTimer()
-
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.alignment = .center
-        stack.spacing = 14
-        stack.translatesAutoresizingMaskIntoConstraints = false
 
         let text = UILabel()
         text.text = message ?? "Não foi possível desbloquear.\nCould not unlock."
         text.numberOfLines = 0
         text.textAlignment = .center
         text.textColor = UIColor(white: 0.75, alpha: 1.0)
-        text.font = UIFont.systemFont(ofSize: 13, weight: .regular)
-        stack.addArrangedSubview(text)
+        text.font = UIFontMetrics(forTextStyle: .footnote)
+            .scaledFont(for: UIFont.systemFont(ofSize: 13, weight: .regular))
+        text.adjustsFontForContentSizeCategory = true
+        // Long strings wrap instead of forcing the stack wider than the screen.
+        text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        content.addArrangedSubview(text)
 
+        var buttons: [UIButton] = []
         if canRetry {
-            stack.addArrangedSubview(Self.makeButton(
+            buttons.append(Self.makeButton(
                 title: "Desbloquear / Unlock",
                 action: UIAction { [weak self] _ in self?.onRetry?() }
             ))
         }
-
         // Always offered. If authentication genuinely cannot run on this device,
         // signing out is the way forward that does NOT expose data: it clears
         // the session and lands on the login page with nothing to protect.
-        stack.addArrangedSubview(Self.makeButton(
+        buttons.append(Self.makeButton(
             title: "Sair / Sign out",
             action: UIAction { [weak self] _ in self?.onSignOut?() }
         ))
 
-        host.view.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: host.view.centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: host.view.centerYAnchor, constant: 40),
-            stack.leadingAnchor.constraint(greaterThanOrEqualTo: host.view.leadingAnchor, constant: 32),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: host.view.trailingAnchor, constant: -32)
-        ])
-        recoveryStack = stack
+        for b in buttons {
+            content.addArrangedSubview(b)
+            // Full width of the stack, so a long localized title wraps inside
+            // the button instead of overflowing the screen, and both buttons
+            // match. 44pt is the minimum comfortable tap target.
+            NSLayoutConstraint.activate([
+                b.widthAnchor.constraint(equalTo: content.widthAnchor),
+                b.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
+            ])
+        }
+
+        // Extra breathing room between the message and the first button without
+        // widening the gap between the two buttons.
+        if let first = buttons.first {
+            content.setCustomSpacing(24, after: text)
+            content.setCustomSpacing(12, after: first)
+        }
+
+        recoveryStack = content
         trace("RECOVERY UI shown on top of cover (reason=\(reason) canRetry=\(canRetry)) - COVER STAYS UP")
     }
 
@@ -364,10 +455,16 @@ final class ApexLockCover {
         config.contentInsets = NSDirectionalEdgeInsets(top: 13, leading: 24, bottom: 13, trailing: 24)
         config.baseForegroundColor = gold
         // The title carries its own font through the configuration, which is
-        // what keeps it from being reset when the button re-renders.
+        // what keeps it from being reset when the button re-renders. Scaled for
+        // Dynamic Type so the button grows with the user's text size.
         var attributed = AttributedString(title)
-        attributed.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        attributed.font = UIFontMetrics(forTextStyle: .callout)
+            .scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .semibold))
         config.attributedTitle = attributed
+        // A long or heavily-scaled title wraps onto a second line inside the
+        // button instead of being truncated to "Desbloqu..." at accessibility
+        // sizes.
+        config.titleLineBreakMode = .byWordWrapping
         config.background.backgroundColor = .clear
         config.background.strokeColor = gold
         config.background.strokeWidth = 1.5

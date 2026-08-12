@@ -50,7 +50,8 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "show", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "state", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "trace", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "dumpTrace", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "dumpTrace", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showRecovery", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func hide(_ call: CAPPluginCall) {
@@ -95,6 +96,33 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func dumpTrace(_ call: CAPPluginCall) {
         call.resolve(["log": ApexLockCover.shared.dumpTrace()])
+    }
+
+    // Shows the recovery affordance ON TOP OF the cover. Never reveals.
+    @objc func showRecovery(_ call: CAPPluginCall) {
+        let reason = call.getString("reason") ?? "unspecified"
+        let canRetry = call.getBool("canRetry") ?? true
+        let message = call.getString("message")
+        DispatchQueue.main.async {
+            ApexLockCover.shared.showRecovery(reason: reason, canRetry: canRetry, message: message)
+            call.resolve()
+        }
+    }
+
+    public override func load() {
+        // The cover's buttons are native, so the taps arrive here. They are
+        // forwarded to JS as events, because the DECISION of what to do (re-run
+        // the biometric prompt, or sign out) belongs to the JS side where all
+        // the auth policy lives. Native never authenticates and never reveals
+        // on its own.
+        ApexLockCover.shared.onRetry = { [weak self] in
+            ApexLockCover.shared.trace("RECOVERY retry tapped -> notifying JS")
+            self?.notifyListeners("apexLockRetry", data: [:])
+        }
+        ApexLockCover.shared.onSignOut = { [weak self] in
+            ApexLockCover.shared.trace("RECOVERY sign-out tapped -> notifying JS")
+            self?.notifyListeners("apexLockSignOut", data: [:])
+        }
     }
 }
 
@@ -143,13 +171,27 @@ final class ApexLockCover {
     // has no visible seam.
     private static let coverColor = UIColor(red: 20.0/255.0, green: 18.0/255.0, blue: 16.0/255.0, alpha: 1.0)
 
-    // WATCHDOG. A cover that can never be removed is its own outage: if the JS
-    // side dies before calling hide(), the app would be permanently dark with
-    // no way in. This is the last-resort reveal, and it is the ONLY watchdog in
-    // the system now -- the 12s web-layer one was removed precisely because two
-    // watchdogs on one resource means the shorter one silently wins.
-    private var watchdog: Timer?
-    private let watchdogSeconds: TimeInterval = 20.0
+    // STALL TIMER -- NOT A REVEAL.
+    //
+    // The previous version of this timer called hide() after 20 seconds "so the
+    // app is not bricked". That was an UNAUTHENTICATED REVEAL ON A TIMER: on a
+    // device left face-down, Face ID never even attempted, and the dashboard
+    // appeared anyway after 20s. An attacker with the phone simply waits.
+    //
+    // The recovery requirement was real; the recovery ACTION was wrong. Being
+    // stuck behind a cover with no way forward and being shown the data are not
+    // the only two options. This timer now surfaces a RETRY / SIGN OUT UI drawn
+    // ON TOP OF the cover, and the cover itself never comes down. There is
+    // always a way forward, and it is never "here is the data anyway".
+    private var stallTimer: Timer?
+    private let stallSeconds: TimeInterval = 12.0
+
+    // Tap handlers, wired by the plugin to JS events. Native never decides to
+    // authenticate or reveal; it only reports the tap.
+    var onRetry: (() -> Void)?
+    var onSignOut: (() -> Void)?
+
+    private var recoveryStack: UIStackView?
 
     private init() {}
 
@@ -239,12 +281,15 @@ final class ApexLockCover {
         overlayWindow = w
 
         trace("COVER SHOWN (reason=\(reason)) level=\(w.windowLevel.rawValue) \(describeWindows())")
-        startWatchdog()
+        startStallTimer()
     }
 
-    // The ONLY way the cover comes down.
+    // The ONLY way the cover comes down. Reached exclusively from JS after a
+    // successful authentication (or after it is positively established there is
+    // no session to protect). No timer, no error path, and no native code calls
+    // this on its own.
     func hide(reason: String) {
-        cancelWatchdog()
+        cancelStallTimer()
         guard let w = overlayWindow else {
             trace("COVER hide called but no cover present (reason=\(reason))")
             return
@@ -252,22 +297,82 @@ final class ApexLockCover {
         w.isHidden = true
         w.rootViewController = nil
         overlayWindow = nil
+        recoveryStack = nil
         trace("COVER HIDDEN (reason=\(reason))  <-- APP NOW VISIBLE")
     }
 
-    private func startWatchdog() {
-        cancelWatchdog()
-        watchdog = Timer.scheduledTimer(withTimeInterval: watchdogSeconds, repeats: false) { [weak self] _ in
+    // Surfaces RETRY / SIGN OUT on top of the cover. The cover stays up.
+    func showRecovery(reason: String, canRetry: Bool, message: String?) {
+        guard let host = overlayWindow?.rootViewController, recoveryStack == nil else { return }
+        cancelStallTimer()
+
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 14
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let text = UILabel()
+        text.text = message ?? "Não foi possível desbloquear.\nCould not unlock."
+        text.numberOfLines = 0
+        text.textAlignment = .center
+        text.textColor = UIColor(white: 0.75, alpha: 1.0)
+        text.font = UIFont.systemFont(ofSize: 13, weight: .regular)
+        stack.addArrangedSubview(text)
+
+        if canRetry {
+            stack.addArrangedSubview(Self.makeButton(
+                title: "Desbloquear / Unlock",
+                action: UIAction { [weak self] _ in self?.onRetry?() }
+            ))
+        }
+
+        // Always offered. If authentication genuinely cannot run on this device,
+        // signing out is the way forward that does NOT expose data: it clears
+        // the session and lands on the login page with nothing to protect.
+        stack.addArrangedSubview(Self.makeButton(
+            title: "Sair / Sign out",
+            action: UIAction { [weak self] _ in self?.onSignOut?() }
+        ))
+
+        host.view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: host.view.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: host.view.centerYAnchor, constant: 40),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: host.view.leadingAnchor, constant: 32),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: host.view.trailingAnchor, constant: -32)
+        ])
+        recoveryStack = stack
+        trace("RECOVERY UI shown on top of cover (reason=\(reason) canRetry=\(canRetry)) - COVER STAYS UP")
+    }
+
+    private static func makeButton(title: String, action: UIAction) -> UIButton {
+        let b = UIButton(type: .system)
+        b.setTitle(title, for: .normal)
+        b.setTitleColor(UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0), for: .normal)
+        b.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        b.layer.borderWidth = 1.5
+        b.layer.borderColor = UIColor(red: 201.0/255.0, green: 164.0/255.0, blue: 58.0/255.0, alpha: 1.0).cgColor
+        b.layer.cornerRadius = 10
+        b.contentEdgeInsets = UIEdgeInsets(top: 13, left: 24, bottom: 13, right: 24)
+        b.addAction(action, for: .touchUpInside)
+        return b
+    }
+
+    // Fires if nothing has resolved in time. Shows the recovery UI. NEVER hides.
+    private func startStallTimer() {
+        cancelStallTimer()
+        stallTimer = Timer.scheduledTimer(withTimeInterval: stallSeconds, repeats: false) { [weak self] _ in
             guard let self = self else { return }
             guard self.isVisible else { return }
-            self.trace("COVER WATCHDOG FIRED after \(Int(self.watchdogSeconds))s - revealing so the app is not bricked")
-            self.hide(reason: "native-watchdog")
+            self.trace("STALL TIMER fired after \(Int(self.stallSeconds))s - showing recovery UI, NOT revealing")
+            self.showRecovery(reason: "stall-timeout", canRetry: true, message: nil)
         }
     }
 
-    private func cancelWatchdog() {
-        watchdog?.invalidate()
-        watchdog = nil
+    private func cancelStallTimer() {
+        stallTimer?.invalidate()
+        stallTimer = nil
     }
 
     // Diagnostic: every window and its level, so the log can prove the cover is

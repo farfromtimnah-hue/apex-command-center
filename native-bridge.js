@@ -316,6 +316,72 @@ function apexReArmNativeCover(reason) {
   }
 }
 
+// Asks the NATIVE cover to draw Retry / Sign out on top of itself. The cover
+// stays up: this is the way forward that is not "here is the data anyway".
+function apexShowNativeRecovery(reason, canRetry, message) {
+  var cover = apexLockCoverPlugin();
+  if (cover && typeof cover.showRecovery === "function") {
+    try {
+      cover.showRecovery({
+        reason: reason || "unspecified",
+        canRetry: canRetry !== false,
+        message: message || null
+      });
+    } catch (e) {}
+  }
+}
+
+// Wires the native cover's buttons. Native reports the tap; every decision --
+// whether to re-prompt, and what signing out means -- stays here, with the rest
+// of the auth policy.
+var apexRecoveryWired = false;
+function apexWireNativeRecovery() {
+  if (apexRecoveryWired) { return; }
+  var cover = apexLockCoverPlugin();
+  if (!cover || typeof cover.addListener !== "function") { return; }
+  apexRecoveryWired = true;
+
+  cover.addListener("apexLockRetry", function () {
+    apexTrace("RECOVERY", "retry tapped -> re-running unlock");
+    // manual = true: bypasses the in-flight guard, exactly as the in-document
+    // retry button does.
+    apexRunUnlock(true);
+  });
+
+  cover.addListener("apexLockSignOut", function () {
+    apexTrace("RECOVERY", "sign-out tapped -> clearing session");
+    // Signing out is safe to honour from behind the cover BECAUSE it destroys
+    // the thing being protected rather than exposing it. Once there is no
+    // session, there is nothing to authenticate for, and the login page is not
+    // sensitive -- so the reveal that follows is not an unauthenticated reveal
+    // of client data.
+    try { apexClearAllSessions(); } catch (e) {}
+    apexDisarmPaintCover("signed-out-nothing-to-protect");
+    try { window.location.href = "index.html"; } catch (e) {}
+  });
+}
+
+// Clears every session kind this app has, so "sign out" from the lock screen
+// genuinely leaves nothing protected.
+function apexClearAllSessions() {
+  try {
+    for (var i = 0; i < APEX_AUTH_KEYS.length; i++) {
+      window.localStorage.removeItem(APEX_AUTH_KEYS[i]);
+      apexMirrorSnapshot(APEX_AUTH_KEYS[i], null);
+    }
+  } catch (e) {}
+  try { window.sessionStorage.clear(); } catch (e) {}
+  // Drop the admin hint so the next cold launch does not cover for a session
+  // that no longer exists.
+  apexSetNativeSessionHint(false);
+  apexNativeSessionPresent = false;
+  // Native Firebase session, if the plugin is there.
+  try {
+    var fa = apexFirebaseAuthPlugin();
+    if (fa && typeof fa.signOut === "function") { fa.signOut(); }
+  } catch (e) {}
+}
+
 // ARMED IMMEDIATELY, at parse time, before anything below runs and before any
 // markup after this <script> tag is parsed. Everything else in this file --
 // including apexIsNative() and every plugin lookup -- may safely be late.
@@ -1054,10 +1120,21 @@ function apexSetNativeSessionHint(present) {
 function apexRunUnlock(manual) {
   var plugin = apexBiometricPlugin();
   if (!plugin) {
-    // No plugin: nothing can be verified, so do not strand the user behind a
-    // cover they cannot clear.
-    apexHideLock();
-    return Promise.resolve(true);
+    // WAS: apexHideLock() -- "do not strand the user behind a cover they
+    // cannot clear". That was the same mistake as the 20s watchdog: a missing
+    // plugin is not evidence that the holder of the phone is authorised, so
+    // revealing here handed over client data to anyone who could make the
+    // plugin lookup fail (a cold start where Capacitor has not registered yet
+    // is enough).
+    //
+    // Not stranding the user is still the right goal; "reveal the data" was
+    // the wrong way to reach it. The cover stays up and the recovery UI offers
+    // Retry and Sign out instead.
+    apexTrace("UNLOCK", "biometric plugin MISSING - recovery UI, staying covered");
+    apexShowNativeRecovery("plugin-missing", true,
+      "Não foi possível iniciar o desbloqueio.\nCould not start unlock.");
+    apexShowRetry();
+    return Promise.resolve(false);
   }
   // Guard against the plugin renaming its methods on an upgrade. Without this
   // a missing method is just a rejected promise, which is indistinguishable
@@ -1114,13 +1191,18 @@ function apexRunUnlock(manual) {
         return true;
       });
     }).catch(function (err) {
-      apexTrace("AUTH-FAILED", "cancelled/failed: " + (err && err.message ? err.message : err));
+      apexTrace("AUTH-FAILED", "cancelled/failed - STAYING COVERED: " + (err && err.message ? err.message : err));
       // Cancelled or failed. The app stays covered; the retry button gives a
       // way back in. Logged rather than swallowed.
       if (window.console && console.warn) {
         console.warn("Biometric unlock failed:", err && err.message ? err.message : err);
       }
+      // Both retry affordances: the in-document one (under the native cover,
+      // for a future build without it) and the NATIVE one, which is what the
+      // user can actually see and tap while the cover is up.
       apexShowRetry();
+      apexShowNativeRecovery("auth-cancelled", true,
+        "Autenticação cancelada.\nAuthentication cancelled.");
       apexUnlockInFlight = false;
       return false;
     });
@@ -1138,7 +1220,10 @@ function apexRunUnlock(manual) {
     if (window.console && console.error) {
       console.error("Biometric check failed:", err && err.message ? err.message : err);
     }
+    apexTrace("UNLOCK", "checkBiometry FAILED - failing closed, staying covered");
     apexShowRetry();
+    apexShowNativeRecovery("checkbiometry-failed", true,
+      "Falha ao verificar a biometria.\nBiometric check failed.");
     apexUnlockInFlight = false;
     return false;
   });
@@ -1336,8 +1421,9 @@ function apexInitNativeBridge() {
   // page painted uncovered until Capacitor caught up seconds later. Whether the
   // plugin exists is a question about how to UNLOCK, not about whether there is
   // something to protect -- and it is answered later, in apexRunUnlock, which
-  // already handles a missing plugin by opening the app rather than stranding
-  // the user.
+  // handles a missing plugin by keeping the cover up and offering the recovery
+  // UI (it used to reveal the app there, which was the same defect as the
+  // timed watchdog).
   //
   // The paint cover (armed at parse time) is already up regardless. This raises
   // the in-document lock UI on top of it so there is something to look at and a
@@ -1377,6 +1463,21 @@ function apexInitNativeBridge() {
   // neither ever resolves.
   if (!coverRaised) {
     apexTrace("SESSION-CHECK", "nothing visible at parse - staying covered until getCurrentUser answers");
+  }
+
+  // Wire the native cover's Retry / Sign out buttons. Polled briefly because
+  // Capacitor may not have registered the plugin yet at this point -- the same
+  // async registration that caused the original bug. Harmless if it never
+  // arrives: the stall timer only draws buttons when the plugin exists to draw
+  // them, and the cover never reveals either way.
+  apexWireNativeRecovery();
+  if (!apexRecoveryWired) {
+    var wireTries = 0;
+    var wireTimer = window.setInterval(function () {
+      wireTries = wireTries + 1;
+      apexWireNativeRecovery();
+      if (apexRecoveryWired || wireTries > 300) { window.clearInterval(wireTimer); }
+    }, 20);
   }
 
   apexInstallBiometricLock();

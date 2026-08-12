@@ -7277,7 +7277,11 @@
       data.report_code     = reportCode;
       data.client_logo     = null;
 
-      var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html";
+      // ?v= is a cache-buster, not part of the origin: the template now checks
+      // event.origin, and a stale cached copy without that check would still
+      // work -- but a stale copy is served for up to 10 minutes on GitHub Pages
+      // (max-age=600), so bump this stamp whenever the template changes.
+      var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html?v=1786504801";
       var newTab = window.open(TEMPLATE_URL, "_blank");
 
       if (!newTab) {

@@ -129,8 +129,22 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
         // subscribed to instance A while the buttons call instance B -- and
         // instance B's hasListeners is legitimately false. Comparing this
         // address against the one in the notifyListeners lines settles it.
+        let instanceID = UInt(bitPattern: ObjectIdentifier(self).hashValue)
+        if ApexLockCover.shared.loadedInstanceCount > 0 {
+            // Loud, because this is silent by default and cost several device
+            // cycles. Capacitor prints "Overriding existing registered plugin"
+            // at the same moment, but that line is easy to miss among ordinary
+            // bridge chatter. The cause is a plugin registered BOTH via
+            // capacitor.config.json packageClassList and manually in
+            // capacitorDidLoad -- see the comment in ApexUptimePlugin.swift.
+            ApexLockCover.shared.trace(
+                "PLUGIN ⚠️ DOUBLE REGISTRATION - load() running again on instance \(instanceID); " +
+                "this overwrites the tap handlers and re-exports the JS shim")
+        }
+        ApexLockCover.shared.loadedInstanceCount += 1
         ApexLockCover.shared.trace(
-            "PLUGIN load() ran on instance \(UInt(bitPattern: ObjectIdentifier(self).hashValue)) - installing tap handlers")
+            "PLUGIN load() ran on instance \(instanceID) " +
+            "(registration #\(ApexLockCover.shared.loadedInstanceCount)) - installing tap handlers")
 
         // The cover's buttons are native, so the taps arrive here. They are
         // forwarded to JS as events, because the DECISION of what to do (re-run
@@ -324,6 +338,11 @@ final class ApexLockCover {
     // returned. Several views in this hierarchy are plain UIView, so the class
     // name alone cannot distinguish "stopped at host.view" from "reached the
     // container" -- and that distinction is the whole question.
+    // Counts how many times a plugin instance has called load(). >1 means the
+    // plugin was registered more than once, which silently overwrites the tap
+    // handlers. See the DOUBLE REGISTRATION trace in load().
+    var loadedInstanceCount = 0
+
     fileprivate weak var debugScroll: UIScrollView?
     fileprivate weak var debugContainer: UIView?
     fileprivate weak var debugStack: UIStackView?

@@ -51,11 +51,30 @@ public class ApexUptimePlugin: CAPPlugin, CAPBridgedPlugin {
 class ApexBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(ApexUptimePlugin())
-        // The native biometric cover. Same app-target registration requirement
-        // as ApexUptime above: without this line the plugin compiles and is
-        // silently unreachable from JS, which would leave the cover up until
-        // its watchdog fired.
+
+        // The native biometric cover. Registered HERE and ONLY here.
+        //
+        // It was ALSO listed in capacitor.config.json's packageClassList, which
+        // Capacitor auto-registers in registerPlugins() (CapacitorBridge.swift:312)
+        // BEFORE capacitorDidLoad runs. That produced two instances one
+        // millisecond apart, and Capacitor said so plainly in the log:
+        // "⚡️ Overriding existing registered plugin ApexLockCoverPlugin".
+        //
+        // Why that is not merely untidy: registerPluginInstance calls
+        // instance.load() and JSExport.exportJS AGAIN
+        // (CapacitorBridge.swift:362-364). So load() ran twice, and the second
+        // run overwrote ApexLockCover.shared.onRetry/onSignOut with closures
+        // capturing the SECOND instance -- which is why every tap logged
+        // onInstance=<B>. exportJS also injected the plugin's JS shim and pushed
+        // its PluginHeaders entry a second time.
+        //
+        // I added the packageClassList entry myself, "for consistency", while
+        // fixing the missing-from-Xcode-project bug. ApexUptimePlugin has never
+        // been in that list and has always worked, which is the evidence that
+        // manual registration alone is the correct pattern for an app-target
+        // plugin. Do not add either plugin back to packageClassList.
         bridge?.registerPluginInstance(ApexLockCoverPlugin())
+
         ApexLockCover.shared.trace("BRIDGE capacitorDidLoad - plugins registered, WebView about to load")
     }
 

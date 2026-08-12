@@ -18,7 +18,6 @@
 		"FirebaseAuthenticationPlugin",
 		"AppPlugin",
 		"CAPBrowserPlugin",
-		"PreferencesPlugin",
-		"ApexLockCoverPlugin"
+		"PreferencesPlugin"
 	]
 }

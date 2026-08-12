@@ -1,6 +1,195 @@
 import Foundation
 import UIKit
+import WebKit
+import LocalAuthentication
 import Capacitor
+
+// NATIVE RECOVERY ACTIONS -- NO JAVASCRIPT DEPENDENCY.
+//
+// WHY THIS IS NOT AN OPTIMISATION. The device log settled it:
+//
+//   t=20824ms  STALL TIMER fired - recovery UI shown
+//   t=39204ms  RECOVERY UI tappable
+//   t=48301ms  JSERROR HOOK installed on capacitor://localhost
+//   t=53334ms  JSERROR HOOK installed on capacitor://localhost/dashboard.html
+//
+// JavaScript does not begin running until NINE SECONDS after the buttons are
+// tappable. That is not a race, it is the normal case on a slow launch -- the
+// exact case the recovery UI exists for. And there are two documents, five
+// seconds apart, so a listener registered on index.html dies at the navigation
+// to dashboard.html regardless.
+//
+// So the recovery path cannot depend on the web layer at all. These actions run
+// entirely in native code and work whether or not JS ever loads.
+//
+// THE SEVEN DOCUMENTED CONSTRAINTS ARE PRESERVED, not bypassed:
+//   - internalAuthenticate, NOT authenticate: the plugin's method is a thin
+//     wrapper over LAContext.evaluatePolicy (BiometricAuthNative.swift:92-134).
+//     Calling LAContext directly IS that path, minus the bridge hop, so the
+//     wrong-method-name class of bug cannot recur here.
+//   - deviceIsSecure fail-open: canEvaluatePolicy is checked for BOTH policies
+//     below; a device with neither biometrics nor a passcode is let through
+//     rather than locked out.
+//   - checkBiometry FAILS CLOSED: any error other than "no auth available at
+//     all" keeps the cover up and re-offers the buttons.
+//   - apexMarkUnlocked awaited before the cover comes down: the timestamp is
+//     written SYNCHRONOUSLY to UserDefaults before hide() is called.
+//   - monotonic uptime, never wall clock: ProcessInfo.systemUptime, the same
+//     source ApexUptimePlugin returns to JS, written in the same units.
+//   - apexSignInInFlight: the cover is not up during Google sign-in, so this
+//     path cannot collide with the OAuth sheet.
+//   - the 15-minute grace period: untouched. This writes the same key JS reads,
+//     so a native unlock satisfies the JS freshness check on the next resume.
+enum ApexNativeRecovery {
+
+    // Mirrors @capacitor/preferences: UserDefaults.standard, keys prefixed
+    // "CapacitorStorage." (Preferences.swift:10 and :23). Verified against the
+    // package source rather than assumed, because a mismatched key would mean a
+    // native unlock the JS side cannot see -- and a second prompt.
+    private static let prefsPrefix = "CapacitorStorage."
+    private static let unlockKey = "apex_unlock_at"
+
+    // Same keys as APEX_AUTH_KEYS in native-bridge.js.
+    private static let authKeys = [
+        "apex_client_token", "apex_client_id", "apex_client_name", "apexLeadLayout"
+    ]
+    private static let adminHintKey = "apex_admin_session"
+
+    // RETRY: run the biometric prompt natively.
+    //
+    // completion(true) only on a real success or the documented fail-open.
+    static func authenticate(completion: @escaping (Bool, String) -> Void) {
+        let context = LAContext()
+        context.localizedFallbackTitle = "Usar senha / Use passcode"
+        context.localizedCancelTitle = "Cancelar"
+        context.touchIDAuthenticationAllowableReuseDuration = 0
+
+        // FAIL-OPEN, exactly as documented: if the device has NEITHER biometrics
+        // NOR a passcode, nothing could ever authenticate and locking the owner
+        // out of their own tool is the worse outcome.
+        var authError: NSError?
+        let canBiometrics = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError)
+        var credError: NSError?
+        let canCredential = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &credError)
+
+        if !canBiometrics && !canCredential {
+            ApexLockCover.shared.trace("NATIVE-AUTH no biometrics AND no passcode -> documented fail-open")
+            completion(true, "fail-open: device has no authentication configured")
+            return
+        }
+
+        // allowDeviceCredential: true in the JS path, so passcode is the
+        // fallback when Face ID fails or is locked out -- never no auth at all.
+        let policy: LAPolicy = canCredential ? .deviceOwnerAuthentication
+                                             : .deviceOwnerAuthenticationWithBiometrics
+
+        ApexLockCover.shared.trace("NATIVE-AUTH presenting prompt (policy=\(canCredential ? "deviceOwnerAuthentication" : "biometricsOnly"))")
+        context.evaluatePolicy(policy, localizedReason: "Unlock Apex Command Center") { success, error in
+            DispatchQueue.main.async {
+                if success {
+                    // MARK UNLOCKED BEFORE REVEALING. UserDefaults.set is
+                    // synchronous, so by the time this returns the record is
+                    // durable -- which is what the JS ordering requirement
+                    // (apexMarkUnlocked awaited before apexHideLock) exists to
+                    // guarantee. A page loading later reads a fresh unlock and
+                    // does not prompt a second time.
+                    markUnlocked()
+                    ApexLockCover.shared.trace("NATIVE-AUTH SUCCEEDED - unlock timestamp written")
+                    completion(true, "authenticated")
+                } else {
+                    let msg = error?.localizedDescription ?? "unknown"
+                    ApexLockCover.shared.trace("NATIVE-AUTH failed/cancelled - STAYING COVERED: \(msg)")
+                    completion(false, msg)   // FAILS CLOSED
+                }
+            }
+        }
+    }
+
+    // Writes the unlock timestamp in the SAME units and key JS uses, so the
+    // 15-minute grace period works across both. ApexUptimePlugin returns
+    // systemUptime * 1000, and JS stores it as a string.
+    static func markUnlocked() {
+        let ms = ProcessInfo.processInfo.systemUptime * 1000.0
+        UserDefaults.standard.set(String(ms), forKey: prefsPrefix + unlockKey)
+    }
+
+    // SIGN OUT: destroy every durable copy of the session, natively.
+    //
+    // Safe to honour from behind the cover precisely BECAUSE it destroys the
+    // thing being protected rather than exposing it. Afterwards there is no
+    // session, so the login page is not sensitive.
+    static func signOut(completion: @escaping () -> Void) {
+        ApexLockCover.shared.trace("NATIVE-SIGNOUT starting")
+
+        // 1. Capacitor Preferences mirror (native UserDefaults) -- the durable
+        //    copy the auth mirror restores localStorage from. Removing it is
+        //    what makes the clear stick across launches.
+        for key in authKeys {
+            UserDefaults.standard.removeObject(forKey: prefsPrefix + key)
+        }
+        UserDefaults.standard.removeObject(forKey: prefsPrefix + adminHintKey)
+        UserDefaults.standard.removeObject(forKey: prefsPrefix + unlockKey)
+
+        // 2. Firebase's own keychain session, via the Capacitor plugin if it is
+        //    reachable. Best effort: if the bridge is not up, step 4 still
+        //    removes the WebView-side session and the app lands on login.
+        NotificationCenter.default.post(name: Notification.Name("ApexNativeSignOut"), object: nil)
+
+        // 3. A REVOCATION TOMBSTONE.
+        //
+        // This is what makes native sign-out complete despite localStorage, and
+        // it is needed because of how the auth mirror works:
+        // apexRestoreAuthSync/apexRestoreAuth only ever FILL keys localStorage
+        // is missing -- localStorage WINS, and native never revokes it. So
+        // clearing Preferences alone leaves an orphaned token that the web layer
+        // happily keeps using, and even a reload would not help.
+        //
+        // The tombstone inverts that for one launch: native records "a sign-out
+        // happened", and the web layer clears localStorage and skips the restore
+        // when it sees it. Written to UserDefaults, which is durable and needs
+        // no bridge.
+        UserDefaults.standard.set(String(ProcessInfo.processInfo.systemUptime * 1000.0),
+                                  forKey: prefsPrefix + "apex_native_signout_at")
+        UserDefaults.standard.synchronize()
+
+        // 4. Cookies for the app origin -- where the admin hint snapshot lives.
+        //    This API IS reliable per-cookie, unlike the website-data one below.
+        let store = WKWebsiteDataStore.default().httpCookieStore
+        store.getAllCookies { cookies in
+            let group = DispatchGroup()
+            for cookie in cookies where cookie.name.hasPrefix("apexsnap_") || cookie.name.hasPrefix("apextrace") {
+                group.enter()
+                store.delete(cookie) { group.leave() }
+            }
+            group.notify(queue: .main) {
+                // 5. Best-effort localStorage clear.
+                //
+                // WKWebsiteDataStore.removeData(ofTypes:for:) IS public API and
+                // does exist -- but WKWebsiteDataRecord.h states records are
+                // "grouped by domain name using the public suffix list", and
+                // displayName is only "usually the domain name". For a custom
+                // scheme like capacitor://localhost that grouping is not
+                // dependable, so this is treated as best-effort rather than the
+                // guarantee. The tombstone above is the guarantee.
+                let types: Set<String> = [
+                    WKWebsiteDataTypeLocalStorage,
+                    WKWebsiteDataTypeSessionStorage
+                ]
+                WKWebsiteDataStore.default().fetchDataRecords(ofTypes: types) { records in
+                    let mine = records.filter {
+                        $0.displayName.contains("localhost") || $0.displayName.contains("capacitor")
+                    }
+                    ApexLockCover.shared.trace("NATIVE-SIGNOUT website records matched: \(mine.count) [" +
+                        records.map { $0.displayName }.joined(separator: ",") + "]")
+                    WKWebsiteDataStore.default().removeData(ofTypes: types, for: mine) {
+                        ApexLockCover.shared.trace("NATIVE-SIGNOUT complete - tombstone set, session destroyed")
+                        completion()
+                    }
+                }
+            }
+        }
+    }
+}
 
 // NATIVE BIOMETRIC COVER.
 //
@@ -524,6 +713,70 @@ final class ApexLockCover {
         startStallTimer()
     }
 
+    // Disables the buttons and shows progress while a native action runs, so a
+    // second tap cannot start a second Face ID prompt on top of the first.
+    func setRecoveryBusy(_ busy: Bool) {
+        guard let stack = recoveryStack else { return }
+        for v in stack.arrangedSubviews {
+            if let b = v as? UIButton {
+                b.isEnabled = !busy
+                b.alpha = busy ? 0.45 : 1.0
+            }
+        }
+    }
+
+    // Replaces the recovery message in place, e.g. after a failed attempt, so
+    // the user gets feedback without the cover coming down.
+    func setRecoveryMessage(_ text: String) {
+        guard let stack = recoveryStack else { return }
+        for v in stack.arrangedSubviews {
+            if let l = v as? UILabel, l !== stack.arrangedSubviews.first {
+                l.text = text
+                return
+            }
+        }
+    }
+
+    // Reloads the WebView so the next document starts clean and sees the
+    // sign-out tombstone, then reveals once it has begun loading.
+    //
+    // The cover stays up across the reload and comes down onto the LOGIN page,
+    // which is not sensitive because the session has just been destroyed. If
+    // the WebView cannot be reached, the cover still comes down -- there is
+    // nothing left to protect at that point, and stranding the user behind a
+    // cover after they asked to sign out would be the worse outcome.
+    func reloadWebViewAndReveal() {
+        let webView = Self.findWebView()
+        if let wv = webView {
+            trace("NATIVE-SIGNOUT reloading WebView to clear the web layer")
+            wv.evaluateJavaScript("try{localStorage.clear();sessionStorage.clear();}catch(e){}") { _, _ in
+                wv.load(URLRequest(url: URL(string: "capacitor://localhost/index.html")!))
+            }
+        } else {
+            trace("NATIVE-SIGNOUT no WebView found - revealing anyway, session is destroyed")
+        }
+        // Give the reload a moment to commit, then reveal.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            self?.hide(reason: "native-signout-complete")
+        }
+    }
+
+    private static func findWebView() -> WKWebView? {
+        guard let scene = activeWindowScene() else { return nil }
+        for w in scene.windows {
+            if let found = firstWebView(in: w) { return found }
+        }
+        return nil
+    }
+
+    private static func firstWebView(in view: UIView) -> WKWebView? {
+        if let wv = view as? WKWebView { return wv }
+        for sub in view.subviews {
+            if let found = firstWebView(in: sub) { return found }
+        }
+        return nil
+    }
+
     // The ONLY way the cover comes down. Reached exclusively from JS after a
     // successful authentication (or after it is positively established there is
     // no session to protect). No timer, no error path, and no native code calls
@@ -572,10 +825,21 @@ final class ApexLockCover {
             buttons.append(Self.makeButton(
                 title: "Desbloquear / Unlock",
                 action: UIAction { [weak self] _ in
-                    // POINT 2: the action fired. Distinct from the touch
-                    // arriving (logged by ApexTracingButton) and from the JS
-                    // listener existing (logged at the notifyListeners call).
-                    ApexLockCover.shared.trace("ACTION-FIRED: Unlock  handlerSet=\(ApexLockCover.shared.onRetry != nil)")
+                    ApexLockCover.shared.trace("ACTION-FIRED: Unlock -> NATIVE authenticate (no JS dependency)")
+                    // NATIVE FIRST, ALWAYS. JS is not involved and is not
+                    // required: on a slow launch it does not run until ~9s
+                    // AFTER these buttons are tappable.
+                    self?.setRecoveryBusy(true)
+                    ApexNativeRecovery.authenticate { ok, detail in
+                        self?.setRecoveryBusy(false)
+                        if ok {
+                            ApexLockCover.shared.hide(reason: "native-unlock: " + detail)
+                        } else {
+                            self?.setRecoveryMessage("Não reconhecido. Tente novamente.\nNot recognised. Try again.")
+                        }
+                    }
+                    // Best-effort only: lets the web layer sync its own state if
+                    // it happens to be listening. Nothing depends on it.
                     self?.onRetry?()
                 }
             ))
@@ -586,8 +850,20 @@ final class ApexLockCover {
         buttons.append(Self.makeButton(
             title: "Sair / Sign out",
             action: UIAction { [weak self] _ in
-                ApexLockCover.shared.trace("ACTION-FIRED: SignOut  handlerSet=\(ApexLockCover.shared.onSignOut != nil)")
+                ApexLockCover.shared.trace("ACTION-FIRED: SignOut -> NATIVE signOut (no JS dependency)")
+                self?.setRecoveryBusy(true)
+                // Best-effort JS cleanup FIRST, so if the bridge happens to be
+                // up it can clear localStorage itself. Not awaited and not
+                // required -- the native clear plus the tombstone stand alone.
                 self?.onSignOut?()
+                ApexNativeRecovery.signOut {
+                    self?.setRecoveryBusy(false)
+                    // Reload so the next document starts clean and sees the
+                    // tombstone. The cover stays up until the reload lands, then
+                    // comes down onto the login page -- which is not sensitive,
+                    // because the session has just been destroyed.
+                    ApexLockCover.shared.reloadWebViewAndReveal()
+                }
             }
         ))
 
@@ -717,7 +993,7 @@ final class ApexLockCover {
         return "[windows: \(desc.joined(separator: " | "))]"
     }
 
-    private static func activeWindowScene() -> UIWindowScene? {
+    static func activeWindowScene() -> UIWindowScene? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         return scenes.first { $0.activationState == .foregroundActive }
             ?? scenes.first { $0.activationState == .foregroundInactive }

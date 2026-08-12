@@ -590,7 +590,52 @@ function apexReadSnapshot(key) {
 }
 
 // Synchronous half of the restore. Runs before any page code reads a key.
+// NATIVE SIGN-OUT TOMBSTONE.
+//
+// The auth mirror is deliberately one-way: apexRestoreAuthSync and
+// apexRestoreAuth only ever FILL keys localStorage is MISSING, and never clear
+// one. localStorage therefore WINS, which is right for the eviction problem the
+// mirror exists to solve -- and wrong for sign-out, because a native sign-out
+// that clears Keychain, Preferences and the cookie would leave an orphaned
+// localStorage token that this code would keep using.
+//
+// So the native side writes a tombstone (CapacitorStorage.apex_native_signout_at)
+// and this reads it FIRST, before any restore. If it is present, localStorage is
+// cleared and the restore is skipped for this launch, then the tombstone is
+// consumed so a later legitimate login is unaffected.
+//
+// Returns true if a sign-out was honoured, meaning callers must NOT restore.
+var APEX_SIGNOUT_TOMBSTONE = "apex_native_signout_at";
+var apexSignOutHonoured = false;
+
+function apexConsumeSignOutTombstone(done) {
+  var prefs = apexPrefs();
+  if (!prefs) { if (done) { done(false); } return; }
+  try {
+    prefs.get({ key: APEX_SIGNOUT_TOMBSTONE }).then(function (res) {
+      var present = !!(res && res.value !== null && typeof res.value !== "undefined");
+      if (!present) { if (done) { done(false); } return; }
+      apexTrace("SIGNOUT", "native tombstone found - clearing web session, skipping restore");
+      apexSignOutHonoured = true;
+      try {
+        for (var i = 0; i < APEX_AUTH_KEYS.length; i++) {
+          window.localStorage.removeItem(APEX_AUTH_KEYS[i]);
+          apexMirrorSnapshot(APEX_AUTH_KEYS[i], null);
+        }
+        window.sessionStorage.clear();
+      } catch (e) {}
+      apexSetNativeSessionHint(false);
+      apexNativeSessionPresent = false;
+      // Consume it, so the NEXT launch restores normally after a real login.
+      prefs.remove({ key: APEX_SIGNOUT_TOMBSTONE }).catch(function () {});
+      if (done) { done(true); }
+    }).catch(function () { if (done) { done(false); } });
+  } catch (e) { if (done) { done(false); } }
+}
+
 function apexRestoreAuthSync() {
+  // A native sign-out already cleared these; do not put them back.
+  if (apexSignOutHonoured) { return; }
   var i, key, snap;
   for (i = 0; i < APEX_AUTH_KEYS.length; i++) {
     key = APEX_AUTH_KEYS[i];
@@ -636,6 +681,7 @@ function apexInstallMirror() {
 function apexRestoreAuth(done) {
   var prefs = apexPrefs();
   if (!prefs) { if (done) { done(); } return; }
+  if (apexSignOutHonoured) { if (done) { done(); } return; }
 
   var pending = APEX_AUTH_KEYS.length;
   var i;
@@ -1518,6 +1564,14 @@ function apexInitNativeBridge() {
     return;
   }
   apexInstallMirror();
+  // BEFORE any restore: if native signed out, clear the web session and skip
+  // the restore for this launch. Async, so the sync restore below may already
+  // have run -- this clears again on completion, which is idempotent.
+  apexConsumeSignOutTombstone(function (honoured) {
+    if (honoured) {
+      apexTrace("SIGNOUT", "tombstone consumed - web session cleared");
+    }
+  });
   // Sync first so the auth gate sees the keys, then the async pass repairs
   // anything the cookie snapshot lost.
   apexRestoreAuthSync();

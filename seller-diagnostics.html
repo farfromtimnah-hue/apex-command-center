@@ -285,6 +285,8 @@
     integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
     crossorigin="anonymous"></script>
   <script src="nav.js"></script>
+  <!-- Shared stage/event-type label tables: stored keys -> displayed labels. -->
+  <script src="gm-labels.js?v=1786491215"></script>
 
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
@@ -396,19 +398,14 @@
     // keys (GM_STAGE_PILL in gm.js is keyed on them), so they are never
     // rewritten — this map is consulted at render time and nowhere else. An
     // unknown stage falls through to its stored value rather than disappearing.
-    var STAGE_LABEL_EN = {
-      "Novo Lead":        "New Lead",
-      "Contato Feito":    "Contacted",
-      "Visita Agendada":  "Visit Scheduled",
-      "Estimate Enviado": "Estimate Sent",
-      "Follow-up":        "Follow-up",
-      "Negociação":       "Negotiation",
-      "Fechado":          "Closed",
-      "Perdido":          "Lost"
-    };
+    // The label table used to be duplicated here. It now lives in
+    // gm-labels.js, shared with the portal, so a stage is named in exactly one
+    // place. Values arrive as KEYS ('negociacao'); GmLabels.stageKey also
+    // accepts a legacy Portuguese label, so a row written before the migration
+    // still renders.
     function stageLabel(stage) {
       if (!stage) { return ""; }
-      return isEn() ? (STAGE_LABEL_EN[stage] || stage) : stage;
+      return GmLabels.stageLabel(GmLabels.stageKey(stage) || stage, isEn());
     }
 
     // Every tile prints its own sample size, always, next to the number rather

@@ -55,6 +55,58 @@
   color: #7a5f18;
 }
 
+/* ── Lead search ──────────────────────────────────────────────────────────
+   Filters the loaded list by name as you type; composes with the stage chips
+   (see gmLeadsInStage in gm.js). Sits above the list in both view modes. */
+.gm-lead-search { position: relative; margin: 0 0 10px; }
+.gm-lead-search-input {
+  width: 100%;
+  min-height: 48px;                 /* same touch target as the lead rows */
+  box-sizing: border-box;
+  padding: 12px 40px 12px 14px;     /* right padding clears the × button */
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  outline: none;
+  -webkit-appearance: none;         /* drop Safari's own search chrome */
+  appearance: none;
+}
+.gm-lead-search-input:focus { border-color: var(--gold); }
+.gm-lead-search-input::placeholder { color: var(--muted); }
+/* The native clear affordance is inconsistent across browsers and invisible
+   on this background, so it is suppressed in favour of the button below. */
+.gm-lead-search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.gm-lead-search-clear {
+  position: absolute;
+  top: 50%; right: 4px;
+  transform: translateY(-50%);
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; cursor: pointer;
+  color: var(--muted); font-size: 22px; line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-lead-search-clear:hover { color: var(--text); }
+
+/* Search matched nothing anywhere. Deliberately distinct from the
+   "no leads in this stage" line and from a client with no leads at all. */
+.gm-search-empty { text-align: center; padding: 26px 12px; }
+.gm-search-empty-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.gm-search-empty-sub {
+  font-size: 13px; color: var(--muted);
+  margin-bottom: 14px; overflow-wrap: anywhere;
+}
+
+/* Search matched nothing in the SELECTED stage but did match elsewhere.
+   Points at the stages that have hits instead of dead-ending on an empty one. */
+.gm-search-elsewhere { padding: 18px 2px 6px; }
+.gm-search-elsewhere-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.gm-search-elsewhere-sub { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.gm-search-elsewhere-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* ── Pipeline: stacked stage sections ─────────────────────────────────── */
 .gm-stage-section { margin-bottom: 4px; }
 .gm-stage-head {
@@ -530,6 +582,92 @@
   gap: 8px;
   padding: 10px 12px;
 }
+
+/* ── Notes: a dated thread on a lead or a project ─────────────────────────
+   Add box on top (writing is why the section is open), entries below,
+   newest first, each carrying its author and timestamp. */
+.gm-note-add { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; }
+.gm-note-input {
+  flex: 1; min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+}
+.gm-note-input:focus { border-color: var(--gold); }
+.gm-note-input::placeholder { color: var(--muted); }
+.gm-note-save { flex-shrink: 0; min-height: 44px; margin: 0; width: auto; padding: 0 18px; }
+
+.gm-note { padding: 10px 12px; border-top: 1px solid var(--border); }
+.gm-note-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 4px;
+}
+.gm-note-who { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+.gm-note-when { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+/* white-space: pre-wrap keeps the line breaks somebody typed. */
+.gm-note-body { font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gm-note-actions { display: flex; gap: 6px; margin-top: 6px; }
+.gm-note-act {
+  min-height: 36px; padding: 6px 12px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: none; color: var(--muted); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-note-act:hover { color: var(--text); }
+.gm-note-act-del:hover { color: var(--red, #b3261e); border-color: var(--red, #b3261e); }
+
+/* ── Non-image attachment (PDF) ───────────────────────────────────────────
+   A PDF has no thumbnail, so it gets a file row carrying its original
+   filename instead of a broken <img>. Shared by the lead attachment list and
+   the project gallery. */
+.gm-file-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.gm-file-row:last-of-type { border-bottom: none; }
+.gm-file-ico {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 44px;
+  border-radius: 6px;
+  background: rgba(198, 40, 40, 0.10);
+  color: #b3261e;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+}
+.gm-file-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-height: 44px;
+  padding: 4px 0;
+  border: none; background: none; cursor: pointer; text-align: left;
+  font-family: 'Inter', sans-serif; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-file-name {
+  font-size: 14px; font-weight: 600;
+  /* Long filenames wrap rather than push the delete button off-row. */
+  overflow-wrap: anywhere;
+}
+.gm-file-cap { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.gm-file-del {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; cursor: pointer;
+  color: var(--muted); font-size: 22px; line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-file-del:hover { color: var(--red, #b3261e); }
 .gm-photo {
   position: relative;
   margin: 0;
@@ -569,3 +707,78 @@
   cursor: pointer;
 }
 .gm-photo-del:hover { background: rgba(0, 0, 0, 0.78); }
+
+/* ── Agenda: the client's own company calendar ────────────────────────────
+   The month grid itself lives in calendar-grid.css (shared with the Apex
+   calendar). These are the portal-side surroundings: header, legend, the
+   composer's controls, and the Apex Club invitation card. */
+.gm-cal-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.gm-cal-title {
+  flex: 1; min-width: 0;
+  font-size: 16px; font-weight: 800;
+  text-align: center;
+}
+.gm-cal-nav {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text);
+  font-size: 20px; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-cal-nav:hover { border-color: var(--gold); }
+.gm-cal-today { flex-shrink: 0; width: auto; margin: 0; padding: 0 14px; min-height: 44px; }
+
+/* Three chip styles carry three different meanings; say so once. */
+.gm-cal-legend {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  padding: 12px 2px 4px;
+  font-size: 11px; color: var(--muted);
+}
+.gm-cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.gm-cal-legend i {
+  display: inline-block; width: 14px; height: 14px;
+  border-radius: 3px; padding: 0;
+}
+
+/* Composer */
+.gm-cal-types { margin-bottom: 4px; }
+.gm-cal-allday {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; margin-top: 12px;
+  font-size: 14px; cursor: pointer;
+}
+.gm-cal-allday input { width: 18px; height: 18px; }
+.gm-cal-times { display: flex; gap: 10px; }
+.gm-cal-times > div { flex: 1; min-width: 0; }
+
+/* Apex Club invitation — read-only, and there is no money in the payload to
+   render even if this wanted to. */
+.gm-club-invite { margin-bottom: 14px; }
+.gm-club-flyer {
+  display: block; width: 100%; height: auto;
+  border-radius: 10px; margin-bottom: 12px;
+}
+.gm-club-row {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+}
+.gm-club-row:last-child { border-bottom: none; }
+.gm-club-k {
+  flex-shrink: 0; width: 104px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--muted);
+}
+.gm-club-v { flex: 1; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+
+/* ── Lead history (gm_lead_events) ────────────────────────────────────────
+   What happened, who did it, when. Distinct from Notes above it: a note is
+   something a person chose to write; history is what the system recorded. */
+.gm-hist { padding: 9px 12px; border-top: 1px solid var(--border); }
+.gm-hist:first-child { border-top: none; }
+.gm-hist-line { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.gm-hist-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }

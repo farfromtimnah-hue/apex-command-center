@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <script src="native-bridge.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title data-title-pt="Apex — Add User" data-title-en="Apex &#8212; Add User">Apex — Add User</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge {
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .btn-header {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
+      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn {
+      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1; overflow-y: auto; padding: 28px 32px;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    .page-heading { font-size: 22px; font-weight: 700; color: var(--text); }
+
+    /* ── Content card ───────────────────────────────────────────────────── */
+    .content-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+    }
+    .content-card-header {
+      padding: 18px 24px 14px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .content-card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .content-card-body  { padding: 20px 24px; }
+
+    /* ── Form ───────────────────────────────────────────────────────────── */
+    .form-row {
+      display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.4px; }
+    .form-input, .form-select {
+      height: 38px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text);
+      background: var(--surface); outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--gold); }
+    .form-select { cursor: pointer; padding-right: 8px; }
+
+    .btn-submit {
+      height: 38px; padding: 0 20px;
+      background: var(--gold); border: none; border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      color: #1a1a1d; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .btn-submit:hover { opacity: 0.88; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Inline message ─────────────────────────────────────────────────── */
+    #addUserMsg {
+      font-size: 13px; font-weight: 500; padding: 10px 14px;
+      border-radius: 8px; display: none; margin-top: 14px;
+    }
+    #addUserMsg.msg-ok  { background: #ddfaec; color: #1a6640; display: block; }
+    #addUserMsg.msg-err { background: #fde8e8; color: #b44040; display: block; }
+
+    /* ── Users table ────────────────────────────────────────────────────── */
+    .users-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .users-table th {
+      text-align: left; padding: 10px 16px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      color: var(--muted); border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+    }
+    .users-table td {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      color: var(--text); vertical-align: middle;
+    }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: rgba(201,164,58,0.04); }
+
+    .role-pill {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+    }
+    .role-pill.alice     { background: #ddfaec; color: #1a6640; }
+    .role-pill.rafa      { background: #dce8fd; color: #1a4a8a; }
+    .role-pill.developer { background: var(--gold-dim); color: #7a5c2e; border: 1px solid rgba(201,164,58,0.3); }
+
+    .table-empty { padding: 32px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+
+    /* ── Forbidden screen ───────────────────────────────────────────────── */
+    #forbiddenScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px; color: var(--muted); font-size: 14px;
+    }
+    #forbiddenScreen[hidden] { display: none !important; }
+
+    @media (max-width: 768px) {
+      #appMain { padding: 16px; }
+      /* Single stacked column: label above input, everything full width.
+         align-items must be stretch here — the base row's flex-end would
+         otherwise push the stacked fields to the right edge. */
+      .form-row { flex-direction: column; align-items: stretch; }
+      .form-group { min-width: 0; width: 100%; max-width: none !important; }
+      .form-input, .form-select { min-height: 44px; }
+      .btn-submit { width: 100%; min-height: 44px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+      <div id="loadingScreen">
+        <div class="spinner"></div>
+        <span class="show-pt">Carregando...</span>
+        <span class="show-en">Loading...</span>
+      </div>
+
+      <div id="forbiddenScreen" hidden>
+        <span class="show-pt">Acesso restrito. Esta pagina e exclusiva para desenvolvedores.</span>
+        <span class="show-en">Access denied. This page is for developers only.</span>
+      </div>
+
+      <main id="appMain" hidden>
+
+        <h1 class="page-heading">
+          <span class="show-pt">Gerenciar Usuarios</span>
+          <span class="show-en">Manage Users</span>
+        </h1>
+
+        <!-- Add user form -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Adicionar / Atualizar Usuario</span>
+              <span class="show-en">Add / Update User</span>
+            </h2>
+          </div>
+          <div class="content-card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="inputEmail">
+                  <span class="show-pt">Email do Google</span>
+                  <span class="show-en">Google Email</span>
+                </label>
+                <input id="inputEmail" class="form-input" type="email"
+                  placeholder="email@gmail.com" autocomplete="off" autocapitalize="off">
+              </div>
+              <div class="form-group" style="max-width:180px;">
+                <label class="form-label" for="inputRole">
+                  <span class="show-pt">Perfil</span>
+                  <span class="show-en">Role</span>
+                </label>
+                <select id="inputRole" class="form-select">
+                  <option value="alice">Alice</option>
+                  <option value="rafa">Rafa</option>
+                  <option value="developer">Developer</option>
+                </select>
+              </div>
+              <button class="btn-submit" id="btnAddUser" onclick="handleAddUser()">
+                <span class="show-pt">Salvar</span>
+                <span class="show-en">Save</span>
+              </button>
+            </div>
+            <div id="addUserMsg"></div>
+          </div>
+        </div>
+
+        <!-- Current users table -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Usuarios Aprovados</span>
+              <span class="show-en">Approved Users</span>
+            </h2>
+          </div>
+          <div id="usersTableContainer">
+            <div class="table-empty">
+              <div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Google Calendar OAuth -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">Google Calendar</h2>
+          </div>
+          <div class="content-card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            <div>
+              <span style="font-size:13px;color:var(--muted);">Status:</span>
+              <span id="gcalStatus" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">Checking...</span>
+            </div>
+            <button class="btn-submit" id="btnConnectGcal" onclick="handleConnectGcal()" style="flex-shrink:0;">
+              Connect Google Calendar
+            </button>
+            <button class="btn-submit" id="btnCheckGcalStatus" onclick="checkGcalStatus()"
+              style="background:transparent;border:1.5px solid var(--gold);color:var(--gold);flex-shrink:0;">
+              Check Status
+            </button>
+          </div>
+        </div>
+
+        <!-- Zoho Books OAuth -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">Zoho Books</h2>
+          </div>
+          <div class="content-card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            <div>
+              <span style="font-size:13px;color:var(--muted);">Status:</span>
+              <span id="zohoStatus" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">Checking...</span>
+            </div>
+            <button class="btn-submit" id="btnConnectZoho" onclick="handleConnectZoho()" style="flex-shrink:0;">
+              Connect Zoho Books
+            </button>
+            <button class="btn-submit" id="btnCheckZohoStatus" onclick="checkZohoStatus()"
+              style="background:transparent;border:1.5px solid var(--gold);color:var(--gold);flex-shrink:0;">
+              Check Status
+            </button>
+          </div>
+        </div>
+
+      </main>
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <script src="nav.js"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var auth        = null;
+    var currentUser = null;
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function handleSignOut() {
+      auth.signOut().then(function () {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        sessionStorage.removeItem("apex_display_name");
+        sessionStorage.removeItem("apex_avatar_url");
+        window.location.href = "index.html";
+      });
+    }
+
+    function escHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    // ── Load and render the users table ──────────────────────────────────────
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function loadUsers() {
+      var container = document.getElementById("usersTableContainer");
+      if (!container) { return; }
+      container.innerHTML =
+        '<div class="table-empty"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>';
+
+      getToken().then(function (token) {
+        return fetch(WORKER_URL + "/api/users", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function (data) {
+        renderUsersTable(data.users || []);
+      }).catch(function (e) {
+        container.innerHTML =
+          '<div class="table-empty" style="color:#b44040;">' + t("Erro ao carregar usuários: ", "Could not load users: ") + e.message + '</div>';
+      });
+    }
+
+    function renderUsersTable(users) {
+      var container = document.getElementById("usersTableContainer");
+      if (!container) { return; }
+
+      if (users.length === 0) {
+        container.innerHTML = '<div class="table-empty">' + t("Nenhum usuário cadastrado.", "No users registered.") + '</div>';
+        return;
+      }
+
+      var table = document.createElement("table");
+      table.className = "users-table mc-table";
+
+      var thead = document.createElement("thead");
+      thead.innerHTML =
+        "<tr>" +
+          '<th><span class="show-pt">Email</span><span class="show-en">Email</span></th>' +
+          '<th><span class="show-pt">Perfil</span><span class="show-en">Role</span></th>' +
+        "</tr>";
+      table.appendChild(thead);
+
+      var tbody = document.createElement("tbody");
+      for (var i = 0; i < users.length; i++) {
+        (function (u) {
+          var tr = document.createElement("tr");
+
+          var tdEmail = document.createElement("td");
+          tdEmail.className = "mc-head";
+          tdEmail.textContent = u.email;
+          tdEmail.style.fontFamily = "monospace";
+          tdEmail.style.fontSize   = "13px";
+          tr.appendChild(tdEmail);
+
+          var tdRole = document.createElement("td");
+          tdRole.className = "mc-field";
+          tdRole.setAttribute("data-label-pt", "Perfil");
+          tdRole.setAttribute("data-label-en", "Role");
+          var pill   = document.createElement("span");
+          pill.className = "role-pill " + (u.role || "");
+          pill.textContent = u.role || "—";
+          tdRole.appendChild(pill);
+          tr.appendChild(tdRole);
+
+          tbody.appendChild(tr);
+        })(users[i]);
+      }
+      table.appendChild(tbody);
+      container.innerHTML = "";
+      container.appendChild(table);
+    }
+
+    // ── Submit: add / update a user ──────────────────────────────────────────
+    function handleAddUser() {
+      var emailEl  = document.getElementById("inputEmail");
+      var roleEl   = document.getElementById("inputRole");
+      var btn      = document.getElementById("btnAddUser");
+      var msgEl    = document.getElementById("addUserMsg");
+
+      if (!emailEl || !roleEl || !btn || !msgEl) { return; }
+
+      var email = emailEl.value.trim().toLowerCase();
+      var role  = roleEl.value;
+
+      if (!email) {
+        msgEl.className = "msg-err";
+        msgEl.innerHTML = '<span class="show-pt">Email obrigatorio.</span><span class="show-en">Email is required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+      msgEl.className = "";
+      msgEl.textContent = "";
+
+      getToken().then(function (token) {
+        return fetch(WORKER_URL + "/api/users", {
+          method:  "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body:    JSON.stringify({ email: email, role: role })
+        });
+      }).then(function (res) {
+        return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+      }).then(function (result) {
+        btn.disabled = false;
+        if (result.ok) {
+          msgEl.className = "msg-ok";
+          msgEl.innerHTML =
+            '<span class="show-pt">Usuario salvo: ' + result.data.email + ' (' + result.data.role + ')</span>' +
+            '<span class="show-en">User saved: ' + result.data.email + ' (' + result.data.role + ')</span>';
+          emailEl.value = "";
+          loadUsers();
+        } else {
+          msgEl.className = "msg-err";
+          msgEl.textContent = result.data.error || t("Erro desconhecido.", "Unknown error.");
+        }
+      }).catch(function (e) {
+        btn.disabled = false;
+        msgEl.className = "msg-err";
+        msgEl.textContent = t("Erro: ", "Error: ") + e.message;
+      });
+    }
+
+    // ── Google Calendar OAuth ────────────────────────────────────────────────
+    function checkGcalStatus() {
+      var statusEl = document.getElementById("gcalStatus");
+      if (!statusEl) { return; }
+      statusEl.textContent = "Checking...";
+      statusEl.style.color = "var(--muted)";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/google/oauth/status", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        if (data.connected) {
+          statusEl.textContent = "Connected";
+          statusEl.style.color = "#1a6640";
+        } else {
+          statusEl.textContent = "Not connected";
+          statusEl.style.color = "var(--muted)";
+        }
+      }).catch(function(e) {
+        statusEl.textContent = "Error: " + e.message;
+        statusEl.style.color = "#b44040";
+      });
+    }
+
+    function handleConnectGcal() {
+      var btn = document.getElementById("btnConnectGcal");
+      if (!btn) { return; }
+      btn.disabled = true;
+
+      var popup = window.open('about:blank', '_blank');
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/google/oauth/start", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        if (data.auth_url) {
+          popup.location.href = data.auth_url;
+        } else {
+          popup.close();
+          alert("Error: no auth_url returned");
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        if (popup) { popup.close(); }
+        alert("Error starting OAuth: " + e.message);
+      });
+    }
+
+    // ── Zoho Books OAuth ────────────────────────────────────────────────────
+    function checkZohoStatus() {
+      var statusEl = document.getElementById("zohoStatus");
+      if (!statusEl) { return; }
+      statusEl.textContent = "Checking...";
+      statusEl.style.color = "var(--muted)";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/zoho/oauth/status", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        if (data.connected) {
+          statusEl.textContent = "Connected";
+          statusEl.style.color = "#1a6640";
+        } else {
+          statusEl.textContent = "Not connected";
+          statusEl.style.color = "var(--muted)";
+        }
+      }).catch(function(e) {
+        statusEl.textContent = "Error: " + e.message;
+        statusEl.style.color = "#b44040";
+      });
+    }
+
+    function handleConnectZoho() {
+      var btn = document.getElementById("btnConnectZoho");
+      if (!btn) { return; }
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/zoho/oauth/start", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          alert("Error: no auth_url returned");
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        alert("Error starting OAuth: " + e.message);
+      });
+    }
+
+    // ── Page setup ───────────────────────────────────────────────────────────
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      document.getElementById("loadingScreen").hidden = true;
+
+      if (role !== "developer") {
+        document.getElementById("forbiddenScreen").hidden = false;
+        window.initNav && window.initNav();
+        return;
+      }
+
+      document.getElementById("appMain").hidden = false;
+      window.initNav && window.initNav();
+      loadUsers();
+      checkGcalStatus();
+      checkZohoStatus();
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    // ── Bootstrap ────────────────────────────────────────────────────────────
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function (user) {
+        if (!user) { window.location.href = "index.html"; return; }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function () {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    window.onload = function () { init(); };
+  </script>
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

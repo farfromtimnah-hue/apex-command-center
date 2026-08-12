@@ -116,16 +116,29 @@ function gmDaysSince(iso) {
 }
 
 // ── Status pills: colour + glyph + word, never colour alone ─────────────
+//
+// Keyed by the STAGE KEY, not by a Portuguese label: gm_leads.estagio stores
+// 'negociacao' and the visible word is looked up per language at render time.
+// See gm-labels.js for why.
 var GM_STAGE_PILL = {
-  "Novo Lead":        { band: "gm-gold",  glyph: "●" },
-  "Contato Feito":    { band: "gm-gold",  glyph: "●" },
-  "Visita Agendada":  { band: "gm-gold",  glyph: "●" },
-  "Estimate Enviado": { band: "gm-gold",  glyph: "◆" },
-  "Follow-up":        { band: "gm-gold",  glyph: "◆" },
-  "Negociação":       { band: "gm-gold",  glyph: "◆" },
-  "Fechado":          { band: "gm-green", glyph: "✓" },
-  "Perdido":          { band: "gm-red",   glyph: "✕" }
+  "novo_lead":        { band: "gm-gold",  glyph: "●" },
+  "contato_feito":    { band: "gm-gold",  glyph: "●" },
+  "visita_agendada":  { band: "gm-gold",  glyph: "●" },
+  "estimate_enviado": { band: "gm-gold",  glyph: "◆" },
+  "follow_up":        { band: "gm-gold",  glyph: "◆" },
+  "negociacao":       { band: "gm-gold",  glyph: "◆" },
+  "fechado":          { band: "gm-green", glyph: "✓" },
+  "perdido":          { band: "gm-red",   glyph: "✕" }
 };
+
+// The visible label for a stage key, in the current language.
+function gmStageLabel(key) { return GmLabels.stageLabel(key, isEn()); }
+
+// The visible label for the other FIXED system lists (job/roadmap/base/partner
+// status, frente, origem). Unlike stages these are still STORED in Portuguese
+// and translated only at the display layer — see the note in gm-labels.js for
+// why that trade was made deliberately.
+function gmStatusLabel(v) { return GmLabels.statusLabel(v, isEn()); }
 var GM_STATUS_PILLS = {
   roadmap: {
     "Realizado":    { band: "gm-green", glyph: "✓" },
@@ -154,8 +167,9 @@ var GM_STATUS_PILLS = {
   }
 };
 
-// Portuguese status words are the spreadsheet's own vocabulary; the EN
-// toggle is a developer QA aid, so statuses stay PT in both languages.
+// `word` is the ALREADY-LOCALISED label. It used to be the raw stored value,
+// on the reasoning that "the EN toggle is a developer QA aid" — no longer
+// true: real clients use the toggle, and Resonate sells bilingual systems.
 function gmPillHtml(word, def) {
   var d = def || { band: "gm-muted", glyph: "○" };
   return '<span class="gm-pill ' + d.band + '">' + d.glyph + ' ' + escHtml(word) + '</span>';
@@ -311,14 +325,19 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml) {
     if ((options || []).length <= 5) {
       inner = '<div class="gm-chip-set" id="gmEditorChips">';
       options.forEach(function(opt, i) {
+        // The chip shows a localised label where one exists and the stored
+        // value otherwise. gmStatusLabel echoes back anything it does not
+        // know, which is what keeps CLIENT-AUTHORED lists (servicos,
+        // vendedores, cycle months) displaying exactly as the client typed
+        // them — this renderer is shared with those fields.
         inner += '<button type="button" class="gm-choice-chip' + (opt === value ? " gm-chip-sel" : "") +
-          '" data-opt-idx="' + i + '" onclick="gmEditorPickChip(this)">' + escHtml(opt) + '</button>';
+          '" data-opt-idx="' + i + '" onclick="gmEditorPickChip(this)">' + escHtml(gmStatusLabel(opt)) + '</button>';
       });
       inner += '</div>';
     } else {
       inner = '<select id="gmEditorInput"><option value="">—</option>';
       options.forEach(function(opt) {
-        inner += '<option value="' + escHtml(opt) + '"' + (opt === value ? " selected" : "") + '>' + escHtml(opt) + '</option>';
+        inner += '<option value="' + escHtml(opt) + '"' + (opt === value ? " selected" : "") + '>' + escHtml(gmStatusLabel(opt)) + '</option>';
       });
       inner += '</select>';
     }
@@ -649,6 +668,10 @@ function gmPipelineCreateOpen() {
 
 function gmLoadCrm() {
   gmCurrentTab = "gmcrm";   // the Pipeline container; section is gmPipelineSection
+  // A fresh visit to the tab starts unfiltered. The query is a transient view
+  // state, not a preference: coming back later to a list that is silently
+  // hiding 90 of 93 rows reads as data loss.
+  gmLeadSearch = "";
   var body = document.getElementById("gmCrmBody");
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
   Promise.all([gmLoadConfig(), gmApi("leads")])
@@ -680,10 +703,47 @@ function gmToggleViewMode() {
   gmApi("config/view-mode", { method: "PUT", body: { override: next } }).catch(function() {});
 }
 
+// ── Search by lead name ───────────────────────────────────────────────────
+// Filters the ALREADY-LOADED list client-side. At this scale (93 rows on the
+// largest client) a round trip per keystroke would buy nothing, and the whole
+// list is in memory anyway because the stacked view renders all of it.
+//
+// The query composes WITH the stage chips rather than replacing them: it is
+// applied inside gmLeadsInStage, so "Negociação" + "silva" means the Silvas in
+// Negociação, and every stage count on screen reflects the search. Searching
+// inside a stage never silently jumps you to another one.
+var gmLeadSearch = "";
+
+// Accent- and case-insensitive: the names are Brazilian and nobody types
+// "Conceição" with the cedilla when they are hunting for a row. NFD splits a
+// letter from its diacritic so the combining marks can be dropped.
+function gmSearchNorm(s) {
+  var out = String(s == null ? "" : s).toLowerCase();
+  if (out.normalize) { out = out.normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+  return out.trim();
+}
+
+function gmLeadMatchesSearch(lead) {
+  if (!gmLeadSearch) { return true; }
+  return gmSearchNorm(lead.cliente).indexOf(gmLeadSearch) !== -1;
+}
+
+// True when a search is active but nothing in the WHOLE pipeline matches --
+// distinct from a client who simply has no leads, which is a different message.
+function gmSearchHasNoMatches() {
+  if (!gmLeadSearch) { return false; }
+  var leads = (gmLeadsData && gmLeadsData.leads) || [];
+  if (!leads.length) { return false; }   // "no leads at all" wins
+  for (var i = 0; i < leads.length; i++) {
+    if (gmLeadMatchesSearch(leads[i])) { return false; }
+  }
+  return true;
+}
+
 function gmLeadsInStage(stage) {
   var out = [];
   ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) {
-    if (l.estagio === stage) { out.push(l); }
+    if (l.estagio === stage && gmLeadMatchesSearch(l)) { out.push(l); }
   });
   return out;
 }
@@ -734,7 +794,7 @@ function gmLeadRowHtml(lead) {
     (line2 ? '<div class="gm-lead-sub">' + line2 + '</div>' : "") +
     (line3 ? '<div class="gm-lead-sub">' + line3 + '</div>' : "") +
     '</span>' +
-    '<span class="gm-lead-side">' + gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) + '</span>' +
+    '<span class="gm-lead-side">' + gmPillHtml(gmStageLabel(lead.estagio), GM_STAGE_PILL[lead.estagio]) + '</span>' +
     '</button>';
 }
 
@@ -764,10 +824,50 @@ function gmCrmSummaryHtml() {
     '</div>';
 }
 
+// The search box. Rendered ONCE by gmRenderCrm and then deliberately left
+// alone: re-rendering the <input> on every keystroke would blow away focus and
+// the caret mid-word. gmRenderCrmList() below repaints only the rows.
+function gmLeadSearchHtml() {
+  return '<div class="gm-lead-search">' +
+    '<input type="search" id="gmLeadSearch" class="gm-lead-search-input" ' +
+    'autocomplete="off" autocorrect="off" spellcheck="false" ' +
+    'placeholder="' + escHtml(gmT("Buscar lead pelo nome…", "Search leads by name…")) + '" ' +
+    'aria-label="' + escHtml(gmT("Buscar lead pelo nome", "Search leads by name")) + '" ' +
+    'value="' + escHtml(gmLeadSearch) + '" oninput="gmLeadSearchInput(this.value)">' +
+    '<button type="button" class="gm-lead-search-clear" id="gmLeadSearchClear"' +
+    (gmLeadSearch ? "" : " hidden") + ' aria-label="' +
+    escHtml(gmT("Limpar busca", "Clear search")) + '" onclick="gmLeadSearchClear()">×</button>' +
+    '</div>';
+}
+
+function gmLeadSearchInput(v) {
+  gmLeadSearch = gmSearchNorm(v);
+  var clear = document.getElementById("gmLeadSearchClear");
+  if (clear) { clear.hidden = !gmLeadSearch; }
+  gmRenderCrmList();
+}
+
+function gmLeadSearchClear() {
+  gmLeadSearch = "";
+  var input = document.getElementById("gmLeadSearch");
+  if (input) { input.value = ""; input.focus(); }
+  var clear = document.getElementById("gmLeadSearchClear");
+  if (clear) { clear.hidden = true; }
+  gmRenderCrmList();
+}
+
+// Repaints ONLY the stage sections / chip rail + rows, leaving the search
+// input (and its focus) untouched. Everything that depends on the query lives
+// inside this subtree, which is why the counts stay in step with the filter.
+function gmRenderCrmList() {
+  var host = document.getElementById("gmCrmList");
+  if (!host || !gmConfig || !gmLeadsData) { return; }
+  host.innerHTML = gmCrmListHtml();
+}
+
 function gmRenderCrm() {
   var body = document.getElementById("gmCrmBody");
   if (!gmConfig || !gmLeadsData) { return; }
-  var stages = gmConfig.method.stages;
   var mode = gmCrmViewMode();
   var html = '<div class="content-card">' + gmCrmSummaryHtml() + '</div>';
 
@@ -781,12 +881,40 @@ function gmRenderCrm() {
       ? gmT("Ver por estágio", "View by stage")
       : gmT("Ver tudo empilhado", "View stacked")) + '</button></div>';
 
+  // Only worth showing when there is a list big enough to hunt through.
+  if (((gmLeadsData && gmLeadsData.leads) || []).length) { html += gmLeadSearchHtml(); }
+
+  html += '<div id="gmCrmList">' + gmCrmListHtml() + '</div>';
+  html += gmPipelineFabHtml();
+
+  body.innerHTML = html;
+}
+
+function gmCrmListHtml() {
+  var stages = gmConfig.method.stages;
+  var mode = gmCrmViewMode();
+  var html = "";
+
+  // A search that matches nothing anywhere: say so once, plainly, instead of
+  // repeating "no leads in this stage" eight times down an empty pipeline.
+  // Deliberately different wording from the never-had-a-lead case.
+  if (gmSearchHasNoMatches()) {
+    return '<div class="content-card"><div class="gm-search-empty">' +
+      '<div class="gm-search-empty-title">' +
+      gmT("Nenhum lead encontrado", "No leads found") + '</div>' +
+      '<div class="gm-search-empty-sub">' +
+      gmT("Nenhum lead corresponde a “", "No lead matches “") + escHtml(gmLeadSearch) + '”. ' +
+      gmT("Tente outro nome.", "Try another name.") + '</div>' +
+      '<button type="button" class="btn-outline" onclick="gmLeadSearchClear()">' +
+      gmT("Limpar busca", "Clear search") + '</button></div></div>';
+  }
+
   if (mode === "stacked") {
     html += '<div class="content-card">';
     stages.forEach(function(stage, i) {
       var leads = gmLeadsInStage(stage);
       html += '<div class="gm-stage-section"' + (i === 0 ? ' data-tour="crm-stage-section"' : '') + '>' +
-        '<div class="gm-stage-head"><span class="gm-stage-name">' + escHtml(stage) + '</span>' +
+        '<div class="gm-stage-head"><span class="gm-stage-name">' + escHtml(gmStageLabel(stage)) + '</span>' +
         '<span class="gm-stage-count">' + leads.length + '</span></div>';
       if (!leads.length) {
         html += '<div class="gm-stage-empty">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</div>';
@@ -803,26 +931,53 @@ function gmRenderCrm() {
       var n = gmLeadsInStage(stage).length;
       html += '<button type="button" class="gm-stage-chip' + (stage === gmActiveStage ? " gm-chip-active" : "") +
         '" onclick="gmPickStage(\'' + escHtml(stage).replace(/'/g, "\\'") + '\')">' +
-        escHtml(stage) + ' <span class="gm-chip-count">' + n + '</span></button>';
+        escHtml(gmStageLabel(stage)) + ' <span class="gm-chip-count">' + n + '</span></button>';
     });
     html += '</div><div class="content-card">';
     var filtered = gmLeadsInStage(gmActiveStage);
     if (!filtered.length) {
-      html += '<p class="muted">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</p>';
+      // Under a search, "nothing in this stage" is misleading on its own: the
+      // matches usually exist one chip over, and the counts alone are easy to
+      // miss. Name the stages that DO have hits and make them tappable, so a
+      // search never dead-ends on the stage that happened to be selected.
+      var elsewhere = [];
+      if (gmLeadSearch) {
+        stages.forEach(function(s) {
+          if (s === gmActiveStage) { return; }
+          var n = gmLeadsInStage(s).length;
+          if (n) { elsewhere.push({ stage: s, n: n }); }
+        });
+      }
+      if (elsewhere.length) {
+        html += '<div class="gm-search-elsewhere">' +
+          '<div class="gm-search-elsewhere-title">' +
+          gmT("Nenhum resultado em ", "No matches in ") + escHtml(gmStageLabel(gmActiveStage)) + '.</div>' +
+          '<div class="gm-search-elsewhere-sub">' +
+          gmT("Encontrado em:", "Found in:") + '</div><div class="gm-search-elsewhere-chips">';
+        elsewhere.forEach(function(e) {
+          html += '<button type="button" class="gm-stage-chip" onclick="gmPickStage(\'' +
+            escHtml(e.stage).replace(/'/g, "\\'") + '\')">' + escHtml(gmStageLabel(e.stage)) +
+            ' <span class="gm-chip-count">' + e.n + '</span></button>';
+        });
+        html += '</div></div>';
+      } else {
+        html += '<p class="muted">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</p>';
+      }
     } else {
       filtered.forEach(function(l) { html += gmLeadRowHtml(l); });
     }
     html += '</div>';
   }
 
-  html += gmPipelineFabHtml();
-
-  body.innerHTML = html;
+  return html;
 }
 
+// Stage chips repaint the list only, so the search box keeps focus and the
+// query survives switching stages -- searching inside Negociação and then
+// tapping Fechado keeps the same query, now scoped to Fechado.
 function gmPickStage(stage) {
   gmActiveStage = stage;
-  gmRenderCrm();
+  gmRenderCrmList();
 }
 
 // ── Quick add: THREE fields (Nome, Telefone, Serviços-as-chips) ─────────
@@ -856,8 +1011,11 @@ function gmQuickAddOpen() {
     '<label class="field-label" style="margin-top:12px;">' + gmT("Serviço", "Service") + '</label>' +
     '<div class="gm-chip-set" id="gmQaServicos">' + chips + '</div>' +
     '<div class="gm-derived-note">' +
-    gmT("Estágio: Novo Lead · Data: agora. Depois de salvar você pode adicionar os detalhes.",
-        "Stage: Novo Lead · Date: now. You can add details after saving.") + '</div>' +
+    // The stage name is interpolated from the label table rather than written
+    // into the sentence: the English copy used to read "Stage: Novo Lead",
+    // English chrome around an untranslatable Portuguese value.
+    gmT("Estágio: " + gmStageLabel("novo_lead") + " · Data: agora. Depois de salvar você pode adicionar os detalhes.",
+        "Stage: " + gmStageLabel("novo_lead") + " · Date: now. You can add details after saving.") + '</div>' +
     '<div class="gm-editor-actions">' +
     '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
     '<button type="button" class="btn-gold" onclick="gmQuickAddSave()">' + gmT("Salvar lead", "Save lead") + '</button>' +
@@ -913,7 +1071,7 @@ function gmQuickAddSave() {
     address: addr || null,
     city: city || null,
     servico: gmQuickServicos.length ? gmQuickServicos.join(", ") : null,
-    estagio: "Novo Lead",
+    estagio: "novo_lead",
     data_lead: gmNowLocalIso(),
     mes_lead: gmCurrentCycleMonth()
   };
@@ -1273,6 +1431,9 @@ function gmLeadFieldDisplay(lead, def) {
   if (def.type === "datetime") { return escHtml(formatDateTime(v)); }
   if (def.key === "parceiro_id") { return escHtml(lead.parceiro_name || ""); }
   if (def.type === "multichoice") { return escHtml(gmServicoList(v).join(", ")); }
+  // origem is a fixed system list, so it translates. servico/servico_desc and
+  // the other free-text fields fall through gmStatusLabel unchanged.
+  if (def.key === "origem") { return escHtml(gmStatusLabel(v)); }
   return escHtml(String(v));
 }
 
@@ -1334,7 +1495,7 @@ function gmRenderLeadSheet() {
       '<span class="gm-sheet-hero-body">' +
         '<span class="gm-sheet-hero-label">' + gmT("Estágio", "Stage") + '</span>' +
         '<span class="gm-sheet-hero-pill">' +
-        gmPillHtml(lead.estagio, GM_STAGE_PILL[lead.estagio]) + '</span>' +
+        gmPillHtml(gmStageLabel(lead.estagio), GM_STAGE_PILL[lead.estagio]) + '</span>' +
         (days !== null ? '<span class="gm-sheet-hero-age">' +
           (isEn() ? days + " day(s) in this stage" : days + " dia(s) neste estágio") + '</span>' : "") +
         '<span class="gm-sheet-hero-hint">' + gmT("Toque para mudar", "Tap to change") + '</span>' +
@@ -1419,9 +1580,389 @@ function gmRenderLeadSheet() {
   });
   body += gmSheetSection(gmT("Outros campos", "Other fields"), rest);
 
+  // ── Attachments ─────────────────────────────────────────
+  // Rendered empty and filled asynchronously, so a slow file list never holds
+  // up the sheet -- same contract as the project gallery.
+  body += '<div id="gmLeadFilesSection"></div>';
+
+  // ── Notes ────────────────────────────────────────────────
+  // The dated thread. Distinct from "Observação do trabalho" above, which is a
+  // field on the lead record and stays exactly where it is.
+  body += '<div id="gmNotesSection"></div>';
+
+  // ── History ──────────────────────────────────────────────
+  // What happened, who did it, when. Distinct from Notes: a note is something
+  // a person chose to write, history is what the system recorded.
+  body += '<div id="gmLeadHistorySection"></div>';
+
   body += '<button type="button" class="btn-outline gm-add-btn" style="color:var(--red);border-color:var(--red);" onclick="gmDeleteLead()">' +
     gmT("Excluir lead", "Delete lead") + '</button>';
   gmSheetOpen(escHtml(lead.cliente), body, "crm-lead-detail");
+  gmLoadLeadFiles(lead.id);
+  gmLoadNotes("lead", lead.id);
+  gmLoadLeadHistory(lead.id);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Lead history — who did what, and when
+// ══════════════════════════════════════════════════════════════════════
+//
+// Reads gm_lead_events. Every entry is rendered from KEYS through the same
+// label tables as the rest of the UI, so the history is bilingual too — an
+// audit log full of raw Portuguese would recreate the bug §1 fixed.
+//
+// Deliberately plain: no reporting, no per-seller dashboards, no charts.
+// Nobody asked for those and they are a separate build.
+var gmLeadHistory = {};
+
+function gmLoadLeadHistory(leadId) {
+  gmApi("leads/" + encodeURIComponent(leadId) + "/events")
+    .then(function(d) {
+      gmLeadHistory[leadId] = d.events || [];
+      gmRenderLeadHistory(leadId);
+    })
+    .catch(function() {
+      gmLeadHistory[leadId] = [];
+      gmRenderLeadHistory(leadId, true);
+    });
+}
+
+// The human-readable field name. Falls back to the raw column for anything
+// not listed, which is honest rather than blank.
+function gmLeadFieldLabel(field) {
+  var map = {
+    cliente:              [ "Nome",                 "Name" ],
+    telefone:             [ "Telefone",             "Phone" ],
+    email:                [ "Email",                "Email" ],
+    origem:               [ "Origem",               "Source" ],
+    parceiro_id:          [ "Parceiro",             "Partner" ],
+    servico:              [ "Serviço",              "Service" ],
+    observacao:           [ "Observação",           "Job notes" ],
+    vendedor:             [ "Vendedor",             "Salesperson" ],
+    valor:                [ "Valor",                "Value" ],
+    proxima_acao:         [ "Próxima ação",         "Next action" ],
+    data_contato:         [ "Data do contato",      "Contact date" ],
+    data_estimate:        [ "Data do estimate",     "Estimate date" ],
+    mes_lead:             [ "Mês lead",             "Lead month" ],
+    mes_fechamento:       [ "Mês fechamento",       "Closing month" ],
+    address:              [ "Endereço",             "Address" ],
+    city:                 [ "Cidade",               "City" ],
+    servico_desc:         [ "O que o cliente quer", "What the client wants" ],
+    status_financiamento: [ "Status financiamento", "Financing status" ],
+    followups:            [ "Follow-ups",           "Follow-ups" ],
+    estagio:              [ "Estágio",              "Stage" ]
+  };
+  var m = map[field];
+  return m ? gmT(m[0], m[1]) : (field || "");
+}
+
+// A stored value rendered for display: stage keys become labels, origem and
+// the other fixed lists translate, money is formatted, everything else is
+// shown as written.
+function gmLeadHistValue(field, v) {
+  if (v === null || v === undefined || v === "") { return gmT("(vazio)", "(empty)"); }
+  if (field === "estagio") { return gmStageLabel(v); }
+  if (field === "origem")  { return gmStatusLabel(v); }
+  if (field === "valor")   { return fmtNum(Number(v), "currency"); }
+  return String(v);
+}
+
+function gmRenderLeadHistory(leadId, failed) {
+  var box = document.getElementById("gmLeadHistorySection");
+  if (!box) { return; }
+  var events = gmLeadHistory[leadId] || [];
+
+  var inner = "";
+  if (failed) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Não foi possível carregar o histórico.", "Could not load the history.") + '</p>';
+  } else if (!events.length) {
+    // True for every lead created before this shipped: the row exists, the
+    // history does not. Says so plainly rather than implying nothing happened.
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Nenhum registro ainda.", "Nothing recorded yet.") + '</p>';
+  } else {
+    events.forEach(function(e) {
+      var who = e.actor || gmT("desconhecido", "unknown");
+      var when = e.created_at ? formatDateTimeUTC(e.created_at) : "";
+      var line;
+      if (e.action === "stage_changed") {
+        line = gmT("Movido para ", "Moved to ") + "<strong>" +
+               escHtml(gmStageLabel(e.new_value)) + "</strong>" +
+               (e.old_value ? gmT(" (de ", " (from ") + escHtml(gmStageLabel(e.old_value)) + ")" : "");
+      } else if (e.action === "created") {
+        line = gmT("Lead criado", "Lead created");
+      } else if (e.action === "deleted") {
+        line = gmT("Lead excluído", "Lead deleted");
+      } else {
+        line = "<strong>" + escHtml(gmLeadFieldLabel(e.field)) + "</strong>: " +
+               escHtml(gmLeadHistValue(e.field, e.old_value)) + " → " +
+               escHtml(gmLeadHistValue(e.field, e.new_value));
+      }
+      inner += '<div class="gm-hist">' +
+        '<div class="gm-hist-line">' + line + '</div>' +
+        '<div class="gm-hist-meta">' + gmT("por ", "by ") + escHtml(who) +
+        (when ? ' · ' + escHtml(when) : "") + '</div>' +
+        '</div>';
+    });
+  }
+
+  box.innerHTML = gmSheetSection(gmT("Histórico", "History"), inner);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Lead attachments -- "PDF ou fotos" on a lead
+// ══════════════════════════════════════════════════════════════════════
+//
+// The signed estimate, a permit, site photos from WhatsApp. Images get a
+// thumbnail, PDFs get a file row with the original filename -- see
+// gmFileRowHtml. A salesperson never reaches these routes; the seller session
+// is refused at sellerRequestAllowed(), which does not list them.
+//
+// Cached per lead so re-rendering the sheet does not refetch every row.
+var gmLeadFiles = {};
+
+function gmLoadLeadFiles(leadId) {
+  gmApi("leads/" + encodeURIComponent(leadId) + "/files")
+    .then(function(d) {
+      gmLeadFiles[leadId] = d.files || [];
+      gmRenderLeadFiles(leadId);
+    })
+    .catch(function() {
+      // A failed attachment load must not take the rest of the lead sheet
+      // with it -- the fields above are what the sheet is primarily for.
+      gmLeadFiles[leadId] = [];
+      gmRenderLeadFiles(leadId, true);
+    });
+}
+
+function gmRenderLeadFiles(leadId, failed) {
+  var box = document.getElementById("gmLeadFilesSection");
+  if (!box) { return; }
+  var files = gmLeadFiles[leadId] || [];
+
+  var inner = "";
+  if (failed) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("N\u00e3o foi poss\u00edvel carregar os arquivos.", "Could not load the files.") + '</p>';
+  } else if (!files.length) {
+    inner = '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Nenhum arquivo ainda.", "No files yet.") + '</p>';
+  } else {
+    var images = files.filter(function(f) { return f.is_image !== false; });
+    var docs   = files.filter(function(f) { return f.is_image === false; });
+    if (images.length) {
+      inner += '<div class="gm-photo-grid">';
+      images.forEach(function(f) {
+        inner += '<figure class="gm-photo">' +
+          '<img id="gmPhotoImg_' + escHtml(f.id) + '" class="gm-photo-loading" ' +
+               'alt="' + escHtml(f.caption || f.file_name || gmT("Anexo", "Attachment")) + '">' +
+          (f.caption ? '<figcaption>' + escHtml(f.caption) + '</figcaption>' : "") +
+          '<button type="button" class="gm-photo-del" ' +
+            'aria-label="' + escHtml(gmT("Remover arquivo", "Remove file")) + '" ' +
+            'onclick="gmDeleteLeadFile(' + JSON.stringify(leadId).replace(/"/g, "&quot;") + ',' +
+                      JSON.stringify(f.id).replace(/"/g, "&quot;") + ')">&times;</button>' +
+          '</figure>';
+      });
+      inner += '</div>';
+    }
+    docs.forEach(function(f) {
+      inner += gmFileRowHtml(f, "gmOpenAuthedFile",
+        "gmDeleteLeadFile(" + JSON.stringify(leadId).replace(/"/g, "&quot;") + "," +
+        JSON.stringify(f.id).replace(/"/g, "&quot;") + ")");
+    });
+  }
+
+  inner += '<input type="file" id="gmLeadFileInput" accept="image/*,application/pdf" hidden ' +
+    'onchange="gmUploadLeadFile(' + JSON.stringify(leadId).replace(/"/g, "&quot;") + ', this)">' +
+    '<button type="button" class="btn-gold gm-add-btn" ' +
+      'onclick="document.getElementById(\'gmLeadFileInput\').click()">' +
+    gmT("+ Adicionar PDF ou foto", "+ Add PDF or photo") + '</button>';
+
+  box.innerHTML = gmSheetSection(gmT("Arquivos", "Files"), inner);
+  files.filter(function(f) { return f.is_image !== false; }).forEach(gmHydratePhoto);
+}
+
+// ══════════════════════════════════════════════════════
+// Notes -- a dated thread on a lead or a project
+// ══════════════════════════════════════════════════════
+//
+// One entry per note, newest first, each showing who wrote it and when.
+// Author and timestamp come from the server and are never sent by the
+// browser -- see the handlers in worker/index.js.
+//
+// gm_leads.observacao is a FIELD on the lead ("Observa\u00e7\u00e3o do trabalho") and
+// still lives in the field list above. This is the history beside it.
+//
+// Keyed "lead:<id>" / "job:<id>" so both parents share one cache and one
+// renderer without either being able to read the other's thread.
+var gmNotes = {};
+
+function gmNotesKey(parentType, parentId) { return parentType + ":" + parentId; }
+
+function gmNotesPath(parentType, parentId) {
+  return (parentType === "lead" ? "leads/" : "jobs/") + encodeURIComponent(parentId) + "/notes";
+}
+
+function gmLoadNotes(parentType, parentId) {
+  gmApi(gmNotesPath(parentType, parentId))
+    .then(function(d) {
+      gmNotes[gmNotesKey(parentType, parentId)] = d.notes || [];
+      gmRenderNotes(parentType, parentId);
+    })
+    .catch(function() {
+      // A failed note load must not take the rest of the sheet with it.
+      gmNotes[gmNotesKey(parentType, parentId)] = [];
+      gmRenderNotes(parentType, parentId, true);
+    });
+}
+
+function gmRenderNotes(parentType, parentId, failed) {
+  var box = document.getElementById("gmNotesSection");
+  if (!box) { return; }
+  var notes = gmNotes[gmNotesKey(parentType, parentId)] || [];
+  var pj = JSON.stringify(parentType).replace(/"/g, "&quot;");
+  var idj = JSON.stringify(parentId).replace(/"/g, "&quot;");
+
+  // Add box FIRST: writing a note is the reason the section is open, and on a
+  // long thread a box at the bottom is a scroll away.
+  var inner = '<div class="gm-note-add">' +
+    '<textarea id="gmNoteInput" class="gm-note-input" rows="2" ' +
+      'placeholder="' + escHtml(gmT("Escrever uma nota\u2026", "Write a note\u2026")) + '" ' +
+      'aria-label="' + escHtml(gmT("Nova nota", "New note")) + '"></textarea>' +
+    '<button type="button" class="btn-gold gm-note-save" ' +
+      'onclick="gmAddNote(' + pj + ',' + idj + ')">' +
+      gmT("Adicionar", "Add") + '</button></div>';
+
+  if (failed) {
+    inner += '<p class="muted" style="padding:10px 12px;">' +
+      gmT("N\u00e3o foi poss\u00edvel carregar as notas.", "Could not load the notes.") + '</p>';
+  } else if (!notes.length) {
+    inner += '<p class="muted" style="padding:10px 12px;">' +
+      gmT("Nenhuma nota ainda.", "No notes yet.") + '</p>';
+  } else {
+    notes.forEach(function(n) {
+      var when = n.created_at ? formatDateTimeUTC(n.created_at) : "";
+      inner += '<div class="gm-note">' +
+        '<div class="gm-note-head">' +
+          '<span class="gm-note-who">' + escHtml(n.created_by || gmT("Desconhecido", "Unknown")) + '</span>' +
+          '<span class="gm-note-when">' + escHtml(when) + '</span>' +
+        '</div>' +
+        '<div class="gm-note-body" id="gmNoteBody_' + escHtml(n.id) + '">' + escHtml(n.body) + '</div>' +
+        // Only your own note offers edit/delete. The server refuses anyone
+        // else's regardless -- this hides a button that would only ever 403.
+        (n.is_mine ?
+          '<div class="gm-note-actions">' +
+            '<button type="button" class="gm-note-act" onclick="gmEditNote(' + pj + ',' + idj + ',' +
+              JSON.stringify(n.id).replace(/"/g, "&quot;") + ')">' + gmT("Editar", "Edit") + '</button>' +
+            '<button type="button" class="gm-note-act gm-note-act-del" onclick="gmDeleteNote(' + pj + ',' + idj + ',' +
+              JSON.stringify(n.id).replace(/"/g, "&quot;") + ')">' + gmT("Excluir", "Delete") + '</button>' +
+          '</div>' : "") +
+        '</div>';
+    });
+  }
+
+  box.innerHTML = gmSheetSection(gmT("Notas", "Notes"), inner);
+}
+
+function gmAddNote(parentType, parentId) {
+  var input = document.getElementById("gmNoteInput");
+  if (!input) { return; }
+  var text = (input.value || "").trim();
+  if (!text) { return; }
+  input.disabled = true;
+  gmApi(gmNotesPath(parentType, parentId), { method: "POST", body: { body: text } })
+    .then(function(d) {
+      var k = gmNotesKey(parentType, parentId);
+      if (!gmNotes[k]) { gmNotes[k] = []; }
+      gmNotes[k].unshift(d.note);   // newest first
+      gmRenderNotes(parentType, parentId);
+      gmToast(gmT("Nota adicionada.", "Note added."));
+    })
+    .catch(function(e) {
+      input.disabled = false;
+      gmToast(gmT("Erro ao salvar a nota: ", "Could not save the note: ") + e.message);
+    });
+}
+
+function gmEditNote(parentType, parentId, noteId) {
+  var k = gmNotesKey(parentType, parentId);
+  var note = (gmNotes[k] || []).filter(function(n) { return n.id === noteId; })[0];
+  if (!note) { return; }
+  var next = window.prompt(gmT("Editar nota", "Edit note"), note.body);
+  if (next === null) { return; }
+  next = next.trim();
+  if (!next) { return; }
+  gmApi(gmNotesPath(parentType, parentId) + "/" + encodeURIComponent(noteId),
+        { method: "PUT", body: { body: next } })
+    .then(function(d) {
+      gmNotes[k] = (gmNotes[k] || []).map(function(n) { return n.id === noteId ? d.note : n; });
+      gmRenderNotes(parentType, parentId);
+      gmToast(gmT("Nota atualizada.", "Note updated."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao atualizar a nota: ", "Could not update the note: ") + e.message);
+    });
+}
+
+function gmDeleteNote(parentType, parentId, noteId) {
+  if (!window.confirm(gmT("Excluir esta nota?", "Delete this note?"))) { return; }
+  var k = gmNotesKey(parentType, parentId);
+  gmApi(gmNotesPath(parentType, parentId) + "/" + encodeURIComponent(noteId), { method: "DELETE" })
+    .then(function() {
+      gmNotes[k] = (gmNotes[k] || []).filter(function(n) { return n.id !== noteId; });
+      gmRenderNotes(parentType, parentId);
+      gmToast(gmT("Nota exclu\u00edda.", "Note deleted."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao excluir a nota: ", "Could not delete the note: ") + e.message);
+    });
+}
+
+function gmUploadLeadFile(leadId, input) {
+  if (!input.files || !input.files[0]) { return; }
+  var file = input.files[0];
+
+  // Checked here as well as in the Worker so a phone user gets an immediate
+  // answer instead of waiting out a 15 MB upload to be told no.
+  var MAX = 15 * 1024 * 1024;
+  if (file.size > MAX) {
+    gmToast(gmT("Arquivo muito grande. M\u00e1ximo 15 MB.", "File too large. Maximum 15 MB."));
+    input.value = "";
+    return;
+  }
+
+  var fd = new FormData();
+  fd.append("file", file);
+
+  gmToast(gmT("Enviando arquivo...", "Uploading file..."));
+  // formData, not body: apiFetch sets a JSON content-type for `body`, which
+  // would break the multipart boundary.
+  gmApi("leads/" + encodeURIComponent(leadId) + "/files", { method: "POST", formData: fd })
+    .then(function(d) {
+      if (!gmLeadFiles[leadId]) { gmLeadFiles[leadId] = []; }
+      gmLeadFiles[leadId].push(d.file);
+      gmRenderLeadFiles(leadId);
+      gmToast(gmT("Arquivo adicionado.", "File added."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao enviar o arquivo: ", "Could not upload the file: ") + e.message);
+    })
+    .then(function() { input.value = ""; });
+}
+
+function gmDeleteLeadFile(leadId, fileId) {
+  if (!window.confirm(gmT("Remover este arquivo?", "Remove this file?"))) { return; }
+  gmApi("leads/" + encodeURIComponent(leadId) + "/files/" + encodeURIComponent(fileId),
+        { method: "DELETE" })
+    .then(function() {
+      gmLeadFiles[leadId] = (gmLeadFiles[leadId] || []).filter(function(f) { return f.id !== fileId; });
+      gmRenderLeadFiles(leadId);
+      gmToast(gmT("Arquivo removido.", "File removed."));
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao remover o arquivo: ", "Could not remove the file: ") + e.message);
+    });
 }
 
 function gmOpenStagePicker() {
@@ -1431,7 +1972,7 @@ function gmOpenStagePicker() {
   stages.forEach(function(stage) {
     body += '<button type="button" class="gm-choice-chip' + (stage === lead.estagio ? " gm-chip-sel" : "") +
       '" style="text-align:left;" onclick="gmSetStage(\'' + escHtml(stage).replace(/'/g, "\\'") + '\')">' +
-      gmPillHtml(stage, GM_STAGE_PILL[stage]) + '</button>';
+      gmPillHtml(gmStageLabel(stage), GM_STAGE_PILL[stage]) + '</button>';
   });
   body += '</div>' +
     '<button type="button" class="btn-outline gm-add-btn" onclick="gmRenderLeadSheet()">' + gmT("Cancelar", "Cancel") + '</button>';
@@ -1539,7 +2080,7 @@ function gmRenderRoadmap() {
         '<div class="gm-lead-sub">' +
         [item.mes, item.frente, item.responsavel].filter(function(x) { return !!x; }).map(escHtml).join(" · ") +
         '</div></span>' +
-        '<span class="gm-lead-side" data-tour="roadmap-status">' + gmPillHtml(item.status, GM_STATUS_PILLS.roadmap[item.status]) + '</span>' +
+        '<span class="gm-lead-side" data-tour="roadmap-status">' + gmPillHtml(gmStatusLabel(item.status), GM_STATUS_PILLS.roadmap[item.status]) + '</span>' +
         '</button>';
     });
   }
@@ -1590,7 +2131,7 @@ function gmRenderBase() {
         '</div>' +
         (item.data_contato ? '<div class="gm-lead-sub">' + gmT("Contato: ", "Contacted: ") + formatDate(item.data_contato) + '</div>' : "") +
         '</span>' +
-        '<span class="gm-lead-side">' + gmPillHtml(item.status, GM_STATUS_PILLS.base[item.status]) + '</span>' +
+        '<span class="gm-lead-side">' + gmPillHtml(gmStatusLabel(item.status), GM_STATUS_PILLS.base[item.status]) + '</span>' +
         '</button>';
     });
   }
@@ -1761,7 +2302,7 @@ function gmRenderPartners() {
             '<span class="gm-partner-card-name">' + escHtml(p.name) + '</span>' +
             (p.tipo ? '<span class="gm-partner-card-type">' + escHtml(p.tipo) + '</span>' : '') +
           '</span>' +
-          '<span class="gm-lead-side">' + gmPillHtml(p.status, GM_STATUS_PILLS.partner[p.status]) + '</span>' +
+          '<span class="gm-lead-side">' + gmPillHtml(gmStatusLabel(p.status), GM_STATUS_PILLS.partner[p.status]) + '</span>' +
         '</span>' +
         '<span class="gm-partner-stats">' +
           '<span class="gm-partner-stat">' +
@@ -1961,7 +2502,7 @@ function gmRenderJobs() {
           .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
         '<div class="gm-lead-sub">' + [margemHtml, prazoHtml].filter(function(x) { return !!x; }).join(" · ") + '</div>' +
         '</span>' +
-        '<span class="gm-lead-side" data-tour="jobs-status">' + gmPillHtml(j.status, GM_STATUS_PILLS.job[j.status]) + '</span>' +
+        '<span class="gm-lead-side" data-tour="jobs-status">' + gmPillHtml(gmStatusLabel(j.status), GM_STATUS_PILLS.job[j.status]) + '</span>' +
         '</button>';
     });
   }
@@ -1973,8 +2514,12 @@ function gmRenderJobs() {
 function gmOpenJob(idx) {
   gmSheetRow = idx === -1 ? null : gmJobsData.jobs[idx];
   gmRenderSimpleSheet("job");
-  // A brand-new project has no id yet, so it has nothing to attach photos to.
-  if (gmSheetRow && gmSheetRow.id) { gmLoadJobPhotos(gmSheetRow.id); }
+  // A brand-new project has no id yet, so it has nothing to attach photos or
+  // notes to.
+  if (gmSheetRow && gmSheetRow.id) {
+    gmLoadJobPhotos(gmSheetRow.id);
+    gmLoadNotes("job", gmSheetRow.id);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -2046,8 +2591,13 @@ function gmRenderJobPhotos(jobId, failed) {
     inner = '<p class="muted" style="padding:10px 12px;">' +
       gmT("Nenhuma foto ainda.", "No photos yet.") + '</p>';
   } else {
-    inner = '<div class="gm-photo-grid">';
-    photos.forEach(function(p) {
+    // Images go in the thumbnail grid; PDFs are listed underneath as file
+    // rows. A PDF has no thumbnail, and rendering one into an <img> is the
+    // broken-image icon this split exists to avoid.
+    var images = photos.filter(function(p) { return p.is_image !== false; });
+    var docs   = photos.filter(function(p) { return p.is_image === false; });
+    inner = images.length ? '<div class="gm-photo-grid">' : '';
+    images.forEach(function(p) {
       inner += '<figure class="gm-photo">' +
         '<img id="gmPhotoImg_' + escHtml(p.id) + '" class="gm-photo-loading" ' +
              'alt="' + escHtml(p.caption || gmT("Foto do projeto", "Project photo")) + '">' +
@@ -2058,22 +2608,74 @@ function gmRenderJobPhotos(jobId, failed) {
                     JSON.stringify(p.id).replace(/"/g, "&quot;") + ')">&times;</button>' +
         '</figure>';
     });
-    inner += '</div>';
+    if (images.length) { inner += '</div>'; }
+    docs.forEach(function(p) {
+      inner += gmFileRowHtml(p, "gmOpenAuthedFile",
+        "gmDeleteJobPhoto(" + JSON.stringify(jobId).replace(/"/g, "&quot;") + "," +
+        JSON.stringify(p.id).replace(/"/g, "&quot;") + ")");
+    });
   }
 
   // The file input is hidden behind a styled button — same pattern the logo
-  // and document uploads use.
-  inner += '<input type="file" id="gmJobPhotoInput" accept="image/*" hidden ' +
+  // and document uploads use. PDFs are accepted alongside images now: the
+  // client asked to archive documents on a project, not only progress photos.
+  inner += '<input type="file" id="gmJobPhotoInput" accept="image/*,application/pdf" hidden ' +
     'onchange="gmUploadJobPhoto(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', this)">' +
     '<button type="button" class="btn-gold gm-add-btn" ' +
       'onclick="document.getElementById(\'gmJobPhotoInput\').click()">' +
-    gmT("+ Adicionar foto", "+ Add photo") + '</button>' +
+    gmT("+ Adicionar foto ou PDF", "+ Add photo or PDF") + '</button>' +
     '<p class="muted" style="font-size:11px;padding:0 12px 8px;">' +
-    gmT("O cliente v\u00ea estas fotos no portal dele.",
-        "Your client sees these photos in their portal.") + '</p>';
+    gmT("O cliente v\u00ea estes arquivos no portal dele.",
+        "Your client sees these files in their portal.") + '</p>';
 
-  box.innerHTML = gmSheetSection(gmT("Fotos do projeto", "Project photos"), inner);
-  photos.forEach(gmHydratePhoto);
+  box.innerHTML = gmSheetSection(gmT("Arquivos do projeto", "Project files"), inner);
+  // Only images are hydrated: a PDF row has no <img> to fill.
+  photos.filter(function(p) { return p.is_image !== false; }).forEach(gmHydratePhoto);
+}
+
+// One row for a non-image attachment, shared by the project gallery and the
+// lead attachment list. Shows the original filename, because one PDF icon
+// looks like every other.
+function gmFileRowHtml(f, openFn, deleteCall) {
+  var label = f.file_name || gmT("Documento", "Document");
+  return '<div class="gm-file-row">' +
+    '<span class="gm-file-ico" aria-hidden="true">PDF</span>' +
+    '<button type="button" class="gm-file-main" ' +
+      'onclick="' + openFn + '(' + JSON.stringify(f.file_url).replace(/"/g, "&quot;") + ')">' +
+      '<span class="gm-file-name">' + escHtml(label) + '</span>' +
+      (f.caption ? '<span class="gm-file-cap">' + escHtml(f.caption) + '</span>' : "") +
+    '</button>' +
+    '<button type="button" class="gm-file-del" aria-label="' +
+      escHtml(gmT("Remover arquivo", "Remove file")) + '" ' +
+      'onclick="' + deleteCall + '">&times;</button>' +
+    '</div>';
+}
+
+// Opens an authenticated file in a new tab. An <a href> would arrive without
+// the Authorization header and 401, so the bytes are fetched as a blob and
+// handed to the browser as an object URL.
+//
+// The tab is opened BEFORE the fetch: Safari blocks a window.open() that does
+// not descend directly from the tap that triggered it.
+function gmOpenAuthedFile(fileUrl) {
+  var tab = window.open("", "_blank");
+  apiFetch(fileUrl)
+    .then(function(res) { return res.ok ? res.blob() : null; })
+    .then(function(blob) {
+      if (!blob) {
+        if (tab) { tab.close(); }
+        gmToast(gmT("N\u00e3o foi poss\u00edvel abrir o arquivo.", "Could not open the file."));
+        return;
+      }
+      var url = URL.createObjectURL(blob);
+      if (tab) { tab.location = url; } else { window.location = url; }
+      // Revoked late: revoking immediately can race the new tab's load.
+      setTimeout(function() { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
+    })
+    .catch(function() {
+      if (tab) { tab.close(); }
+      gmToast(gmT("N\u00e3o foi poss\u00edvel abrir o arquivo.", "Could not open the file."));
+    });
 }
 
 function gmUploadJobPhoto(jobId, input) {
@@ -2084,7 +2686,7 @@ function gmUploadJobPhoto(jobId, input) {
   // answer instead of waiting out a 15 MB upload to be told no.
   var MAX = 15 * 1024 * 1024;
   if (file.size > MAX) {
-    gmToast(gmT("Foto muito grande. M\u00e1ximo 15 MB.", "Photo too large. Maximum 15 MB."));
+    gmToast(gmT("Arquivo muito grande. M\u00e1ximo 15 MB.", "File too large. Maximum 15 MB."));
     input.value = "";
     return;
   }
@@ -2227,7 +2829,7 @@ function gmSimpleFieldDisplay(row, def) {
   if (def.type === "currency") { return escHtml(fmtNum(v, "currency")); }
   if (def.type === "date") { return escHtml(formatDate(v)); }
   if (def.type === "jobref") { return escHtml(row.obra_name || ""); }
-  if (def.pills) { return gmPillHtml(String(v), def.pills[v]); }
+  if (def.pills) { return gmPillHtml(gmStatusLabel(v), def.pills[v]); }
   return escHtml(String(v));
 }
 
@@ -2471,6 +3073,10 @@ function gmRenderSimpleSheet(kind) {
     // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
     // sheet opens immediately instead of waiting on the network.
     body += '<div id="gmJobPhotosSection"></div>';
+
+    // ── Notes ───────────────────────────────────────────────────────────
+    // Same dated thread as the lead sheet, same server-set author and time.
+    body += '<div id="gmNotesSection"></div>';
   }
   if (kind === "base") {
     if (row.reactivated_lead_id) {
@@ -3026,6 +3632,11 @@ function gmOnLangChange() {
   if (gmCurrentTab === "gmroadmap" && gmRoadmapData) { gmRenderRoadmap(); }
   if (gmCurrentTab === "gmfinance" && gmFinanceData) { gmRenderFinance(); }
   if (gmCurrentTab === "gmjobs" && gmJobsData) { gmRenderJobs(); }
+  // The calendar carries THREE kinds of translated text — event-type labels,
+  // titles recomposed per language, and the derived "Início / Prazo / Entrega"
+  // job labels — so it has to repaint like every other tab. It was missing
+  // from this list, which is why a toggle left the grid in the old language.
+  if (gmCurrentTab === "gmcalendar" && gmCalData) { gmRenderCalendar(); }
 
   // An open project sheet re-renders too, so the photo gallery's own labels
   // ("No photos yet", "+ Add photo") switch with everything else. Replayed
@@ -3034,4 +3645,572 @@ function gmOnLangChange() {
       document.getElementById("gmJobPhotosSection")) {
     gmRenderJobPhotos(gmSheetRow.id);
   }
+
+  // An open LEAD sheet re-renders too. It carries more translated text than
+  // any other sheet now — field labels, the stage pill, origem, and the whole
+  // history — and it was previously left in the old language until closed and
+  // reopened. Rebuilt from gmDetailLead, so nothing is refetched; the files,
+  // notes and history sections repaint from their own caches.
+  if (document.getElementById("gmLeadHistorySection") && gmDetailLead) {
+    gmRenderLeadSheet();
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Agenda — the client business's OWN company calendar
+// ═════════════════════════════════════════════════════════════════════════
+//
+// Rafa's clarification is why this exists: "no portal do meu cliente ele não
+// tem acesso ao calendário da empresa dele". Alice has a calendar on the Apex
+// side; the client tier had none.
+//
+// NO GOOGLE. No OAuth, no sync, no integration of any kind — an explicit
+// decision, not an omission.
+//
+// The month grid, chips and the mobile mini-month + agenda pattern all come
+// from calendar-grid.js, extracted from calendar.html rather than rewritten:
+// that file carries fixes for mobile layout, name truncation and time
+// formatting that exist nowhere else, and a fresh grid reintroduces all of
+// them. What is NOT reused is the Apex session CREATE FORM — Meet links,
+// Fireflies, meeting categories and the Apex client roster are the consulting
+// business's own calendar and mean nothing to a pool builder.
+//
+// Three kinds of entry, rendered differently because they mean different
+// things:
+//   own      — a gm_events row; editable.
+//   derived  — a gm_jobs date, read at request time and NEVER stored. Tapping
+//              opens the job; it is edited there, so the calendar cannot
+//              drift from the job record.
+//   club     — an Apex Club invitation. Read-only, visually distinct, and the
+//              payload carries no money, no headcount and no guest list.
+
+var gmCalMonth   = null;   // Date anchored on the 1st of the displayed month
+var gmCalData    = null;   // { events: [...] } for the displayed month
+var gmCalSelDate = null;   // mobile: the day whose agenda is open
+var gmCalDraft   = null;   // the composer's in-progress event
+
+function gmCalMonthKey(d) {
+  return d.getFullYear() + "-" + CalendarGrid.padZ(d.getMonth() + 1);
+}
+
+function gmLoadCalendar() {
+  gmCurrentTab = "gmcalendar";
+  if (!gmCalMonth) {
+    var now = new Date();
+    gmCalMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  var body = document.getElementById("gmCalendarBody");
+  body.innerHTML = '<div class="content-card"><p class="muted">' +
+    gmT("Carregando…", "Loading…") + '</p></div>';
+  // gmLoadConfig() is needed for the event-type list AND the vendedores list
+  // the composer offers; both come from the client's own gm_config.
+  //
+  // Jobs and leads are fetched too, because the composer links against them
+  // and both caches are empty until their own tabs are visited. Without this
+  // the "Projeto" and "Lead" pickers silently do not render on a fresh load
+  // and the composed title loses the half that makes it specific. Failures
+  // are swallowed to null: an unreachable lead list must cost you the picker,
+  // not the calendar.
+  Promise.all([
+    gmLoadConfig(),
+    gmApi("events?month=" + gmCalMonthKey(gmCalMonth)),
+    gmJobsData  ? Promise.resolve(gmJobsData)  : gmApi("jobs").catch(function() { return null; }),
+    gmLeadsData ? Promise.resolve(gmLeadsData) : gmApi("leads").catch(function() { return null; })
+  ])
+    .then(function(r) {
+      gmCalData = r[1];
+      if (r[2]) { gmJobsData = r[2]; }
+      if (r[3]) { gmLeadsData = r[3]; }
+      gmRenderCalendar();
+    })
+    .catch(function(e) {
+      body.innerHTML = '<div class="content-card"><p class="muted">' +
+        gmT("Não foi possível carregar a agenda.", "Could not load the calendar.") +
+        " " + escHtml(e.message) + '</p></div>';
+    });
+}
+
+function gmCalGo(delta) {
+  gmCalMonth = new Date(gmCalMonth.getFullYear(), gmCalMonth.getMonth() + delta, 1);
+  gmCalSelDate = null;   // the old selection is not in this month
+  gmLoadCalendar();
+}
+
+function gmCalToday() {
+  var now = new Date();
+  gmCalMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  gmCalSelDate = CalendarGrid.dateKey(now);
+  gmLoadCalendar();
+}
+
+// One chip for any of the three kinds. agenda=true is the roomier mobile form.
+function gmCalChip(ev) {
+  var btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "cgrid-chip " + (ev.kind === "club" ? "club" : ev.kind === "derived" ? "derived" : "own");
+
+  var name = document.createElement("span");
+  name.className = "cgrid-chip-name";
+  if (ev.kind === "derived") {
+    // Label the DATE, not just the project: three entries can share one
+    // project name and "which date is this?" is the only question that matters.
+    name.textContent = (isEn() ? ev.label_en : ev.label_pt) + ": " + (ev.title || "");
+  } else if (ev.kind === "club") {
+    name.textContent = "★ " + (ev.title || "Apex Club");
+  } else {
+    name.textContent = gmCalDisplayTitle(ev);
+  }
+  btn.appendChild(name);
+
+  var t = document.createElement("span");
+  t.className = "cgrid-chip-time";
+  if (ev.all_day || !ev.start_time) {
+    t.textContent = "";
+  } else {
+    t.textContent = " " + formatTime(ev.start_time);
+  }
+  btn.appendChild(t);
+
+  btn.onclick = function(e) {
+    e.stopPropagation();
+    if (ev.kind === "derived") { gmCalOpenJob(ev); }
+    else if (ev.kind === "club") { gmCalOpenClub(ev); }
+    else { gmCalOpenEvent(ev); }
+  };
+  return btn;
+}
+
+function gmRenderCalendar() {
+  var body = document.getElementById("gmCalendarBody");
+  if (!gmConfig || !gmCalData) { return; }
+  var months = CalendarGrid.monthNames(isEn());
+
+  var html = '<div class="gm-cal-head">' +
+    '<button type="button" class="gm-cal-nav" aria-label="' +
+      escHtml(gmT("Mês anterior", "Previous month")) + '" onclick="gmCalGo(-1)">‹</button>' +
+    '<div class="gm-cal-title">' + escHtml(months[gmCalMonth.getMonth()]) + ' ' +
+      gmCalMonth.getFullYear() + '</div>' +
+    '<button type="button" class="gm-cal-nav" aria-label="' +
+      escHtml(gmT("Próximo mês", "Next month")) + '" onclick="gmCalGo(1)">›</button>' +
+    '<button type="button" class="btn-outline gm-cal-today" onclick="gmCalToday()">' +
+      gmT("Hoje", "Today") + '</button>' +
+    '</div>' +
+    '<div id="gmCalGrid"></div>' +
+    // Legend: three visually distinct kinds need saying once, or the dashed
+    // and dark chips read as styling rather than meaning.
+    '<div class="gm-cal-legend">' +
+      '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
+      '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
+      '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
+    '</div>' +
+    '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +
+      gmT("+ Novo evento", "+ New event") + '</button>';
+
+  body.innerHTML = html;
+
+  CalendarGrid.renderCalendar(document.getElementById("gmCalGrid"), {
+    anchor: gmCalMonth,
+    events: gmCalData.events || [],
+    en: isEn(),
+    selectedDate: gmCalSelDate,
+    renderChip: gmCalChip,
+    emptyText: gmT("Nada agendado.", "Nothing scheduled."),
+    onSelectDate: function(d) { gmCalSelDate = d; gmRenderCalendar(); },
+    // Tapping an empty day starts a new event ON that day — the single most
+    // common way anyone adds something to a calendar.
+    onDayClick: function(d) { gmCalNew(d); }
+  });
+}
+
+// Re-render on a breakpoint crossing so a rotated phone gets the right
+// pattern. Registered once; the grid module only fires it on a real crossing.
+CalendarGrid.onBreakpointCross(function() {
+  if (gmCurrentTab === "gmcalendar" && gmCalData) { gmRenderCalendar(); }
+});
+
+// ── The composer ────────────────────────────────────────────────────────
+//
+// THE TITLE IS COMPOSED, NOT TYPED, and this is the whole point of the form.
+// Rafa's own Google Calendar has the same client as "RDE - METZ", "METZ - RDE"
+// and "Metz"; another as "RDE - Mazinho" (the owner's name, not the company
+// PERFECT SQUARE); and one entry with no title at all. None of that can be
+// grouped, counted or reported on. A free-text title field is what produced
+// it, so the default path here is three or four taps and almost no typing.
+//
+// "Outro" is the escape hatch: it drops the structure and gives a plain title
+// field. It must stay the slower path, or it becomes the default out of
+// laziness and we are back to free text.
+
+function gmCalNew(dateStr) {
+  gmCalDraft = {
+    id: null,
+    event_type: "",
+    title: "",
+    // A STORED flag, carried through to the row. Set only when the user
+    // actually edits the field, so a generated title keeps translating.
+    title_overridden: false,
+    titleTouched: false,   // once they edit the title, stop regenerating it
+    date: dateStr || gmCalSelDate || CalendarGrid.dateKey(new Date()),
+    start_time: "",
+    end_time: "",
+    all_day: false,
+    location: "",
+    description: "",
+    job_id: "",
+    lead_id: "",
+    assigned_to: ""
+  };
+  gmCalRenderComposer();
+}
+
+function gmCalOpenEvent(ev) {
+  gmCalDraft = {
+    id: ev.id,
+    event_type: ev.event_type || "",
+    title: ev.title || "",
+    title_overridden: !!ev.title_overridden,
+    // Only an OVERRIDDEN title is left alone. A generated one keeps
+    // regenerating, so editing the type or the link updates it and the
+    // language toggle keeps working on it.
+    titleTouched: !!ev.title_overridden,
+    date: ev.date,
+    start_time: ev.start_time || "",
+    end_time: ev.end_time || "",
+    all_day: !!ev.all_day,
+    location: ev.location || "",
+    description: ev.description || "",
+    job_id: ev.job_id || "",
+    lead_id: ev.lead_id || "",
+    assigned_to: ev.assigned_to || ""
+  };
+  gmCalRenderComposer();
+}
+
+// The label for an event-type KEY, in the current language, looked up in this
+// client's own configured list. A type the client added themselves stores the
+// same text in pt and en, so it displays identically either way — their
+// vocabulary is theirs and is never machine-translated.
+function gmEventTypeLabel(key) {
+  return GmLabels.eventTypeLabel(key, (gmConfig && gmConfig.config && gmConfig.config.event_types) || [], isEn());
+}
+
+// The linked record's own name — the job's obra or the lead's cliente. Stays
+// exactly as the client wrote it: correctly untranslated.
+function gmCalLinkName(d) {
+  if (d.job_id && gmJobsData && gmJobsData.jobs) {
+    for (var i = 0; i < gmJobsData.jobs.length; i++) {
+      if (gmJobsData.jobs[i].id === d.job_id) { return gmJobsData.jobs[i].obra || ""; }
+    }
+  }
+  if (d.lead_id && gmLeadsData && gmLeadsData.leads) {
+    for (var j = 0; j < gmLeadsData.leads.length; j++) {
+      if (gmLeadsData.leads[j].id === d.lead_id) { return gmLeadsData.leads[j].cliente || ""; }
+    }
+  }
+  return "";
+}
+
+// The generated title: "<event type> — <linked job or lead>".
+//
+// COMPOSED AT RENDER TIME, not stored. Storing the composed string is what
+// made titles untranslatable: toggling the language cannot rewrite saved text.
+// The PARTS are stored (the event_type key plus job_id/lead_id) and the
+// sentence is rebuilt per language on every render, so the type half
+// translates while the customer's own name stays as they wrote it.
+function gmCalGenTitle(d) {
+  var type = d.event_type ? gmEventTypeLabel(d.event_type) : "";
+  var who = gmCalLinkName(d);
+  if (type && who) { return type + " — " + who; }
+  return type || who || "";
+}
+
+// The title to DISPLAY for a stored event. An override (or an "Outro" event,
+// which has no structure to compose from) shows its stored text; anything else
+// is recomposed in the current language.
+//
+// title_overridden is a stored FLAG, never inferred by string-comparing the
+// saved title against a freshly generated one — that comparison would flip to
+// "overridden" the moment a translation changed.
+function gmCalDisplayTitle(ev) {
+  if (ev.title_overridden || ev.event_type === GmLabels.OUTRO_KEY) {
+    return ev.title || gmEventTypeLabel(ev.event_type);
+  }
+  var composed = gmCalGenTitle(ev);
+  return composed || ev.title || "";
+}
+
+// Compared as a KEY, never as a lowercased display string: "Other" and "Outro"
+// are the same escape hatch, and a string compare gets that wrong the moment
+// the UI is in English.
+function gmCalIsOutro(d) { return (d.event_type || "") === GmLabels.OUTRO_KEY; }
+
+// The linked record also supplies the location, so nobody retypes an address
+// the system already holds (gm_leads carries address and city).
+function gmCalAutoLocation(d) {
+  if (d.job_id) { return ""; }   // gm_jobs has no address column
+  if (d.lead_id && gmLeadsData && gmLeadsData.leads) {
+    var out = "";
+    gmLeadsData.leads.forEach(function(l) {
+      if (l.id !== d.lead_id) { return; }
+      out = [l.address, l.city].filter(function(x) { return !!x; }).join(", ");
+    });
+    return out;
+  }
+  return "";
+}
+
+function gmCalRenderComposer() {
+  var d = gmCalDraft;
+  var types = (gmConfig.config.event_types || []);
+  var vends = (gmConfig.config.vendedores || []);
+  var outro = gmCalIsOutro(d);
+
+  var body = "";
+
+  // 1. Event type — required, first, and the thing that shapes the title.
+  body += '<label class="field-label">' + gmT("Tipo de evento", "Event type") + ' *</label>';
+  if (!types.length) {
+    body += '<p class="muted" style="font-size:12px;margin:0 0 10px;">' +
+      gmT("Nenhum tipo configurado ainda. Use “Outro” ou adicione tipos em Ajustes.",
+          "No types configured yet. Use “Outro” or add types in Settings.") + '</p>';
+  }
+  body += '<div class="gm-chip-set gm-cal-types">';
+  // The chip SHOWS the label for the current language and STORES the key.
+  var shown = GmLabels.normalizeEventTypes(types);
+  var hasOutro = shown.some(function(t) { return t.key === GmLabels.OUTRO_KEY; });
+  if (!hasOutro) { shown = shown.concat([{ key: GmLabels.OUTRO_KEY, pt: "Outro", en: "Other" }]); }
+  shown.forEach(function(t) {
+    body += '<button type="button" class="gm-choice-chip' + (d.event_type === t.key ? " gm-chip-sel" : "") +
+      '" onclick="gmCalPickType(' + JSON.stringify(t.key).replace(/"/g, "&quot;") + ')">' +
+      escHtml(isEn() ? t.en : t.pt) + '</button>';
+  });
+  body += '</div>';
+
+  // 2. Link to a job or a lead — optional, and what makes the title specific.
+  //    Hidden under "Outro": that path is deliberately unstructured.
+  if (!outro) {
+    var jobs = (gmJobsData && gmJobsData.jobs) || [];
+    var leads = (gmLeadsData && gmLeadsData.leads) || [];
+    if (jobs.length) {
+      body += '<label class="field-label" style="margin-top:12px;">' +
+        gmT("Projeto", "Project") + '</label>' +
+        '<div class="gm-editor-input"><select id="gmCalJob" onchange="gmCalPickLink(\'job\', this.value)">' +
+        '<option value="">' + gmT("— nenhum —", "— none —") + '</option>';
+      jobs.forEach(function(j) {
+        body += '<option value="' + escHtml(j.id) + '"' + (d.job_id === j.id ? " selected" : "") + '>' +
+          escHtml(j.obra || "") + '</option>';
+      });
+      body += '</select></div>';
+    }
+    if (leads.length) {
+      body += '<label class="field-label" style="margin-top:12px;">' +
+        gmT("Lead / cliente", "Lead / customer") + '</label>' +
+        '<div class="gm-editor-input"><select id="gmCalLead" onchange="gmCalPickLink(\'lead\', this.value)">' +
+        '<option value="">' + gmT("— nenhum —", "— none —") + '</option>';
+      // Live leads first and capped: a 93-row <select> is not a picker.
+      var live = leads.filter(function(l) { return l.estagio !== "perdido"; });
+      live.slice(0, 60).forEach(function(l) {
+        body += '<option value="' + escHtml(l.id) + '"' + (d.lead_id === l.id ? " selected" : "") + '>' +
+          escHtml(l.cliente || "") + '</option>';
+      });
+      body += '</select></div>';
+    }
+  }
+
+  // 3. Assigned to — the client's own salespeople, when they have any.
+  if (!gmListEmpty(vends)) {
+    body += '<label class="field-label" style="margin-top:12px;">' +
+      gmT("Responsável", "Assigned to") + '</label>' +
+      '<div class="gm-editor-input"><select id="gmCalAssigned" onchange="gmCalDraft.assigned_to=this.value">' +
+      '<option value="">' + gmT("— ninguém —", "— nobody —") + '</option>';
+    vends.forEach(function(v) {
+      body += '<option value="' + escHtml(v) + '"' + (d.assigned_to === v ? " selected" : "") + '>' +
+        escHtml(v) + '</option>';
+    });
+    body += '</select></div>';
+  }
+
+  // 4. When.
+  body += '<label class="field-label" style="margin-top:12px;">' + gmT("Data", "Date") + ' *</label>' +
+    '<div class="gm-editor-input"><input type="date" id="gmCalDate" value="' + escHtml(d.date) +
+    '" onchange="gmCalDraft.date=this.value"></div>';
+
+  body += '<label class="gm-cal-allday"><input type="checkbox" id="gmCalAllDay"' +
+    (d.all_day ? " checked" : "") + ' onchange="gmCalToggleAllDay(this.checked)"> ' +
+    gmT("Dia inteiro", "All day") + '</label>';
+
+  if (!d.all_day) {
+    body += '<div class="gm-cal-times">' +
+      '<div><label class="field-label">' + gmT("Início", "Start") + '</label>' +
+      '<div class="gm-editor-input"><input type="time" id="gmCalStart" value="' + escHtml(d.start_time) +
+      '" onchange="gmCalDraft.start_time=this.value"></div></div>' +
+      '<div><label class="field-label">' + gmT("Fim", "End") + '</label>' +
+      '<div class="gm-editor-input"><input type="time" id="gmCalEnd" value="' + escHtml(d.end_time) +
+      '" onchange="gmCalDraft.end_time=this.value"></div></div>' +
+      '</div>';
+  }
+
+  // 5. Location — pre-filled from the link when there is one.
+  body += '<label class="field-label" style="margin-top:12px;">' + gmT("Local", "Location") + '</label>' +
+    '<div class="gm-editor-input"><input type="text" id="gmCalLoc" value="' + escHtml(d.location) +
+    '" oninput="gmCalDraft.location=this.value"></div>';
+
+  // 6. The generated title, shown live so they see what they are creating.
+  //    Editable — an override is their call — but the default is consistent.
+  var gen = d.titleTouched ? d.title : (outro ? d.title : gmCalGenTitle(d));
+  body += '<label class="field-label" style="margin-top:12px;">' +
+    (outro ? gmT("Título", "Title") + " *" : gmT("Título (gerado)", "Title (generated)")) + '</label>' +
+    '<div class="gm-editor-input"><input type="text" id="gmCalTitle" value="' + escHtml(gen) +
+    '" placeholder="' + escHtml(outro ? gmT("Descreva o evento", "Describe the event") : "") +
+    '" oninput="gmCalDraft.title=this.value;gmCalDraft.titleTouched=true;gmCalDraft.title_overridden=true;"></div>';
+  if (!outro) {
+    body += '<p class="muted" style="font-size:11px;margin:4px 2px 0;">' +
+      gmT("Gerado a partir das escolhas acima — edite se quiser.",
+          "Generated from the choices above — edit if you like.") + '</p>';
+  }
+
+  body += '<label class="field-label" style="margin-top:12px;">' + gmT("Notas", "Notes") + '</label>' +
+    '<div class="gm-editor-input"><textarea id="gmCalDesc" rows="2" ' +
+    'oninput="gmCalDraft.description=this.value">' + escHtml(d.description) + '</textarea></div>';
+
+  body += '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalSave()">' +
+    (d.id ? gmT("Salvar", "Save") : gmT("Criar evento", "Create event")) + '</button>';
+  if (d.id) {
+    body += '<button type="button" class="btn-outline gm-add-btn" ' +
+      'style="color:var(--red);border-color:var(--red);" onclick="gmCalDelete()">' +
+      gmT("Excluir evento", "Delete event") + '</button>';
+  }
+
+  gmSheetOpen(d.id ? gmT("Editar evento", "Edit event") : gmT("Novo evento", "New event"),
+              body, "gm-cal-composer");
+}
+
+function gmCalPickType(t) {
+  gmCalDraft.event_type = t;
+  // Switching type re-generates the title unless they have edited it.
+  gmCalRenderComposer();
+}
+
+function gmCalPickLink(kind, val) {
+  if (kind === "job") { gmCalDraft.job_id = val; if (val) { gmCalDraft.lead_id = ""; } }
+  else { gmCalDraft.lead_id = val; if (val) { gmCalDraft.job_id = ""; } }
+  // Auto-fill the location from the linked record, but never overwrite one
+  // they have already typed.
+  var auto = gmCalAutoLocation(gmCalDraft);
+  if (auto && !gmCalDraft.location) { gmCalDraft.location = auto; }
+  gmCalRenderComposer();
+}
+
+function gmCalToggleAllDay(on) {
+  gmCalDraft.all_day = !!on;
+  if (on) { gmCalDraft.start_time = ""; gmCalDraft.end_time = ""; }
+  gmCalRenderComposer();
+}
+
+function gmCalSave() {
+  var d = gmCalDraft;
+  var title = (document.getElementById("gmCalTitle").value || "").trim();
+  if (!title) { title = gmCalGenTitle(d); }
+  if (!d.event_type) {
+    gmToast(gmT("Escolha um tipo de evento.", "Pick an event type."));
+    return;
+  }
+  if (!title) {
+    gmToast(gmT("O evento precisa de um título.", "The event needs a title."));
+    return;
+  }
+  if (!d.date) {
+    gmToast(gmT("Escolha uma data.", "Pick a date."));
+    return;
+  }
+  var payload = {
+    event_type: d.event_type,
+    title: title,
+    // Stored, never inferred. An "Outro" event is always an override: there is
+    // no structure to compose a title from.
+    title_overridden: !!d.title_overridden || gmCalIsOutro(d),
+    event_date: d.date,
+    start_time: d.all_day ? null : (d.start_time || null),
+    end_time: d.all_day ? null : (d.end_time || null),
+    all_day: d.all_day,
+    location: d.location || null,
+    description: d.description || null,
+    job_id: d.job_id || null,
+    lead_id: d.lead_id || null,
+    assigned_to: d.assigned_to || null
+  };
+  var req = d.id
+    ? gmApi("events/" + encodeURIComponent(d.id), { method: "PUT", body: payload })
+    : gmApi("events", { method: "POST", body: payload });
+  req.then(function() {
+      gmSheetClose();
+      gmToast(d.id ? gmT("Evento salvo.", "Event saved.") : gmT("Evento criado.", "Event created."));
+      gmLoadCalendar();
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao salvar: ", "Could not save: ") + e.message);
+    });
+}
+
+function gmCalDelete() {
+  if (!gmCalDraft.id) { return; }
+  if (!window.confirm(gmT("Excluir este evento?", "Delete this event?"))) { return; }
+  gmApi("events/" + encodeURIComponent(gmCalDraft.id), { method: "DELETE" })
+    .then(function() {
+      gmSheetClose();
+      gmToast(gmT("Evento excluído.", "Event deleted."));
+      gmLoadCalendar();
+    })
+    .catch(function(e) {
+      gmToast(gmT("Erro ao excluir: ", "Could not delete: ") + e.message);
+    });
+}
+
+// A derived job date is NOT editable as a calendar entry — the job is edited
+// on the job. Tapping one takes you there.
+function gmCalOpenJob(ev) {
+  gmSheetClose();
+  switchTab("gmjobs");
+  // gmLoadJobs() is async; wait for the list before opening the sheet.
+  var tries = 0;
+  var t = setInterval(function() {
+    tries++;
+    if (gmJobsData && gmJobsData.jobs) {
+      clearInterval(t);
+      var idx = -1;
+      gmJobsData.jobs.forEach(function(j, i) { if (j.id === ev.job_id) { idx = i; } });
+      if (idx !== -1) { gmOpenJob(idx); }
+    } else if (tries > 40) { clearInterval(t); }
+  }, 100);
+}
+
+// An Apex Club invitation. Read-only, and deliberately money-free: the
+// endpoint never sends a price, a headcount or a guest list, so there is
+// nothing here to hide in the UI.
+function gmCalOpenClub(ev) {
+  var body = '<div class="gm-club-invite">';
+  if (ev.flyer_url) {
+    // The flyer route is public and auth-free, so a plain <img> works.
+    body += '<img class="gm-club-flyer" src="' + escHtml(ev.flyer_url) + '" alt="' +
+      escHtml(ev.title || "Apex Club") + '">';
+  }
+  body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Data", "Date") + '</span>' +
+    '<span class="gm-club-v">' + escHtml(formatDate(ev.date)) +
+    (ev.start_time ? " · " + escHtml(formatTime(ev.start_time)) : "") + '</span></div>';
+  if (ev.venue) {
+    body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Local", "Venue") + '</span>' +
+      '<span class="gm-club-v">' + escHtml(ev.venue) + '</span></div>';
+  }
+  if (ev.speakers) {
+    body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Palestrantes", "Speakers") + '</span>' +
+      '<span class="gm-club-v">' + escHtml(ev.speakers) + '</span></div>';
+  }
+  body += '</div>' +
+    '<a class="btn-gold gm-add-btn" style="display:block;text-align:center;text-decoration:none;" ' +
+      'href="' + escHtml(ev.register_url) + '" target="_blank" rel="noopener">' +
+      gmT("Confirmar presença", "Register") + '</a>' +
+    '<p class="muted" style="font-size:11px;padding:0 2px;">' +
+      gmT("Evento do Apex Club — organizado pela Apex.",
+          "An Apex Club event — hosted by Apex.") + '</p>';
+  gmSheetOpen(escHtml(ev.title || "Apex Club"), body, "gm-club-invite");
 }

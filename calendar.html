@@ -1471,6 +1471,63 @@
           </div>
           <input type="text" id="nsEventName">
         </div>
+
+        <!-- ══ Apex Club extras ═══════════════════════════════════════════
+             Shown ONLY when "+ Apex Club" is picked. Everything here belongs
+             to the apex_club_events row, not to the calendar session: the
+             calendar already collects name, date, time and location, so
+             nothing is asked twice. Saving creates BOTH records and links
+             them, which is what makes the registration link exist the moment
+             the calendar entry does.
+             Nothing in this block is required -- price defaults to the usual
+             $50/$75 and everything else can be filled in later from the
+             finance tab. -->
+        <div id="nsClubGroup" hidden>
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Convidados / palestrantes</span>
+              <span class="show-en">Speakers</span>
+            </div>
+            <input type="text" id="nsClubSpeakers" placeholder="Rafael Prata, Irclebson Ramos">
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div class="field-group" style="flex:1 1 140px;">
+              <div class="field-label">
+                <span class="show-pt">Valor por pessoa</span>
+                <span class="show-en">Price per person</span>
+              </div>
+              <input type="text" id="nsClubPriceSingle" inputmode="decimal" placeholder="50.00">
+            </div>
+            <div class="field-group" style="flex:1 1 140px;">
+              <div class="field-label">
+                <span class="show-pt">Valor por casal</span>
+                <span class="show-en">Price per couple</span>
+              </div>
+              <input type="text" id="nsClubPriceCouple" inputmode="decimal" placeholder="75.00">
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Observações <span style="font-weight:400;color:var(--muted);">— aparece na inscrição</span></span>
+              <span class="show-en">Notes <span style="font-weight:400;color:var(--muted);">— shown on the registration page</span></span>
+            </div>
+            <textarea id="nsClubNotes" rows="2" placeholder="Estacionamento gratuito nos fundos."></textarea>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Flyer</span>
+              <span class="show-en">Flyer</span>
+            </div>
+            <input type="file" id="nsClubFlyer" accept="image/jpeg,image/png,image/gif,image/webp">
+            <div style="font-size:12px;color:var(--muted);margin-top:5px;">
+              <span class="show-pt">Aparece na página de inscrição e no card do evento. Pode adicionar depois.</span>
+              <span class="show-en">Shows on the registration page and the event card. Can be added later.</span>
+            </div>
+          </div>
+        </div>
         <!-- Meeting category toggle: client (real, paying) vs prospective
              (a lead who hasn't signed yet). Defaults to Client; auto-flips
              to Prospective when the selected client's own status is "lead",
@@ -1869,6 +1926,27 @@
           <div class="detail-notes-text" id="detailNotes"></div>
         </div>
 
+        <!-- ══ Apex Club panel ═══════════════════════════════════════════
+             Appears only when this calendar entry is linked to an
+             apex_club_events row. Deliberately carries NO money: no P&L, no
+             transaction suggestions, no totals. Rafa runs the event and
+             Alice runs the finances, and the P&L does not exist until after
+             the night anyway -- so the guest list must be reachable without
+             going through the finance page. Same event row, second view. -->
+        <div id="clubPanel" hidden style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border);">
+          <div class="field-label" style="margin-bottom:8px;">
+            <span class="show-pt">Apex Club &mdash; inscri&ccedil;&otilde;es</span>
+            <span class="show-en">Apex Club &mdash; registrations</span>
+          </div>
+          <!-- No feather here, unlike the finance card: the hard crop reads
+               better against the modal's white background (Nicole, 2026-08-11). -->
+          <img id="clubPanelFlyer" hidden style="display:block;width:100%;aspect-ratio:4.17/1;max-height:150px;object-fit:cover;object-position:50% 5.5%;border-radius:8px;margin-bottom:10px;background:#111;">
+          <div id="clubPanelCount" style="font-size:15px;font-weight:700;margin-bottom:2px;"></div>
+          <div id="clubPanelSub" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+          <div id="clubPanelGuests"></div>
+          <div id="clubPanelLink" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;"></div>
+        </div>
+
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
           <button class="btn-whatsapp" id="btnWhatsApp" onclick="handleWhatsApp()">
             <span class="show-pt">Enviar WhatsApp</span>
@@ -2204,6 +2282,10 @@
 
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
   <script src="nav.js"></script>
+  <!-- Shared month-grid mechanics. calendar.html was the ORIGINAL home of this
+       code; it now consumes the extracted module so the client portal and this
+       page cannot drift. See calendar-grid.js. -->
+  <script src="calendar-grid.js?v=1786493218"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -2271,6 +2353,19 @@
           fetchOpts.body = JSON.stringify(opts.body);
         }
         return fetch(WORKER_URL + path, fetchOpts);
+      });
+    }
+
+    // Multipart sibling of apiFetch. Separate rather than a branch inside
+    // apiFetch, which JSON-stringifies its body and sets a JSON content type;
+    // a file upload needs the browser to set the multipart boundary itself.
+    function apiFetchForm(path, formData) {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + path, {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
       });
     }
 
@@ -2642,8 +2737,68 @@
       } else {
         nameEl.value = "";
       }
+      // Apex Club carries a price, a flyer and a registration page; a plain
+      // event does not. Purely additive -- the scheduling path above is
+      // untouched, this only reveals extra fields.
+      var clubGroup = document.getElementById("nsClubGroup");
+      if (clubGroup) { clubGroup.hidden = !(isEvent && isApexClub); }
+      NS_IS_APEX_CLUB = !!(isEvent && isApexClub);
+
       updateNsLocationVisibility();
       updateNsEndTimeVisibility();
+    }
+
+    // Set by setNsEventMode; read after the session saves, to decide whether
+    // an apex_club_events row should be created and linked.
+    var NS_IS_APEX_CLUB = false;
+
+    // Creates the apex_club_events row for a freshly scheduled Apex Club and
+    // links it to the calendar session, then uploads the flyer if one was
+    // chosen. Resolves either way: a failure here must never make a
+    // successfully scheduled calendar entry look like it failed, because the
+    // event can always be created from the finance tab instead.
+    function createLinkedClubEvent(scheduleData, eventName, date, time, location) {
+      if (!NS_IS_APEX_CLUB) { return Promise.resolve(); }
+
+      var session = scheduleData && scheduleData.session;
+      var sessionId = session && session.id;
+      if (!sessionId) { return Promise.resolve(); }
+
+      function dollars(id) {
+        var raw = (document.getElementById(id).value || "").trim().replace(/[^0-9.,]/g, "").replace(",", ".");
+        if (!raw) { return null; }
+        var n = parseFloat(raw);
+        return isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+      }
+
+      var body = {
+        name: eventName || "Apex Club",
+        event_date: date,
+        // The calendar already collected these -- never ask twice.
+        start_time: time ? formatTime(time) : null,
+        venue: location || null,
+        speakers: (document.getElementById("nsClubSpeakers").value || "").trim() || null,
+        notes: (document.getElementById("nsClubNotes").value || "").trim() || null,
+        session_id: sessionId
+      };
+      var ps = dollars("nsClubPriceSingle");
+      var pc = dollars("nsClubPriceCouple");
+      if (ps !== null) { body.price_single_cents = ps; }
+      if (pc !== null) { body.price_couple_cents = pc; }
+
+      return apiFetch("/api/finance-new/club/events", { method: "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || d.error || !d.event) { return; }
+          var fileEl = document.getElementById("nsClubFlyer");
+          var file = fileEl && fileEl.files && fileEl.files[0];
+          if (!file) { return; }
+
+          var fd = new FormData();
+          fd.append("flyer", file);
+          return apiFetchForm("/api/finance-new/club/events/" + d.event.id + "/flyer", fd);
+        })
+        .catch(function() { /* the calendar entry stands regardless */ });
     }
 
     // Vendor/partner mode. Deliberately NOT a variant of event mode: an event
@@ -2980,63 +3135,48 @@
 
     // ── Month view ─────────────────────────────────────────────────────────
 
+    // MIGRATED ONTO THE SHARED MODULE (calendar-grid.js).
+    //
+    // The six-week grid, the leading/trailing days, the "stop after a complete
+    // row" rule and the day cells now live in ONE place shared with the client
+    // portal, so a grid fix no longer has to be made twice — the standing
+    // problem dashboard.html already has.
+    //
+    // classPrefix "cal" keeps every existing .cal-* rule in this file's own
+    // <style> block working untouched, including the two fixes that exist
+    // nowhere else: chips WRAP rather than ellipsis (min-width: 0 on cell and
+    // chip), and mobile is a different layout rather than a narrower grid.
+    //
+    // WHAT DELIBERATELY DID NOT MOVE: makeMonthChip stays here and is passed
+    // in as the renderer. It is entirely session-specific — Meet-link repair
+    // warnings, EXT badges for google_external rows, meeting_category colours
+    // — and none of that belongs in a module the client portal also loads.
     function renderMonth() {
       var content = document.getElementById("calendarContent");
-      var today   = new Date();
-      today.setHours(0,0,0,0);
       var map = buildSessionMap();
-      var en  = isEn();
-      var days = en ? DAYS_EN : DAYS_PT;
 
-      var firstOfMonth = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
-      var lastOfMonth  = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0);
+      // The module groups by an `date` field; sessions already carry one.
+      var events = [];
+      Object.keys(map).forEach(function (k) {
+        map[k].forEach(function (sess) { events.push(sess); });
+      });
 
-      // Grid starts on Sunday of the week containing day 1
-      var gridStart = new Date(firstOfMonth);
-      gridStart.setDate(gridStart.getDate() - gridStart.getDay());
-
-      var html = '<div class="cal-grid-wrap">';
-      // Day headers
-      html += '<div class="cal-day-headers">';
-      for (var d = 0; d < 7; d++) {
-        html += '<div class="cal-day-header">' + days[d] + '</div>';
-      }
-      html += '</div>';
-      html += '<div class="cal-grid" id="monthGrid">';
-      html += '</div></div>';
-
-      content.innerHTML = html;
-
-      var grid = document.getElementById("monthGrid");
-      var cur  = new Date(gridStart);
-
-      // Render up to 6 weeks
-      for (var w = 0; w < 6; w++) {
-        for (var dw = 0; dw < 7; dw++) {
-          var isCurrentMonth = cur.getMonth() === curDate.getMonth();
-          var isToday = cur.getTime() === today.getTime();
-          var key = dateKey(cur);
-          var sessions = map[key] || [];
-
-          var cell = document.createElement("div");
-          cell.className = "cal-cell" + (isCurrentMonth ? "" : " other-month") + (isToday ? " today" : "");
-
-          var dayNum = document.createElement("div");
-          dayNum.className = "cal-day-num";
-          dayNum.textContent = cur.getDate();
-          cell.appendChild(dayNum);
-
-          // Session chips
-          for (var si = 0; si < sessions.length; si++) {
-            cell.appendChild(makeMonthChip(sessions[si]));
-          }
-
-          grid.appendChild(cell);
-          cur = new Date(cur.getTime() + 86400000);
-        }
-        // Stop if we've passed the month and it's a complete row
-        if (cur.getMonth() !== curDate.getMonth() && cur.getDay() === 0) { break; }
-      }
+      CalendarGrid.renderMonthGrid(content, {
+        anchor: curDate,
+        events: events,
+        en: isEn(),
+        // The existing class names, exactly as this file's <style> block
+        // already defines them.
+        classes: {
+          wrap:    "cal-grid-wrap",
+          headers: "cal-day-headers",
+          header:  "cal-day-header",
+          grid:    "cal-grid",
+          cell:    "cal-cell",
+          dayNum:  "cal-day-num"
+        },
+        renderChip: function (sess) { return makeMonthChip(sess); }
+      });
     }
 
     // calendar_provider is the real external/Apex signal. Live D1 holds FOUR
@@ -4598,6 +4738,14 @@
         statusEl.textContent = en ? "Scheduling session..." : "Agendando sessao...";
         statusEl.className = "pull-status";
         postSchedule(baseBody(date, meetLink, googleEventId, htmlLink))
+          .then(function(data) {
+            // Apex Club also needs its own event row, or there is no price,
+            // no flyer and no registration link. Chained AFTER the session
+            // succeeds and deliberately outside the scheduling path -- if
+            // this fails the calendar entry still stands, and the event can
+            // be created from the finance tab.
+            return createLinkedClubEvent(data, eventName, date, time, location);
+          })
           .then(function() { finishOk(en ? "Session scheduled!" : "Sessao agendada!"); })
           .catch(function(e) {
             btn.disabled = false;
@@ -4788,9 +4936,128 @@
       return start + " – " + formatTime(endHHMM);
     }
 
+    // ── Apex Club panel on a calendar entry ─────────────────────────────
+    //
+    // Money-free by design. See the panel markup and the worker's
+    // handleGetClubBySession for why the P&L is not here.
+    var CLUB_PANEL = null;
+
+    function loadClubPanel(sessionId) {
+      var panel = document.getElementById("clubPanel");
+      panel.hidden = true;
+      CLUB_PANEL = null;
+      if (!sessionId) { return; }
+
+      apiFetch("/api/finance-new/club/by-session/" + sessionId)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          // A 404 just means this entry is not an Apex Club night. Normal.
+          if (!d || d.error || !d.event) { return; }
+          CLUB_PANEL = d;
+          renderClubPanel();
+          panel.hidden = false;
+
+          // See openDetail: removing the session would orphan this guest
+          // list, so the destructive action goes away once one exists.
+          var stale = document.getElementById("btnDetailRemoveStale");
+          if (stale) { stale.hidden = true; }
+        })
+        .catch(function() {});
+    }
+
+    function renderClubPanel() {
+      if (!CLUB_PANEL) { return; }
+      var en = isEn();
+      var ev = CLUB_PANEL.event;
+      var r = CLUB_PANEL.rsvp || {};
+      var regs = CLUB_PANEL.registrations || [];
+
+      var flyer = document.getElementById("clubPanelFlyer");
+      if (ev.flyer_r2_key) {
+        flyer.src = WORKER_URL + "/api/club/flyer/" + ev.id;
+        flyer.hidden = false;
+      } else {
+        flyer.hidden = true;
+      }
+
+      // The headline is SEATS -- a plus one is two people at the table.
+      // This is the number the food is ordered from.
+      document.getElementById("clubPanelCount").innerHTML =
+        '<span style="color:var(--gold);font-size:19px;">' + (r.going || 0) + "</span> " +
+        (en ? (r.going === 1 ? "person coming" : "people coming")
+            : (r.going === 1 ? "pessoa confirmada" : "pessoas confirmadas"));
+
+      document.getElementById("clubPanelSub").textContent =
+        (en
+          ? (r.going_rows || 0) + " registration(s)" +
+            (r.next_time ? " · " + r.next_time + " coming next time" : "") +
+            (r.attended ? " · " + r.attended + " came" : "")
+          : (r.going_rows || 0) + " inscrição(ões)" +
+            (r.next_time ? " · " + r.next_time + " na próxima" : "") +
+            (r.attended ? " · " + r.attended + " vieram" : ""));
+
+      document.getElementById("clubPanelGuests").innerHTML = regs.length
+        ? regs.map(function(g) {
+            var isNext = g.rsvp_state === "next_time";
+            return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;' +
+              (isNext ? "opacity:.6;" : "") + '">' +
+              '<span style="flex:1;">' + escHtml(g.name) +
+                (g.plus_one ? ' <span style="color:var(--gold);font-weight:600;font-size:12px;">+1</span>' : "") +
+                (isNext ? ' <span style="color:var(--muted);font-size:12px;">(' + (en ? "next time" : "próxima") + ")</span>" : "") +
+              "</span>" +
+              '<a href="https://wa.me/' + escHtml(g.phone) + '" target="_blank" rel="noopener" ' +
+                'style="font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:6px;border:1.5px solid #25d366;color:#128c3e;text-decoration:none;">WhatsApp</a>' +
+              "</div>";
+          }).join("")
+        : '<div style="font-size:12px;color:var(--muted);">' +
+            (en ? "Nobody has signed up yet. Share the link."
+                : "Ninguém se inscreveu ainda. Compartilhe o link.") +
+          "</div>";
+
+      // Share is the point of this panel for Rafa: the link is what grows
+      // the room, and it has to be reachable without the finance page.
+      var url = clubPublicBase() + "/club.html?e=" + ev.id;
+      document.getElementById("clubPanelLink").innerHTML =
+        '<code style="flex:1 1 180px;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+          escHtml(url) + "</code>" +
+        '<button class="btn-fix-meet" onclick="copyClubPanelLink()">' + (en ? "Copy" : "Copiar") + "</button>" +
+        '<button class="btn-whatsapp" onclick="shareClubPanelLink()">' + (en ? "Share" : "Compartilhar") + "</button>";
+    }
+
+    function clubPublicBase() {
+      return (location.protocol === "http:" || location.protocol === "https:")
+        ? location.origin + location.pathname.replace(/\/[^\/]*$/, "")
+        : "https://apex.resonateai.online";
+    }
+
+    function clubPanelUrl() {
+      return CLUB_PANEL ? clubPublicBase() + "/club.html?e=" + CLUB_PANEL.event.id : "";
+    }
+
+    function copyClubPanelLink() {
+      var url = clubPanelUrl();
+      if (!url) { return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).catch(function() { window.prompt("Link:", url); });
+      } else {
+        window.prompt("Link:", url);
+      }
+    }
+
+    function shareClubPanelLink() {
+      var url = clubPanelUrl();
+      if (!url) { return; }
+      if (navigator.share) {
+        navigator.share({ title: "Apex Club", url: url }).catch(function() {});
+      } else {
+        window.open("https://wa.me/?text=" + encodeURIComponent(url), "_blank");
+      }
+    }
+
     function openDetail(session) {
       activeDetailSession = session;
       var en = isEn();
+      loadClubPanel(session.id);
       var isExternal = isExternalSession(session);
       var isEventCat = session.meeting_category === "event";
 
@@ -4942,6 +5209,12 @@
       document.getElementById("btnDetailReschedule").hidden = true;
       document.getElementById("btnDetailEdit").hidden       = !canModify;
       document.getElementById("btnDetailCancel").hidden     = isExternal;
+      // Hidden while an Apex Club event is attached, even on an external row.
+      // The worker already refuses to remove a mirror whose Google event still
+      // exists, so this cannot hide a live meeting -- but removing the session
+      // WOULD orphan the club event's guest list behind a dangling session_id,
+      // and the registrations are the one thing here that exists nowhere else.
+      // Re-shown by loadClubPanel when no club event is linked.
       document.getElementById("btnDetailRemoveStale").hidden = !isExternal;
 
       var st2 = document.getElementById("detailStatus2");

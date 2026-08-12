@@ -464,6 +464,35 @@
       color: #888;
     }
 
+    /* The Zelle handle as text. NOT hidden from print -- unlike a button it
+       is just as useful on paper, and it is the only thing a reader can act
+       on when they cannot scan (reading on the same phone, or from a PDF). */
+    .payment-tile .pt-handle {
+      margin-top: 5px;
+      font-size: 8.5px;
+      color: #555;
+      word-break: break-all;
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    /* Screen-only Stripe button. Hidden from print (.no-print) because on a
+       PDF a link is a dead coloured rectangle. Stripe IS a real payment
+       link; Zelle deliberately has no button -- see the tile markup. */
+    .payment-tile .pt-btn {
+      display: block;
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-decoration: none;
+      color: #fff;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+    .payment-tile .pt-stripe { background: #635bff; }   /* Stripe indigo */
+
     /* Stripe brand color text */
     .stripe-wordmark {
       font-size: 16px;
@@ -687,19 +716,30 @@
         <div class="bf-label">Formas de Pagamento</div>
         <div class="payment-tiles">
 
-          <!-- Zelle tile with the real uploaded QR code -->
+          <!-- Zelle tile: QR + the handle as text.
+               ⚠️ There is NO tappable Zelle pay link. Tried and reverted
+               2026-08-10: the QR decodes to enroll.zellepay.com, which is
+               Zelle's bank-finder / enrollment page, not a payment flow.
+               The QR only works because a BANK APP's scanner reads the token
+               out of it. Proven on a phone -- the link opened a browser and
+               could not pay. The handle is here because someone reading the
+               invoice on their phone cannot scan their own screen. -->
           <div class="payment-tile">
             <div class="qr-placeholder" id="zelle-qr">
               <!-- Populated at load with an <img> pointing at GET /api/business/qr-image -->
             </div>
             <div class="pt-label">Zelle</div>
+            <div class="pt-handle" id="zelle-handle" style="display:none;"></div>
           </div>
 
-          <!-- Stripe tile with brand wordmark (text approximation, #635BFF) -->
+          <!-- Stripe tile. The CTA below is replaced with a real link when
+               business_settings carries one; it falls back to the old
+               "sent by email" text when it does not. -->
           <div class="payment-tile">
             <div class="stripe-wordmark">Stripe</div>
             <div class="pt-label">Pagar com Stripe</div>
-            <div class="pt-cta">Link enviado por email</div>
+            <div class="pt-cta" id="stripe-cta">Link enviado por email</div>
+            <a class="pt-btn pt-stripe no-print" id="stripe-pay-btn" target="_blank" rel="noopener" style="display:none;">Pagar com Stripe</a>
           </div>
 
         </div>
@@ -873,6 +913,35 @@
         'style="width:100%;height:100%;object-fit:contain;display:block;border-radius:3px;">';
     }
 
+    /* data.pagamento carries { zelle_handle, zelle_qr_url, stripe_url } from
+       the render-data endpoint. Each affordance appears only when its value
+       exists, so an invoice never shows one that goes nowhere.
+
+       ⚠️ Zelle gets NO button, deliberately -- see the tile markup. Its QR's
+       URL is an enrollment page, not a payment flow, and a button there would
+       promise payment and deliver a webpage. Stripe IS a real link.
+
+       Neither carries an amount, so the total is still typed by the payer.
+       The invoice number goes in the memo, which is what makes the payment
+       identifiable when it lands. */
+    function loadPayButtons(pag) {
+      if (!pag) { return; }
+
+      if (pag.zelle_handle) {
+        var z = document.getElementById('zelle-handle');
+        if (z) { z.textContent = pag.zelle_handle; z.style.display = 'block'; }
+      }
+
+      if (pag.stripe_url) {
+        var s = document.getElementById('stripe-pay-btn');
+        if (s) { s.href = pag.stripe_url; s.style.display = 'block'; }
+        /* The old "link enviado por email" line was a workaround for having
+           no link. With a real one it is just wrong, so it goes. */
+        var cta = document.getElementById('stripe-cta');
+        if (cta) { cta.style.display = 'none'; }
+      }
+    }
+
     function setText(id, value) {
       var el = document.getElementById(id);
       if (el) { el.textContent = value || '--'; }
@@ -883,6 +952,8 @@
       var empresa = data.empresa || {};
       var cliente = data.cliente || {};
       var totais = data.totais || {};
+
+      loadPayButtons(data.pagamento);
 
       // Apex logo
       var apexLogo = document.getElementById('apex-logo');

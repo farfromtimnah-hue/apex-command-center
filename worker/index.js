@@ -15,18 +15,9 @@ var CLAUDE_MODEL       = "claude-sonnet-4-6";
 // from that same origin and calls the Worker cross-origin from it, so it keeps
 // working; that was verified against the deployed template, not assumed.
 //
-// If a second origin is ever genuinely needed, add it to an allowlist and echo
-// the matching request Origin back -- do NOT revert this to "*". A wildcard
-// cannot be narrowed later without breaking whatever quietly came to depend
-// on it.
-//
-// That second origin arrived on 2026-08-10: the iOS Capacitor wrapper. Its
-// WKWebView serves the app from capacitor://localhost, NOT from the https
-// origin above, so every API call from the app was rejected before the app
-// could read the response -- it surfaced only as "load failed" on the client
-// login. An iOS PWA cannot launch a custom URL scheme, which is why the
-// wrapper exists at all (it deep-links reps into OpenPhone), so this origin
-// is a permanent second caller rather than a temporary workaround.
+// A second origin is now genuinely needed: the iOS Capacitor app serves its
+// bundle from capacitor://localhost, so every API call it makes is
+// cross-origin and was rejected outright -- the app could not even log in.
 //
 // The allowlist is matched by EXACT STRING EQUALITY. Not a prefix test, not
 // indexOf, not a regex: "capacitor://localhost.evil.com" and
@@ -1746,10 +1737,26 @@ async function handleGetClients(request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
+        // ARCHIVED ROWS ARE EXCLUDED HERE, AT THE WORKER, so no page can
+        // forget: this one query feeds most screens and dropdowns in the app,
+        // and it previously had no status filter of any kind — which is why
+        // the two test clients showed up everywhere.
+        //
+        // ?include_archived=1 is the single explicit opt-in, used by the
+        // Clients page's own "show archived" view.
+        //
+        // COALESCE, not `archived = 0`: a row written before the column
+        // existed can carry NULL, and NULL = 0 evaluates to NULL in SQL, which
+        // would silently hide every legacy client.
+        var listUrl = new URL(request.url);
+        var includeArchived = listUrl.searchParams.get("include_archived") === "1";
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, created_at " +
-            "FROM clients ORDER BY name ASC"
+            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, created_at, " +
+            "COALESCE(archived, 0) AS archived, archived_at, archived_by " +
+            "FROM clients " +
+            (includeArchived ? "" : "WHERE COALESCE(archived, 0) = 0 ") +
+            "ORDER BY name ASC"
         ).all();
 
         return jsonOk({ clients: res.results });
@@ -1796,6 +1803,7 @@ async function handleGetClientEngagementDates(request, env) {
             "            AND s.status NOT IN ('discarded','cancelled')) AS first_session_on_file " +
             "FROM clients c " +
             "LEFT JOIN packages p ON p.short_name = c.package " +
+            "WHERE COALESCE(c.archived, 0) = 0 " +
             "ORDER BY c.name ASC"
         ).all();
 
@@ -1809,6 +1817,68 @@ async function handleGetClientEngagementDates(request, env) {
 // Route: POST /api/clients
 // Body: { name, owners?, industry?, location?, logo_url?, profile_pt?, profile_en? }
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/archive  — { archived: true|false }
+//
+// Hides a client from every list without deleting it. There is deliberately NO
+// delete counterpart: the two rows this exists for are named
+// "DO NOT USE" and "DO NOT CLOSE", and archiving is reversible where a delete
+// is not.
+//
+// alice/developer only. Rafa is deliberately excluded: he is in the client
+// lists all day and archiving is an administrative cleanup action, not a
+// day-to-day one.
+// ---------------------------------------------------------------------------
+async function handlePutClientArchive(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare(
+            "SELECT id, name, COALESCE(archived, 0) AS archived FROM clients WHERE id = ?"
+        ).bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var archived = body.archived ? 1 : 0;
+
+        if (archived === 1) {
+            // What the caller is about to hide. Returned so the UI can warn
+            // before archiving a client that still has live data — the point
+            // is to hide dead rows, and hiding a working one by accident is
+            // the failure mode worth a confirmation step.
+            var counts = await env.DB.prepare(
+                "SELECT (SELECT COUNT(*) FROM gm_leads WHERE client_id = ?) AS leads, " +
+                "       (SELECT COUNT(*) FROM gm_jobs  WHERE client_id = ?) AS jobs, " +
+                "       (SELECT COUNT(*) FROM client_logins WHERE client_id = ?) AS logins"
+            ).bind(id, id, id).first();
+            if (!body.confirm && counts &&
+                ((counts.leads || 0) > 0 || (counts.jobs || 0) > 0 || (counts.logins || 0) > 0)) {
+                return jsonOk({
+                    needs_confirm: true,
+                    name: client.name,
+                    leads: counts.leads || 0,
+                    jobs: counts.jobs || 0,
+                    logins: counts.logins || 0
+                });
+            }
+        }
+
+        await env.DB.prepare(
+            "UPDATE clients SET archived = ?, " +
+            "archived_at = CASE WHEN ? = 1 THEN datetime('now') ELSE NULL END, " +
+            "archived_by = CASE WHEN ? = 1 THEN ? ELSE NULL END " +
+            "WHERE id = ?"
+        ).bind(archived, archived, archived, actorName(user), id).run();
+
+        return jsonOk({ saved: true, id: id, archived: archived === 1 });
+    } catch (e) {
+        return jsonErr("Error archiving client: " + e.message, 500);
+    }
+}
 
 async function handlePostClients(request, env) {
     try {
@@ -6196,10 +6266,14 @@ async function handleGetBusinessSettings(request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var row = await env.DB.prepare(
-            "SELECT zelle_qr_r2_key, stripe_payment_link, updated_at FROM business_settings WHERE id = 1"
+            "SELECT zelle_qr_r2_key, stripe_payment_link, zelle_handle, club_confirm_template, updated_at " +
+            "FROM business_settings WHERE id = 1"
         ).first();
 
-        return jsonOk({ settings: row || { zelle_qr_r2_key: null, stripe_payment_link: null, updated_at: null } });
+        return jsonOk({ settings: row || {
+            zelle_qr_r2_key: null, stripe_payment_link: null,
+            zelle_handle: null, club_confirm_template: null, updated_at: null
+        } });
     } catch (e) {
         return jsonErr("Error fetching business settings: " + e.message, 500);
     }
@@ -6228,6 +6302,25 @@ async function handlePatchBusinessSettings(request, env) {
             await env.DB.prepare(
                 "UPDATE business_settings SET stripe_payment_link = ?, updated_at = ? WHERE id = 1"
             ).bind(link || null, new Date().toISOString()).run();
+            updated = true;
+        }
+
+        if (body.hasOwnProperty("zelle_handle")) {
+            var handle = body.zelle_handle ? String(body.zelle_handle).trim() : null;
+            await env.DB.prepare(
+                "UPDATE business_settings SET zelle_handle = ?, updated_at = ? WHERE id = 1"
+            ).bind(handle || null, new Date().toISOString()).run();
+            updated = true;
+        }
+
+        // The Apex Club WhatsApp confirmation. Stored verbatim -- the
+        // placeholders ({nome}, {evento}, ...) are substituted at send time
+        // by the client, and Alice's own wording is never rewritten here.
+        if (body.hasOwnProperty("club_confirm_template")) {
+            var tpl = body.club_confirm_template ? String(body.club_confirm_template) : null;
+            await env.DB.prepare(
+                "UPDATE business_settings SET club_confirm_template = ?, updated_at = ? WHERE id = 1"
+            ).bind(tpl, new Date().toISOString()).run();
             updated = true;
         }
 
@@ -7373,7 +7466,7 @@ async function handleGetSalesGrowthRanking(request, env) {
             "SELECT c.id AS client_id, c.name, g.growth_percent, g.entered_by, g.entered_at " +
             "FROM clients c " +
             "LEFT JOIN client_growth_entries g ON g.client_id = c.id AND g.month_label = ? " +
-            "WHERE c.status = 'active' " +
+            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
             "ORDER BY (g.growth_percent IS NULL) ASC, g.growth_percent DESC, c.name ASC"
         ).bind(month).all();
 
@@ -8923,7 +9016,8 @@ async function handleGetInvoiceRenderData(zohoInvoiceId, request, env) {
                 valor_total:    inv.total !== undefined      ? formatCurrency(inv.total)     : "---"
             },
             observacoes:      inv.notes || "",
-            formas_pagamento: paymentMethod
+            formas_pagamento: paymentMethod,
+            pagamento: await buildInvoicePaymentBlock(env)
         };
 
         return jsonOk(renderData);
@@ -10684,6 +10778,19 @@ function clientRequestAllowed(path, method, clientId) {
                     gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
                     gmRest === "jobs") { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
+                // Attachments on their own lead, and the file itself. Same
+                // reasoning as the project photos below: the client's own
+                // record, re-scoped by client_id AND lead_id in the handlers.
+                if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
+                if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
+                // The lead's audit trail — read-only.
+                if (/^leads\/[A-Za-z0-9-]+\/events$/.test(gmRest)) { return true; }
+                // The note thread on their own lead or project.
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
+                // Their own company calendar. The payload also carries Apex
+                // Club INVITATIONS (name/date/venue/speakers/flyer/link only)
+                // — the handler never selects a price, a headcount or a guest.
+                if (gmRest === "events") { return true; }
                 // Progress photos on their own project, and the image itself.
                 // Client-visible by design: for a pool builder the project is a
                 // physical site and these are what the owner shows their own
@@ -10695,6 +10802,9 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
                     gmRest === "partners" || gmRest === "finance" || gmRest === "jobs") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
+                if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
+                if (gmRest === "events") { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
             }
@@ -10705,6 +10815,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // ignores the admin-only keys.
                 if (gmRest === "config") { return true; }
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                // Their own note; the handler refuses anyone else's.
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^events\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
             if (method === "DELETE") {
                 if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
@@ -10712,6 +10825,10 @@ function clientRequestAllowed(path, method, clientId) {
                 // delete the project itself; the handler removes the R2 object
                 // as well as the row, so nothing is orphaned.
                 if (/^jobs\/[A-Za-z0-9-]+\/photos\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                // Their own lead's attachment, same reasoning.
+                if (/^leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^events\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
         }
     }
@@ -10765,6 +10882,12 @@ function sellerRequestAllowed(path, method, clientId) {
         // The outreach log of a lead. handleGetGmLeadContacts re-checks that
         // the lead is this seller's before returning anything.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        // The audit trail of a lead, same contract: handleGetGmLeadEvents
+        // re-checks the lead is this seller's by vendedor before returning
+        // anything, so this grants NO access a seller did not already have —
+        // it is history on rows they can already read. Read-only; there is
+        // deliberately no POST counterpart anywhere.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/events$/.test(rest)) { return true; }
         // Shared sales material (Materiais do Vendedor). Both handlers narrow
         // to visibility='seller' off the session, so what comes back is the
         // shared material only — never the client's own documents, and never a
@@ -11941,7 +12064,8 @@ async function handleGetLeaderboard(request, env) {
         if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
 
         var clients = await env.DB.prepare(
-            "SELECT id, name FROM clients WHERE status = 'active' OR status IS NULL ORDER BY name"
+            "SELECT id, name FROM clients WHERE (status = 'active' OR status IS NULL) " +
+            "AND COALESCE(archived, 0) = 0 ORDER BY name"
         ).all();
 
         var CATEGORIES = ["financeiro", "clientes_mercado", "processos", "crescimento"];
@@ -12037,7 +12161,8 @@ async function handleGetClientsAverage(request, env) {
         // Same active-only filter the leaderboard uses. Test clients are
         // status='closed', so they never enter the aggregate.
         var clients = await env.DB.prepare(
-            "SELECT id, name FROM clients WHERE status = 'active' OR status IS NULL ORDER BY name"
+            "SELECT id, name FROM clients WHERE (status = 'active' OR status IS NULL) " +
+            "AND COALESCE(archived, 0) = 0 ORDER BY name"
         ).all();
         var list = clients.results || [];
 
@@ -14358,14 +14483,52 @@ async function handlePutAssessmentAnswers(id, type, request, env) {
 //   months, target margin %, pipeline view threshold.
 // ---------------------------------------------------------------------------
 
-var GM_STAGES = ["Novo Lead", "Contato Feito", "Visita Agendada", "Estimate Enviado", "Follow-up", "Negociação", "Fechado", "Perdido"];
+// ⚠️ STAGES ARE STORED AS LANGUAGE-NEUTRAL KEYS, NOT AS DISPLAY STRINGS.
+//
+// gm_leads.estagio used to hold "Negociação" as literal text, which meant an
+// English-speaking owner could never see an English pipeline no matter how
+// good the toggle was — a stored display string cannot be translated. The
+// eight stages are a fixed ladder no client can add to, so the stored value is
+// now a key and the label is looked up at render time (gm-labels.js, shared
+// with the frontend so a label is defined exactly once).
+//
+// EVERY comparison against a stage must use the KEY. A missed one is not a
+// cosmetic bug: receita_fechada matching 'Fechado' against a row storing
+// 'fechado' returns $0, which reads as a real business result.
+var GM_STAGE_DEFS = [
+    { key: "novo_lead",        pt: "Novo Lead",        en: "New Lead" },
+    { key: "contato_feito",    pt: "Contato Feito",    en: "Contacted" },
+    { key: "visita_agendada",  pt: "Visita Agendada",  en: "Visit Scheduled" },
+    { key: "estimate_enviado", pt: "Estimate Enviado", en: "Estimate Sent" },
+    { key: "follow_up",        pt: "Follow-up",        en: "Follow-up" },
+    { key: "negociacao",       pt: "Negociação",       en: "Negotiation" },
+    { key: "fechado",          pt: "Fechado",          en: "Closed" },
+    { key: "perdido",          pt: "Perdido",          en: "Lost" }
+];
+var GM_STAGES = GM_STAGE_DEFS.map(function(s) { return s.key; });
 // Pipeline ativo ($) sums VALOR over EXACTLY these three stages — Visita
 // Agendada and Contato Feito deliberately do NOT count (the client's rule).
-var GM_ACTIVE_PIPELINE_STAGES = ["Estimate Enviado", "Follow-up", "Negociação"];
+// The rule is unchanged; only the representation moved from label to key.
+var GM_ACTIVE_PIPELINE_STAGES = ["estimate_enviado", "follow_up", "negociacao"];
 // "Live" leads for the pipeline view-mode threshold: everything except
-// Fechado and Perdido. Closed/lost history must never force the crowded-
+// fechado and perdido. Closed/lost history must never force the crowded-
 // pipeline chip-rail view on someone managing 20 live leads.
-var GM_LIVE_STAGES = ["Novo Lead", "Contato Feito", "Visita Agendada", "Estimate Enviado", "Follow-up", "Negociação"];
+var GM_LIVE_STAGES = ["novo_lead", "contato_feito", "visita_agendada", "estimate_enviado", "follow_up", "negociacao"];
+
+// Accepts a key, or a Portuguese/English label from an older client build, and
+// returns the key. NULL for anything unrecognised — an unknown stage is never
+// silently coerced into a real one.
+var GM_STAGE_KEY_BY_LABEL = {};
+GM_STAGE_DEFS.forEach(function(s) {
+    GM_STAGE_KEY_BY_LABEL[s.key] = s.key;
+    GM_STAGE_KEY_BY_LABEL[s.pt]  = s.key;
+    GM_STAGE_KEY_BY_LABEL[s.en]  = s.key;
+});
+function gmStageKey(v) {
+    if (v === null || v === undefined) { return null; }
+    var s = String(v).trim();
+    return GM_STAGE_KEY_BY_LABEL[s] || null;
+}
 var GM_ORIGENS = ["Orgânico", "Tráfego pago", "Indicação", "Base de Clientes", "Parceiro", "Google", "Instagram", "Site", "Outro"];
 var GM_ROADMAP_STATUSES = ["Realizado", "Em andamento", "Pendente", "Atrasado", "Cancelado"];
 var GM_FRENTES = ["Comercial", "Gestão", "Base de Ouro", "Financeiro", "Parcerias", "Marketing", "Operação"];
@@ -14387,7 +14550,17 @@ var GM_JOB_STATUSES = ["Em andamento", "Concluída", "Atrasada", "Pausada"];
 // real people or real planning cycle is a data leak. All three now start empty
 // and stay empty until the client fills them in — see the matching [] read
 // fallbacks in gmGetConfig().
-var GM_DEFAULT_SERVICOS = ["Pavers", "Pergola", "Outdoor Kitchen", "Fire Pit", "Turf", "Travertine", "Lighting", "Landscape", "Living Area", "Combo", "Sealer"];
+// ⚠️ NO DEFAULT SERVICOS LIST. There used to be a hardcoded hardscaping list
+// here (Pavers, Pergola, Outdoor Kitchen, Fire Pit, Turf, ...) seeded into
+// every client that did not have a gm_config row yet. It reached 12 of 16
+// clients including a bakery and a marketing agency, because the seed ran on
+// READ. The list is gone rather than emptied: a constant like that is a
+// standing invitation to point a fallback at it again. See gmGetConfig().
+
+// Mirrors the column DEFAULT in migrations/gm_growth_management.sql, used when
+// a client has no gm_config row at all so the pipeline view behaves the same
+// either way.
+var GM_DEFAULT_VIEW_THRESHOLD = 50;
 // The Entrada/Saída derivation table — tipo comes from HERE (or a client's
 // configured copy), never from a request body.
 var GM_DEFAULT_FINANCE_CATEGORIES = [
@@ -14433,32 +14606,43 @@ function gmParseJsonListNonEmpty(s, fallback) {
     return fallback;
 }
 
-// Load (and lazily seed) a client's gm_config row. Only servicos and the
-// admin-only finance_categories get seeded values; every other list starts empty.
+// Read a client's gm_config. A READ NEVER WRITES.
 //
-// target_margin is NOT in the insert column list, and the column no longer
-// carries a DEFAULT (see migrations/gm_config_target_margin_nullable.sql), so
-// a new client's margin floor starts NULL — unset, not 30. Do not add it back
-// here: the previous DEFAULT 30 put a fabricated floor on all 11 existing
-// clients, and a margin floor is a number an owner might actually act on.
+// ⚠️ THIS FUNCTION USED TO INSERT A ROW WHEN ONE WAS MISSING, seeded with a
+// hardcoded hardscaping servicos list. Two things came out of that, both seen
+// in production:
+//
+//   * 12 of 16 clients ended up with the identical Pavers/Pergola/Turf list —
+//     among them a bakery, a marketing agency, a consultant, a water-filter
+//     company and an interior designer. None of them typed it.
+//   * A gm_config row was written for a DELETED client with no login at all,
+//     purely because something read it. A read wrote data.
+//
+// Two earlier attempts "fixed" this by clearing the column, and both silently
+// came back, because clearing the DATA does not touch the WRITE PATH — and
+// because the read fallback below pointed at the same constant, so a NULL
+// column handed the hardscaping list straight back to the bakery. Both halves
+// are fixed here: no insert, and every list falls back to empty.
+//
+// A missing row is a real, ordinary state meaning "this client has configured
+// nothing yet". It returns empty lists. The row is created only by a
+// deliberate user action, through gmEnsureConfigRow() below.
+//
+// finance_categories is the one exception and stays seeded on READ: it is
+// admin-only and it drives the Entrada/Saída derivation for every finance
+// entry, so an empty list leaves a client unable to categorise anything. That
+// is a derivation table, not a client's vocabulary — nothing about it claims
+// to describe their business.
 async function gmGetConfig(env, clientId) {
     var row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
-    if (!row) {
-        await env.DB.prepare(
-            "INSERT INTO gm_config (client_id, servicos_json, vendedores_json, finance_categories_json, partner_types_json, cycle_months_json) " +
-            "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (client_id) DO NOTHING"
-        ).bind(
-            clientId,
-            JSON.stringify(GM_DEFAULT_SERVICOS),
-            "[]",   // vendedores — never seeded; real people's names are not a default
-            JSON.stringify(GM_DEFAULT_FINANCE_CATEGORIES),
-            "[]",   // partner_types — never seeded, same reason
-            "[]"    // cycle_months — never seeded; LIRA's planning window is not a default
-        ).run();
-        row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
-    }
+    // No row is not an error and is not a reason to create one. Answer from
+    // the same shape the parse helpers would produce for an unset column.
+    if (!row) { row = {}; }
     return {
-        servicos:            gmParseJsonList(row.servicos_json, GM_DEFAULT_SERVICOS),
+        // Empty, never a seed list. An empty list is honest and prompts
+        // the client to enter their own; a borrowed list is a lie about their
+        // business that they then have to notice and delete.
+        servicos:            gmParseJsonList(row.servicos_json, []),
         // vendedores, partner_types and cycle_months fall back to [], never to a
         // seed list. gmParseJsonList only reaches the fallback for a genuinely
         // unconfigured column (NULL / unparseable / non-array), but pointing that
@@ -14469,6 +14653,12 @@ async function gmGetConfig(env, clientId) {
         finance_categories:  gmParseJsonListNonEmpty(row.finance_categories_json, GM_DEFAULT_FINANCE_CATEGORIES),
         partner_types:       gmParseJsonList(row.partner_types_json, []),
         cycle_months:        gmParseJsonList(row.cycle_months_json, []),
+        // The calendar's event-type vocabulary. Per client, stored, and NEVER
+        // derived from clients.industry — deriving a vocabulary from a coarse
+        // free-text label is exactly what produced the servicos mess above.
+        // Seeded once, deliberately, by migrations/gm_config_event_types.sql;
+        // never re-seeded on read, for the same reason servicos no longer is.
+        event_types:         gmParseJsonList(row.event_types_json, []),
         // NULL is a real, meaningful value here: the client has not set a
         // margin floor. It must never be coerced to 0 or to 30 on the way out
         // — every display path renders it as "not set" and prompts for one.
@@ -14476,9 +14666,36 @@ async function gmGetConfig(env, clientId) {
                                   ? null : row.target_margin,
         target_margin_set_by: row.target_margin_set_by || null,
         target_margin_set_at: row.target_margin_set_at || null,
-        pipeline_view_threshold: row.pipeline_view_threshold,
+        // Falls back to the column's own default for a client with no row yet,
+        // so the pipeline view-mode threshold behaves identically whether or
+        // not a config row happens to exist.
+        pipeline_view_threshold: (row.pipeline_view_threshold === null || row.pipeline_view_threshold === undefined)
+                                  ? GM_DEFAULT_VIEW_THRESHOLD : row.pipeline_view_threshold,
         pipeline_view_override:  row.pipeline_view_override || null
     };
+}
+
+// Create the gm_config row, for the WRITE paths only.
+//
+// This is the deliberate user action gmGetConfig() refuses to perform. Call it
+// before an UPDATE that needs a row to exist; never from a read.
+//
+// Nothing client-describing is seeded here: servicos, vendedores,
+// partner_types, cycle_months and event_types all start empty. Only
+// finance_categories is populated, because it is the admin-only Entrada/Saída
+// derivation table rather than a claim about the client's business.
+async function gmEnsureConfigRow(env, clientId) {
+    await env.DB.prepare(
+        "INSERT INTO gm_config (client_id, servicos_json, vendedores_json, finance_categories_json, partner_types_json, cycle_months_json) " +
+        "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (client_id) DO NOTHING"
+    ).bind(
+        clientId,
+        "[]",   // servicos — NOT seeded: see the block comment on gmGetConfig
+        "[]",   // vendedores — real people's names are not a default
+        JSON.stringify(GM_DEFAULT_FINANCE_CATEGORIES),
+        "[]",   // partner_types
+        "[]"    // cycle_months — another company's planning window is not a default
+    ).run();
 }
 
 function gmStr(v, max) {
@@ -14537,7 +14754,10 @@ async function handleGetGmConfig(id, request, env) {
             config: config,
             referral_share_template: referralTemplateText,
             method: {
+                // Keys, not labels. stage_defs carries the pt/en pair so a
+                // client that has not reloaded gm-labels.js still renders.
                 stages: GM_STAGES,
+                stage_defs: GM_STAGE_DEFS,
                 active_pipeline_stages: GM_ACTIVE_PIPELINE_STAGES,
                 live_stages: GM_LIVE_STAGES,
                 origens: GM_ORIGENS,
@@ -14580,7 +14800,7 @@ async function handlePutGmConfig(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         var isAdmin = isAdminRole(user);
         if (!isAdmin && !requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
-        await gmGetConfig(env, id);   // ensure the row exists
+        await gmEnsureConfigRow(env, id);   // deliberate write: create the row if absent
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var sets = [], binds = [];
@@ -14608,6 +14828,8 @@ async function handlePutGmConfig(id, request, env) {
         setList("vendedores", "vendedores_json");
         setList("partner_types", "partner_types_json");
         setList("cycle_months", "cycle_months_json");
+        // The calendar vocabulary, client-editable like the four above.
+        setList("event_types", "event_types_json");
         if (isAdmin && Object.prototype.toString.call(body.finance_categories) === "[object Array]") {
             var cats = [];
             for (var i = 0; i < body.finance_categories.length; i++) {
@@ -14670,7 +14892,7 @@ async function handlePutGmViewMode(id, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
-        await gmGetConfig(env, id);
+        await gmEnsureConfigRow(env, id);   // deliberate write: create the row if absent
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var override = null;
@@ -14739,14 +14961,14 @@ async function handleGetGmLeads(id, request, env) {
         ).bind(...leadBinds).all();
         var summary = await env.DB.prepare(
             "SELECT COUNT(*) AS leads_totais, " +
-            "SUM(CASE WHEN estagio IN ('Estimate Enviado','Follow-up','Negociação') THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
-            "SUM(CASE WHEN estagio = 'Fechado' THEN COALESCE(valor,0) ELSE 0 END) AS receita_fechada, " +
-            "SUM(CASE WHEN estagio = 'Fechado' THEN 1 ELSE 0 END) AS fechados, " +
+            "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
+            "SUM(CASE WHEN estagio = 'fechado' THEN COALESCE(valor,0) ELSE 0 END) AS receita_fechada, " +
+            "SUM(CASE WHEN estagio = 'fechado' THEN 1 ELSE 0 END) AS fechados, " +
             "SUM(CASE WHEN data_lead IS NOT NULL AND data_contato IS NOT NULL " +
             "AND (julianday(data_contato) - julianday(data_lead)) * 1440.0 > 5.0 THEN 1 ELSE 0 END) AS fora_sla_contato, " +
             "SUM(CASE WHEN data_lead IS NOT NULL AND data_estimate IS NOT NULL " +
             "AND (julianday(data_estimate) - julianday(data_lead)) > 1.0 THEN 1 ELSE 0 END) AS fora_sla_estimate, " +
-            "SUM(CASE WHEN estagio NOT IN ('Fechado','Perdido') THEN 1 ELSE 0 END) AS live_count " +
+            "SUM(CASE WHEN estagio NOT IN ('fechado','perdido') THEN 1 ELSE 0 END) AS live_count " +
             "FROM gm_leads WHERE client_id = ?" + (sellerName ? " AND vendedor = ?" : "")
         ).bind(...leadBinds).first();
         var leadsTotais = (summary && summary.leads_totais) || 0;
@@ -14806,7 +15028,7 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         out.cliente = cliente;
     }
     if (!partial || has("estagio")) {
-        var estagio = body.estagio === undefined || body.estagio === null ? "Novo Lead" : body.estagio;
+        var estagio = body.estagio === undefined || body.estagio === null ? "novo_lead" : gmStageKey(body.estagio);
         if (GM_STAGES.indexOf(estagio) === -1) { return { error: "Estágio inválido" }; }
         out.estagio = estagio;
     }
@@ -14852,19 +15074,76 @@ async function gmLeadFields(body, config, partial, env, clientId) {
 }
 
 // ---------------------------------------------------------------------------
+// Lead audit trail — gm_lead_events.
+//
+// gm_leads recorded no author at all, so when four leads worth $342,000 moved
+// to Fechado inside two minutes the database could not say who closed them.
+// Every gm_leads write path now appends events here, and created_by /
+// updated_by are stamped on the row itself.
+//
+// ⚠️ LOGGING MUST NEVER BREAK THE WRITE. Appending an event is bookkeeping
+// about the caller's real work, not the work itself: if it fails, the lead
+// write still succeeds. Same non-throwing contract as advanceLeadStage().
+//
+// `actor` is ALWAYS actorName(user) — server-side, from the session. It is
+// never read from the request body, so a seller cannot claim another name.
+// gm_lead_contacts and the gm_notes handler enforce exactly this.
+//
+// Stage values are logged as KEYS ('fechado'), never display strings: an audit
+// log full of raw Portuguese would recreate the bug §1 just fixed.
+// ---------------------------------------------------------------------------
+
+// Fields worth a history entry. Deliberately not every column: updated_at and
+// stage_changed_at are bookkeeping, and logging them would bury the two or
+// three changes a human actually made under noise.
+var GM_LEAD_LOGGED_FIELDS = [
+    "cliente", "telefone", "email", "origem", "parceiro_id", "servico",
+    "observacao", "vendedor", "valor", "proxima_acao", "data_contato",
+    "data_estimate", "mes_lead", "mes_fechamento", "address", "city",
+    "servico_desc", "status_financiamento", "followups"
+];
+
+// Append one or more events. Accepts an array so a multi-field edit is a
+// single batched call. Never throws.
+async function gmLogLeadEvents(env, clientId, leadId, actor, events) {
+    if (!events || !events.length) { return; }
+    try {
+        var stmts = events.map(function(e) {
+            return env.DB.prepare(
+                "INSERT INTO gm_lead_events (id, lead_id, client_id, action, field, old_value, new_value, actor) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(
+                crypto.randomUUID(), leadId, clientId, e.action,
+                e.field || null,
+                e.old_value === undefined || e.old_value === null ? null : String(e.old_value),
+                e.new_value === undefined || e.new_value === null ? null : String(e.new_value),
+                actor || null
+            );
+        });
+        await env.DB.batch(stmts);
+    } catch (e) {
+        // Swallow: an audit append must never fail the lead write it describes.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/clients/:id/gm/leads
 // ---------------------------------------------------------------------------
 
 // The ONE lead-insert path — the authenticated quick-add and the public
 // referral form both go through here, so a referral lead is a normal lead
 // in every way (summary metrics, partner attribution, detail sheet).
-async function gmInsertLead(env, clientId, f) {
+// `actor` is the display name from the session, or null for the PUBLIC
+// referral form, which has no authenticated user — a referral genuinely has no
+// human author on our side, and NULL says that honestly rather than inventing
+// one.
+async function gmInsertLead(env, clientId, f, actor) {
     var leadId = crypto.randomUUID();
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
-        "address, city) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "address, city, created_by, updated_by) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -14885,8 +15164,13 @@ async function gmInsertLead(env, clientId, f) {
         f.proxima_acao !== undefined ? f.proxima_acao : null,
         f.mes_fechamento !== undefined ? f.mes_fechamento : null,
         f.address !== undefined ? f.address : null,
-        f.city !== undefined ? f.city : null
+        f.city !== undefined ? f.city : null,
+        actor || null,
+        actor || null
     ).run();
+    await gmLogLeadEvents(env, clientId, leadId, actor, [
+        { action: "created", field: "estagio", old_value: null, new_value: f.estagio }
+    ]);
     return leadId;
 }
 
@@ -14906,7 +15190,7 @@ async function handlePostGmLead(id, request, env) {
         // including by hand-crafting the JSON.
         var postSeller = sessionSellerName(user);
         if (postSeller) { parsed.fields.vendedor = postSeller; }
-        var leadId = await gmInsertLead(env, id, parsed.fields);
+        var leadId = await gmInsertLead(env, id, parsed.fields, actorName(user));
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ created: true, lead: row });
     } catch (e) {
@@ -14951,13 +15235,42 @@ async function handlePutGmLead(id, leadId, request, env) {
             binds.push(f[k]);
         });
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
-        if (f.estagio !== undefined && f.estagio !== existing.estagio) {
+        var stageMoved = f.estagio !== undefined && f.estagio !== existing.estagio;
+        if (stageMoved) {
             sets.push("stage_changed_at = datetime('now')");
         }
+        // Stamped from the SESSION on every update, never from the body.
+        var actor = actorName(user);
+        sets.push("updated_by = ?");
+        binds.push(actor);
         sets.push("updated_at = datetime('now')");
         binds.push(leadId);
         binds.push(id);
         await gmRunUpdate(env, "UPDATE gm_leads SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+
+        // Build the history from the SAME comparison the handler already makes
+        // against the existing row: one event per genuinely changed field, and
+        // a distinct stage_changed carrying from/to. The stage event is the one
+        // that answers "who closed the deal", so it is kept separate from the
+        // generic field updates rather than buried among them.
+        var events = [];
+        if (stageMoved) {
+            events.push({ action: "stage_changed", field: "estagio",
+                          old_value: existing.estagio, new_value: f.estagio });
+        }
+        GM_LEAD_LOGGED_FIELDS.forEach(function(k) {
+            if (f[k] === undefined) { return; }
+            var before = existing[k] === undefined ? null : existing[k];
+            var after  = f[k];
+            // Loose-ish compare via String() so 5 and "5" are not logged as a
+            // change; null and "" are both "empty" and equal for this purpose.
+            var b = (before === null || before === undefined) ? "" : String(before);
+            var a = (after  === null || after  === undefined) ? "" : String(after);
+            if (a === b) { return; }
+            events.push({ action: "updated", field: k, old_value: before, new_value: after });
+        });
+        await gmLogLeadEvents(env, id, leadId, actor, events);
+
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ saved: true, lead: row });
     } catch (e) {
@@ -14980,6 +15293,40 @@ async function handlePutGmLead(id, leadId, request, env) {
 // The method/result vocabularies are the SAME constants the Apex side
 // validates against, so one word means one thing across both tiers.
 // ---------------------------------------------------------------------------
+
+// GET /api/clients/:id/gm/leads/:leadId/events — the lead's history.
+//
+// Sellers CAN read this, for leads they can already see. That grants no new
+// access: the row-level filter in handleGetGmLeads already limits a seller to
+// their own leads, and the same vendedor check is re-applied here before any
+// event is returned. Read-only — events are written by the lead write paths
+// and there is deliberately no POST counterpart.
+async function handleGetGmLeadEvents(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var lead = await env.DB.prepare(
+            "SELECT id, vendedor FROM gm_leads WHERE id = ? AND client_id = ?"
+        ).bind(leadId, id).first();
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        var sellerName = effectiveSellerName(user, request);
+        if (sellerName && (lead.vendedor || "") !== sellerName) {
+            return jsonErr("Lead not found", 404);
+        }
+
+        var rows = await env.DB.prepare(
+            "SELECT id, action, field, old_value, new_value, actor, created_at " +
+            "FROM gm_lead_events WHERE lead_id = ? AND client_id = ? " +
+            "ORDER BY created_at DESC, rowid DESC LIMIT 200"
+        ).bind(leadId, id).all();
+
+        return jsonOk({ events: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching lead history: " + e.message, 500);
+    }
+}
 
 async function handleGetGmLeadContacts(id, leadId, request, env) {
     try {
@@ -15278,9 +15625,16 @@ async function handlePostGmBaseOuroReactivate(id, rowId, request, env) {
         var mesLead = gmStr(body.mes_lead, 40);
         var leadId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, servico, origem, estagio) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'Base de Clientes', 'Novo Lead')"
-        ).bind(leadId, id, mesLead, dataLead, row.cliente, row.telefone, null).run();
+            "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, servico, origem, estagio, " +
+            "created_by, updated_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'Base de Clientes', 'novo_lead', ?, ?)"
+        ).bind(leadId, id, mesLead, dataLead, row.cliente, row.telefone, null,
+               actorName(user), actorName(user)).run();
+        // The SECOND lead-insert path, easy to miss: reactivating a dormant
+        // customer creates a real lead, so it gets a real 'created' event.
+        await gmLogLeadEvents(env, id, leadId, actorName(user), [
+            { action: "created", field: "estagio", old_value: null, new_value: "novo_lead" }
+        ]);
         await env.DB.prepare(
             "UPDATE gm_base_ouro SET status = 'Reativado', reactivated_lead_id = ?, updated_at = datetime('now') WHERE id = ?"
         ).bind(leadId, rowId).run();
@@ -15326,7 +15680,7 @@ async function handleGetGmPartners(id, request, env) {
         var rows = await env.DB.prepare(
             "SELECT p.*, " +
             "(SELECT COUNT(*) FROM gm_leads l WHERE l.parceiro_id = p.id) AS leads_indicados, " +
-            "(SELECT COALESCE(SUM(l.valor), 0) FROM gm_leads l WHERE l.parceiro_id = p.id AND l.estagio = 'Fechado') AS receita_gerada " +
+            "(SELECT COALESCE(SUM(l.valor), 0) FROM gm_leads l WHERE l.parceiro_id = p.id AND l.estagio = 'fechado') AS receita_gerada " +
             "FROM gm_partners p WHERE p.client_id = ? ORDER BY p.name COLLATE NOCASE"
         ).bind(id).all();
         return jsonOk({ partners: rows.results || [] });
@@ -15841,11 +16195,11 @@ async function handlePostReferralLead(slug, request, env) {
             servico: servico,
             origem: "Parceiro",
             parceiro_id: partner.id,
-            estagio: "Novo Lead",
+            estagio: "novo_lead",
             data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
             mes_lead: mesLead,
             observacao: "Recebido pelo link de indicação do parceiro."
-        });
+        });   // no actor: the public referral form has no authenticated user
         // Deliberately no lead id / no data in the public response.
         return jsonOk({ created: true });
     } catch (e) {
@@ -16258,8 +16612,8 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             if (!c.objection) { return; }
             var st = leadStageById[c.lead_id] || c.estagio;
             if (!objOutcome[c.objection]) { objOutcome[c.objection] = { won: 0, lost: 0, open: 0 }; }
-            if (st === "Fechado") { objOutcome[c.objection].won++; }
-            else if (st === "Perdido") { objOutcome[c.objection].lost++; }
+            if (st === "fechado") { objOutcome[c.objection].won++; }
+            else if (st === "perdido") { objOutcome[c.objection].lost++; }
             else { objOutcome[c.objection].open++; }
         });
         var objectionOutcomes = Object.keys(objOutcome).sort(function(a, b) {
@@ -16288,8 +16642,8 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         // that exists in both tables is not counted twice. `jobs` is loaded
         // further down (it is also what the money tiles use); the lookup is
         // built here and consumed after that query runs.
-        var wonLeads = leads.filter(function(l) { return l.estagio === "Fechado"; }).length;
-        var lost = leads.filter(function(l) { return l.estagio === "Perdido"; }).length;
+        var wonLeads = leads.filter(function(l) { return l.estagio === "fechado"; }).length;
+        var lost = leads.filter(function(l) { return l.estagio === "perdido"; }).length;
 
         // ── Metric 9 — average deal value on closed deals ───────────────────
         // Catches DISCOUNTING, which a closing ratio alone hides: a seller
@@ -16299,7 +16653,7 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         // produced an average over an empty set. Computed after `jobs` loads.
         var closedValues = [];
         leads.forEach(function(l) {
-            if (l.estagio === "Fechado" && l.valor !== null && l.valor !== undefined) {
+            if (l.estagio === "fechado" && l.valor !== null && l.valor !== undefined) {
                 closedValues.push(l.valor);
             }
         });
@@ -16312,7 +16666,7 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         // leads that were worked to a decision, which is what the tile says.
         var touchCounts = [];
         leads.forEach(function(l) {
-            if (l.estagio !== "Fechado" && l.estagio !== "Perdido") { return; }
+            if (l.estagio !== "fechado" && l.estagio !== "perdido") { return; }
             var n = contacts.filter(function(c) { return c.lead_id === l.id; }).length;
             touchCounts.push(n);
         });
@@ -16374,9 +16728,9 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             return best ? { valor: best.valor, nome: gmDiagDealLabel(best.nome) } : null;
         }
 
-        var lostLeads = leads.filter(function(l) { return l.estagio === "Perdido"; });
+        var lostLeads = leads.filter(function(l) { return l.estagio === "perdido"; });
         var activeLeads = leads.filter(function(l) {
-            return l.estagio !== "Perdido" && l.estagio !== "Fechado";
+            return l.estagio !== "perdido" && l.estagio !== "fechado";
         });
 
         // WON comes from gm_jobs, not from gm_leads: a job is the signed work,
@@ -16614,17 +16968,32 @@ async function handleGetGmJobs(id, request, env) {
 // Key layout mirrors client-documents: job-photos/<clientId>/<photoId>.<ext>.
 // ---------------------------------------------------------------------------
 
+// The table is named gm_job_photos and now holds PDFs too — the client asked
+// for documents on projects after photos were already shipping. See
+// migrations/gm_job_files.sql for why the name was not changed.
 var JOB_PHOTO_TYPES = {
     "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
-    "image/gif": "gif", "image/webp": "webp", "image/heic": "heic"
+    "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
+    "application/pdf": "pdf"
 };
 
 // Phones produce large files. 15 MB accepts a modern phone photo without
 // resizing while still refusing something pathological.
 var JOB_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
 
-// One shape for every photo row the API returns. file_url is an API path, not
-// an R2 key — raw R2 paths are never exposed to the frontend.
+// Is this attachment an image (thumbnail) or a document (file row)?
+//
+// NULL counts as an image: rows predating the content_type column are all
+// images, and gm_job_files.sql backfills them — this keeps a row that somehow
+// escaped the backfill rendering exactly as it does today rather than turning
+// into a broken file entry.
+function gmIsImageType(contentType) {
+    if (!contentType) { return true; }
+    return String(contentType).slice(0, 6) === "image/";
+}
+
+// One shape for every attachment row the API returns. file_url is an API
+// path, not an R2 key — raw R2 paths are never exposed to the frontend.
 function gmJobPhotoOut(row, clientId) {
     return {
         id: row.id,
@@ -16632,6 +17001,10 @@ function gmJobPhotoOut(row, clientId) {
         caption: row.caption || null,
         uploaded_by: row.uploaded_by || null,
         created_at: row.created_at,
+        // Both null on pre-widening rows; the frontend treats that as an image.
+        content_type: row.content_type || null,
+        file_name: row.file_name || null,
+        is_image: gmIsImageType(row.content_type),
         file_url: "/api/clients/" + clientId + "/gm/jobs/" + row.job_id + "/photos/" + row.id + "/file"
     };
 }
@@ -16679,16 +17052,23 @@ async function handlePostGmJobPhoto(id, jobId, request, env) {
 
         var ext = JOB_PHOTO_TYPES[file.type];
         if (!ext) {
-            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, WebP or HEIC image.", 400);
+            return jsonErr("Invalid file type. Upload a PDF or a JPG, PNG, GIF, WebP or HEIC image.", 400);
         }
 
         var buf = await file.arrayBuffer();
         if (buf.byteLength > JOB_PHOTO_MAX_BYTES) {
-            return jsonErr("Photo too large. Maximum size is 15 MB.", 400);
+            return jsonErr("File too large. Maximum size is 15 MB.", 400);
         }
 
         var capField = form.get("caption");
         var caption = (typeof capField === "string" && capField.trim()) ? capField.trim().slice(0, 300) : null;
+
+        // The name the file arrived with, kept so a PDF row can be identified
+        // in the gallery. Never used to build the R2 key (that comes from the
+        // validated type allowlist above) and never trusted as a path: strip
+        // any directory part and cap the length.
+        var nameField = (file.name && typeof file.name === "string") ? file.name : "";
+        var fileName = nameField.split(/[\\/]/).pop().trim().slice(0, 200) || null;
 
         var photoId = crypto.randomUUID();
         var key = "job-photos/" + id + "/" + photoId + "." + ext;
@@ -16696,11 +17076,12 @@ async function handlePostGmJobPhoto(id, jobId, request, env) {
         await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
 
         await env.DB.prepare(
-            "INSERT INTO gm_job_photos (id, job_id, client_id, r2_key, caption, uploaded_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO gm_job_photos (id, job_id, client_id, r2_key, caption, uploaded_by, content_type, file_name) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             photoId, jobId, id, key, caption,
-            user.display_name || user.role || null
+            user.display_name || user.role || null,
+            file.type, fileName
         ).run();
 
         var row = await env.DB.prepare("SELECT * FROM gm_job_photos WHERE id = ?").bind(photoId).first();
@@ -16717,9 +17098,9 @@ async function handleGetGmJobPhotoFile(id, jobId, photoId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
         // Scoped by client AND job: an id from another client's project is a
-        // 404 here, not a served image.
+        // 404 here, not a served file.
         var row = await env.DB.prepare(
-            "SELECT r2_key FROM gm_job_photos WHERE id = ? AND job_id = ? AND client_id = ?"
+            "SELECT r2_key, content_type, file_name FROM gm_job_photos WHERE id = ? AND job_id = ? AND client_id = ?"
         ).bind(photoId, jobId, id).first();
         if (!row) { return jsonErr("Photo not found", 404); }
 
@@ -16733,8 +17114,17 @@ async function handleGetGmJobPhotoFile(id, jobId, photoId, request, env) {
         if (!obj) { return jsonErr("Photo not found", 404); }
 
         var headers = new Headers();
-        headers.set("Content-Type", (obj.httpMetadata && obj.httpMetadata.contentType) || "image/jpeg");
+        headers.set("Content-Type",
+            (obj.httpMetadata && obj.httpMetadata.contentType) || row.content_type || "image/jpeg");
         headers.set("Cache-Control", "private, max-age=3600");
+        // Images render inline as before. A PDF opens in the browser's own
+        // viewer, but carries its original name so a "save" lands as
+        // "estimate-jm.pdf" rather than a bare UUID. Quotes escaped, and the
+        // name is already stripped of any path at upload.
+        if (!gmIsImageType(row.content_type) && row.file_name) {
+            headers.set("Content-Disposition",
+                'inline; filename="' + String(row.file_name).replace(/["\\]/g, "") + '"');
+        }
         return new Response(obj.body, { headers: headers });
     } catch (e) {
         return jsonErr("Error fetching photo: " + e.message, 500);
@@ -16768,6 +17158,711 @@ async function handleDeleteGmJobPhoto(id, jobId, photoId, request, env) {
         return jsonOk({ deleted: true });
     } catch (e) {
         return jsonErr("Error deleting photo: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Lead attachments — gm_lead_files + R2.
+//
+// Asked for by Rafa in the client's words: archive "PDF ou fotos" against a
+// lead — the signed estimate, a permit, site photos from WhatsApp.
+//
+// Built on the gm_job_photos pattern one tier over, carrying the same safety
+// properties deliberately: client-scoped reads, a strict r2_key regex before
+// R2 is touched, and a delete that removes the object AND the row.
+//
+// SELLERS CANNOT REACH THESE ROUTES. sellerRequestAllowed() is a strict
+// allowlist and none of these paths are in it, so a seller session is refused
+// before any handler runs. Adding one there would be the mistake.
+//
+// Key layout mirrors the job photos: lead-files/<leadId>/<fileId>.<ext>.
+// ---------------------------------------------------------------------------
+
+// Images plus PDF, because the ask was explicitly "PDF ou fotos".
+var LEAD_FILE_TYPES = {
+    "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+    "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
+    "application/pdf": "pdf"
+};
+
+// Same ceiling as project photos: a modern phone photo or a scanned estimate
+// fits; something pathological does not.
+var LEAD_FILE_MAX_BYTES = 15 * 1024 * 1024;
+
+// Keyed on the lead, so a guessed id from another business cannot be written
+// through or read back.
+async function gmLeadBelongsToClient(env, clientId, leadId) {
+    var row = await env.DB.prepare(
+        "SELECT id FROM gm_leads WHERE id = ? AND client_id = ?"
+    ).bind(leadId, clientId).first();
+    return !!row;
+}
+
+function gmLeadFileOut(row, clientId) {
+    return {
+        id: row.id,
+        lead_id: row.lead_id,
+        caption: row.caption || null,
+        file_name: row.file_name || null,
+        content_type: row.content_type,
+        is_image: gmIsImageType(row.content_type),
+        uploaded_by: row.uploaded_by || null,
+        created_at: row.created_at,
+        file_url: "/api/clients/" + clientId + "/gm/leads/" + row.lead_id + "/files/" + row.id + "/file"
+    };
+}
+
+async function handleGetGmLeadFiles(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_lead_files WHERE lead_id = ? AND client_id = ? ORDER BY created_at ASC"
+        ).bind(leadId, id).all();
+
+        return jsonOk({
+            files: (rows.results || []).map(function(r) { return gmLeadFileOut(r, id); })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching lead files: " + e.message, 500);
+    }
+}
+
+async function handlePostGmLeadFile(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("file");
+        if (!file || typeof file.arrayBuffer !== "function") {
+            return jsonErr("file is required", 400);
+        }
+
+        var ext = LEAD_FILE_TYPES[file.type];
+        if (!ext) {
+            return jsonErr("Invalid file type. Upload a PDF or a JPG, PNG, GIF, WebP or HEIC image.", 400);
+        }
+
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > LEAD_FILE_MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 15 MB.", 400);
+        }
+
+        var capField = form.get("caption");
+        var caption = (typeof capField === "string" && capField.trim()) ? capField.trim().slice(0, 300) : null;
+
+        // Kept for display only. The R2 key is built from the validated type
+        // above, never from this; any directory part is stripped so a name
+        // like "../../x.pdf" cannot influence a path.
+        var nameField = (file.name && typeof file.name === "string") ? file.name : "";
+        var fileName = nameField.split(/[\\/]/).pop().trim().slice(0, 200) || null;
+
+        var fileId = crypto.randomUUID();
+        var key = "lead-files/" + leadId + "/" + fileId + "." + ext;
+
+        await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
+
+        await env.DB.prepare(
+            "INSERT INTO gm_lead_files (id, lead_id, client_id, r2_key, file_name, content_type, caption, uploaded_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            fileId, leadId, id, key, fileName, file.type, caption,
+            user.display_name || user.role || null
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_lead_files WHERE id = ?").bind(fileId).first();
+        return jsonOk({ file: gmLeadFileOut(row, id) });
+    } catch (e) {
+        return jsonErr("Error uploading file: " + e.message, 500);
+    }
+}
+
+async function handleGetGmLeadFileContent(id, leadId, fileId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        // Scoped by client AND lead: an id from another client's lead is a 404
+        // here, not a served file.
+        var row = await env.DB.prepare(
+            "SELECT r2_key, content_type, file_name FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(fileId, leadId, id).first();
+        if (!row) { return jsonErr("File not found", 404); }
+
+        // Never hand R2 a path shape we did not write ourselves.
+        if (!/^lead-files\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.r2_key)) {
+            return jsonErr("File not found", 404);
+        }
+
+        var obj = await env.ASSETS.get(row.r2_key);
+        if (!obj) { return jsonErr("File not found", 404); }
+
+        var headers = new Headers();
+        headers.set("Content-Type",
+            (obj.httpMetadata && obj.httpMetadata.contentType) || row.content_type || "application/octet-stream");
+        headers.set("Cache-Control", "private, max-age=3600");
+        if (!gmIsImageType(row.content_type) && row.file_name) {
+            headers.set("Content-Disposition",
+                'inline; filename="' + String(row.file_name).replace(/["\\]/g, "") + '"');
+        }
+        return new Response(obj.body, { headers: headers });
+    } catch (e) {
+        return jsonErr("Error fetching file: " + e.message, 500);
+    }
+}
+
+async function handleDeleteGmLeadFile(id, leadId, fileId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT r2_key FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(fileId, leadId, id).first();
+        if (!row) { return jsonErr("File not found", 404); }
+
+        if (!/^lead-files\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.r2_key)) {
+            return jsonErr("File not found", 404);
+        }
+
+        // The R2 object goes first. If the row were dropped first and this
+        // threw, the object would be orphaned with nothing pointing at it —
+        // unreachable and undeletable through the API.
+        await env.ASSETS.delete(row.r2_key);
+
+        await env.DB.prepare(
+            "DELETE FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(fileId, leadId, id).run();
+
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting file: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The client business's own calendar — gm_events.
+//
+// Native to the client tier. NO GOOGLE: no OAuth, no sync, no integration.
+// That was an explicit decision (see migrations/gm_events.sql), not a gap.
+//
+// The month payload carries three kinds of entry and the frontend renders
+// them differently because they mean different things:
+//
+//   own      — a gm_events row. Editable, deletable.
+//   derived  — read from gm_jobs at request time, NEVER stored. A project
+//              shows on its start date and its deadline. Not editable here:
+//              the job is edited on the job, and a mirrored gm_events row
+//              would drift the moment someone moved a deadline.
+//   club     — an Apex Club invitation. Apex-tier data, read-only, and
+//              stripped to invitation fields only. See the block below.
+//
+// Sellers reach none of it: sellerRequestAllowed() does not list these paths.
+// ---------------------------------------------------------------------------
+
+// A YYYY-MM-DD string, or null. Rejects anything else rather than letting a
+// malformed date into a column the month query filters on with string
+// comparison.
+function gmDateStr(v) {
+    var s = gmStr(v, 10);
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) { return null; }
+    return s;
+}
+
+// HH:MM, or null. Accepts HH:MM:SS from a time input and drops the seconds.
+function gmTimeStr(v) {
+    var s = gmStr(v, 8);
+    if (!s) { return null; }
+    var m = /^(\d{2}):(\d{2})(:\d{2})?$/.exec(s);
+    if (!m) { return null; }
+    var h = parseInt(m[1], 10), mi = parseInt(m[2], 10);
+    if (h > 23 || mi > 59) { return null; }
+    return m[1] + ":" + m[2];
+}
+
+function gmEventOut(row) {
+    return {
+        kind: "own",
+        id: row.id,
+        event_type: row.event_type,
+        title: row.title,
+        // Stored, never inferred by comparing the saved title against a
+        // freshly generated one — that comparison flips to "overridden" the
+        // moment a translation is corrected. An event whose title is NOT
+        // overridden has its title recomposed per language by the frontend
+        // from event_type + job_id/lead_id.
+        title_overridden: row.title_overridden === 1,
+        date: row.event_date,
+        start_time: row.start_time || null,
+        end_time: row.end_time || null,
+        all_day: row.all_day === 1,
+        location: row.location || null,
+        description: row.description || null,
+        job_id: row.job_id || null,
+        lead_id: row.lead_id || null,
+        assigned_to: row.assigned_to || null,
+        created_by: row.created_by || null,
+        created_at: row.created_at,
+        updated_by: row.updated_by || null,
+        updated_at: row.updated_at,
+        editable: true
+    };
+}
+
+// Validates and normalises a create/update body. Returns { error } or fields.
+// The linked job/lead are re-checked against THIS client, so a guessed id from
+// another business cannot be attached to an event.
+async function gmEventFields(env, clientId, body, partial) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+
+    if (!partial || has("event_type")) {
+        var et = gmStr(body.event_type, 80);
+        if (!et) { return { error: "O tipo de evento é obrigatório / Event type is required" }; }
+        out.event_type = et;
+    }
+    if (!partial || has("title")) {
+        var t = gmStr(body.title, 300);
+        if (!t) { return { error: "O título é obrigatório / Title is required" }; }
+        out.title = t;
+    }
+    if (!partial || has("event_date")) {
+        var d = gmDateStr(body.event_date);
+        if (!d) { return { error: "Data inválida / Invalid date" }; }
+        out.event_date = d;
+    }
+    if (has("start_time")) { out.start_time = gmTimeStr(body.start_time); }
+    if (has("end_time"))   { out.end_time   = gmTimeStr(body.end_time); }
+    if (has("all_day"))    { out.all_day    = body.all_day ? 1 : 0; }
+    if (has("title_overridden")) { out.title_overridden = body.title_overridden ? 1 : 0; }
+    if (has("location"))    { out.location    = gmStr(body.location, 300); }
+    if (has("description")) { out.description = gmStr(body.description, 4000); }
+    if (has("assigned_to")) { out.assigned_to = gmStr(body.assigned_to, 120); }
+
+    if (has("job_id")) {
+        var jid = gmStr(body.job_id, 80);
+        if (jid) {
+            var j = await env.DB.prepare("SELECT id FROM gm_jobs WHERE id = ? AND client_id = ?")
+                .bind(jid, clientId).first();
+            if (!j) { return { error: "Projeto não encontrado / Project not found" }; }
+        }
+        out.job_id = jid;
+    }
+    if (has("lead_id")) {
+        var lid = gmStr(body.lead_id, 80);
+        if (lid) {
+            var l = await env.DB.prepare("SELECT id FROM gm_leads WHERE id = ? AND client_id = ?")
+                .bind(lid, clientId).first();
+            if (!l) { return { error: "Lead não encontrado / Lead not found" }; }
+        }
+        out.lead_id = lid;
+    }
+    // An all-day event has no clock times; storing them would render a time
+    // on a chip that the form said had none.
+    if (out.all_day === 1) { out.start_time = null; out.end_time = null; }
+    return out;
+}
+
+// Projects rendered onto the calendar, DERIVED at read time from gm_jobs.
+//
+// Never written into gm_events: a mirrored row drifts from the job the moment
+// somebody moves a deadline, and then two records disagree with no way to tell
+// which is right. Each entry carries job_id so a tap opens the job itself.
+//
+// entrega_real (actual delivery) is included alongside the planned dates —
+// it is a real, dated, client-owned fact, and on a finished job it is the date
+// the owner actually cares about.
+async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
+    var rows = await env.DB.prepare(
+        "SELECT id, obra, inicio, prazo_previsto, entrega_real, status FROM gm_jobs " +
+        "WHERE client_id = ? AND (" +
+        "  (inicio         IS NOT NULL AND inicio         >= ? AND inicio         <= ?) OR " +
+        "  (prazo_previsto IS NOT NULL AND prazo_previsto >= ? AND prazo_previsto <= ?) OR " +
+        "  (entrega_real   IS NOT NULL AND entrega_real   >= ? AND entrega_real   <= ?))"
+    ).bind(clientId, fromDate, toDate, fromDate, toDate, fromDate, toDate).all();
+
+    var out = [];
+    (rows.results || []).forEach(function (j) {
+        // Each date gets its OWN entry, labelled, so a glance at the day says
+        // which of the three it is rather than just naming the project twice.
+        function push(dateVal, labelPt, labelEn, slot) {
+            if (!dateVal || dateVal < fromDate || dateVal > toDate) { return; }
+            out.push({
+                kind: "derived",
+                source: "job",
+                id: "job:" + j.id + ":" + slot,
+                job_id: j.id,
+                date: String(dateVal).slice(0, 10),
+                label_pt: labelPt,
+                label_en: labelEn,
+                title: j.obra,
+                status: j.status || null,
+                all_day: true,
+                editable: false
+            });
+        }
+        push(j.inicio,         "Início",  "Start",    "inicio");
+        push(j.prazo_previsto, "Prazo",   "Deadline", "prazo");
+        push(j.entrega_real,   "Entrega", "Delivered", "entrega");
+    });
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Apex Club invitations for a client business — A TIER BOUNDARY CROSSING.
+//
+// Apex Club is the one thing every client business has in common, so the
+// events show on every client's calendar. They live on the APEX tier
+// (apex_club_events) and the client portal is otherwise walled off from that
+// data, so this is a narrow, deliberate exception.
+//
+// WHAT GOES OUT: name, date, start time, venue, speakers, whether a flyer
+// exists, and the public registration link. That is the invitation, and all
+// of it is already public — the same information printed on a flyer forwarded
+// through WhatsApp groups.
+//
+// WHAT MUST NEVER GO OUT, and why this is a dedicated endpoint rather than a
+// filter over an Apex-tier route:
+//   * price / revenue / cost / P&L — price_single_cents, price_couple_cents
+//     and everything in apex_club_event_txns
+//   * the guest list, registrations, or headcount (apex_club_registrations)
+//   * anything from transactions
+// Filtering in the frontend would mean shipping the full row to the browser,
+// where a client can read the money straight out of the network response. The
+// SELECT below is the enforcement: the columns simply are not fetched.
+//
+// Precedent: the club build already renders one row three ways — Alice's
+// finance view has the P&L, Rafa's calendar view has flyer + count + guest
+// list and no money, and a client business is the third and narrowest
+// audience: invitation only, no money AND no counts.
+//
+// Read-only by construction: there is no client-reachable write route for
+// apex_club_events anywhere.
+// ---------------------------------------------------------------------------
+async function gmClubInviteEvents(env, fromDate, toDate) {
+    var rows = await env.DB.prepare(
+        // Explicit column list, never SELECT *. A future money column added to
+        // apex_club_events must not silently start flowing to clients.
+        "SELECT id, name, event_date, start_time, venue, speakers, flyer_r2_key " +
+        "FROM apex_club_events WHERE event_date >= ? AND event_date <= ? " +
+        "ORDER BY event_date ASC"
+    ).bind(fromDate, toDate).all();
+
+    return (rows.results || []).map(function (e) {
+        return {
+            kind: "club",
+            id: "club:" + e.id,
+            club_event_id: e.id,
+            date: String(e.event_date).slice(0, 10),
+            title: e.name,
+            start_time: e.start_time || null,
+            venue: e.venue || null,
+            speakers: e.speakers || null,
+            // A boolean, not the R2 key: the flyer is served by its own
+            // auth-free public route, and the key is an internal path.
+            has_flyer: !!e.flyer_r2_key,
+            flyer_url: e.flyer_r2_key ? "/api/club/flyer/" + e.id : null,
+            register_url: "club.html?e=" + e.id,
+            all_day: !e.start_time,
+            editable: false
+        };
+    });
+}
+
+// GET /api/clients/:id/gm/events?month=YYYY-MM
+// Returns the client's own events plus derived job dates plus Apex Club
+// invitations for that month, in one payload.
+async function handleGetGmEvents(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = gmStr(url.searchParams.get("month"), 7);
+        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+            return jsonErr("month=YYYY-MM is required", 400);
+        }
+        // Widened by a week either side so the grid's leading and trailing
+        // days (which belong to the neighbouring months) are not blank.
+        var first = month + "-01";
+        var y = parseInt(month.slice(0, 4), 10), m = parseInt(month.slice(5, 7), 10);
+        var lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        var last = month + "-" + (lastDay < 10 ? "0" + lastDay : lastDay);
+        var fromD = new Date(Date.UTC(y, m - 1, 1) - 7 * 86400000).toISOString().slice(0, 10);
+        var toD = new Date(Date.UTC(y, m - 1, lastDay) + 7 * 86400000).toISOString().slice(0, 10);
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_events WHERE client_id = ? AND event_date >= ? AND event_date <= ? " +
+            "ORDER BY event_date ASC, COALESCE(start_time,'') ASC"
+        ).bind(id, fromD, toD).all();
+
+        var own = (rows.results || []).map(gmEventOut);
+        var derived = await gmDerivedJobEvents(env, id, fromD, toD);
+        var club = await gmClubInviteEvents(env, fromD, toD);
+
+        return jsonOk({
+            month: month,
+            range: { from: fromD, to: toD, month_start: first, month_end: last },
+            events: own.concat(derived).concat(club)
+        });
+    } catch (e) {
+        return jsonErr("Error fetching calendar: " + e.message, 500);
+    }
+}
+
+async function handlePostGmEvent(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var f = await gmEventFields(env, id, body, false);
+        if (f.error) { return jsonErr(f.error, 400); }
+
+        var eventId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_events (id, client_id, event_type, title, title_overridden, event_date, start_time, end_time, " +
+            "all_day, location, description, job_id, lead_id, assigned_to, created_by, updated_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            eventId, id, f.event_type, f.title, f.title_overridden || 0, f.event_date,
+            f.start_time || null, f.end_time || null, f.all_day || 0,
+            f.location || null, f.description || null,
+            f.job_id || null, f.lead_id || null, f.assigned_to || null,
+            actorName(user), actorName(user)
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_events WHERE id = ?").bind(eventId).first();
+        return jsonOk({ event: gmEventOut(row) });
+    } catch (e) {
+        return jsonErr("Error creating event: " + e.message, 500);
+    }
+}
+
+async function handlePutGmEvent(id, eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT id FROM gm_events WHERE id = ? AND client_id = ?"
+        ).bind(eventId, id).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        var body = await request.json();
+        var f = await gmEventFields(env, id, body, true);
+        if (f.error) { return jsonErr(f.error, 400); }
+
+        var cols = ["event_type", "title", "title_overridden", "event_date", "start_time", "end_time",
+                    "all_day", "location", "description", "job_id", "lead_id", "assigned_to"];
+        var sets = [], binds = [];
+        cols.forEach(function (c) {
+            if (Object.prototype.hasOwnProperty.call(f, c)) {
+                sets.push(c + " = ?"); binds.push(f[c] === undefined ? null : f[c]);
+            }
+        });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        // Stamped from the session, never from the body.
+        sets.push("updated_by = ?"); binds.push(actorName(user));
+        sets.push("updated_at = datetime('now')");
+        binds.push(eventId, id);
+
+        await env.DB.prepare(
+            "UPDATE gm_events SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?"
+        ).bind(...binds).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_events WHERE id = ?").bind(eventId).first();
+        return jsonOk({ event: gmEventOut(row) });
+    } catch (e) {
+        return jsonErr("Error updating event: " + e.message, 500);
+    }
+}
+
+async function handleDeleteGmEvent(id, eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM gm_events WHERE id = ? AND client_id = ?"
+        ).bind(eventId, id).first();
+        if (!row) { return jsonErr("Event not found", 404); }
+
+        await env.DB.prepare("DELETE FROM gm_events WHERE id = ? AND client_id = ?")
+            .bind(eventId, id).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Notes on a lead or a project — gm_notes.
+//
+// A dated thread with an author, not a text field. gm_leads.observacao is a
+// FIELD ON THE LEAD ("observação do trabalho") and is deliberately untouched
+// by all of this: see migrations/gm_notes.sql.
+//
+// created_by / created_at are SERVER-SET from the authenticated session and
+// never read from the request body — the client_notes and lead_contact_log
+// convention. A caller can send created_by; it is ignored.
+//
+// Editing and deleting are limited to your OWN note, matched on the same
+// actor string the insert stamped. Sellers never reach these routes.
+// ---------------------------------------------------------------------------
+
+var GM_NOTE_PARENTS = { lead: "gm_leads", job: "gm_jobs" };
+
+// The parent row must exist AND belong to this client before a note can be
+// read or written against it, so a guessed id from another business is a 404
+// rather than a thread.
+async function gmNoteParentOk(env, clientId, parentType, parentId) {
+    var table = GM_NOTE_PARENTS[parentType];
+    if (!table) { return false; }
+    var row = await env.DB.prepare(
+        "SELECT id FROM " + table + " WHERE id = ? AND client_id = ?"
+    ).bind(parentId, clientId).first();
+    return !!row;
+}
+
+// Who the session is, for stamping and for the "is this mine?" check. One
+// helper so the insert and the ownership test can never drift apart.
+function gmNoteActor(user) {
+    return user.display_name || user.email || user.username || user.role || null;
+}
+
+function gmNoteOut(row, actor) {
+    return {
+        id: row.id,
+        parent_type: row.parent_type,
+        parent_id: row.parent_id,
+        body: row.body,
+        created_by: row.created_by || null,
+        created_at: row.created_at,
+        // Drives whether the UI offers edit/delete. The server re-checks on
+        // every write regardless — this is a hint, not the enforcement.
+        is_mine: !!actor && row.created_by === actor
+    };
+}
+
+async function handleGetGmNotes(id, parentType, parentId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!GM_NOTE_PARENTS[parentType]) { return jsonErr("Invalid note parent", 400); }
+        if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
+            return jsonErr("Record not found", 404);
+        }
+
+        // Newest first: a thread is read from the most recent entry.
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_notes WHERE client_id = ? AND parent_type = ? AND parent_id = ? " +
+            "ORDER BY created_at DESC, rowid DESC"
+        ).bind(id, parentType, parentId).all();
+
+        var actor = gmNoteActor(user);
+        return jsonOk({
+            notes: (rows.results || []).map(function(r) { return gmNoteOut(r, actor); })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching notes: " + e.message, 500);
+    }
+}
+
+async function handlePostGmNote(id, parentType, parentId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!GM_NOTE_PARENTS[parentType]) { return jsonErr("Invalid note parent", 400); }
+        if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
+            return jsonErr("Record not found", 404);
+        }
+
+        var body = await request.json();
+        var text = gmStr(body.body, 4000);
+        if (!text) { return jsonErr("A nota não pode ficar vazia / Note cannot be empty", 400); }
+
+        var noteId = crypto.randomUUID();
+        // created_by comes from the SESSION. Anything the caller sent under
+        // that name is discarded here, not sanitised.
+        await env.DB.prepare(
+            "INSERT INTO gm_notes (id, client_id, parent_type, parent_id, body, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(noteId, id, parentType, parentId, text, gmNoteActor(user)).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_notes WHERE id = ?").bind(noteId).first();
+        return jsonOk({ note: gmNoteOut(row, gmNoteActor(user)) });
+    } catch (e) {
+        return jsonErr("Error saving note: " + e.message, 500);
+    }
+}
+
+async function handlePutGmNote(id, parentType, parentId, noteId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
+        ).bind(noteId, id, parentType, parentId).first();
+        if (!existing) { return jsonErr("Note not found", 404); }
+
+        // Your own note only. Enforced server-side, not by hiding a button.
+        var actor = gmNoteActor(user);
+        if (!actor || existing.created_by !== actor) {
+            return jsonErr("You can only edit your own note", 403);
+        }
+
+        var body = await request.json();
+        var text = gmStr(body.body, 4000);
+        if (!text) { return jsonErr("A nota não pode ficar vazia / Note cannot be empty", 400); }
+
+        // Only the body is writable. created_by and created_at are never
+        // updated: the author and the time it was written are the record.
+        await env.DB.prepare("UPDATE gm_notes SET body = ? WHERE id = ?").bind(text, noteId).run();
+
+        var row = await env.DB.prepare("SELECT * FROM gm_notes WHERE id = ?").bind(noteId).first();
+        return jsonOk({ note: gmNoteOut(row, actor) });
+    } catch (e) {
+        return jsonErr("Error updating note: " + e.message, 500);
+    }
+}
+
+async function handleDeleteGmNote(id, parentType, parentId, noteId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
+        ).bind(noteId, id, parentType, parentId).first();
+        if (!existing) { return jsonErr("Note not found", 404); }
+
+        var actor = gmNoteActor(user);
+        if (!actor || existing.created_by !== actor) {
+            return jsonErr("You can only delete your own note", 403);
+        }
+
+        await env.DB.prepare("DELETE FROM gm_notes WHERE id = ?").bind(noteId).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting note: " + e.message, 500);
     }
 }
 
@@ -17123,6 +18218,19 @@ async function handleDeleteGmRow(id, collection, rowId, request, env) {
             await env.DB.prepare(
                 "UPDATE gm_base_ouro SET reactivated_lead_id = NULL WHERE reactivated_lead_id = ?"
             ).bind(rowId).run();
+            // Written BEFORE the row goes, and it deliberately OUTLIVES the
+            // lead: gm_lead_events has no FK and no cascade, so the record of
+            // a deletion survives the thing it describes. Cascading would
+            // erase the history at the exact moment the most important event
+            // happens, leaving "who deleted the $145,000 lead?" unanswerable.
+            //
+            // The lead's NAME goes in new_value because once the row is gone
+            // an id resolves to nothing, and an orphaned id is not an audit
+            // record.
+            await gmLogLeadEvents(env, id, rowId, actorName(user), [
+                { action: "deleted", field: "cliente",
+                  old_value: existing.estagio, new_value: existing.cliente }
+            ]);
         }
         await env.DB.prepare("DELETE FROM " + table + " WHERE id = ? AND client_id = ?")
             .bind(rowId, id).run();
@@ -19370,6 +20478,19 @@ function apexClubMemoHit(text) {
 }
 
 async function buildApexClubEventPL(env, event) {
+    // Prices belong to the event. The module constants are only the defaults
+    // a new event starts from, and older rows created before the columns
+    // existed fall back to them rather than matching nothing.
+    var singlePrice = event.price_single_cents || APEX_CLUB_PRICE_SINGLE;
+    // NULL is meaningful here: "this event has no couple rate", which is not
+    // the same as a couple rate of zero. Only fall back when the column is
+    // genuinely absent (pre-migration rows), never when it was set to NULL
+    // deliberately... but an existing row that predates the column reads as
+    // undefined, so distinguish the two.
+    var couplePrice = event.price_couple_cents === undefined
+        ? APEX_CLUB_PRICE_COUPLE
+        : event.price_couple_cents;
+
     // Confirmed membership first. These are the only rows that move the
     // number.
     var confirmedRes = await env.DB.prepare(
@@ -19391,6 +20512,20 @@ async function buildApexClubEventPL(env, event) {
         }
     });
 
+    // Rows she already ruled OUT of this event. The suggester rebuilds its
+    // candidate list from the rule on every load, so without a stored no the
+    // same not-a-dinner-ticket $50 comes back forever and the only button on
+    // the row is "Belongs here". Returned to the UI too, so a dismissal is
+    // visibly undoable rather than something that silently vanished.
+    var dismissedRes = await env.DB.prepare(
+        "SELECT d.transaction_id, t.amount_cents, t.date, t.description, t.memo " +
+        "FROM apex_club_event_dismissed d JOIN transactions t ON t.id = d.transaction_id " +
+        "WHERE d.event_id = ? ORDER BY t.date"
+    ).bind(event.id).all();
+    var dismissed = dismissedRes.results || [];
+    var dismissedIds = {};
+    dismissed.forEach(function(r) { dismissedIds[r.transaction_id] = true; });
+
     // Candidates in the window that she has NOT ruled on yet.
     var candRes = await env.DB.prepare(
         "SELECT t.id, t.amount_cents, t.date, t.description, t.memo, t.merchant_normalized " +
@@ -19402,15 +20537,18 @@ async function buildApexClubEventPL(env, event) {
     var suggestions = [];
     (candRes.results || []).forEach(function(t) {
         if (confirmedIds[t.id]) { return; }
+        if (dismissedIds[t.id]) { return; }
 
         var memoHit = apexClubMemoHit(t.memo) || apexClubMemoHit(t.description);
 
         if (t.amount_cents > 0) {
-            // Income side: the price points are the primary tell. $50 and $75
-            // are distinctive enough on this feed to be worth proposing, and
-            // a memo hit raises confidence rather than creating the match.
-            var isSingle = t.amount_cents === APEX_CLUB_PRICE_SINGLE;
-            var isCouple = t.amount_cents === APEX_CLUB_PRICE_COUPLE;
+            // Income side: the price points are the primary tell. They come
+            // from the EVENT, not from a constant -- Apex Club is not a
+            // fixed-price dinner (June was a churrascaria at roughly $80), and
+            // when the price was hardcoded a non-$50 night matched nothing at
+            // all and said nothing about why.
+            var isSingle = t.amount_cents === singlePrice;
+            var isCouple = couplePrice !== null && t.amount_cents === couplePrice;
             if (!isSingle && !isCouple && !memoHit) { return; }
 
             suggestions.push({
@@ -19444,6 +20582,28 @@ async function buildApexClubEventPL(env, event) {
 
     suggestions.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
 
+    // The guest list. This is the number Alice orders food from -- it exists
+    // before any money does, which is the whole point: of nine confirmed July
+    // payments, six landed on the day of the dinner and one after it.
+    var regsRes = await env.DB.prepare(
+        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at " +
+        "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
+    ).bind(event.id).all();
+    var regs = regsRes.results || [];
+
+    // SEATS, not rows. A registration with a plus one is two people at the
+    // table, and the food is ordered from this number -- counting rows would
+    // under-order for every couple in the room.
+    var goingCount = 0, nextTimeCount = 0, attendedCount = 0, noShowCount = 0;
+    var goingPeople = 0, attendedPeople = 0;
+    regs.forEach(function(r) {
+        var seats = r.plus_one === 1 ? 2 : 1;
+        if (r.rsvp_state === "next_time") { nextTimeCount++; }
+        else { goingCount++; goingPeople += seats; }
+        if (r.attended === 1) { attendedCount++; attendedPeople += seats; }
+        else if (r.attended === 0) { noShowCount++; }
+    });
+
     // What the number WOULD be if she accepted everything suggested. Kept
     // strictly separate from the confirmed figure so the headline never
     // silently includes a guess.
@@ -19470,7 +20630,25 @@ async function buildApexClubEventPL(env, event) {
             net_cents: projIncome - projExpense,
             people: projPeople
         },
-        suggestions: suggestions
+        suggestions: suggestions,
+        // Not part of the P&L in any direction -- these are transactions that
+        // are simply not this event, still uncategorized, still waiting to be
+        // filed somewhere else. Shipped so the UI can offer "show / undo".
+        dismissed: dismissed,
+        // The RSVP list. Deliberately NOT joined to any transaction: this is
+        // the food count, and it is answered before a single payment arrives.
+        registrations: regs,
+        rsvp: {
+            // going = how many PEOPLE said yes (a plus one counts twice) --
+            // this is the food count. going_rows is how many registrations
+            // that is, which is what the list below shows.
+            going: goingPeople,
+            going_rows: goingCount,
+            next_time: nextTimeCount,
+            attended: attendedPeople,
+            attended_rows: attendedCount,
+            no_show: noShowCount
+        }
     };
 }
 
@@ -19509,6 +20687,7 @@ async function handlePostFinanceNewClubEvent(request, env) {
 
         var body = await request.json().catch(function() { return {}; });
         if (!body.name || !body.event_date) { return jsonErr("name and event_date required", 400); }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(body.event_date)) { return jsonErr("event_date must be YYYY-MM-DD", 400); }
 
         // Default window: attendees pay from about two weeks before the
         // dinner to a week after, which is what the July cluster looks like.
@@ -19516,16 +20695,769 @@ async function handlePostFinanceNewClubEvent(request, env) {
         var start = body.window_start || addInterval(body.event_date, -14, "day");
         var end   = body.window_end   || addInterval(body.event_date, 7, "day");
 
+        var prices = parseClubPrices(body);
+        if (prices.error) { return jsonErr(prices.error, 400); }
+
         var id = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, notes, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)"
-        ).bind(id, body.name, body.event_date, start, end, body.notes || null, actorName(user)).run();
+            "INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, notes, created_by, " +
+            "price_single_cents, price_couple_cents, venue, start_time, speakers, registration_open, session_id) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            id, body.name, body.event_date, start, end, body.notes || null, actorName(user),
+            prices.single, prices.couple,
+            body.venue || null, body.start_time || null, body.speakers || null,
+            body.registration_open === false ? 0 : 1,
+            // Set when the calendar's "+ Apex Club" creates both records at
+            // once, so the money-free calendar view resolves immediately.
+            body.session_id || null
+        ).run();
 
         var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(id).first();
         return jsonOk(await buildApexClubEventPL(env, row));
     } catch (e) {
         return jsonErr("Error creating event: " + e.message, 500);
+    }
+}
+
+// Shared by create and update. A couple price is optional -- an event can be
+// per-person only -- but a single price is what the matching rule runs on, so
+// it must be a real positive number rather than silently falling back to $50
+// on a night that cost $80.
+function parseClubPrices(body) {
+    var single = body.price_single_cents;
+    if (single === undefined || single === null || single === "") {
+        single = APEX_CLUB_PRICE_SINGLE;
+    }
+    single = parseInt(single, 10);
+    if (!isFinite(single) || single <= 0) {
+        return { error: "price_single_cents must be a positive number of cents" };
+    }
+
+    var couple = body.price_couple_cents;
+    if (couple === undefined || couple === null || couple === "") {
+        couple = null;   // no couple rate for this event
+    } else {
+        couple = parseInt(couple, 10);
+        if (!isFinite(couple) || couple <= 0) {
+            return { error: "price_couple_cents must be a positive number of cents, or blank" };
+        }
+    }
+
+    return { single: single, couple: couple };
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance-new/club/events/:id — edit an event
+// Route: DELETE /api/finance-new/club/events/:id — remove one
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceNewClubEvent(eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.name || !body.event_date) { return jsonErr("name and event_date required", 400); }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(body.event_date)) { return jsonErr("event_date must be YYYY-MM-DD", 400); }
+
+        var prices = parseClubPrices(body);
+        if (prices.error) { return jsonErr(prices.error, 400); }
+
+        var start = body.window_start || addInterval(body.event_date, -14, "day");
+        var end   = body.window_end   || addInterval(body.event_date, 7, "day");
+
+        await env.DB.prepare(
+            "UPDATE apex_club_events SET name = ?, event_date = ?, window_start = ?, window_end = ?, " +
+            "notes = ?, price_single_cents = ?, price_couple_cents = ?, venue = ?, start_time = ?, " +
+            "speakers = ?, registration_open = ? WHERE id = ?"
+        ).bind(
+            body.name, body.event_date, start, end, body.notes || null,
+            prices.single, prices.couple,
+            body.venue || null, body.start_time || null, body.speakers || null,
+            body.registration_open === false ? 0 : 1,
+            eventId
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        return jsonOk(await buildApexClubEventPL(env, row));
+    } catch (e) {
+        return jsonErr("Error updating event: " + e.message, 500);
+    }
+}
+
+async function handleDeleteFinanceNewClubEvent(eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        // Membership, dismissals and RSVPs are all meaningless without the
+        // event, so they go with it. The TRANSACTIONS are never touched --
+        // deleting an event un-files its money, it does not erase it.
+        await env.DB.prepare("DELETE FROM apex_club_event_txns WHERE event_id = ?").bind(eventId).run();
+        await env.DB.prepare("DELETE FROM apex_club_event_dismissed WHERE event_id = ?").bind(eventId).run();
+        await env.DB.prepare("DELETE FROM apex_club_registrations WHERE event_id = ?").bind(eventId).run();
+        await env.DB.prepare("DELETE FROM apex_club_events WHERE id = ?").bind(eventId).run();
+
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/club/events/:id/flyer — upload the promo image
+// Body: multipart/form-data with a 'flyer' file field.
+// Follows the business-QR / client-logo upload pattern already in this file.
+// ---------------------------------------------------------------------------
+
+async function handlePostClubFlyer(eventId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM apex_club_events WHERE id = ?").bind(eventId).first();
+        if (!existing) { return jsonErr("Event not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("flyer");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("flyer file is required", 400); }
+
+        var allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+        if (allowed.indexOf(file.type) === -1) {
+            return jsonErr("Invalid file type. Upload a JPG, PNG, GIF, or WebP image.", 400);
+        }
+
+        // Flyers are full-size promo graphics, larger than a QR code.
+        var MAX_BYTES = 5 * 1024 * 1024;
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 5 MB.", 400);
+        }
+
+        var header = new Uint8Array(buf.slice(0, 12));
+        var isPng  = header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47;
+        var isJpg  = header[0] === 0xFF && header[1] === 0xD8;
+        var isGif  = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46;
+        var isWebp = header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50;
+        if (!isPng && !isJpg && !isGif && !isWebp) {
+            return jsonErr("File content does not match a supported image format.", 400);
+        }
+
+        var ext = isPng ? "png" : isGif ? "gif" : isWebp ? "webp" : "jpg";
+        var key = "club/flyer-" + eventId + "." + ext;
+
+        await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
+
+        await env.DB.prepare(
+            "UPDATE apex_club_events SET flyer_r2_key = ? WHERE id = ?"
+        ).bind(key, eventId).run();
+
+        return jsonOk({ flyer_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading flyer: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/club/flyer/:id — serves an event's flyer from R2.
+// Auth-free: it is a promo image that goes out in WhatsApp groups, and the
+// public registration page has to render it with a plain <img> tag.
+// ---------------------------------------------------------------------------
+
+async function handleGetClubFlyer(eventId, request, env) {
+    try {
+        var row = await env.DB.prepare(
+            "SELECT flyer_r2_key FROM apex_club_events WHERE id = ?"
+        ).bind(eventId).first();
+
+        if (!row || !row.flyer_r2_key) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        if (!/^club\/flyer-[A-Za-z0-9-]+\.(png|jpe?g|gif|webp)$/.test(row.flyer_r2_key)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        var obj = await env.ASSETS.get(row.flyer_r2_key);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+
+        var headers = new Headers(CORS_HEADERS);
+        headers.set("Content-Type", obj.httpMetadata && obj.httpMetadata.contentType || "image/jpeg");
+        headers.set("Cache-Control", "public, max-age=86400");
+        return new Response(obj.body, { headers: headers });
+    } catch (e) {
+        return new Response(null, { status: 500, headers: CORS_HEADERS });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC registration — no auth by design.
+//
+// Route: GET  /api/club/register/:id — what the page needs to render itself
+// Route: POST /api/club/register/:id — { name, phone }
+//
+// This is the top of Apex's own funnel: Apex Club draws more than clients, and
+// people who get value from it tend to become clients, so the link is meant to
+// be forwarded by attendees to business owners nobody at Apex has met yet.
+// ---------------------------------------------------------------------------
+
+// A bare 10-digit US number silently breaks WhatsApp sends and wa.me links --
+// a real, still-open failure mode on the LTC project (waha_http_500), proven
+// there by four real numbers that worked the moment the country code was
+// added. Normalize on the way IN rather than trusting a phone keypad.
+function normalizeUsPhone(raw) {
+    var digits = String(raw || "").replace(/\D/g, "");
+    if (!digits) { return null; }
+    // Already carries a US country code.
+    if (digits.length === 11 && digits.charAt(0) === "1") { return digits; }
+    if (digits.length === 10) { return "1" + digits; }
+    // Brazilian numbers (55 + 10 or 11 digits) pass through -- Apex Club is a
+    // Brazilian-American room and some attendees will give a BR number.
+    if (digits.length >= 12 && digits.length <= 13 && digits.slice(0, 2) === "55") { return digits; }
+    return null;
+}
+
+async function handleGetClubRegisterInfo(eventId, request, env) {
+    try {
+        var ev = await env.DB.prepare(
+            "SELECT id, name, event_date, start_time, venue, speakers, flyer_r2_key, notes, " +
+            "price_single_cents, price_couple_cents, registration_open " +
+            "FROM apex_club_events WHERE id = ?"
+        ).bind(eventId).first();
+
+        if (!ev) { return jsonErr("Event not found", 404); }
+
+        // ⚠️ There is NO tappable Zelle payment link, and the QR's own URL is
+        // not one. Tried and reverted 2026-08-10: the QR decodes to
+        // enroll.zellepay.com/qr-codes?data=<base64 {name,action,token}>,
+        // which reads like a payment URL but is Zelle's bank-finder /
+        // enrollment landing page. The QR works only because a BANK APP's
+        // scanner extracts the token; opening that URL in a browser shows a
+        // marketing page. Proven on a real phone.
+        //
+        // So the page ships the QR plus the HANDLE as copyable text -- the
+        // handle is what someone reading on their own phone can actually use,
+        // since they cannot scan their own screen. Public information either
+        // way: it is the same address printed on a QR anyone can photograph.
+        var pay = await env.DB.prepare(
+            "SELECT zelle_handle FROM business_settings WHERE id = 1"
+        ).first();
+
+        // Deliberately no guest list, no counts, no totals: this endpoint is
+        // world-readable, and who is coming is Apex's business, not a
+        // visitor's.
+        return jsonOk({
+            zelle_handle: (pay && pay.zelle_handle) || null,
+            id: ev.id,
+            name: ev.name,
+            event_date: ev.event_date,
+            start_time: ev.start_time,
+            venue: ev.venue,
+            speakers: ev.speakers,
+            // Free-text escape hatch for anything the fixed fields do not
+            // cover -- parking, dress code, "bring a business card". Optional,
+            // and PUBLIC: whatever is typed here is shown to attendees, so it
+            // is never a place for internal remarks.
+            notes: ev.notes,
+            has_flyer: !!ev.flyer_r2_key,
+            price_single_cents: ev.price_single_cents,
+            price_couple_cents: ev.price_couple_cents,
+            registration_open: ev.registration_open === 1
+        });
+    } catch (e) {
+        return jsonErr("Error loading event: " + e.message, 500);
+    }
+}
+
+async function handlePostClubRegister(eventId, request, env) {
+    try {
+        var ev = await env.DB.prepare(
+            "SELECT id, registration_open FROM apex_club_events WHERE id = ?"
+        ).bind(eventId).first();
+        if (!ev) { return jsonErr("Event not found", 404); }
+        if (ev.registration_open !== 1) { return jsonErr("Registration is closed for this event", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var name = String(body.name || "").trim().slice(0, 120);
+        if (name.length < 2) { return jsonErr("Nome é obrigatório", 400); }
+
+        var phone = normalizeUsPhone(body.phone);
+        if (!phone) { return jsonErr("Número de WhatsApp inválido", 400); }
+
+        // Attendees can bring a spouse, which the couple price already
+        // implies. Counted as a second SEAT on the same row, never a second
+        // registration -- one phone, one person to message.
+        var plusOne = (body.plus_one === true || body.plus_one === 1) ? 1 : 0;
+
+        // Re-registering is not an error. Someone tapping twice, or coming
+        // back to add a plus one they forgot, must never see a failure -- the
+        // UNIQUE constraint makes it idempotent and the page just says
+        // "you're in".
+        await env.DB.prepare(
+            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source) " +
+            "VALUES (?, ?, ?, ?, ?, 'public') " +
+            "ON CONFLICT(event_id, phone) DO UPDATE SET " +
+            "name = excluded.name, plus_one = excluded.plus_one, rsvp_state = 'going'"
+        ).bind(crypto.randomUUID(), eventId, name, phone, plusOne).run();
+
+        return jsonOk({ registered: true, plus_one: plusOne === 1 });
+    } catch (e) {
+        return jsonErr("Error registering: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/club/by-session/:sessionId
+//
+// The SAME event, rendered for the calendar instead of the finance page.
+// Rafa runs Apex Club; Alice runs the money. The P&L does not even exist
+// until after the night, so putting the guest list behind the finance tab
+// blocks him from the only part he needs.
+//
+// Deliberately returns NO financial fields: no P&L, no suggestions, no
+// dismissed transactions, no totals. Guest list, counts, and what the event
+// is. Same row in D1 -- never a second copy.
+// ---------------------------------------------------------------------------
+
+async function handleGetClubBySession(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var ev = await env.DB.prepare(
+            "SELECT * FROM apex_club_events WHERE session_id = ?"
+        ).bind(sessionId).first();
+
+        // Not every calendar entry is an Apex Club night. A plain 404 lets
+        // the calendar simply not render the panel.
+        if (!ev) { return jsonErr("No Apex Club event linked to this session", 404); }
+
+        var regsRes = await env.DB.prepare(
+            "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at " +
+            "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
+        ).bind(ev.id).all();
+        var regs = regsRes.results || [];
+
+        var going = 0, goingRows = 0, nextTime = 0, attended = 0, noShow = 0;
+        regs.forEach(function(r) {
+            var seats = r.plus_one === 1 ? 2 : 1;
+            if (r.rsvp_state === "next_time") { nextTime++; }
+            else { goingRows++; going += seats; }
+            if (r.attended === 1) { attended += seats; }
+            else if (r.attended === 0) { noShow++; }
+        });
+
+        return jsonOk({
+            event: {
+                id: ev.id,
+                name: ev.name,
+                event_date: ev.event_date,
+                start_time: ev.start_time,
+                venue: ev.venue,
+                speakers: ev.speakers,
+                notes: ev.notes,
+                flyer_r2_key: ev.flyer_r2_key,
+                price_single_cents: ev.price_single_cents,
+                price_couple_cents: ev.price_couple_cents,
+                registration_open: ev.registration_open
+            },
+            registrations: regs,
+            rsvp: {
+                going: going, going_rows: goingRows,
+                next_time: nextTime, attended: attended, no_show: noShow
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error loading club event: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// WEB PUSH
+//
+// Real push notifications to an installed PWA, including on iPhone (iOS 16.4+
+// home-screen web apps). Deliberately web push and NOT native: native push in
+// the Capacitor wrapper requires the paid Apple Developer program and APNs,
+// while this costs nothing and works today. The wrapper can gain native push
+// later without changing any of this.
+//
+// Implemented directly rather than with a library because Workers cannot use
+// the Node crypto that web-push depends on. Two pieces:
+//   1. VAPID  -- an ES256 JWT proving who is sending, signed with the private
+//                key in the VAPID_PRIVATE_KEY secret.
+//   2. aes128gcm -- the payload is encrypted to the subscription's own keys.
+//                   The push service never sees the message text.
+// ===========================================================================
+
+var VAPID_PUBLIC_KEY = "BB2FU9n-Nm_LcDWEdML34BlMWvmsj2aEJkeoYHBA6ILqJmjZIvYmnaqtxU2R601HJNeXnU6ZwDAjJjsVV69WDw0";
+var VAPID_SUBJECT    = "mailto:nlepage.ao.ail@gmail.com";
+
+function b64urlToBytes(s) {
+    s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) { s += "="; }
+    var bin = atob(s);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i); }
+    return out;
+}
+
+function bytesToB64url(buf) {
+    var b = new Uint8Array(buf), s = "";
+    for (var i = 0; i < b.length; i++) { s += String.fromCharCode(b[i]); }
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function concatBytes(arrays) {
+    var len = 0, i;
+    for (i = 0; i < arrays.length; i++) { len += arrays[i].length; }
+    var out = new Uint8Array(len), off = 0;
+    for (i = 0; i < arrays.length; i++) { out.set(arrays[i], off); off += arrays[i].length; }
+    return out;
+}
+
+// The VAPID JWT. Identifies the sender to the push service; without a valid
+// one the request is rejected with 401.
+async function buildVapidJwt(env, audience) {
+    var header  = { typ: "JWT", alg: "ES256" };
+    var payload = {
+        aud: audience,
+        exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
+        sub: VAPID_SUBJECT
+    };
+    var enc = new TextEncoder();
+    var signingInput =
+        bytesToB64url(enc.encode(JSON.stringify(header))) + "." +
+        bytesToB64url(enc.encode(JSON.stringify(payload)));
+
+    var key = await crypto.subtle.importKey(
+        "pkcs8", b64urlToBytes(env.VAPID_PRIVATE_KEY),
+        { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]
+    );
+    var sig = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" }, key, enc.encode(signingInput)
+    );
+    return signingInput + "." + bytesToB64url(sig);
+}
+
+async function hkdf(salt, ikm, info, length) {
+    var key = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+    var bits = await crypto.subtle.deriveBits(
+        { name: "HKDF", hash: "SHA-256", salt: salt, info: info }, key, length * 8
+    );
+    return new Uint8Array(bits);
+}
+
+// RFC 8291 aes128gcm. The push service relays an opaque blob; only the
+// subscribed browser can read it.
+async function encryptPushPayload(payloadText, p256dhB64, authB64) {
+    var enc = new TextEncoder();
+    var plaintext = enc.encode(payloadText);
+
+    var clientPub = b64urlToBytes(p256dhB64);
+    var authSecret = b64urlToBytes(authB64);
+
+    var localKp = await crypto.subtle.generateKey(
+        { name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]
+    );
+    var localPubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", localKp.publicKey));
+
+    var clientKey = await crypto.subtle.importKey(
+        "raw", clientPub, { name: "ECDH", namedCurve: "P-256" }, false, []
+    );
+    var shared = new Uint8Array(await crypto.subtle.deriveBits(
+        { name: "ECDH", public: clientKey }, localKp.privateKey, 256
+    ));
+
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+
+    var keyInfo = concatBytes([
+        enc.encode("WebPush: info\0"), clientPub, localPubRaw
+    ]);
+    var ikm = await hkdf(authSecret, shared, keyInfo, 32);
+
+    var cek   = await hkdf(salt, ikm, enc.encode("Content-Encoding: aes128gcm\0"), 16);
+    var nonce = await hkdf(salt, ikm, enc.encode("Content-Encoding: nonce\0"), 12);
+
+    var aesKey = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
+    // A single 0x02 delimiter marks the last (only) record.
+    var padded = concatBytes([plaintext, new Uint8Array([2])]);
+    var ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: nonce }, aesKey, padded
+    ));
+
+    // Header: salt(16) | record size(4) | key id length(1) | key id
+    var rs = new Uint8Array(4);
+    new DataView(rs.buffer).setUint32(0, 4096);
+    return concatBytes([
+        salt, rs, new Uint8Array([localPubRaw.length]), localPubRaw, ciphertext
+    ]);
+}
+
+// Sends to ONE subscription. Returns { ok, gone } -- `gone` means the browser
+// dropped it (404/410) and the row should be deleted rather than retried.
+async function sendWebPush(env, sub, payloadObj) {
+    try {
+        var url = new URL(sub.endpoint);
+        var jwt = await buildVapidJwt(env, url.origin);
+        var body = await encryptPushPayload(JSON.stringify(payloadObj), sub.p256dh, sub.auth);
+
+        var res = await fetch(sub.endpoint, {
+            method: "POST",
+            headers: {
+                "Authorization": "vapid t=" + jwt + ", k=" + VAPID_PUBLIC_KEY,
+                "Content-Encoding": "aes128gcm",
+                "Content-Type": "application/octet-stream",
+                "TTL": "86400",
+                "Urgency": "normal"
+            },
+            body: body
+        });
+
+        if (res.status === 404 || res.status === 410) { return { ok: false, gone: true }; }
+        if (!res.ok) {
+            var txt = await res.text().catch(function() { return ""; });
+            return { ok: false, gone: false, error: res.status + " " + txt.slice(0, 120) };
+        }
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, gone: false, error: e.message };
+    }
+}
+
+// Fan-out helper. `emails` null = every subscription.
+async function pushToUsers(env, emails, payloadObj) {
+    var q = emails && emails.length
+        ? "SELECT * FROM push_subscriptions WHERE user_email IN (" +
+          emails.map(function() { return "?"; }).join(",") + ")"
+        : "SELECT * FROM push_subscriptions";
+    var stmt = env.DB.prepare(q);
+    if (emails && emails.length) { stmt = stmt.bind.apply(stmt, emails); }
+
+    var subs = (await stmt.all()).results || [];
+    var sent = 0, removed = 0, failed = 0;
+
+    for (var i = 0; i < subs.length; i++) {
+        var r = await sendWebPush(env, subs[i], payloadObj);
+        if (r.ok) {
+            sent++;
+            await env.DB.prepare(
+                "UPDATE push_subscriptions SET last_sent_at = datetime('now'), last_error = NULL WHERE id = ?"
+            ).bind(subs[i].id).run();
+        } else if (r.gone) {
+            // The browser revoked it -- uninstalled, cleared data. Keeping it
+            // would mean failing forever.
+            removed++;
+            await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(subs[i].id).run();
+        } else {
+            failed++;
+            await env.DB.prepare(
+                "UPDATE push_subscriptions SET last_error = ? WHERE id = ?"
+            ).bind(String(r.error || "unknown").slice(0, 200), subs[i].id).run();
+        }
+    }
+    return { sent: sent, removed: removed, failed: failed, total: subs.length };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET  /api/push/key        — the VAPID public key (auth-free, public)
+// Route: POST /api/push/subscribe  — store this device's subscription
+// Route: POST /api/push/test       — send a test notification to myself
+// ---------------------------------------------------------------------------
+
+function handleGetPushKey() {
+    return jsonOk({ key: VAPID_PUBLIC_KEY });
+}
+
+async function handlePostPushSubscribe(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        // Turning the toggle off. The browser has already revoked the
+        // subscription; this drops our copy so nothing tries to send to a
+        // dead endpoint.
+        if (body.unsubscribe && body.endpoint) {
+            await env.DB.prepare(
+                "DELETE FROM push_subscriptions WHERE endpoint = ? AND user_email = ?"
+            ).bind(body.endpoint, user.email).run();
+            return jsonOk({ unsubscribed: true });
+        }
+
+        var sub = body.subscription;
+        if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+            return jsonErr("A full PushSubscription is required", 400);
+        }
+
+        // Re-subscribing on the same device returns the same endpoint, so
+        // upsert -- otherwise every reinstall would add a duplicate and send
+        // the same notification twice.
+        await env.DB.prepare(
+            "INSERT INTO push_subscriptions (id, user_email, endpoint, p256dh, auth, user_agent) " +
+            "VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT(endpoint) DO UPDATE SET " +
+            "user_email = excluded.user_email, p256dh = excluded.p256dh, " +
+            "auth = excluded.auth, user_agent = excluded.user_agent, last_error = NULL"
+        ).bind(
+            crypto.randomUUID(), user.email, sub.endpoint,
+            sub.keys.p256dh, sub.keys.auth,
+            String(body.user_agent || "").slice(0, 200) || null
+        ).run();
+
+        return jsonOk({ subscribed: true });
+    } catch (e) {
+        return jsonErr("Error saving push subscription: " + e.message, 500);
+    }
+}
+
+async function handlePostPushTest(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var result = await pushToUsers(env, [user.email], {
+            title: "Apex Command Center",
+            body: "Notificações ativadas. Funcionou! 🎉",
+            url: "/dashboard.html",
+            tag: "apex-test"
+        });
+
+        if (!result.total) {
+            return jsonErr("No device is subscribed for this account yet", 400);
+        }
+        return jsonOk(result);
+    } catch (e) {
+        return jsonErr("Error sending test notification: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/club/unlinked
+//
+// Apex Club nights that exist on the CALENDAR but have no club event, so no
+// price, no flyer and no registration page.
+//
+// Why this has to exist: Rafa creates events in Google Calendar, not in Apex
+// (adoption is still sporadic -- he asked for access and then kept using
+// Google). Google cannot prompt him for a price or a flyer, so that data can
+// only ever be collected later, inside Apex. Without this the gap is silent
+// and someone has to happen to open the right calendar entry to notice it.
+//
+// Matched on the session name, which is what an externally-created entry
+// actually carries -- July's arrived from Google as "APEX CLUB ", trailing
+// space and all.
+// ---------------------------------------------------------------------------
+
+async function handleGetClubUnlinked(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT s.id, s.client_name, s.date, s.time, s.location, s.calendar_provider " +
+            "FROM sessions s " +
+            "WHERE REPLACE(UPPER(TRIM(COALESCE(s.client_name,''))), '  ', ' ') LIKE '%APEX CLUB%' " +
+            "AND s.id NOT IN (SELECT COALESCE(session_id,'') FROM apex_club_events) " +
+            // A prep task ("Impressão certificados + preparação para o Apex
+            // Club") is not the dinner. Only the entry that IS the event.
+            "AND UPPER(TRIM(COALESCE(s.client_name,''))) NOT LIKE '%PREPARA%' " +
+            "ORDER BY s.date DESC LIMIT 20"
+        ).all();
+
+        return jsonOk({ sessions: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error finding unlinked Apex Club events: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/club/calendar-click/:id — public, fire-and-forget.
+//
+// Records that someone TAPPED "add to calendar". It cannot know whether the
+// event actually reached their calendar -- the .ics leaves the browser and
+// what happens next is invisible -- so this is a weak signal, kept only to
+// answer "is this button worth having at all". Never surfaced as attendance.
+// ---------------------------------------------------------------------------
+
+async function handlePostClubCalendarClick(eventId, request, env) {
+    try {
+        await env.DB.prepare(
+            "UPDATE apex_club_events SET calendar_clicks = COALESCE(calendar_clicks, 0) + 1 WHERE id = ?"
+        ).bind(eventId).run();
+    } catch (e) { /* a lost count must never break the page */ }
+    return jsonOk({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/club/registrations/:id — admin edits to a guest
+// Body: { rsvp_state } | { attended } | { confirmed } | { remove: true }
+// ---------------------------------------------------------------------------
+
+async function handlePostClubRegistrationUpdate(regId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id, event_id FROM apex_club_registrations WHERE id = ?"
+        ).bind(regId).first();
+        if (!row) { return jsonErr("Registration not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        if (body.remove) {
+            await env.DB.prepare("DELETE FROM apex_club_registrations WHERE id = ?").bind(regId).run();
+            return jsonOk({ deleted: true });
+        }
+
+        // Alice can correct a plus one from the list -- someone forgets to
+        // tick it, or turns up with a spouse unannounced.
+        if (body.plus_one === true || body.plus_one === false) {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET plus_one = ? WHERE id = ?"
+            ).bind(body.plus_one ? 1 : 0, regId).run();
+        }
+
+        if (body.rsvp_state === "going" || body.rsvp_state === "next_time") {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET rsvp_state = ? WHERE id = ?"
+            ).bind(body.rsvp_state, regId).run();
+        }
+
+        // Tri-state on purpose: 1 came, 0 no-show, null not marked yet. The
+        // gap between "said yes" and "came" is the empty place settings.
+        if (body.attended === 1 || body.attended === 0 || body.attended === null) {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET attended = ? WHERE id = ?"
+            ).bind(body.attended, regId).run();
+        }
+
+        if (body.confirmed === true) {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET confirmed_at = datetime('now') WHERE id = ?"
+            ).bind(regId).run();
+        } else if (body.confirmed === false) {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET confirmed_at = NULL WHERE id = ?"
+            ).bind(regId).run();
+        }
+
+        var ev = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(row.event_id).first();
+        return jsonOk(await buildApexClubEventPL(env, ev));
+    } catch (e) {
+        return jsonErr("Error updating registration: " + e.message, 500);
     }
 }
 
@@ -19539,10 +21471,49 @@ async function handlePostFinanceNewClubConfirm(request, env) {
         if (!body.event_id) { return jsonErr("event_id required", 400); }
         var items = Array.isArray(body.items) ? body.items : [];
 
-        var added = 0, removed = 0;
+        var added = 0, removed = 0, dismissed = 0, restored = 0;
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
             if (!it.transaction_id) { continue; }
+
+            // "Not this event" -- the answer that had no button. Records the
+            // no so the rule stops re-proposing it, and drops any existing
+            // confirmation, since saying it does not belong here also means
+            // it should stop counting toward the P&L.
+            if (it.dismiss) {
+                await env.DB.prepare(
+                    "DELETE FROM apex_club_event_txns WHERE event_id = ? AND transaction_id = ?"
+                ).bind(body.event_id, it.transaction_id).run();
+                await env.DB.prepare(
+                    "INSERT INTO apex_club_event_dismissed (event_id, transaction_id, dismissed_by) " +
+                    "VALUES (?, ?, ?) ON CONFLICT(event_id, transaction_id) DO NOTHING"
+                ).bind(body.event_id, it.transaction_id, actorName(user)).run();
+
+                // If a previous confirmation had filed this under Apex Club,
+                // that categorization is now wrong -- it was derived from a
+                // membership she just took back. Clear it so the transaction
+                // returns to Categorias to be filed where it really belongs.
+                // Anything she categorized by hand is left alone.
+                await env.DB.prepare(
+                    "UPDATE transactions SET category_id = NULL, category_source = NULL, " +
+                    "categorized_at = NULL " +
+                    "WHERE id = ? AND COALESCE(category_source, '') != 'manual' " +
+                    "AND category_id IN ('cat_apex_club_receita', 'cat_apex_club_despesa')"
+                ).bind(it.transaction_id).run();
+
+                dismissed++;
+                continue;
+            }
+
+            // Undo a dismissal: the row goes back to being an ordinary
+            // candidate and the rule decides again on the next build.
+            if (it.undismiss) {
+                await env.DB.prepare(
+                    "DELETE FROM apex_club_event_dismissed WHERE event_id = ? AND transaction_id = ?"
+                ).bind(body.event_id, it.transaction_id).run();
+                restored++;
+                continue;
+            }
 
             if (it.remove) {
                 await env.DB.prepare(
@@ -19551,6 +21522,12 @@ async function handlePostFinanceNewClubConfirm(request, env) {
                 removed++;
                 continue;
             }
+
+            // Confirming clears any earlier no on the same row, or the
+            // dismissal filter would immediately hide what she just accepted.
+            await env.DB.prepare(
+                "DELETE FROM apex_club_event_dismissed WHERE event_id = ? AND transaction_id = ?"
+            ).bind(body.event_id, it.transaction_id).run();
 
             await env.DB.prepare(
                 "INSERT INTO apex_club_event_txns (event_id, transaction_id, side, people, confirmed_by) " +
@@ -19584,6 +21561,8 @@ async function handlePostFinanceNewClubConfirm(request, env) {
         var pl = await buildApexClubEventPL(env, row);
         pl.added = added;
         pl.removed = removed;
+        pl.dismissed_count = dismissed;
+        pl.restored = restored;
         return jsonOk(pl);
     } catch (e) {
         return jsonErr("Error confirming event transactions: " + e.message, 500);
@@ -19647,6 +21626,7 @@ async function handleGetFinanceNewAttention(request, env) {
         var termsRow = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM clients c " +
             "WHERE COALESCE(c.status,'active') = 'active' " +
+            "AND COALESCE(c.archived, 0) = 0 " +
             "AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id)"
         ).first();
 
@@ -20176,12 +22156,56 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
             },
             observacoes:      inv.notes || "",
             formas_pagamento: inv.payment_method ||
-                "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente."
+                "Transferencia bancaria (ACH/Wire). Dados bancarios enviados separadamente.",
+            pagamento: await buildInvoicePaymentBlock(env)
         };
 
         return jsonOk(renderData);
     } catch (e) {
         return jsonErr("Error building invoice render data: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Payment affordances for invoices.
+//
+// ⚠️ ZELLE HAS NO TAPPABLE PAY LINK, and the QR's own URL is not one.
+// Tried and reverted 2026-08-10: the QR decodes to
+// enroll.zellepay.com/qr-codes?data=<base64 {name,action,token}>, which reads
+// like a payment URL but is Zelle's bank-finder / enrollment landing page.
+// The QR works only because a BANK APP's scanner pulls the token out of it --
+// the same URL in a browser is a marketing page. Proven on a real phone: it
+// opened Zelle in a browser and could not pay. A button there is worse than
+// no button, because it promises payment and delivers a webpage.
+// Do not add one back.
+//
+// What ships instead: the QR (scannable from a bank app) and the handle as
+// text (usable by someone reading the invoice on the phone they would
+// otherwise have to scan with). STRIPE is a real link and does work.
+//
+// Neither carries an amount, so the invoice total is still typed. The invoice
+// number in the memo is what makes the payment identifiable on arrival.
+//
+// Shared by the Zoho-backed and D1-backed render-data routes so both produce
+// the same shape and the existing template stays the single renderer.
+// ---------------------------------------------------------------------------
+
+async function buildInvoicePaymentBlock(env) {
+    var empty = { zelle_handle: null, zelle_qr_url: null, stripe_url: null };
+    try {
+        var s = await env.DB.prepare(
+            "SELECT zelle_handle, stripe_payment_link, zelle_qr_r2_key FROM business_settings WHERE id = 1"
+        ).first();
+        if (!s) { return empty; }
+
+        return {
+            zelle_handle: s.zelle_handle || null,
+            zelle_qr_url: s.zelle_qr_r2_key ? (APEX_API_BASE + "/api/business/qr-image") : null,
+            stripe_url:   s.stripe_payment_link || null
+        };
+    } catch (e) {
+        // A missing payment block must never break invoice rendering.
+        return empty;
     }
 }
 
@@ -20764,12 +22788,22 @@ export default {
     // API on any failure. Successes are silent (no daily "all good" noise).
     // -------------------------------------------------------------------
     scheduled: async function(event, env, ctx) {
-        return scheduledHandler(event, env, ctx);
+        // Three INDEPENDENT waitUntil calls, deliberately not chained. A Zoho
+        // refresh failure inside checkIntegrationHealth must not stop the Plaid
+        // sync, and neither may stop recurring invoice generation -- a missed
+        // recurrence is an invoice Alice never sends and revenue that never
+        // gets billed. Each swallows its own errors for the same reason.
+        ctx.waitUntil(checkIntegrationHealth(env));
+        ctx.waitUntil(syncPlaidTransactions(env).catch(function(e) {
+            return notifyNicoleTelegram(env, "Plaid sync failed: " + e.message).catch(function() {});
+        }));
+        ctx.waitUntil(runRecurringInvoices(env).catch(function(e) {
+            return notifyNicoleTelegram(env, "Recurring invoices failed: " + e.message).catch(function() {});
+        }));
     }
 };
 
 async function handleFetch(request, env, ctx) {
-    {
         var url    = new URL(request.url);
         var path   = url.pathname;
         var method = request.method;
@@ -20805,6 +22839,21 @@ async function handleFetch(request, env, ctx) {
                 return jsonErr("Modo preview é somente leitura / Preview mode is read-only", 403);
             }
         }
+
+        // PUBLIC Apex Club registration + flyer (no auth by design). The link
+        // is meant to be forwarded by attendees to people Apex has never met,
+        // so nothing here may require a login. GET returns only what the page
+        // renders -- never the guest list.
+        var clubRegPub = path.match(/^\/api\/club\/register\/([A-Za-z0-9-]+)$/);
+        if (clubRegPub) {
+            if (method === "GET")  { return handleGetClubRegisterInfo(clubRegPub[1], request, env); }
+            if (method === "POST") { return handlePostClubRegister(clubRegPub[1], request, env); }
+        }
+        var clubFlyerPub = path.match(/^\/api\/club\/flyer\/([A-Za-z0-9-]+)$/);
+        if (clubFlyerPub && method === "GET") { return handleGetClubFlyer(clubFlyerPub[1], request, env); }
+
+        var clubCalPub = path.match(/^\/api\/club\/calendar-click\/([A-Za-z0-9-]+)$/);
+        if (clubCalPub && method === "POST") { return handlePostClubCalendarClick(clubCalPub[1], request, env); }
 
         // PUBLIC partner-referral intake (no auth by design — see handlers).
         var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
@@ -21032,6 +23081,11 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "lead-outcome" && method === "POST") {
                 return handlePostLeadOutcome(cid, request, env);
             }
+            // Hide/unhide a client from every list. alice/developer only; the
+            // handler enforces that. Deliberately no DELETE counterpart.
+            if (segs.length === 4 && segs[3] === "archive" && method === "PUT") {
+                return handlePutClientArchive(cid, request, env);
+            }
             if (segs.length === 4 && segs[3] === "logo" && method === "POST") {
                 return handlePostClientLogo(cid, request, env);
             }
@@ -21202,9 +23256,56 @@ async function handleFetch(request, env, ctx) {
                     return handlePostGmBaseOuroReactivate(cid, segs[5], request, env);
                 }
                 // /gm/leads/:leadId/contacts — the client CRM's outreach log
+                // /gm/leads/:leadId/events — the audit trail, read-only.
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "events" && method === "GET") {
+                    return handleGetGmLeadEvents(cid, segs[5], request, env);
+                }
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "contacts") {
                     if (method === "GET")  { return handleGetGmLeadContacts(cid, segs[5], request, env); }
                     if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }
+                }
+                // /gm/leads/:leadId/files — attachments on a lead (PDF or
+                // image). NOT in sellerRequestAllowed, so a seller session is
+                // refused upstream — do not add them there.
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "files") {
+                    if (method === "GET")  { return handleGetGmLeadFiles(cid, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmLeadFile(cid, segs[5], request, env); }
+                }
+                // /gm/leads/:leadId/files/:fileId
+                if (segs.length === 8 && gmCol === "leads" && segs[6] === "files" && method === "DELETE") {
+                    return handleDeleteGmLeadFile(cid, segs[5], segs[7], request, env);
+                }
+                // /gm/leads/:leadId/files/:fileId/file — serves the bytes; no
+                // raw R2 path is ever exposed to the frontend.
+                if (segs.length === 9 && gmCol === "leads" && segs[6] === "files" &&
+                    segs[8] === "file" && method === "GET") {
+                    return handleGetGmLeadFileContent(cid, segs[5], segs[7], request, env);
+                }
+                // /gm/events — the client's own company calendar. The GET
+                // also carries derived gm_jobs dates and Apex Club
+                // invitations; see handleGetGmEvents.
+                if (segs.length === 5 && gmCol === "events") {
+                    if (method === "GET")  { return handleGetGmEvents(cid, request, env); }
+                    if (method === "POST") { return handlePostGmEvent(cid, request, env); }
+                }
+                if (segs.length === 6 && gmCol === "events") {
+                    if (method === "PUT")    { return handlePutGmEvent(cid, segs[5], request, env); }
+                    if (method === "DELETE") { return handleDeleteGmEvent(cid, segs[5], request, env); }
+                }
+                // /gm/leads/:id/notes and /gm/jobs/:id/notes — the dated note
+                // thread on either record. created_by/created_at are stamped
+                // from the session in the handler, never from the body.
+                // NOT in sellerRequestAllowed.
+                if (segs.length === 7 && (gmCol === "leads" || gmCol === "jobs") && segs[6] === "notes") {
+                    var noteParent = gmCol === "leads" ? "lead" : "job";
+                    if (method === "GET")  { return handleGetGmNotes(cid, noteParent, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmNote(cid, noteParent, segs[5], request, env); }
+                }
+                // /gm/leads|jobs/:id/notes/:noteId — edit or delete your own.
+                if (segs.length === 8 && (gmCol === "leads" || gmCol === "jobs") && segs[6] === "notes") {
+                    var noteParent2 = gmCol === "leads" ? "lead" : "job";
+                    if (method === "PUT")    { return handlePutGmNote(cid, noteParent2, segs[5], segs[7], request, env); }
+                    if (method === "DELETE") { return handleDeleteGmNote(cid, noteParent2, segs[5], segs[7], request, env); }
                 }
                 // /gm/jobs/:jobId/photos — progress photos on a project.
                 // Client-visible on purpose (the owner shows these to their own
@@ -21360,6 +23461,31 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }
         if (path === "/api/finance-new/club/confirm"      && method === "POST") { return handlePostFinanceNewClubConfirm(request, env); }
+
+        // Edit / delete one event, and upload its flyer.
+        var clubEvMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)$/);
+        if (clubEvMatch) {
+            if (method === "PUT")    { return handlePutFinanceNewClubEvent(clubEvMatch[1], request, env); }
+            if (method === "DELETE") { return handleDeleteFinanceNewClubEvent(clubEvMatch[1], request, env); }
+        }
+        var clubFlyerMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)\/flyer$/);
+        if (clubFlyerMatch && method === "POST") { return handlePostClubFlyer(clubFlyerMatch[1], request, env); }
+
+        var clubRegMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)$/);
+        if (clubRegMatch && method === "POST") { return handlePostClubRegistrationUpdate(clubRegMatch[1], request, env); }
+
+        // The calendar's money-free view of the same event.
+        var clubBySession = path.match(/^\/api\/finance-new\/club\/by-session\/([A-Za-z0-9-]+)$/);
+        if (clubBySession && method === "GET") { return handleGetClubBySession(clubBySession[1], request, env); }
+
+        // Apex Club nights on the calendar with no registration page yet.
+        if (path === "/api/finance-new/club/unlinked" && method === "GET") { return handleGetClubUnlinked(request, env); }
+
+        // Web push. The key is public by design -- it is the VAPID public
+        // key and the client needs it before it can subscribe.
+        if (path === "/api/push/key"       && method === "GET")  { return handleGetPushKey(); }
+        if (path === "/api/push/subscribe" && method === "POST") { return handlePostPushSubscribe(request, env); }
+        if (path === "/api/push/test"      && method === "POST") { return handlePostPushTest(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }
@@ -21379,22 +23505,6 @@ async function handleFetch(request, env, ctx) {
         }
 
         return jsonErr("Not found", 404);
-    }
-}
-
-async function scheduledHandler(event, env, ctx) {
-        // Three INDEPENDENT waitUntil calls, deliberately not chained. A Zoho
-        // refresh failure inside checkIntegrationHealth must not stop the Plaid
-        // sync, and neither may stop recurring invoice generation -- a missed
-        // recurrence is an invoice Alice never sends and revenue that never
-        // gets billed. Each swallows its own errors for the same reason.
-        ctx.waitUntil(checkIntegrationHealth(env));
-        ctx.waitUntil(syncPlaidTransactions(env).catch(function(e) {
-            return notifyNicoleTelegram(env, "Plaid sync failed: " + e.message).catch(function() {});
-        }));
-        ctx.waitUntil(runRecurringInvoices(env).catch(function(e) {
-            return notifyNicoleTelegram(env, "Recurring invoices failed: " + e.message).catch(function() {});
-        }));
 }
 
 async function checkIntegrationHealth(env) {

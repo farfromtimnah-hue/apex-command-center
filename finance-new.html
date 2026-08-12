@@ -665,6 +665,133 @@
       font-size: 12.5px; padding: 4px 0; flex-wrap: wrap;
     }
     .club-sug-row .grow { flex: 1 1 auto; min-width: 140px; }
+    /* Dismissed rows sit below the open questions, quieter than them --
+       answered, not pending, but still reachable to undo. */
+    /* ── Event modal ── */
+    .ev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0 14px; }
+    .ev-f { display: block; }
+    .ev-wide { grid-column: 1 / -1; }
+    .ev-lbl { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+    .ev-opt { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+    .ev-f input, .ev-f textarea {
+      width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px;
+      padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px;
+      background: #fff; color: var(--text);
+    }
+    .ev-f input:focus, .ev-f textarea:focus { outline: none; border-color: var(--gold); }
+    .ev-f textarea { resize: vertical; }
+    .ev-more {
+      background: none; border: 0; padding: 2px 0; cursor: pointer;
+      font-family: inherit; font-size: 12.5px; color: var(--muted); text-decoration: underline;
+    }
+    .ev-more:hover { color: var(--text); }
+    .ev-window { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    .ev-err {
+      background: rgba(179,38,30,0.08); border: 1px solid rgba(179,38,30,0.4);
+      color: var(--red); font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px;
+    }
+    @media (max-width: 560px) {
+      .ev-grid, .ev-window { grid-template-columns: 1fr; }
+    }
+
+    /* ── Flyer on the event card ──
+       The flyer is 960x1280 portrait; shown whole at card width it would
+       push the P&L numbers off screen. A cropped band anchored to the top
+       carries the brand, and a small full-aspect thumbnail keeps the whole
+       flyer readable and clickable. */
+    /* Anchored near the TOP, not the middle. A flyer puts its wordmark in
+       the top strip; cropping from the centre grabs faces and cuts the
+       branding off, which is the one thing the band is for. 50% 0% is too
+       far -- it slices the logotype in half horizontally.
+       5.5% lands just under the "BUSINESS / APEXCLUB" kicker and shows the
+       whole APEX CLUB lockup. Checked against the real 960x1280 flyer, and
+       the required value only drifts 5.1-5.7% across every realistic card
+       width, so one number holds. */
+    .club-hero-wrap { position: relative; margin-bottom: 12px; }
+    /* A RATIO, not a fixed height. With a fixed 110px band the visible slice
+       of the flyer shrinks as the card widens -- rendered against the real
+       960x1280 flyer, a wide card cut the wordmark in half again even with
+       the right object-position. At 1/4.17 the band always shows the top
+       ~18%, which is exactly the APEX CLUB lockup, at every width.
+       max-height stops it dominating the P&L on a very wide window. */
+    .club-hero {
+      display: block; width: 100%;
+      aspect-ratio: 4.17 / 1; max-height: 190px;
+      object-fit: cover; object-position: 50% 5.5%;
+      border-radius: 8px; background: #111;
+    }
+    /* Feathered bottom edge. A hard horizontal cut through a photograph
+       reads as a rendering bug; fading into the card makes the crop look
+       deliberate. Sides get a touch too so the rounded corners do not
+       terminate the image abruptly. */
+    .club-hero-wrap::after {
+      content: ""; position: absolute; inset: 0; border-radius: 8px;
+      pointer-events: none;
+      background:
+        linear-gradient(to bottom, transparent 55%, var(--card) 100%),
+        linear-gradient(to right, var(--card) 0%, transparent 6%, transparent 94%, var(--card) 100%);
+    }
+    .club-head { display: flex; gap: 12px; align-items: flex-start; }
+    .club-thumb {
+      flex: none; width: 54px; border-radius: 6px; cursor: zoom-in;
+      border: 1px solid var(--border); background: #111;
+    }
+    .club-headmain { flex: 1; min-width: 0; }
+    .club-meta { font-size: 12.5px; color: var(--muted); margin-top: 5px; line-height: 1.55; }
+
+    /* ── Guest list ── */
+    .club-guests { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .club-count { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .club-count .n { color: var(--gold); font-size: 19px; }
+    .club-count-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .club-guests-toggle {
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      background: none; border: 0; padding: 0 0 0 8px; cursor: pointer;
+      color: var(--muted); text-decoration: underline;
+    }
+    .club-guests-toggle:hover { color: var(--text); }
+    .guest-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 9px 0; border-top: 1px solid var(--border); font-size: 13.5px;
+    }
+    .guest-row.is-next { opacity: 0.6; }
+    .guest-name { flex: 1 1 auto; min-width: 120px; }
+    .guest-name .plus { color: var(--gold); font-weight: 600; font-size: 12px; margin-left: 5px; }
+    .guest-tools { display: flex; gap: 6px; flex: none; }
+    .gbtn {
+      font-family: inherit; font-size: 11.5px; font-weight: 600;
+      padding: 5px 9px; border-radius: 6px; cursor: pointer;
+      border: 1.5px solid var(--border); background: #fff; color: var(--text);
+    }
+    .gbtn:hover { border-color: var(--gold); }
+    .gbtn.on { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .gbtn.wa { border-color: #25d366; color: #128c3e; }
+    .gbtn.wa:hover { background: rgba(37,211,102,0.1); }
+
+    /* ── Registration link ── */
+    .club-link {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      margin-top: 12px; padding: 10px 12px;
+      background: var(--gold-dim); border: 1px solid var(--gold); border-radius: 8px;
+    }
+    .club-link code {
+      flex: 1 1 200px; min-width: 0; font-size: 11.5px; color: var(--brown);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .club-dismissed { margin-top: 10px; }
+    .club-dismissed-toggle {
+      font-family: 'Inter', sans-serif;
+      font-size: 12.5px;
+      color: var(--muted);
+      background: none;
+      border: 0;
+      padding: 4px 0;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .club-dismissed-toggle:hover { color: var(--text); }
+    .club-dismissed .club-sug-row { opacity: 0.75; }
 
     .acct-grid {
       display: grid;
@@ -1557,12 +1684,23 @@
           </span>
           <input type="month" id="eventMonth" onchange="renderClub()">
         </div>
+        <!-- No prices in this line any more: they belong to the EVENT now,
+             and a fixed "$50 / $75" here was wrong the moment a churrascaria
+             night cost $80. Each event states its own. -->
         <div class="net-note" style="margin-bottom:14px">
-          <span class="show-pt">Jantar mensal com palestrante. $50 por pessoa, $75 por casal.</span>
-          <span class="show-en">Monthly dinner with a guest speaker. $50 per person, $75 per couple.</span>
+          <span class="show-pt">Jantar com palestrante, aproximadamente uma vez por mês.</span>
+          <span class="show-en">Dinner with a guest speaker, roughly once a month.</span>
         </div>
 
         <div id="clubBody"></div>
+
+        <!-- Apex Club nights that exist on the CALENDAR but have no
+             registration page. Rafa creates events in Google Calendar, and
+             Google cannot prompt him for a price or a flyer -- so that data
+             can only be collected later, here. Without this the gap is
+             silent and depends on someone happening to open the right
+             calendar entry. -->
+        <div id="clubUnlinked" hidden></div>
 
         <div id="clubEmpty" class="page-sub" hidden>
           <span class="show-pt">Nenhum evento cadastrado ainda.</span>
@@ -1584,6 +1722,107 @@
 
     </div><!-- /contentArea -->
   </div><!-- /pageWrapper -->
+
+  <!-- ═══════════════ APEX CLUB EVENT MODAL ═══════════════════════════════
+       Replaces two chained window.prompt() boxes that asked for a name, then
+       a date, with no way to see the fields in advance, no price, no venue
+       and no cancel. Everything the event carries is on one screen, and
+       everything except name and date is optional. -->
+  <div id="clubEvOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:520px">
+      <div class="modal-title" id="clubEvTitle"></div>
+      <div class="modal-sub">
+        <span class="show-pt">S&oacute; nome e data s&atilde;o obrigat&oacute;rios. O resto aparece na p&aacute;gina de inscri&ccedil;&atilde;o.</span>
+        <span class="show-en">Only name and date are required. Everything else shows on the registration page.</span>
+      </div>
+
+      <div class="ev-grid">
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl"><span class="show-pt">Nome do evento</span><span class="show-en">Event name</span></span>
+          <input type="text" id="evName" placeholder="Jantar de agosto">
+        </label>
+
+        <label class="ev-f">
+          <span class="ev-lbl"><span class="show-pt">Data</span><span class="show-en">Date</span></span>
+          <input type="date" id="evDate">
+        </label>
+
+        <label class="ev-f">
+          <span class="ev-lbl"><span class="show-pt">Hor&aacute;rio</span><span class="show-en">Start time</span></span>
+          <input type="text" id="evTime" placeholder="7:30 PM">
+        </label>
+
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl"><span class="show-pt">Local</span><span class="show-en">Venue</span></span>
+          <input type="text" id="evVenue" placeholder="10020 Carr Rd, Riverview, FL">
+        </label>
+
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl"><span class="show-pt">Convidados</span><span class="show-en">Speakers</span></span>
+          <input type="text" id="evSpeakers" placeholder="Rafael Prata, Irclebson Ramos">
+        </label>
+
+        <!-- The whole reason this modal exists. These drive the transaction
+             matching: a fixed $50/$75 in the code meant an $80 night matched
+             nothing at all and never said why. -->
+        <label class="ev-f">
+          <span class="ev-lbl"><span class="show-pt">Valor por pessoa</span><span class="show-en">Price per person</span></span>
+          <input type="text" id="evPriceSingle" inputmode="decimal" placeholder="50.00">
+        </label>
+
+        <label class="ev-f">
+          <span class="ev-lbl">
+            <span class="show-pt">Valor por casal</span><span class="show-en">Price per couple</span>
+            <span class="ev-opt"><span class="show-pt">opcional</span><span class="show-en">optional</span></span>
+          </span>
+          <input type="text" id="evPriceCouple" inputmode="decimal" placeholder="75.00">
+        </label>
+
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl">
+            <span class="show-pt">Observa&ccedil;&otilde;es</span><span class="show-en">Notes</span>
+            <span class="ev-opt"><span class="show-pt">aparece para quem se inscreve</span><span class="show-en">shown to attendees</span></span>
+          </span>
+          <textarea id="evNotes" rows="2" placeholder="Estacionamento gratuito nos fundos."></textarea>
+        </label>
+
+        <!-- Dates the matching engine draws candidate transactions from.
+             Collapsed by default: the -14/+7 default is right almost always,
+             and putting it in front of her every time would be noise. -->
+        <div class="ev-f ev-wide">
+          <button type="button" class="ev-more" onclick="toggleEvWindow()" id="evMoreBtn"></button>
+          <div id="evWindowRow" class="ev-window" hidden>
+            <label class="ev-f">
+              <span class="ev-lbl"><span class="show-pt">Pagamentos a partir de</span><span class="show-en">Count payments from</span></span>
+              <input type="date" id="evWinStart">
+            </label>
+            <label class="ev-f">
+              <span class="ev-lbl"><span class="show-pt">at&eacute;</span><span class="show-en">until</span></span>
+              <input type="date" id="evWinEnd">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div id="clubEvErr" class="ev-err" hidden></div>
+
+      <div class="modal-actions" style="justify-content:space-between">
+        <button class="btn btn-sm" id="evDeleteBtn" onclick="deleteClubEvent()" hidden style="color:var(--red);border-color:var(--red)">
+          <span class="show-pt">Excluir</span>
+          <span class="show-en">Delete</span>
+        </button>
+        <span style="flex:1"></span>
+        <button class="btn" onclick="closeClubEvModal()">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="saveClubEvent()" id="evSaveBtn">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- ═══════════════ ACCOUNT TAGGING MODAL ═══════════════════════════════ -->
   <div id="tagOverlay" class="overlay" hidden>
@@ -1788,6 +2027,18 @@
     var SUMMARY       = null;
     var ATTENTION     = null;   // counts behind the "Precisa de voce" queue
     var CLUB_EVENTS   = [];     // Apex Club events, each with its own P&L
+    var CLUB_SHOW_DISMISSED = {}; // event_id -> is its dismissed list expanded
+    // event_id -> guest list expanded. Only holds an EXPLICIT choice; absent
+    // means "use the default", which is open for the newest event only.
+    var CLUB_SHOW_GUESTS = {};
+    var BUSINESS_SETTINGS = null; // holds the WhatsApp confirmation template
+
+    // Where the PUBLIC registration page lives. Not the worker: club.html is
+    // a static file served by Pages, so it is this page's own origin. Falls
+    // back to the live host when opened from a file:// path.
+    var PUBLIC_BASE = (location.protocol === "http:" || location.protocol === "https:")
+      ? location.origin + location.pathname.replace(/\/[^\/]*$/, "")
+      : "https://apex.resonateai.online";
     var FORWARD       = null;   // 90-day forward walk
     var BILLS         = [];     // fixed bills SHE entered -- never seeded
     var BILL_SUGGESTIONS = [];  // recurring charges detected in her own history
@@ -2448,6 +2699,13 @@
         ? CLUB_EVENTS.filter(function(e) { return String(e.event.event_date).slice(0, 7) === month; })
         : CLUB_EVENTS;
 
+      // Newest first. The worker already orders by event_date DESC, but the
+      // most recent event is the one she is actually working, so sort here
+      // too rather than depending on the endpoint's order staying that way.
+      shown = shown.slice().sort(function(a, b) {
+        return String(a.event.event_date) < String(b.event.event_date) ? 1 : -1;
+      });
+
       // A gap month is a normal state, not an error -- Apex Club is roughly
       // monthly, not strictly. Say so plainly and leave the picker available
       // so she can step to a month that did have one.
@@ -2461,15 +2719,59 @@
         return;
       }
 
-      body.innerHTML = shown.map(function(e) {
+      // The newest event on screen is the one being worked; its guest list
+      // opens. Older ones collapse, or a year of forty-guest dinners makes
+      // this page scroll forever. Once she toggles one, her choice wins.
+      var newestId = shown.length ? shown[0].event.id : null;
+      // Stamped so the toggle can resolve the default without recomputing
+      // the sort.
+      body.setAttribute("data-newest", newestId || "");
+
+      body.innerHTML = shown.map(function(e, idx) {
         var c = e.confirmed;
         var net = c.net_cents;
+
+        var ev = e.event;
+        var flyerUrl = ev.flyer_r2_key
+          ? (WORKER_URL + "/api/club/flyer/" + ev.id)
+          : null;
+
+        // Cropped band across the top of the card, plus a small full-aspect
+        // thumbnail beside the title. Same image, two jobs: the band gives
+        // the card its identity, the thumbnail keeps the flyer readable.
+        var hero = flyerUrl
+          ? '<div class="club-hero-wrap"><img class="club-hero" src="' + flyerUrl + '" alt=""></div>'
+          : "";
 
         // The verdict. A negative event is stated plainly, never in alarm
         // red -- the point is that it is VISIBLE, not that it is a problem.
         var verdict =
           '<div class="club-verdict' + (net > 0 ? " is-up" : "") + '">' +
-            esc(e.event.name) + ": " + (net >= 0 ? "+" : "") + fmtCents(net) +
+            esc(ev.name) + ": " + (net >= 0 ? "+" : "") + fmtCents(net) +
+          "</div>";
+
+        // What the event actually is, from its own fields rather than a
+        // hardcoded line -- prices vary per event now.
+        var metaBits = [];
+        if (ev.event_date) { metaBits.push(fmtDate(ev.event_date) + (ev.start_time ? " &middot; " + esc(ev.start_time) : "")); }
+        if (ev.venue)      { metaBits.push(esc(ev.venue)); }
+        if (ev.speakers)   { metaBits.push(esc(ev.speakers)); }
+        var priceBit = fmtCents(ev.price_single_cents || 5000) + (isEn() ? " per person" : " por pessoa");
+        if (ev.price_couple_cents) {
+          priceBit += " &middot; " + fmtCents(ev.price_couple_cents) + (isEn() ? " per couple" : " por casal");
+        }
+        metaBits.push(priceBit);
+
+        var head =
+          '<div class="club-head">' +
+            (flyerUrl
+              ? '<img class="club-thumb" src="' + flyerUrl + '" alt="" onclick="window.open(\'' + flyerUrl + '\',\'_blank\')">'
+              : "") +
+            '<div class="club-headmain">' + verdict +
+              '<div class="club-meta">' + metaBits.join("<br>") + "</div>" +
+            "</div>" +
+            '<button class="btn btn-sm" onclick="openClubEvModal(\'' + ev.id + '\')">' +
+              '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button>' +
           "</div>";
 
         var detail =
@@ -2509,18 +2811,247 @@
                     "','" + s.transaction_id + "','" + s.side + "'," + s.people + ')">' +
                     '<span class="show-pt">&Eacute; deste evento</span>' +
                     '<span class="show-en">Belongs here</span></button>' +
+                  // The other half of the question. Without it the only move
+                  // is "yes", so anything that merely looks like a ticket sits
+                  // here through every refresh with no way to clear it.
+                  '<button class="btn btn-sm" onclick="dismissClubTxn(\'' + e.event.id +
+                    "','" + s.transaction_id + '\')">' +
+                    '<span class="show-pt">N&atilde;o &eacute;</span>' +
+                    '<span class="show-en">Not this one</span></button>' +
                   "</div>";
               }).join("") +
             "</div>";
         }
 
-        return '<div class="club-event">' + verdict + detail + sug + "</div>";
+        // Dismissed rows, collapsed. Kept reachable rather than gone, so a
+        // wrong no costs one click to undo -- and so the count is visible
+        // instead of the list just quietly getting shorter.
+        var dis = "";
+        var dl = (e.dismissed || []);
+        if (dl.length) {
+          var open = CLUB_SHOW_DISMISSED[e.event.id];
+          dis =
+            '<div class="club-dismissed">' +
+              '<button class="club-dismissed-toggle" onclick="toggleClubDismissed(\'' + e.event.id + '\')">' +
+                '<span class="show-pt">' + dl.length + " marcado(s) como n&atilde;o sendo deste evento &mdash; " +
+                  (open ? "ocultar" : "mostrar") + "</span>" +
+                '<span class="show-en">' + dl.length + " marked as not this event &mdash; " +
+                  (open ? "hide" : "show") + "</span>" +
+              "</button>" +
+              (open
+                ? dl.map(function(s) {
+                    return '<div class="club-sug-row">' +
+                      '<span class="grow">' + fmtDate(s.date) + " &middot; " +
+                        esc((s.memo || s.description || "").slice(0, 40)) + "</span>" +
+                      "<b>" + fmtCents(s.amount_cents) + "</b>" +
+                      '<button class="btn btn-sm" onclick="undismissClubTxn(\'' + e.event.id +
+                        "','" + s.transaction_id + '\')">' +
+                        '<span class="show-pt">Desfazer</span>' +
+                        '<span class="show-en">Undo</span></button>' +
+                      "</div>";
+                  }).join("")
+                : "") +
+            "</div>";
+        }
+
+        // ── Guest list. This is the FOOD COUNT and the reason the public
+        // page exists. It counts SEATS, not rows: a plus one is two people
+        // at the table on one registration. --------------------------------
+        var regs = e.registrations || [];
+        var r = e.rsvp || {};
+        var guests = "";
+        var regUrl = PUBLIC_BASE + "/club.html?e=" + ev.id;
+
+        var guestRows = regs.map(function (g) {
+          var isNext = g.rsvp_state === "next_time";
+          var waText = buildClubWhatsAppText(ev, g);
+          return '<div class="guest-row' + (isNext ? " is-next" : "") + '">' +
+            '<span class="guest-name">' + esc(g.name) +
+              (g.plus_one ? '<span class="plus">+1</span>' : "") +
+              (isNext ? ' <span class="tag-meta">(' + (isEn() ? "next time" : "pr&oacute;xima") + ")</span>" : "") +
+            "</span>" +
+            '<span class="guest-tools">' +
+              '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
+                encodeURIComponent(waText) + '" target="_blank" rel="noopener" ' +
+                'onclick="markClubConfirmed(\'' + g.id + '\')">WhatsApp</a>' +
+              '<button class="gbtn' + (g.plus_one ? " on" : "") + '" onclick="toggleClubPlusOne(\'' + g.id + '\',' + (g.plus_one ? "true" : "false") + ')">+1</button>' +
+              '<button class="gbtn' + (isNext ? " on" : "") + '" onclick="toggleClubNextTime(\'' + g.id + '\',' + (isNext ? "true" : "false") + ')" ' +
+                'title="' + (isEn() ? "Coming next time instead" : "Vem na pr&oacute;xima") + '">&rarr;</button>' +
+              '<button class="gbtn' + (g.attended === 1 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 1 ? "null" : "1") + ')" ' +
+                'title="' + (isEn() ? "Came" : "Veio") + '">&check;</button>' +
+              '<button class="gbtn' + (g.attended === 0 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 0 ? "null" : "0") + ')" ' +
+                'title="' + (isEn() ? "No-show" : "N&atilde;o veio") + '">&times;</button>' +
+            "</span></div>";
+        }).join("");
+
+        // Open by default only on the newest event. CLUB_SHOW_GUESTS holds
+        // an explicit choice once she clicks, which then overrides the
+        // default in either direction.
+        var guestsOpen = CLUB_SHOW_GUESTS.hasOwnProperty(ev.id)
+          ? CLUB_SHOW_GUESTS[ev.id]
+          : (ev.id === newestId);
+
+        guests =
+          '<div class="club-guests">' +
+            '<div class="club-count">' +
+              '<span class="n">' + (r.going || 0) + "</span> " +
+              (isEn() ? (r.going === 1 ? "person coming" : "people coming")
+                      : (r.going === 1 ? "pessoa confirmada" : "pessoas confirmadas")) +
+              (regs.length
+                ? ' <button class="club-guests-toggle" onclick="toggleClubGuests(\'' + ev.id + '\')">' +
+                    (guestsOpen ? t("ocultar lista", "hide list") : t("ver lista", "show list")) +
+                  "</button>"
+                : "") +
+            "</div>" +
+            '<div class="club-count-sub">' +
+              (isEn()
+                ? (r.going_rows || 0) + " registration(s)" +
+                  (r.next_time ? " &middot; " + r.next_time + " coming next time" : "") +
+                  (r.attended ? " &middot; " + r.attended + " came" : "") +
+                  (r.no_show ? " &middot; " + r.no_show + " no-show" : "")
+                : (r.going_rows || 0) + " inscri&ccedil;&atilde;o(&otilde;es)" +
+                  (r.next_time ? " &middot; " + r.next_time + " na pr&oacute;xima" : "") +
+                  (r.attended ? " &middot; " + r.attended + " vieram" : "") +
+                  (r.no_show ? " &middot; " + r.no_show + " n&atilde;o vieram" : "")) +
+            "</div>" +
+            (regs.length
+              ? (guestsOpen ? guestRows : "")
+              : '<div class="club-count-sub" style="margin:0">' +
+                  (isEn() ? "Nobody has signed up yet. Share the link."
+                          : "Ningu&eacute;m se inscreveu ainda. Compartilhe o link.") +
+                "</div>") +
+            // The link is the whole growth path -- it has to be trivially
+            // copyable, and Share opens the native sheet straight to WhatsApp.
+            '<div class="club-link">' +
+              "<code>" + esc(regUrl) + "</code>" +
+              '<button class="btn btn-sm" onclick="copyClubLink(\'' + ev.id + '\')">' +
+                '<span class="show-pt">Copiar</span><span class="show-en">Copy</span></button>' +
+              '<button class="btn btn-sm btn-gold" onclick="shareClubLink(\'' + ev.id + '\')">' +
+                '<span class="show-pt">Compartilhar</span><span class="show-en">Share</span></button>' +
+            "</div>" +
+          "</div>";
+
+        return '<div class="club-event">' + hero + head + detail + guests + sug + dis + "</div>";
       }).join("");
 
       applyFinBilingualAttrs();
     }
 
+    function setHtml(id, html) {
+      var el = document.getElementById(id);
+      if (el) { el.innerHTML = html; }
+    }
+
+    // The WhatsApp confirmation template Alice can edit in Settings. Loaded
+    // once; a failure is silent because buildClubWhatsAppText falls back to
+    // a plain message rather than producing an empty draft.
+    function loadBusinessSettings() {
+      return apiFetch("/api/business/settings")
+        .then(function(r) { return r.json(); })
+        .then(function(d) { BUSINESS_SETTINGS = (d && d.settings) || null; })
+        .catch(function() {});
+    }
+
+    // Apex Club nights sitting on the calendar with no registration page.
+    // Loaded alongside the events so the gap surfaces itself in Alice's
+    // workflow rather than waiting to be noticed.
+    var CLUB_UNLINKED = [];
+
+    function loadClubUnlinked() {
+      return apiFetch("/api/finance-new/club/unlinked")
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          CLUB_UNLINKED = (d && d.sessions) || [];
+          renderClubUnlinked();
+          updateFinanceBadges();
+        })
+        .catch(function() {});
+    }
+
+    function renderClubUnlinked() {
+      var box = document.getElementById("clubUnlinked");
+      if (!box) { return; }
+      if (!CLUB_UNLINKED.length) { box.hidden = true; box.innerHTML = ""; return; }
+
+      box.hidden = false;
+      box.innerHTML = CLUB_UNLINKED.map(function(s) {
+        return '<div class="club-unlinked-row">' +
+          '<div class="grow">' +
+            "<b>" + esc(s.client_name || "Apex Club") + "</b> &middot; " + fmtDate(s.date) +
+            '<div class="club-unlinked-sub">' +
+              '<span class="show-pt">Está no calendário, mas ainda não tem página de inscrição.</span>' +
+              '<span class="show-en">On the calendar, but has no registration page yet.</span>' +
+            "</div>" +
+          "</div>" +
+          '<button class="btn btn-sm btn-gold" onclick="setUpClubFromSession(\'' + s.id + '\')">' +
+            '<span class="show-pt">Configurar</span>' +
+            '<span class="show-en">Set up</span>' +
+          "</button>" +
+        "</div>";
+      }).join("");
+      applyFinBilingualAttrs();
+    }
+
+    // Creates the club event from what the calendar entry already knows, then
+    // opens the edit modal for the parts Google could never have asked for:
+    // price, flyer, speakers.
+    function setUpClubFromSession(sessionId) {
+      var s = null;
+      for (var i = 0; i < CLUB_UNLINKED.length; i++) {
+        if (CLUB_UNLINKED[i].id === sessionId) { s = CLUB_UNLINKED[i]; break; }
+      }
+      if (!s) { return; }
+
+      apiFetch("/api/finance-new/club/events", {
+        method: "POST",
+        body: {
+          name: (s.client_name || "Apex Club").trim(),
+          event_date: s.date,
+          start_time: s.time ? fmtTime12(s.time) : null,
+          venue: s.location || null,
+          session_id: s.id
+        }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          var el = document.getElementById("eventMonth");
+          if (el && s.date) { el.value = String(s.date).slice(0, 7); }
+          // Reload, then open the modal so she lands straight on the fields
+          // that are still missing.
+          // Refresh both lists, then open the modal on the new event so she
+          // lands straight on the fields that are still missing. Calls the
+          // two loaders directly rather than loadClub(), which would re-enter
+          // loadClubUnlinked and loop.
+          return apiFetch("/api/finance-new/club/events")
+            .then(function(r2) { return r2.json(); })
+            .then(function(d2) {
+              CLUB_EVENTS = (d2 && d2.events) || [];
+              renderClub();
+              return loadClubUnlinked();
+            })
+            .then(function() {
+              if (d.event && d.event.id) { openClubEvModal(d.event.id); }
+            });
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // "19:30" -> "7:30 PM". The calendar stores 24h; the event carries the
+    // string that gets printed on the registration page.
+    function fmtTime12(hhmm) {
+      var p = String(hhmm || "").split(":");
+      if (p.length < 2) { return null; }
+      var h = parseInt(p[0], 10), m = p[1];
+      if (!isFinite(h)) { return null; }
+      var ap = h >= 12 ? "PM" : "AM";
+      var h12 = h % 12; if (h12 === 0) { h12 = 12; }
+      return h12 + ":" + m + " " + ap;
+    }
+
     function loadClub() {
+      loadBusinessSettings();
+      loadClubUnlinked();
       return apiFetch("/api/finance-new/club/events")
         .then(function(r) { return r.json(); })
         .then(function(d) {
@@ -2544,25 +3075,279 @@
         .catch(function() { toast(t("Erro", "Error")); });
     }
 
-    function createClubEvent() {
-      var name = prompt(isEn() ? "Event name (e.g. July dinner)" : "Nome do evento (ex: Jantar de julho)");
-      if (!name) { return; }
-      var date = prompt(isEn() ? "Event date (YYYY-MM-DD)" : "Data do evento (AAAA-MM-DD)");
-      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        toast(isEn() ? "Date must be YYYY-MM-DD." : "Data precisa ser AAAA-MM-DD.");
-        return;
-      }
-      apiFetch("/api/finance-new/club/events", { method: "POST", body: { name: name, event_date: date } })
+    // "Not this one." Scoped to THIS event on purpose -- she can say a payment
+    // is not the July dinner from what is on screen; she cannot say it is
+    // never Apex Club. The transaction is not touched and stays in Categorias
+    // waiting to be filed wherever it actually belongs.
+    function dismissClubTxn(eventId, txnId) {
+      apiFetch("/api/finance-new/club/confirm", {
+        method: "POST",
+        body: { event_id: eventId, items: [{ transaction_id: txnId, dismiss: true }] }
+      })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.error) { toast(d.error); return; }
-          // Jump the picker to the month she just created in, or creating an
-          // event outside the current view looks like it did nothing.
-          var el = document.getElementById("eventMonth");
-          if (el) { el.value = date.slice(0, 7); }
+          toast(t("Removido deste evento", "Removed from this event"));
           loadClub();
         })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function undismissClubTxn(eventId, txnId) {
+      apiFetch("/api/finance-new/club/confirm", {
+        method: "POST",
+        body: { event_id: eventId, items: [{ transaction_id: txnId, undismiss: true }] }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          loadClub();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function toggleClubGuests(eventId) {
+      // Read the CURRENT state (default included) before flipping, so the
+      // first click on a collapsed past event opens it rather than being
+      // swallowed by an undefined.
+      var body = document.getElementById("clubBody");
+      var open = CLUB_SHOW_GUESTS.hasOwnProperty(eventId)
+        ? CLUB_SHOW_GUESTS[eventId]
+        : (body && body.getAttribute("data-newest") === eventId);
+      CLUB_SHOW_GUESTS[eventId] = !open;
+      renderClub();
+    }
+
+    function toggleClubDismissed(eventId) {
+      CLUB_SHOW_DISMISSED[eventId] = !CLUB_SHOW_DISMISSED[eventId];
+      renderClub();
+    }
+
+    // ── Event create / edit ─────────────────────────────────────────────
+    //
+    // This replaced two chained prompt() boxes. The old flow asked for a
+    // name, then a date, with no way to see what it would ask before
+    // answering, no price field at all, and no cancel once started.
+    var CLUB_EV_EDITING = null;   // event id, or null when creating
+
+    function createClubEvent() { openClubEvModal(null); }
+
+    function openClubEvModal(eventId) {
+      CLUB_EV_EDITING = eventId || null;
+      var e = null;
+      if (eventId) {
+        for (var i = 0; i < CLUB_EVENTS.length; i++) {
+          if (CLUB_EVENTS[i].event.id === eventId) { e = CLUB_EVENTS[i].event; break; }
+        }
+      }
+
+      setHtml("clubEvTitle", e
+        ? '<span class="show-pt">Editar evento</span><span class="show-en">Edit event</span>'
+        : '<span class="show-pt">Novo evento</span><span class="show-en">New event</span>');
+
+      document.getElementById("evName").value        = e ? (e.name || "") : "";
+      document.getElementById("evDate").value        = e ? (e.event_date || "") : "";
+      document.getElementById("evTime").value        = e ? (e.start_time || "") : "";
+      document.getElementById("evVenue").value       = e ? (e.venue || "") : "";
+      document.getElementById("evSpeakers").value    = e ? (e.speakers || "") : "";
+      document.getElementById("evNotes").value       = e ? (e.notes || "") : "";
+      document.getElementById("evWinStart").value    = e ? (e.window_start || "") : "";
+      document.getElementById("evWinEnd").value      = e ? (e.window_end || "") : "";
+
+      // Shown in dollars, stored in cents. Defaults only pre-fill a NEW
+      // event -- an existing one always shows its own saved price.
+      document.getElementById("evPriceSingle").value = e
+        ? centsToInput(e.price_single_cents)
+        : "50.00";
+      document.getElementById("evPriceCouple").value = e
+        ? centsToInput(e.price_couple_cents)
+        : "75.00";
+
+      document.getElementById("evDeleteBtn").hidden = !e;
+      document.getElementById("clubEvErr").hidden = true;
+      document.getElementById("evWindowRow").hidden = true;
+      setEvMoreLabel();
+
+      document.getElementById("clubEvOverlay").hidden = false;
+      applyFinBilingualAttrs();
+    }
+
+    function closeClubEvModal() {
+      document.getElementById("clubEvOverlay").hidden = true;
+      CLUB_EV_EDITING = null;
+    }
+
+    function toggleEvWindow() {
+      var row = document.getElementById("evWindowRow");
+      row.hidden = !row.hidden;
+      setEvMoreLabel();
+    }
+
+    function setEvMoreLabel() {
+      var open = !document.getElementById("evWindowRow").hidden;
+      document.getElementById("evMoreBtn").textContent = open
+        ? t("Ocultar janela de pagamentos", "Hide payment window")
+        : t("Ajustar janela de pagamentos", "Adjust payment window");
+    }
+
+    function centsToInput(c) {
+      if (c === null || c === undefined || c === "") { return ""; }
+      return (c / 100).toFixed(2);
+    }
+
+    // "80", "80.00", "$80", "80,00" -> 8000. Returns null for blank, which
+    // is meaningful for the couple price (this event has no couple rate).
+    function dollarsToCents(raw) {
+      var s = String(raw == null ? "" : raw).trim().replace(/[^0-9.,]/g, "").replace(",", ".");
+      if (!s) { return null; }
+      var n = parseFloat(s);
+      if (!isFinite(n) || n <= 0) { return NaN; }
+      return Math.round(n * 100);
+    }
+
+    function saveClubEvent() {
+      var name = document.getElementById("evName").value.trim();
+      var date = document.getElementById("evDate").value.trim();
+
+      if (!name) { return evErr(t("Dê um nome ao evento.", "Give the event a name.")); }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { return evErr(t("Escolha uma data.", "Pick a date.")); }
+
+      var single = dollarsToCents(document.getElementById("evPriceSingle").value);
+      if (single === null || isNaN(single)) {
+        return evErr(t("Valor por pessoa precisa ser um número.", "Price per person must be a number."));
+      }
+      var couple = dollarsToCents(document.getElementById("evPriceCouple").value);
+      if (isNaN(couple)) {
+        return evErr(t("Valor por casal precisa ser um número, ou vazio.", "Price per couple must be a number, or blank."));
+      }
+
+      var body = {
+        name: name,
+        event_date: date,
+        start_time: document.getElementById("evTime").value.trim() || null,
+        venue: document.getElementById("evVenue").value.trim() || null,
+        speakers: document.getElementById("evSpeakers").value.trim() || null,
+        notes: document.getElementById("evNotes").value.trim() || null,
+        price_single_cents: single,
+        price_couple_cents: couple
+      };
+      var ws = document.getElementById("evWinStart").value.trim();
+      var we = document.getElementById("evWinEnd").value.trim();
+      if (ws) { body.window_start = ws; }
+      if (we) { body.window_end = we; }
+
+      var url = CLUB_EV_EDITING
+        ? "/api/finance-new/club/events/" + CLUB_EV_EDITING
+        : "/api/finance-new/club/events";
+
+      apiFetch(url, { method: CLUB_EV_EDITING ? "PUT" : "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { return evErr(d.error); }
+          // Jump the picker to the event's month, or saving one outside the
+          // current view looks like it did nothing.
+          var el = document.getElementById("eventMonth");
+          if (el) { el.value = date.slice(0, 7); }
+          closeClubEvModal();
+          loadClub();
+        })
+        .catch(function() { evErr(t("Erro", "Error")); });
+    }
+
+    function evErr(msg) {
+      var el = document.getElementById("clubEvErr");
+      el.textContent = msg;
+      el.hidden = false;
+    }
+
+    function deleteClubEvent() {
+      if (!CLUB_EV_EDITING) { return; }
+      // Deleting removes the RSVPs and the confirmations with it. The
+      // TRANSACTIONS survive -- this un-files the money, it does not erase
+      // it -- but the guest list is gone for good, so it is worth a stop.
+      if (!confirm(t(
+        "Excluir este evento? A lista de inscritos será perdida. Os lançamentos no banco não são apagados.",
+        "Delete this event? The guest list will be lost. Bank transactions are not deleted."
+      ))) { return; }
+
+      apiFetch("/api/finance-new/club/events/" + CLUB_EV_EDITING, { method: "DELETE" })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { return evErr(d.error); }
+          closeClubEvModal();
+          loadClub();
+        })
+        .catch(function() { evErr(t("Erro", "Error")); });
+    }
+
+    // ── Guest list actions ──────────────────────────────────────────────
+
+    function updateClubReg(regId, body) {
+      return apiFetch("/api/finance-new/club/registrations/" + regId, { method: "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          loadClub();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function toggleClubPlusOne(regId, isOn)  { updateClubReg(regId, { plus_one: !isOn }); }
+    function toggleClubNextTime(regId, isOn) { updateClubReg(regId, { rsvp_state: isOn ? "going" : "next_time" }); }
+    function setClubAttended(regId, val)     { updateClubReg(regId, { attended: val }); }
+
+    // Stamped when she opens the WhatsApp thread. It records that the
+    // message was STARTED, not that it was sent -- wa.me hands off to
+    // WhatsApp and nothing comes back.
+    function markClubConfirmed(regId) {
+      apiFetch("/api/finance-new/club/registrations/" + regId, {
+        method: "POST", body: { confirmed: true }
+      }).catch(function() {});
+    }
+
+    // Fills the Settings template. Falls back to a plain message if none is
+    // set, so a missing template never produces an empty WhatsApp draft.
+    function buildClubWhatsAppText(ev, guest) {
+      var tpl = (BUSINESS_SETTINGS && BUSINESS_SETTINGS.club_confirm_template) || "";
+      if (!tpl) {
+        tpl = "Oi {nome}! Confirmando sua presença no {evento}, dia {data} às {hora}, em {local}.";
+      }
+      var price = fmtCents(ev.price_single_cents || 5000);
+      if (guest && guest.plus_one && ev.price_couple_cents) { price = fmtCents(ev.price_couple_cents); }
+
+      return tpl
+        .replace(/\{nome\}/g,   (guest && guest.name ? String(guest.name).split(" ")[0] : ""))
+        .replace(/\{evento\}/g, ev.name || "Apex Club")
+        .replace(/\{data\}/g,   fmtDate(ev.event_date))
+        .replace(/\{hora\}/g,   ev.start_time || "")
+        .replace(/\{local\}/g,  ev.venue || "")
+        .replace(/\{valor\}/g,  price);
+    }
+
+    // ── Registration link ───────────────────────────────────────────────
+
+    function clubRegUrl(eventId) { return PUBLIC_BASE + "/club.html?e=" + eventId; }
+
+    function copyClubLink(eventId) {
+      var url = clubRegUrl(eventId);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url)
+          .then(function() { toast(t("Link copiado", "Link copied")); })
+          .catch(function() { promptCopyFallback(url); });
+      } else {
+        promptCopyFallback(url);
+      }
+    }
+
+    function promptCopyFallback(url) { window.prompt(t("Copie o link:", "Copy the link:"), url); }
+
+    function shareClubLink(eventId) {
+      var url = clubRegUrl(eventId);
+      if (navigator.share) {
+        navigator.share({ title: "Apex Club", url: url }).catch(function() {});
+      } else {
+        window.open("https://wa.me/?text=" + encodeURIComponent(url), "_blank");
+      }
     }
 
     function renderAccountCards() {
@@ -3487,6 +4272,11 @@
       (CLUB_EVENTS || []).forEach(function(e) {
         eventSuggestions += (e.suggestions || []).length;
       });
+      // An Apex Club sitting on the calendar with no registration page is
+      // also something waiting on her, and it is the one that is otherwise
+      // invisible -- Rafa creates these in Google, which cannot ask him for
+      // a price or a flyer.
+      eventSuggestions += (CLUB_UNLINKED || []).length;
       setBadge("finBadgeEventos", eventSuggestions);
     }
 

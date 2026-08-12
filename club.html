@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<!--
+  PUBLIC Apex Club registration page. No login, by design.
+
+  This is the top of Apex's funnel, not an internal screen: the link is meant
+  to be dropped in the Apex Club WhatsApp group so MEMBERS forward it to
+  business owners Apex has never met. Apex Club draws a wider room than the
+  client list, and people who get value from it tend to become clients.
+
+  Two rules shape the whole file:
+
+  1. TWO FIELDS. Name and WhatsApp, nothing else. Every extra field is a
+     reason to close the tab. Couple-vs-single, email, company -- all
+     deliberately absent. Alice fills in what she needs later.
+
+  2. THE MONEY IS ON SCREEN TWO. Of nine confirmed July payments, six landed
+     on the day of the dinner and one after it -- people pay at the door. So
+     asking for payment up front would fight an established habit. The Zelle
+     QR appears AFTER they are registered, as helpful information, never as a
+     gate.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Apex Club</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg      : #0a0a0c;
+      --panel   : #141418;
+      --gold    : #C9A43A;
+      --text    : #f5f2ec;
+      --muted   : #9a948c;
+      --border  : #2a2a30;
+      --green   : #4caf6d;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 460px; margin: 0 auto; padding: 0 0 48px; }
+
+    /* The flyer IS the page here -- full bleed, uncropped. It carries the
+       brand, the speakers and the date better than anything retyped. */
+    .flyer { width: 100%; display: block; }
+    .flyer-fallback {
+      padding: 56px 24px; text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .flyer-fallback .mark { font-size: 30px; font-weight: 700; letter-spacing: 2px; }
+    .flyer-fallback .mark span { color: var(--gold); font-weight: 400; }
+
+    .body { padding: 26px 22px 0; }
+    h1 { font-size: 23px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.3px; }
+    .sub { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin: 0 0 22px; }
+    .sub b { color: var(--text); font-weight: 600; }
+
+    .facts { border-top: 1px solid var(--border); margin: 0 0 24px; }
+    .fact {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 13px 0; border-bottom: 1px solid var(--border);
+      font-size: 14.5px; line-height: 1.5;
+    }
+    .fact .ico { width: 20px; flex: none; text-align: center; opacity: 0.85; }
+    .fact .val { flex: 1; }
+    .fact .lbl { display: block; color: var(--muted); font-size: 12px; margin-bottom: 2px; }
+
+    label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 7px; }
+    input {
+      width: 100%; font-family: inherit; font-size: 16px;  /* 16px: stops iOS zooming on focus */
+      padding: 15px 16px; margin: 0 0 18px;
+      background: var(--panel); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: 11px;
+      -webkit-appearance: none;
+    }
+    input:focus { outline: none; border-color: var(--gold); }
+    input::placeholder { color: #55504a; }
+
+    /* iOS-style switch. Apple's HIG uses a switch (not a checkbox) for a
+       binary on/off setting, and this page is opened on a phone almost
+       without exception. Built from a real <input type=checkbox role=switch>
+       so it stays keyboard- and screen-reader-accessible; only the visuals
+       are custom. Dimensions follow the iOS control: 51x31 with a 27 knob. */
+    .switch-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; margin: 2px 0 20px; padding: 14px 16px;
+      background: var(--panel); border: 1.5px solid var(--border);
+      border-radius: 11px; cursor: pointer;
+      font-size: 15px; font-weight: 500;
+    }
+    .switch-text { flex: 1; }
+    .switch { position: relative; flex: none; width: 51px; height: 31px; }
+    .switch input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; padding: 0; opacity: 0; cursor: pointer; z-index: 2;
+    }
+    .switch .track {
+      position: absolute; inset: 0; border-radius: 999px;
+      background: #3a3a42; transition: background 0.2s ease;
+      display: block; pointer-events: none;
+    }
+    .switch .knob {
+      position: absolute; top: 2px; left: 2px;
+      width: 27px; height: 27px; border-radius: 50%;
+      background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+      transition: transform 0.2s ease;
+    }
+    .switch input:checked + .track { background: var(--gold); }
+    .switch input:checked + .track .knob { transform: translateX(20px); }
+    .switch input:focus-visible + .track { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    button.cta {
+      width: 100%; font-family: inherit; font-size: 17px; font-weight: 700;
+      padding: 17px; border: 0; border-radius: 11px;
+      background: var(--gold); color: #12100a; cursor: pointer;
+    }
+    button.cta:active { transform: scale(0.99); }
+    button.cta:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    button.ghost {
+      width: 100%; font-family: inherit; font-size: 15px; font-weight: 600;
+      padding: 15px; border-radius: 11px; cursor: pointer;
+      background: transparent; color: var(--text);
+      border: 1.5px solid var(--border);
+      margin-bottom: 11px;
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+    }
+    button.ghost:active { border-color: var(--gold); }
+
+    /* Set apart from the utility buttons above it -- this is the one action
+       on the page that grows the room, so it gets its own panel rather than
+       sitting in a stack of identical grey buttons. */
+    .invite {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 13px; padding: 20px; margin: 22px 0 8px; text-align: center;
+    }
+    .invite-copy { font-size: 15px; font-weight: 600; margin-bottom: 14px; line-height: 1.5; }
+
+    .err {
+      background: rgba(179,38,30,0.14); border: 1px solid rgba(179,38,30,0.5);
+      color: #ff9d96; font-size: 13.5px; padding: 12px 14px;
+      border-radius: 9px; margin-bottom: 16px;
+    }
+    .fine { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 16px; text-align: center; }
+
+    /* ── Screen two: confirmation ─────────────────────────────────────── */
+    .tick {
+      width: 62px; height: 62px; border-radius: 50%;
+      background: rgba(76,175,109,0.14); border: 2px solid var(--green);
+      color: var(--green); font-size: 31px; line-height: 58px;
+      text-align: center; margin: 8px auto 20px;
+    }
+    .pay {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 13px; padding: 22px; margin: 24px 0 20px; text-align: center;
+    }
+    /* Quieter than the invite above it. This is reference material they
+       come back to, not the next thing being asked of them -- a 30px gold
+       number under the confirmation read as a demand. */
+    .pay { opacity: 0.94; }
+    .pay h2 { font-size: 13px; font-weight: 700; margin: 0 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .pay .price { font-size: 24px; font-weight: 700; color: var(--text); margin: 10px 0 2px; letter-spacing: -0.4px; }
+    .pay .price-note { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .pay .qr-hint { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+    /* The Zelle handle in text. Scanning needs a second device, so anyone
+       reading this ON their phone needs something they can copy instead. */
+    .pay .handle {
+      margin-top: 14px; font-size: 14px; font-weight: 600;
+      word-break: break-all; color: var(--text);
+    }
+    .pay .handle-lbl { display: block; color: var(--muted); font-size: 12px; font-weight: 400; margin-bottom: 3px; }
+    .pay img { width: 190px; max-width: 70%; border-radius: 10px; background: #fff; padding: 10px; }
+    .memo {
+      margin-top: 16px; padding: 12px 14px; border-radius: 9px;
+      background: rgba(201,164,58,0.10); border: 1px solid rgba(201,164,58,0.32);
+      font-size: 13.5px; line-height: 1.6; text-align: left;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <img id="flyer" class="flyer hidden" alt="Apex Club">
+    <div id="flyerFallback" class="flyer-fallback hidden">
+      <div class="mark">APEX <span>CLUB</span></div>
+    </div>
+
+    <div class="body">
+
+      <!-- ══ Screen one: the form ══════════════════════════════════════ -->
+      <div id="screenForm" class="hidden">
+        <h1 id="evName">Apex Club</h1>
+        <p class="sub">Confirme sua presença. Leva 10 segundos.</p>
+
+        <div class="facts" id="facts"></div>
+
+        <div id="formErr" class="err hidden"></div>
+
+        <!--
+          AUTOFILL. Four things must hold together or iOS never offers
+          "AutoFill Contact" above the keyboard, and the whole friction
+          argument for this page collapses:
+            1. standard autocomplete tokens (name / tel) -- not invented ones
+            2. a real <form> WITH a submit button
+            3. real <label> elements (Safari reads label text, undocumented)
+            4. type="tel" -- also gives the numeric keypad
+          Verified against MDN + Cloud Four. Safari's matching is heuristic
+          and partly undocumented, so this still needs a real-device check.
+        -->
+        <form id="regForm" novalidate>
+          <label for="nome">Nome</label>
+          <input id="nome" name="nome" type="text"
+                 autocomplete="name" autocapitalize="words"
+                 placeholder="Seu nome" required>
+
+          <label for="tel">WhatsApp</label>
+          <input id="tel" name="tel" type="tel"
+                 autocomplete="tel" inputmode="tel"
+                 placeholder="(813) 555-0100" required>
+
+          <!-- Plus one. A SWITCH, not a checkbox: per Apple's HIG a switch is
+               the iOS control for a binary on/off setting, and effectively
+               everyone opens this on a phone. Off by default, so the common
+               case is still just AutoFill + submit and nobody has to touch
+               it. Counts as a second seat on the same row -- one phone, one
+               person to message, two places at the table. -->
+          <label class="switch-row" for="plusOne">
+            <span class="switch-text">Vou com acompanhante</span>
+            <span class="switch">
+              <input type="checkbox" id="plusOne" name="plusOne" role="switch">
+              <span class="track"><span class="knob"></span></span>
+            </span>
+          </label>
+
+          <button type="submit" class="cta" id="submitBtn">Eu vou</button>
+        </form>
+
+        <p class="fine">Seus dados ficam só com a equipe do Apex Club.</p>
+      </div>
+
+      <!-- ══ Screen two: confirmed ═════════════════════════════════════ -->
+      <div id="screenDone" class="hidden">
+        <div class="tick">✓</div>
+        <h1 style="text-align:center">Presença confirmada!</h1>
+        <p class="sub" style="text-align:center" id="doneSub"></p>
+
+        <div class="facts" id="doneFacts"></div>
+
+        <!-- ORDER MATTERS HERE. Confirmation -> invite -> calendar -> payment.
+             Payment used to sit directly under the tick, which read as
+             "you're in, now pay" -- a transaction. Leading with the invite
+             makes it "you're in, bring someone, and here's how to pay when
+             you're ready", and drops payment to reference material at the
+             bottom. Nobody pre-pays anyway: six of nine July payments landed
+             on the day of the dinner. Do not move payment back up. -->
+
+        <!-- The growth path, and the strongest argument for this page
+             existing over a poll in the group: a poll cannot leave the group,
+             a link can. Given its own block with a reason, because as a
+             grey button identical to the calendar one it read as an
+             afterthought and nobody would tap it. -->
+        <div class="invite">
+          <div class="invite-copy">Conhece alguém que ia gostar dessa noite?</div>
+          <button class="cta" id="btnShare">Compartilhar convite</button>
+        </div>
+
+        <button class="ghost" id="btnCal">📅 &nbsp;Adicionar ao calendário</button>
+
+        <!-- Offered, not asked for. Nothing here says when payment is due --
+             that is Apex's call to communicate, not this page's to assume. -->
+        <div class="pay" id="payBox">
+          <h2>Pagamento</h2>
+          <div class="price" id="payPrice"></div>
+          <div class="price-note" id="payNote"></div>
+          <!-- ⚠️ There is NO tappable Zelle pay link. Tried and reverted
+               2026-08-10: the QR decodes to enroll.zellepay.com, which LOOKS
+               like a payment URL but is Zelle's bank-finder / enrollment
+               landing page. The QR only works because a BANK APP's scanner
+               reads the token out of it -- opening the same URL in a browser
+               just shows a marketing page. Tested on a real phone: it
+               launched Zelle in a browser and could not pay.
+               A button there is worse than no button: it promises payment
+               and delivers a webpage. The QR + the handle is the honest
+               affordance. Do not "fix" this by adding a link back. -->
+          <img id="zelleQr" alt="Zelle QR" class="hidden">
+          <div class="handle hidden" id="zelleHandle">
+            <span class="handle-lbl">Zelle</span>
+            <span id="zelleHandleVal"></span>
+          </div>
+          <div class="memo" id="payMemo"></div>
+        </div>
+
+        <p class="fine">Nos vemos lá! Qualquer dúvida, é só chamar no WhatsApp.</p>
+      </div>
+
+      <div id="screenClosed" class="hidden">
+        <h1>Inscrições encerradas</h1>
+        <p class="sub">As inscrições para este evento já foram encerradas. Fale com a equipe do Apex Club para saber do próximo.</p>
+      </div>
+
+      <div id="screenMissing" class="hidden">
+        <h1>Evento não encontrado</h1>
+        <p class="sub">Este link não é válido ou o evento foi removido.</p>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+  var EVENT_ID = new URLSearchParams(location.search).get("e") || "";
+  var EV = null;
+
+  function $(id) { return document.getElementById(id); }
+  function show(id) { $(id).classList.remove("hidden"); }
+  function hide(id) { $(id).classList.add("hidden"); }
+
+  function money(cents) {
+    return "$" + (cents / 100).toFixed(2).replace(/\.00$/, "");
+  }
+
+  // "2026-07-20" -> "20 de julho de 2026". Built from parts, never from
+  // new Date("YYYY-MM-DD"), which parses as UTC and lands on the 19th for
+  // anyone west of Greenwich -- including all of Florida.
+  var MESES = ["janeiro","fevereiro","março","abril","maio","junho",
+               "julho","agosto","setembro","outubro","novembro","dezembro"];
+  function ptDate(iso) {
+    var p = String(iso || "").split("-");
+    if (p.length !== 3) { return iso || ""; }
+    return parseInt(p[2], 10) + " de " + MESES[parseInt(p[1], 10) - 1] + " de " + p[0];
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function factsHtml(ev, opts) {
+    var rows = [];
+    rows.push({ i: "📅", l: "Data", v: ptDate(ev.event_date) + (ev.start_time ? " · " + esc(ev.start_time) : "") });
+    // The venue changes every month, so it is never assumed -- it is shown
+    // on the form itself, before anyone commits, and again after.
+    if (ev.venue)    { rows.push({ i: "📍", l: "Local",      v: esc(ev.venue) }); }
+    if (ev.speakers) { rows.push({ i: "🎤", l: "Convidados", v: esc(ev.speakers) }); }
+    // Whatever the fixed fields could not say. Line breaks are preserved
+    // because this is hand-typed prose, not a single value.
+    if (ev.notes) {
+        rows.push({ i: "ℹ️", l: "Observações", v: esc(ev.notes).replace(/\n/g, "<br>") });
+    }
+
+    // The price is deliberately NOT here on the form. It IS shown on the
+    // confirmation screen. Money placed in front of the commit button reads
+    // as a transaction and adds a hesitation beat for information they
+    // already have -- the price goes out in the WhatsApp message alongside
+    // the flyer, and July's payments arrived with no confusion about it.
+    // After the RSVP the same number stops being a hurdle and becomes what
+    // they actually need next: how much, how to pay, what to put in the memo.
+    if (opts && opts.withPrice) {
+        var price = money(ev.price_single_cents) + " por pessoa";
+        if (ev.price_couple_cents) { price += " · " + money(ev.price_couple_cents) + " o casal"; }
+        rows.push({ i: "💵", l: "Valor", v: price });
+    }
+
+    return rows.map(function (r) {
+      return '<div class="fact"><div class="ico">' + r.i + '</div>' +
+             '<div class="val"><span class="lbl">' + r.l + "</span>" + r.v + "</div></div>";
+    }).join("");
+  }
+
+  // ── Load ────────────────────────────────────────────────────────────
+  if (!EVENT_ID) { show("flyerFallback"); show("screenMissing"); return; }
+
+  fetch(WORKER_URL + "/api/club/register/" + encodeURIComponent(EVENT_ID))
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok || !res.d || res.d.error) { show("flyerFallback"); show("screenMissing"); return; }
+      EV = res.d;
+
+      document.title = EV.name + " · Apex Club";
+
+      if (EV.has_flyer) {
+        var img = $("flyer");
+        img.onerror = function () { hide("flyer"); show("flyerFallback"); };
+        img.src = WORKER_URL + "/api/club/flyer/" + encodeURIComponent(EVENT_ID);
+        show("flyer");
+      } else {
+        show("flyerFallback");
+      }
+
+      if (!EV.registration_open) { show("screenClosed"); return; }
+
+      $("evName").textContent = EV.name;
+      $("facts").innerHTML = factsHtml(EV);
+      show("screenForm");
+    })
+    .catch(function () { show("flyerFallback"); show("screenMissing"); });
+
+  // ── Submit ──────────────────────────────────────────────────────────
+  $("regForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var btn = $("submitBtn");
+    var nome = $("nome").value.trim();
+    var tel  = $("tel").value.trim();
+
+    hide("formErr");
+    if (nome.length < 2) { return fail("Escreva seu nome."); }
+    if (tel.replace(/\D/g, "").length < 10) { return fail("Escreva um número de WhatsApp válido."); }
+
+    btn.disabled = true;
+    btn.textContent = "Confirmando...";
+
+    fetch(WORKER_URL + "/api/club/register/" + encodeURIComponent(EVENT_ID), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: nome, phone: tel, plus_one: $("plusOne").checked })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d || res.d.error) {
+          btn.disabled = false; btn.textContent = "Eu vou";
+          return fail((res.d && res.d.error) || "Não deu certo. Tente de novo.");
+        }
+        done(nome, $("plusOne").checked);
+      })
+      .catch(function () {
+        btn.disabled = false; btn.textContent = "Eu vou";
+        fail("Sem conexão. Tente de novo.");
+      });
+
+    function fail(msg) { $("formErr").textContent = msg; show("formErr"); }
+  });
+
+  // ── Screen two ──────────────────────────────────────────────────────
+  function done(nome, plusOne) {
+    hide("screenForm");
+
+    // Say the plus one back to them. It is the one thing they could have got
+    // wrong in a hurry, and seeing "você e mais uma pessoa" is how they catch
+    // it before Alice orders food for the wrong number.
+    $("doneSub").innerHTML = "Obrigado, <b>" + esc(nome.split(" ")[0]) + "</b>! " +
+      (plusOne
+        ? "Anotamos você e mais uma pessoa na lista."
+        : "Já anotamos você na lista.");
+    $("doneFacts").innerHTML = factsHtml(EV, { withPrice: true });
+
+    // Lead with the price that actually applies to them.
+    if (plusOne && EV.price_couple_cents) {
+      $("payPrice").textContent = money(EV.price_couple_cents);
+      $("payNote").textContent = "para duas pessoas";
+    } else if (plusOne) {
+      // No couple rate on this event: two people at the per-person price.
+      $("payPrice").textContent = money(EV.price_single_cents * 2);
+      $("payNote").textContent = "para duas pessoas · " + money(EV.price_single_cents) + " por pessoa";
+    } else {
+      $("payPrice").textContent = money(EV.price_single_cents);
+      $("payNote").textContent = EV.price_couple_cents
+        ? "por pessoa · " + money(EV.price_couple_cents) + " o casal"
+        : "por pessoa";
+    }
+
+    // Says nothing about WHEN to pay. Most people paid on the night, but
+    // that is an observed habit, not a policy Apex published -- stating "you
+    // can pay on the day" would be this page granting permission on their
+    // behalf. The button sits there, nothing pushes it, and anyone who wants
+    // to pay later simply does what they already do.
+    //
+    // The memo line is the part doing real work: it is what makes an
+    // otherwise anonymous Zelle identifiable when Alice reconciles the event
+    // later -- July's feed is full of company names like PRIME GROUP BUILDS.
+    $("payMemo").innerHTML =
+      "Envie pelo app do seu banco, no Zelle.<br>" +
+      "<b>Coloque seu nome no memo</b> para identificarmos seu pagamento.";
+
+    // The handle carries the weight on mobile: scanning needs a second
+    // device, and most people are reading this on the only one they have.
+    if (EV.zelle_handle) {
+      $("zelleHandleVal").textContent = EV.zelle_handle;
+      $("zelleHandle").classList.remove("hidden");
+    }
+
+    var qr = $("zelleQr");
+    qr.onerror = function () { qr.classList.add("hidden"); };
+    qr.onload  = function () { qr.classList.remove("hidden"); };
+    qr.src = WORKER_URL + "/api/business/qr-image";
+
+    show("screenDone");
+    window.scrollTo(0, 0);
+  }
+
+  // ── Add to calendar ─────────────────────────────────────────────────
+  // A downloaded .ics works on iOS, Android and desktop with no service and
+  // no account. The venue goes in as LOCATION, so it becomes tappable for
+  // directions in their own calendar app on the day.
+  $("btnCal").addEventListener("click", function () {
+    if (!EV) { return; }
+
+    var d = String(EV.event_date).replace(/-/g, "");
+
+    // Parse "7:30 PM" when it is there; fall back to 19:30, which is what
+    // the July flyer says.
+    var sh = 19, sm = 30;
+    var m = /^(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec(EV.start_time || "");
+    if (m) {
+      sh = parseInt(m[1], 10); sm = parseInt(m[2], 10);
+      if (/pm/i.test(m[3] || "") && sh < 12) { sh += 12; }
+      if (/am/i.test(m[3] || "") && sh === 12) { sh = 0; }
+    }
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    // Floating local time (no Z): the calendar app treats it as the user's
+    // own wall clock, which is right for an in-person dinner.
+    var start = d + "T" + pad(sh) + pad(sm) + "00";
+    var end   = d + "T" + pad(Math.min(sh + 3, 23)) + pad(sm) + "00";
+
+    var lines = [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Apex Club//EN",
+      "BEGIN:VEVENT",
+      "UID:" + EVENT_ID + "@apex.resonateai.online",
+      "DTSTART:" + start,
+      "DTEND:" + end,
+      "SUMMARY:" + icsEsc(EV.name),
+      EV.venue ? "LOCATION:" + icsEsc(EV.venue) : "",
+      EV.speakers ? "DESCRIPTION:" + icsEsc("Convidados: " + EV.speakers) : "",
+      "BEGIN:VALARM", "TRIGGER:-PT3H", "ACTION:DISPLAY",
+      "DESCRIPTION:" + icsEsc(EV.name), "END:VALARM",
+      "END:VEVENT", "END:VCALENDAR"
+    ].filter(Boolean);
+
+    var blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "apex-club.ics";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Weak signal, logged only to answer "is this button worth keeping".
+    // It cannot know the event reached anyone's calendar.
+    fetch(WORKER_URL + "/api/club/calendar-click/" + encodeURIComponent(EVENT_ID), { method: "POST" })
+      .catch(function () {});
+  });
+
+  function icsEsc(s) {
+    return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;")
+                          .replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  }
+
+  // ── Invite someone ──────────────────────────────────────────────────
+  // The growth path: an attendee forwards this to a business owner Apex has
+  // never met. navigator.share opens the native sheet straight into WhatsApp.
+  $("btnShare").addEventListener("click", function () {
+    var url = location.href;
+
+    // What gets forwarded has to stand on its own -- the person receiving it
+    // has never heard of Apex Club and is reading it cold in WhatsApp. Name,
+    // date and place, then the link. No sales pitch: it carries more weight
+    // as a plain recommendation from someone they know.
+    var text = "Apex Club";
+    if (EV) {
+      text = EV.name + "\n📅 " + ptDate(EV.event_date) +
+             (EV.start_time ? " · " + EV.start_time : "") +
+             (EV.venue ? "\n📍 " + EV.venue : "");
+    }
+
+    if (navigator.share) {
+      navigator.share({ title: "Apex Club", text: text, url: url }).catch(function () {});
+    } else {
+      window.open("https://wa.me/?text=" + encodeURIComponent(text + "\n\n" + url), "_blank");
+    }
+  });
+})();
+</script>
+</body>
+</html>

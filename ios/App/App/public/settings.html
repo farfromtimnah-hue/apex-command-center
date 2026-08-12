@@ -1,0 +1,2514 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <script src="native-bridge.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title data-title-pt="Apex &#8212; Configura&#231;&#245;es" data-title-en="Apex &#8212; Settings">Apex &#8212; Configura&#231;&#245;es</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Bilingual toggle ──────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Settings hero section ──────────────────────────────────────────── */
+    .settings-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #settingsHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #settingsHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #settingsHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .settings-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Tile anchor links ─────────────────────────────────────────────── */
+    a.glass-tile-link {
+      text-decoration: none;
+      color: inherit;
+      display: contents;
+    }
+    a.glass-tile-link:hover .glass-tile {
+      border-color: rgba(201,164,58,0.45);
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 0 0 auto;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ─── Below hero section ─────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ─── Section heading ────────────────────────────────────────────────── */
+    .section-heading {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .section-subheading {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ─── Template card ──────────────────────────────────────────────────── */
+    .template-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .template-card + .template-card {
+      margin-top: 14px;
+    }
+
+    .template-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .template-textarea {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.12s;
+      outline: none;
+    }
+    .template-textarea:focus { border-color: var(--gold); }
+
+    .template-hint {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .template-hint code {
+      background: rgba(201,164,58,0.1);
+      border: 1px solid rgba(201,164,58,0.25);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: 'SF Mono', 'Fira Mono', monospace;
+      font-size: 11px;
+      color: var(--brown);
+    }
+
+    .template-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .template-meta strong {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ─── Template card footer ───────────────────────────────────────────── */
+    .template-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── Save button ────────────────────────────────────────────────────── */
+    .btn-save {
+      background: var(--gold);
+      border: none;
+      color: #000;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: opacity 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-save:hover:not(:disabled) { opacity: 0.88; }
+    .btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ─── Inline status message ──────────────────────────────────────────── */
+    .template-status {
+      font-size: 12px;
+      font-weight: 500;
+      min-height: 16px;
+    }
+    .template-status.ok  { color: #2e7d4f; }
+    .template-status.err { color: #b44040; }
+
+    /* ─── Empty / error states ───────────────────────────────────────────── */
+    .settings-empty {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .settings-empty-icon {
+      font-size: 32px;
+      opacity: 0.45;
+    }
+
+    /* ─── Package card ───────────────────────────────────────────────────── */
+    .pkg-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pkg-card + .pkg-card {
+      margin-top: 14px;
+    }
+
+    .pkg-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pkg-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .pkg-popular-badge {
+      background: var(--gold);
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .pkg-field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pkg-field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pkg-input-short {
+      width: 140px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brown);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input-short:focus { border-color: var(--gold); }
+
+    .pkg-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input:focus { border-color: var(--gold); }
+
+    .pkg-textarea {
+      width: 100%;
+      min-height: 54px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-textarea:focus { border-color: var(--gold); }
+
+    .pkg-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .pkg-item-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pkg-item-input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-item-input:focus { border-color: var(--gold); }
+
+    .btn-remove-item {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .btn-remove-item:hover { border-color: #b44040; color: #b44040; }
+
+    .btn-add-item {
+      background: none;
+      border: 1.5px dashed var(--border);
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+      align-self: flex-start;
+    }
+    .btn-add-item:hover { border-color: var(--gold); color: var(--brown); }
+
+    .pkg-popular-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pkg-popular-checkbox {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    .pkg-popular-label {
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .pkg-sort-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pkg-sort-input {
+      width: 70px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-sort-input:focus { border-color: var(--gold); }
+
+    /* ─── Payment plan toggle ────────────────────────────────────────────── */
+    .pkg-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pkg-toggle-switch {
+      position: relative;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .pkg-toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .pkg-toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 22px;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+
+    .pkg-toggle-slider::before {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.18s;
+    }
+
+    .pkg-toggle-switch input:checked + .pkg-toggle-slider {
+      background: var(--gold);
+    }
+
+    .pkg-toggle-switch input:checked + .pkg-toggle-slider::before {
+      transform: translateX(16px);
+    }
+
+    .pkg-toggle-label {
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .pkg-payment-plan-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .pkg-payment-plan-fields[hidden] { display: none !important; }
+
+    .pkg-new-pricing-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+      padding: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .pkg-new-pricing-fields[hidden] { display: none !important; }
+
+    .pkg-input-price {
+      width: 160px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input-price:focus { border-color: var(--gold); }
+
+    .pkg-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .pkg-footer-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: 1.5px solid #b44040;
+      color: #b44040;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-delete:hover:not(:disabled) { background: #b44040; color: #fff; }
+    .btn-delete:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ─── Profile upload form ────────────────────────────────────────────── */
+    .profile-upload-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 480px;
+    }
+
+    .profile-field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .profile-field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .profile-select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+      cursor: pointer;
+    }
+    .profile-select:focus { border-color: var(--gold); }
+
+    .profile-file-input {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .profile-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .profile-status { font-size: 12px; font-weight: 500; min-height: 16px; }
+    .profile-status.ok  { color: #2e7d4f; }
+    .profile-status.err { color: #b44040; }
+
+    .profile-avatar-preview {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+      display: block;
+    }
+    .profile-avatar-placeholder {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(201,164,58,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--gold);
+      border: 2px solid var(--border);
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .settings-hero-section { padding: 16px; }
+      .below-hero-section { padding: 16px; }
+      .glass-tile-value { font-size: 22px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #settingsHeroBg.is-loaded { animation: none; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- Hero section with background photo and glass tile -->
+    <div class="settings-hero-section">
+      <div id="settingsHeroBg" aria-hidden="true"></div>
+      <div id="settingsHeroScrim" aria-hidden="true"></div>
+      <div class="settings-hero-content">
+
+        <!-- Glass stat tiles — profile + templates + packages -->
+        <div class="glass-tile-row">
+          <a href="#section-profile" class="glass-tile-link">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">FOTOS DE PERFIL</span>
+                <span class="show-en">PROFILE PICTURES</span>
+              </div>
+              <div class="glass-tile-value" id="heroTileProfiles">--</div>
+            </div>
+          </a>
+          <a href="#templatesSection" class="glass-tile-link">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">MODELOS</span>
+                <span class="show-en">TEMPLATES</span>
+              </div>
+              <div class="glass-tile-value" id="heroTileTemplates">--</div>
+            </div>
+          </a>
+          <a href="#packagesSection" class="glass-tile-link">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">PACOTES</span>
+                <span class="show-en">PACKAGES</span>
+              </div>
+              <div class="glass-tile-value" id="heroTilePackages">--</div>
+            </div>
+          </a>
+        </div>
+
+        <!-- Page heading -->
+        <h1 class="page-heading-hero">
+          <span class="show-pt">Configura&#231;&#245;es</span>
+          <span class="show-en">Settings</span>
+        </h1>
+
+      </div><!-- /settings-hero-content -->
+    </div><!-- /settings-hero-section -->
+
+    <!-- Below hero: settings content -->
+    <div class="below-hero-section">
+
+      <!-- Profile Pictures section -->
+      <div id="section-profile">
+        <div class="section-heading">
+          <span class="show-pt">Fotos de Perfil</span>
+          <span class="show-en">Profile Pictures</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Envie uma foto de perfil para qualquer usu&#225;rio.</span>
+          <span class="show-en">Upload a profile picture for any user.</span>
+        </div>
+        <div id="profileContainer">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- WhatsApp Message Templates section -->
+      <div id="templatesSection">
+        <div class="section-heading">
+          <span class="show-pt">Modelos de Mensagem WhatsApp</span>
+          <span class="show-en">WhatsApp Message Templates</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Edite os textos enviados automaticamente por WhatsApp ap&#243;s cada sess&#227;o.</span>
+          <span class="show-en">Edit the texts sent automatically via WhatsApp after each session.</span>
+        </div>
+        <div id="templatesContainer">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Packages section -->
+      <div id="packagesSection">
+        <div class="section-heading">
+          <span class="show-pt">Gerenciar Pacotes</span>
+          <span class="show-en">Manage Packages</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Adicione, edite ou remova os pacotes oferecidos aos clientes.</span>
+          <span class="show-en">Add, edit, or remove the packages offered to clients.</span>
+        </div>
+        <div id="packagesContainer">
+          <!-- Rendered by JS -->
+        </div>
+        <div style="margin-top:16px;">
+          <button class="btn-save" id="btnAddPackage" onclick="showAddPackageCard()">
+            <span class="show-pt">+ Adicionar Pacote</span>
+            <span class="show-en">+ Add Package</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Payment Details section -->
+      <div id="paymentDetailsSection" style="margin-top:32px;">
+        <div class="section-heading">
+          <span class="show-pt">Detalhes de Pagamento</span>
+          <span class="show-en">Payment Details</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">QR Code Zelle e link Stripe usados em todas as faturas da Apex.</span>
+          <span class="show-en">Zelle QR code and Stripe link used on all Apex invoices.</span>
+        </div>
+
+        <div class="template-card" style="display:flex;flex-direction:column;gap:20px;">
+
+          <!-- Zelle QR Code -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">QR Code Zelle</span>
+              <span class="show-en">Zelle QR Code</span>
+            </div>
+            <div id="bizQrPreviewWrap" style="margin-bottom:10px;display:none;">
+              <img id="bizQrPreviewImg" src="" alt="Zelle QR" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--border);display:block;">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;" id="bizQrUploadRow">
+              <input type="file" id="bizQrFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleBizQrFileSelected(this)">
+              <button onclick="document.getElementById('bizQrFileInput').click()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;">
+                <span class="show-pt" id="bizQrBtnLabelPt">Carregar QR Code</span>
+                <span class="show-en" id="bizQrBtnLabelEn">Upload QR Code</span>
+              </button>
+            </div>
+            <div id="bizQrStatus" style="margin-top:6px;font-size:13px;"></div>
+          </div>
+
+          <!-- Stripe Payment Link -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">Link de Pagamento Stripe</span>
+              <span class="show-en">Stripe Payment Link</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="url" id="bizStripeLinkInput" placeholder="https://buy.stripe.com/..." style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);">
+              <button onclick="handleSaveBizStripeLink()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+                <span class="show-pt">Salvar</span>
+                <span class="show-en">Save</span>
+              </button>
+            </div>
+            <div id="bizStripeLinkStatus" style="margin-top:6px;font-size:13px;"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /below-hero-section -->
+
+  </main><!-- /appMain -->
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
+  <script>
+    // ── Configuration ──────────────────────────────────────────────────────
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth        = null;
+    var currentUser = null;
+
+    // ── Hero background ────────────────────────────────────────────────────
+    function initHeroBg(imgElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          var next = i + 1;
+          if (next === imgs.length) { return; }
+          if (next % imgs.length === idx) { return; }
+          tryLoadImage(next);
+        };
+        img.src = url;
+      }
+    }
+
+    // ── Auth helpers ───────────────────────────────────────────────────────
+    function handleSignOut() {
+      currentUser = null;
+      sessionStorage.removeItem("apex_role");
+      sessionStorage.removeItem("apex_email");
+      sessionStorage.removeItem("apex_display_name");
+      sessionStorage.removeItem("apex_avatar_url");
+      sessionStorage.removeItem("apex_dev_view");
+      auth.signOut().then(function() {
+        window.location.href = "index.html";
+      });
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    // ── Setup ──────────────────────────────────────────────────────────────
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      window.initNav && window.initNav();
+      initHeroBg('settingsHeroBg');
+      loadProfiles();
+      loadTemplates();
+      loadPackages();
+      loadBusinessSettings();
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                window.location.href = "index.html";
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function() {
+          if (!cached) {
+            window.location.href = "index.html";
+          }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    // ── Profile section state ──────────────────────────────────────────────
+    var profileUsersData = [];
+
+    // ── Friendly name from role ────────────────────────────────────────────
+    function friendlyName(u) {
+      if (u.role === "alice")     { return "Alice"; }
+      if (u.role === "rafa")      { return "Rafa"; }
+      if (u.role === "developer") { return "Nicole"; }
+      return u.email;
+    }
+
+    // ── Load profiles ──────────────────────────────────────────────────────
+    function loadProfiles() {
+      var container = document.getElementById("profileContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/users", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        profileUsersData = data.users || [];
+        renderProfileUploadForm(profileUsersData);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar usu&#225;rios: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading users: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Cache-bust the avatar preview for the given email ─────────────────
+    function updateProfileAvatarPreview(email) {
+      var previewEl = document.getElementById("profileAvatarPreview");
+      if (!previewEl) { return; }
+      var url = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+      previewEl.src = url + "?t=" + Date.now();
+    }
+
+    // ── Render the upload form ─────────────────────────────────────────────
+    function renderProfileUploadForm(users) {
+      var container = document.getElementById("profileContainer");
+      if (!container) { return; }
+
+      var tileEl = document.getElementById("heroTileProfiles");
+      if (tileEl) {
+        var withAvatar = 0;
+        for (var k = 0; k < users.length; k++) {
+          if (users[k].avatar_url) { withAvatar++; }
+        }
+        tileEl.textContent = withAvatar + " / " + users.length;
+      }
+
+      if (users.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128100;</div>' +
+          '<span class="show-pt">Nenhum usu&#225;rio encontrado.</span>' +
+          '<span class="show-en">No users found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+
+      var card = document.createElement("div");
+      card.className = "profile-upload-card";
+
+      // User dropdown
+      var selectRow = document.createElement("div");
+      selectRow.className = "profile-field-row";
+
+      var selectLabel = document.createElement("div");
+      selectLabel.className = "profile-field-label";
+      selectLabel.innerHTML =
+        '<span class="show-pt">Usu&#225;rio</span>' +
+        '<span class="show-en">User</span>';
+      selectRow.appendChild(selectLabel);
+
+      var userSelect = document.createElement("select");
+      userSelect.className = "profile-select";
+      userSelect.id = "profileUserSelect";
+      for (var i = 0; i < users.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = users[i].email;
+        opt.textContent = friendlyName(users[i]);
+        userSelect.appendChild(opt);
+      }
+      selectRow.appendChild(userSelect);
+      card.appendChild(selectRow);
+
+      // Current avatar preview
+      var previewRow = document.createElement("div");
+      previewRow.className = "profile-field-row";
+      var previewLabel = document.createElement("div");
+      previewLabel.className = "profile-field-label";
+      previewLabel.innerHTML =
+        '<span class="show-pt">Foto atual</span>' +
+        '<span class="show-en">Current photo</span>';
+      previewRow.appendChild(previewLabel);
+      var avatarPreviewImg = document.createElement("img");
+      avatarPreviewImg.id = "profileAvatarPreview";
+      avatarPreviewImg.className = "profile-avatar-preview";
+      avatarPreviewImg.alt = "";
+      if (users.length > 0) {
+        var initEmail = users[0].email;
+        avatarPreviewImg.src = WORKER_URL + "/api/users/" + encodeURIComponent(initEmail) + "/avatar-image?t=" + Date.now();
+      }
+      previewRow.appendChild(avatarPreviewImg);
+      card.appendChild(previewRow);
+
+      userSelect.onchange = function() {
+        updateProfileAvatarPreview(userSelect.value);
+      };
+
+      // File input
+      var fileRow = document.createElement("div");
+      fileRow.className = "profile-field-row";
+
+      var fileLabel = document.createElement("div");
+      fileLabel.className = "profile-field-label";
+      fileLabel.innerHTML =
+        '<span class="show-pt">Imagem</span>' +
+        '<span class="show-en">Image</span>';
+      fileRow.appendChild(fileLabel);
+
+      var fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.id = "profileFileInput";
+      fileInput.className = "profile-file-input";
+      fileInput.accept = "image/jpeg,image/png,image/gif,image/webp";
+      fileRow.appendChild(fileInput);
+      card.appendChild(fileRow);
+
+      // Upload button + status
+      var uploadRow = document.createElement("div");
+      uploadRow.className = "profile-upload-row";
+
+      var uploadBtn = document.createElement("button");
+      uploadBtn.className = "btn-save";
+      uploadBtn.id = "profileUploadBtn";
+      uploadBtn.innerHTML =
+        '<span class="show-pt">Enviar Foto</span>' +
+        '<span class="show-en">Upload Picture</span>';
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "profile-status";
+      statusEl.id = "profileStatus";
+
+      uploadRow.appendChild(uploadBtn);
+      uploadRow.appendChild(statusEl);
+      card.appendChild(uploadRow);
+
+      container.appendChild(card);
+
+      uploadBtn.onclick = function() { doProfileUpload(userSelect, fileInput, uploadBtn, statusEl); };
+    }
+
+    // ── Upload avatar ──────────────────────────────────────────────────────
+    function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+    // ── Shared image validation ───────────────────────────────────────────
+    //
+    // The avatar upload and the business-QR upload were validating the same
+    // two rules with two separate copies of the messages, and only one copy
+    // was bilingual — so the QR uploader spoke Portuguese to an English user.
+    // One validator, one set of strings, both callers.
+    var IMAGE_TYPES_ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+    var IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+
+    // Returns null when the file is acceptable, otherwise the message to show.
+    function validateImageFile(file) {
+      if (!file) { return t("Selecione uma imagem primeiro.", "Please select an image first."); }
+      if (IMAGE_TYPES_ALLOWED.indexOf(file.type) === -1) {
+        return t("Tipo inválido. Use JPG, PNG, GIF ou WebP.",
+                 "Invalid type. Use JPG, PNG, GIF, or WebP.");
+      }
+      if (file.size > IMAGE_MAX_BYTES) {
+        return t("Arquivo muito grande. Máximo 2 MB.", "File too large. Maximum 2 MB.");
+      }
+      return null;
+    }
+
+    function doProfileUpload(userSelect, fileInput, btn, statusEl) {
+      statusEl.className = "profile-status";
+      statusEl.textContent = "";
+
+      var email = userSelect.value;
+      if (!email) {
+        statusEl.className = "profile-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Selecione um usu&#225;rio.</span>' +
+          '<span class="show-en">Please select a user.</span>';
+        return;
+      }
+
+      if (!fileInput.files || !fileInput.files[0]) {
+        statusEl.className = "profile-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Selecione uma imagem primeiro.</span>' +
+          '<span class="show-en">Please select an image first.</span>';
+        return;
+      }
+
+      var file = fileInput.files[0];
+      var invalid = validateImageFile(file);
+      if (invalid) {
+        statusEl.className = "profile-status err";
+        statusEl.textContent = invalid;
+        return;
+      }
+
+      btn.disabled = true;
+
+      var formData = new FormData();
+      formData.append("avatar", file);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        fileInput.value = "";
+        for (var i = 0; i < profileUsersData.length; i++) {
+          if (profileUsersData[i].email === email) {
+            profileUsersData[i].avatar_url = data.avatar_key || null;
+          }
+        }
+        var tileEl = document.getElementById("heroTileProfiles");
+        if (tileEl) {
+          var withAvatar = 0;
+          for (var j = 0; j < profileUsersData.length; j++) {
+            if (profileUsersData[j].avatar_url) { withAvatar++; }
+          }
+          tileEl.textContent = withAvatar + " / " + profileUsersData.length;
+        }
+        updateProfileAvatarPreview(email);
+        statusEl.className = "profile-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Foto enviada com sucesso.</span>' +
+          '<span class="show-en">Picture uploaded successfully.</span>';
+        setTimeout(function() {
+          statusEl.className = "profile-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "profile-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao enviar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error uploading: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Load templates ─────────────────────────────────────────────────────
+    function loadTemplates() {
+      var container = document.getElementById("templatesContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var templates = data.templates || [];
+        renderTemplates(templates);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar modelos: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading templates: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Render templates ───────────────────────────────────────────────────
+    function renderTemplates(templates) {
+      var container = document.getElementById("templatesContainer");
+      if (!container) { return; }
+
+      var tilEl = document.getElementById("heroTileTemplates");
+      if (tilEl) { tilEl.textContent = templates.length; }
+
+      if (templates.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128203;</div>' +
+          '<span class="show-pt">Nenhum modelo encontrado.</span>' +
+          '<span class="show-en">No templates found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+
+      for (var i = 0; i < templates.length; i++) {
+        container.appendChild(makeTemplateCard(templates[i]));
+      }
+    }
+
+    // ── Make a single template card ────────────────────────────────────────
+    // Bilingual title per known template key; unknown keys fall back to the
+    // raw key name.
+    var TEMPLATE_TITLES = {
+      session_in_person: { pt: "Sess&#227;o Presencial", en: "In-Person Session" },
+      session_online: { pt: "Sess&#227;o Online", en: "Online Session" },
+      client_login: { pt: "Acesso ao Portal do Cliente", en: "Client Portal Access" },
+      invoice_send: { pt: "Envio de Fatura", en: "Invoice Send" },
+      portal_help_request: { pt: "Pedido de Ajuda (Portal)", en: "Help Request (Portal)" },
+      resource_send: { pt: "Envio de Recurso", en: "Resource Send" },
+      partner_referral_share: { pt: "Compartilhar Link de Indica&#231;&#227;o", en: "Referral Link Share" }
+    };
+
+    // Per-key token hint — only the tokens that key actually substitutes.
+    var TEMPLATE_TOKEN_HINTS = {
+      session_in_person: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>. Estas s&#227;o preenchidas automaticamente ao enviar a mensagem.',
+        en: 'Available tokens: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>. These are filled in automatically when the message is sent.'
+      },
+      session_online: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. Estas s&#227;o preenchidas automaticamente ao enviar a mensagem.',
+        en: 'Available tokens: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. These are filled in automatically when the message is sent.'
+      },
+      client_login: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.',
+        en: 'Available tokens: <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.'
+      },
+      invoice_send: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{invoiceLink}</code>.',
+        en: 'Available token: <code>{invoiceLink}</code>.'
+      },
+      portal_help_request: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{clientName}</code>, <code>{label}</code>.',
+        en: 'Available tokens: <code>{clientName}</code>, <code>{label}</code>.'
+      },
+      resource_send: {
+        pt: 'Esta mensagem n&#227;o usa vari&#225;veis — o t&#237;tulo e o link do recurso s&#227;o anexados automaticamente.',
+        en: 'This message has no tokens — the resource title and link are appended automatically.'
+      },
+      partner_referral_share: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{referralUrl}</code>.',
+        en: 'Available token: <code>{referralUrl}</code>.'
+      }
+    };
+
+    function makeTemplateCard(tpl) {
+      var key = tpl.template_key || "";
+
+      var card = document.createElement("div");
+      card.className = "template-card";
+
+      // Title — bilingual for known keys; raw key fallback for unknown
+      var titleEl = document.createElement("div");
+      titleEl.className = "template-card-title";
+      var titles = TEMPLATE_TITLES[key];
+      if (titles) {
+        titleEl.innerHTML =
+          '<span class="show-pt">' + titles.pt + '</span>' +
+          '<span class="show-en">' + titles.en + '</span>';
+      } else {
+        titleEl.textContent = key;
+      }
+      card.appendChild(titleEl);
+
+      // Textarea
+      var textarea = document.createElement("textarea");
+      textarea.className = "template-textarea";
+      textarea.value = tpl.template_text || "";
+      card.appendChild(textarea);
+
+      // Placeholder hint — per-key tokens only; unknown keys get no hint.
+      var hints = TEMPLATE_TOKEN_HINTS[key];
+      if (hints) {
+        var hint = document.createElement("div");
+        hint.className = "template-hint";
+        hint.innerHTML =
+          '<span class="show-pt">' + hints.pt + '</span>' +
+          '<span class="show-en">' + hints.en + '</span>';
+        card.appendChild(hint);
+      }
+
+      // Meta line (updated_at / updated_by) — use a container so it can be refreshed
+      var metaEl = document.createElement("div");
+      metaEl.className = "template-meta";
+      renderMeta(metaEl, tpl);
+      card.appendChild(metaEl);
+
+      // Footer: status message + save button
+      var footer = document.createElement("div");
+      footer.className = "template-card-footer";
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "template-status";
+      footer.appendChild(statusEl);
+
+      var saveBtn = document.createElement("button");
+      saveBtn.className = "btn-save";
+      saveBtn.innerHTML =
+        '<span class="show-pt">Salvar</span>' +
+        '<span class="show-en">Save</span>';
+
+      // Capture variables for the click handler
+      (function(k, ta, btn, st, meta) {
+        btn.onclick = function() { saveTemplate(k, ta, btn, st, meta); };
+      })(key, textarea, saveBtn, statusEl, metaEl);
+
+      footer.appendChild(saveBtn);
+      card.appendChild(footer);
+
+      return card;
+    }
+
+    // ── Render meta line ───────────────────────────────────────────────────
+    function renderMeta(el, tpl) {
+      var updatedAt = tpl.updated_at || "--";
+      var updatedBy = tpl.updated_by || "--";
+      el.innerHTML =
+        '<span class="show-pt">' +
+          '<strong>Atualizado em:</strong> ' + escHtml(updatedAt) +
+          ' &nbsp;|&nbsp; <strong>Por:</strong> ' + escHtml(updatedBy) +
+        '</span>' +
+        '<span class="show-en">' +
+          '<strong>Updated:</strong> ' + escHtml(updatedAt) +
+          ' &nbsp;|&nbsp; <strong>By:</strong> ' + escHtml(updatedBy) +
+        '</span>';
+    }
+
+    // ── Save a template ────────────────────────────────────────────────────
+    function saveTemplate(key, textarea, btn, statusEl, metaEl) {
+      var text = textarea.value;
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!text || !text.trim()) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">O modelo n&#227;o pode estar vazio.</span>' +
+          '<span class="show-en">Template text cannot be empty.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates/" + encodeURIComponent(key), {
+          method: "PUT",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ template_text: text })
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+
+        statusEl.className = "template-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Salvo com sucesso.</span>' +
+          '<span class="show-en">Saved successfully.</span>';
+
+        // Refresh meta line from returned row
+        var row = data.template || data;
+        if (row && (row.updated_at || row.updated_by)) {
+          renderMeta(metaEl, row);
+        }
+
+        // Auto-clear success message after 3s
+        setTimeout(function() {
+          statusEl.className = "template-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao salvar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error saving: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // ── Load packages ─────────────────────────────────────────────────────
+    function loadPackages() {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var pkgs = data.packages || [];
+        renderPackages(pkgs);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar pacotes: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading packages: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Render packages ────────────────────────────────────────────────────
+    function renderPackages(pkgs) {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+
+      var tileEl = document.getElementById("heroTilePackages");
+      if (tileEl) { tileEl.textContent = pkgs.length; }
+
+      if (pkgs.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128230;</div>' +
+          '<span class="show-pt">Nenhum pacote encontrado.</span>' +
+          '<span class="show-en">No packages found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+      for (var i = 0; i < pkgs.length; i++) {
+        container.appendChild(makePackageCard(pkgs[i], false));
+      }
+    }
+
+    // ── Make a single package card ─────────────────────────────────────────
+    function makePackageCard(pkg, isNew) {
+      var card = document.createElement("div");
+      card.className = "pkg-card";
+      if (!isNew && pkg.id) { card.setAttribute("data-pkg-id", pkg.id); }
+
+      // Header: title + popular badge
+      var headerEl = document.createElement("div");
+      headerEl.className = "pkg-card-header";
+
+      var titleEl = document.createElement("div");
+      titleEl.className = "pkg-card-title";
+      if (isNew) {
+        titleEl.innerHTML =
+          '<span class="show-pt">Novo Pacote</span>' +
+          '<span class="show-en">New Package</span>';
+      } else {
+        titleEl.textContent = pkg.full_name || pkg.short_name || "";
+      }
+      headerEl.appendChild(titleEl);
+
+      var badgeEl = document.createElement("span");
+      badgeEl.className = "pkg-popular-badge";
+      badgeEl.innerHTML =
+        '<span class="show-pt">Mais Popular</span>' +
+        '<span class="show-en">Most Popular</span>';
+      badgeEl.style.display = (pkg.is_popular) ? "" : "none";
+      headerEl.appendChild(badgeEl);
+
+      card.appendChild(headerEl);
+
+      // short_name
+      var shortRow = document.createElement("div");
+      shortRow.className = "pkg-field-row";
+      var shortLabel = document.createElement("div");
+      shortLabel.className = "pkg-field-label";
+      shortLabel.innerHTML =
+        '<span class="show-pt">R&#243;tulo curto</span>' +
+        '<span class="show-en">Short label</span>';
+      var shortInput = document.createElement("input");
+      shortInput.type = "text";
+      shortInput.className = "pkg-input-short";
+      shortInput.value = pkg.short_name || "";
+      shortRow.appendChild(shortLabel);
+      shortRow.appendChild(shortInput);
+      card.appendChild(shortRow);
+
+      // full_name
+      var fullRow = document.createElement("div");
+      fullRow.className = "pkg-field-row";
+      var fullLabel = document.createElement("div");
+      fullLabel.className = "pkg-field-label";
+      fullLabel.innerHTML =
+        '<span class="show-pt">Nome completo</span>' +
+        '<span class="show-en">Full name</span>';
+      var fullInput = document.createElement("input");
+      fullInput.type = "text";
+      fullInput.className = "pkg-input";
+      fullInput.value = pkg.full_name || "";
+      fullRow.appendChild(fullLabel);
+      fullRow.appendChild(fullInput);
+      card.appendChild(fullRow);
+
+      // audience
+      var audRow = document.createElement("div");
+      audRow.className = "pkg-field-row";
+      var audLabel = document.createElement("div");
+      audLabel.className = "pkg-field-label";
+      audLabel.innerHTML =
+        '<span class="show-pt">P&#250;blico-alvo</span>' +
+        '<span class="show-en">Audience</span>';
+      var audTextarea = document.createElement("textarea");
+      audTextarea.className = "pkg-textarea";
+      audTextarea.rows = 2;
+      audTextarea.value = pkg.audience || "";
+      audRow.appendChild(audLabel);
+      audRow.appendChild(audTextarea);
+      card.appendChild(audRow);
+
+      // included_items
+      var itemsRow = document.createElement("div");
+      itemsRow.className = "pkg-field-row";
+      var itemsLabel = document.createElement("div");
+      itemsLabel.className = "pkg-field-label";
+      itemsLabel.innerHTML =
+        '<span class="show-pt">Itens inclu&#237;dos</span>' +
+        '<span class="show-en">Included items</span>';
+      itemsRow.appendChild(itemsLabel);
+
+      var itemsList = document.createElement("div");
+      itemsList.className = "pkg-items-list";
+
+      var initialItems = pkg.included_items || [];
+      for (var j = 0; j < initialItems.length; j++) {
+        itemsList.appendChild(makeItemRow(itemsList, initialItems[j]));
+      }
+
+      var addItemBtn = document.createElement("button");
+      addItemBtn.type = "button";
+      addItemBtn.className = "btn-add-item";
+      addItemBtn.innerHTML =
+        '<span class="show-pt">+ Adicionar item</span>' +
+        '<span class="show-en">+ Add item</span>';
+      (function(list) {
+        addItemBtn.onclick = function() { list.appendChild(makeItemRow(list, "")); };
+      })(itemsList);
+
+      itemsRow.appendChild(itemsList);
+      itemsRow.appendChild(addItemBtn);
+      card.appendChild(itemsRow);
+
+      // ── Pricing section ──────────────────────────────────────────────────
+
+      // base_price
+      var priceRow = document.createElement("div");
+      priceRow.className = "pkg-field-row";
+      var priceLabel = document.createElement("div");
+      priceLabel.className = "pkg-field-label";
+      priceLabel.innerHTML =
+        '<span class="show-pt">Pre&#231;o Base</span>' +
+        '<span class="show-en">Base Price</span>';
+      var priceInput = document.createElement("input");
+      priceInput.type = "number";
+      priceInput.min = "0";
+      priceInput.step = "0.01";
+      priceInput.className = "pkg-input-price";
+      priceInput.placeholder = "0.00";
+      priceInput.value = (pkg.base_price !== null && pkg.base_price !== undefined) ? pkg.base_price : "";
+      priceRow.appendChild(priceLabel);
+      priceRow.appendChild(priceInput);
+      card.appendChild(priceRow);
+
+      // ── New list-price fields (upfront_price / installment_total_price / defaults) ──
+      // Only shown (non-hidden) when populated, so legacy cards stay uncluttered;
+      // still fully present/editable so pricing can be set later if needed.
+      var hasNewPricing = (pkg.upfront_price !== null && pkg.upfront_price !== undefined) ||
+                           (pkg.installment_total_price !== null && pkg.installment_total_price !== undefined) ||
+                           (pkg.default_installment_count !== null && pkg.default_installment_count !== undefined) ||
+                           (pkg.default_installment_amount !== null && pkg.default_installment_amount !== undefined);
+
+      var newPricingWrap = document.createElement("div");
+      newPricingWrap.className = "pkg-new-pricing-fields";
+      newPricingWrap.hidden = !hasNewPricing && !isNew;
+
+      var upfrontRow = document.createElement("div");
+      upfrontRow.className = "pkg-field-row";
+      var upfrontLabel = document.createElement("div");
+      upfrontLabel.className = "pkg-field-label";
+      upfrontLabel.innerHTML =
+        '<span class="show-pt">Pre&#231;o &#192; Vista</span>' +
+        '<span class="show-en">Upfront Price</span>';
+      var upfrontInput = document.createElement("input");
+      upfrontInput.type = "number";
+      upfrontInput.min = "0";
+      upfrontInput.step = "0.01";
+      upfrontInput.className = "pkg-input-price";
+      upfrontInput.placeholder = "0.00";
+      upfrontInput.value = (pkg.upfront_price !== null && pkg.upfront_price !== undefined) ? pkg.upfront_price : "";
+      upfrontRow.appendChild(upfrontLabel);
+      upfrontRow.appendChild(upfrontInput);
+      newPricingWrap.appendChild(upfrontRow);
+
+      var instTotalRow = document.createElement("div");
+      instTotalRow.className = "pkg-field-row";
+      var instTotalLabel = document.createElement("div");
+      instTotalLabel.className = "pkg-field-label";
+      instTotalLabel.innerHTML =
+        '<span class="show-pt">Total Parcelado</span>' +
+        '<span class="show-en">Installment Total</span>';
+      var instTotalInput = document.createElement("input");
+      instTotalInput.type = "number";
+      instTotalInput.min = "0";
+      instTotalInput.step = "0.01";
+      instTotalInput.className = "pkg-input-price";
+      instTotalInput.placeholder = "0.00";
+      instTotalInput.value = (pkg.installment_total_price !== null && pkg.installment_total_price !== undefined) ? pkg.installment_total_price : "";
+      instTotalRow.appendChild(instTotalLabel);
+      instTotalRow.appendChild(instTotalInput);
+      newPricingWrap.appendChild(instTotalRow);
+
+      var defCountRow = document.createElement("div");
+      defCountRow.className = "pkg-field-row";
+      var defCountLabel = document.createElement("div");
+      defCountLabel.className = "pkg-field-label";
+      defCountLabel.innerHTML =
+        '<span class="show-pt">Parcelas Padr&#227;o (N&#250;mero)</span>' +
+        '<span class="show-en">Default Installment Count</span>';
+      var defCountInput = document.createElement("input");
+      defCountInput.type = "number";
+      defCountInput.min = "1";
+      defCountInput.step = "1";
+      defCountInput.className = "pkg-input-price";
+      defCountInput.placeholder = "0";
+      defCountInput.value = (pkg.default_installment_count !== null && pkg.default_installment_count !== undefined) ? pkg.default_installment_count : "";
+      defCountRow.appendChild(defCountLabel);
+      defCountRow.appendChild(defCountInput);
+      newPricingWrap.appendChild(defCountRow);
+
+      var defAmtRow = document.createElement("div");
+      defAmtRow.className = "pkg-field-row";
+      var defAmtLabel = document.createElement("div");
+      defAmtLabel.className = "pkg-field-label";
+      defAmtLabel.innerHTML =
+        '<span class="show-pt">Parcelas Padr&#227;o (Valor)</span>' +
+        '<span class="show-en">Default Installment Amount</span>';
+      var defAmtInput = document.createElement("input");
+      defAmtInput.type = "number";
+      defAmtInput.min = "0";
+      defAmtInput.step = "0.01";
+      defAmtInput.className = "pkg-input-price";
+      defAmtInput.placeholder = "0.00";
+      defAmtInput.value = (pkg.default_installment_amount !== null && pkg.default_installment_amount !== undefined) ? pkg.default_installment_amount : "";
+      defAmtRow.appendChild(defAmtLabel);
+      defAmtRow.appendChild(defAmtInput);
+      newPricingWrap.appendChild(defAmtRow);
+
+      var toggleNewPricingBtn = document.createElement("button");
+      toggleNewPricingBtn.type = "button";
+      toggleNewPricingBtn.className = "btn-add-item";
+      toggleNewPricingBtn.innerHTML =
+        '<span class="show-pt">' + (hasNewPricing || isNew ? "Ocultar preços novos" : "+ Preços novos (à vista / parcelado)") + '</span>' +
+        '<span class="show-en">' + (hasNewPricing || isNew ? "Hide new pricing" : "+ New pricing (upfront / installment)") + '</span>';
+      toggleNewPricingBtn.hidden = hasNewPricing || isNew;
+      (function(wrap, btn) {
+        btn.onclick = function() { wrap.hidden = !wrap.hidden; btn.hidden = true; };
+      })(newPricingWrap, toggleNewPricingBtn);
+
+      card.appendChild(toggleNewPricingBtn);
+      card.appendChild(newPricingWrap);
+
+      // has_payment_plan toggle
+      var toggleId = "ppToggle_" + (pkg.id || "new");
+      var toggleRow = document.createElement("div");
+      toggleRow.className = "pkg-toggle-row";
+
+      var toggleLabel = document.createElement("label");
+      toggleLabel.className = "pkg-toggle-switch";
+      var toggleChk = document.createElement("input");
+      toggleChk.type = "checkbox";
+      toggleChk.id = toggleId;
+      toggleChk.checked = !!pkg.has_payment_plan;
+      var toggleSlider = document.createElement("span");
+      toggleSlider.className = "pkg-toggle-slider";
+      toggleLabel.appendChild(toggleChk);
+      toggleLabel.appendChild(toggleSlider);
+
+      var toggleTextLabel = document.createElement("label");
+      toggleTextLabel.setAttribute("for", toggleId);
+      toggleTextLabel.className = "pkg-toggle-label";
+      toggleTextLabel.innerHTML =
+        '<span class="show-pt">Plano de Pagamento</span>' +
+        '<span class="show-en">Payment Plan</span>';
+
+      toggleRow.appendChild(toggleLabel);
+      toggleRow.appendChild(toggleTextLabel);
+      card.appendChild(toggleRow);
+
+      // Installment fields (hidden when toggle off)
+      var ppFields = document.createElement("div");
+      ppFields.className = "pkg-payment-plan-fields";
+      ppFields.hidden = !pkg.has_payment_plan;
+
+      var instCountRow = document.createElement("div");
+      instCountRow.className = "pkg-field-row";
+      var instCountLabel = document.createElement("div");
+      instCountLabel.className = "pkg-field-label";
+      instCountLabel.innerHTML =
+        '<span class="show-pt">N&#250;mero de Parcelas</span>' +
+        '<span class="show-en">Number of Installments</span>';
+      var instCountInput = document.createElement("input");
+      instCountInput.type = "number";
+      instCountInput.min = "1";
+      instCountInput.step = "1";
+      instCountInput.className = "pkg-input-price";
+      instCountInput.placeholder = "0";
+      instCountInput.value = (pkg.installment_count !== null && pkg.installment_count !== undefined) ? pkg.installment_count : "";
+      instCountRow.appendChild(instCountLabel);
+      instCountRow.appendChild(instCountInput);
+      ppFields.appendChild(instCountRow);
+
+      var instAmtRow = document.createElement("div");
+      instAmtRow.className = "pkg-field-row";
+      var instAmtLabel = document.createElement("div");
+      instAmtLabel.className = "pkg-field-label";
+      instAmtLabel.innerHTML =
+        '<span class="show-pt">Valor da Parcela</span>' +
+        '<span class="show-en">Amount per Installment</span>';
+      var instAmtInput = document.createElement("input");
+      instAmtInput.type = "number";
+      instAmtInput.min = "0";
+      instAmtInput.step = "0.01";
+      instAmtInput.className = "pkg-input-price";
+      instAmtInput.placeholder = "0.00";
+      instAmtInput.value = (pkg.installment_amount !== null && pkg.installment_amount !== undefined) ? pkg.installment_amount : "";
+      instAmtRow.appendChild(instAmtLabel);
+      instAmtRow.appendChild(instAmtInput);
+      ppFields.appendChild(instAmtRow);
+
+      card.appendChild(ppFields);
+
+      (function(chk, fields) {
+        chk.onchange = function() { fields.hidden = !chk.checked; };
+      })(toggleChk, ppFields);
+
+      // is_popular checkbox
+      var popRow = document.createElement("div");
+      popRow.className = "pkg-popular-row";
+      var popChkId = "popChk_" + (pkg.id || "new");
+      var popChk = document.createElement("input");
+      popChk.type = "checkbox";
+      popChk.className = "pkg-popular-checkbox";
+      popChk.id = popChkId;
+      popChk.checked = !!pkg.is_popular;
+      var popLbl = document.createElement("label");
+      popLbl.className = "pkg-popular-label";
+      popLbl.setAttribute("for", popChkId);
+      popLbl.innerHTML =
+        '<span class="show-pt">Mais Popular</span>' +
+        '<span class="show-en">Most Popular</span>';
+
+      (function(badge, chk) {
+        chk.onchange = function() { badge.style.display = chk.checked ? "" : "none"; };
+      })(badgeEl, popChk);
+
+      popRow.appendChild(popChk);
+      popRow.appendChild(popLbl);
+      card.appendChild(popRow);
+
+      // sort_order
+      var sortRow = document.createElement("div");
+      sortRow.className = "pkg-sort-row pkg-field-row";
+      var sortLabel = document.createElement("div");
+      sortLabel.className = "pkg-field-label";
+      sortLabel.innerHTML =
+        '<span class="show-pt">Ordem</span>' +
+        '<span class="show-en">Sort order</span>';
+      var sortInput = document.createElement("input");
+      sortInput.type = "number";
+      sortInput.className = "pkg-sort-input";
+      sortInput.value = (pkg.sort_order !== undefined && pkg.sort_order !== null) ? pkg.sort_order : "";
+      sortRow.appendChild(sortLabel);
+      sortRow.appendChild(sortInput);
+      card.appendChild(sortRow);
+
+      // Footer: status + save + delete
+      var footer = document.createElement("div");
+      footer.className = "pkg-card-footer";
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "template-status";
+      footer.appendChild(statusEl);
+
+      var actions = document.createElement("div");
+      actions.className = "pkg-footer-actions";
+
+      var saveBtn = document.createElement("button");
+      saveBtn.className = "btn-save";
+      saveBtn.innerHTML =
+        '<span class="show-pt">Salvar</span>' +
+        '<span class="show-en">Save</span>';
+
+      if (!isNew) {
+        var delBtn = document.createElement("button");
+        delBtn.className = "btn-delete";
+        delBtn.innerHTML =
+          '<span class="show-pt">Excluir</span>' +
+          '<span class="show-en">Delete</span>';
+
+        (function(c, btn, st, id) {
+          btn.onclick = function() { deletePackage(id, c, btn, st); };
+        })(card, delBtn, statusEl, pkg.id);
+
+        actions.appendChild(delBtn);
+      }
+
+      actions.appendChild(saveBtn);
+      footer.appendChild(actions);
+      card.appendChild(footer);
+
+      if (isNew) {
+        (function(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI) {
+          btn.onclick = function() { createPackage(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, toggleChk, instCountInput, instAmtInput, upfrontInput, instTotalInput, defCountInput, defAmtInput);
+      } else {
+        (function(c, btn, st, sn, fn, au, il, pc, so, id, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI) {
+          btn.onclick = function() { savePackage(id, c, btn, st, sn, fn, au, il, pc, so, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, pkg.id, priceInput, toggleChk, instCountInput, instAmtInput, upfrontInput, instTotalInput, defCountInput, defAmtInput);
+      }
+
+      return card;
+    }
+
+    // ── Make a single item row ─────────────────────────────────────────────
+    function makeItemRow(list, value) {
+      var row = document.createElement("div");
+      row.className = "pkg-item-row";
+
+      var inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "pkg-item-input";
+      inp.value = value || "";
+
+      var rmBtn = document.createElement("button");
+      rmBtn.type = "button";
+      rmBtn.className = "btn-remove-item";
+      rmBtn.innerHTML = "&#10005;";
+      rmBtn.setAttribute("aria-label", "Remove item");
+      (function(r) {
+        rmBtn.onclick = function() { r.parentNode && r.parentNode.removeChild(r); };
+      })(row);
+
+      row.appendChild(inp);
+      row.appendChild(rmBtn);
+      return row;
+    }
+
+    // ── Collect item inputs from a list container ──────────────────────────
+    function collectItems(itemsList) {
+      var inputs = itemsList.querySelectorAll(".pkg-item-input");
+      var result = [];
+      for (var i = 0; i < inputs.length; i++) {
+        var v = inputs[i].value.trim();
+        if (v) { result.push(v); }
+      }
+      return result;
+    }
+
+    // ── Save (PUT) a package ───────────────────────────────────────────────
+    function savePackage(id, card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, priceInput, ppChk, icInput, iaInput, upfrontInput, instTotalInput, defCountInput, defAmtInput) {
+      var shortName = shortInput.value.trim();
+      var fullName  = fullInput.value.trim();
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!shortName || !fullName) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Nome curto e nome completo s&#227;o obrigat&#243;rios.</span>' +
+          '<span class="show-en">Short name and full name are required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      var hasPaymentPlan = ppChk.checked;
+      var payload = {
+        short_name:         shortName,
+        full_name:          fullName,
+        audience:           audTextarea.value.trim(),
+        included_items:     collectItems(itemsList),
+        is_popular:         popChk.checked,
+        sort_order:         sortInput.value !== "" ? parseInt(sortInput.value, 10) : null,
+        base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
+        has_payment_plan:   hasPaymentPlan,
+        installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null,
+        upfront_price:              upfrontInput.value  !== "" ? parseFloat(upfrontInput.value)  : null,
+        installment_total_price:    instTotalInput.value !== "" ? parseFloat(instTotalInput.value) : null,
+        default_installment_count:  defCountInput.value !== "" ? parseInt(defCountInput.value, 10) : null,
+        default_installment_amount: defAmtInput.value    !== "" ? parseFloat(defAmtInput.value)    : null
+      };
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function() {
+        btn.disabled = false;
+        statusEl.className = "template-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Salvo com sucesso.</span>' +
+          '<span class="show-en">Saved successfully.</span>';
+        setTimeout(function() {
+          statusEl.className = "template-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao salvar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error saving: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Create (POST) a package ────────────────────────────────────────────
+    function createPackage(card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, ppChk, icInput, iaInput, upfrontInput, instTotalInput, defCountInput, defAmtInput) {
+      var shortName = shortInput.value.trim();
+      var fullName  = fullInput.value.trim();
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!shortName || !fullName) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Nome curto e nome completo s&#227;o obrigat&#243;rios.</span>' +
+          '<span class="show-en">Short name and full name are required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      var hasPaymentPlan = ppChk.checked;
+      var payload = {
+        short_name:         shortName,
+        full_name:          fullName,
+        audience:           audTextarea.value.trim(),
+        included_items:     collectItems(itemsList),
+        is_popular:         popChk.checked,
+        sort_order:         sortInput.value !== "" ? parseInt(sortInput.value, 10) : null,
+        base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
+        has_payment_plan:   hasPaymentPlan,
+        installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null,
+        upfront_price:              upfrontInput.value  !== "" ? parseFloat(upfrontInput.value)  : null,
+        installment_total_price:    instTotalInput.value !== "" ? parseFloat(instTotalInput.value) : null,
+        default_installment_count:  defCountInput.value !== "" ? parseInt(defCountInput.value, 10) : null,
+        default_installment_amount: defAmtInput.value    !== "" ? parseFloat(defAmtInput.value)    : null
+      };
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        var newPkg = data.package || data;
+        var container = document.getElementById("packagesContainer");
+        if (container && newPkg && newPkg.id) {
+          var savedCard = makePackageCard(newPkg, false);
+          container.replaceChild(savedCard, card);
+          var tileEl = document.getElementById("heroTilePackages");
+          if (tileEl) { tileEl.textContent = container.querySelectorAll(".pkg-card").length; }
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao criar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error creating: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Delete a package ───────────────────────────────────────────────────
+    function deletePackage(id, card, btn, statusEl) {
+      var confirmed = confirm(
+        document.body.classList.contains("lang-en")
+          ? "Delete this package? This cannot be undone."
+          : "Excluir este pacote? Esta ação não pode ser desfeita."
+      );
+      if (!confirmed) { return; }
+
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function() {
+        var container = document.getElementById("packagesContainer");
+        if (container && card.parentNode === container) {
+          container.removeChild(card);
+          var remaining = container.querySelectorAll(".pkg-card").length;
+          var tileEl = document.getElementById("heroTilePackages");
+          if (tileEl) { tileEl.textContent = remaining; }
+          if (remaining === 0) {
+            container.innerHTML =
+              '<div class="settings-empty">' +
+              '<div class="settings-empty-icon">&#128230;</div>' +
+              '<span class="show-pt">Nenhum pacote encontrado.</span>' +
+              '<span class="show-en">No packages found.</span>' +
+              '</div>';
+          }
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao excluir: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error deleting: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Show blank add-package card ────────────────────────────────────────
+    function showAddPackageCard() {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+      var blankCard = makePackageCard({
+        short_name: "", full_name: "", audience: "",
+        included_items: [], is_popular: false, sort_order: null,
+        base_price: null, has_payment_plan: false, installment_count: null, installment_amount: null,
+        upfront_price: null, installment_total_price: null,
+        default_installment_count: null, default_installment_amount: null
+      }, true);
+      container.appendChild(blankCard);
+      blankCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // ── Business settings (Zelle QR + Stripe link) ────────────────────────
+
+    function loadBusinessSettings() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/settings", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { return; }
+          var s = data.settings || {};
+          if (s.zelle_qr_r2_key) {
+            var wrap = document.getElementById("bizQrPreviewWrap");
+            var img  = document.getElementById("bizQrPreviewImg");
+            if (wrap && img) {
+              img.src = WORKER_URL + "/api/business/qr-image?t=" + Date.now();
+              img.onerror = function() { wrap.style.display = "none"; };
+              wrap.style.display = "";
+            }
+            var lblPt = document.getElementById("bizQrBtnLabelPt");
+            var lblEn = document.getElementById("bizQrBtnLabelEn");
+            if (lblPt) { lblPt.textContent = "Alterar QR Code"; }
+            if (lblEn) { lblEn.textContent = "Change QR Code"; }
+          }
+          if (s.stripe_payment_link) {
+            var inp = document.getElementById("bizStripeLinkInput");
+            if (inp) { inp.value = s.stripe_payment_link; }
+          }
+        })
+        .catch(function() {});
+    }
+
+    function handleBizQrFileSelected(input) {
+      if (!input.files || !input.files[0]) { return; }
+      var file = input.files[0];
+      var statusEl = document.getElementById("bizQrStatus");
+
+      var invalid = validateImageFile(file);
+      if (invalid) {
+        statusEl.textContent = invalid;
+        statusEl.className = "template-status err";
+        input.value = "";
+        return;
+      }
+
+      statusEl.textContent = t("Enviando...", "Uploading...");
+      statusEl.className = "";
+
+      var formData = new FormData();
+      formData.append("qr", file);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/qr", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "QR Code salvo.";
+          statusEl.className = "template-status ok";
+          var wrap = document.getElementById("bizQrPreviewWrap");
+          var img  = document.getElementById("bizQrPreviewImg");
+          if (wrap && img) {
+            img.src = WORKER_URL + "/api/business/qr-image?t=" + Date.now();
+            img.onerror = function() { wrap.style.display = "none"; };
+            wrap.style.display = "";
+          }
+          var lblPt = document.getElementById("bizQrBtnLabelPt");
+          var lblEn = document.getElementById("bizQrBtnLabelEn");
+          if (lblPt) { lblPt.textContent = "Alterar QR Code"; }
+          if (lblEn) { lblEn.textContent = "Change QR Code"; }
+          input.value = "";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 3000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "template-status err";
+          input.value = "";
+        });
+    }
+
+    function handleSaveBizStripeLink() {
+      var input    = document.getElementById("bizStripeLinkInput");
+      var statusEl = document.getElementById("bizStripeLinkStatus");
+      var value    = input ? input.value.trim() : "";
+
+      if (value && !/^https?:\/\/.+/.test(value)) {
+        statusEl.textContent = t("URL inválida. Deve começar com http:// ou https://", "Invalid URL. It must start with http:// or https://");
+        statusEl.className = "template-status err";
+        return;
+      }
+
+      statusEl.textContent = "Salvando...";
+      statusEl.className = "";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/settings", {
+          method: "PATCH",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ stripe_payment_link: value || null })
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Salvo.";
+          statusEl.className = "template-status ok";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 2000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "template-status err";
+        });
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+    window.onload = function() { init(); };
+  </script>
+
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

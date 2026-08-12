@@ -38,7 +38,7 @@ fi
 # unversioned while the HTML shell (never cached) updated instantly, so the
 # client portal showed an old design while admin pages were correct.
 # A changed file must mean a changed URL. See sw.js's fetch handler.
-VERSIONED_ASSETS="gm.css gm.js"
+VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js"
 
 for ASSET in $VERSIONED_ASSETS; do
   if ! echo "$STAGED" | grep -qx "$ASSET"; then continue; fi

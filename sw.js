@@ -9,7 +9,7 @@
 // overwritten. This is what makes the activate handler's cache cleanup below
 // actually fire on each deploy instead of silently serving stale
 // nav.js/pwa.js/mobile.css/icons forever.
-var CACHE_NAME = "apex-static-1786543583";
+var CACHE_NAME = "apex-static-1786586375";
 
 var PRECACHE_URLS = [
   "nav.js",
@@ -20,6 +20,8 @@ var PRECACHE_URLS = [
   "gm.css",
   "calendar-grid.js",
   "calendar-grid.css",
+  "scheduling-queue.js",
+  "scheduling-queue.css",
   "gm-labels.js",
   "mobile.css",
   "manifest.json",

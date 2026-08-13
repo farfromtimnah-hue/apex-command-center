@@ -11,8 +11,12 @@
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
+  <!-- Shared scheduling queue — the SAME module dashboard.html renders. One
+       component, two pages, so a fix here cannot miss the other. -->
+  <link rel="stylesheet" href="scheduling-queue.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <script src="scheduling-queue.js"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -305,6 +309,14 @@
     }
     .btn-sync-now:hover:not(:disabled) { background: var(--gold-dim); }
     .btn-sync-now:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Scheduling queue block. The rows themselves are styled by the shared
+       scheduling-queue.css — only this page's framing lives here. */
+    .sched-queue-block { margin: 0 0 26px; }
+    .sched-queue-title {
+      font-size: 15px; font-weight: 600; margin: 0 0 12px;
+      color: var(--text);
+    }
 
     /* ─── Calendar toolbar ────────────────────────────────────────────────── */
     .cal-toolbar {
@@ -1371,7 +1383,23 @@
               + <span class="show-pt">Nova Sessao</span>
               <span class="show-en">New Session</span>
             </button>
+            <!-- The whole point of the feature: instead of negotiating times
+                 one client at a time over WhatsApp, she sends a link. -->
+            <button class="btn-new-session" onclick="openSchedRequestModal()">
+              <span class="show-pt">Enviar horarios</span>
+              <span class="show-en">Send times</span>
+            </button>
           </div>
+        </div>
+
+        <!-- Alice's queue. Rendered by scheduling-queue.js, which dashboard.html
+             loads too — neither page owns a copy. -->
+        <div class="sched-queue-block">
+          <h2 class="sched-queue-title">
+            <span class="show-pt">Aguardando horario</span>
+            <span class="show-en">Waiting on a time</span>
+          </h2>
+          <div id="schedQueue"></div>
         </div>
 
         <!-- Calendar toolbar -->
@@ -1429,6 +1457,98 @@
 
   <!-- ─── Toast ─────────────────────────────────────────────────────────── -->
   <div id="calToast"></div>
+
+  <!-- ═══════════════ MODAL: Enviar horários ═══════════════════════════════
+       She fills in everything EXCEPT the times. The times are the client's to
+       pick — that is what removes the two hours from her Friday. -->
+  <div id="modalSchedRequest" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Enviar horários</span>
+          <span class="show-en">Send times</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalSchedRequest')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
+          </div>
+          <select id="srClient"></select>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Tipo de reunião</span>
+            <span class="show-en">Meeting type</span>
+          </div>
+          <div class="type-toggle">
+            <button type="button" class="type-toggle-btn active" id="srTypeMeet"
+                    onclick="setSrType('online_meet')">Google Meet</button>
+            <button type="button" class="type-toggle-btn" id="srTypeInPerson"
+                    onclick="setSrType('in_person')">
+              <span class="show-pt">Presencial</span>
+              <span class="show-en">In person</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- In-person only: travel time blocks this many minutes BEFORE AND
+             AFTER the meeting, so a site visit does not collide with the next
+             call. -->
+        <div class="field-group" id="srTravelGroup" hidden>
+          <div class="field-label">
+            <span class="show-pt">Tempo de deslocamento (min)</span>
+            <span class="show-en">Travel time (min)</span>
+          </div>
+          <input type="number" id="srTravel" value="30" min="0" max="180" step="5">
+        </div>
+
+        <div class="field-group" id="srLocationGroup" hidden>
+          <div class="field-label">
+            <span class="show-pt">Endereço</span>
+            <span class="show-en">Address</span>
+          </div>
+          <input type="text" id="srLocation" placeholder="Rua, numero, cidade">
+        </div>
+
+        <!-- Online only, OFF by default. For the client who notoriously runs
+             over, not as a standing tax on every call. -->
+        <div class="field-group" id="srBufferGroup">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="srBuffer" style="width:auto;min-height:auto;">
+            <span>
+              <span class="show-pt">Reservar 15 min extras depois</span>
+              <span class="show-en">Hold 15 extra minutes after</span>
+            </span>
+          </label>
+        </div>
+
+        <!-- Duration sits behind a deliberate click so it cannot be changed by
+             accident. One hour is right almost every time. -->
+        <div class="field-group">
+          <button type="button" class="btn-cancel-link" id="srCustomizeBtn"
+                  onclick="toggleSrCustomize()" style="padding:0;">
+            <span class="show-pt">Personalizar duração (1 hora)</span>
+            <span class="show-en">Customize duration (1 hour)</span>
+          </button>
+          <div id="srDurationWrap" hidden style="margin-top:10px;">
+            <input type="number" id="srDuration" value="60" min="15" max="240" step="15">
+          </div>
+        </div>
+      </div>
+      <button class="btn-submit" id="btnSrSubmit" onclick="handleSchedRequest()">
+        <span class="show-pt">Criar link</span>
+        <span class="show-en">Create link</span>
+      </button>
+      <button class="btn-cancel-link" onclick="closeModal('modalSchedRequest')">
+        <span class="show-pt">Cancelar</span>
+        <span class="show-en">Cancel</span>
+      </button>
+    </div>
+  </div>
 
   <!-- ═══════════════ MODAL: Nova Sessão ═══════════════════════════════════ -->
   <div id="modalNewSession" class="modal-overlay" hidden>
@@ -6210,7 +6330,122 @@
       }
     });
 
-    window.onload = function() { applyCalBilingualAttrs(); init(); };
+    // ── "Enviar horários" ────────────────────────────────────────────────
+    // The modal collects everything EXCEPT the times. The queue below the
+    // calendar is the SHARED module (scheduling-queue.js) that dashboard.html
+    // also renders — this page holds no private copy of it.
+
+    var SR_TYPE = "online_meet";
+    var SR_EDIT_ID = null;
+
+    function schedCtx() {
+      return {
+        containerId: "schedQueue",
+        apiFetch: apiFetch,
+        isEn: isEn,
+        onEdit: openSchedRequestModal
+      };
+    }
+
+    function loadSchedQueue() {
+      if (!window.SchedulingQueue) { return; }
+      window.SchedulingQueue.init(schedCtx());
+    }
+
+    function setSrType(type) {
+      SR_TYPE = type;
+      var meetBtn = document.getElementById("srTypeMeet");
+      var personBtn = document.getElementById("srTypeInPerson");
+      if (meetBtn)   { meetBtn.classList.toggle("active", type === "online_meet"); }
+      if (personBtn) { personBtn.classList.toggle("active", type === "in_person"); }
+
+      // Travel time is an in-person concept; the buffer toggle is an online
+      // one. Showing both at once invites the wrong one being set.
+      var travel = document.getElementById("srTravelGroup");
+      var loc    = document.getElementById("srLocationGroup");
+      var buffer = document.getElementById("srBufferGroup");
+      if (travel) { travel.hidden = (type !== "in_person"); }
+      if (loc)    { loc.hidden    = (type !== "in_person"); }
+      if (buffer) { buffer.hidden = (type !== "online_meet"); }
+    }
+
+    function toggleSrCustomize() {
+      var wrap = document.getElementById("srDurationWrap");
+      if (!wrap) { return; }
+      wrap.hidden = !wrap.hidden;
+    }
+
+    function openSchedRequestModal(row) {
+      SR_EDIT_ID = (row && row.id) ? row.id : null;
+
+      var sel = document.getElementById("srClient");
+      if (sel) {
+        sel.innerHTML = "";
+        for (var i = 0; i < clients.length; i++) {
+          var opt = document.createElement("option");
+          opt.value = clients[i].id;
+          opt.textContent = clients[i].name;
+          sel.appendChild(opt);
+        }
+        if (row && row.client_id) { sel.value = row.client_id; }
+        // Editar changes the meeting details of an EXISTING request; moving it
+        // to another client would silently orphan the link already sent.
+        sel.disabled = !!SR_EDIT_ID;
+      }
+
+      setSrType(row && row.meeting_type ? row.meeting_type : "online_meet");
+
+      var dur = document.getElementById("srDuration");
+      if (dur) { dur.value = (row && row.duration_min) ? row.duration_min : 60; }
+      var wrap = document.getElementById("srDurationWrap");
+      if (wrap) { wrap.hidden = true; }
+      var travel = document.getElementById("srTravel");
+      if (travel) { travel.value = (row && row.travel_min) ? row.travel_min : 30; }
+      var loc = document.getElementById("srLocation");
+      if (loc) { loc.value = (row && row.location) ? row.location : ""; }
+      var buf = document.getElementById("srBuffer");
+      if (buf) { buf.checked = !!(row && row.buffer_min); }
+
+      var modal = document.getElementById("modalSchedRequest");
+      if (modal) { modal.hidden = false; }
+    }
+
+    function handleSchedRequest() {
+      var sel = document.getElementById("srClient");
+      var dur = document.getElementById("srDuration");
+      var travel = document.getElementById("srTravel");
+      var loc = document.getElementById("srLocation");
+      var buf = document.getElementById("srBuffer");
+      if (!sel || !sel.value) { return; }
+
+      var body = {
+        client_id: sel.value,
+        meeting_type: SR_TYPE,
+        duration_min: dur ? parseInt(dur.value, 10) : 60,
+        travel_min: travel ? parseInt(travel.value, 10) : 30,
+        buffer_on: buf ? buf.checked : false,
+        location: loc ? loc.value : null
+      };
+
+      var btn = document.getElementById("btnSrSubmit");
+      if (btn) { btn.disabled = true; }
+
+      var path = SR_EDIT_ID ? ("/api/scheduling/requests/" + SR_EDIT_ID) : "/api/scheduling/requests";
+      apiFetch(path, { method: SR_EDIT_ID ? "PUT" : "POST", body: body })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          if (btn) { btn.disabled = false; }
+          closeModal("modalSchedRequest");
+          loadSchedQueue();
+        })
+        .catch(function() { if (btn) { btn.disabled = false; } });
+    }
+
+    window.onload = function() {
+      applyCalBilingualAttrs();
+      init();
+      loadSchedQueue();
+    };
   </script>
 
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-

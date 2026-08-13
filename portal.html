@@ -1288,6 +1288,25 @@
              designed the page, still missed her own meeting on it. Rows are
              rendered by loadMeetings(); the card stays hidden when there is
              nothing today or tomorrow rather than showing an empty shell. -->
+        <!-- ══ Scheduling call-out ══════════════════════════════════════════
+             Two states, never both. NOT scheduled this week -> a prominent
+             call-out with the booking link right here, because a client who
+             has to go hunting for it simply does not book. Scheduled -> a
+             quiet Reagendar that opens the same picker. -->
+        <div class="content-card" id="schedCallout" hidden>
+          <div class="card-title">
+            <span class="show-pt">Sua reuni&atilde;o desta semana</span>
+            <span class="show-en">Your meeting this week</span>
+          </div>
+          <div class="meeting-card">
+            <div style="flex:1;min-width:0;">
+              <div class="list-title" id="schedCalloutText"></div>
+            </div>
+            <a id="schedCalloutBtn" href="#" target="_blank" rel="noopener"
+               style="font-family:inherit;font-size:14px;font-weight:600;padding:11px 18px;border-radius:9px;background:var(--gold);color:#12100a;text-decoration:none;white-space:nowrap;"></a>
+          </div>
+        </div>
+
         <div class="content-card" id="meetingsCard" hidden>
           <div class="card-title">
             <span class="show-pt">Pr&oacute;ximas reuni&otilde;es</span>
@@ -5637,7 +5656,49 @@
       } catch (e) { return todayStr(); }
     }
 
+    // ── Scheduling call-out ────────────────────────────────────────────────
+    // Unscheduled -> the booking link, prominently. Scheduled -> Reagendar,
+    // which opens the SAME picker rather than a second flow.
+    function loadSchedCallout() {
+      apiFetch("/api/scheduling/client-state")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          var card = document.getElementById("schedCallout");
+          var text = document.getElementById("schedCalloutText");
+          var btn  = document.getElementById("schedCalloutBtn");
+          if (!card || !text || !btn) { return; }
+
+          // No link issued and nothing booked: there is nothing for the client
+          // to act on, so show nothing rather than a dead button.
+          if (!d.scheduled && !d.booking_token) { card.hidden = true; return; }
+
+          if (d.scheduled) {
+            var s = d.session || {};
+            text.textContent = (isEn() ? "Scheduled for " : "Agendada para ") +
+              formatDate(s.date) + (s.time ? " - " + formatTime(s.time) : "");
+            btn.textContent = isEn() ? "Reschedule" : "Reagendar";
+          } else {
+            text.textContent = isEn()
+              ? "You have not picked a time yet."
+              : "Voce ainda nao escolheu um horario.";
+            btn.textContent = isEn() ? "Pick a time" : "Escolher horario";
+          }
+
+          if (d.booking_token) {
+            btn.href = "agendar.html?t=" + encodeURIComponent(d.booking_token);
+            btn.hidden = false;
+          } else {
+            // Booked with no open link: nothing to reschedule against without
+            // Alice issuing a new one.
+            btn.hidden = true;
+          }
+          card.hidden = false;
+        })
+        .catch(function() {});
+    }
+
     function loadMeetings() {
+      loadSchedCallout();
       apiFetch("/api/portal/next-meeting")
         .then(function(res) { return res.json(); })
         .then(function(d) {

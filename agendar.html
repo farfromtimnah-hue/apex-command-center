@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<!--
+  PUBLIC client booking page. No login, by design: the token in the URL IS the
+  credential.
+
+  WHY THIS EXISTS: Alice spent ~2 hours every Friday negotiating meeting times
+  with consulting clients one at a time over WhatsApp. This page replaces that
+  negotiation. The client picks, the booking writes itself into Rafa's calendar,
+  and Alice does nothing further.
+
+  APEX-BRANDED, NOT CLIENT-BRANDED. referral.html deliberately wears the
+  CLIENT's logo and brand colour because it is the client's own intake form.
+  This page is the opposite: the client is being booked into Pastor Rafael's
+  calendar, so it carries Apex's mark and Apex's dark/gold identity. Tokens are
+  copied from club.html -- the existing Apex-branded public page -- rather than
+  invented here.
+
+  The logo is a LOCAL asset (assets/apex-logo.png). The rest of the app
+  hotlinks it from apexbusiness.pro; this page must render instantly and keep
+  working if that host is down, so it does not.
+
+  TWO STEPS, NEVER ONE BIG GRID:
+    1. "Que dia funciona melhor?" -- multi-select, so a client can pick
+       Tuesday AND Thursday.
+    2. About two times per selected day. Not a wall of options.
+
+  TIMES ARE NEVER WRITTEN INTO THE WHATSAPP MESSAGE. This link is the single
+  source of truth: with first-come-first-served, a time in a message is stale
+  the moment someone else books it.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Agendar reunião | Apex</title>
+  <link rel="icon" href="icons/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg      : #0a0a0c;
+      --panel   : #141418;
+      --gold    : #C9A43A;
+      --text    : #f5f2ec;
+      --muted   : #9a948c;
+      --border  : #2a2a30;
+      --green   : #4caf6d;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Generous, uncramped. This link goes to paying consulting clients. */
+    .wrap { max-width: 460px; margin: 0 auto; padding: 0 22px 56px; }
+
+    .brand { text-align: center; padding: 40px 0 30px; }
+    /* 393x147 native. Capped well below that so it stays crisp on any screen. */
+    .brand img { width: 100%; max-width: 220px; height: auto; display: inline-block; }
+
+    h1 { font-size: 23px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.3px; }
+    .sub { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin: 0 0 30px; }
+    .sub b { color: var(--text); font-weight: 600; }
+
+    .step-label {
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;
+    }
+
+    /* THE HERO OF THE PAGE: the day and time choices. Big targets, real
+       breathing room, never a dense grid. */
+    .choice {
+      width: 100%; font-family: inherit; text-align: left;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      font-size: 16px; font-weight: 600;
+      padding: 18px 18px; margin: 0 0 11px;
+      background: var(--panel); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: 13px;
+      cursor: pointer; -webkit-appearance: none;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .choice .day-sub { display: block; color: var(--muted); font-size: 13px; font-weight: 500; margin-top: 3px; }
+    .choice .tick-box {
+      width: 24px; height: 24px; flex: none; border-radius: 50%;
+      border: 1.5px solid var(--border); position: relative;
+    }
+    .choice[aria-pressed="true"] { border-color: var(--gold); background: rgba(201,164,58,0.08); }
+    .choice[aria-pressed="true"] .tick-box { border-color: var(--gold); background: var(--gold); }
+    .choice[aria-pressed="true"] .tick-box::after {
+      content: ""; position: absolute; left: 8px; top: 4px;
+      width: 6px; height: 11px; border: solid #12100a;
+      border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+    }
+    .choice:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    .time-group { margin: 0 0 26px; }
+    .time-group h3 {
+      font-size: 14px; font-weight: 700; margin: 0 0 11px;
+      color: var(--text); letter-spacing: -0.1px;
+    }
+    .time-btn {
+      width: 100%; font-family: inherit; font-size: 17px; font-weight: 600;
+      padding: 19px 18px; margin: 0 0 11px; text-align: center;
+      background: var(--panel); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: 13px; cursor: pointer;
+      -webkit-appearance: none;
+    }
+    .time-btn:active { border-color: var(--gold); transform: scale(0.99); }
+    .time-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    button.cta {
+      width: 100%; font-family: inherit; font-size: 17px; font-weight: 700;
+      padding: 17px; border: 0; border-radius: 11px;
+      background: var(--gold); color: #12100a; cursor: pointer;
+    }
+    button.cta:active { transform: scale(0.99); }
+    button.cta:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.cta:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    button.ghost {
+      width: 100%; font-family: inherit; font-size: 15px; font-weight: 600;
+      padding: 15px; border-radius: 11px; cursor: pointer;
+      background: transparent; color: var(--text);
+      border: 1.5px solid var(--border); margin-bottom: 11px;
+    }
+    button.ghost:active { border-color: var(--gold); }
+    button.ghost:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    /* The two escape hatches, side by side: the history-based guess can be
+       wrong in EITHER direction, so both are always offered. */
+    .escapes { display: flex; gap: 11px; margin-top: 20px; }
+    .escapes button { flex: 1; margin-bottom: 0; padding: 14px 8px; font-size: 14px; }
+
+    .none-work {
+      width: 100%; font-family: inherit; font-size: 14px; font-weight: 500;
+      background: none; border: 0; color: var(--muted);
+      padding: 16px 8px; margin-top: 6px; cursor: pointer; text-decoration: underline;
+    }
+    .none-work:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    .tick {
+      width: 62px; height: 62px; border-radius: 50%;
+      background: rgba(76,175,109,0.14); border: 2px solid var(--green);
+      color: var(--green); font-size: 31px; line-height: 58px;
+      text-align: center; margin: 8px auto 22px;
+    }
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 13px; padding: 22px; margin: 0 0 20px;
+    }
+    .card .when { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; margin: 0 0 6px; }
+    .card .where { color: var(--muted); font-size: 14.5px; line-height: 1.6; margin: 0; }
+    .card a { color: var(--gold); word-break: break-all; }
+
+    .note {
+      background: rgba(201,164,58,0.10); border: 1px solid rgba(201,164,58,0.42);
+      color: var(--text); font-size: 14px; line-height: 1.6;
+      padding: 14px 16px; border-radius: 11px; margin: 0 0 20px;
+    }
+    .err {
+      background: rgba(179,38,30,0.14); border: 1px solid rgba(179,38,30,0.5);
+      color: #ff9d96; font-size: 13.5px; padding: 12px 14px;
+      border-radius: 9px; margin-bottom: 16px;
+    }
+    .fine { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 22px; text-align: center; }
+    .loading { color: var(--muted); text-align: center; padding: 40px 0; font-size: 15px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <img src="assets/apex-logo.png" width="393" height="147" alt="Apex Business &amp; Leadership">
+    </div>
+
+    <div id="loading" class="loading">Carregando...</div>
+
+    <!-- Step 1: which days -->
+    <div id="stepDays" hidden>
+      <h1>Vamos marcar nossa reunião</h1>
+      <p class="sub" id="daysIntro"></p>
+      <p class="step-label">Que dia funciona melhor?</p>
+      <div id="dayList"></div>
+      <button type="button" class="cta" id="daysNext" disabled>Ver horários</button>
+      <p class="fine">Pode escolher mais de um dia.</p>
+    </div>
+
+    <!-- Step 2: which time -->
+    <div id="stepTimes" hidden>
+      <h1>Escolha o horário</h1>
+      <p class="sub" id="timesIntro"></p>
+      <div id="err" class="err" hidden></div>
+      <div id="timeList"></div>
+      <div class="escapes">
+        <button type="button" class="ghost" id="btnEarlier">Mais cedo?</button>
+        <button type="button" class="ghost" id="btnLater">Mais tarde?</button>
+      </div>
+      <button type="button" class="none-work" id="btnNone">Nenhum destes funciona</button>
+      <button type="button" class="ghost" id="btnBackDays" style="margin-top:8px;">Voltar aos dias</button>
+    </div>
+
+    <!-- Confirmed -->
+    <div id="stepDone" hidden>
+      <div class="tick">&#10003;</div>
+      <h1 id="doneTitle">Reunião confirmada</h1>
+      <p class="sub">Você vai receber a confirmação também pelo WhatsApp.</p>
+      <div class="card">
+        <p class="when" id="doneWhen"></p>
+        <p class="where" id="doneWhere"></p>
+      </div>
+    </div>
+
+    <!-- Already booked / closed / none-work acknowledgement -->
+    <div id="stepInfo" hidden>
+      <h1 id="infoTitle"></h1>
+      <p class="sub" id="infoBody"></p>
+      <div class="card" id="infoCard" hidden>
+        <p class="when" id="infoWhen"></p>
+        <p class="where" id="infoWhere"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="datetime.js"></script>
+  <script>
+    // Plain ASCII in JS strings and data arrays -- accented Portuguese reaches
+    // the page through HTML entities or the DOM, never through source literals.
+    var TOKEN = null;
+    var DATA = null;
+    var SELECTED_DAYS = [];
+    var SHOWN = [];        // "YYYY-MM-DD HH:MM" currently on screen, so the
+                           // earlier/later escapes know what was already seen
+    var BUSY = false;
+
+    var DAYS_PT = ["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"];
+    var DAYS_ACC = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira",
+                    "Quinta-feira", "Sexta-feira", "Sábado"];
+
+    function el(id) { return document.getElementById(id); }
+
+    // Same Worker origin every other page in this app uses.
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    function apiBase() { return WORKER_URL; }
+
+    function show(which) {
+      var ids = ["loading", "stepDays", "stepTimes", "stepDone", "stepInfo"];
+      for (var i = 0; i < ids.length; i++) {
+        var node = el(ids[i]);
+        if (node) { node.hidden = (ids[i] !== which); }
+      }
+    }
+
+    function showErr(msg) {
+      var e = el("err");
+      if (!e) { return; }
+      if (!msg) { e.hidden = true; return; }
+      e.textContent = msg;
+      e.hidden = false;
+    }
+
+    // "2026-08-14" -> "Sexta-feira, 08/14/2026".
+    //
+    // The DATE ITSELF comes from formatDate() in datetime.js — never built by
+    // hand here. Apex renders American MM/DD/YYYY on every screen, in both
+    // languages, because Rafa asked for US standards and the whole site was
+    // corrected to them; a hand-built "14/08" silently reintroduces DD/MM.
+    // Only the Portuguese weekday NAME is added on top, which datetime.js
+    // does not provide.
+    //
+    // The weekday is derived from the date STRING via Date.UTC, never from a
+    // local Date object: an evening viewer west of UTC would otherwise see the
+    // previous day's name.
+    function dayLabel(dateStr) {
+      var p = String(dateStr).split("-");
+      var dow = new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10))).getUTCDay();
+      return DAYS_ACC[dow] + ", " + formatDate(dateStr);
+    }
+
+    function shortDay(dateStr) {
+      var p = String(dateStr).split("-");
+      var dow = new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10))).getUTCDay();
+      return DAYS_ACC[dow];
+    }
+
+    function renderDays() {
+      var list = el("dayList");
+      if (!list) { return; }
+      list.innerHTML = "";
+      var days = DATA.days || [];
+      for (var i = 0; i < days.length; i++) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "choice";
+        b.setAttribute("aria-pressed", SELECTED_DAYS.indexOf(days[i]) !== -1 ? "true" : "false");
+        b.setAttribute("data-date", days[i]);
+        var span = document.createElement("span");
+        span.innerHTML = "<span>" + shortDay(days[i]) + "</span>";
+        var sub = document.createElement("span");
+        sub.className = "day-sub";
+        // formatDate() from datetime.js — MM/DD/YYYY, same as every other
+        // screen. Never assembled by hand.
+        sub.textContent = formatDate(days[i]);
+        span.appendChild(sub);
+        var box = document.createElement("span");
+        box.className = "tick-box";
+        b.appendChild(span);
+        b.appendChild(box);
+        b.onclick = onDayTap;
+        list.appendChild(b);
+      }
+    }
+
+    function onDayTap(ev) {
+      var btn = ev.currentTarget;
+      var date = btn.getAttribute("data-date");
+      var at = SELECTED_DAYS.indexOf(date);
+      if (at === -1) { SELECTED_DAYS.push(date); btn.setAttribute("aria-pressed", "true"); }
+      else { SELECTED_DAYS.splice(at, 1); btn.setAttribute("aria-pressed", "false"); }
+      var next = el("daysNext");
+      if (next) { next.disabled = SELECTED_DAYS.length === 0; }
+    }
+
+    function renderTimes(suggestions) {
+      var list = el("timeList");
+      if (!list) { return; }
+      list.innerHTML = "";
+      SHOWN = [];
+
+      if (!suggestions || !suggestions.length) {
+        var p = document.createElement("p");
+        p.className = "sub";
+        p.textContent = "Nao encontramos horarios livres nesses dias.";
+        list.appendChild(p);
+        return;
+      }
+
+      var byDay = {};
+      var order = [];
+      for (var i = 0; i < suggestions.length; i++) {
+        var s = suggestions[i];
+        if (!byDay[s.date]) { byDay[s.date] = []; order.push(s.date); }
+        byDay[s.date].push(s);
+        SHOWN.push(s.date + " " + s.time);
+      }
+
+      for (var d = 0; d < order.length; d++) {
+        var group = document.createElement("div");
+        group.className = "time-group";
+        var h = document.createElement("h3");
+        h.textContent = dayLabel(order[d]);
+        group.appendChild(h);
+
+        var items = byDay[order[d]];
+        for (var k = 0; k < items.length; k++) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "time-btn";
+          b.textContent = formatTime(items[k].time);
+          b.setAttribute("data-date", items[k].date);
+          b.setAttribute("data-time", items[k].time);
+          b.onclick = onTimeTap;
+          group.appendChild(b);
+        }
+        list.appendChild(group);
+      }
+    }
+
+    function load() {
+      fetch(apiBase() + "/api/scheduling/link/" + encodeURIComponent(TOKEN))
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function (res) {
+          if (!res.ok) { return failLink(); }
+          DATA = res.body;
+
+          if (DATA.request && DATA.request.status === "booked") {
+            var b = DATA.booking;
+            el("infoTitle").textContent = "Sua reunião já está marcada";
+            el("infoBody").textContent = "Se precisar mudar, fale com a Alice pelo WhatsApp.";
+            if (b) {
+              el("infoCard").hidden = false;
+              el("infoWhen").textContent = dayLabel(b.slot_date) + " às " + formatTime(b.slot_time);
+              el("infoWhere").textContent = "";
+            }
+            return show("stepInfo");
+          }
+          if (DATA.request && (DATA.request.status === "skipped" || DATA.request.status === "expired")) {
+            el("infoTitle").textContent = "Este link expirou";
+            el("infoBody").textContent = "Fale com a Alice pelo WhatsApp para marcar a próxima reunião.";
+            return show("stepInfo");
+          }
+
+          // Rafa's own Google Calendar could not be read, so the open times
+          // were computed from half the truth. Refusing here is better than
+          // booking over something only his personal calendar knows about.
+          if (DATA.calendar_degraded) {
+            el("infoTitle").textContent = "Um instante";
+            el("infoBody").textContent = "Nao conseguimos confirmar a agenda agora. Tente novamente em alguns minutos.";
+            return show("stepInfo");
+          }
+
+          if (!DATA.days || !DATA.days.length) {
+            el("infoTitle").textContent = "Sem horários nesta semana";
+            el("infoBody").textContent = "Fale com a Alice pelo WhatsApp e ela encontra um horário para você.";
+            return show("stepInfo");
+          }
+
+          var mins = DATA.request ? DATA.request.duration_min : 60;
+          el("daysIntro").innerHTML = "Reunião de <b>" + mins + " minutos</b> com o Pastor Rafael.";
+          renderDays();
+          show("stepDays");
+        })
+        .catch(failLink);
+    }
+
+    function failLink() {
+      el("infoTitle").textContent = "Link inválido";
+      el("infoBody").textContent = "Confira o link enviado pela Alice ou fale com ela pelo WhatsApp.";
+      show("stepInfo");
+    }
+
+    function loadTimes(shift) {
+      if (BUSY) { return; }
+      BUSY = true;
+      showErr("");
+      var payload = { days: SELECTED_DAYS, per_day: 2 };
+      if (shift) { payload.shift = shift; payload.seen = SHOWN; }
+
+      fetch(apiBase() + "/api/scheduling/link/" + encodeURIComponent(TOKEN) + "/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (body) {
+          BUSY = false;
+          renderTimes(body.suggestions);
+          el("timesIntro").textContent = "Estes são os horários livres mais próximos do seu costume.";
+          show("stepTimes");
+        })
+        .catch(function () {
+          BUSY = false;
+          showErr("Nao foi possivel carregar os horarios. Tente novamente.");
+          show("stepTimes");
+        });
+    }
+
+    function onTimeTap(ev) {
+      if (BUSY) { return; }
+      BUSY = true;
+      showErr("");
+      var btn = ev.currentTarget;
+      btn.textContent = "Confirmando...";
+
+      fetch(apiBase() + "/api/scheduling/link/" + encodeURIComponent(TOKEN) + "/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: btn.getAttribute("data-date"), time: btn.getAttribute("data-time") })
+      })
+        .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+        .then(function (res) {
+          BUSY = false;
+          if (res.status === 409 && res.body && res.body.taken) {
+            // LOST THE RACE -- or the slot went while this page sat open.
+            // Never an error page: the remaining times come straight back so
+            // a loss becomes another choice, not a dead end.
+            renderTimes(res.body.suggestions);
+            showErr("Esse horario acabou de ser preenchido. Estes ainda estao livres:");
+            show("stepTimes");
+            return;
+          }
+          if (res.status !== 200 || !res.body || !res.body.booked) {
+            renderTimes(DATA ? DATA.suggestions : []);
+            showErr("Nao foi possivel confirmar. Escolha outro horario.");
+            show("stepTimes");
+            return;
+          }
+
+          var b = res.body;
+          el("doneWhen").textContent = dayLabel(b.date) + " às " + formatTime(b.time);
+          var where = el("doneWhere");
+          where.innerHTML = "";
+          if (b.meeting_type === "online_meet" && b.meet_link) {
+            where.innerHTML = "Google Meet: <a href=\"" + b.meet_link + "\">" + b.meet_link + "</a>";
+          } else if (b.meeting_type === "in_person") {
+            where.textContent = b.location ? ("Presencial: " + b.location) : "Presencial";
+          } else {
+            where.textContent = "O link da chamada chega pelo WhatsApp.";
+          }
+          show("stepDone");
+        })
+        .catch(function () {
+          BUSY = false;
+          showErr("Nao foi possivel confirmar. Tente novamente.");
+        });
+    }
+
+    function onNone() {
+      if (BUSY) { return; }
+      BUSY = true;
+      fetch(apiBase() + "/api/scheduling/link/" + encodeURIComponent(TOKEN) + "/none", { method: "POST" })
+        .then(function () {
+          BUSY = false;
+          el("infoTitle").textContent = "Obrigado por avisar";
+          el("infoBody").textContent = "A Alice vai falar com você pelo WhatsApp para achar um horário melhor.";
+          el("infoCard").hidden = true;
+          show("stepInfo");
+        })
+        .catch(function () { BUSY = false; });
+    }
+
+    window.onload = function () {
+      var params = new URLSearchParams(location.search);
+      TOKEN = params.get("t");
+      if (!TOKEN) { return failLink(); }
+
+      var next = el("daysNext");
+      if (next) { next.onclick = function () { loadTimes(null); }; }
+      var earlier = el("btnEarlier");
+      if (earlier) { earlier.onclick = function () { loadTimes("earlier"); }; }
+      var later = el("btnLater");
+      if (later) { later.onclick = function () { loadTimes("later"); }; }
+      var none = el("btnNone");
+      if (none) { none.onclick = onNone; }
+      var back = el("btnBackDays");
+      if (back) { back.onclick = function () { showErr(""); show("stepDays"); }; }
+
+      load();
+    };
+  </script>
+</body>
+</html>

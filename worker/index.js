@@ -10716,6 +10716,10 @@ function clientRequestAllowed(path, method, clientId) {
     if (path === "/api/auth/client-logout" && method === "POST") { return true; }
     if (path === "/api/portal/me" && method === "GET") { return true; }
     if (path === "/api/portal/next-meeting" && method === "GET") { return true; }
+    // Drives the portal's two scheduling states (booking call-out vs
+    // Reagendar). The handler takes client_id from the SESSION and rejects any
+    // mismatching override, so this can only ever return the caller's own row.
+    if (path === "/api/scheduling/client-state" && method === "GET") { return true; }
     // The owner asks for a portal seat for one of their own salespeople. This
     // route lives outside /api/clients/:id/ but is client-reachable: the handler
     // takes client_id from the session and only an admin role may override it
@@ -22714,6 +22718,1088 @@ async function handlePostFinanceNewMatchUndo(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// "Enviar horarios" — client-driven scheduling links.
+//
+// Alice spends ~2 hours every Friday negotiating meeting times with consulting
+// clients one at a time over WhatsApp, plus at least one reschedule a day. She
+// named this her single biggest time cost on 2026-08-12. This replaces the
+// negotiation with a link: the client picks from genuinely open slots and the
+// booking writes itself into `sessions` AND Google Calendar. The goal is
+// REMOVING her work, so nothing here ends in a recurring manual step for her.
+//
+// TIMES NEVER APPEAR IN THE WHATSAPP TEXT. The link is the single source of
+// truth. With first-come-first-served, a time written into a message is stale
+// the moment someone else books it, and the message would be lying within
+// minutes of being sent.
+// ---------------------------------------------------------------------------
+
+var SCHED_SKIP_REASONS = ["vacation", "emergency", "client_cancelled"];
+
+// Hardcoded message templates. A separate later task adds editing — do NOT
+// build template editing here. Plain ASCII in source; the accented Portuguese
+// the client actually reads is produced by these escapes.
+var SCHED_TPL_INVITE =
+    "Olá, {name}! Para marcarmos nossa reunião desta semana, " +
+    "escolha o melhor horário para você neste link:\n\n{link}\n\n" +
+    "É rapidinho e já fica confirmado na agenda.";
+
+// The nudge. Deliberately NOT a repeat of the invite: warm, short, no guilt,
+// and it carries the SAME link.
+var SCHED_TPL_FOLLOWUP =
+    "Oi, {name}! Passando para lembrar do nosso horário desta semana. " +
+    "Quando puder, só escolher o que for melhor para você:\n\n{link}\n\n" +
+    "Qualquer dúvida, é só me chamar.";
+
+// NOTE: there is deliberately NO confirmation template here. The client sees
+// the confirmed date and time on the booking page itself, rendered through
+// datetime.js (American MM/DD/YYYY + 12-hour AM/PM, the site-wide standard).
+// A template with a {when} slot would mean formatting a date in the Worker,
+// where those helpers do not exist — the exact path by which a DD/MM string
+// gets hand-built and shipped. Any future confirmation message must format its
+// date on the page, not here.
+
+// ── Local-time helpers ─────────────────────────────────────────────────────
+// Slot math is LOCAL wall-clock math (Rafa's day runs 09:00-18:00 Eastern, not
+// UTC). Never derive a calendar date by slicing toISOString(): that is UTC and
+// disagrees with the viewer's date every evening west of UTC. This same bug
+// shipped four separate times in two days in July.
+
+function schedMinutes(hhmm) {
+    var p = String(hhmm).split(":");
+    return (parseInt(p[0], 10) * 60) + parseInt(p[1] || "0", 10);
+}
+
+function schedHHMM(mins) {
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+}
+
+// "2026-08-12" + n days -> "2026-08-19". Pure string/UTC-anchored arithmetic on
+// a date-only value, which is safe: Date.UTC never shifts the calendar day
+// because there is no time-of-day component to roll over.
+function schedAddDays(dateStr, n) {
+    var p = String(dateStr).split("-");
+    var d = new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)));
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.getUTCFullYear() + "-" +
+        String(d.getUTCMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getUTCDate()).padStart(2, "0");
+}
+
+// Day of week (0=Sun) for a local date string, without constructing a local
+// Date (which would apply the Worker's own UTC zone and could be off by one).
+function schedDayOfWeek(dateStr) {
+    var p = String(dateStr).split("-");
+    return new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10))).getUTCDay();
+}
+
+// Eastern-clock offset ("-04:00" in EDT, "-05:00" in EST) for a given local
+// date+time, so a local wall-clock slot can be turned into a true instant for
+// Google. Derived from Intl rather than hardcoded, so the DST boundary is
+// handled instead of silently shifting every booking by an hour in November.
+function schedTZOffset(dateStr, hhmm) {
+    var probe = new Date(dateStr + "T" + hhmm + ":00Z");
+    var parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: APEX_TIMEZONE, timeZoneName: "longOffset"
+    }).formatToParts(probe);
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i].type === "timeZoneName") {
+            var m = String(parts[i].value).match(/GMT([+-]\d{2}:\d{2})/);
+            if (m) { return m[1]; }
+        }
+    }
+    return "-05:00";
+}
+
+// A local wall-clock slot as a real instant (epoch ms), for comparing against
+// Google's UTC busy blocks and against "now".
+function schedInstant(dateStr, hhmm) {
+    return new Date(dateStr + "T" + hhmm + ":00" + schedTZOffset(dateStr, hhmm)).getTime();
+}
+
+// Monday of the CURRENT local week, in Eastern. One week window only — never
+// two. Clients already struggle to commit to the current week.
+function schedCurrentWeekStart(env) {
+    var today = localDateStrForTZ();
+    var dow = schedDayOfWeek(today);
+    var back = (dow === 0) ? 6 : (dow - 1);   // Monday-anchored
+    return schedAddDays(today, -back);
+}
+
+// Business-hours age. A link sent Friday must NOT flag on Saturday, when Alice
+// cannot act on it — so weekend hours simply do not count.
+function schedBusinessHoursSince(utcTimestamp) {
+    if (!utcTimestamp) { return 0; }
+    var s = String(utcTimestamp).replace(" ", "T").split(".")[0];
+    if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+    var start = new Date(s).getTime();
+    if (isNaN(start)) { return 0; }
+    var now = Date.now();
+    if (now <= start) { return 0; }
+
+    // Walk hour by hour and count only those landing Mon-Fri in Eastern. Cheap
+    // enough at this scale (a week is 168 iterations) and immune to the
+    // off-by-one errors that closed-form business-hour math invites.
+    var hours = 0;
+    var cursor = start;
+    var HOUR = 3600000;
+    var guard = 0;
+    while (cursor < now && guard < 2000) {
+        var dowStr = new Intl.DateTimeFormat("en-US", {
+            timeZone: APEX_TIMEZONE, weekday: "short"
+        }).format(new Date(cursor));
+        if (dowStr !== "Sat" && dowStr !== "Sun") { hours++; }
+        cursor += HOUR;
+        guard++;
+    }
+    return hours;
+}
+
+async function schedSettings(env) {
+    var row = await env.DB.prepare("SELECT * FROM scheduling_settings WHERE id = 'default'").first();
+    if (row) { return row; }
+    return {
+        day_start: "09:00", day_end: "18:00", work_days: "1,2,3,4,5",
+        min_notice_hours: 4, daily_cap: 4, default_duration: 60, default_travel: 30
+    };
+}
+
+// ── Busy-time assembly ─────────────────────────────────────────────────────
+// THE FREE/BUSY READ MUST INCLUDE RAFA'S OWN GOOGLE CALENDAR, not just the
+// sessions table. If he is driving to a site at 3 PM and that block exists only
+// in his personal calendar, a sessions-only read would happily book over it —
+// creating double-bookings worse than the problem being solved.
+//
+// Returns { blocks: [{start,end}] (epoch ms), perDay: {date: count},
+//           googleOk: bool }.
+async function schedBusyBlocks(env, weekStart, weekEnd) {
+    var blocks = [];
+    var perDay = {};
+
+    // 1. Apex's own sessions.
+    var rows = await env.DB.prepare(
+        "SELECT date, time, end_time FROM sessions " +
+        "WHERE date >= ? AND date <= ? AND status != 'cancelled' AND time IS NOT NULL"
+    ).bind(weekStart, weekEnd).all();
+
+    for (var i = 0; i < rows.results.length; i++) {
+        var r = rows.results[i];
+        var t = String(r.time).slice(0, 5);
+        var endRaw = r.end_time ? String(r.end_time) : "";
+        // sessions.end_time is a plain "HH:MM" for Apex's own writes but a full
+        // datetime for Google-synced rows. Take the time portion of either.
+        if (endRaw.indexOf("T") !== -1) { endRaw = endRaw.slice(endRaw.indexOf("T") + 1); }
+        var e = endRaw ? endRaw.slice(0, 5) : schedHHMM(schedMinutes(t) + 60);
+        blocks.push({ start: schedInstant(r.date, t), end: schedInstant(r.date, e) });
+        perDay[r.date] = (perDay[r.date] || 0) + 1;
+    }
+
+    // 2. Confirmed bookings NOT YET mirrored into sessions. The booking handler
+    //    writes the constraint row first and the session immediately after, so
+    //    this only ever catches the sliver between the two.
+    //
+    //    `session_id IS NULL` is load-bearing, not a tidy-up: without it a
+    //    completed booking is counted twice — once here and once from its own
+    //    sessions row — and two such bookings silently exhaust a daily cap of
+    //    4 with only two real meetings on the day, blanking the whole day for
+    //    every client. Caught live on 2026-08-12, when one test booking
+    //    pushed Friday from 7 open slots to zero.
+    var bk = await env.DB.prepare(
+        "SELECT slot_date, slot_time, end_time FROM scheduling_bookings " +
+        "WHERE slot_date >= ? AND slot_date <= ? AND session_id IS NULL"
+    ).bind(weekStart, weekEnd).all();
+    for (var b = 0; b < bk.results.length; b++) {
+        var bb = bk.results[b];
+        blocks.push({
+            start: schedInstant(bb.slot_date, bb.slot_time),
+            end:   schedInstant(bb.slot_date, String(bb.end_time).slice(0, 5))
+        });
+        perDay[bb.slot_date] = (perDay[bb.slot_date] || 0) + 1;
+    }
+
+    // 3. Rafa's real Google Calendar. A failure here is FAIL-CLOSED: callers
+    //    surface it rather than offering slots computed from half the truth.
+    var googleOk = false;
+    try {
+        var timeMin = new Date(schedInstant(weekStart, "00:00")).toISOString();
+        var timeMax = new Date(schedInstant(schedAddDays(weekEnd, 1), "00:00")).toISOString();
+        var items = await listGoogleCalendarEvents(env, timeMin, timeMax);
+        googleOk = true;
+        for (var g = 0; g < items.length; g++) {
+            var ev = items[g];
+            if (ev.status === "cancelled") { continue; }
+            if (ev.transparency === "transparent") { continue; }   // "free" events
+            if (!ev.start) { continue; }
+            if (ev.start.date && !ev.start.dateTime) {
+                // All-day event: block the whole local day.
+                blocks.push({
+                    start: schedInstant(ev.start.date, "00:00"),
+                    end:   schedInstant(schedAddDays(ev.start.date, 1), "00:00")
+                });
+                continue;
+            }
+            var s = new Date(ev.start.dateTime).getTime();
+            var e2 = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime).getTime() : (s + 3600000);
+            if (!isNaN(s) && !isNaN(e2)) { blocks.push({ start: s, end: e2 }); }
+        }
+    } catch (gErr) {
+        googleOk = false;
+    }
+
+    return { blocks: blocks, perDay: perDay, googleOk: googleOk };
+}
+
+// Candidate slots for one request, honouring travel/buffer, minimum notice and
+// the daily cap.
+function schedComputeSlots(req, settings, busy) {
+    var duration = req.duration_min || 60;
+    // In-person travel blocks that many minutes BEFORE AND AFTER the slot.
+    var pad = (req.meeting_type === "in_person")
+        ? (req.travel_min || 0)
+        : (req.buffer_min || 0);
+
+    var workDays = String(settings.work_days || "1,2,3,4,5").split(",");
+    var dayStart = schedMinutes(settings.day_start || "09:00");
+    var dayEnd   = schedMinutes(settings.day_end || "18:00");
+    var cap      = settings.daily_cap || 4;
+    var notice   = (settings.min_notice_hours || 4) * 3600000;
+    var earliest = Date.now() + notice;
+
+    var out = [];
+    var date = req.week_start;
+    var guard = 0;
+    while (date <= req.week_end && guard < 14) {
+        guard++;
+        var dow = schedDayOfWeek(date);
+        if (workDays.indexOf(String(dow)) === -1) { date = schedAddDays(date, 1); continue; }
+        if ((busy.perDay[date] || 0) >= cap) { date = schedAddDays(date, 1); continue; }
+
+        for (var m = dayStart; m + duration <= dayEnd; m += 30) {
+            var slotStart = schedInstant(date, schedHHMM(m));
+            var slotEnd   = schedInstant(date, schedHHMM(m + duration));
+            if (slotStart < earliest) { continue; }   // minimum notice
+
+            // Padded window: travel time is unavailable time on both sides.
+            var padStart = slotStart - (pad * 60000);
+            var padEnd   = slotEnd + (pad * 60000);
+            var free = true;
+            for (var k = 0; k < busy.blocks.length; k++) {
+                if (padStart < busy.blocks[k].end && padEnd > busy.blocks[k].start) { free = false; break; }
+            }
+            if (free) { out.push({ date: date, time: schedHHMM(m), end_time: schedHHMM(m + duration) }); }
+        }
+        date = schedAddDays(date, 1);
+    }
+    return out;
+}
+
+// The client's own historical hours, MATCHED BY client_id AND NEVER BY NAME.
+// The same client exists under multiple name strings — 'METZ', 'RDE - METZ '
+// (trailing space) and 'METZ - RDE' are one client. Name matching silently
+// mis-attributes history to the wrong business.
+//
+// Feedback taps shift the preference: a client who keeps asking for "earlier"
+// has drifted away from what their history says, so the ranking follows them.
+async function schedPreferredHours(env, clientId) {
+    var rows = await env.DB.prepare(
+        "SELECT time, COUNT(*) n FROM sessions " +
+        "WHERE client_id = ? AND time IS NOT NULL AND status != 'cancelled' " +
+        "GROUP BY substr(time,1,2) ORDER BY n DESC"
+    ).bind(clientId).all();
+
+    var hours = [];
+    for (var i = 0; i < rows.results.length; i++) {
+        hours.push({ hour: parseInt(String(rows.results[i].time).slice(0, 2), 10), n: rows.results[i].n });
+    }
+
+    var fb = await env.DB.prepare(
+        "SELECT kind, COUNT(*) n FROM scheduling_feedback WHERE client_id = ? AND kind IN ('earlier','later') GROUP BY kind"
+    ).bind(clientId).all();
+    var drift = 0;
+    for (var f = 0; f < fb.results.length; f++) {
+        if (fb.results[f].kind === "earlier") { drift -= fb.results[f].n; }
+        if (fb.results[f].kind === "later")   { drift += fb.results[f].n; }
+    }
+    return { hours: hours, drift: drift };
+}
+
+// About 2 times per selected day — never a wall of options. Ranked by how close
+// each slot sits to the hours this client has actually booked before.
+function schedSuggest(slots, pref, days, perDay) {
+    var want = perDay || 2;
+    var byDay = {};
+    for (var i = 0; i < slots.length; i++) {
+        if (days && days.length && days.indexOf(slots[i].date) === -1) { continue; }
+        if (!byDay[slots[i].date]) { byDay[slots[i].date] = []; }
+        byDay[slots[i].date].push(slots[i]);
+    }
+
+    var out = [];
+    var keys = Object.keys(byDay).sort();
+    for (var d = 0; d < keys.length; d++) {
+        var list = byDay[keys[d]].slice();
+        list.sort(function (a, b) { return schedScore(a, pref) - schedScore(b, pref); });
+        // Spread the picks apart so two adjacent half-hours are not offered as
+        // if they were a real choice.
+        var picked = [];
+        for (var s = 0; s < list.length && picked.length < want; s++) {
+            var ok = true;
+            for (var p = 0; p < picked.length; p++) {
+                if (Math.abs(schedMinutes(list[s].time) - schedMinutes(picked[p].time)) < 90) { ok = false; break; }
+            }
+            if (ok) { picked.push(list[s]); }
+        }
+        for (var q = 0; q < picked.length; q++) { out.push(picked[q]); }
+    }
+    return out;
+}
+
+function schedScore(slot, pref) {
+    var h = schedMinutes(slot.time) / 60;
+    if (!pref || !pref.hours || !pref.hours.length) { return Math.abs(h - 14); }
+    var best = 99;
+    for (var i = 0; i < pref.hours.length; i++) {
+        // Weight by how often this client used that hour: a 19-session pattern
+        // should dominate a single one-off booking.
+        var dist = Math.abs(h - (pref.hours[i].hour + (pref.drift || 0) * 0.5));
+        var weighted = dist / (1 + Math.log(1 + pref.hours[i].n));
+        if (weighted < best) { best = weighted; }
+    }
+    return best;
+}
+
+function schedPublicRequest(req, slots, suggestions) {
+    return {
+        token: req.token,
+        client_name: req.client_name,
+        meeting_type: req.meeting_type,
+        duration_min: req.duration_min,
+        location: req.location,
+        status: req.status,
+        week_start: req.week_start,
+        week_end: req.week_end,
+        days: schedDaysFrom(slots),
+        slots: slots,
+        suggestions: suggestions
+    };
+}
+
+function schedDaysFrom(slots) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < slots.length; i++) {
+        if (!seen[slots[i].date]) { seen[slots[i].date] = 1; out.push(slots[i].date); }
+    }
+    out.sort();
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests   (admin) — Alice creates a request.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingRequest(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.client_id) { return jsonErr("client_id is required", 400); }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(body.client_id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var settings = await schedSettings(env);
+        var meetingType = body.meeting_type === "in_person" ? "in_person" : "online_meet";
+        var weekStart = schedCurrentWeekStart(env);
+
+        var id = crypto.randomUUID();
+        // Opaque, URL-safe, unguessable. Not the request id: the id shows up in
+        // admin URLs and logs, and the public link must not be derivable.
+        var token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 24);
+
+        await env.DB.prepare(
+            "INSERT INTO scheduling_requests (id, token, client_id, client_name, meeting_type, duration_min, " +
+            "travel_min, buffer_min, location, week_start, week_end, status, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?)"
+        ).bind(
+            id, token, client.id, client.name, meetingType,
+            parseInt(body.duration_min, 10) || settings.default_duration,
+            meetingType === "in_person" ? (parseInt(body.travel_min, 10) || settings.default_travel) : 0,
+            meetingType === "online_meet" && body.buffer_on ? 15 : 0,
+            body.location || null,
+            weekStart, schedAddDays(weekStart, 6),
+            actorName(user)
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: row });
+    } catch (e) {
+        return jsonErr("Error creating scheduling request: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/scheduling/requests/:id  (admin) — Editar.
+// ---------------------------------------------------------------------------
+
+async function handlePutSchedulingRequest(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!row) { return jsonErr("Request not found", 404); }
+
+        var meetingType = body.meeting_type === "in_person" ? "in_person"
+            : (body.meeting_type === "online_meet" ? "online_meet" : row.meeting_type);
+
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET meeting_type = ?, duration_min = ?, travel_min = ?, " +
+            "buffer_min = ?, location = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+        ).bind(
+            meetingType,
+            parseInt(body.duration_min, 10) || row.duration_min,
+            meetingType === "in_person" ? (parseInt(body.travel_min, 10) || row.travel_min || 30) : 0,
+            meetingType === "online_meet" && body.buffer_on ? 15 : 0,
+            body.location !== undefined ? body.location : row.location,
+            actorName(user), id
+        ).run();
+
+        var updated = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: updated });
+    } catch (e) {
+        return jsonErr("Error updating scheduling request: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/scheduling/queue  (admin) — Alice's queue, ONE source for
+// both the calendar page and the dashboard.
+//
+// Sort: waiting longest at the TOP; booked rows greyed out at the BOTTOM.
+// Expired rows (the week closed with no booking) leave the active queue so her
+// dashboard does not fill with dead rows.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingQueue(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var today = localDateStrForTZ();
+
+        // Expire in place: a waiting request whose week has closed is dead.
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'expired' WHERE status IN ('waiting','none_work') AND week_end < ?"
+        ).bind(today).run();
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM scheduling_requests WHERE status IN ('waiting','booked','none_work') " +
+            "ORDER BY created_at ASC"
+        ).all();
+
+        var out = [];
+        for (var i = 0; i < rows.results.length; i++) {
+            var r = rows.results[i];
+            var bh = schedBusinessHoursSince(r.sent_at || r.created_at);
+            out.push({
+                id: r.id, token: r.token, client_id: r.client_id, client_name: r.client_name,
+                meeting_type: r.meeting_type, duration_min: r.duration_min, travel_min: r.travel_min,
+                buffer_min: r.buffer_min, location: r.location, status: r.status,
+                week_start: r.week_start, week_end: r.week_end,
+                session_id: r.session_id, booked_at: r.booked_at,
+                squeezed_out: !!r.squeezed_out,
+                sent_at: r.sent_at, created_at: r.created_at,
+                followup_sent_at: r.followup_sent_at,
+                followup_count: r.followup_count || 0,
+                business_hours_waiting: bh,
+                // 24 BUSINESS hours. A link sent Friday does not flag on
+                // Saturday, when she could not act on it anyway.
+                needs_followup: (r.status === "waiting" && bh >= 24)
+            });
+        }
+
+        var expired = await env.DB.prepare(
+            "SELECT id, client_name, week_start, week_end, status, skip_reason FROM scheduling_requests " +
+            "WHERE status IN ('expired','skipped') ORDER BY week_end DESC LIMIT 30"
+        ).all();
+
+        return jsonOk({ queue: out, never_scheduled: expired.results });
+    } catch (e) {
+        return jsonErr("Error loading scheduling queue: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/sent  (admin)
+// Records that she actually sent it. `kind` distinguishes the first send from
+// a follow-up chase so the row can show "cobrado ha 3 horas".
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingSent(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+
+        if (body.kind === "followup") {
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET followup_sent_at = datetime('now'), " +
+                "followup_count = COALESCE(followup_count,0) + 1 WHERE id = ?"
+            ).bind(id).run();
+        } else {
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET sent_at = datetime('now') WHERE id = ?"
+            ).bind(id).run();
+        }
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: row });
+    } catch (e) {
+        return jsonErr("Error marking sent: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/skip  (admin) — Pular esta semana.
+// A reason is REQUIRED: without one, nobody can later tell a one-off skip from
+// a client quietly disengaging.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingSkip(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (SCHED_SKIP_REASONS.indexOf(body.reason) === -1) {
+            return jsonErr("A skip reason is required", 400);
+        }
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'skipped', skip_reason = ?, " +
+            "updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+        ).bind(body.reason, actorName(user), id).run();
+        return jsonOk({ skipped: true });
+    } catch (e) {
+        return jsonErr("Error skipping: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/manual  (admin)
+// "Manually add time" — for when a client WhatsApps a time directly. Accepts a
+// time OUTSIDE the offered slots by design (override); the UNIQUE constraint
+// still stops it landing on a slot someone already took.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingManual(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.date || !body.time) { return jsonErr("date and time are required", 400); }
+
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!req) { return jsonErr("Request not found", 404); }
+
+        var result = await schedCommitBooking(env, req, {
+            date: body.date,
+            time: String(body.time).slice(0, 5),
+            end_time: schedHHMM(schedMinutes(String(body.time).slice(0, 5)) + (req.duration_min || 60))
+        }, actorName(user));
+
+        if (!result.ok) { return jsonErr(result.error || "That time is already taken", 409); }
+        return jsonOk({ booked: true, session_id: result.sessionId, gcal_error: result.gcalError });
+    } catch (e) {
+        return jsonErr("Error adding time: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/reschedule  (admin) — Reagendar.
+// Issues a FRESH token, so any link already in the client's hands is dead.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingReschedule(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!req) { return jsonErr("Request not found", 404); }
+
+        var weekStart = schedCurrentWeekStart(env);
+        var token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 24);
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET token = ?, status = 'waiting', session_id = NULL, booked_at = NULL, " +
+            "squeezed_out = 0, sent_at = NULL, followup_sent_at = NULL, followup_count = 0, " +
+            "week_start = ?, week_end = ?, created_at = datetime('now'), " +
+            "updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+        ).bind(token, weekStart, schedAddDays(weekStart, 6), actorName(user), id).run();
+
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: row });
+    } catch (e) {
+        return jsonErr("Error rescheduling: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: GET /api/scheduling/link/:token — the client's booking page data.
+// No auth by design: the token IS the credential. Returns only what the page
+// renders — never Rafa's event titles, never other clients.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingLink(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+
+        if (req.status === "booked") {
+            var booked = await env.DB.prepare(
+                "SELECT slot_date, slot_time, end_time FROM scheduling_bookings WHERE request_id = ? ORDER BY created_at DESC"
+            ).bind(req.id).first();
+            return jsonOk({
+                request: { token: req.token, client_name: req.client_name, status: "booked",
+                           meeting_type: req.meeting_type, location: req.location },
+                booking: booked || null
+            });
+        }
+        if (req.status === "skipped" || req.status === "expired") {
+            return jsonOk({ request: { token: req.token, client_name: req.client_name, status: req.status } });
+        }
+
+        var settings = await schedSettings(env);
+        var busy = await schedBusyBlocks(env, req.week_start, req.week_end);
+        var slots = schedComputeSlots(req, settings, busy);
+        var pref = await schedPreferredHours(env, req.client_id);
+        var suggestions = schedSuggest(slots, pref, null, 2);
+
+        var payload = schedPublicRequest(req, slots, suggestions);
+        // Fail-closed signal: if Rafa's Google Calendar could not be read, the
+        // slot list is computed from D1 alone and may offer a time he is
+        // actually driving to a site for. The page refuses to book on this.
+        payload.calendar_degraded = !busy.googleOk;
+        return jsonOk(payload);
+    } catch (e) {
+        return jsonErr("Error loading link: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/suggest
+// Step 2 — about 2 times per selected day, for the days the client chose.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingSuggest(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+        if (req.status !== "waiting" && req.status !== "none_work") {
+            return jsonErr("This link is no longer active", 409);
+        }
+
+        var body = await request.json();
+        var days = body.days || [];
+        var perDay = parseInt(body.per_day, 10) || 2;
+
+        var settings = await schedSettings(env);
+        var busy = await schedBusyBlocks(env, req.week_start, req.week_end);
+        var slots = schedComputeSlots(req, settings, busy);
+        var pref = await schedPreferredHours(env, req.client_id);
+
+        // "Something earlier?" / "Something later?" — LOG EVERY TAP. Repeated
+        // taps mean this client's real pattern has drifted from their history
+        // and the default suggestion should move (schedPreferredHours reads
+        // these back as `drift`).
+        if (body.shift === "earlier" || body.shift === "later") {
+            await env.DB.prepare(
+                "INSERT INTO scheduling_feedback (id, request_id, client_id, kind, slot_date) VALUES (?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), req.id, req.client_id, body.shift, days[0] || null).run();
+        }
+
+        var pool = slots;
+        if (body.shift === "earlier" || body.shift === "later") {
+            var seenTimes = body.seen || [];
+            pool = [];
+            for (var i = 0; i < slots.length; i++) {
+                var key = slots[i].date + " " + slots[i].time;
+                if (seenTimes.indexOf(key) !== -1) { continue; }
+                // Only offer slots genuinely in the asked-for direction.
+                var keep = true;
+                for (var s = 0; s < seenTimes.length; s++) {
+                    var parts = seenTimes[s].split(" ");
+                    if (parts[0] !== slots[i].date) { continue; }
+                    if (body.shift === "earlier" && schedMinutes(slots[i].time) >= schedMinutes(parts[1])) { keep = false; }
+                    if (body.shift === "later"   && schedMinutes(slots[i].time) <= schedMinutes(parts[1])) { keep = false; }
+                }
+                if (keep) { pool.push(slots[i]); }
+            }
+            if (!pool.length) { pool = slots; }   // nothing further that way
+        }
+
+        var suggestions = schedSuggest(pool, pref, days, perDay);
+        return jsonOk({ suggestions: suggestions, days: schedDaysFrom(slots), calendar_degraded: !busy.googleOk });
+    } catch (e) {
+        return jsonErr("Error suggesting times: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/none  — "None of these work".
+// Surfaces on Alice's queue. Far better data than silence, which today cannot
+// be distinguished from a client ignoring her.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingNone(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+        await env.DB.prepare(
+            "INSERT INTO scheduling_feedback (id, request_id, client_id, kind) VALUES (?, ?, ?, 'none_work')"
+        ).bind(crypto.randomUUID(), req.id, req.client_id).run();
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'none_work', updated_at = datetime('now') WHERE id = ? AND status = 'waiting'"
+        ).bind(req.id).run();
+        return jsonOk({ recorded: true });
+    } catch (e) {
+        return jsonErr("Error recording: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// THE ATOMIC BOOKING.
+//
+// Never read-then-write. The winner is decided by a conditional INSERT against
+// a UNIQUE(slot_date, slot_time) index: the loser's INSERT raises
+// SQLITE_CONSTRAINT and there is no window in which both can pass. A guard that
+// is a read taken at entry does not work — that is exactly how a live client's
+// assessment ended up with score_json written and status still 'in_progress' on
+// 2026-08-03, when two handlers both passed an entry-time read.
+//
+// Returns { ok, sessionId, gcalError } or { ok:false, taken:true }.
+// ---------------------------------------------------------------------------
+
+async function schedCommitBooking(env, req, slot, actor) {
+    var bookingId = crypto.randomUUID();
+
+    // THE RACE IS DECIDED HERE, by the database.
+    try {
+        await env.DB.prepare(
+            "INSERT INTO scheduling_bookings (id, request_id, client_id, slot_date, slot_time, end_time) " +
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(bookingId, req.id, req.client_id, slot.date, slot.time, slot.end_time).run();
+    } catch (insertErr) {
+        var msg = String(insertErr && insertErr.message || "");
+        if (msg.indexOf("UNIQUE") !== -1 || msg.indexOf("constraint") !== -1) {
+            return { ok: false, taken: true };
+        }
+        throw insertErr;
+    }
+
+    // Won the slot. Everything below is the winner's follow-through.
+    var sessionId = crypto.randomUUID();
+    var meetLink = null;
+    var htmlLink = null;
+    var googleEventId = null;
+    var gcalError = null;
+    var wantsMeet = (req.meeting_type === "online_meet");
+
+    // Google Meet already works in this codebase — reuse the exact shape used
+    // by POST /api/sessions/schedule rather than reinventing it.
+    try {
+        var token = await getGoogleAccessToken(env);
+        var offset = schedTZOffset(slot.date, slot.time);
+        var attendeeEmail = await lookupClientAttendeeEmail(env, req.client_id);
+        var eventBody = {
+            summary: req.client_name + " - RDE",
+            start: { dateTime: slot.date + "T" + slot.time + ":00" + offset, timeZone: APEX_TIMEZONE },
+            end:   { dateTime: slot.date + "T" + slot.end_time + ":00" + offset, timeZone: APEX_TIMEZONE }
+        };
+        if (wantsMeet) {
+            eventBody.conferenceData = {
+                createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+            };
+        } else if (req.location) {
+            eventBody.location = String(req.location).slice(0, 1024);
+        }
+        if (attendeeEmail) { eventBody.attendees = [{ email: attendeeEmail }]; }
+
+        var res = await googleCalendarApiCall(
+            token, "POST",
+            wantsMeet ? "/events?conferenceDataVersion=1" : "/events",
+            eventBody
+        );
+        if (res.ok && res.data) {
+            googleEventId = res.data.id;
+            meetLink = extractGoogleEventMeetLink(res.data);
+            htmlLink = res.data.htmlLink || null;
+        } else {
+            gcalError = googleApiErrMessage(res);
+        }
+    } catch (gErr) {
+        gcalError = gErr.message;
+    }
+
+    await env.DB.prepare(
+        "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, " +
+        "google_meet_link, google_event_id, calendar_provider, status, meeting_category, html_link, created_by) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', 'client', ?, ?)"
+    ).bind(
+        sessionId, req.client_id, req.client_name, slot.date, slot.time, slot.end_time,
+        req.location || null, req.meeting_type, meetLink, googleEventId, htmlLink,
+        actor || "Agendamento pelo cliente"
+    ).run();
+
+    await env.DB.prepare(
+        "UPDATE scheduling_bookings SET session_id = ? WHERE id = ?"
+    ).bind(sessionId, bookingId).run();
+
+    await env.DB.prepare(
+        "UPDATE scheduling_requests SET status = 'booked', session_id = ?, booked_at = datetime('now') WHERE id = ?"
+    ).bind(sessionId, req.id).run();
+
+    try { await advanceLeadStage(env, req.client_id, "Agendamento", actor || "cliente", "auto:session_scheduled"); }
+    catch (e) { /* lead-stage advance is a nicety, never a booking failure */ }
+
+    return { ok: true, sessionId: sessionId, meetLink: meetLink, gcalError: gcalError };
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/book
+//
+// The loser NEVER sees an error page: a 409 carries the remaining times, so a
+// loss becomes another choice rather than a dead end.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingBook(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+        if (req.status === "booked") { return jsonErr("This meeting is already scheduled", 409); }
+
+        var body = await request.json();
+        if (!body.date || !body.time) { return jsonErr("date and time are required", 400); }
+
+        var settings = await schedSettings(env);
+        var busy = await schedBusyBlocks(env, req.week_start, req.week_end);
+
+        // Never offer — or accept — times computed without Rafa's real
+        // calendar. Booking on a half-truth is worse than asking her to send
+        // the link again in a minute.
+        if (!busy.googleOk) {
+            return jsonErr("Nao foi possivel confirmar a agenda agora. Tente em instantes.", 503);
+        }
+
+        var slots = schedComputeSlots(req, settings, busy);
+        var chosen = null;
+        for (var i = 0; i < slots.length; i++) {
+            if (slots[i].date === body.date && slots[i].time === String(body.time).slice(0, 5)) { chosen = slots[i]; }
+        }
+        if (!chosen) {
+            // Slot vanished between render and tap (someone else took it, or the
+            // notice window closed). Same treatment as losing the race.
+            var pref0 = await schedPreferredHours(env, req.client_id);
+            return new Response(JSON.stringify({
+                error: "taken", taken: true,
+                suggestions: schedSuggest(slots, pref0, null, 2),
+                days: schedDaysFrom(slots)
+            }), { status: 409, headers: Object.assign({ "Content-Type": "application/json" }, CORS_HEADERS) });
+        }
+
+        var result = await schedCommitBooking(env, req, chosen, null);
+
+        if (!result.ok && result.taken) {
+            // LOST THE RACE. Recompute and hand back what is still open.
+            var busy2 = await schedBusyBlocks(env, req.week_start, req.week_end);
+            var slots2 = schedComputeSlots(req, settings, busy2);
+            var pref = await schedPreferredHours(env, req.client_id);
+
+            // Alice must be TOLD this client got squeezed out, or she reads the
+            // silence as them ignoring her.
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET squeezed_out = 1 WHERE id = ?"
+            ).bind(req.id).run();
+
+            return new Response(JSON.stringify({
+                error: "taken", taken: true,
+                suggestions: schedSuggest(slots2, pref, null, 2),
+                days: schedDaysFrom(slots2)
+            }), { status: 409, headers: Object.assign({ "Content-Type": "application/json" }, CORS_HEADERS) });
+        }
+
+        return jsonOk({
+            booked: true,
+            date: chosen.date, time: chosen.time, end_time: chosen.end_time,
+            meet_link: result.meetLink,
+            meeting_type: req.meeting_type,
+            location: req.location,
+            gcal_error: result.gcalError
+        });
+    } catch (e) {
+        return jsonErr("Error booking: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/PUT /api/scheduling/settings  (admin) — the availability page.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingSettings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        return jsonOk({ settings: await schedSettings(env) });
+    } catch (e) {
+        return jsonErr("Error loading settings: " + e.message, 500);
+    }
+}
+
+async function handlePutSchedulingSettings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var cur = await schedSettings(env);
+        await env.DB.prepare(
+            "UPDATE scheduling_settings SET day_start = ?, day_end = ?, work_days = ?, min_notice_hours = ?, " +
+            "daily_cap = ?, default_duration = ?, default_travel = ?, updated_at = datetime('now'), updated_by = ? " +
+            "WHERE id = 'default'"
+        ).bind(
+            body.day_start || cur.day_start,
+            body.day_end || cur.day_end,
+            body.work_days || cur.work_days,
+            parseInt(body.min_notice_hours, 10) >= 0 ? parseInt(body.min_notice_hours, 10) : cur.min_notice_hours,
+            parseInt(body.daily_cap, 10) || cur.daily_cap,
+            parseInt(body.default_duration, 10) || cur.default_duration,
+            parseInt(body.default_travel, 10) >= 0 ? parseInt(body.default_travel, 10) : cur.default_travel,
+            actorName(user)
+        ).run();
+        return jsonOk({ settings: await schedSettings(env) });
+    } catch (e) {
+        return jsonErr("Error saving settings: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/scheduling/message/:id  (admin)
+// Builds the WhatsApp TEXT only. It never dials: the page shows Alice the
+// contact list so she picks the recipient, because each client has a group
+// with co-owners and she must control who receives it. Matches the existing
+// sendInvoiceWhatsApp pattern.
+//
+// ?kind=followup returns the nudge template with the SAME link — never a new
+// one, because the client may already have the original open.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingMessage(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var kind = url.searchParams.get("kind") || "invite";
+
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!req) { return jsonErr("Request not found", 404); }
+
+        // The link must point at the APP, never at the Worker origin this
+        // request happened to arrive on. DEFAULT_ORIGIN is the canonical host
+        // the rest of the file already uses.
+        var origin = url.origin.indexOf("apex-api") !== -1 ? DEFAULT_ORIGIN : url.origin;
+        var link = origin + "/agendar.html?t=" + req.token;
+
+        var tpl = (kind === "followup") ? SCHED_TPL_FOLLOWUP : SCHED_TPL_INVITE;
+        var firstName = String(req.client_name || "").split(" ")[0].split("-")[0].trim();
+        var message = tpl.split("{name}").join(firstName).split("{link}").join(link);
+
+        var client = await env.DB.prepare(
+            "SELECT id, name, phone, whatsapp, contacts FROM clients WHERE id = ?"
+        ).bind(req.client_id).first();
+
+        // Every number Alice might legitimately send to — the client record and
+        // each named contact — so she chooses. No number is ever auto-dialled.
+        var contacts = [];
+        if (client) {
+            if (client.whatsapp) { contacts.push({ label: client.name, number: client.whatsapp }); }
+            if (client.phone && client.phone !== client.whatsapp) {
+                contacts.push({ label: client.name + " (telefone)", number: client.phone });
+            }
+            if (client.contacts) {
+                try {
+                    var list = JSON.parse(client.contacts);
+                    for (var i = 0; i < list.length; i++) {
+                        var num = list[i].whatsapp || list[i].phone;
+                        if (num) { contacts.push({ label: list[i].name || "Contato", number: num }); }
+                    }
+                } catch (e) { /* malformed contacts JSON is not fatal */ }
+            }
+        }
+
+        return jsonOk({ message: message, link: link, contacts: contacts, kind: kind });
+    } catch (e) {
+        return jsonErr("Error building message: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/scheduling/client-state  (client portal)
+// Drives the two client-side states: a prominent call-out with the booking link
+// when nothing is scheduled this week, or a Reagendar button when it is.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingClientState(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var url = new URL(request.url);
+        var clientId = user.client_id || url.searchParams.get("client_id");
+        if (!clientId) { return jsonErr("client_id is required", 400); }
+        if (user.client_id && clientId !== user.client_id) { return jsonErr("Forbidden", 403); }
+
+        var weekStart = schedCurrentWeekStart(env);
+        var weekEnd = schedAddDays(weekStart, 6);
+
+        var session = await env.DB.prepare(
+            "SELECT id, date, time, end_time, session_type, google_meet_link, location FROM sessions " +
+            "WHERE client_id = ? AND date >= ? AND date <= ? AND status != 'cancelled' " +
+            "ORDER BY date ASC, time ASC"
+        ).bind(clientId, weekStart, weekEnd).first();
+
+        var req = await env.DB.prepare(
+            "SELECT token, status FROM scheduling_requests WHERE client_id = ? AND status IN ('waiting','none_work') " +
+            "ORDER BY created_at DESC"
+        ).bind(clientId).first();
+
+        return jsonOk({
+            scheduled: !!session,
+            session: session || null,
+            booking_token: req ? req.token : null,
+            week_start: weekStart, week_end: weekEnd
+        });
+    } catch (e) {
+        return jsonErr("Error loading state: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Recurring invoices — generate DRAFTS, never send.
 //
 // "If she has to remember to come in and build an invoice all the time,
@@ -22938,6 +24024,19 @@ async function handleFetch(request, env, ctx) {
         var clubCalPub = path.match(/^\/api\/club\/calendar-click\/([A-Za-z0-9-]+)$/);
         if (clubCalPub && method === "POST") { return handlePostClubCalendarClick(clubCalPub[1], request, env); }
 
+        // PUBLIC client booking links (no auth by design: the token in the URL
+        // IS the credential). Declared here, with the other public routes and
+        // BEFORE the client-role gate, because the client opening this link is
+        // not logged in to anything — that is the entire point of the feature.
+        var schedLink = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)$/);
+        if (schedLink && method === "GET") { return handleGetSchedulingLink(schedLink[1], request, env); }
+        var schedSuggest = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/suggest$/);
+        if (schedSuggest && method === "POST") { return handlePostSchedulingSuggest(schedSuggest[1], request, env); }
+        var schedBook = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/book$/);
+        if (schedBook && method === "POST") { return handlePostSchedulingBook(schedBook[1], request, env); }
+        var schedNone = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/none$/);
+        if (schedNone && method === "POST") { return handlePostSchedulingNone(schedNone[1], request, env); }
+
         // PUBLIC partner-referral intake (no auth by design — see handlers).
         var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
         if (refMatch) {
@@ -22986,6 +24085,26 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/google/oauth/callback"     && method === "GET")  { return handleGoogleOAuthCallback(request, env); }
         if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
         if (path === "/api/google/calendar/event"     && method === "POST") { return handlePostGoogleCalendarEvent(request, env); }
+        // "Enviar horarios" — Alice's side. Every handler enforces admin.
+        if (path === "/api/scheduling/requests" && method === "POST") { return handlePostSchedulingRequest(request, env); }
+        if (path === "/api/scheduling/queue"    && method === "GET")  { return handleGetSchedulingQueue(request, env); }
+        if (path === "/api/scheduling/settings" && method === "GET")  { return handleGetSchedulingSettings(request, env); }
+        if (path === "/api/scheduling/settings" && method === "PUT")  { return handlePutSchedulingSettings(request, env); }
+        // Client-portal state (scheduled vs not) — client-role reachable.
+        if (path === "/api/scheduling/client-state" && method === "GET") { return handleGetSchedulingClientState(request, env); }
+        var schedMsg = path.match(/^\/api\/scheduling\/message\/([A-Za-z0-9-]+)$/);
+        if (schedMsg && method === "GET") { return handleGetSchedulingMessage(schedMsg[1], request, env); }
+        var schedReq = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)$/);
+        if (schedReq && method === "PUT") { return handlePutSchedulingRequest(schedReq[1], request, env); }
+        var schedSent = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/sent$/);
+        if (schedSent && method === "POST") { return handlePostSchedulingSent(schedSent[1], request, env); }
+        var schedSkip = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/skip$/);
+        if (schedSkip && method === "POST") { return handlePostSchedulingSkip(schedSkip[1], request, env); }
+        var schedManual = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/manual$/);
+        if (schedManual && method === "POST") { return handlePostSchedulingManual(schedManual[1], request, env); }
+        var schedResched = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/reschedule$/);
+        if (schedResched && method === "POST") { return handlePostSchedulingReschedule(schedResched[1], request, env); }
+
         if (path === "/api/google/calendar/events"    && method === "GET")  { return handleGetGoogleCalendarEvents(request, env); }
         // Read-only single-event lookup straight from Google. Declared AFTER
         // the two routes above so neither literal path is shadowed by it.

@@ -29,6 +29,44 @@
     { key: "client_cancelled", pt: "Cliente cancelou",   en: "Client cancelled" }
   ];
 
+  // ── Language ─────────────────────────────────────────────────────────────
+  // EVERY string in this module is bilingual already, but the isEn flag was
+  // read ONCE at render time and then frozen into the markup. Flipping the
+  // PT/EN toggle repainted the rest of the page and left this queue in
+  // whatever language it happened to be built in.
+  //
+  // The rest of the app does not have this problem because it uses paired
+  // <span class="show-pt"> / <span class="show-en"> elements that CSS hides by
+  // body class -- calendar.html alone has 276 of them, this module has zero,
+  // because it builds its rows in JS where spans are not practical.
+  //
+  // So this module does what nav.js's own comment asks of a listener:
+  // re-render from data ALREADY IN MEMORY. A language toggle is not a reload,
+  // and refetching here would also throw away her scroll position and any
+  // row state mid-action.
+  var LAST = null;   // { ctx, rows, neverScheduled } from the most recent render
+
+  document.addEventListener("apex:langchange", function () {
+    // A modal left open would keep the language it was built in -- the same
+    // bug one level down. Closing is the honest fix: these are all short,
+    // single-decision dialogs (a preview, a confirm, a reason picker, a
+    // date+time entry), so re-opening costs one click and nothing typed is
+    // lost that was not already going to be re-entered. Rebuilding each one
+    // mid-flight would mean restoring partly-filled inputs, which is a much
+    // bigger surface for a much smaller gain.
+    closeAllOverlays();
+    if (LAST && LAST.ctx) {
+      render(LAST.ctx, LAST.rows, LAST.neverScheduled);
+    }
+  });
+
+  function closeAllOverlays() {
+    var open = document.querySelectorAll(".sq-overlay");
+    for (var i = 0; i < open.length; i++) {
+      if (open[i].parentNode) { open[i].parentNode.removeChild(open[i]); }
+    }
+  }
+
   function esc(s) {
     return String(s === null || s === undefined ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -238,7 +276,11 @@
   function markSent(ctx, row, kind) {
     ctx.apiFetch("/api/scheduling/requests/" + row.id + "/sent", {
       method: "POST", body: { kind: kind }
-    }).then(function () { load(ctx); }).catch(function () {});
+    }).then(function () { load(ctx); }).catch(function (e) {
+      // Not silent. If this fails the row keeps showing "criado" after she has
+      // actually sent it, and she will chase someone she already contacted.
+      console.error("[sched] could not record the send:", e && e.message);
+    });
   }
 
   function doSend(ctx, row, kind) {
@@ -299,7 +341,9 @@
       if (overlay.parentNode) { overlay.parentNode.removeChild(overlay); }
       ctx.apiFetch("/api/scheduling/requests/" + row.id + "/skip", {
         method: "POST", body: { reason: reason }
-      }).then(function () { load(ctx); }).catch(function () {});
+      }).then(function () { load(ctx); }).catch(function (e) {
+        console.error("[sched] could not skip this week:", e && e.message);
+      });
     });
   }
 
@@ -376,7 +420,17 @@
           closeOverlay(overlay);
           load(ctx);
         })
-        .catch(function () {});
+        .catch(function (e) {
+          // The modal stays open on failure, so say what happened in it
+          // rather than leaving a dead Save button.
+          console.error("[sched] could not save the manual time:", e && e.message);
+          if (errEl) {
+            errEl.textContent = isEn
+              ? "Could not save that time. Try again."
+              : "Não foi possível salvar esse horário. Tente de novo.";
+            errEl.hidden = false;
+          }
+        });
     });
   }
 
@@ -392,13 +446,23 @@
     }, function () {
       ctx.apiFetch("/api/scheduling/requests/" + row.id + "/reschedule", { method: "POST" })
         .then(function () { load(ctx); })
-        .catch(function () {});
+        .catch(function (e) {
+          console.error("[sched] could not generate a new link:", e && e.message);
+        });
     });
   }
 
   function render(ctx, rows, neverScheduled) {
     var host = document.getElementById(ctx.containerId);
     if (!host) { return; }   // null check on every getElementById
+
+    // Remember what this render was built from, so apex:langchange can replay
+    // it in the other language without touching the network.
+    LAST = { ctx: ctx, rows: rows, neverScheduled: neverScheduled };
+
+    // Read the flag HERE, on every render, never captured once at init. This
+    // single line is what makes the toggle work: the listener above calls
+    // render() again and this picks up the new body class.
     var isEn = ctx.isEn();
 
     // The host page may wrap the list in a titled block. An empty queue hides
@@ -490,7 +554,13 @@
         render(ctx, rows, data.never_scheduled);
         return rows;
       })
-      .catch(function () { return []; });
+      .catch(function (e) {
+        // Returning [] quietly is how a completely missing queue once looked
+        // like "nothing waiting" -- the whole panel failed to load and produced
+        // no console error at all. Say it, then degrade.
+        console.error("[sched] could not load the queue:", e && e.message);
+        return [];
+      });
   }
 
   global.SchedulingQueue = {

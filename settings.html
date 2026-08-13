@@ -3288,6 +3288,22 @@
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────
+    // ── Language toggle ────────────────────────────────────────────────────
+    // Most of this page is .show-pt / .show-en span pairs, which CSS swaps by
+    // body class with no JS at all. The Availability section is the exception:
+    // its weekday chips and its plain-language summary line are BUILT IN JS,
+    // so they were frozen in whatever language the page loaded in and a toggle
+    // moved everything around them but not them.
+    //
+    // Replays from state already in memory (AV_SELECTED and the two time
+    // inputs) -- nav.js's own comment asks listeners not to refetch, and a
+    // language toggle must not silently discard an unsaved edit by reloading
+    // the saved values over it.
+    document.addEventListener("apex:langchange", function() {
+      renderAvDays();
+      renderAvSummary();
+    });
+
     window.onload = function() { init(); };
   </script>
 

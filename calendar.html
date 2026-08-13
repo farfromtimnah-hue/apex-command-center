@@ -295,6 +295,19 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    /* Quiet on purpose -- a link, not a button. It must not read as a third
+       call to action beside "Enviar horarios" and "Nova Sessao"; it is the
+       way back to the rules those buttons obey. */
+    .cal-settings-link {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .cal-settings-link:hover { border-bottom-color: var(--gold); }
+    .cal-settings-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
     .btn-sync-now {
       background: transparent;
       color: var(--gold);
@@ -1389,6 +1402,21 @@
               <span class="show-pt">Enviar horarios</span>
               <span class="show-en">Send times</span>
             </button>
+            <!-- Shortcut to the rules the link above runs on, because THIS is
+                 where she is standing when she notices a rule is wrong.
+                 Deliberately a quiet text link, not a third gold button
+                 competing with "Enviar horarios" and "Nova Sessao".
+                 A first-run modal was considered and rejected: a modal teaches
+                 nothing about where the setting LIVES, so the next time she
+                 wants to change something she is hunting again. One home
+                 (Settings), one shortcut to it -- the same reasoning that
+                 keeps the WhatsApp templates on Settings.
+                 Deep-links to the section anchor, so it lands ON Availability
+                 rather than at the top of a long page. -->
+            <a class="cal-settings-link" href="settings.html#availabilitySection">
+              <span class="show-pt">Disponibilidade</span>
+              <span class="show-en">Availability</span>
+            </a>
           </div>
         </div>
 

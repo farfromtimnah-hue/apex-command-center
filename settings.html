@@ -2031,7 +2031,12 @@
       invoice_send: { pt: "Envio de Fatura", en: "Invoice Send" },
       portal_help_request: { pt: "Pedido de Ajuda (Portal)", en: "Help Request (Portal)" },
       resource_send: { pt: "Envio de Recurso", en: "Resource Send" },
-      partner_referral_share: { pt: "Compartilhar Link de Indica&#231;&#227;o", en: "Referral Link Share" }
+      partner_referral_share: { pt: "Compartilhar Link de Indica&#231;&#227;o", en: "Referral Link Share" },
+      seller_login: { pt: "Acesso do Vendedor", en: "Seller Access" },
+      // Migrated out of worker source constants: these two are the messages
+      // Alice sends most often, and were the only ones she could not edit.
+      scheduling_send: { pt: "Enviar hor&#225;rios", en: "Send times" },
+      scheduling_followup: { pt: "Cobrar hor&#225;rios", en: "Scheduling follow-up" }
     };
 
     // Per-key token hint — only the tokens that key actually substitutes.
@@ -2063,6 +2068,21 @@
       partner_referral_share: {
         pt: 'Vari&#225;vel dispon&#237;vel: <code>{referralUrl}</code>.',
         en: 'Available token: <code>{referralUrl}</code>.'
+      },
+      seller_login: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{sellerName}</code>, <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.',
+        en: 'Available tokens: <code>{sellerName}</code>, <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.'
+      },
+      // {name} is the OWNER name, both owners when there are two -- never the
+      // company name. The greeting used to read "Ol&#225;, PERFECT!" to paying
+      // clients; editing this text must not change which name is used.
+      scheduling_send: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{link}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{link}</code>.'
+      },
+      scheduling_followup: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{link}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{link}</code>.'
       }
     };
 

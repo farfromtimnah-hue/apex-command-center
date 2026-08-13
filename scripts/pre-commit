@@ -43,7 +43,7 @@ fi
 # is only safe because every JS/CSS URL carries a ?v= stamp. They shipped
 # referenced with no ?v= at all, so the cached copy could outlive its own
 # CACHE_NAME bump. A changed file must mean a changed URL.
-VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css"
+VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css"
 
 for ASSET in $VERSIONED_ASSETS; do
   if ! echo "$STAGED" | grep -qx "$ASSET"; then continue; fi

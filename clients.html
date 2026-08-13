@@ -1055,6 +1055,8 @@
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
     integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
     crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1786595619">
+  <script src="template-edit.js?v=1786595618"></script>
   <script src="nav.js"></script>
 
   <script>
@@ -1246,6 +1248,26 @@
       }
       rows.innerHTML = html;
       strip.hidden   = false;
+
+      // Pencil + right-click on each "Enviar via WhatsApp". Re-run on every
+      // render because this list rebuilds its innerHTML; attach() is
+      // idempotent so surviving rows do not collect a second pencil.
+      // onSaved refreshes the page cache so the next send uses the new text
+      // without a reload, and without adding an await before window.open().
+      if (window.TemplateEdit) {
+        var sendBtns = rows.querySelectorAll(".btn-whatsapp-send");
+        for (var b = 0; b < sendBtns.length; b++) {
+          window.TemplateEdit.attach({
+            button: sendBtns[b],
+            key: "resource_send",
+            apiFetch: apiFetch,
+            onSaved: function(saved) {
+              if (!messageTemplates) { messageTemplates = {}; }
+              messageTemplates[saved.template_key] = saved.template_text;
+            }
+          });
+        }
+      }
     }
 
     // Pre-fetched at page load (see setupPage) so handleSendResource() can

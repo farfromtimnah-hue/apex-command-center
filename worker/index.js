@@ -22776,9 +22776,15 @@ async function handlePostFinanceNewMatchUndo(request, env) {
 
 var SCHED_SKIP_REASONS = ["vacation", "emergency", "client_cancelled"];
 
-// Hardcoded message templates. A separate later task adds editing — do NOT
-// build template editing here. Plain ASCII in source; the accented Portuguese
-// the client actually reads is produced by these escapes.
+// These two are now rows in message_templates, under the keys
+// 'scheduling_send' and 'scheduling_followup', editable from the Settings page
+// and from the pencil / right-click beside the Enviar button on the queue.
+// They are the two messages Alice sends most often, so leaving them as source
+// constants would have made them the only ones she could not change.
+//
+// The constants below survive as the FALLBACK, exactly like
+// DEFAULT_WHATSAPP_TEMPLATES: if the row is missing the message still goes out
+// correct rather than empty.
 var SCHED_TPL_INVITE =
     "Olá, {name}! Para marcarmos nossa reunião desta semana, " +
     "escolha o melhor horário para você neste link:\n\n{link}\n\n" +
@@ -23956,7 +23962,24 @@ async function handleGetSchedulingMessage(id, request, env) {
             "SELECT id, name, owners, phone, whatsapp, contacts FROM clients WHERE id = ?"
         ).bind(req.client_id).first();
 
-        var tpl = (kind === "followup") ? SCHED_TPL_FOLLOWUP : SCHED_TPL_INVITE;
+        // Read the editable row first, exactly as handlePostSessionWhatsapp
+        // does for session_online / session_in_person -- ONE lookup pattern for
+        // every template in the app. The source constant is the fallback, so a
+        // missing row degrades to the correct message rather than an empty one.
+        var tplKey = (kind === "followup") ? "scheduling_followup" : "scheduling_send";
+        var tplRow = await env.DB.prepare(
+            "SELECT template_text FROM message_templates WHERE template_key = ?"
+        ).bind(tplKey).first();
+        var tpl = (tplRow && tplRow.template_text)
+            ? tplRow.template_text
+            : ((kind === "followup") ? SCHED_TPL_FOLLOWUP : SCHED_TPL_INVITE);
+
+        // {name} is the OWNER name, never the company name. This resolution is
+        // load-bearing: the greeting used to read "Olá, PERFECT!" and "Olá,
+        // GATOR!" to paying clients, because it took the first word of the
+        // business name. schedGreetingName() greets both owners when there are
+        // two and falls back to the company name only when owners is empty.
+        // Editing the template text must never change which name is used.
         var greeting = schedGreetingName(client, req.client_name);
         var message = tpl.split("{name}").join(greeting).split("{link}").join(link);
 

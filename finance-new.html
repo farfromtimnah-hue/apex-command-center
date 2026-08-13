@@ -85,6 +85,8 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1786595619">
+  <script src="template-edit.js?v=1786595618"></script>
   <title data-title-pt="Apex &#8212; Financeiro (Novo)" data-title-en="Apex &#8212; Financial (New)">Apex &#8212; Financeiro (Novo)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4961,6 +4963,7 @@
           '<td class="num">' + actions + "</td>" +
         "</tr>";
       }).join("");
+      wireInvoiceTemplateEditing();
     }
 
     function renderDrafts() {
@@ -4980,6 +4983,32 @@
               '<span class="show-pt">Enviar</span><span class="show-en">Send</span></button></td>' +
         "</tr>";
       }).join("");
+      wireInvoiceTemplateEditing();
+    }
+
+    // Pencil + right-click on every WhatsApp invoice button, across both
+    // render paths (the main list and the compact table). Selector-based
+    // rather than hooked into each renderer, so a third list added later is
+    // covered by calling this once more. attach() is idempotent.
+    //
+    // onSaved refreshes MESSAGE_TEMPLATES rather than reloading -- the cache
+    // exists so window.open() can run synchronously (see the popup-blocker
+    // note below), and this keeps that intact while making the next send use
+    // the new text immediately.
+    function wireInvoiceTemplateEditing() {
+      if (!window.TemplateEdit) { return; }
+      var btns = document.querySelectorAll('[onclick^="sendInvoiceWhatsApp("]');
+      for (var i = 0; i < btns.length; i++) {
+        window.TemplateEdit.attach({
+          button: btns[i],
+          key: "invoice_send",
+          apiFetch: apiFetch,
+          onSaved: function(saved) {
+            if (!MESSAGE_TEMPLATES) { MESSAGE_TEMPLATES = {}; }
+            MESSAGE_TEMPLATES[saved.template_key] = saved.template_text;
+          }
+        });
+      }
     }
 
     // THE POPUP-BLOCKER FIX.

@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1786595619">
+  <script src="template-edit.js?v=1786595618"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3475,6 +3477,7 @@
     function loadClientPage() {
       initSectionOrder();
       loadMessageTemplates();
+      wireCredentialTemplateEditing();
       loadClient();
       loadSessions();
       loadNotes();
@@ -3517,6 +3520,34 @@
           });
         })
         .catch(function() { messageTemplates = null; });
+    }
+
+    // Pencil + right-click on both credential send buttons. They are static
+    // markup with stable ids, so this attaches once; attach() is idempotent
+    // anyway.
+    //
+    // onSaved refreshes the page cache rather than reloading. Templates are
+    // pre-fetched precisely so the send path can call window.open()
+    // synchronously (see the popup-blocker note above), and writing the saved
+    // row straight back preserves that while making the next send use the new
+    // text immediately.
+    function wireCredentialTemplateEditing() {
+      if (!window.TemplateEdit) { return; }
+      function refresh(saved) {
+        if (!messageTemplates) { messageTemplates = {}; }
+        messageTemplates[saved.template_key] = saved.template_text;
+      }
+      var pairs = [
+        { id: "btnSendLoginWhatsapp",       key: "client_login" },
+        { id: "btnSendSellerLoginWhatsapp", key: "seller_login" }
+      ];
+      for (var i = 0; i < pairs.length; i++) {
+        var btn = document.getElementById(pairs[i].id);
+        if (!btn) { continue; }   // null check on every getElementById
+        window.TemplateEdit.attach({
+          button: btn, key: pairs[i].key, apiFetch: apiFetch, onSaved: refresh
+        });
+      }
     }
 
     function loadPortalAccess() {

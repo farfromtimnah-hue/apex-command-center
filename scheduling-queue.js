@@ -425,6 +425,29 @@
     }
     host.innerHTML = html.join("");
 
+    // Edit-in-place: a pencil beside each Enviar/Cobrar, and right-click on
+    // the button itself. Re-attached after every render because this list
+    // rebuilds its own innerHTML; TemplateEdit.attach() is idempotent, so the
+    // rows that survive a re-render do not collect a second pencil.
+    //
+    // These two messages go through the SAME PUT the Settings page uses, and
+    // the worker reads them from message_templates -- so what she edits here
+    // is what the next send builds, with no reload and no second copy.
+    if (global.TemplateEdit) {
+      var sendBtns = host.querySelectorAll('[data-act="send"]');
+      for (var s = 0; s < sendBtns.length; s++) {
+        global.TemplateEdit.attach({
+          button: sendBtns[s], key: "scheduling_send", apiFetch: ctx.apiFetch
+        });
+      }
+      var followBtns = host.querySelectorAll('[data-act="followup"]');
+      for (var f = 0; f < followBtns.length; f++) {
+        global.TemplateEdit.attach({
+          button: followBtns[f], key: "scheduling_followup", apiFetch: ctx.apiFetch
+        });
+      }
+    }
+
     host.onclick = function (ev) {
       var btn = ev.target;
       var act = btn.getAttribute && btn.getAttribute("data-act");

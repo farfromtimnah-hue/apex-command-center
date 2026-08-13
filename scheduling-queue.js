@@ -246,8 +246,14 @@
     // link would break the one the client may already have open.
     ctx.apiFetch("/api/scheduling/message/" + row.id + (kind === "followup" ? "?kind=followup" : ""))
       .then(function (r) { return r.json(); })
-      .then(function (data) { openContactPicker(ctx, row, data, kind); })
-      .catch(function () {});
+      .then(function (data) { openSendPreview(ctx, row, data, kind); })
+      // NOT a bare catch. An empty one here swallowed a ReferenceError after
+      // this function was renamed, and the Enviar button did nothing at all —
+      // no modal, no error, exactly the silent-failure shape this whole pass
+      // is about. If the send cannot open, say so.
+      .catch(function (e) {
+        console.error("[sched] could not open the WhatsApp preview:", e && e.message);
+      });
   }
 
   // Skip REQUIRES a confirm and a reason. Without a reason nobody can later

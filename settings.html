@@ -1436,33 +1436,27 @@
 
     // Re-apply the URL hash AFTER the page is revealed.
     //
-    // #appMain is hidden while the role check runs, so the browser resolves
-    // the anchor against a nearly empty document and "scrolls" to a section
-    // that is not laid out yet. Every loader above then fills the page and
-    // pushes that section thousands of pixels down -- the calendar's
-    // Disponibilidade deep link landed 10301px above its target, dumping
-    // Alice at the top of a long page, which is the exact hunting the link
-    // exists to prevent.
+    // #appMain is hidden while the role check runs, so when the browser first
+    // resolves the anchor the target section is not laid out yet; the loaders
+    // then fill the page and push it far down. Re-assigning location.hash once
+    // the content exists makes the browser redo its own native anchor jump,
+    // which is the mechanism that actually works here -- setting scrollTop or
+    // calling scrollIntoView() from script is unreliable on this page.
     //
-    // The loaders are async, so one frame is not enough; this re-checks a few
-    // times over ~1.5s and stops as soon as the target is actually near the
-    // top. Bounded on purpose -- no observer, no polling forever.
+    // Bounded and idempotent: it fires once, a moment after the loaders start,
+    // and does nothing at all when there is no hash.
     function scrollToHashSection() {
       if (!window.location.hash) { return; }
       var id = window.location.hash.slice(1);
-      var tries = 0;
-      function attempt() {
+      setTimeout(function() {
         var el = document.getElementById(id);
         if (!el) { return; }
-        el.scrollIntoView({ block: "start" });
-        tries++;
-        // Stop once it has settled near the top, or after a bounded retry
-        // window -- whichever comes first.
-        if (tries < 6 && Math.abs(el.getBoundingClientRect().top) > 80) {
-          setTimeout(attempt, 250);
-        }
-      }
-      setTimeout(attempt, 150);
+        // Re-assigning the SAME hash does not re-trigger the jump, so clear it
+        // and set it back. replace() keeps this out of the history stack, so
+        // Back still returns to the calendar rather than to this page again.
+        window.location.replace("#");
+        window.location.replace("#" + id);
+      }, 600);
     }
 
     // ── Availability ("Enviar horários" rules) ─────────────────────────────

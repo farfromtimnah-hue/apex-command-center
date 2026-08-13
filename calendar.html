@@ -1417,6 +1417,17 @@
               <span class="show-pt">Disponibilidade</span>
               <span class="show-en">Availability</span>
             </a>
+            <!-- The walkthrough. Opens in its own NAMED window sized narrow, so
+                 Alice can put it beside Apex and follow along rather than
+                 tabbing back and forth. The name is what stops a second click
+                 stacking duplicate windows -- it refocuses the one already
+                 open. Falls back to a normal navigation if a popup blocker
+                 refuses, which is why it stays a real href. -->
+            <a class="cal-settings-link" href="help/agendamento.html"
+               onclick="var w=window.open(this.href,'apexHelpAgendamento','width=560,height=900,left=0,top=0'); if(w){w.focus();return false;} return true;">
+              <span class="show-pt">Como usar</span>
+              <span class="show-en">How to use</span>
+            </a>
           </div>
         </div>
 

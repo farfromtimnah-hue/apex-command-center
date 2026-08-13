@@ -2254,3 +2254,29 @@ There are 10 templates now and the list keeps growing. Until today the only way 
 - **All templates restored**: both scheduling rows returned to their exact original wording and re-verified through the message endpoint; the other 8 were never edited and keep their original `updated_by`. Test scheduling rows deleted. **The test client row was left active** — I had archived it during cleanup before seeing the standing rule added mid-session, and restored it to `archived=0` as soon as I did.
 
 - **NOT verified**: `client.html` (client/seller credentials), `clients.html` (resource send) and `finance-new.html` were wired following the same pattern but not clicked end to end — each needs a live credential-generation or pending-resource state to render its button. The module is shared and identical across all of them, and finance.html's identical path was proven on a probe, but that is inference rather than observation. Right-click was exercised via a synthetic `contextmenu` event, not a physical two-finger click.
+
+## 2026-08-13 (c) — PT/EN toggle now reaches the scheduling feature
+
+Nicole toggled PT/EN on the calendar and everything built for the scheduling feature stayed in English while the rest of the page switched.
+
+- **The strings were never missing — the flag was frozen.** `scheduling-queue.js` translates through an `isEn` boolean, and it was read ONCE at render time and baked into the markup. The rest of the app avoids this entirely by using paired `<span class="show-pt">` / `<span class="show-en">` elements that CSS hides by body class: **calendar.html alone has 276 of them; this module has zero**, because it builds its rows in JS where spans are not practical.
+
+- **The module now listens for `apex:langchange` and re-renders from memory.** `nav.js`'s own comment says *"Listeners must not refetch — a language toggle is not a reload"*, so the render caches `{ctx, rows, neverScheduled}` and replays it. Refetching would also have thrown away her scroll position. The single load-bearing line is reading `ctx.isEn()` **on every render** instead of capturing it at init — both host pages already pass a live function that reads the body class, so re-invoking `render()` is all it takes. The listener lives INSIDE the module, so calendar.html and dashboard.html both get it without either page holding a copy.
+
+- **Open modals are CLOSED on toggle, not rebuilt.** A modal left open keeps the language it was built in — the same bug one level down. These are all short single-decision dialogs (a preview, a confirm, a reason picker, a date+time entry), so reopening costs one click; rebuilding them mid-flight would mean restoring partly-filled inputs for a much smaller gain. Verified all four: none stranded, each reopens in the new language.
+
+- **Audited every string in the module.** All are bilingual; none was single-language, so the listener was the entire fix. Dates stay MM/DD/YYYY and times 12-hour in BOTH languages — the US format is not localised along with the language.
+
+- **`settings.html` had no `apex:langchange` listener at all**, so the Availability weekday chips and the plain-language summary line were frozen too. Added one that replays from `AV_SELECTED` and the live inputs rather than reloading saved values, so an unsaved edit is not silently discarded by a language toggle.
+
+- **The portal scheduling card already worked** — it renders inside `renderMeetings()`, which `toggleLang()` already replays. Verified rather than assumed.
+
+- **`agendar.html` is deliberately Portuguese-only and stays that way.** It has no `nav.js`, no `show-pt`/`show-en` spans and no `apex_lang` handling, and every visible string is correct accented Portuguese. It is the public page Brazilian clients open from a WhatsApp link, so a toggle would be a liability, not a feature. No toggle was added.
+
+- **Closed the five remaining silent catches in this module while in it**, including `load()`'s catch that returned `[]` — that one is how a completely missing queue once looked like "nothing waiting" with no console error at all. This feature has now had that failure shape five times.
+
+- **Verified by actually clicking the toggle on the deployed app.** Queue PT → EN → PT with both seeded rows: the age label (`enviado há 1 dia` ↔ `sent 1 day ago`), the 24-hour badge (`Esperando mais de 24 horas úteis` ↔ `Waiting over 24 business hours`), the meeting type (`Presencial` ↔ `In person`) and all six buttons including `Reagendar` ↔ `New link` all switched, and the round trip returned identical Portuguese. Availability summary and chips switched both ways with times staying `9:00 AM` / `6:00 PM`. Portal card switched both ways. The client booking page renders correct Portuguese through both steps with `08/14/2026` and `3:00 PM`.
+
+- **Test data**: created one scheduling request for `test-client-temp-001`, then deleted it. Nicole's two seeded fixtures (`shot-a` METZ, `shot-b` GATOR) were left in place, and the test client remains `archived=0` per the standing rule.
+
+- **NOT verified**: dashboard.html's copy of the queue was not toggled in the browser — it renders through the same shared module and the same live `isEn` function, so it is covered by the same listener, but that is inference rather than observation. The Follow-up preview shares `openSendPreview()` with Send and was covered by that path rather than opened separately. The toggle was driven by calling `apexNavToggleLang()` / `toggleLang()` directly rather than clicking the EN/PT chip in the header.

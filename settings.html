@@ -1526,8 +1526,19 @@
         + formatTime(start.value) + (en ? " to " : " às ") + formatTime(end.value) + ".";
     }
 
+    // NOTE: this page has no apiFetch() helper -- it uses getToken() + fetch
+    // directly, like loadTemplates() and every other loader here. The
+    // Availability code shipped calling apiFetch(), which threw
+    // "apiFetch is not defined" on every load and left the whole form blank.
+    // The empty .catch() it also shipped with meant that ReferenceError never
+    // reached the console, so the section looked merely empty rather than
+    // broken. Same page, same idiom, no new helper.
     function loadAvailability() {
-      apiFetch("/api/scheduling/settings")
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/scheduling/settings", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      })
         .then(function(res) {
           // Never a bare .json() here. This feature has twice shipped a bug
           // that was invisible because a failure landed in an empty catch --
@@ -1565,17 +1576,21 @@
       if (btn) { btn.disabled = true; }
 
       AV_SELECTED.sort(function(a, b) { return a - b; });
-      apiFetch("/api/scheduling/settings", {
-        method: "PUT",
-        body: {
-          day_start: start ? start.value : "09:00",
-          day_end: end ? end.value : "18:00",
-          work_days: AV_SELECTED.join(","),
-          min_notice_hours: notice ? parseInt(notice.value, 10) : 4,
-          daily_cap: cap ? parseInt(cap.value, 10) : 4,
-          default_duration: dur ? parseInt(dur.value, 10) : 60,
-          default_travel: travel ? parseInt(travel.value, 10) : 30
-        }
+      var payload = {
+        day_start: start ? start.value : "09:00",
+        day_end: end ? end.value : "18:00",
+        work_days: AV_SELECTED.join(","),
+        min_notice_hours: notice ? parseInt(notice.value, 10) : 4,
+        daily_cap: cap ? parseInt(cap.value, 10) : 4,
+        default_duration: dur ? parseInt(dur.value, 10) : 60,
+        default_travel: travel ? parseInt(travel.value, 10) : 30
+      };
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/scheduling/settings", {
+          method: "PUT",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
       })
         .then(function(res) {
           // "Salvo" used to appear whether or not the write succeeded, because

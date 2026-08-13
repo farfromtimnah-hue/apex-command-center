@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Como usar: Enviar horários | Apex</title>
+<!--
+  Walkthrough for the "Enviar horários" scheduling feature.
+
+  Opened from calendar.html in its own NAMED window (window.open with explicit
+  dimensions, name "apexHelpAgendamento") so Alice can put it side by side with
+  Apex and follow along. The name matters: clicking the button twice refocuses
+  the same window instead of stacking duplicates.
+
+  Standalone by design -- no app JS, no auth, no API. It must open instantly and
+  keep working even if something else on the site is broken.
+
+  Tokens copied from club.html, the existing Apex-branded public page, so this
+  reads as part of the product rather than a document about it.
+-->
+<style>
+  :root {
+    --bg     : #0a0a0c;
+    --panel  : #141418;
+    --gold   : #C9A43A;
+    --text   : #f5f2ec;
+    --muted  : #9a948c;
+    --border : #2a2a30;
+    --green  : #4caf6d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px; line-height: 1.55;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 22px 80px; }
+
+  header { text-align: center; margin-bottom: 26px; }
+  header img { width: 190px; max-width: 62%; height: auto; }
+  h1 { font-size: 23px; font-weight: 700; margin: 16px 0 6px; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  /* Table of contents. The whole point: she jumps to the one thing she needs
+     instead of scrolling a wall of text. */
+  nav.toc {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 18px; margin: 26px 0 34px;
+  }
+  nav.toc h2 {
+    font-size: 12px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 12px; font-weight: 600;
+  }
+  nav.toc ol { margin: 0; padding-left: 20px; }
+  nav.toc li { margin: 9px 0; }
+  nav.toc a { color: var(--gold); text-decoration: none; font-weight: 600; }
+  nav.toc a:hover { text-decoration: underline; }
+  nav.toc .note { display: block; color: var(--muted); font-weight: 400; font-size: 14px; }
+
+  section { margin: 0 0 40px; scroll-margin-top: 16px; }
+  section h2 {
+    font-size: 19px; font-weight: 700; margin: 0 0 4px;
+    padding-top: 20px; border-top: 1px solid var(--border);
+  }
+  section .lead { color: var(--muted); margin: 0 0 16px; font-size: 15px; }
+
+  ol.steps { padding-left: 22px; margin: 0 0 16px; }
+  ol.steps li { margin: 10px 0; }
+
+  figure { margin: 18px 0; }
+  figure img {
+    width: 100%; height: auto; display: block;
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  figcaption { color: var(--muted); font-size: 13.5px; margin-top: 8px; text-align: center; }
+
+  /* Placeholder shown until a real screenshot is dropped in. Never ships to
+     Alice looking like this -- if you see it, the image is missing. */
+  .shot-todo {
+    border: 1px dashed var(--border); border-radius: 10px;
+    padding: 30px 18px; text-align: center; color: var(--muted); font-size: 14px;
+    background: rgba(255,255,255,.02);
+  }
+
+  .callout {
+    border-left: 3px solid var(--gold); background: var(--panel);
+    padding: 13px 16px; border-radius: 0 10px 10px 0; margin: 16px 0;
+    font-size: 15px;
+  }
+  .callout strong { color: var(--gold); }
+
+  .btnname {
+    display: inline-block; background: rgba(201,164,58,.15);
+    border: 1px solid rgba(201,164,58,.4); color: var(--gold);
+    border-radius: 6px; padding: 1px 7px; font-size: 14.5px; font-weight: 600;
+    white-space: nowrap;
+  }
+
+  table.btns { width: 100%; border-collapse: collapse; margin: 6px 0 4px; }
+  table.btns td { border-top: 1px solid var(--border); padding: 11px 4px; vertical-align: top; font-size: 15px; }
+  table.btns td:first-child { width: 40%; }
+
+  .top { display: inline-block; margin-top: 10px; color: var(--muted); font-size: 13.5px; text-decoration: none; }
+  .top:hover { color: var(--gold); }
+
+  footer { color: var(--muted); font-size: 13px; text-align: center; border-top: 1px solid var(--border); padding-top: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header id="topo">
+    <img src="../assets/apex-logo.png" alt="Apex Business &amp; Leadership">
+    <h1>Enviar horários</h1>
+    <p class="sub">Como marcar as reuniões da semana sem ficar perguntando um por um.</p>
+  </header>
+
+  <div class="callout">
+    <strong>A ideia.</strong> Em vez de você falar com cada cliente para achar um horário,
+    o sistema manda um link. O cliente escolhe entre os horários livres do Pastor Rafael,
+    e a reunião entra na agenda sozinha. Você não precisa fazer mais nada.
+  </div>
+
+  <nav class="toc">
+    <h2>Índice</h2>
+    <ol>
+      <li><a href="#disponibilidade">Antes de tudo: seus horários</a>
+        <span class="note">Que dias e horas o Pastor Rafael atende. Configure uma vez.</span></li>
+      <li><a href="#enviar">Enviar horários para um cliente</a>
+        <span class="note">O passo a passo, do botão até o WhatsApp.</span></li>
+      <li><a href="#lista">A lista de quem ainda não respondeu</a>
+        <span class="note">Onde ela fica e o que cada botão faz.</span></li>
+      <li><a href="#cliente">O que o cliente vê</a>
+        <span class="note">A tela que ele abre pelo link.</span></li>
+      <li><a href="#marcada">Quando ele escolhe o horário</a>
+        <span class="note">Entra na agenda e no Google Meet automaticamente.</span></li>
+      <li><a href="#cobrar">Cobrar quem não respondeu</a>
+        <span class="note">Uma segunda mensagem, sem refazer o link.</span></li>
+      <li><a href="#outros">Remarcar, pular a semana e horário na mão</a>
+        <span class="note">Os casos fora do comum.</span></li>
+    </ol>
+  </nav>
+
+  <section id="disponibilidade">
+    <h2>1. Antes de tudo: seus horários</h2>
+    <p class="lead">Isso define TODOS os horários que qualquer cliente vai ver. Configure uma vez e pode esquecer.</p>
+    <div class="shot-todo">[captura: a tela de Disponibilidade]</div>
+    <ol class="steps">
+      <li>Abra <span class="btnname">Configurações</span> e vá na aba <span class="btnname">Disponibilidade</span>.</li>
+      <li>Marque os dias da semana em que o Pastor Rafael atende.</li>
+      <li>Escolha o horário de início e de fim do dia.</li>
+      <li><strong>Aviso mínimo:</strong> quanto tempo antes o cliente ainda pode marcar. Ex.: 4 horas.</li>
+      <li><strong>Máximo por dia:</strong> quantas reuniões cabem em um dia.</li>
+      <li>Clique em salvar.</li>
+    </ol>
+    <div class="callout">
+      O sistema nunca oferece um horário que já está ocupado na agenda do Pastor Rafael,
+      nem um que quebre essas regras. Você não precisa conferir.
+    </div>
+    <a class="top" href="#topo">↑ voltar ao índice</a>
+  </section>
+
+  <section id="enviar">
+    <h2>2. Enviar horários para um cliente</h2>
+    <p class="lead">É isso que substitui a conversa de sexta-feira, cliente por cliente.</p>
+    <div class="shot-todo">[captura: o botão Enviar horários na página Calendário]</div>
+    <ol class="steps">
+      <li>Abra o <span class="btnname">Calendário</span>.</li>
+      <li>Clique em <span class="btnname">Enviar horários</span>, no canto superior direito.</li>
+      <li>Escolha o cliente na lista. Os clientes ativos aparecem primeiro.</li>
+      <li>Escolha <span class="btnname">Google Meet</span> ou <span class="btnname">Presencial</span>.</li>
+      <li>Se for presencial, coloque o endereço e o tempo de deslocamento.</li>
+      <li>Clique em <span class="btnname">Criar link</span>.</li>
+    </ol>
+    <div class="shot-todo">[captura: a janela Enviar horários preenchida]</div>
+    <div class="callout">
+      <strong>Duração.</strong> Toda reunião já vem com 1 hora. Só mexa em
+      <span class="btnname">Personalizar duração</span> se aquela reunião for diferente.
+    </div>
+    <a class="top" href="#topo">↑ voltar ao índice</a>
+  </section>
+
+  <section id="lista">
+    <h2>3. A lista de quem ainda não respondeu</h2>
+    <p class="lead">Depois de criar o link, o cliente entra numa lista embaixo do calendário.</p>
+    <div class="shot-todo">[captura: a lista Aguardando horário com os botões]</div>
+    <p>Cada linha mostra o nome do cliente e há quanto tempo você está esperando. Quanto mais tempo passa, mais forte fica o texto.</p>
+    <table class="btns">
+      <tr><td><span class="btnname">Enviar no WhatsApp</span></td><td>Abre o WhatsApp com a mensagem pronta. Você escolhe a pessoa ou o grupo.</td></tr>
+      <tr><td><span class="btnname">Cobrar</span></td><td>Manda uma segunda mensagem, mais leve, com o mesmo link.</td></tr>
+      <tr><td><span class="btnname">Editar</span></td><td>Muda os dados da reunião antes de o cliente escolher.</td></tr>
+      <tr><td><span class="btnname">Adicionar horário</span></td><td>Se o cliente mandar um horário direto no WhatsApp, você coloca na mão.</td></tr>
+      <tr><td><span class="btnname">Novo link</span></td><td>Gera um link novo.</td></tr>
+      <tr><td><span class="btnname">Pular a semana</span></td><td>Quando não vai ter reunião. Pergunta antes de confirmar.</td></tr>
+    </table>
+    <a class="top" href="#topo">↑ voltar ao índice</a>
+  </section>
+
+  <section id="cliente">
+    <h2>4. O que o cliente vê</h2>
+    <p class="lead">Ele abre o link no celular e escolhe em duas telas. Nada de aplicativo, nada de senha.</p>
+    <div class="shot-todo">[captura: a tela de escolher o dia]</div>
+    <p><strong>Primeiro o dia.</strong> Ele pode marcar mais de um.</p>
+    <div class="shot-todo">[captura: a tela de escolher o horário]</div>
+    <p><strong>Depois o horário.</strong> Aparecem poucas opções, nos horários que ele costuma marcar. Se não servir, ele tem
+      <span class="btnname">Mais cedo?</span>, <span class="btnname">Mais tarde?</span> e
+      <span class="btnname">Nenhum destes funciona</span> — esse último avisa você.</p>
+    <div class="callout">
+      <strong>Se dois clientes escolherem o mesmo horário</strong>, o primeiro fica com ele.
+      O segundo vê na hora os horários que sobraram, sem erro e sem ficar travado.
+    </div>
+    <a class="top" href="#topo">↑ voltar ao índice</a>
+  </section>
+
+  <section id="marcada">
+    <h2>5. Quando ele escolhe o horário</h2>
+    <p class="lead">A partir daqui é tudo automático.</p>
+    <div class="shot-todo">[captura: a tela de reunião confirmada]</div>
+    <ol class="steps">
+      <li>A reunião entra na agenda do Pastor Rafael na hora.</li>
+      <li>Se for online, o link do Google Meet é criado sozinho.</li>
+      <li>Na sua lista, o cliente sai de cima e fica marcado como resolvido.</li>
+      <li>O cliente passa a ver a reunião no portal dele.</li>
+    </ol>
+    <div class="callout">
+      <strong>O lembrete do dia continua sendo seu.</strong> O sistema marca a reunião,
+      mas quem manda a mensagem no dia é você.
+    </div>
+    <a class="top" href="#topo">↑ voltar ao índice</a>
+  </section>
+
+  <section id="cobrar">
+    <h2>6. Cobrar quem não respondeu</h2>
+    <p class="lead">Sem refazer nada e sem parecer cobrança.</p>
+    <div class="shot-todo">[captura: a mensagem de cobrança]</div>
+    <ol class="steps">
+      <li>Na lista, clique em <span class="btnname">Cobrar</span>.</li>
+      <li>A mensagem é outra, mais leve, e usa <strong>o mesmo link</strong> — o que você já mandou continua valendo.</li>
+      <li>Clique em <span class="btnname">Abrir WhatsApp</span> e escolha a pessoa ou o grupo.</li>
+    </ol>
+    <div class="callout">
+      Depois de cobrar, a linha mostra quando você cobrou. Assim você não cobra a mesma pessoa duas vezes.
+    </div>
+    <a class="top" href="#topo">↑ voltar ao índice</a>
+  </section>
+
+  <section id="outros">
+    <h2>7. Remarcar, pular a semana e horário na mão</h2>
+    <p class="lead">Os casos que fogem do normal.</p>
+    <p><strong>O cliente quer remarcar.</strong> Ele mesmo remarca pelo portal, sem passar por você. Se ele pedir no WhatsApp, use <span class="btnname">Novo link</span>.</p>
+    <p><strong>Ele mandou o horário no WhatsApp.</strong> Use <span class="btnname">Adicionar horário</span>, escolha a data e a hora, e salve. Vale até para um horário fora dos que você ofereceu.</p>
+    <p><strong>Não vai ter reunião essa semana.</strong> Use <span class="btnname">Pular a semana</span> e diga o motivo. O sistema pergunta antes de confirmar, para você não clicar sem querer.</p>
+    <a class="top" href="#topo">↑ voltar ao índice</a>
+  </section>
+
+  <footer>
+    Apex Business &amp; Leadership · Qualquer dúvida, é só chamar a Nicole.
+  </footer>
+
+</div>
+</body>
+</html>

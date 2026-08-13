@@ -5684,10 +5684,14 @@
               formatDate(s.date) + (s.time ? " - " + formatTime(s.time) : "");
             btn.textContent = isEn() ? "Reschedule" : "Reagendar";
           } else {
+            // Accents kept: this is copy the CLIENT reads on the page. The
+            // plain-ASCII rule covers JS string data, not Portuguese rendered
+            // to screen — "Voce ainda nao escolheu um horario" sat directly
+            // beside a correctly accented line in the same card.
             text.textContent = isEn()
               ? "You have not picked a time yet."
-              : "Voce ainda nao escolheu um horario.";
-            btn.textContent = isEn() ? "Pick a time" : "Escolher horario";
+              : "Você ainda não escolheu um horário.";
+            btn.textContent = isEn() ? "Pick a time" : "Escolher horário";
           }
 
           if (d.booking_token) {

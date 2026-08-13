@@ -23715,6 +23715,96 @@ async function schedReleaseBookingForSession(env, sessionId) {
 }
 
 // ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/reopen
+//
+// The client's own "I need a different time". Releases the booking this token
+// already holds and returns the request to 'waiting', so the SAME link becomes
+// a working picker again.
+//
+// Before this existed, a booked link rendered "Sua reuniao ja esta marcada --
+// se precisar mudar, fale com a Alice pelo WhatsApp": a dead end that handed
+// the work straight back to the person this whole feature exists to unburden.
+//
+// ORDERING IS THE CONTRACT, same as the admin cancel route: Google is
+// authoritative, so the D1 release runs ONLY after the Google event is
+// verifiably gone (or was already gone, or never existed). Otherwise Apex
+// frees a slot that the client's calendar still shows as booked.
+//
+// The token is the credential, exactly as on the other public link routes.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingReopen(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+
+        // Only a booked request can be reopened. A 'waiting' one already IS a
+        // picker, and skipped/expired links are dead on purpose.
+        if (req.status !== "booked") {
+            if (req.status === "waiting" || req.status === "none_work") {
+                return jsonOk({ ok: true, already_open: true });
+            }
+            return jsonErr("This link is no longer active", 409);
+        }
+
+        var booking = await env.DB.prepare(
+            "SELECT id, session_id FROM scheduling_bookings WHERE request_id = ? ORDER BY created_at DESC"
+        ).bind(req.id).first();
+
+        // Remove the meeting itself first -- the session row AND its Google
+        // event -- so the client's calendar never keeps an event Apex has
+        // already forgotten.
+        if (booking && booking.session_id) {
+            var session = await env.DB.prepare(
+                "SELECT id, google_event_id, calendar_provider FROM sessions WHERE id = ?"
+            ).bind(booking.session_id).first();
+
+            if (session && session.calendar_provider === "apex" && session.google_event_id) {
+                var accessToken;
+                try {
+                    accessToken = await getGoogleAccessToken(env);
+                } catch (tokenErr) {
+                    return jsonErr("Nao foi possivel atualizar a agenda agora. Tente em instantes.", 503);
+                }
+                var delRes;
+                try {
+                    delRes = await googleCalendarApiCall(accessToken, "DELETE",
+                        "/events/" + encodeURIComponent(session.google_event_id), null);
+                } catch (delErr) {
+                    return jsonErr("Nao foi possivel atualizar a agenda agora. Tente em instantes.", 503);
+                }
+                // 404/410 means it is already gone -- the desired end state.
+                if (!delRes.ok && delRes.status !== 404 && delRes.status !== 410) {
+                    return jsonErr("Nao foi possivel atualizar a agenda agora. Tente em instantes.", 503);
+                }
+            }
+
+            if (session) {
+                await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(session.id).run();
+            }
+        }
+
+        // Free the slot. This is the row the UNIQUE index guards, so deleting
+        // it is what actually makes the time bookable again -- by this client
+        // or anyone else.
+        if (booking) {
+            await env.DB.prepare("DELETE FROM scheduling_bookings WHERE id = ?").bind(booking.id).run();
+        }
+
+        // Same token, same week: the link the client already has keeps working
+        // and is now a picker again.
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'waiting', session_id = NULL, booked_at = NULL " +
+            "WHERE id = ?"
+        ).bind(req.id).run();
+
+        return jsonOk({ ok: true, token: req.token });
+    } catch (e) {
+        return jsonErr("Error reopening link: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // PUBLIC: POST /api/scheduling/link/:token/book
 //
 // The loser NEVER sees an error page: a 409 carries the remaining times, so a
@@ -23928,15 +24018,43 @@ async function handleGetSchedulingClientState(request, env) {
             "ORDER BY date ASC, time ASC"
         ).bind(clientId, weekStart, weekEnd).first();
 
+        // 'booked' IS included, and that is the whole point.
+        //
+        // This used to filter to ('waiting','none_work'), so the moment a
+        // client booked, their request flipped to 'booked' and booking_token
+        // came back null — hiding the Reagendar button at exactly the moment
+        // rescheduling becomes relevant. Worse, the Agenda-tab event modal
+        // told them "para remarcar, use o link de agendamento" while this
+        // endpoint refused to hand over any link at all.
+        //
+        // The ORIGINAL token is reused rather than minting a fresh one. Same
+        // reasoning already documented on Alice's Cobrar/follow-up button: the
+        // client may still have the link open in a tab or in WhatsApp, and a
+        // new token silently turns that page into a dead end. Reuse also keeps
+        // one link per request, so "which link is current?" is never a
+        // question. (Alice's own Reagendar DOES mint a new token — that is a
+        // deliberate override for when she wants the old one dead.)
         var req = await env.DB.prepare(
-            "SELECT token, status FROM scheduling_requests WHERE client_id = ? AND status IN ('waiting','none_work') " +
-            "ORDER BY created_at DESC"
+            "SELECT token, status FROM scheduling_requests WHERE client_id = ? " +
+            "AND status IN ('waiting','none_work','booked') ORDER BY created_at DESC"
         ).bind(clientId).first();
+
+        // Today and tomorrow on APEX's clock -- the SAME window
+        // /api/portal/next-meeting uses to decide a meeting is joinable.
+        // Computed here so the portal's merged card applies one rule from one
+        // source instead of re-deriving "soon" in the browser, where the
+        // viewer's timezone would answer a different question.
+        var joinFrom = easternDateStr(0);
+        var joinTo   = easternDateStr(1);
 
         return jsonOk({
             scheduled: !!session,
             session: session || null,
             booking_token: req ? req.token : null,
+            request_status: req ? req.status : null,
+            // True when the booked session falls in the join window, so the
+            // card can show Entrar alongside Reagendar.
+            in_join_window: !!(session && session.date >= joinFrom && session.date <= joinTo),
             week_start: weekStart, week_end: weekEnd
         });
     } catch (e) {
@@ -24179,6 +24297,10 @@ async function handleFetch(request, env, ctx) {
         if (schedSuggest && method === "POST") { return handlePostSchedulingSuggest(schedSuggest[1], request, env); }
         var schedBook = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/book$/);
         if (schedBook && method === "POST") { return handlePostSchedulingBook(schedBook[1], request, env); }
+        // The client's own "I need a different time" — releases the hold this
+        // token carries so the same link becomes a picker again.
+        var schedReopen = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/reopen$/);
+        if (schedReopen && method === "POST") { return handlePostSchedulingReopen(schedReopen[1], request, env); }
         var schedNone = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/none$/);
         if (schedNone && method === "POST") { return handlePostSchedulingNone(schedNone[1], request, env); }
 

@@ -4188,9 +4188,28 @@ function gmCalOpenApex(ev) {
       'href="' + escHtml(ev.meet_link) + '" target="_blank" rel="noopener">' +
       gmT("Entrar no Google Meet", "Join Google Meet") + '</a>';
   }
-  body += '<p class="muted" style="font-size:11px;padding:0 2px;">' +
-    gmT("Reunião com a Apex. Para remarcar, use o link de agendamento.",
-        "A meeting with Apex. To reschedule, use your booking link.") + '</p>';
+  // A REAL reschedule action, not an instruction to go find a link.
+  //
+  // This footer used to read "para remarcar, use o link de agendamento" while
+  // the endpoint behind that link refused to hand one over for a booked
+  // request -- it told the client to use something that did not exist. The
+  // button below reuses the portal's own reschedule path, so there is one
+  // implementation of "reopen my booking" rather than two.
+  if (typeof window.reopenScheduling === "function" && window.apexBookingToken) {
+    body += '<button type="button" class="btn-outline gm-add-btn" ' +
+      'style="display:block;width:100%;text-align:center;" ' +
+      'onclick="window.reopenScheduling(window.apexBookingToken)">' +
+      gmT("Reagendar", "Reschedule") + '</button>';
+    body += '<p class="muted" style="font-size:11px;padding:0 2px;">' +
+      gmT("Reunião com a Apex.", "A meeting with Apex.") + '</p>';
+  } else {
+    // No token available (Alice booked this directly, so there is no
+    // scheduling request to reopen). Say who to talk to instead of naming a
+    // link that does not exist.
+    body += '<p class="muted" style="font-size:11px;padding:0 2px;">' +
+      gmT("Reunião com a Apex. Para remarcar, fale com a Alice.",
+          "A meeting with Apex. To reschedule, contact Alice.") + '</p>';
+  }
   gmSheetOpen(gmT("Reunião com a Apex", "Meeting with Apex"), body, "gm-club-invite");
 }
 

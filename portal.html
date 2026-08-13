@@ -1288,27 +1288,20 @@
              designed the page, still missed her own meeting on it. Rows are
              rendered by loadMeetings(); the card stays hidden when there is
              nothing today or tomorrow rather than showing an empty shell. -->
-        <!-- ══ Scheduling call-out ══════════════════════════════════════════
-             Two states, never both. NOT scheduled this week -> a prominent
-             call-out with the booking link right here, because a client who
-             has to go hunting for it simply does not book. Scheduled -> a
-             quiet Reagendar that opens the same picker. -->
-        <div class="content-card" id="schedCallout" hidden>
-          <div class="card-title">
-            <span class="show-pt">Sua reuni&atilde;o desta semana</span>
-            <span class="show-en">Your meeting this week</span>
-          </div>
-          <div class="meeting-card">
-            <div style="flex:1;min-width:0;">
-              <div class="list-title" id="schedCalloutText"></div>
-            </div>
-            <a id="schedCalloutBtn" href="#" target="_blank" rel="noopener"
-               style="font-family:inherit;font-size:14px;font-weight:600;padding:11px 18px;border-radius:9px;background:var(--gold);color:#12100a;text-decoration:none;white-space:nowrap;"></a>
-          </div>
-        </div>
-
+        <!-- ══ ONE meeting card ═════════════════════════════════════════════
+             This card and the scheduling call-out were two separate cards
+             showing the SAME meeting, stacked on the page the client lands on:
+             once they booked something for tomorrow, both rendered, both said
+             the same thing, and it read as broken.
+             They are now one card with four states, driven by renderMeetings():
+               no time chosen      -> the prompt + Escolher horario
+               booked, further out -> date + time + Reagendar
+               booked, today/tomorrow -> date + time + Entrar AND Reagendar
+               nothing issued/booked  -> hidden entirely, no dead button
+             The banner clients already recognise is the one that survived; the
+             scheduling states folded into it. -->
         <div class="content-card" id="meetingsCard" hidden>
-          <div class="card-title">
+          <div class="card-title" id="meetingsCardTitle">
             <span class="show-pt">Pr&oacute;ximas reuni&otilde;es</span>
             <span class="show-en">Upcoming meetings</span>
           </div>
@@ -5656,77 +5649,233 @@
       } catch (e) { return todayStr(); }
     }
 
-    // ── Scheduling call-out ────────────────────────────────────────────────
-    // Unscheduled -> the booking link, prominently. Scheduled -> Reagendar,
-    // which opens the SAME picker rather than a second flow.
-    function loadSchedCallout() {
-      apiFetch("/api/scheduling/client-state")
+    // The scheduling half of the card's state (booking token, whether a time
+    // is booked at all). Kept alongside lastMeetings so the language toggle
+    // re-renders both halves from one place without refetching either.
+    var lastSchedState = null;
+
+    // Both halves of ONE card, fetched together.
+    //
+    // /api/portal/next-meeting answers "is there a meeting today or tomorrow,
+    // and how do I join it"; /api/scheduling/client-state answers "is a time
+    // booked at all, and what link changes it". They used to drive two
+    // separate cards that both rendered for the same meeting. Now they feed
+    // one renderer.
+    //
+    // Promise.all, not two independent chains, so the card renders once with
+    // the full picture rather than flickering through a half-state. Neither
+    // failure is allowed to take the other down: each rejection is logged and
+    // degrades to null, and renderMeetings() shows whatever it does have.
+    function loadMeetings() {
+      var meetingsP = apiFetch("/api/portal/next-meeting")
         .then(function(res) {
-          // A silent .catch() on this call is why a whole missing panel
-          // produced no error: in admin preview the request answered 400 and
-          // the card just stayed hidden, looking like "nothing scheduled".
+          if (!res.ok) { throw new Error("next-meeting HTTP " + res.status); }
+          return res.json();
+        })
+        .catch(function(e) {
+          // NEVER a silent catch here. A swallowed failure on this exact card
+          // is why a whole missing panel once looked like "nothing scheduled".
+          console.error("[portal] next-meeting failed to load:", e.message);
+          return null;
+        });
+
+      var schedP = apiFetch("/api/scheduling/client-state")
+        .then(function(res) {
           if (!res.ok) { throw new Error("client-state HTTP " + res.status); }
           return res.json();
         })
-        .then(function(d) {
-          var card = document.getElementById("schedCallout");
-          var text = document.getElementById("schedCalloutText");
-          var btn  = document.getElementById("schedCalloutBtn");
-          if (!card || !text || !btn) { return; }
+        .catch(function(e) {
+          console.error("[sched] client-state failed to load:", e.message);
+          return null;
+        });
 
-          // No link issued and nothing booked: there is nothing for the client
-          // to act on, so show nothing rather than a dead button.
-          if (!d.scheduled && !d.booking_token) { card.hidden = true; return; }
+      return Promise.all([meetingsP, schedP]).then(function(r) {
+        lastMeetings   = (r[0] && r[0].meetings) || [];
+        lastSchedState = r[1];
+        // Published for gm.js, which renders the Agenda tab's event modal and
+        // needs the same token to offer the same Reagendar action. One
+        // implementation, shared -- not a second copy over there.
+        window.apexBookingToken = lastSchedState ? lastSchedState.booking_token : null;
+        renderMeetings(lastMeetings);
+      });
+    }
 
-          if (d.scheduled) {
-            var s = d.session || {};
-            text.textContent = (isEn() ? "Scheduled for " : "Agendada para ") +
-              formatDate(s.date) + (s.time ? " - " + formatTime(s.time) : "");
-            btn.textContent = isEn() ? "Reschedule" : "Reagendar";
-          } else {
-            // Accents kept: this is copy the CLIENT reads on the page. The
-            // plain-ASCII rule covers JS string data, not Portuguese rendered
-            // to screen — "Voce ainda nao escolheu um horario" sat directly
-            // beside a correctly accented line in the same card.
-            text.textContent = isEn()
-              ? "You have not picked a time yet."
-              : "Você ainda não escolheu um horário.";
-            btn.textContent = isEn() ? "Pick a time" : "Escolher horário";
+    // Reagendar. The token's request is currently 'booked', so the link would
+    // otherwise open on "sua reuniao ja esta marcada". /reopen releases that
+    // hold (session row and Google event included) and returns the request to
+    // 'waiting', so the SAME link becomes a working picker.
+    //
+    // Admin preview is read-only at the API level, so this POST is refused
+    // there by design — the button must still RENDER in preview, it just
+    // cannot fire. That refusal is reported rather than swallowed.
+    function reopenScheduling(token) {
+      if (!token) { return; }
+      var url = "agendar.html?t=" + encodeURIComponent(token);
+      apiFetch("/api/scheduling/link/" + encodeURIComponent(token) + "/reopen", { method: "POST" })
+        .then(function(res) {
+          return res.json().then(function(body) { return { ok: res.ok, status: res.status, body: body }; });
+        })
+        .then(function(r) {
+          if (!r.ok) {
+            console.error("[sched] could not reopen the booking link:",
+              r.status, (r.body && r.body.error) || "");
+            window.alert(isEn()
+              ? "Could not reopen the scheduling link. Please try again."
+              : "Não foi possível reabrir o link de agendamento. Tente novamente.");
+            return;
           }
-
-          if (d.booking_token) {
-            btn.href = "agendar.html?t=" + encodeURIComponent(d.booking_token);
-            btn.hidden = false;
-          } else {
-            // Booked with no open link: nothing to reschedule against without
-            // Alice issuing a new one.
-            btn.hidden = true;
-          }
-          card.hidden = false;
+          window.location.href = url;
         })
         .catch(function(e) {
-          console.error("[sched] booking call-out failed to load:", e.message);
+          console.error("[sched] reopen request failed:", e.message);
+          window.alert(isEn()
+            ? "Could not reopen the scheduling link. Please try again."
+            : "Não foi possível reabrir o link de agendamento. Tente novamente.");
         });
     }
 
-    function loadMeetings() {
-      loadSchedCallout();
-      apiFetch("/api/portal/next-meeting")
-        .then(function(res) { return res.json(); })
-        .then(function(d) {
-          lastMeetings = (d && d.meetings) || [];
-          renderMeetings(lastMeetings);
-        })
-        .catch(function() {});
+    // gm.js renders the Agenda tab's event modal in this same page scope but
+    // is a separate file, so the shared reschedule path is published rather
+    // than reimplemented there.
+    window.reopenScheduling = reopenScheduling;
+
+    // The card heading changes with the state, so it is swapped here rather
+    // than duplicated as two hidden headings. Both languages are written every
+    // time -- the .show-pt/.show-en spans are what the language toggle reads,
+    // so writing only the active one would leave the other blank after a
+    // toggle. Accents kept: this is page copy, not JS data.
+    function setCardTitle(title, pt, en) {
+      title.innerHTML = "";
+      var ptEl = document.createElement("span");
+      ptEl.className = "show-pt";
+      ptEl.textContent = pt;
+      var enEl = document.createElement("span");
+      enEl.className = "show-en";
+      enEl.textContent = en;
+      title.appendChild(ptEl);
+      title.appendChild(enEl);
+    }
+
+    // Shared gold action button. A real <button> for Reagendar (it POSTs
+    // before navigating) and an <a> for Entrar (a plain outbound link).
+    function meetingActionButton(label, onClick) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn-gold";
+      b.style.cssText = "font-family:inherit;white-space:nowrap;";
+      b.textContent = label;
+      b.onclick = onClick;
+      return b;
+    }
+
+    // State 1 row: no time picked yet.
+    function schedPromptRow(token) {
+      var row = document.createElement("div");
+      row.className = "meeting-card meeting-row";
+
+      var body = document.createElement("div");
+      var t = document.createElement("div");
+      t.className = "list-title";
+      t.textContent = isEn()
+        ? "You have not picked a time yet."
+        : "Você ainda não escolheu um horário.";
+      body.appendChild(t);
+      row.appendChild(body);
+
+      var a = document.createElement("a");
+      a.href = "agendar.html?t=" + encodeURIComponent(token);
+      a.className = "btn-gold";
+      a.style.cssText = "text-decoration:none;display:inline-block;white-space:nowrap;";
+      a.textContent = isEn() ? "Pick a time" : "Escolher horário";
+      row.appendChild(a);
+      return row;
+    }
+
+    // States 2/3 row: booked. `withJoin` adds Entrar when the meeting is close
+    // enough that joining is the primary action.
+    function bookedRow(s, token, withJoin) {
+      var row = document.createElement("div");
+      row.className = "meeting-card meeting-row";
+
+      var body = document.createElement("div");
+      var when = document.createElement("div");
+      when.className = "meeting-when";
+      when.textContent = isEn() ? "Scheduled" : "Agendada";
+      body.appendChild(when);
+
+      var meta = document.createElement("div");
+      meta.className = "meeting-meta";
+      meta.textContent = formatDate(s.date) + (s.time ? " · " + formatTime(s.time) : "");
+      body.appendChild(meta);
+      row.appendChild(body);
+
+      if (withJoin) {
+        var link = s.google_meet_link || "";
+        // Same sentinel guard as the join rows below: "[PENDING_GOOGLE_API]"
+        // reached a live client as a clickable link on 2026-07-22.
+        if (link && link !== "[PENDING_GOOGLE_API]" && link !== "in_person") {
+          var joinA = document.createElement("a");
+          joinA.href = link;
+          joinA.target = "_blank";
+          joinA.rel = "noopener";
+          joinA.className = "btn-gold";
+          joinA.style.cssText = "text-decoration:none;display:inline-block;white-space:nowrap;";
+          joinA.textContent = isEn() ? "Join" : "Entrar";
+          row.appendChild(joinA);
+        }
+      }
+
+      if (token) {
+        row.appendChild(meetingActionButton(
+          isEn() ? "Reschedule" : "Reagendar",
+          function() { reopenScheduling(token); }
+        ));
+      }
+      return row;
     }
 
     function renderMeetings(meetings) {
       var card = document.getElementById("meetingsCard");
       var list = document.getElementById("meetingsList");
+      var title = document.getElementById("meetingsCardTitle");
       if (!card || !list) { return; }
       list.innerHTML = "";
-      // Nothing today or tomorrow -> no empty card at all.
-      if (!meetings.length) { card.hidden = true; return; }
+
+      var sched = lastSchedState;
+
+      // ── State 1: a time is owed but not chosen ──────────────────────────
+      // The client has a link and has not booked. This is the ONE state the
+      // old next-meeting card could never express, and the reason the second
+      // card was added in the first place. It belongs here.
+      if (sched && !sched.scheduled && sched.booking_token) {
+        if (title) { setCardTitle(title, "Sua reunião desta semana", "Your meeting this week"); }
+        list.appendChild(schedPromptRow(sched.booking_token));
+        card.hidden = false;
+        return;
+      }
+
+      // ── State 4: nothing issued and nothing booked ──────────────────────
+      // No link, no meeting in the window -> no card at all, rather than a
+      // heading over a dead button.
+      if (!meetings.length && !(sched && sched.scheduled)) {
+        card.hidden = true;
+        return;
+      }
+
+      // ── State 2: booked, but outside the join window ────────────────────
+      // next-meeting only covers today and tomorrow, so a meeting further out
+      // returns no rows -- but the client still needs to see it and be able to
+      // move it. Rendered from the scheduling state instead.
+      if (!meetings.length && sched && sched.scheduled) {
+        if (title) { setCardTitle(title, "Sua reunião desta semana", "Your meeting this week"); }
+        list.appendChild(bookedRow(sched.session || {}, sched.booking_token, false));
+        card.hidden = false;
+        return;
+      }
+
+      // ── State 3: booked AND inside the join window ──────────────────────
+      // The original card's own rows, now carrying Reagendar beside Entrar.
+      if (title) { setCardTitle(title, "Próximas reuniões", "Upcoming meetings"); }
 
       // "Today" on APEX's clock, not the viewer's. The server picked these two
       // dates in Eastern; todayStr() is the viewer's local date, so a client in
@@ -5795,6 +5944,20 @@
           dirA.style.cssText = "text-decoration:none;display:inline-block;";
           dirA.textContent = isEn() ? "Directions" : "Como chegar";
           row.appendChild(dirA);
+        }
+
+        // Reagendar sits beside Entrar/Como chegar rather than in a second
+        // card. Only on the row that is actually the scheduled meeting: this
+        // window can also hold sessions Alice booked directly, which carry no
+        // scheduling request and nothing to reopen.
+        if (sched && sched.booking_token && sched.session &&
+            sched.session.date === m.date && sched.session.time === m.time) {
+          row.appendChild(meetingActionButton(
+            isEn() ? "Reschedule" : "Reagendar",
+            (function(tok) {
+              return function() { reopenScheduling(tok); };
+            }(sched.booking_token))
+          ));
         }
 
         list.appendChild(row);
@@ -6285,7 +6448,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1786590383"></script>
+  <script src="gm.js?v=1786592762"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

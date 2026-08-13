@@ -1431,6 +1431,38 @@
       loadBusinessSettings();
       loadAvailability();
       refreshPushState();
+      scrollToHashSection();
+    }
+
+    // Re-apply the URL hash AFTER the page is revealed.
+    //
+    // #appMain is hidden while the role check runs, so the browser resolves
+    // the anchor against a nearly empty document and "scrolls" to a section
+    // that is not laid out yet. Every loader above then fills the page and
+    // pushes that section thousands of pixels down -- the calendar's
+    // Disponibilidade deep link landed 10301px above its target, dumping
+    // Alice at the top of a long page, which is the exact hunting the link
+    // exists to prevent.
+    //
+    // The loaders are async, so one frame is not enough; this re-checks a few
+    // times over ~1.5s and stops as soon as the target is actually near the
+    // top. Bounded on purpose -- no observer, no polling forever.
+    function scrollToHashSection() {
+      if (!window.location.hash) { return; }
+      var id = window.location.hash.slice(1);
+      var tries = 0;
+      function attempt() {
+        var el = document.getElementById(id);
+        if (!el) { return; }
+        el.scrollIntoView({ block: "start" });
+        tries++;
+        // Stop once it has settled near the top, or after a bounded retry
+        // window -- whichever comes first.
+        if (tries < 6 && Math.abs(el.getBoundingClientRect().top) > 80) {
+          setTimeout(attempt, 250);
+        }
+      }
+      setTimeout(attempt, 150);
     }
 
     // ── Availability ("Enviar horários" rules) ─────────────────────────────

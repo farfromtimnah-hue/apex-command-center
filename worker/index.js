@@ -22906,13 +22906,37 @@ function schedInstant(dateStr, hhmm) {
     return new Date(dateStr + "T" + hhmm + ":00" + schedTZOffset(dateStr, hhmm)).getTime();
 }
 
-// Monday of the CURRENT local week, in Eastern. One week window only — never
-// two. Clients already struggle to commit to the current week.
-function schedCurrentWeekStart(env) {
-    var today = localDateStrForTZ();
-    var dow = schedDayOfWeek(today);
-    var back = (dow === 0) ? 6 : (dow - 1);   // Monday-anchored
-    return schedAddDays(today, -back);
+// First day of the offer window: TODAY in Eastern. The window ROLLS -- it is
+// the next 7 days from the moment the link is created, not the remainder of
+// the calendar week.
+//
+// This used to anchor to Monday of the current week, which meant the number of
+// days a client could choose from SHRANK as the week went on: past days are
+// correctly excluded, so a Wednesday link offered Wed-Fri, a Thursday link
+// offered Friday alone, and a Friday-afternoon link offered NOTHING. Alice
+// does her scheduling on Friday -- that Friday routine is the entire reason
+// this feature exists -- so the anchor broke the feature on the exact day it
+// was used. Found live on Thursday 2026-08-13: a real request offered exactly
+// one day (Friday 08/14) because Mon-Wed had passed and Sat/Sun are not
+// working days.
+//
+// Rolling forward keeps the window the SAME LENGTH. It is still one week and
+// never two: Nicole's reasoning stands -- clients already struggle to commit to
+// the current week and pushing them further out invites reschedules. Non-working
+// days inside the range are filtered by the working-days rule in
+// schedComputeSlots(), so a Friday send naturally yields the following Mon-Fri
+// and a Monday send yields Mon-Fri of the same week.
+//
+// Eastern, never UTC: localDateStrForTZ() formats in America/New_York, because
+// a UTC "today" rolls over at 8pm Florida time and a link created Friday
+// evening would compute SATURDAY as its start.
+function schedWindowStart(env) {
+    return localDateStrForTZ();
+}
+
+// Last day of the offer window: 6 days after the start, inclusive -- 7 days total.
+function schedWindowEnd(startDate) {
+    return schedAddDays(startDate, 6);
 }
 
 // Business-hours age. A link sent Friday must NOT flag on Saturday, when Alice
@@ -22961,7 +22985,7 @@ async function schedSettings(env) {
 //
 // Returns { blocks: [{start,end}] (epoch ms), perDay: {date: count},
 //           googleOk: bool }.
-async function schedBusyBlocks(env, weekStart, weekEnd) {
+async function schedBusyBlocks(env, rangeStart, rangeEnd) {
     var blocks = [];
     var perDay = {};
 
@@ -22969,7 +22993,7 @@ async function schedBusyBlocks(env, weekStart, weekEnd) {
     var rows = await env.DB.prepare(
         "SELECT date, time, end_time FROM sessions " +
         "WHERE date >= ? AND date <= ? AND status != 'cancelled' AND time IS NOT NULL"
-    ).bind(weekStart, weekEnd).all();
+    ).bind(rangeStart, rangeEnd).all();
 
     for (var i = 0; i < rows.results.length; i++) {
         var r = rows.results[i];
@@ -22996,7 +23020,7 @@ async function schedBusyBlocks(env, weekStart, weekEnd) {
     var bk = await env.DB.prepare(
         "SELECT slot_date, slot_time, end_time FROM scheduling_bookings " +
         "WHERE slot_date >= ? AND slot_date <= ? AND session_id IS NULL"
-    ).bind(weekStart, weekEnd).all();
+    ).bind(rangeStart, rangeEnd).all();
     for (var b = 0; b < bk.results.length; b++) {
         var bb = bk.results[b];
         blocks.push({
@@ -23010,8 +23034,8 @@ async function schedBusyBlocks(env, weekStart, weekEnd) {
     //    surface it rather than offering slots computed from half the truth.
     var googleOk = false;
     try {
-        var timeMin = new Date(schedInstant(weekStart, "00:00")).toISOString();
-        var timeMax = new Date(schedInstant(schedAddDays(weekEnd, 1), "00:00")).toISOString();
+        var timeMin = new Date(schedInstant(rangeStart, "00:00")).toISOString();
+        var timeMax = new Date(schedInstant(schedAddDays(rangeEnd, 1), "00:00")).toISOString();
         var items = await listGoogleCalendarEvents(env, timeMin, timeMax);
         googleOk = true;
         for (var g = 0; g < items.length; g++) {
@@ -23205,7 +23229,7 @@ async function handlePostSchedulingRequest(request, env) {
 
         var settings = await schedSettings(env);
         var meetingType = body.meeting_type === "in_person" ? "in_person" : "online_meet";
-        var weekStart = schedCurrentWeekStart(env);
+        var windowStart = schedWindowStart(env);
 
         var id = crypto.randomUUID();
         // Opaque, URL-safe, unguessable. Not the request id: the id shows up in
@@ -23222,7 +23246,7 @@ async function handlePostSchedulingRequest(request, env) {
             meetingType === "in_person" ? (parseInt(body.travel_min, 10) || settings.default_travel) : 0,
             meetingType === "online_meet" && body.buffer_on ? 15 : 0,
             body.location || null,
-            weekStart, schedAddDays(weekStart, 6),
+            windowStart, schedWindowEnd(windowStart),
             actorName(user)
         ).run();
 
@@ -23286,7 +23310,12 @@ async function handleGetSchedulingQueue(request, env) {
 
         var today = localDateStrForTZ();
 
-        // Expire in place: a waiting request whose week has closed is dead.
+        // Expire in place: a waiting request whose OFFER WINDOW has closed is
+        // dead. week_end is the last day the link could offer, so this fires
+        // the day AFTER the window ends and never early. Under the rolling
+        // window a Friday link runs to the following Thursday, so the client
+        // always has the whole weekend plus the next working week to respond --
+        // strictly more room than the old calendar-week anchor gave them.
         await env.DB.prepare(
             "UPDATE scheduling_requests SET status = 'expired' WHERE status IN ('waiting','none_work') AND week_end < ?"
         ).bind(today).run();
@@ -23432,14 +23461,17 @@ async function handlePostSchedulingReschedule(id, request, env) {
         var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
         if (!req) { return jsonErr("Request not found", 404); }
 
-        var weekStart = schedCurrentWeekStart(env);
+        // Re-anchor to a FRESH rolling window rather than reusing the original
+        // request's dates. A client rescheduling on Wednesday for a link created
+        // the previous Friday must not be offered days that have already gone.
+        var windowStart = schedWindowStart(env);
         var token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 24);
         await env.DB.prepare(
             "UPDATE scheduling_requests SET token = ?, status = 'waiting', session_id = NULL, booked_at = NULL, " +
             "squeezed_out = 0, sent_at = NULL, followup_sent_at = NULL, followup_count = 0, " +
             "week_start = ?, week_end = ?, created_at = datetime('now'), " +
             "updated_at = datetime('now'), updated_by = ? WHERE id = ?"
-        ).bind(token, weekStart, schedAddDays(weekStart, 6), actorName(user), id).run();
+        ).bind(token, windowStart, schedWindowEnd(windowStart), actorName(user), id).run();
 
         var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
         return jsonOk({ request: row });
@@ -24032,14 +24064,18 @@ async function handleGetSchedulingClientState(request, env) {
         if (!clientId) { return jsonErr("client_id is required", 400); }
         if (user.client_id && clientId !== user.client_id) { return jsonErr("Forbidden", 403); }
 
-        var weekStart = schedCurrentWeekStart(env);
-        var weekEnd = schedAddDays(weekStart, 6);
+        // Same rolling window the link is issued against, so the portal card and
+        // the picker always describe the same 7 days. Anchoring at today also
+        // stops this from surfacing a meeting that ALREADY happened earlier in
+        // the calendar week as if it were upcoming.
+        var windowStart = schedWindowStart(env);
+        var windowEnd = schedWindowEnd(windowStart);
 
         var session = await env.DB.prepare(
             "SELECT id, date, time, end_time, session_type, google_meet_link, location FROM sessions " +
             "WHERE client_id = ? AND date >= ? AND date <= ? AND status != 'cancelled' " +
             "ORDER BY date ASC, time ASC"
-        ).bind(clientId, weekStart, weekEnd).first();
+        ).bind(clientId, windowStart, windowEnd).first();
 
         // 'booked' IS included, and that is the whole point.
         //
@@ -24078,7 +24114,7 @@ async function handleGetSchedulingClientState(request, env) {
             // True when the booked session falls in the join window, so the
             // card can show Entrar alongside Reagendar.
             in_join_window: !!(session && session.date >= joinFrom && session.date <= joinTo),
-            week_start: weekStart, week_end: weekEnd
+            week_start: windowStart, week_end: windowEnd
         });
     } catch (e) {
         return jsonErr("Error loading state: " + e.message, 500);

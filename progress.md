@@ -1,5 +1,30 @@
 # Apex Command Center — Build Progress
 
+> ## STANDING RULE — DO NOT ARCHIVE OR DELETE THE TEST CLIENT
+>
+> **`test-client-temp-001` ("TESTING CLIENT PORTAL - DO NOT CLOSE") must stay `archived=0`.**
+>
+> Nicole keeps it deliberately and holds the portal and seller passwords for it. It is the only
+> safe way to drive client-facing and seller-facing flows without touching a real client's data.
+>
+> Sessions keep treating it as leftover test data and setting `archived=1` while cleaning up.
+> That happened **three times in one night on 2026-08-12/13**, twice mid-task: once on Alice's
+> phone during a client visit, and once while Nicole was recording a walkthrough video and the
+> client vanished from the dropdown mid-take. Each time it looked like an app bug rather than a
+> cleanup side effect.
+>
+> ⚠️ `archived` is a **separate column from `status`**, and archiving is effectively one-way in
+> the UI — an archived client leaves the active list and does not reliably appear under "Show
+> archived", so only a direct D1 write brings it back.
+>
+> **Clean up the rows you created** (`scheduling_requests`, `scheduling_bookings`, sessions,
+> Google Calendar events). **Leave the client row itself alone.** If a task truly requires it
+> archived, restore `archived=0` before finishing and say so in your report.
+>
+> The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
+> and stays archived.
+
+
 - [x] Session 87 — 2026-08-07 — Apex Finance dashboard, all 7 items of the v2 build prompt, shipped and verified in the running app. Built for Pra. Alice Prata (CFO, plus household finances, the house, the children, her own insurance business, and 250 church volunteers) — she has no time, is a visual learner, and abandoned a previous, technically correct finance tool because it was accountant-like and made her feel behind. Two rules ran through every decision: an uncategorized transaction is a NORMAL state and never an error state (no red, no warning icons, no "overdue" framing on anything that is merely incomplete), and money moving business → personal is **Rafa's pay**, never leakage — labelled "Retirada do Proprietário" per the Zoho precedent.
 
   **Item 1 — the Zelle fix applied to live data.** Session 86's unpushed commit `0f6a331` fixed `normalizeMerchant()` but only affected rows synced *after* it; all 186 existing rows still carried shattered keys (`ZELLE PAYMENT TO ALICE CORSINO CONF RYEW BBNX`), so none of the merges it was written to produce had actually happened. Added `POST /api/finance-new/backfill-merchants`, which re-reads each row's stored description and runs it back through the **same** `normalizeMerchant()`/`extractMemo()` the sync path uses — deliberately not parallel SQL string logic, since a second implementation drifts from the first and the entire value of the fix is that backfill and future syncs produce identical keys. The UPDATE touches `merchant_normalized` and `memo` only; `category_id` is never in the statement, so a manual categorization cannot be clobbered *structurally* rather than by convention. Measured live: **137 → 111 distinct merchants**, 140 rows rewritten, 16 memos populated, 0 leftover CONF fragments. Alice Corsino 16 rows, Apex Business Leadership 16, Amanda Braga 4, plus 4 smaller payee groups each collapsed to one key. **111, not the ~100 the commit message predicted** — that estimate predated the final regex, and 24 of the remaining Zelle keys are genuine one-off payers appearing exactly once. Also repaired the two categorization rules, which were written against pre-fix keys and had silently gone **dead — both matched zero rows**. Their patterns could not simply be re-normalized (a shattered pattern leaves a stray `BBNX` behind); repointed at the merged key instead, which immediately caught **14 rows** it could not reach before. Categorized went 2 → 16, and that compounding is the whole point.

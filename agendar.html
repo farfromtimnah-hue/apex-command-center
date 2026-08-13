@@ -207,7 +207,13 @@
     <div id="stepDone" hidden>
       <div class="tick">&#10003;</div>
       <h1 id="doneTitle">Reunião confirmada</h1>
-      <p class="sub">Você vai receber a confirmação também pelo WhatsApp.</p>
+      <!-- Says REMINDER, not confirmation. Nothing is sent automatically at
+           booking time -- there is no WhatsApp send anywhere in the booking
+           handler, and promising one had clients waiting for a message that
+           never arrived, then messaging Alice to ask if it worked, which is
+           the exact back-and-forth this feature removes. The day-of reminder
+           IS real: Alice sends it by hand from her dashboard. -->
+      <p class="sub">Você vai receber um lembrete pelo WhatsApp no dia da reunião.</p>
       <div class="card">
         <p class="when" id="doneWhen"></p>
         <p class="where" id="doneWhere"></p>

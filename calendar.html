@@ -13,10 +13,10 @@
   <link rel="stylesheet" href="mobile.css">
   <!-- Shared scheduling queue — the SAME module dashboard.html renders. One
        component, two pages, so a fix here cannot miss the other. -->
-  <link rel="stylesheet" href="scheduling-queue.css">
+  <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="scheduling-queue.js"></script>
+  <script src="scheduling-queue.js?v=1786590383"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1392,16 +1392,6 @@
           </div>
         </div>
 
-        <!-- Alice's queue. Rendered by scheduling-queue.js, which dashboard.html
-             loads too — neither page owns a copy. -->
-        <div class="sched-queue-block">
-          <h2 class="sched-queue-title">
-            <span class="show-pt">Aguardando horario</span>
-            <span class="show-en">Waiting on a time</span>
-          </h2>
-          <div id="schedQueue"></div>
-        </div>
-
         <!-- Calendar toolbar -->
         <div class="cal-toolbar">
           <!-- View toggle -->
@@ -1447,6 +1437,20 @@
       <!-- Calendar content area -->
       <div id="calendarContent">
         <!-- Rendered by JS -->
+      </div>
+
+      <!-- Alice's queue. Rendered by scheduling-queue.js, which dashboard.html
+           loads too — neither page owns a copy.
+           BELOW the grid on purpose: in the hero it pushed the month off
+           screen, and on a Friday with ten waiting clients the calendar was
+           unreachable. Hidden entirely while empty — a heading standing over
+           blank space reads as something failing to load. -->
+      <div class="sched-queue-block" id="schedQueueBlock" hidden>
+        <h2 class="sched-queue-title">
+          <span class="show-pt">Aguardando horario</span>
+          <span class="show-en">Waiting on a time</span>
+        </h2>
+        <div id="schedQueue"></div>
       </div>
     </div><!-- /below-hero-section -->
 
@@ -2656,6 +2660,14 @@
       loadClients();
       loadEngagementDates();
       loadCalendar();
+      // MUST be here, not in window.onload. apiFetch -> getToken() rejects
+      // outright while currentUser is null, and onload fires long before
+      // onAuthStateChanged restores the session. Called from there the queue
+      // request was rejected before it was ever sent, and the module's
+      // .catch swallowed it: no row, no console error, no network entry.
+      // dashboard.html always called it from its own post-auth setup, which
+      // is why the same shared module worked there and not here.
+      loadSchedQueue();
     }
 
     function init() {
@@ -6341,14 +6353,21 @@
     function schedCtx() {
       return {
         containerId: "schedQueue",
+        blockId: "schedQueueBlock",
         apiFetch: apiFetch,
         isEn: isEn,
         onEdit: openSchedRequestModal
       };
     }
 
+    // A SILENT BAIL IS WHY THE BROKEN QUEUE SHIPPED UNDETECTED. The module is
+    // a plain <script> in <head>, so a missing global means the file failed to
+    // load — a real fault that must be visible, never a quiet return.
     function loadSchedQueue() {
-      if (!window.SchedulingQueue) { return; }
+      if (!window.SchedulingQueue) {
+        console.error("[sched] scheduling-queue.js did not load — queue cannot render");
+        return;
+      }
       window.SchedulingQueue.init(schedCtx());
     }
 
@@ -6375,18 +6394,73 @@
       wrap.hidden = !wrap.hidden;
     }
 
+    // The "Enviar horários" client picker, GROUPED.
+    //
+    // It used to be one flat alphabetical list of all 33 clients with statuses
+    // interleaved, so the browser pre-selected the first row — ADRIANA GOURMET
+    // CUISINE, a LEAD, not someone Rafa meets with. One distracted click sent a
+    // scheduling link to a prospect. This was a repeat complaint.
+    //
+    // Order: active clients, then leads, then archived/past. 'paused' sits in
+    // the last group because a paused client is not active; when they resume
+    // they go back to 'active' and rise into the first group on their own.
+    //
+    // The default selection is a PLACEHOLDER, never a real client, so sending
+    // requires a deliberate choice. Each option is labelled with its status,
+    // matching the "Preview portal as client" picker's precedent.
+    function populateSchedClientSelect(sel) {
+      var en = isEn();
+      sel.innerHTML = "";
+
+      var placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = en ? "— select client —" : "— selecione o cliente —";
+      sel.appendChild(placeholder);
+
+      var groups = [
+        { key: "active",   pt: "Clientes ativos",   en: "Active clients", rows: [] },
+        { key: "lead",     pt: "Leads",             en: "Leads",          rows: [] },
+        { key: "archived", pt: "Arquivados / antigos", en: "Archived / past", rows: [] }
+      ];
+
+      for (var i = 0; i < clients.length; i++) {
+        var c = clients[i];
+        var status = String(c.status || "").toLowerCase();
+        var bucket;
+        if (c.archived || status === "closed" || status === "paused") {
+          bucket = groups[2];
+        } else if (status === "lead") {
+          bucket = groups[1];
+        } else {
+          bucket = groups[0];
+        }
+        bucket.rows.push(c);
+      }
+
+      for (var g = 0; g < groups.length; g++) {
+        if (!groups[g].rows.length) { continue; }
+        var og = document.createElement("optgroup");
+        og.label = en ? groups[g].en : groups[g].pt;
+        for (var r = 0; r < groups[g].rows.length; r++) {
+          var cli = groups[g].rows[r];
+          var opt = document.createElement("option");
+          opt.value = cli.id;
+          // The status rides along on the label so a row is never ambiguous
+          // once it is out of its group heading's line of sight.
+          var st = String(cli.status || "").toLowerCase();
+          opt.textContent = cli.name + (st ? "  (" + st + ")" : "");
+          og.appendChild(opt);
+        }
+        sel.appendChild(og);
+      }
+    }
+
     function openSchedRequestModal(row) {
       SR_EDIT_ID = (row && row.id) ? row.id : null;
 
       var sel = document.getElementById("srClient");
       if (sel) {
-        sel.innerHTML = "";
-        for (var i = 0; i < clients.length; i++) {
-          var opt = document.createElement("option");
-          opt.value = clients[i].id;
-          opt.textContent = clients[i].name;
-          sel.appendChild(opt);
-        }
+        populateSchedClientSelect(sel);
         if (row && row.client_id) { sel.value = row.client_id; }
         // Editar changes the meeting details of an EXISTING request; moving it
         // to another client would silently orphan the link already sent.
@@ -6416,7 +6490,12 @@
       var travel = document.getElementById("srTravel");
       var loc = document.getElementById("srLocation");
       var buf = document.getElementById("srBuffer");
-      if (!sel || !sel.value) { return; }
+      // The picker now opens on a placeholder, so "no client" is a state a
+      // real person reaches. Say so instead of failing silently.
+      if (!sel || !sel.value) {
+        showToast(isEn() ? "Select a client first." : "Selecione um cliente primeiro.");
+        return;
+      }
 
       var body = {
         client_id: sel.value,
@@ -6444,7 +6523,6 @@
     window.onload = function() {
       applyCalBilingualAttrs();
       init();
-      loadSchedQueue();
     };
   </script>
 

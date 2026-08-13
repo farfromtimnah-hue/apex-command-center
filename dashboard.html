@@ -11,10 +11,10 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <!-- Shared scheduling queue — the SAME module calendar.html renders. -->
-  <link rel="stylesheet" href="scheduling-queue.css">
+  <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="scheduling-queue.js"></script>
+  <script src="scheduling-queue.js?v=1786590383"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -739,6 +739,28 @@
       </div>
       <!-- Below photo section -->
       <div class="below-section">
+        <!-- Scheduling queue. THE SAME shared module calendar.html renders
+             (scheduling-queue.js/.css). This page does NOT keep a private
+             copy — that is exactly how dashboard.html has silently missed
+             fixes made to calendar.html before.
+             ABOVE Recent Sessions on purpose: this is a time-sensitive daily
+             task carrying a 24-business-hour follow-up clock, while Recent
+             Sessions is static history. History must not sit in front of the
+             work still waiting to be done. -->
+        <div class="content-card" id="schedQueueBlock" hidden>
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Aguardando horário</span>
+              <span class="show-en">Waiting on a time</span>
+            </h2>
+            <a href="calendar.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
+              <span class="show-pt">Calendário &rarr;</span>
+              <span class="show-en">Calendar &rarr;</span>
+            </a>
+          </div>
+          <div id="schedQueue"></div>
+        </div>
+
         <div class="content-card">
           <div class="content-card-header">
             <h2 class="content-card-title">
@@ -757,23 +779,6 @@
           </div>
         </div>
 
-        <!-- Scheduling queue. THE SAME shared module calendar.html renders
-             (scheduling-queue.js/.css). This page does NOT keep a private
-             copy — that is exactly how dashboard.html has silently missed
-             fixes made to calendar.html before. -->
-        <div class="content-card">
-          <div class="content-card-header">
-            <h2 class="content-card-title">
-              <span class="show-pt">Aguardando horário</span>
-              <span class="show-en">Waiting on a time</span>
-            </h2>
-            <a href="calendar.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
-              <span class="show-pt">Calendário &rarr;</span>
-              <span class="show-en">Calendar &rarr;</span>
-            </a>
-          </div>
-          <div id="schedQueue"></div>
-        </div>
       </div>
     </div><!-- /aliceDash -->
 
@@ -2194,9 +2199,13 @@
     // lives on calendar.html, where a request is born), so onEdit sends her
     // there rather than opening a second, drifting copy of the form.
     function loadSchedQueue() {
-      if (!window.SchedulingQueue) { return; }
+      if (!window.SchedulingQueue) {
+        console.error("[sched] scheduling-queue.js did not load — queue cannot render");
+        return;
+      }
       window.SchedulingQueue.init({
         containerId: "schedQueue",
+        blockId: "schedQueueBlock",
         apiFetch: apiFetch,
         isEn: function() {
           return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");

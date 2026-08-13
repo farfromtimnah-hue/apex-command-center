@@ -25,7 +25,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
   <link rel="stylesheet" href="gm.css?v=1786492219">
-  <link rel="stylesheet" href="calendar-grid.css?v=1786488202">
+  <link rel="stylesheet" href="calendar-grid.css?v=1786590383">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -5661,7 +5661,13 @@
     // which opens the SAME picker rather than a second flow.
     function loadSchedCallout() {
       apiFetch("/api/scheduling/client-state")
-        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          // A silent .catch() on this call is why a whole missing panel
+          // produced no error: in admin preview the request answered 400 and
+          // the card just stayed hidden, looking like "nothing scheduled".
+          if (!res.ok) { throw new Error("client-state HTTP " + res.status); }
+          return res.json();
+        })
         .then(function(d) {
           var card = document.getElementById("schedCallout");
           var text = document.getElementById("schedCalloutText");
@@ -5694,7 +5700,9 @@
           }
           card.hidden = false;
         })
-        .catch(function() {});
+        .catch(function(e) {
+          console.error("[sched] booking call-out failed to load:", e.message);
+        });
     }
 
     function loadMeetings() {
@@ -6273,7 +6281,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1786492220"></script>
+  <script src="gm.js?v=1786590383"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

@@ -3882,6 +3882,11 @@ async function handlePostSessionCancel(sessionId, request, env) {
                     "UPDATE sessions SET status = 'cancelled', updated_at = ?, updated_by = ? WHERE id = ?"
                 ).bind(cancelledAt, cancelledBy, scopeRows[i].id).run();
             }
+            // Release the scheduling hold this session came from, if any.
+            // Order-independent on purpose: this reads scheduling_bookings by
+            // session_id, never the sessions row, so it still resolves after
+            // the 'mistake' branch has already deleted that row above.
+            await schedReleaseBookingForSession(env, scopeRows[i].id);
         }
 
         return jsonOk({ ok: true, mode: mode, scope: scope, updated: scopeRows.length, google_event_removed: googleRemoved, google_error: null });
@@ -17638,9 +17643,44 @@ async function gmClubInviteEvents(env, fromDate, toDate) {
     });
 }
 
+// The client's meetings WITH APEX, for their own company calendar.
+//
+// A client books a time with Rafa and it appeared nowhere on their agenda —
+// the one calendar they actually look at — so the meeting sat only on the
+// portal's first screen and in Google. It belongs alongside everything else
+// they have that week.
+//
+// Read-only (editable:false), like the club kind: rescheduling goes through the
+// booking link, never by dragging a chip on their own calendar.
+async function gmApexMeetingEvents(env, clientId, fromDate, toDate) {
+    var rows = await env.DB.prepare(
+        "SELECT id, date, time, session_type, location, google_meet_link " +
+        "FROM sessions WHERE client_id = ? AND date >= ? AND date <= ? " +
+        "AND status != 'cancelled' AND status != 'discarded' AND meeting_category != 'event' " +
+        "ORDER BY date ASC, time ASC"
+    ).bind(clientId, fromDate, toDate).all();
+
+    return (rows.results || []).map(function (s) {
+        return {
+            kind: "apex",
+            id: "apex:" + s.id,
+            session_id: s.id,
+            date: String(s.date).slice(0, 10),
+            // Titled in Portuguese: the label the client reads on their own
+            // calendar, matching how the portal names this meeting elsewhere.
+            title: "Reunião com a Apex",
+            start_time: s.time || null,
+            all_day: !s.time,
+            location: s.location || null,
+            meet_link: s.google_meet_link || null,
+            editable: false
+        };
+    });
+}
+
 // GET /api/clients/:id/gm/events?month=YYYY-MM
 // Returns the client's own events plus derived job dates plus Apex Club
-// invitations for that month, in one payload.
+// invitations plus their Apex meetings for that month, in one payload.
 async function handleGetGmEvents(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -17669,11 +17709,12 @@ async function handleGetGmEvents(id, request, env) {
         var own = (rows.results || []).map(gmEventOut);
         var derived = await gmDerivedJobEvents(env, id, fromD, toD);
         var club = await gmClubInviteEvents(env, fromD, toD);
+        var apex = await gmApexMeetingEvents(env, id, fromD, toD);
 
         return jsonOk({
             month: month,
             range: { from: fromD, to: toD, month_start: first, month_end: last },
-            events: own.concat(derived).concat(club)
+            events: own.concat(derived).concat(club).concat(apex)
         });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);
@@ -22745,10 +22786,51 @@ var SCHED_TPL_INVITE =
 
 // The nudge. Deliberately NOT a repeat of the invite: warm, short, no guilt,
 // and it carries the SAME link.
+//
+// It must NOT refer to "nosso horário desta semana" ("our time this week").
+// This message only ever goes to someone who has NOT booked — that is the
+// entire reason they are being chased — so a reminder about an existing time
+// contradicts itself and tells the client something untrue.
 var SCHED_TPL_FOLLOWUP =
-    "Oi, {name}! Passando para lembrar do nosso horário desta semana. " +
-    "Quando puder, só escolher o que for melhor para você:\n\n{link}\n\n" +
+    "Oi, {name}! Ainda estou com horários abertos para você esta semana. " +
+    "Quando puder, só escolher o que for melhor:\n\n{link}\n\n" +
     "Qualquer dúvida, é só me chamar.";
+
+// Who the message actually says "Olá," to.
+//
+// It used to be the first word of the COMPANY name, which sent real clients
+// "Olá, GATOR!", "Olá, PERFECT!" and "Olá, ELEVATE!" — embarrassing to send to
+// someone paying you. clients.owners already holds the people: "Marcelo Diniz
+// & Neicy Diniz", "Osmar e Paulinha", "Bruno e Guilherme".
+//
+// BOTH owners are greeted when there are two. Picking one risks addressing the
+// wrong partner every time, which is worse than the company name was.
+// Separators seen in live data: "&", " e ", " E ", and ";".
+//
+// Only the FIRST name of each owner is used: the field also holds full legal
+// names ("Veronice Ferreira da Silva; Thamara Almeida Walker") and a WhatsApp
+// greeting addressed to a full legal name reads like a collections letter.
+//
+// Falls back to the company name only when owners is empty — the old behavior,
+// now the last resort instead of the default.
+function schedGreetingName(client, fallbackName) {
+    var owners = client && client.owners ? String(client.owners).trim() : "";
+    if (owners) {
+        var parts = owners.split(/\s*(?:&|;|\se\s|\sE\s)\s*/);
+        var firsts = [];
+        for (var i = 0; i < parts.length; i++) {
+            var first = String(parts[i]).trim().split(/\s+/)[0];
+            if (first) { firsts.push(first); }
+        }
+        // "Bruno e Guilherme" — Portuguese joins with "e", not a comma, and
+        // this text is always sent in Portuguese.
+        if (firsts.length === 1) { return firsts[0]; }
+        if (firsts.length > 1) {
+            return firsts.slice(0, -1).join(", ") + " e " + firsts[firsts.length - 1];
+        }
+    }
+    return String(fallbackName || "").split(" ")[0].split("-")[0].trim();
+}
 
 // NOTE: there is deliberately NO confirmation template here. The client sees
 // the confirmed date and time on the booking page itself, rendered through
@@ -23050,6 +23132,10 @@ function schedSuggest(slots, pref, days, perDay) {
             }
             if (ok) { picked.push(list[s]); }
         }
+        // Ranking chose WHICH slots to offer; it must not decide what ORDER
+        // they read in. Emitted by score, a day showed 2:00 PM above 12:30 PM.
+        // The client reads a list of times, so it ascends like one.
+        picked.sort(function (a, b) { return schedMinutes(a.time) - schedMinutes(b.time); });
         for (var q = 0; q < picked.length; q++) { out.push(picked[q]); }
     }
     return out;
@@ -23578,6 +23664,57 @@ async function schedCommitBooking(env, req, slot, actor) {
 }
 
 // ---------------------------------------------------------------------------
+// Release the scheduling hold behind a session — the exact inverse of the
+// booking write above. Safe to call for ANY session id: a session that never
+// came from a scheduling link matches nothing and this is a no-op.
+//
+// WHY THIS EXISTS: cancelling a meeting deleted the sessions row and removed
+// the Google event but left scheduling_bookings and scheduling_requests
+// untouched, which broke two things at once.
+//
+//   1. THE SLOT STAYED CLAIMED FOREVER. The UNIQUE index on
+//      scheduling_bookings(slot_date, slot_time) is what makes booking atomic,
+//      so a cancelled meeting permanently blocked that time and Rafa's week
+//      silently filled with phantom holds.
+//   2. The queue still showed the client as booked when they were not, so
+//      Alice would never chase them.
+//
+// The cancel dialog promises "nothing lingers". This is what makes that true.
+//
+// The request returns to 'waiting' rather than a new state: whichever branch
+// cancelled it, that client still needs a meeting this week and must reappear
+// in Alice's queue. Their original link keeps working, which is the point —
+// they can rebook without her issuing anything new. A client who genuinely
+// should NOT be chased is what "Pular esta semana" is for, and that path
+// already writes its own status and reason.
+// ---------------------------------------------------------------------------
+
+async function schedReleaseBookingForSession(env, sessionId) {
+    try {
+        var booking = await env.DB.prepare(
+            "SELECT id, request_id FROM scheduling_bookings WHERE session_id = ?"
+        ).bind(sessionId).first();
+        if (!booking) { return; }
+
+        // Drop the hold first: this is the row the UNIQUE index guards, so
+        // removing it is what actually frees the slot for rebooking.
+        await env.DB.prepare("DELETE FROM scheduling_bookings WHERE id = ?").bind(booking.id).run();
+
+        if (booking.request_id) {
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET status = 'waiting', session_id = NULL, booked_at = NULL " +
+                "WHERE id = ? AND status = 'booked'"
+            ).bind(booking.request_id).run();
+        }
+    } catch (e) {
+        // Never fail a cancellation over the hold: the meeting really is gone
+        // from Google and from sessions by this point, and a thrown error here
+        // would report the cancel as failed after it had already happened.
+        console.log("schedReleaseBookingForSession failed for " + sessionId + ": " + e.message);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // PUBLIC: POST /api/scheduling/link/:token/book
 //
 // The loser NEVER sees an error page: a 409 carries the remaining times, so a
@@ -23725,13 +23862,13 @@ async function handleGetSchedulingMessage(id, request, env) {
         var origin = url.origin.indexOf("apex-api") !== -1 ? DEFAULT_ORIGIN : url.origin;
         var link = origin + "/agendar.html?t=" + req.token;
 
-        var tpl = (kind === "followup") ? SCHED_TPL_FOLLOWUP : SCHED_TPL_INVITE;
-        var firstName = String(req.client_name || "").split(" ")[0].split("-")[0].trim();
-        var message = tpl.split("{name}").join(firstName).split("{link}").join(link);
-
         var client = await env.DB.prepare(
-            "SELECT id, name, phone, whatsapp, contacts FROM clients WHERE id = ?"
+            "SELECT id, name, owners, phone, whatsapp, contacts FROM clients WHERE id = ?"
         ).bind(req.client_id).first();
+
+        var tpl = (kind === "followup") ? SCHED_TPL_FOLLOWUP : SCHED_TPL_INVITE;
+        var greeting = schedGreetingName(client, req.client_name);
+        var message = tpl.split("{name}").join(greeting).split("{link}").join(link);
 
         // Every number Alice might legitimately send to — the client record and
         // each named contact — so she chooses. No number is ever auto-dialled.
@@ -23769,8 +23906,16 @@ async function handleGetSchedulingClientState(request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
+        // Admin preview (?previewAs=<id>) resolves through the SAME helper every
+        // other portal read uses. Without it this endpoint answered a preview
+        // with 400 "client_id is required" — portal.html appends previewAs but
+        // never client_id — and the page's .catch() swallowed the 400, so the
+        // whole booking panel silently failed to render in preview. The route
+        // was in the client allowlist all along; the allowlist was never the
+        // problem here.
         var url = new URL(request.url);
-        var clientId = user.client_id || url.searchParams.get("client_id");
+        var previewId = previewClientId(user, request);
+        var clientId = previewId || user.client_id || url.searchParams.get("client_id");
         if (!clientId) { return jsonErr("client_id is required", 400); }
         if (user.client_id && clientId !== user.client_id) { return jsonErr("Forbidden", 403); }
 

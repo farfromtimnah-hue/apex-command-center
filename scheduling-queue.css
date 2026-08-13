@@ -141,6 +141,38 @@
   overflow-y: auto;
 }
 
+/* "Adicionar horario" fields. These replaced two window.prompt() calls, which
+   rendered as a NATIVE browser dialog titled "apex.resonateai.online says" --
+   the browser's colours, not the site's. The inputs carry ISO values (what the
+   API wants) while the echo line under them renders MM/DD/YYYY and 12-hour
+   AM/PM through datetime.js, the formats used everywhere else on the site. */
+.sq-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted, #6b6b6b);
+  margin: 0 0 5px;
+}
+
+.sq-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  color: inherit;
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e5e0d6);
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin: 0 0 14px;
+}
+.sq-input:focus-visible { outline: 2px solid var(--gold, #C9A43A); outline-offset: 1px; }
+
+/* Slot collision, shown next to the input she needs to change rather than in
+   an alert that would discard the form. Not red: red is reserved. */
+.sq-error { font-weight: 600; color: inherit; }
+
 @media (max-width: 768px) {
   .sq-actions .sq-btn { flex: 1 1 calc(50% - 4px); text-align: center; }
 }

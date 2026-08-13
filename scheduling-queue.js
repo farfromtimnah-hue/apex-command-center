@@ -35,6 +35,22 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  // Whole hours between a stored D1 timestamp and now.
+  //
+  // D1 writes UTC with NO zone designator, so the browser would parse the bare
+  // string as LOCAL time — a no-op for an Eastern reader and wrong by the
+  // offset for everyone else. Appending the "Z" is the same correction
+  // formatDateTimeUTC() in datetime.js already documents; without it a row
+  // created seconds ago rendered as "1 hour ago".
+  function hoursSinceUTC(ts) {
+    if (!ts) { return 0; }
+    var s = String(ts).replace(" ", "T").split(".")[0];
+    if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+    var then = new Date(s).getTime();
+    if (isNaN(then)) { return 0; }
+    return Math.max(0, Math.floor((Date.now() - then) / 3600000));
+  }
+
   // "enviado há 12 horas" — same phrasing as the leads list, so there is one
   // staleness vocabulary across the app rather than two.
   function agoLabel(hours, isEn, verb) {
@@ -73,11 +89,21 @@
 
   function rowHtml(r, isEn) {
     var booked = (r.status === "booked");
+    // BOLD tracks business hours (the same clock as the 24-hour follow-up
+    // flag), while the TEXT reports real elapsed time. Deliberately different
+    // measures: weight answers "how urgent", the label answers "how long ago".
     var waited = r.business_hours_waiting || 0;
 
+    // "sent" is a CLAIM, and it was being made while sent_at was still NULL —
+    // telling her she had already contacted someone she had not. Until she
+    // actually sends it, the row is only as old as its creation.
     var stale = booked
       ? (isEn ? "Scheduled" : "Agendado")
-      : agoLabel(waited, isEn, { pt: "enviado", en: "sent" });
+      : agoLabel(
+          r.hours_since_activity,
+          isEn,
+          r.sent_at ? { pt: "enviado", en: "sent" } : { pt: "criado", en: "created" }
+        );
 
     var bits = ['<div class="sq-row' + (booked ? " sq-done" : "") + '" data-id="' + esc(r.id) + '">'];
 
@@ -130,33 +156,67 @@
     return bits.join("");
   }
 
-  // ── WhatsApp send: NEVER auto-dial ───────────────────────────────────────
-  // The message text is built, then Alice picks the recipient from the contact
-  // list. Each client has a WhatsApp group with co-owners, so she must control
-  // who receives it. Matches the existing sendInvoiceWhatsApp pattern.
-  function openContactPicker(ctx, row, data, kind) {
+  // ── Styled dialogs ───────────────────────────────────────────────────────
+  // window.confirm / alert / prompt render a NATIVE browser dialog: it takes
+  // the browser's own colours and is titled "apex.resonateai.online says",
+  // which reads as something outside the site. Every other dialog in this app
+  // is styled, so these are too. Same .sq-overlay/.sq-modal shell as the send
+  // preview and the skip-reason picker.
+
+  function closeOverlay(overlay) {
+    if (overlay && overlay.parentNode) { overlay.parentNode.removeChild(overlay); }
+  }
+
+  // Styled replacement for window.confirm. onYes runs only on confirm.
+  function sqConfirm(opts, onYes) {
+    var overlay = document.createElement("div");
+    overlay.className = "sq-overlay";
+    var html = ['<div class="sq-modal">'];
+    html.push("<h3>" + esc(opts.title) + "</h3>");
+    if (opts.body) { html.push('<p class="sq-modal-sub">' + esc(opts.body) + "</p>"); }
+    html.push('<button type="button" class="sq-btn sq-btn-gold" data-yes="1">' + esc(opts.confirmLabel) + "</button>");
+    html.push('<button type="button" class="sq-btn" data-close="1">' + esc(opts.cancelLabel) + "</button>");
+    html.push("</div>");
+    overlay.innerHTML = html.join("");
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", function (ev) {
+      if (ev.target === overlay || ev.target.getAttribute("data-close")) { return closeOverlay(overlay); }
+      if (!ev.target.getAttribute("data-yes")) { return; }
+      closeOverlay(overlay);
+      onYes();
+    });
+  }
+
+  // NOTE: there is no sqAlert here on purpose. The one window.alert this file
+  // used reported a taken slot, and that message now renders INSIDE the manual
+  // modal next to the input she must correct — an alert would have dismissed
+  // her half-filled form to deliver it.
+
+  // ── WhatsApp send: NEVER auto-dial, NEVER target a number ────────────────
+  // She previews the text, then WhatsApp opens on its own contact list and she
+  // picks the recipient. NO number goes into the URL, for two reasons:
+  //   1. Each client has a WhatsApp GROUP with co-owners. A number-targeted
+  //      link sends to one person and silently bypasses the group.
+  //   2. Only a couple of clients have a number on file at all, so a
+  //      number-first design falls back to a clipboard copy as the COMMON
+  //      case — a dead end that does not open WhatsApp.
+  // wa.me/?text= with no number is what finance.html, calendar.html and gm.js
+  // already do; this is that same one mechanism, not a second one.
+  function openSendPreview(ctx, row, data, kind) {
     var isEn = ctx.isEn();
     var overlay = document.createElement("div");
     overlay.className = "sq-overlay";
 
-    var contacts = data.contacts || [];
     var html = ['<div class="sq-modal">'];
-    html.push("<h3>" + (isEn ? "Send to which contact?" : "Enviar para qual contato?") + "</h3>");
+    html.push("<h3>" + (isEn ? "Send on WhatsApp" : "Enviar via WhatsApp") + "</h3>");
     html.push('<p class="sq-modal-sub">' + esc(row.client_name) + "</p>");
     html.push('<pre class="sq-preview">' + esc(data.message) + "</pre>");
-
-    if (!contacts.length) {
-      html.push('<p class="sq-modal-sub">' +
-        (isEn ? "No number on file. Copy the message and send it from WhatsApp."
-              : "Nenhum número cadastrado. Copie a mensagem e envie pelo WhatsApp.") + "</p>");
-      html.push('<button type="button" class="sq-btn sq-btn-gold" data-copy="1">' +
-        (isEn ? "Copy message" : "Copiar mensagem") + "</button>");
-    } else {
-      for (var i = 0; i < contacts.length; i++) {
-        html.push('<button type="button" class="sq-btn sq-contact" data-num="' + esc(contacts[i].number) + '">' +
-          esc(contacts[i].label) + " &middot; " + esc(contacts[i].number) + "</button>");
-      }
-    }
+    html.push('<p class="sq-modal-sub">' +
+      (isEn ? "WhatsApp opens so you can pick the contact or group."
+            : "O WhatsApp abre para você escolher o contato ou grupo.") + "</p>");
+    html.push('<button type="button" class="sq-btn sq-btn-gold" data-send="1">' +
+      (isEn ? "Open WhatsApp" : "Abrir o WhatsApp") + "</button>");
     html.push('<button type="button" class="sq-btn" data-close="1">' + (isEn ? "Cancel" : "Cancelar") + "</button>");
     html.push("</div>");
     overlay.innerHTML = html.join("");
@@ -166,20 +226,10 @@
 
     overlay.addEventListener("click", function (ev) {
       if (ev.target === overlay || ev.target.getAttribute("data-close")) { return close(); }
-
-      if (ev.target.getAttribute("data-copy")) {
-        if (navigator.clipboard) { navigator.clipboard.writeText(data.message); }
-        markSent(ctx, row, kind);
-        return close();
-      }
-
-      var num = ev.target.getAttribute("data-num");
-      if (!num) { return; }
+      if (!ev.target.getAttribute("data-send")) { return; }
       // Opened synchronously inside the click so the popup blocker allows it —
       // same reason documented on sendInvoiceWhatsApp.
-      var url = "https://wa.me/" + String(num).replace(/[^0-9]/g, "") +
-                "?text=" + encodeURIComponent(data.message);
-      window.open(url, "_blank");
+      window.open("https://wa.me/?text=" + encodeURIComponent(data.message), "_blank");
       markSent(ctx, row, kind);
       close();
     });
@@ -205,11 +255,18 @@
   // be a single accidental click.
   function doSkip(ctx, row) {
     var isEn = ctx.isEn();
-    var ask = isEn
-      ? "Skip " + row.client_name + " this week?"
-      : "Pular " + row.client_name + " esta semana?";
-    if (!window.confirm(ask)) { return; }
+    sqConfirm({
+      title: isEn ? "Skip " + row.client_name + " this week?"
+                  : "Pular " + row.client_name + " esta semana?",
+      body: isEn ? "You will be asked why on the next step."
+                 : "Na próxima etapa você diz o motivo.",
+      confirmLabel: isEn ? "Skip this week" : "Pular esta semana",
+      cancelLabel: isEn ? "Cancel" : "Cancelar"
+    }, function () { doSkipReason(ctx, row); });
+  }
 
+  function doSkipReason(ctx, row) {
+    var isEn = ctx.isEn();
     var overlay = document.createElement("div");
     overlay.className = "sq-overlay";
     var html = ['<div class="sq-modal">'];
@@ -241,38 +298,96 @@
   }
 
   // Override path: a client who WhatsApps a time directly. Must accept a time
-  // outside the offered slots, so this asks for a raw date+time rather than
+  // outside the offered slots, so this collects a raw date+time rather than
   // presenting the computed list.
+  //
+  // Real inputs, not prompts. The two prompts this replaces also asked for the
+  // WRONG formats — "YYYY-MM-DD" and "HH:MM, 24h" — while the whole site
+  // displays MM/DD/YYYY and 12-hour AM/PM at Pastor Rafael's request. The
+  // inputs submit their native ISO values (which is what the API wants) and the
+  // echo line below them renders through formatDate/formatTime, so what she
+  // reads back is always in the site's format.
   function doManual(ctx, row) {
     var isEn = ctx.isEn();
-    var date = window.prompt(isEn ? "Date (YYYY-MM-DD):" : "Data (AAAA-MM-DD):", row.week_start || "");
-    if (!date) { return; }
-    var time = window.prompt(isEn ? "Time (HH:MM, 24h):" : "Horário (HH:MM, 24h):", "14:00");
-    if (!time) { return; }
+    var overlay = document.createElement("div");
+    overlay.className = "sq-overlay";
 
-    ctx.apiFetch("/api/scheduling/requests/" + row.id + "/manual", {
-      method: "POST", body: { date: date, time: time }
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
-      .then(function (res) {
-        if (!res.ok) {
-          window.alert(isEn ? "That time is already taken." : "Esse horário já está ocupado.");
-          return;
-        }
-        load(ctx);
+    var html = ['<div class="sq-modal">'];
+    html.push("<h3>" + (isEn ? "Add time manually" : "Adicionar horário") + "</h3>");
+    html.push('<p class="sq-modal-sub">' + esc(row.client_name) + "</p>");
+    html.push('<p class="sq-modal-sub">' +
+      (isEn ? "Use this when the client sends a time directly."
+            : "Use quando o cliente mandar um horário direto.") + "</p>");
+    html.push('<label class="sq-field-label">' + (isEn ? "Date" : "Data") + "</label>");
+    html.push('<input type="date" class="sq-input" id="sqManualDate" value="' + esc(row.week_start || "") + '">');
+    html.push('<label class="sq-field-label">' + (isEn ? "Time" : "Horário") + "</label>");
+    html.push('<input type="time" class="sq-input" id="sqManualTime" value="14:00" step="900">');
+    html.push('<p class="sq-modal-sub" id="sqManualEcho"></p>');
+    html.push('<p class="sq-modal-sub sq-error" id="sqManualErr" hidden></p>');
+    html.push('<button type="button" class="sq-btn sq-btn-gold" data-save="1">' +
+      (isEn ? "Save time" : "Salvar horário") + "</button>");
+    html.push('<button type="button" class="sq-btn" data-close="1">' + (isEn ? "Cancel" : "Cancelar") + "</button>");
+    html.push("</div>");
+    overlay.innerHTML = html.join("");
+    document.body.appendChild(overlay);
+
+    var dateEl = document.getElementById("sqManualDate");
+    var timeEl = document.getElementById("sqManualTime");
+    var echoEl = document.getElementById("sqManualEcho");
+    var errEl  = document.getElementById("sqManualErr");
+
+    // Echo in the site's formats, via the shared datetime.js helpers.
+    function renderEcho() {
+      if (!echoEl || !dateEl || !timeEl) { return; }
+      if (!dateEl.value || !timeEl.value) { echoEl.textContent = ""; return; }
+      var d = (typeof formatDate === "function") ? formatDate(dateEl.value) : dateEl.value;
+      var t = (typeof formatTime === "function") ? formatTime(timeEl.value) : timeEl.value;
+      echoEl.textContent = (isEn ? "Scheduling for " : "Agendando para ") + d + " " + t;
+    }
+    if (dateEl) { dateEl.addEventListener("change", renderEcho); }
+    if (timeEl) { timeEl.addEventListener("change", renderEcho); }
+    renderEcho();
+
+    overlay.addEventListener("click", function (ev) {
+      if (ev.target === overlay || ev.target.getAttribute("data-close")) { return closeOverlay(overlay); }
+      if (!ev.target.getAttribute("data-save")) { return; }
+      if (!dateEl || !timeEl || !dateEl.value || !timeEl.value) { return; }
+
+      ctx.apiFetch("/api/scheduling/requests/" + row.id + "/manual", {
+        method: "POST", body: { date: dateEl.value, time: timeEl.value }
       })
-      .catch(function () {});
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            // Kept INSIDE the modal: her input is still on screen to correct,
+            // where a separate alert would have thrown it away.
+            if (errEl) {
+              errEl.textContent = isEn ? "That time is already taken." : "Esse horário já está ocupado.";
+              errEl.hidden = false;
+            }
+            return;
+          }
+          closeOverlay(overlay);
+          load(ctx);
+        })
+        .catch(function () {});
+    });
   }
 
   function doReschedule(ctx, row) {
     var isEn = ctx.isEn();
-    var ask = isEn
-      ? "Generate a fresh link for " + row.client_name + "? The old link stops working."
-      : "Gerar um link novo para " + row.client_name + "? O link antigo para de funcionar.";
-    if (!window.confirm(ask)) { return; }
-    ctx.apiFetch("/api/scheduling/requests/" + row.id + "/reschedule", { method: "POST" })
-      .then(function () { load(ctx); })
-      .catch(function () {});
+    sqConfirm({
+      title: isEn ? "Generate a fresh link for " + row.client_name + "?"
+                  : "Gerar um link novo para " + row.client_name + "?",
+      body: isEn ? "The old link stops working."
+                 : "O link antigo para de funcionar.",
+      confirmLabel: isEn ? "Generate new link" : "Gerar link novo",
+      cancelLabel: isEn ? "Cancel" : "Cancelar"
+    }, function () {
+      ctx.apiFetch("/api/scheduling/requests/" + row.id + "/reschedule", { method: "POST" })
+        .then(function () { load(ctx); })
+        .catch(function () {});
+    });
   }
 
   function render(ctx, rows, neverScheduled) {
@@ -280,11 +395,18 @@
     if (!host) { return; }   // null check on every getElementById
     var isEn = ctx.isEn();
 
+    // The host page may wrap the list in a titled block. An empty queue hides
+    // the WHOLE block, heading included — otherwise "Waiting on a time" sits
+    // over blank space and reads as a load failure.
+    var block = ctx.blockId ? document.getElementById(ctx.blockId) : null;
+
     if (!rows.length) {
+      if (block) { block.hidden = true; }
       host.innerHTML = '<div class="sq-empty">' +
         (isEn ? "No scheduling requests waiting." : "Nenhum pedido de horário aguardando.") + "</div>";
       return;
     }
+    if (block) { block.hidden = false; }
 
     var sorted = sortQueue(rows);
     var html = [];
@@ -322,16 +444,19 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var rows = data.queue || [];
-        // Derive the "cobrado há N horas" age client-side from the stored UTC
-        // timestamp. formatDateTimeUTC's sibling logic: a bare D1 timestamp
-        // carries no zone designator, so it needs the Z before parsing.
         for (var i = 0; i < rows.length; i++) {
           if (rows[i].followup_sent_at) {
-            var s = String(rows[i].followup_sent_at).replace(" ", "T").split(".")[0];
-            if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
-            var then = new Date(s).getTime();
-            rows[i].followup_hours_ago = isNaN(then) ? 0 : Math.floor((Date.now() - then) / 3600000);
+            rows[i].followup_hours_ago = hoursSinceUTC(rows[i].followup_sent_at);
           }
+          // The age the row actually SHOWS. Measured from sent_at once she has
+          // sent it, from created_at before that — the label and the clock must
+          // describe the same event.
+          //
+          // NOT business_hours_waiting: that is deliberately weighted (a link
+          // sent Friday does not age over the weekend) and drives the 24-hour
+          // follow-up flag. Reusing it as a wall-clock age is what made a row
+          // created 16 seconds earlier read "sent 1 hour ago".
+          rows[i].hours_since_activity = hoursSinceUTC(rows[i].sent_at || rows[i].created_at);
         }
         render(ctx, rows, data.never_scheduled);
         return rows;

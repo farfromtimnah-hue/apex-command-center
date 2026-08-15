@@ -156,6 +156,28 @@ async function authenticate(request, env) {
     return user;
 }
 
+// Pr. Rafa's vault Worker filing a deliverable into Apex.
+//
+// A Worker cannot produce a Firebase JWT, so this is a shared secret. It is
+// deliberately NOT a staff login: it returns a role of its own that ONLY the
+// two Claude-source document endpoints accept, so a leaked token cannot read
+// clients, invoices or anything else. It fails canEditResources on purpose.
+function serviceCaller(request, env) {
+    if (!env.VAULT_SERVICE_TOKEN) { return null; }
+    var auth = request.headers.get("Authorization") || "";
+    var m = /^Bearer\s+(.+)$/i.exec(auth.trim());
+    if (!m) { return null; }
+    var given = m[1].trim();
+    var expected = env.VAULT_SERVICE_TOKEN;
+    if (given.length !== expected.length) { return null; }
+    var diff = 0;
+    for (var i = 0; i < given.length; i++) {
+        diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+    }
+    if (diff !== 0) { return null; }
+    return { role: "vault-service", display_name: "Rafa (Claude)", client_id: null };
+}
+
 async function authenticateInner(request, env) {
     var auth = request.headers.get("Authorization") || "";
     if (!auth.startsWith("Bearer ")) { return null; }
@@ -165,7 +187,17 @@ async function authenticateInner(request, env) {
     if (token.indexOf("capt_") === 0) {
         return authenticateClientToken(token, env);
     }
-    var payload = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
+    // A token that is not a Firebase JWT is simply NOT AUTHENTICATED. Letting
+    // the parse error propagate turned every such request into a 500, which is
+    // indistinguishable from a real server fault and sends whoever sees it
+    // debugging the wrong thing. Found when the vault service token was sent
+    // to a staff route: correctly refused, but reported as "Malformed JWT".
+    var payload;
+    try {
+        payload = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
+    } catch (e) {
+        return null;
+    }
     var row = await env.DB.prepare("SELECT role, display_name, avatar_url, client_id FROM users WHERE email = ?")
         .bind(payload.email).first();
     if (!row) { return null; }
@@ -2849,11 +2881,36 @@ async function handlePatchClientDocumentVisible(id, docId, request, env) {
 // client_visible = 0, same rule as every other Claude-sourced document.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/clients
+//
+// The minimum the vault Worker needs to file a deliverable: which clients
+// exist and what they are called. Id and name only — no contacts, no profile,
+// no money. Service token only; a staff session has richer endpoints already.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultClients(request, env) {
+    try {
+        var caller = serviceCaller(request, env);
+        if (!caller) { return jsonErr("Unauthorized", 401); }
+        var rows = await env.DB.prepare(
+            "SELECT id, name, status FROM clients WHERE COALESCE(archived,0) = 0 ORDER BY name"
+        ).all();
+        return jsonOk({ clients: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error listing clients: " + e.message, 500);
+    }
+}
+
 async function handlePostClientDocumentPlaceholder(id, request, env) {
     try {
-        var user = await authenticate(request, env);
+        // Either a staff login, or the vault Worker's service token. The
+        // service role is accepted HERE and on from-claude only.
+        var user = serviceCaller(request, env) || await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+        if (user.role !== "vault-service" && !canEditResources(user)) {
+            return jsonErr("Forbidden", 403);
+        }
 
         var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
@@ -2977,9 +3034,11 @@ async function handleRequestClientDocumentFile(id, docId, request, env) {
 
 async function handlePostClientDocumentFromClaude(id, request, env) {
     try {
-        var user = await authenticate(request, env);
+        var user = serviceCaller(request, env) || await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+        if (user.role !== "vault-service" && !canEditResources(user)) {
+            return jsonErr("Forbidden", 403);
+        }
 
         var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
@@ -25031,6 +25090,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance/expenses"          && method === "GET")  { return handleGetFinanceExpenses(request, env); }
         if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
         if (path === "/api/sales/growth-ranking"      && method === "GET")  { return handleGetSalesGrowthRanking(request, env); }
+        if (path === "/api/vault/clients"             && method === "GET")  { return handleGetVaultClients(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
         if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }

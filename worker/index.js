@@ -2673,7 +2673,7 @@ async function handlePostClientDocument(id, request, env) {
         if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
 
         var ext = RESOURCE_FILE_TYPES[file.type];
-        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file.", 400); }
+        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel/PowerPoint document, CSV, or text file.", 400); }
 
         var MAX_BYTES = 20 * 1024 * 1024;
         var buf = await file.arrayBuffer();
@@ -2802,7 +2802,7 @@ async function handlePostClientDocumentFromClaude(id, request, env) {
         if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
 
         var ext = RESOURCE_FILE_TYPES[file.type];
-        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file.", 400); }
+        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel/PowerPoint document, CSV, or text file.", 400); }
 
         var MAX_BYTES = 20 * 1024 * 1024;
         var buf = await file.arrayBuffer();
@@ -6859,6 +6859,11 @@ var RESOURCE_FILE_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/vnd.ms-excel": "xls",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    // PowerPoint: Pr. Rafa's deliverables include slide decks (JM's commercial
+    // training deck, Amanda's APEX START closing pack). Without these the
+    // upload rejects them as an invalid type.
+    "application/vnd.ms-powerpoint": "ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
     "text/plain": "txt", "text/csv": "csv"
 };
 
@@ -6893,7 +6898,7 @@ function validateResourceFields(fields) {
 
 async function storeResourceFile(env, resourceId, file) {
     var ext = RESOURCE_FILE_TYPES[file.type];
-    if (!ext) { throw new Error("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file."); }
+    if (!ext) { throw new Error("Invalid file type. Upload a PDF, image, Word/Excel/PowerPoint document, CSV, or text file."); }
     var key = "resources/" + resourceId + "." + ext;
     await env.ASSETS.put(key, await file.arrayBuffer(), {
         httpMetadata: { contentType: file.type }

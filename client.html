@@ -751,6 +751,12 @@
       background: #fde8e8;
       color: #8a2020;
     }
+    /* Amber, not red: a missing file is unfinished business, not an error.
+       The hidden-from-client badge stays the red one. */
+    .doc-placeholder-badge {
+      background: #fdf3dc;
+      color: #8a6200;
+    }
     .doc-visible-toggle { white-space: nowrap; }
 
     .note-item {
@@ -7202,6 +7208,18 @@
           // neutral chip, and only appears in the state worth noticing. Visible
           // is the default and the unremarkable case; hidden is the one a staff
           // user must be able to spot at a glance.
+          // The file is still in his Claude history. Shown before the hidden
+          // badge because it is the more actionable of the two states.
+          if (doc.kind === "uploaded" && doc.has_file === 0) {
+            var phEl = document.createElement("span");
+            phEl.className = "status-badge doc-placeholder-badge";
+            phEl.innerHTML = doc.file_requested_at
+              ? '<span class="show-pt">Arquivo solicitado</span>' +
+                '<span class="show-en">File requested</span>'
+              : '<span class="show-pt">Só prévia — falta o arquivo</span>' +
+                '<span class="show-en">Preview only — file missing</span>';
+            metaEl.appendChild(phEl);
+          }
           if (doc.kind === "uploaded" && doc.client_visible === 0) {
             var hidEl = document.createElement("span");
             hidEl.className = "status-badge doc-hidden-badge";
@@ -7247,6 +7265,31 @@
             };
             actionsEl.appendChild(visBtn);
 
+            // Attaching the real file to this placeholder, rather than
+            // creating a second row that says the same thing.
+            if (doc.has_file === 0) {
+              var upBtn = document.createElement("button");
+              upBtn.className = "btn-sm";
+              upBtn.innerHTML =
+                '<span class="show-pt">Enviar arquivo</span>' +
+                '<span class="show-en">Upload file</span>';
+              upBtn.onclick = function() { attachFileToPlaceholder(doc); };
+              actionsEl.appendChild(upBtn);
+
+              // Pra. Alice chasing the file. Not offered to the client — see
+              // the request-file endpoint for why.
+              var myRole = sessionStorage.getItem("apex_role");
+              if (!doc.file_requested_at && (myRole === "alice" || myRole === "developer")) {
+                var reqBtn = document.createElement("button");
+                reqBtn.className = "btn-sm";
+                reqBtn.innerHTML =
+                  '<span class="show-pt">Solicitar arquivo</span>' +
+                  '<span class="show-en">Request file</span>';
+                reqBtn.onclick = function() { requestDocumentFile(doc, reqBtn); };
+                actionsEl.appendChild(reqBtn);
+              }
+            }
+
             var deleteBtn = document.createElement("button");
             deleteBtn.className = "btn-sm";
             deleteBtn.innerHTML =
@@ -7266,8 +7309,57 @@
 
     // Flips whether the client can see one document, then reloads the list so
     // the badge and the button label both reflect the new state.
+    // Attaches the real file to an existing placeholder. Reuses the hidden
+    // file input the normal upload uses, but passes attach_to so the worker
+    // fills IN the existing row rather than creating a second one saying the
+    // same thing. The preview and client_visible are both preserved.
+    function attachFileToPlaceholder(doc) {
+      var input = document.getElementById("docFileInput");
+      if (!input) { return; }
+      PENDING_ATTACH_ID = doc.id;
+      input.value = "";
+      input.click();
+    }
+
+    // Pra. Alice asking for the file. One click, recorded once.
+    function requestDocumentFile(doc, btn) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/request-file", {
+        method: "POST", body: {}
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          loadDocuments();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          var statusEl = document.getElementById("docUploadStatus");
+          if (statusEl) {
+            statusEl.textContent = "Erro: " + e.message;
+            statusEl.className = "pull-status is-error";
+          }
+        });
+    }
+
     function toggleDocumentClientVisible(doc, btn) {
       var next = doc.client_visible === 0 ? 1 : 0;
+
+      // Showing a document whose file has not been uploaded yet means the
+      // client gets the preview and no download. Told at the moment of the
+      // action, not as a label in the row — a permanent label gets read once
+      // and then stops being seen.
+      if (next === 1 && doc.has_file === 0) {
+        var msg = isEn()
+          ? "This document has no file yet. The client will see the preview "
+            + "but will NOT be able to download it.\n\nUpload the file so they can."
+          : "Este documento ainda não tem arquivo. O cliente vai ver apenas a "
+            + "prévia e NÃO vai conseguir baixar.\n\nEnvie o arquivo para que ele possa.";
+        if (!window.confirm(msg)) {
+          if (btn) { btn.disabled = false; }
+          return;
+        }
+      }
       if (btn) { btn.disabled = true; }
       apiFetch("/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/client-visible", {
         method: "PATCH",
@@ -7309,13 +7401,17 @@
       // tab to the blob URL once that resolves. Same reasoning as
       // handleGeneratePdf's window.open-then-postMessage pattern above.
       var newTab = window.open("", "_blank");
+      // A placeholder has no file yet — open the stored preview instead. This
+      // is the whole point of keeping the HTML: he can confirm WHICH catalog
+      // this is before going to his Claude history to fetch the real one.
+      var docPath = doc.has_file === 0 ? "/preview" : "/file";
       if (!newTab) {
         console.error("Open document error: popup blocked");
         return;
       }
 
       getToken().then(function(token) {
-        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/file", {
+        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents/" + doc.id + docPath, {
           headers: { "Authorization": "Bearer " + token }
         });
       }).then(function(res) {
@@ -7374,6 +7470,10 @@
         });
     }
 
+    // Non-null only between clicking "Enviar arquivo" on a placeholder and the
+    // upload firing.
+    var PENDING_ATTACH_ID = null;
+
     function handleDocFileSelected(input) {
       if (!input.files || !input.files[0]) { return; }
       var file = input.files[0];
@@ -7391,6 +7491,15 @@
       formData.append("file", file);
       formData.append("title", file.name);
       formData.append("visibility", visibility);
+
+      // Set by "Enviar arquivo" on a placeholder row. The worker fills in the
+      // existing document instead of creating a second one, keeps its preview
+      // and its client_visible state, and clears any outstanding request.
+      // Cleared immediately so a later ordinary upload cannot inherit it.
+      if (PENDING_ATTACH_ID) {
+        formData.append("attach_to", PENDING_ATTACH_ID);
+        PENDING_ATTACH_ID = null;
+      }
 
       getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents", {

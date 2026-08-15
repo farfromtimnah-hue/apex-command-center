@@ -2557,9 +2557,15 @@ async function handleGetClientDocuments(id, request, env) {
                 "ORDER BY date DESC"
             ).bind(id).all();
 
+        // file_url is selected only to derive has_file — the key itself never
+        // leaves the worker. A row with no file_url is a PLACEHOLDER: the
+        // deliverable exists and its preview is readable, but the real file is
+        // still in Pr. Rafa's Claude history.
         var uploadedSelect =
             "SELECT id, title, file_name, content_type, uploaded_by, created_at, " +
-            "visibility, client_visible FROM client_documents WHERE client_id = ?";
+            "visibility, client_visible, file_url, " +
+            "CASE WHEN preview_html IS NULL OR preview_html = '' THEN 0 ELSE 1 END AS has_preview, " +
+            "file_requested_at, file_requested_by FROM client_documents WHERE client_id = ?";
 
         var uploadedRows;
         if (asSeller) {
@@ -2600,6 +2606,14 @@ async function handleGetClientDocuments(id, request, env) {
                 // the client can see. Client/seller sessions only ever receive
                 // rows where this is 1, since the query filtered on it.
                 client_visible: d.client_visible === 0 ? 0 : 1,
+                // A placeholder: the deliverable is recorded but the file has
+                // not been uploaded yet. The R2 key itself is never exposed.
+                has_file: d.file_url ? 1 : 0,
+                has_preview: d.has_preview === 1 ? 1 : 0,
+                // Only staff need to know a file was chased. Surfacing it to a
+                // client would tell them their document is incomplete.
+                file_requested_at: asClientSide ? null : (d.file_requested_at || null),
+                file_requested_by: asClientSide ? null : (d.file_requested_by || null),
                 date: d.created_at
             };
         });
@@ -2704,6 +2718,36 @@ async function handlePostClientDocument(id, request, env) {
         var cvField = form.get("client_visible");
         var clientVisible = (cvField === "0" || cvField === 0 || cvField === "false") ? 0 : 1;
 
+        // Attaching the real file to a PLACEHOLDER rather than creating a new
+        // row. This is the flow that closes the loop: his Claude recorded the
+        // deliverable when he made it, and this is him finally uploading it.
+        //
+        // The preview is KEPT — it stays the quick-look version, and the client
+        // may already be reading it. client_visible is kept too, so attaching a
+        // file never changes who can see the document. Any outstanding request
+        // from Pra. Alice clears itself, so nobody has to close it.
+        var attachTo = form.get("attach_to");
+        if (typeof attachTo === "string" && attachTo.trim()) {
+            var target = await env.DB.prepare(
+                "SELECT id, file_url FROM client_documents WHERE id = ? AND client_id = ?"
+            ).bind(attachTo.trim(), id).first();
+            if (!target) { return jsonErr("Placeholder not found", 404); }
+            if (target.file_url) { return jsonErr("This document already has a file.", 400); }
+
+            var attachKey = "client-documents/" + id + "/" + target.id + "." + ext;
+            await env.ASSETS.put(attachKey, buf, { httpMetadata: { contentType: file.type } });
+
+            await env.DB.prepare(
+                "UPDATE client_documents SET file_url = ?, file_name = ?, content_type = ?, " +
+                "file_requested_at = NULL, file_requested_by = NULL WHERE id = ? AND client_id = ?"
+            ).bind(attachKey, file.name || ("document." + ext), file.type, target.id, id).run();
+
+            var attached = await env.DB.prepare(
+                "SELECT * FROM client_documents WHERE id = ?"
+            ).bind(target.id).first();
+            return jsonOk({ document: attached, attached: true });
+        }
+
         var docId = crypto.randomUUID();
         var key = "client-documents/" + id + "/" + docId + "." + ext;
 
@@ -2787,6 +2831,149 @@ async function handlePatchClientDocumentVisible(id, docId, request, env) {
 // Staff-gated exactly like the UI upload. The Claude-side integration that
 // calls this is out of scope here; this is only the receiving path.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/documents/placeholder
+//
+// Records a deliverable whose FILE is still in Pr. Rafa's Claude history.
+//
+// Why this exists: he has a Google Drive folder per client already. Things get
+// lost because in the moment he does not file them, not because there is
+// nowhere to put them. So the record lands on the client's profile the instant
+// the deliverable is made, and the file catches up later.
+//
+// Body: JSON { title, preview_html, file_name?, visibility? }. The HTML is the
+// version he approved before converting to PDF, so storing it costs nothing
+// and lets him recognise WHICH deliverable this is without opening the chat.
+//
+// client_visible = 0, same rule as every other Claude-sourced document.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientDocumentPlaceholder(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json();
+        var title = (body && typeof body.title === "string") ? body.title.trim() : "";
+        var html  = (body && typeof body.preview_html === "string") ? body.preview_html : "";
+        if (!title) { return jsonErr("title is required", 400); }
+        if (!html.trim()) { return jsonErr("preview_html is required", 400); }
+
+        var MAX_HTML = 2 * 1024 * 1024;
+        if (html.length > MAX_HTML) {
+            return jsonErr("preview_html is too large. Maximum is 2 MB.", 400);
+        }
+
+        var docId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, " +
+            "content_type, uploaded_by, visibility, client_visible, preview_html) " +
+            "VALUES (?, ?, ?, ?, NULL, 'text/html', ?, ?, 0, ?)"
+        ).bind(
+            // file_name is NOT NULL on this table. A placeholder has no file
+            // yet, so it carries the name the file WILL have — which is also
+            // what he needs to recognise it in his Claude history.
+            docId, id, title, (body.file_name || (title + ".pdf")),
+            user.display_name || user.role,
+            (body.visibility === "seller") ? "seller" : "client",
+            html
+        ).run();
+
+        return jsonOk({ id: docId, has_file: 0, client_visible: 0 });
+    } catch (e) {
+        return jsonErr("Error creating placeholder: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/documents/:docId/preview
+//
+// Serves the stored HTML as a page. Sandboxed hard: a restrictive CSP means
+// nothing executes even if a script is present, and the same client_visible /
+// seller predicates as the file endpoint apply — hiding a row from a list is
+// cosmetic when ids are enumerable.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientDocumentPreview(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var asSeller = !!effectiveSellerName(user, request);
+        var asClientSide = user.role === "client" || asSeller || !!previewClientId(user, request);
+
+        var row = await env.DB.prepare(
+            "SELECT preview_html FROM client_documents WHERE id = ? AND client_id = ?" +
+            (asSeller ? " AND visibility = 'seller'" : "") +
+            (asClientSide ? " AND client_visible = 1" : "")
+        ).bind(docId, id).first();
+
+        if (!row || !row.preview_html) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        return new Response(row.preview_html, {
+            headers: {
+                "Content-Type": "text/html; charset=utf-8",
+                // No scripts, no forms, no framing by anyone else. A deliverable
+                // is a document, not an application.
+                "Content-Security-Policy":
+                    "default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; " +
+                    "font-src data: https:; frame-ancestors 'self'",
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "private, no-store",
+                ...CORS_HEADERS
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error loading preview: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/documents/:docId/request-file
+//
+// Pra. Alice asking Pr. Rafa to upload the real file.
+//
+// Deliberately NOT available to the client. A client having to ask for the
+// deliverable they were already promised is a bad look; the warning shown when
+// he makes a preview-only document visible is what prevents that instead.
+//
+// Recorded once. Repeat clicks do not stack — three nags read as pressure
+// without adding information.
+// ---------------------------------------------------------------------------
+
+async function handleRequestClientDocumentFile(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT file_url, file_requested_at FROM client_documents WHERE id = ? AND client_id = ?"
+        ).bind(docId, id).first();
+        if (!row) { return jsonErr("Document not found", 404); }
+        if (row.file_url) { return jsonErr("This document already has its file.", 400); }
+        if (row.file_requested_at) {
+            return jsonOk({ id: docId, file_requested_at: row.file_requested_at, already: true });
+        }
+
+        var who = user.display_name || user.role;
+        await env.DB.prepare(
+            "UPDATE client_documents SET file_requested_at = datetime('now'), file_requested_by = ? " +
+            "WHERE id = ? AND client_id = ?"
+        ).bind(who, docId, id).run();
+
+        return jsonOk({ id: docId, file_requested_by: who });
+    } catch (e) {
+        return jsonErr("Error requesting file: " + e.message, 500);
+    }
+}
 
 async function handlePostClientDocumentFromClaude(id, request, env) {
     try {
@@ -2904,7 +3091,10 @@ async function handleGetClientDocumentFile(id, docId, request, env) {
             (fileAsClientSide ? " AND client_visible = 1" : "");
 
         var row = await env.DB.prepare(fileSelect).bind(docId, id).first();
-        if (!row) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        // No row, or a PLACEHOLDER whose file has not been uploaded yet. Both
+        // are a 404 here: there is nothing to serve, and the preview endpoint
+        // is what serves the readable version in the meantime.
+        if (!row || !row.file_url) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
 
         if (!/^client-documents\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.file_url)) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
@@ -24990,6 +25180,15 @@ async function handleFetch(request, env, ctx) {
             // "from-claude" is never mistaken for a document id.
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "from-claude" && method === "POST") {
                 return handlePostClientDocumentFromClaude(cid, request, env);
+            }
+            if (segs.length === 5 && segs[3] === "documents" && segs[4] === "placeholder" && method === "POST") {
+                return handlePostClientDocumentPlaceholder(cid, request, env);
+            }
+            if (segs.length === 6 && segs[3] === "documents" && segs[5] === "preview" && method === "GET") {
+                return handleGetClientDocumentPreview(cid, segs[4], request, env);
+            }
+            if (segs.length === 6 && segs[3] === "documents" && segs[5] === "request-file" && method === "POST") {
+                return handleRequestClientDocumentFile(cid, segs[4], request, env);
             }
             if (segs.length === 6 && segs[3] === "documents" && segs[5] === "client-visible" && method === "PATCH") {
                 return handlePatchClientDocumentVisible(cid, segs[4], request, env);

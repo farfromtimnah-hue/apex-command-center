@@ -2531,6 +2531,24 @@ async function handleGetClientDocuments(id, request, env) {
         // seller session gets — which is the entire point of the preview.
         var asSeller = !!effectiveSellerName(user, request);
 
+        // client_visible narrows FURTHER, it does not replace the seller rule.
+        // A hidden document is hidden from the client and from their sellers
+        // alike — that is the whole point of the flag, and it is why a seller
+        // query carries both predicates rather than either one alone.
+        //
+        // Staff (alice/rafa/developer) see everything, with each row's flag
+        // reported so the UI can show what the client can and cannot see.
+        // user.role === "client" covers sellers too: they are role 'client'
+        // with a seller login_role, so that single test is the right gate for
+        // real sessions.
+        //
+        // The admin preview paths (?previewSeller= / ?previewAs=) are folded in
+        // for the same reason the seller predicate already covers previewSeller:
+        // a preview that showed drafts the real client cannot see would be
+        // lying about the view it exists to reproduce.
+        var asClientSide = user.role === "client" ||
+            asSeller || !!previewClientId(user, request);
+
         var generatedRows = asSeller
             ? { results: [] }
             : await env.DB.prepare(
@@ -2539,16 +2557,24 @@ async function handleGetClientDocuments(id, request, env) {
                 "ORDER BY date DESC"
             ).bind(id).all();
 
-        var uploadedRows = asSeller
-            ? await env.DB.prepare(
-                "SELECT id, title, file_name, content_type, uploaded_by, created_at, visibility " +
-                "FROM client_documents WHERE client_id = ? AND visibility = 'seller' " +
-                "ORDER BY created_at DESC"
-            ).bind(id).all()
-            : await env.DB.prepare(
-                "SELECT id, title, file_name, content_type, uploaded_by, created_at, visibility " +
-                "FROM client_documents WHERE client_id = ? ORDER BY created_at DESC"
+        var uploadedSelect =
+            "SELECT id, title, file_name, content_type, uploaded_by, created_at, " +
+            "visibility, client_visible FROM client_documents WHERE client_id = ?";
+
+        var uploadedRows;
+        if (asSeller) {
+            uploadedRows = await env.DB.prepare(
+                uploadedSelect + " AND visibility = 'seller'" +
+                (asClientSide ? " AND client_visible = 1" : "") +
+                " ORDER BY created_at DESC"
             ).bind(id).all();
+        } else {
+            uploadedRows = await env.DB.prepare(
+                uploadedSelect +
+                (asClientSide ? " AND client_visible = 1" : "") +
+                " ORDER BY created_at DESC"
+            ).bind(id).all();
+        }
 
         var generated = (generatedRows.results || []).map(function(s) {
             return {
@@ -2570,6 +2596,10 @@ async function handleGetClientDocuments(id, request, env) {
                 content_type: d.content_type,
                 uploaded_by: d.uploaded_by,
                 visibility: d.visibility || "client",
+                // Reported so a staff user can tell at a glance which documents
+                // the client can see. Client/seller sessions only ever receive
+                // rows where this is 1, since the query filtered on it.
+                client_visible: d.client_visible === 0 ? 0 : 1,
                 date: d.created_at
             };
         });
@@ -2659,6 +2689,21 @@ async function handlePostClientDocument(id, request, env) {
         var visField = form.get("visibility");
         var visibility = (visField === "seller") ? "seller" : "client";
 
+        // Note the asymmetry with the line above, which is deliberate.
+        //
+        // For section membership the safe fallback is the NARROWER value
+        // ('client'), because guessing wrong there shows a document to a whole
+        // sales team. For client_visible on a UI upload the default is 1
+        // (visible), because that is what a deliberate UI upload MEANS: someone
+        // went to this client's profile and put a file on it. Defaulting that
+        // to hidden would quietly break every existing upload flow.
+        //
+        // Claude-sourced documents do NOT come through here — they arrive via
+        // handlePostClientDocumentFromClaude, which sets the flag to 0
+        // server-side rather than trusting anything in the request.
+        var cvField = form.get("client_visible");
+        var clientVisible = (cvField === "0" || cvField === 0 || cvField === "false") ? 0 : 1;
+
         var docId = crypto.randomUUID();
         var key = "client-documents/" + id + "/" + docId + "." + ext;
 
@@ -2667,8 +2712,122 @@ async function handlePostClientDocument(id, request, env) {
         });
 
         await env.DB.prepare(
-            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility, client_visible) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            docId, id, title, file.name || ("document." + ext), key, file.type,
+            user.display_name || user.role, visibility, clientVisible
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM client_documents WHERE id = ?").bind(docId).first();
+        return jsonOk({ document: row });
+    } catch (e) {
+        return jsonErr("Error uploading document: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/clients/:id/documents/:docId/client-visible
+// Flips whether the client can see one document. Body: { client_visible: 0|1 }.
+//
+// Uploaded documents only. Generated session reports have no client_documents
+// row to carry the flag, so there is nothing here to toggle for them.
+//
+// alice / rafa / developer only — the same gate as upload and delete. A client
+// must never be able to reveal a draft that was deliberately hidden from them.
+// ---------------------------------------------------------------------------
+
+async function handlePatchClientDocumentVisible(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body || !body.hasOwnProperty("client_visible")) {
+            return jsonErr("client_visible is required", 400);
+        }
+        // Explicit values only. An unparseable value is a bug in the caller,
+        // not a reason to guess at whether a client should see a document.
+        var raw = body.client_visible;
+        var next;
+        if (raw === 1 || raw === "1" || raw === true) { next = 1; }
+        else if (raw === 0 || raw === "0" || raw === false) { next = 0; }
+        else { return jsonErr("client_visible must be 0 or 1", 400); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM client_documents WHERE id = ? AND client_id = ?"
+        ).bind(docId, id).first();
+        if (!row) { return jsonErr("Document not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE client_documents SET client_visible = ? WHERE id = ? AND client_id = ?"
+        ).bind(next, docId, id).run();
+
+        return jsonOk({ id: docId, client_visible: next });
+    } catch (e) {
+        return jsonErr("Error updating document visibility: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/documents/from-claude
+// The Apex-side receiving path for deliverables created in Pr. Rafa's own
+// Claude. Body: multipart/form-data, same 'file'/'title' fields as the UI
+// upload, so the two paths share the R2 hardening and type/size limits.
+//
+// The ONLY difference, and the reason this is a separate endpoint rather than
+// a flag on the existing one, is the default: these land with
+// client_visible = 0, set SERVER-SIDE. A draft in progress must not be exposed
+// to the client because a caller forgot a field, and a client-supplied value
+// must not be able to publish one. There is deliberately no way to ask this
+// endpoint for a visible document — Pr. Rafa reveals it from the UI once it is
+// ready, which is a decision a person makes, not an integration.
+//
+// Staff-gated exactly like the UI upload. The Claude-side integration that
+// calls this is out of scope here; this is only the receiving path.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientDocumentFromClaude(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("file");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
+
+        var ext = RESOURCE_FILE_TYPES[file.type];
+        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file.", 400); }
+
+        var MAX_BYTES = 20 * 1024 * 1024;
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 20 MB.", 400);
+        }
+
+        var titleField = form.get("title");
+        var title = (typeof titleField === "string" && titleField.trim()) ? titleField.trim() : (file.name || ("document." + ext));
+
+        // Section membership is still a choice; client visibility is not.
+        var visField = form.get("visibility");
+        var visibility = (visField === "seller") ? "seller" : "client";
+
+        var docId = crypto.randomUUID();
+        var key = "client-documents/" + id + "/" + docId + "." + ext;
+
+        await env.ASSETS.put(key, buf, {
+            httpMetadata: { contentType: file.type }
+        });
+
+        // client_visible is hardcoded 0 here. It is NOT read from the form.
+        await env.DB.prepare(
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility, client_visible) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"
         ).bind(
             docId, id, title, file.name || ("document." + ext), key, file.type,
             user.display_name || user.role, visibility
@@ -2677,7 +2836,7 @@ async function handlePostClientDocument(id, request, env) {
         var row = await env.DB.prepare("SELECT * FROM client_documents WHERE id = ?").bind(docId).first();
         return jsonOk({ document: row });
     } catch (e) {
-        return jsonErr("Error uploading document: " + e.message, 500);
+        return jsonErr("Error receiving document: " + e.message, 500);
     }
 }
 
@@ -2729,14 +2888,22 @@ async function handleGetClientDocumentFile(id, docId, request, env) {
         // The list endpoint hides client-only documents from a salesperson;
         // this one has to as well, or the hiding is cosmetic — the ids are
         // guessable-by-enumeration in exactly the way a list filter is not.
-        var row = effectiveSellerName(user, request)
-            ? await env.DB.prepare(
-                "SELECT file_url, file_name, content_type FROM client_documents " +
-                "WHERE id = ? AND client_id = ? AND visibility = 'seller'"
-            ).bind(docId, id).first()
-            : await env.DB.prepare(
-                "SELECT file_url, file_name, content_type FROM client_documents WHERE id = ? AND client_id = ?"
-            ).bind(docId, id).first();
+        //
+        // client_visible has exactly the same exposure, so it gets exactly the
+        // same treatment: filtering it out of the list while still serving the
+        // bytes to anyone who types the id would not be hiding the document at
+        // all. Both predicates apply together — a hidden document is hidden
+        // from the client AND from their sellers.
+        var fileAsSeller = !!effectiveSellerName(user, request);
+        var fileAsClientSide = user.role === "client" ||
+            fileAsSeller || !!previewClientId(user, request);
+
+        var fileSelect = "SELECT file_url, file_name, content_type FROM client_documents " +
+            "WHERE id = ? AND client_id = ?" +
+            (fileAsSeller ? " AND visibility = 'seller'" : "") +
+            (fileAsClientSide ? " AND client_visible = 1" : "");
+
+        var row = await env.DB.prepare(fileSelect).bind(docId, id).first();
         if (!row) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
 
         if (!/^client-documents\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.file_url)) {
@@ -24794,6 +24961,14 @@ async function handleFetch(request, env, ctx) {
             }
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
                 return handleGetClientLatestDocument(cid, request, env);
+            }
+            // Ahead of the generic /documents/:docId patterns below, so
+            // "from-claude" is never mistaken for a document id.
+            if (segs.length === 5 && segs[3] === "documents" && segs[4] === "from-claude" && method === "POST") {
+                return handlePostClientDocumentFromClaude(cid, request, env);
+            }
+            if (segs.length === 6 && segs[3] === "documents" && segs[5] === "client-visible" && method === "PATCH") {
+                return handlePatchClientDocumentVisible(cid, segs[4], request, env);
             }
             if (segs.length === 4 && segs[3] === "documents") {
                 if (method === "GET")  { return handleGetClientDocuments(cid, request, env); }

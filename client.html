@@ -744,6 +744,15 @@
       padding-top: 8px;
     }
 
+    /* Whether the CLIENT can see a document — a different question from which
+       section it is filed in, so it is styled as a warning rather than as
+       another neutral chip, and shows only in the state worth noticing. */
+    .doc-hidden-badge {
+      background: #fde8e8;
+      color: #8a2020;
+    }
+    .doc-visible-toggle { white-space: nowrap; }
+
     .note-item {
       padding: 14px 20px;
       border-bottom: 1px solid var(--border);
@@ -7187,6 +7196,20 @@
           // The old per-row "Vendedores" badge is gone: the section heading now
           // says which group a document is in, so repeating it on every row in
           // the Sales Material section is noise.
+          //
+          // This badge answers a DIFFERENT question — whether the client can see
+          // the document at all — so it is styled as a warning, not as another
+          // neutral chip, and only appears in the state worth noticing. Visible
+          // is the default and the unremarkable case; hidden is the one a staff
+          // user must be able to spot at a glance.
+          if (doc.kind === "uploaded" && doc.client_visible === 0) {
+            var hidEl = document.createElement("span");
+            hidEl.className = "status-badge doc-hidden-badge";
+            hidEl.innerHTML =
+              '<span class="show-pt">Oculto do cliente</span>' +
+              '<span class="show-en">Hidden from client</span>';
+            metaEl.appendChild(hidEl);
+          }
           metaEl.appendChild(dateSpan);
           if (doc.kind === "uploaded" && doc.uploaded_by) {
             var byEl = document.createElement("span");
@@ -7208,6 +7231,22 @@
           actionsEl.appendChild(actionBtn);
 
           if (doc.kind === "uploaded") {
+            // Deliberately NOT next to the section chooser in the card header.
+            // "Which section is this filed in" and "can the client see it" are
+            // different questions, and putting the two controls side by side is
+            // how the wrong one gets changed.
+            var visBtn = document.createElement("button");
+            visBtn.className = "btn-sm doc-visible-toggle";
+            visBtn.innerHTML = doc.client_visible === 0
+              ? '<span class="show-pt">Mostrar ao cliente</span>' +
+                '<span class="show-en">Show to client</span>'
+              : '<span class="show-pt">Ocultar do cliente</span>' +
+                '<span class="show-en">Hide from client</span>';
+            visBtn.onclick = function() {
+              toggleDocumentClientVisible(doc, visBtn);
+            };
+            actionsEl.appendChild(visBtn);
+
             var deleteBtn = document.createElement("button");
             deleteBtn.className = "btn-sm";
             deleteBtn.innerHTML =
@@ -7223,6 +7262,30 @@
       }
 
       inner.appendChild(list);
+    }
+
+    // Flips whether the client can see one document, then reloads the list so
+    // the badge and the button label both reflect the new state.
+    function toggleDocumentClientVisible(doc, btn) {
+      var next = doc.client_visible === 0 ? 1 : 0;
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/client-visible", {
+        method: "PATCH",
+        body: { client_visible: next }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          loadDocuments();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          var statusEl = document.getElementById("docUploadStatus");
+          if (statusEl) {
+            statusEl.textContent = "Erro: " + e.message;
+            statusEl.className = "pull-status is-error";
+          }
+        });
     }
 
     function openDocument(doc) {

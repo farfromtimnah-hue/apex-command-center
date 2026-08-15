@@ -2578,7 +2578,42 @@ async function handleGetClientDocuments(id, request, env) {
             return (b.date || "").localeCompare(a.date || "");
         });
 
-        return jsonOk({ documents: combined });
+        // ── Two sections, not one merged list ────────────────────────────────
+        //
+        // visibility was always meant to mean "which section is this filed in",
+        // but what shipped was a widening flag on a single interleaved list. So
+        // a client's Documentos held their own files and their sales team's
+        // training material side by side — Scripts de Abordagem sitting next to
+        // a meeting summary about their business.
+        //
+        // The split is presentational only. Nothing changes about WHO can see
+        // WHAT: 'seller' still means "the client AND their salespeople", so the
+        // client sees both sections. The grouping just stops the two kinds of
+        // material from being shuffled together.
+        //
+        //   client_documents — the client's own files, plus every generated
+        //                      session report (always about their business).
+        //   sales_documents  — visibility='seller': material for the client's
+        //                      sales team.
+        //
+        // `documents` is still returned, unchanged, so any caller that has not
+        // been updated keeps working exactly as before.
+        var clientSection = combined.filter(function(d) {
+            return d.kind === "generated" || d.visibility !== "seller";
+        });
+        var salesSection = combined.filter(function(d) {
+            return d.kind === "uploaded" && d.visibility === "seller";
+        });
+
+        return jsonOk({
+            documents: combined,
+            client_documents: clientSection,
+            sales_documents: salesSection,
+            // Lets the frontend decide whether to render the client section at
+            // all without re-deriving the seller rule. A seller must never see
+            // a labeled empty section for material they can never have.
+            as_seller: asSeller
+        });
     } catch (e) {
         return jsonErr("Error fetching documents: " + e.message, 500);
     }

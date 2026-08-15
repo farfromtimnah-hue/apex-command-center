@@ -727,6 +727,22 @@
     /* ─── Notes section ──────────────────────────────────────────────────── */
     .notes-list { padding: 4px 0; }
 
+    /* Documentos section headings. The client's own documents and the sales
+       team's material are two stacked, labeled groups, not one merged list. */
+    .doc-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 16px 20px 6px;
+      border-top: 1px solid var(--border);
+    }
+    #documentCardInner > .doc-section-title:first-child {
+      border-top: none;
+      padding-top: 8px;
+    }
+
     .note-item {
       padding: 14px 20px;
       border-bottom: 1px solid var(--border);
@@ -2251,12 +2267,13 @@
               <span class="show-en">Documents</span>
             </h2>
             <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv" style="display:none;" onchange="handleDocFileSelected(this)">
-            <!-- Who the next upload is filed for. Defaults to the client-only
-                 scope: sharing a document with the client's whole sales team is
-                 a deliberate choice, never the path of least resistance. -->
-            <select id="docVisibility" class="btn-sm" style="display:none;" data-title-attr-pt="Quem pode ver" data-title-attr-en="Who can see" title="Quem pode ver">
-              <option value="client" data-opt-pt="Somente cliente" data-opt-en="Client only">Somente cliente</option>
-              <option value="seller" data-opt-pt="Cliente + vendedores" data-opt-en="Client + sellers">Cliente + vendedores</option>
+            <!-- Which SECTION the next upload is filed into. This is a filing
+                 choice, not a permission: the client sees both sections either
+                 way. Defaults to the client's own documents, so putting a file
+                 in front of the client's whole sales team stays deliberate. -->
+            <select id="docVisibility" class="btn-sm" style="display:none;" data-title-attr-pt="Enviar para a seção" data-title-attr-en="Upload to section" title="Enviar para a seção">
+              <option value="client" data-opt-pt="Documentos do Cliente" data-opt-en="Client Documents">Documentos do Cliente</option>
+              <option value="seller" data-opt-pt="Material de Vendas" data-opt-en="Sales Material">Material de Vendas</option>
             </select>
             <button class="btn-sm" id="btnUploadDoc" onclick="document.getElementById('docFileInput').click()" style="display:none;">
               <span class="show-pt">Enviar Arquivo</span>
@@ -4625,7 +4642,9 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          renderDocumentsList(data.documents || []);
+          // Whole payload, not just .documents: the server does the section
+          // split so the two copies of this file cannot disagree about it.
+          renderDocumentsList(data);
         })
         .catch(function(e) {
           renderDocumentsList([]);
@@ -7049,17 +7068,62 @@
 
     // ── Render: documents list ──────────────────────────────────────────────
 
-    function renderDocumentsList(docs) {
+    // Two stacked, labeled sections rather than one merged list: the client's
+    // own documents, then the sales team's material below. Staff see the same
+    // structure the client sees, so it is obvious which section a file is in.
+    //
+    // `data` is the whole payload, so the split comes from the server rather
+    // than being re-derived here from visibility strings.
+    function renderDocumentsList(data) {
       var inner = document.getElementById("documentCardInner");
       if (!inner) { return; }
       inner.innerHTML = "";
 
+      // Tolerates being handed a bare array (the old shape, and the error path
+      // below, which calls this with []).
+      var payload = Array.isArray(data) ? { documents: data } : (data || {});
+      var clientDocs = payload.client_documents;
+      var salesDocs  = payload.sales_documents;
+
+      // Fall back to splitting the flat list if an older worker answered.
+      if (!clientDocs || !salesDocs) {
+        var all = payload.documents || [];
+        clientDocs = all.filter(function(d) {
+          return d.kind === "generated" || d.visibility !== "seller";
+        });
+        salesDocs = all.filter(function(d) {
+          return d.kind === "uploaded" && d.visibility === "seller";
+        });
+      }
+
+      // client.html is a staff page, so both sections normally render — staff
+      // file into them and need to see both, empty or not. The as_seller guard
+      // is belt-and-braces: if this page is ever reached with a seller-scoped
+      // response, the client section must not render even as an empty heading.
+      if (!payload.as_seller) {
+        renderDocumentSection(inner, "client", clientDocs);
+      }
+      renderDocumentSection(inner, "sales", salesDocs);
+    }
+
+    function renderDocumentSection(inner, which, docs) {
+      var heading = document.createElement("div");
+      heading.className = "doc-section-title";
+      heading.innerHTML = which === "sales"
+        ? '<span class="show-pt">Material de Vendas</span>' +
+          '<span class="show-en">Sales Material</span>'
+        : '<span class="show-pt">Documentos do Cliente</span>' +
+          '<span class="show-en">Client Documents</span>';
+      inner.appendChild(heading);
+
       if (!docs || docs.length === 0) {
         var emptyEl = document.createElement("div");
-        emptyEl.style.cssText = "font-size:13px;color:var(--muted);padding:16px 20px;";
-        emptyEl.innerHTML =
-          '<span class="show-pt">Nenhum documento ainda.</span>' +
-          '<span class="show-en">No documents yet.</span>';
+        emptyEl.style.cssText = "font-size:13px;color:var(--muted);padding:8px 20px 16px;";
+        emptyEl.innerHTML = which === "sales"
+          ? '<span class="show-pt">Nenhum material de vendas ainda.</span>' +
+            '<span class="show-en">No sales material yet.</span>'
+          : '<span class="show-pt">Nenhum documento ainda.</span>' +
+            '<span class="show-en">No documents yet.</span>';
         inner.appendChild(emptyEl);
         return;
       }
@@ -7102,17 +7166,9 @@
           dateSpan.textContent = formatDateTimeUTC(doc.date);
 
           metaEl.appendChild(badgeEl);
-          // Seller-visible documents are called out; client-only ones carry no
-          // badge, because that is the default and the unremarkable case. An
-          // admin should be able to see at a glance which files the client's
-          // sales team can read.
-          if (doc.kind === "uploaded" && doc.visibility === "seller") {
-            var visEl = document.createElement("span");
-            visEl.className = "status-badge";
-            visEl.style.cssText = "background:#fdf0d5;color:#7a4a00;";
-            visEl.innerHTML = '<span class="show-pt">Vendedores</span><span class="show-en">Sellers</span>';
-            metaEl.appendChild(visEl);
-          }
+          // The old per-row "Vendedores" badge is gone: the section heading now
+          // says which group a document is in, so repeating it on every row in
+          // the Sales Material section is noise.
           metaEl.appendChild(dateSpan);
           if (doc.kind === "uploaded" && doc.uploaded_by) {
             var byEl = document.createElement("span");

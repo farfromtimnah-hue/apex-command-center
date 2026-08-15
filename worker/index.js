@@ -2458,15 +2458,22 @@ async function handleGetLeadStages(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: GET /api/clients-needing-review
-// Active clients showing no sign of ever having been active: no payment terms,
-// no invoices, no sessions, no assessments. Pr. Rafa adds clients fast and the
-// record defaults to status='active', so some of them are people he has only
-// pitched to — ELITE REMODELING was exactly this, and matched all four signals.
+// Active clients with NO PAYMENT TERMS — the exact list Alice was looking at
+// when she said several of them were not really active. Pr. Rafa adds clients
+// fast and the record defaults to status='active', so some are people he has
+// only pitched to.
+//
+// ⚠️ This filter was originally the intersection of all four signals (no terms
+// AND no invoices AND no sessions AND no assessments), generalised from ELITE
+// REMODELING, which happened to match all four. That matched ZERO live rows —
+// every other active client has sessions — so it surfaced nothing and could not
+// help Alice finish the review. Missing payment terms is the fact that actually
+// prompted her, so that alone is the filter.
 //
 // This is a LIST, never an action. Which of these records is genuinely wrong is
 // Alice's judgment: a real client who signed last week legitimately has none of
-// the four yet. So all four counts are returned per row and shown as evidence,
-// and nothing here converts anything.
+// the four yet. So all four counts are still returned per row and shown as
+// evidence, and nothing here converts anything.
 //
 // alice / rafa / developer only.
 // ---------------------------------------------------------------------------
@@ -2486,9 +2493,6 @@ async function handleGetClientsNeedingReview(request, env) {
             "FROM clients c " +
             "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
             "  AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id) " +
-            "  AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.client_id = c.id) " +
-            "  AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.client_id = c.id) " +
-            "  AND NOT EXISTS (SELECT 1 FROM client_assessments a WHERE a.client_id = c.id) " +
             "ORDER BY c.name"
         ).all();
 

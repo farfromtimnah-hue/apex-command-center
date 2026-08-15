@@ -297,6 +297,35 @@ function isAdminRole(user) {
 var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
 
 // ---------------------------------------------------------------------------
+// CLIENT STATUS — the full set of values clients.status may hold.
+//
+// Same rationale as CLIENT_SOURCE_TYPES: this endpoint used to write whatever
+// it was handed, so a typo could invent a status ('activo', 'Active') that no
+// page filters on and no dropdown can show again — the record simply vanishes
+// from every list while still sitting in the table.
+//
+// 'paused' is canonical for the paused state. The client detail dropdown used
+// to write 'inactive' for the same thing while clients.html, sessions.html and
+// the live data all wrote 'paused'; calendar.html groups on 'paused' only, so
+// the odd one out landed in the wrong calendar group. 'inactive' is deliberately
+// NOT in this list — it has zero rows in the live data and is not a value we
+// want written again. The CSS rules for it stay as a defensive fallback.
+//
+// 'lead' and 'lead_dormant' belong to the lead pipeline above: a record can be
+// corrected back to 'lead' from the client detail page when it turns out never
+// to have been a client. 'lead' REQUIRES a lead_stage — see handlePatchClient,
+// which rejects the pair rather than writing a stageless lead into limbo.
+// ---------------------------------------------------------------------------
+
+var CLIENT_STATUS = [
+    "active",        // a paying client
+    "paused",        // engagement on hold, expected to resume
+    "closed",        // engagement ended
+    "lead",          // not a client (yet); lead_stage says where in the pipeline
+    "lead_dormant"   // a lead that went cold; set via the lead-outcome path
+];
+
+// ---------------------------------------------------------------------------
 // CLIENT SOURCE — where a client came from, kept for their whole lifecycle.
 //
 // Set on the lead and carried through conversion untouched: a client who came
@@ -2405,6 +2434,71 @@ async function handleGetClientLatestDocument(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/lead-stages
+// The stage ladder the client-status editor offers when a record is corrected
+// back to a lead. Served rather than hardcoded in the frontend so a stage added
+// to LEAD_STAGES appears in the dropdown without an HTML change, and without the
+// two client.html copies drifting apart.
+//
+// Deliberately NOT "SELECT DISTINCT lead_stage FROM clients": that returns only
+// the stages occupied right now (today 3 of the 5), so the empty middle of the
+// pipeline — 'Raio X enviado', 'Raio X recebido' — would be unofferable exactly
+// when someone needs to file a record there.
+// ---------------------------------------------------------------------------
+
+async function handleGetLeadStages(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        return jsonOk({ stages: LEAD_STAGES });
+    } catch (e) {
+        return jsonErr("Error fetching lead stages: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients-needing-review
+// Active clients showing no sign of ever having been active: no payment terms,
+// no invoices, no sessions, no assessments. Pr. Rafa adds clients fast and the
+// record defaults to status='active', so some of them are people he has only
+// pitched to — ELITE REMODELING was exactly this, and matched all four signals.
+//
+// This is a LIST, never an action. Which of these records is genuinely wrong is
+// Alice's judgment: a real client who signed last week legitimately has none of
+// the four yet. So all four counts are returned per row and shown as evidence,
+// and nothing here converts anything.
+//
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientsNeedingReview(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT c.id, c.name, c.package, c.created_at, " +
+            "  (SELECT COUNT(*) FROM client_package_terms t WHERE t.client_id = c.id) AS terms_count, " +
+            "  (SELECT COUNT(*) FROM invoices i WHERE i.client_id = c.id) AS invoice_count, " +
+            "  (SELECT COUNT(*) FROM sessions s WHERE s.client_id = c.id) AS session_count, " +
+            "  (SELECT COUNT(*) FROM client_assessments a WHERE a.client_id = c.id) AS assessment_count " +
+            "FROM clients c " +
+            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
+            "  AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id) " +
+            "  AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.client_id = c.id) " +
+            "  AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.client_id = c.id) " +
+            "  AND NOT EXISTS (SELECT 1 FROM client_assessments a WHERE a.client_id = c.id) " +
+            "ORDER BY c.name"
+        ).all();
+
+        return jsonOk({ clients: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching clients needing review: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/documents
 // Combined Documents list for the client profile: auto-generated session
 // reports (rendered client-side from sessions.pdf_data, same as the existing
@@ -2788,9 +2882,36 @@ async function handlePatchClient(id, request, env) {
             }
             updated = true;
         }
+        // ── Status, and the one status that drags a second column with it ────
+        //
+        // 'lead' is the correction path for a record added as a client that was
+        // only ever a lead. It cannot be written alone: status='lead' with a NULL
+        // lead_stage is invisible in both directions — it drops off the client
+        // list AND renders nowhere on the leads board, which groups by stage. So
+        // the pair is validated and written together, or neither is written.
         if (body.hasOwnProperty("status")) {
-            await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
-                .bind(body.status || null, id).run();
+            var newStatus = body.status || null;
+            if (newStatus !== null && CLIENT_STATUS.indexOf(newStatus) === -1) {
+                return jsonErr("Status inválido / Invalid status", 400);
+            }
+
+            if (newStatus === "lead") {
+                var leadStage = body.lead_stage || null;
+                if (!leadStage || LEAD_STAGES.indexOf(leadStage) === -1) {
+                    return jsonErr("Selecione uma etapa / Select a lead stage", 400);
+                }
+                // stage_change_source identifies the path that made the change,
+                // matching the 'manual-d1' stamp left by the ELITE REMODELING
+                // correction that was done by hand before this UI existed.
+                await env.DB.prepare(
+                    "UPDATE clients SET status = 'lead', lead_stage = ?, " +
+                    "stage_changed_at = datetime('now'), stage_changed_by = ?, " +
+                    "stage_change_source = 'client-status-edit' WHERE id = ?"
+                ).bind(leadStage, user.display_name || user.role, id).run();
+            } else {
+                await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
+                    .bind(newStatus, id).run();
+            }
             updated = true;
         }
         if (body.hasOwnProperty("consolidated")) {
@@ -24551,6 +24672,18 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "file" && method === "GET") {
                 return handleGetResourceFile(segs[2], request, env);
             }
+        }
+
+        // /api/lead-stages  GET — stage ladder for the client-status editor.
+        // Top-level rather than /api/clients/lead-stages, which would be
+        // swallowed by the /api/clients/:id route below.
+        if (segs[0] === "api" && segs[1] === "lead-stages" && segs.length === 2 && method === "GET") {
+            return handleGetLeadStages(request, env);
+        }
+
+        // /api/clients-needing-review  GET — active clients with no sign of activity
+        if (segs[0] === "api" && segs[1] === "clients-needing-review" && segs.length === 2 && method === "GET") {
+            return handleGetClientsNeedingReview(request, env);
         }
 
         // /api/users/:email  DELETE

@@ -218,6 +218,43 @@
       border-top: 1px solid rgba(255,255,255,0.1);
     }
 
+    /* Review strip: active clients with no sign of activity. Reuses the
+       pending-strip shell; only the evidence chips are specific to it. */
+    .review-strip-note {
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.5;
+      margin-top: -2px;
+    }
+    .review-signals { display: flex; gap: 6px; flex-wrap: wrap; }
+    .review-signal {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: rgba(255,255,255,0.55);
+    }
+    /* A present signal is evidence the record IS active — it argues against
+       converting, so it reads as normal text, never as an alarm. */
+    .review-signal.has {
+      background: var(--gold-dim);
+      border-color: rgba(201,164,58,0.5);
+      color: var(--gold);
+    }
+    .review-row-link {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .review-row-link:hover { text-decoration: underline; }
+
     .pending-row-info { flex: 1; min-width: 0; }
     .pending-row-client { font-size: 13px; font-weight: 600; color: #fff; }
     .pending-row-resource { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 1px; }
@@ -840,6 +877,22 @@
 
         <!-- Below hero: Add button + client table -->
         <div class="below-section">
+          <!-- Active clients showing no sign of being active. alice/rafa/developer
+               only; revealed by showPortal(). This is a LIST, never an action —
+               which record is genuinely wrong is Alice's call, made through the
+               status control on each client's own page. -->
+          <div class="pending-strip" id="reviewStrip" hidden>
+            <div class="pending-strip-title">
+              <span class="show-pt">Clientes a Revisar</span>
+              <span class="show-en">Clients to Review</span>
+            </div>
+            <div class="review-strip-note">
+              <span class="show-pt">Marcados como ativos, mas sem termos, faturas, sessões ou avaliações. Podem ser leads cadastrados como clientes por engano. Abra o cliente para corrigir o status.</span>
+              <span class="show-en">Marked active, but with no terms, invoices, sessions or assessments. These may be leads added as clients by mistake. Open the client to correct the status.</span>
+            </div>
+            <div id="reviewStripRows"></div>
+          </div>
+
           <!-- Pending resource sends (Resource Hub) — hidden when queue is empty -->
           <div class="pending-strip" id="pendingStrip" hidden>
             <div class="pending-strip-title">
@@ -1168,6 +1221,9 @@
       loadMessageTemplates();
       loadClients();
       loadPendingResources();
+      // Admin-only: the endpoint enforces it too, this just avoids a guaranteed
+      // 403 on every non-admin page load.
+      if (canCreate) { loadClientsNeedingReview(); }
       applyClientsDeepLink();
     }
 
@@ -1201,6 +1257,77 @@
         apexPartners.forEach(function (p) { if (p.id === partnerId) { found = true; } });
         if (found) { openApexPartnerModal(partnerId); }
       }).catch(function () { /* roster failed to load; tab stays open */ });
+    }
+
+    // ── Clients to review strip ────────────────────────────────────────────
+    //
+    // Active clients with no terms, no invoices, no sessions and no assessments
+    // — the shape of a record added as a client that was only ever a lead
+    // (ELITE REMODELING matched all four before it was corrected by hand).
+    //
+    // All four signals are shown per row so the evidence is visible rather than
+    // just a verdict: a client who signed last week legitimately has none of
+    // them yet. Nothing here converts anything — the row links to the client's
+    // own page, where the status control does the actual correction.
+
+    var clientsNeedingReview = [];
+
+    function loadClientsNeedingReview() {
+      apiFetch("/api/clients-needing-review")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) { throw new Error(data.error); }
+          clientsNeedingReview = data.clients || [];
+          renderReviewStrip();
+        })
+        .catch(function () {
+          // Supplementary, same as the pending strip: a load failure must not
+          // break the Clients page.
+          var strip = document.getElementById("reviewStrip");
+          if (strip) { strip.hidden = true; }
+        });
+    }
+
+    function renderReviewStrip() {
+      var strip = document.getElementById("reviewStrip");
+      var rows  = document.getElementById("reviewStripRows");
+      if (!strip || !rows) { return; }
+
+      // Nothing to review is the healthy state, and it is the state today: every
+      // active client currently has at least one session. The strip stays out of
+      // the way entirely rather than showing an empty box.
+      if (clientsNeedingReview.length === 0) {
+        strip.hidden = true;
+        return;
+      }
+
+      function signal(hasIt, pt, en) {
+        return '<span class="review-signal' + (hasIt ? ' has' : '') + '">' +
+               '<span class="show-pt">' + pt + '</span>' +
+               '<span class="show-en">' + en + '</span></span>';
+      }
+
+      var html = "";
+      for (var i = 0; i < clientsNeedingReview.length; i++) {
+        var c = clientsNeedingReview[i];
+        html +=
+          '<div class="pending-row">' +
+          '<div class="pending-row-info">' +
+          '<div class="pending-row-client">' + escHtml(c.name) + '</div>' +
+          '<div class="review-signals">' +
+          signal(c.terms_count > 0,      'Termos',    'Terms') +
+          signal(c.invoice_count > 0,    'Faturas',   'Invoices') +
+          signal(c.session_count > 0,    'Sessões',   'Sessions') +
+          signal(c.assessment_count > 0, 'Avaliações', 'Assessments') +
+          '</div>' +
+          '</div>' +
+          '<a class="review-row-link" href="client.html?id=' + encodeURIComponent(c.id) + '">' +
+          '<span class="show-pt">Abrir</span><span class="show-en">Open</span>' +
+          '</a>' +
+          '</div>';
+      }
+      rows.innerHTML = html;
+      strip.hidden   = false;
     }
 
     // ── Pending resource sends strip (Resource Hub) ────────────────────────

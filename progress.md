@@ -2304,3 +2304,24 @@ Nicole toggled PT/EN on the calendar and everything built for the scheduling fea
 - **Test data cleaned**: the scheduling request created for `test-client-temp-001` was deleted; `scheduling_requests`, `scheduling_bookings` and `scheduling_feedback` are all at zero. No slot was ever booked, so no session row and no Google Calendar event were created and nothing needed cancelling. **The test client remains `archived=0`** per the standing rule.
 
 - **NOTE for the next session — rows disappeared that were not mine.** Partway through, `scheduling_requests` went from two rows to zero, taking Nicole's `shot-portal` screenshot fixture with it. The worker contains **no `DELETE FROM scheduling_requests` anywhere** and has no scheduled/cron handler that touches the table, so this did not come from the code changed here; the likeliest cause is a concurrent cleanup session. Flagging it because `shot-a`/`shot-b`/`shot-portal` are Nicole's fixtures and are supposed to be left alone. The test **client** row was checked and is intact and unarchived.
+
+## 2026-08-15 — read-only vault access to Apex data
+
+Pr. Rafa's Claude could read his vault but knew nothing about Apex, so he was exporting from the client portal and pasting by hand. This closes that gap with LIVE reads — deliberately not a sync, because a copy is stale the moment a client edits a record.
+
+**The hard requirement was that his Claude can never write to this D1.** Cloudflare has no read-only D1 binding (read replicas are a latency feature, not a permission one), so the guarantee is structural in code, in two independent layers:
+
+1. **The vault Worker has no D1 binding to this database.** It cannot issue SQL here at all — it can only call the REST endpoints. This property is load-bearing: never give `rafa-vault` a D1 binding to `apex-command-center`.
+2. **Every `/api/vault/` read goes through `vaultRead()`**, the single door to `env.DB` for that namespace. It rejects anything that is not one plain SELECT: non-SELECT statements (after stripping leading whitespace AND leading `--`/`/* */` comments, so a comment prefix cannot smuggle a verb past the check), semicolons anywhere but a single trailing one, comment markers inside the statement, and any table not on the allow-list.
+
+**The allow-list is `clients, gm_leads, sessions, tasks, client_assessments`.** Finance tables are ABSENT from it rather than filtered out by a rule — `SELECT * FROM invoices` fails because `invoices` is not on the list. A rule someone has to remember is a rule someone eventually forgets.
+
+- **Schema correction:** the build spec named an `assessments` table. **There is no such table** — the live name is `client_assessments`, confirmed against `sqlite_master` before the allow-list was written. Used the real name.
+
+- **New routes**, all service-token only, all through `vaultRead()`: `GET /api/vault/leads?client_id=` (one client's own gm_leads pipeline), `GET /api/vault/apex-leads` (Rafa's own prospects — `clients WHERE status='lead'`), `GET /api/vault/sessions`, `GET /api/vault/tasks`, `GET /api/vault/assessments`. Columns were selected against the real schema of each table, not guessed. Sessions deliberately omit `raw_transcript`/`summary_json`/`pdf_data` — tens of thousands of characters each.
+
+- **`POST /api/vault/selftest`** runs a caller-supplied statement through the SAME `vaultRead()` and reports whether it was blocked. It is behind the same `serviceCaller()` 401 as every other vault route and has no path to D1 except the gate, so it is not a bypass — it is how the deploy test proves the DEPLOYED route is wired to the gate. A unit test on the helper would prove the helper works, not that production uses it.
+
+- **`scripts/test-vault-readonly.mjs`** fires at the deployed Worker over the real network with the real token and asserts six writes FAIL: INSERT, UPDATE, DELETE, DROP TABLE, the stacked `SELECT 1; DELETE FROM clients`, and `SELECT * FROM invoices`. It also asserts the reads still return real data, because a gate that rejects everything would pass all six while being broken.
+
+- **`scripts/deploy.sh`** deploys and then runs that test, in that order. The gate is invisible in normal use — every read keeps working if someone deletes it, and the only thing that changes is that a write becomes possible. So it is checked on every deploy, not once.

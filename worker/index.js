@@ -2902,6 +2902,345 @@ async function handleGetVaultClients(request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// The vault read gate
+//
+// Pr. Rafa's Claude reads live Apex data through the vault Worker. The hard
+// requirement is that it can NEVER write to this database. Cloudflare has no
+// read-only D1 binding — read replicas are a latency feature, not a permission
+// one — so the guarantee is structural in code instead, in two independent
+// layers:
+//
+//   1. The vault Worker has no D1 binding to this database at all. It cannot
+//      issue SQL here; it can only call the REST endpoints below.
+//   2. Those endpoints reach D1 ONLY through vaultRead(). Nothing under
+//      /api/vault/ touches env.DB directly.
+//
+// vaultRead is therefore the single door. A read endpoint added six months
+// from now inherits every rule below for free, which is the entire point — a
+// design where a future handler could quietly go around it would be worth
+// nothing.
+//
+// Note this is defence in depth, not the primary control. Every caller below
+// passes a hardcoded SQL literal; none of these strings is assembled from
+// caller input, and all values are bound parameters. The rejections exist so
+// that a mistake in some future handler fails loudly here instead of reaching
+// the database.
+// ---------------------------------------------------------------------------
+
+// Only these tables are readable. FINANCE IS ABSENT BY CONSTRUCTION — there is
+// no invoices, invoice_payments, transactions or client_package_terms entry,
+// and no rule that filters them out either. A SELECT against invoices fails
+// because invoices is simply not on this list, which is a guarantee that
+// survives someone editing the rules without remembering why they exist.
+var VAULT_READ_TABLES = [
+    "clients",
+    "gm_leads",
+    "sessions",
+    "tasks",
+    // NOT "assessments" — the live table is named client_assessments. Verified
+    // against sqlite_master before this list was written.
+    "client_assessments"
+];
+
+// Strips leading whitespace and leading SQL comments so that the SELECT check
+// cannot be evaded by prefixing the statement with "/* x */" or "-- x\n".
+function stripLeadingSqlNoise(sql) {
+    var s = String(sql);
+    var changed = true;
+    while (changed) {
+        changed = false;
+        var trimmed = s.replace(/^\s+/, "");
+        if (trimmed !== s) { s = trimmed; changed = true; }
+        if (s.indexOf("--") === 0) {
+            var nl = s.indexOf("\n");
+            s = (nl === -1) ? "" : s.slice(nl + 1);
+            changed = true;
+        } else if (s.indexOf("/*") === 0) {
+            var end = s.indexOf("*/");
+            // An unterminated block comment would swallow the rest of the
+            // statement. Treat it as empty so the SELECT check rejects it.
+            s = (end === -1) ? "" : s.slice(end + 2);
+            changed = true;
+        }
+    }
+    return s;
+}
+
+function vaultReadReject(reason) {
+    var err = new Error(reason);
+    err.vaultReadRejected = true;
+    return err;
+}
+
+// Throws on anything that is not a single, plain SELECT against an allow-listed
+// table. Returns nothing useful — it is a gate, not a parser.
+function assertVaultReadSql(sql) {
+    if (typeof sql !== "string" || !sql.trim()) {
+        throw vaultReadReject("Refused: empty SQL.");
+    }
+
+    var body = stripLeadingSqlNoise(sql);
+
+    // Must BEGIN with SELECT, case-insensitive, once the leading noise is gone.
+    if (!/^select\s/i.test(body)) {
+        throw vaultReadReject(
+            "Refused: the vault read gate accepts SELECT statements only. " +
+            "This database is read-only to the vault."
+        );
+    }
+
+    // No statement separators. A single trailing semicolon is allowed; a
+    // semicolon anywhere else means a second statement is being smuggled in,
+    // which is how "SELECT 1; DELETE FROM clients" would otherwise land.
+    var withoutTrailing = body.replace(/;\s*$/, "");
+    if (withoutTrailing.indexOf(";") !== -1) {
+        throw vaultReadReject(
+            "Refused: multiple SQL statements. Only one SELECT is allowed."
+        );
+    }
+
+    // No comment markers ANYWHERE in the remaining statement. Leading comments
+    // were already stripped above, so a marker here is only ever an attempt to
+    // hide a second statement or to comment out the rest of the query.
+    if (withoutTrailing.indexOf("--") !== -1 || withoutTrailing.indexOf("/*") !== -1) {
+        throw vaultReadReject(
+            "Refused: SQL comments are not allowed in vault reads."
+        );
+    }
+
+    // Every table named after FROM or JOIN must be on the allow-list.
+    var referenced = [];
+    var re = /\b(?:from|join)\s+([A-Za-z_][A-Za-z0-9_]*)/gi;
+    var m;
+    while ((m = re.exec(withoutTrailing)) !== null) {
+        referenced.push(m[1].toLowerCase());
+    }
+    if (!referenced.length) {
+        throw vaultReadReject("Refused: could not identify a table to read.");
+    }
+    for (var i = 0; i < referenced.length; i++) {
+        if (VAULT_READ_TABLES.indexOf(referenced[i]) === -1) {
+            throw vaultReadReject(
+                "Refused: the table " + JSON.stringify(referenced[i]) +
+                " is not readable by the vault. Readable tables: " +
+                VAULT_READ_TABLES.join(", ") + "."
+            );
+        }
+    }
+}
+
+// The ONE path from a /api/vault/ endpoint to D1. Values are always bound
+// parameters; SQL is never concatenated from caller input.
+async function vaultRead(env, sql, binds) {
+    assertVaultReadSql(sql);
+    var stmt = env.DB.prepare(sql);
+    var params = binds || [];
+    var res = params.length ? await stmt.bind.apply(stmt, params).all() : await stmt.all();
+    return res.results || [];
+}
+
+// Shared front door for every vault read route: same token, same 401, and a
+// rejected statement comes back as 403 rather than a 500, so a blocked write
+// is distinguishable from a genuine fault.
+async function vaultReadRoute(request, env, run) {
+    var caller = serviceCaller(request, env);
+    if (!caller) { return jsonErr("Unauthorized", 401); }
+    try {
+        return jsonOk(await run());
+    } catch (e) {
+        if (e && e.vaultReadRejected) { return jsonErr(e.message, 403); }
+        return jsonErr("Error reading: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/leads?client_id=...
+//
+// ONE CLIENT'S OWN sales pipeline, from gm_leads. These leads belong to one of
+// Pr. Rafa's clients, inside the growth-management product Apex gives them.
+// Not to be confused with /api/vault/apex-leads below.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultLeads(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+        if (!clientId) { throw new Error("client_id is required"); }
+        var stage = (url.searchParams.get("estagio") || "").trim();
+
+        var sql =
+            "SELECT id, client_id, cliente, telefone, email, city, origem, servico, " +
+            "servico_desc, observacao, vendedor, valor, estagio, followups, " +
+            "proxima_acao, data_lead, data_contato, data_estimate, mes_lead, " +
+            "mes_fechamento, stage_changed_at, created_at, updated_at " +
+            "FROM gm_leads WHERE client_id = ?1" +
+            (stage ? " AND estagio = ?2" : "") +
+            " ORDER BY COALESCE(data_lead, created_at) DESC LIMIT 200";
+
+        var binds = stage ? [clientId, stage] : [clientId];
+        var leads = await vaultRead(env, sql, binds);
+        return {
+            client_id: clientId,
+            count: leads.length,
+            leads: leads,
+            note: "This is the CLIENT's own sales pipeline inside Apex growth " +
+                  "management, not Rafael's prospect list."
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/apex-leads
+//
+// RAFAEL'S OWN prospect list: businesses he is trying to sign as Apex clients.
+// These live in the clients table with status = 'lead'. A completely different
+// audience from /api/vault/leads above.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultApexLeads(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var stage = (url.searchParams.get("lead_stage") || "").trim();
+
+        var sql =
+            "SELECT id, name, owners, industry, location, phone, email, whatsapp, " +
+            "instagram_handle, status, lead_stage, stage_changed_at, next_step, " +
+            "next_step_set_by, next_step_set_at, source_type, source_detail, " +
+            "language, created_at " +
+            "FROM clients WHERE status = 'lead' AND COALESCE(archived,0) = 0" +
+            (stage ? " AND lead_stage = ?1" : "") +
+            " ORDER BY COALESCE(stage_changed_at, created_at) DESC LIMIT 200";
+
+        var binds = stage ? [stage] : [];
+        var leads = await vaultRead(env, sql, binds);
+        return {
+            count: leads.length,
+            leads: leads,
+            note: "These are RAFAEL's own prospects — businesses he is trying to " +
+                  "sign as Apex clients. Not any client's sales pipeline."
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/sessions[?client_id=...]
+//
+// Consultancy sessions. Deliberately WITHOUT raw_transcript, summary_json or
+// pdf_data: those run to tens of thousands of characters each and would burn
+// through the context of whoever asked a one-line question.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultSessions(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+
+        var sql =
+            "SELECT id, client_id, client_name, date, time, end_time, status, " +
+            "session_type, meeting_category, location, attendees, approved_at, " +
+            "google_meet_link, transcript_source, whatsapp_sent_at, created_at " +
+            "FROM sessions" +
+            (clientId ? " WHERE client_id = ?1" : "") +
+            " ORDER BY date DESC LIMIT 100";
+
+        var binds = clientId ? [clientId] : [];
+        var sessions = await vaultRead(env, sql, binds);
+        return {
+            count: sessions.length,
+            sessions: sessions,
+            note: "Transcripts and summaries are omitted on purpose — they are " +
+                  "very large. Ask Rafael to open the session in Apex for those."
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/tasks[?client_id=...][&status=...]
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultTasks(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+        var status = (url.searchParams.get("status") || "").trim();
+
+        var where = [];
+        var binds = [];
+        if (clientId) { binds.push(clientId); where.push("client_id = ?" + binds.length); }
+        if (status)   { binds.push(status);   where.push("status = ?" + binds.length); }
+
+        var sql =
+            "SELECT id, client_id, session_id, type, description, due_date, " +
+            "due_date_source, status, completed_by, source, created_at, updated_at " +
+            "FROM tasks" +
+            (where.length ? " WHERE " + where.join(" AND ") : "") +
+            " ORDER BY COALESCE(due_date, created_at) DESC LIMIT 200";
+
+        var tasks = await vaultRead(env, sql, binds);
+        return { count: tasks.length, tasks: tasks };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/assessments[?client_id=...]
+//
+// The live table is client_assessments. answers_json and score_json are
+// returned as stored — they are the substance of the assessment, and unlike a
+// transcript they are small enough to be worth sending.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultAssessments(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+
+        var sql =
+            "SELECT id, client_id, assessment_type, status, answers_json, " +
+            "score_json, profile_json, activated_by, activated_at, started_at, " +
+            "completed_at, updated_at " +
+            "FROM client_assessments" +
+            (clientId ? " WHERE client_id = ?1" : "") +
+            " ORDER BY updated_at DESC LIMIT 50";
+
+        var binds = clientId ? [clientId] : [];
+        var assessments = await vaultRead(env, sql, binds);
+        return { count: assessments.length, assessments: assessments };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/vault/selftest
+//
+// Proves the gate on the DEPLOYED Worker, over the real network path, with the
+// real service token. It runs a caller-supplied statement through the SAME
+// vaultRead() the read routes use and reports what happened.
+//
+// This is NOT a bypass route: it is behind the same serviceCaller() 401 as
+// every other vault endpoint, and it has no path to D1 except vaultRead. A
+// statement that the gate rejects never reaches the database, which is exactly
+// what the deploy test asserts. If the gate were ever removed, this route
+// would start returning 200 on an INSERT and the test would fail loudly.
+// ---------------------------------------------------------------------------
+
+async function handlePostVaultSelftest(request, env) {
+    var caller = serviceCaller(request, env);
+    if (!caller) { return jsonErr("Unauthorized", 401); }
+    var body;
+    try { body = await request.json(); } catch (e) { return jsonErr("Invalid JSON body", 400); }
+    var sql = body && body.sql;
+    if (typeof sql !== "string" || !sql.trim()) { return jsonErr("sql is required", 400); }
+    try {
+        var rows = await vaultRead(env, sql, []);
+        return jsonOk({ blocked: false, row_count: rows.length });
+    } catch (e) {
+        if (e && e.vaultReadRejected) {
+            return jsonErr(e.message, 403);
+        }
+        return jsonErr("Error reading: " + e.message, 500);
+    }
+}
+
 async function handlePostClientDocumentPlaceholder(id, request, env) {
     try {
         // Either a staff login, or the vault Worker's service token. The
@@ -25091,6 +25430,13 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
         if (path === "/api/sales/growth-ranking"      && method === "GET")  { return handleGetSalesGrowthRanking(request, env); }
         if (path === "/api/vault/clients"             && method === "GET")  { return handleGetVaultClients(request, env); }
+        // Read-only, gated by vaultRead(). See "The vault read gate" above.
+        if (path === "/api/vault/leads"               && method === "GET")  { return handleGetVaultLeads(request, env); }
+        if (path === "/api/vault/apex-leads"          && method === "GET")  { return handleGetVaultApexLeads(request, env); }
+        if (path === "/api/vault/sessions"            && method === "GET")  { return handleGetVaultSessions(request, env); }
+        if (path === "/api/vault/tasks"               && method === "GET")  { return handleGetVaultTasks(request, env); }
+        if (path === "/api/vault/assessments"         && method === "GET")  { return handleGetVaultAssessments(request, env); }
+        if (path === "/api/vault/selftest"            && method === "POST") { return handlePostVaultSelftest(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
         if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }

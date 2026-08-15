@@ -242,6 +242,39 @@
     }
 
     /* ── Tables ──────────────────────────────────────────────────────────── */
+    /* Stacked sections in the resource hub — the same treatment the client
+       Documentos sections use on client.html, so the two pages read alike. */
+    .res-section + .res-section,
+    .res-section:not(.is-first) {
+      border-top: 1px solid var(--border);
+      margin-top: 22px;
+    }
+    .res-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 18px 20px 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .res-section.is-first > .res-section-title { padding-top: 4px; }
+    .res-section-count {
+      font-weight: 600;
+      opacity: 0.55;
+      letter-spacing: 0;
+    }
+    .res-section-sub {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 0 20px 8px;
+    }
+    /* The second section repeats the same column headers; hiding them keeps
+       the two groups reading as one list split in two, not two tables. */
+    .res-section:not(.is-first) .list-table thead { display: none; }
+
     .list-table {
       width: 100%;
       border-collapse: collapse;
@@ -927,25 +960,34 @@ function escHtml(str) {
         return;
       }
 
-      var headStyle = 'margin:0 0 10px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);';
-      var html = "";
-
-      if (clientRows.length) {
-        html +=
-          '<h3 style="' + headStyle + '">' +
-          '<span class="show-pt">Recursos para clientes</span><span class="show-en">Client resources</span>' +
-          ' <span style="opacity:.6;">(' + clientRows.length + ')</span></h3>' +
-          resourceTableHtml(clientRows);
+      // Matches the client Documentos sections on client.html: a quiet
+      // uppercase label, a rule separating each section, and the count beside
+      // the title. Not an <h3> shoved above a table — that read as one long
+      // table with a heading dropped into the middle of it.
+      function sectionHtml(labelPt, labelEn, count, subPt, subEn, rows, first) {
+        return '<div class="res-section' + (first ? " is-first" : "") + '">' +
+          '<div class="res-section-title">' +
+          '<span class="show-pt">' + labelPt + '</span>' +
+          '<span class="show-en">' + labelEn + '</span>' +
+          '<span class="res-section-count">' + count + '</span>' +
+          '</div>' +
+          (subPt ? '<div class="res-section-sub">' +
+            '<span class="show-pt">' + subPt + '</span>' +
+            '<span class="show-en">' + subEn + '</span></div>' : '') +
+          resourceTableHtml(rows) +
+          '</div>';
       }
 
-      html +=
-        '<h3 style="' + headStyle + 'margin-top:26px;">' +
-        '<span class="show-pt">Material interno APEX</span><span class="show-en">APEX internal material</span>' +
-        ' <span style="opacity:.6;">(' + internalRows.length + ')</span></h3>' +
-        '<div style="font-size:12px;color:var(--muted);margin:0 0 10px;">' +
-        '<span class="show-pt">Uso do consultor. Não pode ser enviado a clientes.</span>' +
-        '<span class="show-en">Consultant use. Cannot be sent to clients.</span></div>' +
-        resourceTableHtml(internalRows);
+      var html = "";
+      if (clientRows.length) {
+        html += sectionHtml("Recursos para clientes", "Client resources",
+                            clientRows.length, "", "", clientRows, true);
+      }
+      html += sectionHtml("Material interno APEX", "APEX internal material",
+                          internalRows.length,
+                          "Uso do consultor. Não pode ser enviado a clientes.",
+                          "Consultant use. Cannot be sent to clients.",
+                          internalRows, !clientRows.length);
 
       container.innerHTML = html;
     }

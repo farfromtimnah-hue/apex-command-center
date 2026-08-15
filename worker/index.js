@@ -6835,10 +6835,17 @@ async function handleGetResources(request, env) {
             "SELECT COUNT(*) AS n FROM client_resources WHERE whatsapp_sent_at IS NULL"
         ).first();
 
+        // Split server-side so the page cannot drift from the rule, the same
+        // way the client Documentos sections are split. `resources` still ships
+        // the flat list unchanged for any caller not updated for the sections.
+        var all = resources.results || [];
+
         return jsonOk({
-            resources:     resources.results,
-            categories:    categories.results.map(function (r) { return r.name; }),
-            pending_sends: pending ? pending.n : 0
+            resources:          all,
+            client_resources:   all.filter(function (r) { return r.internal !== 1; }),
+            internal_resources: all.filter(function (r) { return r.internal === 1; }),
+            categories:         categories.results.map(function (r) { return r.name; }),
+            pending_sends:      pending ? pending.n : 0
         });
     } catch (e) {
         return jsonErr("Error fetching resources: " + e.message, 500);
@@ -6878,6 +6885,10 @@ async function readResourceBody(request) {
             var v = form.get(names[i]);
             fields[names[i]] = (typeof v === "string" && v.trim()) ? v.trim() : null;
         }
+        // Anything other than an explicit "1" is client-facing. A typo or a
+        // missing field must never mark something internal by accident, and it
+        // must never quietly widen who can be sent it either.
+        fields.internal = form.get("internal") === "1" ? 1 : 0;
         var file = form.get("file");
         if (file && typeof file.arrayBuffer !== "function") { file = null; }
         return { fields: fields, file: file || null };
@@ -6940,13 +6951,13 @@ async function handlePostResource(request, env) {
 
         await env.DB.prepare(
             "INSERT INTO resources (id, category, resource_type, title, description, " +
-            "contact_name, contact_phone, contact_email, file_url, file_name, url, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "contact_name, contact_phone, contact_email, file_url, file_name, url, created_by, internal) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             id, String(f.category).trim(), f.resource_type, String(f.title).trim(),
             f.description || null, f.contact_name || null, f.contact_phone || null,
             f.contact_email || null, fileUrl, fileName, f.url || null,
-            user.display_name || user.role
+            user.display_name || user.role, f.internal === 1 ? 1 : 0
         ).run();
 
         var row = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
@@ -7089,8 +7100,16 @@ async function handlePostClientResource(id, request, env) {
 
         var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
-        var resource = await env.DB.prepare("SELECT id FROM resources WHERE id = ?").bind(body.resource_id).first();
+        var resource = await env.DB.prepare("SELECT id, internal FROM resources WHERE id = ?").bind(body.resource_id).first();
         if (!resource) { return jsonErr("Resource not found", 404); }
+
+        // Internal resources are APEX's own material and belong to no client.
+        // The picker already hides them, but hiding a row from a list is not a
+        // rule — the id is guessable and the check has to live here, the same
+        // reasoning the client_documents file endpoint follows.
+        if (resource.internal === 1) {
+            return jsonErr("This is an internal APEX resource and cannot be assigned to a client.", 400);
+        }
 
         var dup = await env.DB.prepare(
             "SELECT id FROM client_resources WHERE client_id = ? AND resource_id = ? AND whatsapp_sent_at IS NULL"

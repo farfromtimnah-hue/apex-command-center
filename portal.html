@@ -6144,7 +6144,17 @@
               return h + '<p class="muted">' + (isEn() ? emptyEn : emptyPt) + '</p>';
             }
             rows.forEach(function(doc) {
-              var i = documentsCache.indexOf(doc);
+              // Match on id, NOT indexOf. When the server sends the split
+              // client_documents / sales_documents arrays, those rows are
+              // DIFFERENT OBJECTS from the ones in documentsCache, so indexOf
+              // returned -1 for every row and openDocument(-1) fell straight
+              // out -- every View button did nothing at all. Only the fallback
+              // path above, which filters documentsCache itself, ever worked.
+              var i = -1;
+              for (var di = 0; di < documentsCache.length; di++) {
+                if (documentsCache[di].id === doc.id &&
+                    documentsCache[di].kind === doc.kind) { i = di; break; }
+              }
               h += '<div class="list-row"><div class="list-main">' +
                 '<div class="list-title">' + escHtml(doc.title) + '</div>' +
                 '<div class="list-sub">' + formatDateUTC(doc.date) +

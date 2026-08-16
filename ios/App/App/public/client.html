@@ -2,7 +2,6 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <script src="native-bridge.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -13,6 +12,8 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1786595619">
+  <script src="template-edit.js?v=1786595618"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -726,6 +727,37 @@
 
     /* ─── Notes section ──────────────────────────────────────────────────── */
     .notes-list { padding: 4px 0; }
+
+    /* Documentos section headings. The client's own documents and the sales
+       team's material are two stacked, labeled groups, not one merged list. */
+    .doc-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 16px 20px 6px;
+      border-top: 1px solid var(--border);
+    }
+    #documentCardInner > .doc-section-title:first-child {
+      border-top: none;
+      padding-top: 8px;
+    }
+
+    /* Whether the CLIENT can see a document — a different question from which
+       section it is filed in, so it is styled as a warning rather than as
+       another neutral chip, and shows only in the state worth noticing. */
+    .doc-hidden-badge {
+      background: #fde8e8;
+      color: #8a2020;
+    }
+    /* Amber, not red: a missing file is unfinished business, not an error.
+       The hidden-from-client badge stays the red one. */
+    .doc-placeholder-badge {
+      background: #fdf3dc;
+      color: #8a6200;
+    }
+    .doc-visible-toggle { white-space: nowrap; }
 
     .note-item {
       padding: 14px 20px;
@@ -2250,13 +2282,14 @@
               <span class="show-pt">Documentos</span>
               <span class="show-en">Documents</span>
             </h2>
-            <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv" style="display:none;" onchange="handleDocFileSelected(this)">
-            <!-- Who the next upload is filed for. Defaults to the client-only
-                 scope: sharing a document with the client's whole sales team is
-                 a deliberate choice, never the path of least resistance. -->
-            <select id="docVisibility" class="btn-sm" style="display:none;" data-title-attr-pt="Quem pode ver" data-title-attr-en="Who can see" title="Quem pode ver">
-              <option value="client" data-opt-pt="Somente cliente" data-opt-en="Client only">Somente cliente</option>
-              <option value="seller" data-opt-pt="Cliente + vendedores" data-opt-en="Client + sellers">Cliente + vendedores</option>
+            <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv" style="display:none;" onchange="handleDocFileSelected(this)">
+            <!-- Which SECTION the next upload is filed into. This is a filing
+                 choice, not a permission: the client sees both sections either
+                 way. Defaults to the client's own documents, so putting a file
+                 in front of the client's whole sales team stays deliberate. -->
+            <select id="docVisibility" class="btn-sm" style="display:none;" data-title-attr-pt="Enviar para a seção" data-title-attr-en="Upload to section" title="Enviar para a seção">
+              <option value="client" data-opt-pt="Documentos do Cliente" data-opt-en="Client Documents">Documentos do Cliente</option>
+              <option value="seller" data-opt-pt="Material de Vendas" data-opt-en="Sales Material">Material de Vendas</option>
             </select>
             <button class="btn-sm" id="btnUploadDoc" onclick="document.getElementById('docFileInput').click()" style="display:none;">
               <span class="show-pt">Enviar Arquivo</span>
@@ -2482,6 +2515,33 @@
           <span class="show-en">Delete</span>
         </button>
         <div class="pull-status" id="deleteDocumentStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Converter em Lead ═════════════════════════════ -->
+  <!-- Converting a client back to a lead needs a stage before it can be saved:
+       status='lead' with no lead_stage renders nowhere at all. -->
+  <div id="modalLeadStage" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Converter em Lead</span>
+          <span class="show-en">Convert to Lead</span>
+        </h3>
+        <button class="modal-close" onclick="cancelLeadStagePrompt()">×</button>
+      </div>
+      <div class="modal-body">
+        <p>
+          <span class="show-pt">Este registro voltará para o funil de leads. Escolha a etapa:</span>
+          <span class="show-en">This record will move back to the leads funnel. Choose the stage:</span>
+        </p>
+        <select id="leadStageSelect" class="status-edit-select" style="width:100%;margin-bottom:12px;"></select>
+        <button class="btn-primary" id="btnConfirmLeadStage" onclick="confirmLeadStagePrompt()">
+          <span class="show-pt">Converter</span>
+          <span class="show-en">Convert</span>
+        </button>
+        <div class="pull-status" id="leadStageStatus"></div>
       </div>
     </div>
   </div>
@@ -2896,7 +2956,7 @@
           </div>
           <div id="arFileFields" style="display:none;">
             <div class="field-group" style="margin-bottom:12px;">
-              <input type="file" id="arFile" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv">
+              <input type="file" id="arFile" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv">
             </div>
           </div>
           <div id="arLinkFields" style="display:none;">
@@ -3361,6 +3421,13 @@
 
     // Close modal on overlay click
     document.addEventListener("click", function(e) {
+      // modalLeadStage is handled separately below: dismissing it has to put the
+      // status select back to the value it had, not just hide the box.
+      var leadStageEl = document.getElementById("modalLeadStage");
+      if (leadStageEl && !leadStageEl.hidden && e.target === leadStageEl) {
+        cancelLeadStagePrompt();
+        return;
+      }
       var modals = ["modalNewSession", "modalSummary", "modalNote", "modalContact", "modalDp", "modalScheduleSession", "modalAttachResource", "modalGrowth", "modalClientLogin", "modalFieldConfig", "modalDeleteDocument"];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i]);
@@ -3476,6 +3543,7 @@
     function loadClientPage() {
       initSectionOrder();
       loadMessageTemplates();
+      wireCredentialTemplateEditing();
       loadClient();
       loadSessions();
       loadNotes();
@@ -3518,6 +3586,34 @@
           });
         })
         .catch(function() { messageTemplates = null; });
+    }
+
+    // Pencil + right-click on both credential send buttons. They are static
+    // markup with stable ids, so this attaches once; attach() is idempotent
+    // anyway.
+    //
+    // onSaved refreshes the page cache rather than reloading. Templates are
+    // pre-fetched precisely so the send path can call window.open()
+    // synchronously (see the popup-blocker note above), and writing the saved
+    // row straight back preserves that while making the next send use the new
+    // text immediately.
+    function wireCredentialTemplateEditing() {
+      if (!window.TemplateEdit) { return; }
+      function refresh(saved) {
+        if (!messageTemplates) { messageTemplates = {}; }
+        messageTemplates[saved.template_key] = saved.template_text;
+      }
+      var pairs = [
+        { id: "btnSendLoginWhatsapp",       key: "client_login" },
+        { id: "btnSendSellerLoginWhatsapp", key: "seller_login" }
+      ];
+      for (var i = 0; i < pairs.length; i++) {
+        var btn = document.getElementById(pairs[i].id);
+        if (!btn) { continue; }   // null check on every getElementById
+        window.TemplateEdit.attach({
+          button: btn, key: pairs[i].key, apiFetch: apiFetch, onSaved: refresh
+        });
+      }
     }
 
     function loadPortalAccess() {
@@ -4591,7 +4687,9 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
-          renderDocumentsList(data.documents || []);
+          // Whole payload, not just .documents: the server does the section
+          // split so the two copies of this file cannot disagree about it.
+          renderDocumentsList(data);
         })
         .catch(function(e) {
           renderDocumentsList([]);
@@ -5222,30 +5320,18 @@
     // is built from already-loaded clientData with no await in front of it.
     // Reaching window.open after an await is what got the popup blocked in the
     // "Pedir ajuda" white-screen incident (see the sendLoginViaWhatsapp note).
-    // Inside the iOS wrapper this hands the OpenPhone scheme to the OS instead
-    // of tel:. In a normal browser apexCallHref() returns the same tel: URL as
-    // before, so the live PWA is unchanged.
     function startLeadCall() {
       var tel = leadContactPhone();
       if (!tel) { return; }
-      window.location.href = window.apexCallHref
-        ? apexCallHref(tel)
-        : "tel:" + tel.replace(/[^\d+]/g, "");
+      window.location.href = "tel:" + tel.replace(/[^\d+]/g, "");
       openContactLogModal("Phone call");
     }
 
-    // window.open is blocked more aggressively in WKWebView than in Safari, so
-    // inside Capacitor apexOpenExternal() hands the URL to the OS directly.
-    // In a browser it still calls window.open and still reports a blocked
-    // popup, so the existing fallback alert is preserved.
     function startLeadWhatsapp() {
       var digits = leadWaDigits(leadContactPhone());
       if (!digits) { return; }
-      var waUrl = "https://wa.me/" + digits;
-      var opened = window.apexOpenExternal
-        ? apexOpenExternal(waUrl)
-        : !!window.open(waUrl, "_blank");
-      if (!opened) {
+      var waTab = window.open("https://wa.me/" + digits, "_blank");
+      if (!waTab) {
         window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
       openContactLogModal("WhatsApp");
@@ -6192,11 +6278,132 @@
         });
     }
 
+    // 'paused' is canonical, NOT 'inactive'. clients.html, sessions.html and the
+    // live data all write 'paused'; this dropdown was the only place writing
+    // 'inactive', and calendar.html groups on 'paused' only — so a client paused
+    // from this page landed in the wrong calendar group. The 'inactive' CSS in
+    // this file stays as a defensive fallback for any row written the old way.
     var STATUS_OPTIONS = [
       { value: "active",   pt: "Ativo",     en: "Active" },
-      { value: "inactive", pt: "Pausado",   en: "Paused" },
-      { value: "closed",   pt: "Encerrado", en: "Closed" }
+      { value: "paused",   pt: "Pausado",   en: "Paused" },
+      { value: "closed",   pt: "Encerrado", en: "Closed" },
+      { value: "lead",     pt: "Lead",      en: "Lead" }
     ];
+
+    // Stage ladder for the lead correction path, fetched once from the worker
+    // (LEAD_STAGES) rather than hardcoded here, so a new stage reaches both
+    // copies of this file without an HTML edit.
+    var LEAD_STAGE_CACHE = null;
+    function loadLeadStages() {
+      if (LEAD_STAGE_CACHE) { return Promise.resolve(LEAD_STAGE_CACHE); }
+      return apiFetch("/api/lead-stages")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          LEAD_STAGE_CACHE = (data && data.stages) ? data.stages : [];
+          return LEAD_STAGE_CACHE;
+        });
+    }
+
+    // Rebuild the lozenge + pencil after the select closes. Extracted because
+    // three paths need it: a normal save, a lead save, and the blur cancel.
+    function renderStatusLozenge(statusWrap, statusValue) {
+      statusWrap.innerHTML = "";
+      var loz = document.createElement("span");
+      loz.className = "status-client-lozenge";
+      loz.id = "statusLozenge";
+      loz.setAttribute("data-status", statusValue);
+      var btn = document.createElement("button");
+      btn.className = "status-edit-btn";
+      btn.setAttribute("data-title-attr-pt", "Editar status");
+      btn.setAttribute("data-title-attr-en", "Edit status");
+      btn.title = t("Editar status", "Edit status");
+      btn.textContent = "✎";
+      btn.onclick = function() { openStatusEdit(statusValue); };
+      statusWrap.appendChild(loz);
+      statusWrap.appendChild(btn);
+    }
+
+    // State for the lead-stage modal: which select opened it, what the status
+    // was before, and the save callback to run on confirm.
+    var leadStagePrompt = null;
+
+    function openLeadStagePrompt(sel, previousStatus, saveFn) {
+      leadStagePrompt = { sel: sel, previousStatus: previousStatus, save: saveFn };
+      var modal = document.getElementById("modalLeadStage");
+      var stageSel = document.getElementById("leadStageSelect");
+      var statusEl = document.getElementById("leadStageStatus");
+      var btn = document.getElementById("btnConfirmLeadStage");
+      if (!modal || !stageSel) { return; }
+
+      statusEl.textContent = "";
+      stageSel.innerHTML = "";
+      btn.disabled = true;
+      modal.hidden = false;
+
+      loadLeadStages().then(function(stages) {
+        stageSel.innerHTML = "";
+        for (var i = 0; i < stages.length; i++) {
+          var opt = document.createElement("option");
+          opt.value = stages[i];
+          opt.textContent = stages[i];
+          stageSel.appendChild(opt);
+        }
+        btn.disabled = stages.length === 0;
+        if (!stages.length) {
+          statusEl.textContent = t("Nenhuma etapa disponível", "No stages available");
+        }
+      }).catch(function(e) {
+        statusEl.textContent = t("Erro ao carregar etapas", "Error loading stages") +
+          (e && e.message ? ": " + e.message : "");
+      });
+    }
+
+    // Dismissing without converting must leave the record untouched AND put the
+    // select back — otherwise the dropdown reads 'Lead' for a client that is
+    // still active.
+    function cancelLeadStagePrompt() {
+      var modal = document.getElementById("modalLeadStage");
+      if (modal) { modal.hidden = true; }
+      var prev = leadStagePrompt ? leadStagePrompt.previousStatus : null;
+      var sel = leadStagePrompt ? leadStagePrompt.sel : null;
+      leadStagePrompt = null;
+      if (sel && prev) {
+        sel.value = prev;
+        // Collapse back to the lozenge: the blur teardown was suppressed while
+        // the modal was open, so nothing else will do it now.
+        var statusWrap = document.getElementById("statusWrap");
+        if (statusWrap) { renderStatusLozenge(statusWrap, prev); }
+      }
+    }
+
+    function confirmLeadStagePrompt() {
+      if (!leadStagePrompt) { return; }
+      var stageSel = document.getElementById("leadStageSelect");
+      var statusEl = document.getElementById("leadStageStatus");
+      var btn = document.getElementById("btnConfirmLeadStage");
+      var stage = stageSel ? stageSel.value : "";
+      if (!stage) {
+        statusEl.textContent = t("Escolha uma etapa", "Choose a stage");
+        return;
+      }
+      btn.disabled = true;
+      statusEl.textContent = "...";
+      var pending = leadStagePrompt;
+      pending.save("lead", stage).then(function(ok) {
+        btn.disabled = false;
+        if (!ok) {
+          // The save failed. Keep the modal open so the record is visibly still
+          // unconverted and the reason is readable here, not hidden behind it.
+          statusEl.textContent = t("Falha ao converter. Tente novamente.",
+                                   "Conversion failed. Please try again.");
+          statusEl.style.color = "#b44040";
+          return;
+        }
+        statusEl.textContent = "";
+        document.getElementById("modalLeadStage").hidden = true;
+        leadStagePrompt = null;
+      });
+    }
 
     function openStatusEdit(current) {
       var statusWrap = document.getElementById("statusWrap");
@@ -6217,42 +6424,57 @@
       var saveMsg = document.createElement("span");
       saveMsg.style.cssText = "font-size:11px;color:var(--muted);margin-left:6px;";
 
-      sel.onchange = function() {
-        var newStatus = sel.value;
+      // Saves the status (plus lead_stage when converting to a lead) and
+      // restores the lozenge. leadStage is null for every status but 'lead'.
+      function saveStatus(newStatus, leadStage) {
         saveMsg.textContent = "...";
-        apiFetch("/api/clients/" + CLIENT_ID, {
+        saveMsg.style.color = "var(--muted)";
+        var payload = { status: newStatus };
+        if (leadStage) { payload.lead_stage = leadStage; }
+        return apiFetch("/api/clients/" + CLIENT_ID, {
           method: "PATCH",
-          body: { status: newStatus }
+          body: payload
         }).then(function(res) { return res.json(); })
           .then(function(data) {
             if (data.error) { throw new Error(data.error); }
-            if (clientData) { clientData.status = newStatus; }
+            if (clientData) {
+              clientData.status = newStatus;
+              if (leadStage) { clientData.lead_stage = leadStage; }
+            }
             saveMsg.textContent = "";
-            statusWrap.innerHTML = "";
-            var loz = document.createElement("span");
-            loz.className = "status-client-lozenge";
-            loz.id = "statusLozenge";
-            loz.setAttribute("data-status", newStatus);
-            var btn = document.createElement("button");
-            btn.className = "status-edit-btn";
-            btn.setAttribute("data-title-attr-pt", "Editar status");
-            btn.setAttribute("data-title-attr-en", "Edit status");
-            btn.title = t("Editar status", "Edit status");
-            btn.textContent = "✎";
-            (function(sv) {
-              btn.onclick = function() { openStatusEdit(sv); };
-            })(newStatus);
-            statusWrap.appendChild(loz);
-            statusWrap.appendChild(btn);
+            renderStatusLozenge(statusWrap, newStatus);
+            return true;
           })
-          .catch(function() {
-            saveMsg.textContent = "Erro";
+          .catch(function(e) {
+            saveMsg.textContent = t("Erro", "Error") + (e && e.message ? ": " + e.message : "");
             saveMsg.style.color = "#b44040";
+            // Resolves false rather than rejecting: the lead-stage modal needs
+            // to know the save failed so it can stay open and show the reason,
+            // instead of closing as if the conversion had gone through.
+            return false;
           });
+      }
+
+      sel.onchange = function() {
+        var newStatus = sel.value;
+
+        // Every other status saves instantly. 'lead' must not: status='lead'
+        // with a NULL lead_stage is invisible in both directions — off the
+        // client list and absent from the leads board, which groups by stage.
+        // So picking 'lead' and walking away must not write anything.
+        if (newStatus === "lead") {
+          openLeadStagePrompt(sel, current, saveStatus);
+          return;
+        }
+        saveStatus(newStatus, null);
       };
 
       sel.onblur = function() {
         setTimeout(function() {
+          // Opening the lead-stage modal moves focus off the select. Tearing it
+          // down here would drop the pending conversion on the floor, so the
+          // blur teardown is suppressed while that prompt is open.
+          if (leadStagePrompt) { return; }
           if (document.activeElement !== sel) {
             statusWrap.innerHTML = "";
             var curStatus = (clientData && clientData.status) ? clientData.status : "active";
@@ -6879,17 +7101,62 @@
 
     // ── Render: documents list ──────────────────────────────────────────────
 
-    function renderDocumentsList(docs) {
+    // Two stacked, labeled sections rather than one merged list: the client's
+    // own documents, then the sales team's material below. Staff see the same
+    // structure the client sees, so it is obvious which section a file is in.
+    //
+    // `data` is the whole payload, so the split comes from the server rather
+    // than being re-derived here from visibility strings.
+    function renderDocumentsList(data) {
       var inner = document.getElementById("documentCardInner");
       if (!inner) { return; }
       inner.innerHTML = "";
 
+      // Tolerates being handed a bare array (the old shape, and the error path
+      // below, which calls this with []).
+      var payload = Array.isArray(data) ? { documents: data } : (data || {});
+      var clientDocs = payload.client_documents;
+      var salesDocs  = payload.sales_documents;
+
+      // Fall back to splitting the flat list if an older worker answered.
+      if (!clientDocs || !salesDocs) {
+        var all = payload.documents || [];
+        clientDocs = all.filter(function(d) {
+          return d.kind === "generated" || d.visibility !== "seller";
+        });
+        salesDocs = all.filter(function(d) {
+          return d.kind === "uploaded" && d.visibility === "seller";
+        });
+      }
+
+      // client.html is a staff page, so both sections normally render — staff
+      // file into them and need to see both, empty or not. The as_seller guard
+      // is belt-and-braces: if this page is ever reached with a seller-scoped
+      // response, the client section must not render even as an empty heading.
+      if (!payload.as_seller) {
+        renderDocumentSection(inner, "client", clientDocs);
+      }
+      renderDocumentSection(inner, "sales", salesDocs);
+    }
+
+    function renderDocumentSection(inner, which, docs) {
+      var heading = document.createElement("div");
+      heading.className = "doc-section-title";
+      heading.innerHTML = which === "sales"
+        ? '<span class="show-pt">Material de Vendas</span>' +
+          '<span class="show-en">Sales Material</span>'
+        : '<span class="show-pt">Documentos do Cliente</span>' +
+          '<span class="show-en">Client Documents</span>';
+      inner.appendChild(heading);
+
       if (!docs || docs.length === 0) {
         var emptyEl = document.createElement("div");
-        emptyEl.style.cssText = "font-size:13px;color:var(--muted);padding:16px 20px;";
-        emptyEl.innerHTML =
-          '<span class="show-pt">Nenhum documento ainda.</span>' +
-          '<span class="show-en">No documents yet.</span>';
+        emptyEl.style.cssText = "font-size:13px;color:var(--muted);padding:8px 20px 16px;";
+        emptyEl.innerHTML = which === "sales"
+          ? '<span class="show-pt">Nenhum material de vendas ainda.</span>' +
+            '<span class="show-en">No sales material yet.</span>'
+          : '<span class="show-pt">Nenhum documento ainda.</span>' +
+            '<span class="show-en">No documents yet.</span>';
         inner.appendChild(emptyEl);
         return;
       }
@@ -6932,16 +7199,34 @@
           dateSpan.textContent = formatDateTimeUTC(doc.date);
 
           metaEl.appendChild(badgeEl);
-          // Seller-visible documents are called out; client-only ones carry no
-          // badge, because that is the default and the unremarkable case. An
-          // admin should be able to see at a glance which files the client's
-          // sales team can read.
-          if (doc.kind === "uploaded" && doc.visibility === "seller") {
-            var visEl = document.createElement("span");
-            visEl.className = "status-badge";
-            visEl.style.cssText = "background:#fdf0d5;color:#7a4a00;";
-            visEl.innerHTML = '<span class="show-pt">Vendedores</span><span class="show-en">Sellers</span>';
-            metaEl.appendChild(visEl);
+          // The old per-row "Vendedores" badge is gone: the section heading now
+          // says which group a document is in, so repeating it on every row in
+          // the Sales Material section is noise.
+          //
+          // This badge answers a DIFFERENT question — whether the client can see
+          // the document at all — so it is styled as a warning, not as another
+          // neutral chip, and only appears in the state worth noticing. Visible
+          // is the default and the unremarkable case; hidden is the one a staff
+          // user must be able to spot at a glance.
+          // The file is still in his Claude history. Shown before the hidden
+          // badge because it is the more actionable of the two states.
+          if (doc.kind === "uploaded" && doc.has_file === 0) {
+            var phEl = document.createElement("span");
+            phEl.className = "status-badge doc-placeholder-badge";
+            phEl.innerHTML = doc.file_requested_at
+              ? '<span class="show-pt">Arquivo solicitado</span>' +
+                '<span class="show-en">File requested</span>'
+              : '<span class="show-pt">Só prévia — falta o arquivo</span>' +
+                '<span class="show-en">Preview only — file missing</span>';
+            metaEl.appendChild(phEl);
+          }
+          if (doc.kind === "uploaded" && doc.client_visible === 0) {
+            var hidEl = document.createElement("span");
+            hidEl.className = "status-badge doc-hidden-badge";
+            hidEl.innerHTML =
+              '<span class="show-pt">Oculto do cliente</span>' +
+              '<span class="show-en">Hidden from client</span>';
+            metaEl.appendChild(hidEl);
           }
           metaEl.appendChild(dateSpan);
           if (doc.kind === "uploaded" && doc.uploaded_by) {
@@ -6964,6 +7249,47 @@
           actionsEl.appendChild(actionBtn);
 
           if (doc.kind === "uploaded") {
+            // Deliberately NOT next to the section chooser in the card header.
+            // "Which section is this filed in" and "can the client see it" are
+            // different questions, and putting the two controls side by side is
+            // how the wrong one gets changed.
+            var visBtn = document.createElement("button");
+            visBtn.className = "btn-sm doc-visible-toggle";
+            visBtn.innerHTML = doc.client_visible === 0
+              ? '<span class="show-pt">Mostrar ao cliente</span>' +
+                '<span class="show-en">Show to client</span>'
+              : '<span class="show-pt">Ocultar do cliente</span>' +
+                '<span class="show-en">Hide from client</span>';
+            visBtn.onclick = function() {
+              toggleDocumentClientVisible(doc, visBtn);
+            };
+            actionsEl.appendChild(visBtn);
+
+            // Attaching the real file to this placeholder, rather than
+            // creating a second row that says the same thing.
+            if (doc.has_file === 0) {
+              var upBtn = document.createElement("button");
+              upBtn.className = "btn-sm";
+              upBtn.innerHTML =
+                '<span class="show-pt">Enviar arquivo</span>' +
+                '<span class="show-en">Upload file</span>';
+              upBtn.onclick = function() { attachFileToPlaceholder(doc); };
+              actionsEl.appendChild(upBtn);
+
+              // Pra. Alice chasing the file. Not offered to the client — see
+              // the request-file endpoint for why.
+              var myRole = sessionStorage.getItem("apex_role");
+              if (!doc.file_requested_at && (myRole === "alice" || myRole === "developer")) {
+                var reqBtn = document.createElement("button");
+                reqBtn.className = "btn-sm";
+                reqBtn.innerHTML =
+                  '<span class="show-pt">Solicitar arquivo</span>' +
+                  '<span class="show-en">Request file</span>';
+                reqBtn.onclick = function() { requestDocumentFile(doc, reqBtn); };
+                actionsEl.appendChild(reqBtn);
+              }
+            }
+
             var deleteBtn = document.createElement("button");
             deleteBtn.className = "btn-sm";
             deleteBtn.innerHTML =
@@ -6979,6 +7305,79 @@
       }
 
       inner.appendChild(list);
+    }
+
+    // Flips whether the client can see one document, then reloads the list so
+    // the badge and the button label both reflect the new state.
+    // Attaches the real file to an existing placeholder. Reuses the hidden
+    // file input the normal upload uses, but passes attach_to so the worker
+    // fills IN the existing row rather than creating a second one saying the
+    // same thing. The preview and client_visible are both preserved.
+    function attachFileToPlaceholder(doc) {
+      var input = document.getElementById("docFileInput");
+      if (!input) { return; }
+      PENDING_ATTACH_ID = doc.id;
+      input.value = "";
+      input.click();
+    }
+
+    // Pra. Alice asking for the file. One click, recorded once.
+    function requestDocumentFile(doc, btn) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/request-file", {
+        method: "POST", body: {}
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          loadDocuments();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          var statusEl = document.getElementById("docUploadStatus");
+          if (statusEl) {
+            statusEl.textContent = "Erro: " + e.message;
+            statusEl.className = "pull-status is-error";
+          }
+        });
+    }
+
+    function toggleDocumentClientVisible(doc, btn) {
+      var next = doc.client_visible === 0 ? 1 : 0;
+
+      // Showing a document whose file has not been uploaded yet means the
+      // client gets the preview and no download. Told at the moment of the
+      // action, not as a label in the row — a permanent label gets read once
+      // and then stops being seen.
+      if (next === 1 && doc.has_file === 0) {
+        var msg = isEn()
+          ? "This document has no file yet. The client will see the preview "
+            + "but will NOT be able to download it.\n\nUpload the file so they can."
+          : "Este documento ainda não tem arquivo. O cliente vai ver apenas a "
+            + "prévia e NÃO vai conseguir baixar.\n\nEnvie o arquivo para que ele possa.";
+        if (!window.confirm(msg)) {
+          if (btn) { btn.disabled = false; }
+          return;
+        }
+      }
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/client-visible", {
+        method: "PATCH",
+        body: { client_visible: next }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          loadDocuments();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          var statusEl = document.getElementById("docUploadStatus");
+          if (statusEl) {
+            statusEl.textContent = "Erro: " + e.message;
+            statusEl.className = "pull-status is-error";
+          }
+        });
     }
 
     function openDocument(doc) {
@@ -7002,13 +7401,17 @@
       // tab to the blob URL once that resolves. Same reasoning as
       // handleGeneratePdf's window.open-then-postMessage pattern above.
       var newTab = window.open("", "_blank");
+      // A placeholder has no file yet — open the stored preview instead. This
+      // is the whole point of keeping the HTML: he can confirm WHICH catalog
+      // this is before going to his Claude history to fetch the real one.
+      var docPath = doc.has_file === 0 ? "/preview" : "/file";
       if (!newTab) {
         console.error("Open document error: popup blocked");
         return;
       }
 
       getToken().then(function(token) {
-        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/file", {
+        return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents/" + doc.id + docPath, {
           headers: { "Authorization": "Bearer " + token }
         });
       }).then(function(res) {
@@ -7067,6 +7470,10 @@
         });
     }
 
+    // Non-null only between clicking "Enviar arquivo" on a placeholder and the
+    // upload firing.
+    var PENDING_ATTACH_ID = null;
+
     function handleDocFileSelected(input) {
       if (!input.files || !input.files[0]) { return; }
       var file = input.files[0];
@@ -7084,6 +7491,15 @@
       formData.append("file", file);
       formData.append("title", file.name);
       formData.append("visibility", visibility);
+
+      // Set by "Enviar arquivo" on a placeholder row. The worker fills in the
+      // existing document instead of creating a second one, keeps its preview
+      // and its client_visible state, and clears any outstanding request.
+      // Cleared immediately so a later ordinary upload cannot inherit it.
+      if (PENDING_ATTACH_ID) {
+        formData.append("attach_to", PENDING_ATTACH_ID);
+        PENDING_ATTACH_ID = null;
+      }
 
       getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/clients/" + CLIENT_ID + "/documents", {
@@ -7332,7 +7748,9 @@
         .then(function (res) { return res.json(); })
         .then(function (data) {
           if (data.error) { throw new Error(data.error); }
-          arResources  = data.resources  || [];
+          // Internal APEX material is never assignable to a client. The worker
+          // rejects it too; this keeps it out of the picker in the first place.
+          arResources  = data.client_resources || (data.resources || []).filter(function (r) { return r.internal !== 1; });
           arCategories = data.categories || [];
           fillArResourceSelect();
           fillArCategorySelect();

@@ -85,6 +85,8 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1786595619">
+  <script src="template-edit.js?v=1786595618"></script>
   <title data-title-pt="Apex &#8212; Financeiro" data-title-en="Apex &#8212; Financial">Apex &#8212; Financeiro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3226,6 +3228,32 @@
       }
       html += '</tbody></table>';
       listEl.innerHTML = html;
+      wireInvoiceTemplateEditing(listEl);
+    }
+
+    // Pencil + right-click on every "Enviar via WhatsApp" button in the list.
+    // Re-run after each render because this table rebuilds its innerHTML;
+    // attach() is idempotent so nothing doubles up.
+    //
+    // onSaved refreshes the PAGE CACHE rather than reloading: templates are
+    // pre-fetched into messageTemplates precisely so doSendInvoiceWhatsApp()
+    // never awaits between opening the blank tab and navigating it (see the
+    // popup-blocker note above). Writing the saved row straight back in keeps
+    // that guarantee AND makes the next send use the new text immediately.
+    function wireInvoiceTemplateEditing(listEl) {
+      if (!window.TemplateEdit || !listEl) { return; }
+      var btns = listEl.querySelectorAll(".btn-inv-whatsapp[id^='waBtn']");
+      for (var i = 0; i < btns.length; i++) {
+        window.TemplateEdit.attach({
+          button: btns[i],
+          key: "invoice_send",
+          apiFetch: apiFetch,
+          onSaved: function(saved) {
+            if (!messageTemplates) { messageTemplates = {}; }
+            messageTemplates[saved.template_key] = saved.template_text;
+          }
+        });
+      }
     }
 
     function showPricingMissingModal(pkgName) {

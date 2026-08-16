@@ -234,6 +234,28 @@ async function authenticate(request, env) {
     return user;
 }
 
+// Pr. Rafa's vault Worker filing a deliverable into Apex.
+//
+// A Worker cannot produce a Firebase JWT, so this is a shared secret. It is
+// deliberately NOT a staff login: it returns a role of its own that ONLY the
+// two Claude-source document endpoints accept, so a leaked token cannot read
+// clients, invoices or anything else. It fails canEditResources on purpose.
+function serviceCaller(request, env) {
+    if (!env.VAULT_SERVICE_TOKEN) { return null; }
+    var auth = request.headers.get("Authorization") || "";
+    var m = /^Bearer\s+(.+)$/i.exec(auth.trim());
+    if (!m) { return null; }
+    var given = m[1].trim();
+    var expected = env.VAULT_SERVICE_TOKEN;
+    if (given.length !== expected.length) { return null; }
+    var diff = 0;
+    for (var i = 0; i < given.length; i++) {
+        diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+    }
+    if (diff !== 0) { return null; }
+    return { role: "vault-service", display_name: "Rafa (Claude)", client_id: null };
+}
+
 async function authenticateInner(request, env) {
     var auth = request.headers.get("Authorization") || "";
     if (!auth.startsWith("Bearer ")) { return null; }
@@ -243,7 +265,17 @@ async function authenticateInner(request, env) {
     if (token.indexOf("capt_") === 0) {
         return authenticateClientToken(token, env);
     }
-    var payload = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
+    // A token that is not a Firebase JWT is simply NOT AUTHENTICATED. Letting
+    // the parse error propagate turned every such request into a 500, which is
+    // indistinguishable from a real server fault and sends whoever sees it
+    // debugging the wrong thing. Found when the vault service token was sent
+    // to a staff route: correctly refused, but reported as "Malformed JWT".
+    var payload;
+    try {
+        payload = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
+    } catch (e) {
+        return null;
+    }
     var row = await env.DB.prepare("SELECT role, display_name, avatar_url, client_id FROM users WHERE email = ?")
         .bind(payload.email).first();
     if (!row) { return null; }
@@ -373,6 +405,35 @@ function isAdminRole(user) {
 // ---------------------------------------------------------------------------
 
 var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
+
+// ---------------------------------------------------------------------------
+// CLIENT STATUS — the full set of values clients.status may hold.
+//
+// Same rationale as CLIENT_SOURCE_TYPES: this endpoint used to write whatever
+// it was handed, so a typo could invent a status ('activo', 'Active') that no
+// page filters on and no dropdown can show again — the record simply vanishes
+// from every list while still sitting in the table.
+//
+// 'paused' is canonical for the paused state. The client detail dropdown used
+// to write 'inactive' for the same thing while clients.html, sessions.html and
+// the live data all wrote 'paused'; calendar.html groups on 'paused' only, so
+// the odd one out landed in the wrong calendar group. 'inactive' is deliberately
+// NOT in this list — it has zero rows in the live data and is not a value we
+// want written again. The CSS rules for it stay as a defensive fallback.
+//
+// 'lead' and 'lead_dormant' belong to the lead pipeline above: a record can be
+// corrected back to 'lead' from the client detail page when it turns out never
+// to have been a client. 'lead' REQUIRES a lead_stage — see handlePatchClient,
+// which rejects the pair rather than writing a stageless lead into limbo.
+// ---------------------------------------------------------------------------
+
+var CLIENT_STATUS = [
+    "active",        // a paying client
+    "paused",        // engagement on hold, expected to resume
+    "closed",        // engagement ended
+    "lead",          // not a client (yet); lead_stage says where in the pipeline
+    "lead_dormant"   // a lead that went cold; set via the lead-outcome path
+];
 
 // ---------------------------------------------------------------------------
 // CLIENT SOURCE — where a client came from, kept for their whole lifecycle.
@@ -2483,6 +2544,75 @@ async function handleGetClientLatestDocument(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/lead-stages
+// The stage ladder the client-status editor offers when a record is corrected
+// back to a lead. Served rather than hardcoded in the frontend so a stage added
+// to LEAD_STAGES appears in the dropdown without an HTML change, and without the
+// two client.html copies drifting apart.
+//
+// Deliberately NOT "SELECT DISTINCT lead_stage FROM clients": that returns only
+// the stages occupied right now (today 3 of the 5), so the empty middle of the
+// pipeline — 'Raio X enviado', 'Raio X recebido' — would be unofferable exactly
+// when someone needs to file a record there.
+// ---------------------------------------------------------------------------
+
+async function handleGetLeadStages(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        return jsonOk({ stages: LEAD_STAGES });
+    } catch (e) {
+        return jsonErr("Error fetching lead stages: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients-needing-review
+// Active clients with NO PAYMENT TERMS — the exact list Alice was looking at
+// when she said several of them were not really active. Pr. Rafa adds clients
+// fast and the record defaults to status='active', so some are people he has
+// only pitched to.
+//
+// ⚠️ This filter was originally the intersection of all four signals (no terms
+// AND no invoices AND no sessions AND no assessments), generalised from ELITE
+// REMODELING, which happened to match all four. That matched ZERO live rows —
+// every other active client has sessions — so it surfaced nothing and could not
+// help Alice finish the review. Missing payment terms is the fact that actually
+// prompted her, so that alone is the filter.
+//
+// This is a LIST, never an action. Which of these records is genuinely wrong is
+// Alice's judgment: a real client who signed last week legitimately has none of
+// the four yet. So all four counts are still returned per row and shown as
+// evidence, and nothing here converts anything.
+//
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientsNeedingReview(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT c.id, c.name, c.package, c.created_at, " +
+            "  (SELECT COUNT(*) FROM client_package_terms t WHERE t.client_id = c.id) AS terms_count, " +
+            "  (SELECT COUNT(*) FROM invoices i WHERE i.client_id = c.id) AS invoice_count, " +
+            "  (SELECT COUNT(*) FROM sessions s WHERE s.client_id = c.id) AS session_count, " +
+            "  (SELECT COUNT(*) FROM client_assessments a WHERE a.client_id = c.id) AS assessment_count " +
+            "FROM clients c " +
+            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
+            "  AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id) " +
+            "ORDER BY c.name"
+        ).all();
+
+        return jsonOk({ clients: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching clients needing review: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/documents
 // Combined Documents list for the client profile: auto-generated session
 // reports (rendered client-side from sessions.pdf_data, same as the existing
@@ -2511,6 +2641,24 @@ async function handleGetClientDocuments(id, request, env) {
         // seller session gets — which is the entire point of the preview.
         var asSeller = !!effectiveSellerName(user, request);
 
+        // client_visible narrows FURTHER, it does not replace the seller rule.
+        // A hidden document is hidden from the client and from their sellers
+        // alike — that is the whole point of the flag, and it is why a seller
+        // query carries both predicates rather than either one alone.
+        //
+        // Staff (alice/rafa/developer) see everything, with each row's flag
+        // reported so the UI can show what the client can and cannot see.
+        // user.role === "client" covers sellers too: they are role 'client'
+        // with a seller login_role, so that single test is the right gate for
+        // real sessions.
+        //
+        // The admin preview paths (?previewSeller= / ?previewAs=) are folded in
+        // for the same reason the seller predicate already covers previewSeller:
+        // a preview that showed drafts the real client cannot see would be
+        // lying about the view it exists to reproduce.
+        var asClientSide = user.role === "client" ||
+            asSeller || !!previewClientId(user, request);
+
         var generatedRows = asSeller
             ? { results: [] }
             : await env.DB.prepare(
@@ -2519,16 +2667,30 @@ async function handleGetClientDocuments(id, request, env) {
                 "ORDER BY date DESC"
             ).bind(id).all();
 
-        var uploadedRows = asSeller
-            ? await env.DB.prepare(
-                "SELECT id, title, file_name, content_type, uploaded_by, created_at, visibility " +
-                "FROM client_documents WHERE client_id = ? AND visibility = 'seller' " +
-                "ORDER BY created_at DESC"
-            ).bind(id).all()
-            : await env.DB.prepare(
-                "SELECT id, title, file_name, content_type, uploaded_by, created_at, visibility " +
-                "FROM client_documents WHERE client_id = ? ORDER BY created_at DESC"
+        // file_url is selected only to derive has_file — the key itself never
+        // leaves the worker. A row with no file_url is a PLACEHOLDER: the
+        // deliverable exists and its preview is readable, but the real file is
+        // still in Pr. Rafa's Claude history.
+        var uploadedSelect =
+            "SELECT id, title, file_name, content_type, uploaded_by, created_at, " +
+            "visibility, client_visible, file_url, " +
+            "CASE WHEN preview_html IS NULL OR preview_html = '' THEN 0 ELSE 1 END AS has_preview, " +
+            "file_requested_at, file_requested_by FROM client_documents WHERE client_id = ?";
+
+        var uploadedRows;
+        if (asSeller) {
+            uploadedRows = await env.DB.prepare(
+                uploadedSelect + " AND visibility = 'seller'" +
+                (asClientSide ? " AND client_visible = 1" : "") +
+                " ORDER BY created_at DESC"
             ).bind(id).all();
+        } else {
+            uploadedRows = await env.DB.prepare(
+                uploadedSelect +
+                (asClientSide ? " AND client_visible = 1" : "") +
+                " ORDER BY created_at DESC"
+            ).bind(id).all();
+        }
 
         var generated = (generatedRows.results || []).map(function(s) {
             return {
@@ -2550,6 +2712,18 @@ async function handleGetClientDocuments(id, request, env) {
                 content_type: d.content_type,
                 uploaded_by: d.uploaded_by,
                 visibility: d.visibility || "client",
+                // Reported so a staff user can tell at a glance which documents
+                // the client can see. Client/seller sessions only ever receive
+                // rows where this is 1, since the query filtered on it.
+                client_visible: d.client_visible === 0 ? 0 : 1,
+                // A placeholder: the deliverable is recorded but the file has
+                // not been uploaded yet. The R2 key itself is never exposed.
+                has_file: d.file_url ? 1 : 0,
+                has_preview: d.has_preview === 1 ? 1 : 0,
+                // Only staff need to know a file was chased. Surfacing it to a
+                // client would tell them their document is incomplete.
+                file_requested_at: asClientSide ? null : (d.file_requested_at || null),
+                file_requested_by: asClientSide ? null : (d.file_requested_by || null),
                 date: d.created_at
             };
         });
@@ -2558,7 +2732,42 @@ async function handleGetClientDocuments(id, request, env) {
             return (b.date || "").localeCompare(a.date || "");
         });
 
-        return jsonOk({ documents: combined });
+        // ── Two sections, not one merged list ────────────────────────────────
+        //
+        // visibility was always meant to mean "which section is this filed in",
+        // but what shipped was a widening flag on a single interleaved list. So
+        // a client's Documentos held their own files and their sales team's
+        // training material side by side — Scripts de Abordagem sitting next to
+        // a meeting summary about their business.
+        //
+        // The split is presentational only. Nothing changes about WHO can see
+        // WHAT: 'seller' still means "the client AND their salespeople", so the
+        // client sees both sections. The grouping just stops the two kinds of
+        // material from being shuffled together.
+        //
+        //   client_documents — the client's own files, plus every generated
+        //                      session report (always about their business).
+        //   sales_documents  — visibility='seller': material for the client's
+        //                      sales team.
+        //
+        // `documents` is still returned, unchanged, so any caller that has not
+        // been updated keeps working exactly as before.
+        var clientSection = combined.filter(function(d) {
+            return d.kind === "generated" || d.visibility !== "seller";
+        });
+        var salesSection = combined.filter(function(d) {
+            return d.kind === "uploaded" && d.visibility === "seller";
+        });
+
+        return jsonOk({
+            documents: combined,
+            client_documents: clientSection,
+            sales_documents: salesSection,
+            // Lets the frontend decide whether to render the client section at
+            // all without re-deriving the seller rule. A seller must never see
+            // a labeled empty section for material they can never have.
+            as_seller: asSeller
+        });
     } catch (e) {
         return jsonErr("Error fetching documents: " + e.message, 500);
     }
@@ -2588,7 +2797,7 @@ async function handlePostClientDocument(id, request, env) {
         if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
 
         var ext = RESOURCE_FILE_TYPES[file.type];
-        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file.", 400); }
+        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel/PowerPoint document, CSV, or text file.", 400); }
 
         var MAX_BYTES = 20 * 1024 * 1024;
         var buf = await file.arrayBuffer();
@@ -2604,6 +2813,51 @@ async function handlePostClientDocument(id, request, env) {
         var visField = form.get("visibility");
         var visibility = (visField === "seller") ? "seller" : "client";
 
+        // Note the asymmetry with the line above, which is deliberate.
+        //
+        // For section membership the safe fallback is the NARROWER value
+        // ('client'), because guessing wrong there shows a document to a whole
+        // sales team. For client_visible on a UI upload the default is 1
+        // (visible), because that is what a deliberate UI upload MEANS: someone
+        // went to this client's profile and put a file on it. Defaulting that
+        // to hidden would quietly break every existing upload flow.
+        //
+        // Claude-sourced documents do NOT come through here — they arrive via
+        // handlePostClientDocumentFromClaude, which sets the flag to 0
+        // server-side rather than trusting anything in the request.
+        var cvField = form.get("client_visible");
+        var clientVisible = (cvField === "0" || cvField === 0 || cvField === "false") ? 0 : 1;
+
+        // Attaching the real file to a PLACEHOLDER rather than creating a new
+        // row. This is the flow that closes the loop: his Claude recorded the
+        // deliverable when he made it, and this is him finally uploading it.
+        //
+        // The preview is KEPT — it stays the quick-look version, and the client
+        // may already be reading it. client_visible is kept too, so attaching a
+        // file never changes who can see the document. Any outstanding request
+        // from Pra. Alice clears itself, so nobody has to close it.
+        var attachTo = form.get("attach_to");
+        if (typeof attachTo === "string" && attachTo.trim()) {
+            var target = await env.DB.prepare(
+                "SELECT id, file_url FROM client_documents WHERE id = ? AND client_id = ?"
+            ).bind(attachTo.trim(), id).first();
+            if (!target) { return jsonErr("Placeholder not found", 404); }
+            if (target.file_url) { return jsonErr("This document already has a file.", 400); }
+
+            var attachKey = "client-documents/" + id + "/" + target.id + "." + ext;
+            await env.ASSETS.put(attachKey, buf, { httpMetadata: { contentType: file.type } });
+
+            await env.DB.prepare(
+                "UPDATE client_documents SET file_url = ?, file_name = ?, content_type = ?, " +
+                "file_requested_at = NULL, file_requested_by = NULL WHERE id = ? AND client_id = ?"
+            ).bind(attachKey, file.name || ("document." + ext), file.type, target.id, id).run();
+
+            var attached = await env.DB.prepare(
+                "SELECT * FROM client_documents WHERE id = ?"
+            ).bind(target.id).first();
+            return jsonOk({ document: attached, attached: true });
+        }
+
         var docId = crypto.randomUUID();
         var key = "client-documents/" + id + "/" + docId + "." + ext;
 
@@ -2612,8 +2866,631 @@ async function handlePostClientDocument(id, request, env) {
         });
 
         await env.DB.prepare(
-            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility, client_visible) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            docId, id, title, file.name || ("document." + ext), key, file.type,
+            user.display_name || user.role, visibility, clientVisible
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM client_documents WHERE id = ?").bind(docId).first();
+        return jsonOk({ document: row });
+    } catch (e) {
+        return jsonErr("Error uploading document: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/clients/:id/documents/:docId/client-visible
+// Flips whether the client can see one document. Body: { client_visible: 0|1 }.
+//
+// Uploaded documents only. Generated session reports have no client_documents
+// row to carry the flag, so there is nothing here to toggle for them.
+//
+// alice / rafa / developer only — the same gate as upload and delete. A client
+// must never be able to reveal a draft that was deliberately hidden from them.
+// ---------------------------------------------------------------------------
+
+async function handlePatchClientDocumentVisible(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body || !body.hasOwnProperty("client_visible")) {
+            return jsonErr("client_visible is required", 400);
+        }
+        // Explicit values only. An unparseable value is a bug in the caller,
+        // not a reason to guess at whether a client should see a document.
+        var raw = body.client_visible;
+        var next;
+        if (raw === 1 || raw === "1" || raw === true) { next = 1; }
+        else if (raw === 0 || raw === "0" || raw === false) { next = 0; }
+        else { return jsonErr("client_visible must be 0 or 1", 400); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM client_documents WHERE id = ? AND client_id = ?"
+        ).bind(docId, id).first();
+        if (!row) { return jsonErr("Document not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE client_documents SET client_visible = ? WHERE id = ? AND client_id = ?"
+        ).bind(next, docId, id).run();
+
+        return jsonOk({ id: docId, client_visible: next });
+    } catch (e) {
+        return jsonErr("Error updating document visibility: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/documents/from-claude
+// The Apex-side receiving path for deliverables created in Pr. Rafa's own
+// Claude. Body: multipart/form-data, same 'file'/'title' fields as the UI
+// upload, so the two paths share the R2 hardening and type/size limits.
+//
+// The ONLY difference, and the reason this is a separate endpoint rather than
+// a flag on the existing one, is the default: these land with
+// client_visible = 0, set SERVER-SIDE. A draft in progress must not be exposed
+// to the client because a caller forgot a field, and a client-supplied value
+// must not be able to publish one. There is deliberately no way to ask this
+// endpoint for a visible document — Pr. Rafa reveals it from the UI once it is
+// ready, which is a decision a person makes, not an integration.
+//
+// Staff-gated exactly like the UI upload. The Claude-side integration that
+// calls this is out of scope here; this is only the receiving path.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/documents/placeholder
+//
+// Records a deliverable whose FILE is still in Pr. Rafa's Claude history.
+//
+// Why this exists: he has a Google Drive folder per client already. Things get
+// lost because in the moment he does not file them, not because there is
+// nowhere to put them. So the record lands on the client's profile the instant
+// the deliverable is made, and the file catches up later.
+//
+// Body: JSON { title, preview_html, file_name?, visibility? }. The HTML is the
+// version he approved before converting to PDF, so storing it costs nothing
+// and lets him recognise WHICH deliverable this is without opening the chat.
+//
+// client_visible = 0, same rule as every other Claude-sourced document.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/clients
+//
+// The minimum the vault Worker needs to file a deliverable: which clients
+// exist and what they are called. Id and name only — no contacts, no profile,
+// no money. Service token only; a staff session has richer endpoints already.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultClients(request, env) {
+    try {
+        var caller = serviceCaller(request, env);
+        if (!caller) { return jsonErr("Unauthorized", 401); }
+        var rows = await env.DB.prepare(
+            "SELECT id, name, status FROM clients WHERE COALESCE(archived,0) = 0 ORDER BY name"
+        ).all();
+        return jsonOk({ clients: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error listing clients: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The vault read gate
+//
+// Pr. Rafa's Claude reads live Apex data through the vault Worker. The hard
+// requirement is that it can NEVER write to this database. Cloudflare has no
+// read-only D1 binding — read replicas are a latency feature, not a permission
+// one — so the guarantee is structural in code instead, in two independent
+// layers:
+//
+//   1. The vault Worker has no D1 binding to this database at all. It cannot
+//      issue SQL here; it can only call the REST endpoints below.
+//   2. Those endpoints reach D1 ONLY through vaultRead(). Nothing under
+//      /api/vault/ touches env.DB directly.
+//
+// vaultRead is therefore the single door. A read endpoint added six months
+// from now inherits every rule below for free, which is the entire point — a
+// design where a future handler could quietly go around it would be worth
+// nothing.
+//
+// Note this is defence in depth, not the primary control. Every caller below
+// passes a hardcoded SQL literal; none of these strings is assembled from
+// caller input, and all values are bound parameters. The rejections exist so
+// that a mistake in some future handler fails loudly here instead of reaching
+// the database.
+// ---------------------------------------------------------------------------
+
+// Only these tables are readable. FINANCE IS ABSENT BY CONSTRUCTION — there is
+// no invoices, invoice_payments, transactions or client_package_terms entry,
+// and no rule that filters them out either. A SELECT against invoices fails
+// because invoices is simply not on this list, which is a guarantee that
+// survives someone editing the rules without remembering why they exist.
+var VAULT_READ_TABLES = [
+    "clients",
+    "gm_leads",
+    "sessions",
+    "tasks",
+    // NOT "assessments" — the live table is named client_assessments. Verified
+    // against sqlite_master before this list was written.
+    "client_assessments"
+];
+
+// Strips leading whitespace and leading SQL comments so that the SELECT check
+// cannot be evaded by prefixing the statement with "/* x */" or "-- x\n".
+function stripLeadingSqlNoise(sql) {
+    var s = String(sql);
+    var changed = true;
+    while (changed) {
+        changed = false;
+        var trimmed = s.replace(/^\s+/, "");
+        if (trimmed !== s) { s = trimmed; changed = true; }
+        if (s.indexOf("--") === 0) {
+            var nl = s.indexOf("\n");
+            s = (nl === -1) ? "" : s.slice(nl + 1);
+            changed = true;
+        } else if (s.indexOf("/*") === 0) {
+            var end = s.indexOf("*/");
+            // An unterminated block comment would swallow the rest of the
+            // statement. Treat it as empty so the SELECT check rejects it.
+            s = (end === -1) ? "" : s.slice(end + 2);
+            changed = true;
+        }
+    }
+    return s;
+}
+
+function vaultReadReject(reason) {
+    var err = new Error(reason);
+    err.vaultReadRejected = true;
+    return err;
+}
+
+// Throws on anything that is not a single, plain SELECT against an allow-listed
+// table. Returns nothing useful — it is a gate, not a parser.
+function assertVaultReadSql(sql) {
+    if (typeof sql !== "string" || !sql.trim()) {
+        throw vaultReadReject("Refused: empty SQL.");
+    }
+
+    var body = stripLeadingSqlNoise(sql);
+
+    // Must BEGIN with SELECT, case-insensitive, once the leading noise is gone.
+    if (!/^select\s/i.test(body)) {
+        throw vaultReadReject(
+            "Refused: the vault read gate accepts SELECT statements only. " +
+            "This database is read-only to the vault."
+        );
+    }
+
+    // No statement separators. A single trailing semicolon is allowed; a
+    // semicolon anywhere else means a second statement is being smuggled in,
+    // which is how "SELECT 1; DELETE FROM clients" would otherwise land.
+    var withoutTrailing = body.replace(/;\s*$/, "");
+    if (withoutTrailing.indexOf(";") !== -1) {
+        throw vaultReadReject(
+            "Refused: multiple SQL statements. Only one SELECT is allowed."
+        );
+    }
+
+    // No comment markers ANYWHERE in the remaining statement. Leading comments
+    // were already stripped above, so a marker here is only ever an attempt to
+    // hide a second statement or to comment out the rest of the query.
+    if (withoutTrailing.indexOf("--") !== -1 || withoutTrailing.indexOf("/*") !== -1) {
+        throw vaultReadReject(
+            "Refused: SQL comments are not allowed in vault reads."
+        );
+    }
+
+    // Every table named after FROM or JOIN must be on the allow-list.
+    var referenced = [];
+    var re = /\b(?:from|join)\s+([A-Za-z_][A-Za-z0-9_]*)/gi;
+    var m;
+    while ((m = re.exec(withoutTrailing)) !== null) {
+        referenced.push(m[1].toLowerCase());
+    }
+    if (!referenced.length) {
+        throw vaultReadReject("Refused: could not identify a table to read.");
+    }
+    for (var i = 0; i < referenced.length; i++) {
+        if (VAULT_READ_TABLES.indexOf(referenced[i]) === -1) {
+            throw vaultReadReject(
+                "Refused: the table " + JSON.stringify(referenced[i]) +
+                " is not readable by the vault. Readable tables: " +
+                VAULT_READ_TABLES.join(", ") + "."
+            );
+        }
+    }
+}
+
+// The ONE path from a /api/vault/ endpoint to D1. Values are always bound
+// parameters; SQL is never concatenated from caller input.
+async function vaultRead(env, sql, binds) {
+    assertVaultReadSql(sql);
+    var stmt = env.DB.prepare(sql);
+    var params = binds || [];
+    var res = params.length ? await stmt.bind.apply(stmt, params).all() : await stmt.all();
+    return res.results || [];
+}
+
+// Shared front door for every vault read route: same token, same 401, and a
+// rejected statement comes back as 403 rather than a 500, so a blocked write
+// is distinguishable from a genuine fault.
+async function vaultReadRoute(request, env, run) {
+    var caller = serviceCaller(request, env);
+    if (!caller) { return jsonErr("Unauthorized", 401); }
+    try {
+        return jsonOk(await run());
+    } catch (e) {
+        if (e && e.vaultReadRejected) { return jsonErr(e.message, 403); }
+        return jsonErr("Error reading: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/leads?client_id=...
+//
+// ONE CLIENT'S OWN sales pipeline, from gm_leads. These leads belong to one of
+// Pr. Rafa's clients, inside the growth-management product Apex gives them.
+// Not to be confused with /api/vault/apex-leads below.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultLeads(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+        if (!clientId) { throw new Error("client_id is required"); }
+        var stage = (url.searchParams.get("estagio") || "").trim();
+
+        var sql =
+            "SELECT id, client_id, cliente, telefone, email, city, origem, servico, " +
+            "servico_desc, observacao, vendedor, valor, estagio, followups, " +
+            "proxima_acao, data_lead, data_contato, data_estimate, mes_lead, " +
+            "mes_fechamento, stage_changed_at, created_at, updated_at " +
+            "FROM gm_leads WHERE client_id = ?1" +
+            (stage ? " AND estagio = ?2" : "") +
+            " ORDER BY COALESCE(data_lead, created_at) DESC LIMIT 200";
+
+        var binds = stage ? [clientId, stage] : [clientId];
+        var leads = await vaultRead(env, sql, binds);
+        return {
+            client_id: clientId,
+            count: leads.length,
+            leads: leads,
+            note: "This is the CLIENT's own sales pipeline inside Apex growth " +
+                  "management, not Rafael's prospect list."
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/apex-leads
+//
+// RAFAEL'S OWN prospect list: businesses he is trying to sign as Apex clients.
+// These live in the clients table with status = 'lead'. A completely different
+// audience from /api/vault/leads above.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultApexLeads(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var stage = (url.searchParams.get("lead_stage") || "").trim();
+
+        var sql =
+            "SELECT id, name, owners, industry, location, phone, email, whatsapp, " +
+            "instagram_handle, status, lead_stage, stage_changed_at, next_step, " +
+            "next_step_set_by, next_step_set_at, source_type, source_detail, " +
+            "language, created_at " +
+            "FROM clients WHERE status = 'lead' AND COALESCE(archived,0) = 0" +
+            (stage ? " AND lead_stage = ?1" : "") +
+            " ORDER BY COALESCE(stage_changed_at, created_at) DESC LIMIT 200";
+
+        var binds = stage ? [stage] : [];
+        var leads = await vaultRead(env, sql, binds);
+        return {
+            count: leads.length,
+            leads: leads,
+            note: "These are RAFAEL's own prospects — businesses he is trying to " +
+                  "sign as Apex clients. Not any client's sales pipeline."
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/sessions[?client_id=...]
+//
+// Consultancy sessions. Deliberately WITHOUT raw_transcript, summary_json or
+// pdf_data: those run to tens of thousands of characters each and would burn
+// through the context of whoever asked a one-line question.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultSessions(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+
+        var sql =
+            "SELECT id, client_id, client_name, date, time, end_time, status, " +
+            "session_type, meeting_category, location, attendees, approved_at, " +
+            "google_meet_link, transcript_source, whatsapp_sent_at, created_at " +
+            "FROM sessions" +
+            (clientId ? " WHERE client_id = ?1" : "") +
+            " ORDER BY date DESC LIMIT 100";
+
+        var binds = clientId ? [clientId] : [];
+        var sessions = await vaultRead(env, sql, binds);
+        return {
+            count: sessions.length,
+            sessions: sessions,
+            note: "Transcripts and summaries are omitted on purpose — they are " +
+                  "very large. Ask Rafael to open the session in Apex for those."
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/tasks[?client_id=...][&status=...]
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultTasks(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+        var status = (url.searchParams.get("status") || "").trim();
+
+        var where = [];
+        var binds = [];
+        if (clientId) { binds.push(clientId); where.push("client_id = ?" + binds.length); }
+        if (status)   { binds.push(status);   where.push("status = ?" + binds.length); }
+
+        var sql =
+            "SELECT id, client_id, session_id, type, description, due_date, " +
+            "due_date_source, status, completed_by, source, created_at, updated_at " +
+            "FROM tasks" +
+            (where.length ? " WHERE " + where.join(" AND ") : "") +
+            " ORDER BY COALESCE(due_date, created_at) DESC LIMIT 200";
+
+        var tasks = await vaultRead(env, sql, binds);
+        return { count: tasks.length, tasks: tasks };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/assessments[?client_id=...]
+//
+// The live table is client_assessments. answers_json and score_json are
+// returned as stored — they are the substance of the assessment, and unlike a
+// transcript they are small enough to be worth sending.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultAssessments(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+
+        var sql =
+            "SELECT id, client_id, assessment_type, status, answers_json, " +
+            "score_json, profile_json, activated_by, activated_at, started_at, " +
+            "completed_at, updated_at " +
+            "FROM client_assessments" +
+            (clientId ? " WHERE client_id = ?1" : "") +
+            " ORDER BY updated_at DESC LIMIT 50";
+
+        var binds = clientId ? [clientId] : [];
+        var assessments = await vaultRead(env, sql, binds);
+        return { count: assessments.length, assessments: assessments };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/vault/selftest
+//
+// Proves the gate on the DEPLOYED Worker, over the real network path, with the
+// real service token. It runs a caller-supplied statement through the SAME
+// vaultRead() the read routes use and reports what happened.
+//
+// This is NOT a bypass route: it is behind the same serviceCaller() 401 as
+// every other vault endpoint, and it has no path to D1 except vaultRead. A
+// statement that the gate rejects never reaches the database, which is exactly
+// what the deploy test asserts. If the gate were ever removed, this route
+// would start returning 200 on an INSERT and the test would fail loudly.
+// ---------------------------------------------------------------------------
+
+async function handlePostVaultSelftest(request, env) {
+    var caller = serviceCaller(request, env);
+    if (!caller) { return jsonErr("Unauthorized", 401); }
+    var body;
+    try { body = await request.json(); } catch (e) { return jsonErr("Invalid JSON body", 400); }
+    var sql = body && body.sql;
+    if (typeof sql !== "string" || !sql.trim()) { return jsonErr("sql is required", 400); }
+    try {
+        var rows = await vaultRead(env, sql, []);
+        return jsonOk({ blocked: false, row_count: rows.length });
+    } catch (e) {
+        if (e && e.vaultReadRejected) {
+            return jsonErr(e.message, 403);
+        }
+        return jsonErr("Error reading: " + e.message, 500);
+    }
+}
+
+async function handlePostClientDocumentPlaceholder(id, request, env) {
+    try {
+        // Either a staff login, or the vault Worker's service token. The
+        // service role is accepted HERE and on from-claude only.
+        var user = serviceCaller(request, env) || await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "vault-service" && !canEditResources(user)) {
+            return jsonErr("Forbidden", 403);
+        }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json();
+        var title = (body && typeof body.title === "string") ? body.title.trim() : "";
+        var html  = (body && typeof body.preview_html === "string") ? body.preview_html : "";
+        if (!title) { return jsonErr("title is required", 400); }
+        if (!html.trim()) { return jsonErr("preview_html is required", 400); }
+
+        var MAX_HTML = 2 * 1024 * 1024;
+        if (html.length > MAX_HTML) {
+            return jsonErr("preview_html is too large. Maximum is 2 MB.", 400);
+        }
+
+        var docId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, " +
+            "content_type, uploaded_by, visibility, client_visible, preview_html) " +
+            "VALUES (?, ?, ?, ?, NULL, 'text/html', ?, ?, 0, ?)"
+        ).bind(
+            // file_name is NOT NULL on this table. A placeholder has no file
+            // yet, so it carries the name the file WILL have — which is also
+            // what he needs to recognise it in his Claude history.
+            docId, id, title, (body.file_name || (title + ".pdf")),
+            user.display_name || user.role,
+            (body.visibility === "seller") ? "seller" : "client",
+            html
+        ).run();
+
+        return jsonOk({ id: docId, has_file: 0, client_visible: 0 });
+    } catch (e) {
+        return jsonErr("Error creating placeholder: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/documents/:docId/preview
+//
+// Serves the stored HTML as a page. Sandboxed hard: a restrictive CSP means
+// nothing executes even if a script is present, and the same client_visible /
+// seller predicates as the file endpoint apply — hiding a row from a list is
+// cosmetic when ids are enumerable.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientDocumentPreview(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var asSeller = !!effectiveSellerName(user, request);
+        var asClientSide = user.role === "client" || asSeller || !!previewClientId(user, request);
+
+        var row = await env.DB.prepare(
+            "SELECT preview_html FROM client_documents WHERE id = ? AND client_id = ?" +
+            (asSeller ? " AND visibility = 'seller'" : "") +
+            (asClientSide ? " AND client_visible = 1" : "")
+        ).bind(docId, id).first();
+
+        if (!row || !row.preview_html) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+
+        return new Response(row.preview_html, {
+            headers: {
+                "Content-Type": "text/html; charset=utf-8",
+                // No scripts, no forms, no framing by anyone else. A deliverable
+                // is a document, not an application.
+                "Content-Security-Policy":
+                    "default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; " +
+                    "font-src data: https:; frame-ancestors 'self'",
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "private, no-store",
+                ...CORS_HEADERS
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error loading preview: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/documents/:docId/request-file
+//
+// Pra. Alice asking Pr. Rafa to upload the real file.
+//
+// Deliberately NOT available to the client. A client having to ask for the
+// deliverable they were already promised is a bad look; the warning shown when
+// he makes a preview-only document visible is what prevents that instead.
+//
+// Recorded once. Repeat clicks do not stack — three nags read as pressure
+// without adding information.
+// ---------------------------------------------------------------------------
+
+async function handleRequestClientDocumentFile(id, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT file_url, file_requested_at FROM client_documents WHERE id = ? AND client_id = ?"
+        ).bind(docId, id).first();
+        if (!row) { return jsonErr("Document not found", 404); }
+        if (row.file_url) { return jsonErr("This document already has its file.", 400); }
+        if (row.file_requested_at) {
+            return jsonOk({ id: docId, file_requested_at: row.file_requested_at, already: true });
+        }
+
+        var who = user.display_name || user.role;
+        await env.DB.prepare(
+            "UPDATE client_documents SET file_requested_at = datetime('now'), file_requested_by = ? " +
+            "WHERE id = ? AND client_id = ?"
+        ).bind(who, docId, id).run();
+
+        return jsonOk({ id: docId, file_requested_by: who });
+    } catch (e) {
+        return jsonErr("Error requesting file: " + e.message, 500);
+    }
+}
+
+async function handlePostClientDocumentFromClaude(id, request, env) {
+    try {
+        var user = serviceCaller(request, env) || await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "vault-service" && !canEditResources(user)) {
+            return jsonErr("Forbidden", 403);
+        }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("file");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
+
+        var ext = RESOURCE_FILE_TYPES[file.type];
+        if (!ext) { return jsonErr("Invalid file type. Upload a PDF, image, Word/Excel/PowerPoint document, CSV, or text file.", 400); }
+
+        var MAX_BYTES = 20 * 1024 * 1024;
+        var buf = await file.arrayBuffer();
+        if (buf.byteLength > MAX_BYTES) {
+            return jsonErr("File too large. Maximum size is 20 MB.", 400);
+        }
+
+        var titleField = form.get("title");
+        var title = (typeof titleField === "string" && titleField.trim()) ? titleField.trim() : (file.name || ("document." + ext));
+
+        // Section membership is still a choice; client visibility is not.
+        var visField = form.get("visibility");
+        var visibility = (visField === "seller") ? "seller" : "client";
+
+        var docId = crypto.randomUUID();
+        var key = "client-documents/" + id + "/" + docId + "." + ext;
+
+        await env.ASSETS.put(key, buf, {
+            httpMetadata: { contentType: file.type }
+        });
+
+        // client_visible is hardcoded 0 here. It is NOT read from the form.
+        await env.DB.prepare(
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility, client_visible) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"
         ).bind(
             docId, id, title, file.name || ("document." + ext), key, file.type,
             user.display_name || user.role, visibility
@@ -2622,7 +3499,7 @@ async function handlePostClientDocument(id, request, env) {
         var row = await env.DB.prepare("SELECT * FROM client_documents WHERE id = ?").bind(docId).first();
         return jsonOk({ document: row });
     } catch (e) {
-        return jsonErr("Error uploading document: " + e.message, 500);
+        return jsonErr("Error receiving document: " + e.message, 500);
     }
 }
 
@@ -2674,15 +3551,26 @@ async function handleGetClientDocumentFile(id, docId, request, env) {
         // The list endpoint hides client-only documents from a salesperson;
         // this one has to as well, or the hiding is cosmetic — the ids are
         // guessable-by-enumeration in exactly the way a list filter is not.
-        var row = effectiveSellerName(user, request)
-            ? await env.DB.prepare(
-                "SELECT file_url, file_name, content_type FROM client_documents " +
-                "WHERE id = ? AND client_id = ? AND visibility = 'seller'"
-            ).bind(docId, id).first()
-            : await env.DB.prepare(
-                "SELECT file_url, file_name, content_type FROM client_documents WHERE id = ? AND client_id = ?"
-            ).bind(docId, id).first();
-        if (!row) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        //
+        // client_visible has exactly the same exposure, so it gets exactly the
+        // same treatment: filtering it out of the list while still serving the
+        // bytes to anyone who types the id would not be hiding the document at
+        // all. Both predicates apply together — a hidden document is hidden
+        // from the client AND from their sellers.
+        var fileAsSeller = !!effectiveSellerName(user, request);
+        var fileAsClientSide = user.role === "client" ||
+            fileAsSeller || !!previewClientId(user, request);
+
+        var fileSelect = "SELECT file_url, file_name, content_type FROM client_documents " +
+            "WHERE id = ? AND client_id = ?" +
+            (fileAsSeller ? " AND visibility = 'seller'" : "") +
+            (fileAsClientSide ? " AND client_visible = 1" : "");
+
+        var row = await env.DB.prepare(fileSelect).bind(docId, id).first();
+        // No row, or a PLACEHOLDER whose file has not been uploaded yet. Both
+        // are a 404 here: there is nothing to serve, and the preview endpoint
+        // is what serves the readable version in the meantime.
+        if (!row || !row.file_url) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
 
         if (!/^client-documents\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.[a-z0-9]+$/.test(row.file_url)) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
@@ -2866,9 +3754,36 @@ async function handlePatchClient(id, request, env) {
             }
             updated = true;
         }
+        // ── Status, and the one status that drags a second column with it ────
+        //
+        // 'lead' is the correction path for a record added as a client that was
+        // only ever a lead. It cannot be written alone: status='lead' with a NULL
+        // lead_stage is invisible in both directions — it drops off the client
+        // list AND renders nowhere on the leads board, which groups by stage. So
+        // the pair is validated and written together, or neither is written.
         if (body.hasOwnProperty("status")) {
-            await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
-                .bind(body.status || null, id).run();
+            var newStatus = body.status || null;
+            if (newStatus !== null && CLIENT_STATUS.indexOf(newStatus) === -1) {
+                return jsonErr("Status inválido / Invalid status", 400);
+            }
+
+            if (newStatus === "lead") {
+                var leadStage = body.lead_stage || null;
+                if (!leadStage || LEAD_STAGES.indexOf(leadStage) === -1) {
+                    return jsonErr("Selecione uma etapa / Select a lead stage", 400);
+                }
+                // stage_change_source identifies the path that made the change,
+                // matching the 'manual-d1' stamp left by the ELITE REMODELING
+                // correction that was done by hand before this UI existed.
+                await env.DB.prepare(
+                    "UPDATE clients SET status = 'lead', lead_stage = ?, " +
+                    "stage_changed_at = datetime('now'), stage_changed_by = ?, " +
+                    "stage_change_source = 'client-status-edit' WHERE id = ?"
+                ).bind(leadStage, user.display_name || user.role, id).run();
+            } else {
+                await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
+                    .bind(newStatus, id).run();
+            }
             updated = true;
         }
         if (body.hasOwnProperty("consolidated")) {
@@ -3960,6 +4875,11 @@ async function handlePostSessionCancel(sessionId, request, env) {
                     "UPDATE sessions SET status = 'cancelled', updated_at = ?, updated_by = ? WHERE id = ?"
                 ).bind(cancelledAt, cancelledBy, scopeRows[i].id).run();
             }
+            // Release the scheduling hold this session came from, if any.
+            // Order-independent on purpose: this reads scheduling_bookings by
+            // session_id, never the sessions row, so it still resolves after
+            // the 'mistake' branch has already deleted that row above.
+            await schedReleaseBookingForSession(env, scopeRows[i].id);
         }
 
         return jsonOk({ ok: true, mode: mode, scope: scope, updated: scopeRows.length, google_event_removed: googleRemoved, google_error: null });
@@ -6581,10 +7501,17 @@ async function handleGetResources(request, env) {
             "SELECT COUNT(*) AS n FROM client_resources WHERE whatsapp_sent_at IS NULL"
         ).first();
 
+        // Split server-side so the page cannot drift from the rule, the same
+        // way the client Documentos sections are split. `resources` still ships
+        // the flat list unchanged for any caller not updated for the sections.
+        var all = resources.results || [];
+
         return jsonOk({
-            resources:     resources.results,
-            categories:    categories.results.map(function (r) { return r.name; }),
-            pending_sends: pending ? pending.n : 0
+            resources:          all,
+            client_resources:   all.filter(function (r) { return r.internal !== 1; }),
+            internal_resources: all.filter(function (r) { return r.internal === 1; }),
+            categories:         categories.results.map(function (r) { return r.name; }),
+            pending_sends:      pending ? pending.n : 0
         });
     } catch (e) {
         return jsonErr("Error fetching resources: " + e.message, 500);
@@ -6605,6 +7532,11 @@ var RESOURCE_FILE_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/vnd.ms-excel": "xls",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    // PowerPoint: Pr. Rafa's deliverables include slide decks (JM's commercial
+    // training deck, Amanda's APEX START closing pack). Without these the
+    // upload rejects them as an invalid type.
+    "application/vnd.ms-powerpoint": "ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
     "text/plain": "txt", "text/csv": "csv"
 };
 
@@ -6619,6 +7551,10 @@ async function readResourceBody(request) {
             var v = form.get(names[i]);
             fields[names[i]] = (typeof v === "string" && v.trim()) ? v.trim() : null;
         }
+        // Anything other than an explicit "1" is client-facing. A typo or a
+        // missing field must never mark something internal by accident, and it
+        // must never quietly widen who can be sent it either.
+        fields.internal = form.get("internal") === "1" ? 1 : 0;
         var file = form.get("file");
         if (file && typeof file.arrayBuffer !== "function") { file = null; }
         return { fields: fields, file: file || null };
@@ -6639,7 +7575,7 @@ function validateResourceFields(fields) {
 
 async function storeResourceFile(env, resourceId, file) {
     var ext = RESOURCE_FILE_TYPES[file.type];
-    if (!ext) { throw new Error("Invalid file type. Upload a PDF, image, Word/Excel document, CSV, or text file."); }
+    if (!ext) { throw new Error("Invalid file type. Upload a PDF, image, Word/Excel/PowerPoint document, CSV, or text file."); }
     var key = "resources/" + resourceId + "." + ext;
     await env.ASSETS.put(key, await file.arrayBuffer(), {
         httpMetadata: { contentType: file.type }
@@ -6681,13 +7617,13 @@ async function handlePostResource(request, env) {
 
         await env.DB.prepare(
             "INSERT INTO resources (id, category, resource_type, title, description, " +
-            "contact_name, contact_phone, contact_email, file_url, file_name, url, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "contact_name, contact_phone, contact_email, file_url, file_name, url, created_by, internal) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             id, String(f.category).trim(), f.resource_type, String(f.title).trim(),
             f.description || null, f.contact_name || null, f.contact_phone || null,
             f.contact_email || null, fileUrl, fileName, f.url || null,
-            user.display_name || user.role
+            user.display_name || user.role, f.internal === 1 ? 1 : 0
         ).run();
 
         var row = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
@@ -6830,8 +7766,16 @@ async function handlePostClientResource(id, request, env) {
 
         var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
-        var resource = await env.DB.prepare("SELECT id FROM resources WHERE id = ?").bind(body.resource_id).first();
+        var resource = await env.DB.prepare("SELECT id, internal FROM resources WHERE id = ?").bind(body.resource_id).first();
         if (!resource) { return jsonErr("Resource not found", 404); }
+
+        // Internal resources are APEX's own material and belong to no client.
+        // The picker already hides them, but hiding a row from a list is not a
+        // rule — the id is guessable and the check has to live here, the same
+        // reasoning the client_documents file endpoint follows.
+        if (resource.internal === 1) {
+            return jsonErr("This is an internal APEX resource and cannot be assigned to a client.", 400);
+        }
 
         var dup = await env.DB.prepare(
             "SELECT id FROM client_resources WHERE client_id = ? AND resource_id = ? AND whatsapp_sent_at IS NULL"
@@ -10794,6 +11738,10 @@ function clientRequestAllowed(path, method, clientId) {
     if (path === "/api/auth/client-logout" && method === "POST") { return true; }
     if (path === "/api/portal/me" && method === "GET") { return true; }
     if (path === "/api/portal/next-meeting" && method === "GET") { return true; }
+    // Drives the portal's two scheduling states (booking call-out vs
+    // Reagendar). The handler takes client_id from the SESSION and rejects any
+    // mismatching override, so this can only ever return the caller's own row.
+    if (path === "/api/scheduling/client-state" && method === "GET") { return true; }
     // The owner asks for a portal seat for one of their own salespeople. This
     // route lives outside /api/clients/:id/ but is client-reachable: the handler
     // takes client_id from the session and only an admin role may override it
@@ -10827,6 +11775,13 @@ function clientRequestAllowed(path, method, clientId) {
                 rest === "gm/seller-login-requests" ||
                 rest === "assessments") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+            // A PLACEHOLDER deliverable has no file, only the approved preview,
+            // and the confirmation shown when it is revealed promises the client
+            // can read it. Without this the allowlist 403s before the handler is
+            // ever reached, so that promise is false. The handler applies the
+            // same client_visible predicate as /file -- this exposes no row that
+            // /file would not.
+            if (/^documents\/[A-Za-z0-9-]+\/preview$/.test(rest)) { return true; }
             if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }
         }
         if (method === "POST") {
@@ -10966,6 +11921,15 @@ function sellerRequestAllowed(path, method, clientId) {
         // it is history on rows they can already read. Read-only; there is
         // deliberately no POST counterpart anywhere.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/events$/.test(rest)) { return true; }
+        // Notes and attachments on a lead. A salesperson owns their lead end
+        // to end -- they carry the customer relationship and are paid
+        // commission on it -- so they read and write the whole record, not a
+        // trimmed version of it. Row-level scoping to their OWN leads is
+        // gmSellerLeadGuard inside each handler; this list only says which
+        // routes exist for them.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
         // Shared sales material (Materiais do Vendedor). Both handlers narrow
         // to visibility='seller' off the session, so what comes back is the
         // shared material only — never the client's own documents, and never a
@@ -10980,10 +11944,24 @@ function sellerRequestAllowed(path, method, clientId) {
     if (method === "POST") {
         if (rest === "gm/leads") { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        // Add a note, and upload a proposal / estimate / site photo. The
+        // upload is the point: the seller is the one at the house with the
+        // pictures, and Alice and the owner review what they attach.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
         return false;
     }
     if (method === "PUT") {
         if (/^gm\/leads\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        // Edit a note. The handler additionally limits this to the caller's
+        // OWN note, on the same actor string the insert stamped.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        return false;
+    }
+    if (method === "DELETE") {
+        // Same own-note rule as PUT, and their own lead's attachments.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         return false;
     }
     return false;
@@ -17282,6 +18260,30 @@ async function gmLeadBelongsToClient(env, clientId, leadId) {
     return !!row;
 }
 
+// A SELLER may only touch their OWN leads — the same contract
+// handleGetGmLeadContacts enforces inline (lead.vendedor !== cSeller → 403).
+//
+// This exists because notes and lead files were opened to the portal
+// allowlists so a salesperson can work a lead end to end: they own it, they
+// carry the customer relationship, and they are paid commission on it. But
+// the allowlist only controls WHICH ROUTES a session may call — without this,
+// any of JM's four sellers could read and edit notes and files on every other
+// seller's leads. This is what controls WHICH ROWS.
+//
+// Returns an error Response to hand straight back, or null when the caller may
+// proceed. sessionSellerName is null for admins and for owner (non-seller)
+// client sessions, so this is a no-op on every path except a seller session.
+async function gmSellerLeadGuard(env, user, clientId, leadId) {
+    var seller = sessionSellerName(user);
+    if (!seller) { return null; }
+    var lead = await env.DB.prepare(
+        "SELECT vendedor FROM gm_leads WHERE id = ? AND client_id = ?"
+    ).bind(leadId, clientId).first();
+    if (!lead) { return jsonErr("Lead not found", 404); }
+    if (lead.vendedor !== seller) { return jsonErr("Forbidden", 403); }
+    return null;
+}
+
 function gmLeadFileOut(row, clientId) {
     return {
         id: row.id,
@@ -17302,6 +18304,8 @@ async function handleGetGmLeadFiles(id, leadId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
 
         var rows = await env.DB.prepare(
             "SELECT * FROM gm_lead_files WHERE lead_id = ? AND client_id = ? ORDER BY created_at ASC"
@@ -17321,6 +18325,8 @@ async function handlePostGmLeadFile(id, leadId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         if (!(await gmLeadBelongsToClient(env, id, leadId))) { return jsonErr("Lead not found", 404); }
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
 
         var form = await request.formData();
         var file = form.get("file");
@@ -17373,6 +18379,9 @@ async function handleGetGmLeadFileContent(id, leadId, fileId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
+
         // Scoped by client AND lead: an id from another client's lead is a 404
         // here, not a served file.
         var row = await env.DB.prepare(
@@ -17407,6 +18416,9 @@ async function handleDeleteGmLeadFile(id, leadId, fileId, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var sellerBlock = await gmSellerLeadGuard(env, user, id, leadId);
+        if (sellerBlock) { return sellerBlock; }
 
         var row = await env.DB.prepare(
             "SELECT r2_key FROM gm_lead_files WHERE id = ? AND lead_id = ? AND client_id = ?"
@@ -17661,9 +18673,44 @@ async function gmClubInviteEvents(env, fromDate, toDate) {
     });
 }
 
+// The client's meetings WITH APEX, for their own company calendar.
+//
+// A client books a time with Rafa and it appeared nowhere on their agenda —
+// the one calendar they actually look at — so the meeting sat only on the
+// portal's first screen and in Google. It belongs alongside everything else
+// they have that week.
+//
+// Read-only (editable:false), like the club kind: rescheduling goes through the
+// booking link, never by dragging a chip on their own calendar.
+async function gmApexMeetingEvents(env, clientId, fromDate, toDate) {
+    var rows = await env.DB.prepare(
+        "SELECT id, date, time, session_type, location, google_meet_link " +
+        "FROM sessions WHERE client_id = ? AND date >= ? AND date <= ? " +
+        "AND status != 'cancelled' AND status != 'discarded' AND meeting_category != 'event' " +
+        "ORDER BY date ASC, time ASC"
+    ).bind(clientId, fromDate, toDate).all();
+
+    return (rows.results || []).map(function (s) {
+        return {
+            kind: "apex",
+            id: "apex:" + s.id,
+            session_id: s.id,
+            date: String(s.date).slice(0, 10),
+            // Titled in Portuguese: the label the client reads on their own
+            // calendar, matching how the portal names this meeting elsewhere.
+            title: "Reunião com a Apex",
+            start_time: s.time || null,
+            all_day: !s.time,
+            location: s.location || null,
+            meet_link: s.google_meet_link || null,
+            editable: false
+        };
+    });
+}
+
 // GET /api/clients/:id/gm/events?month=YYYY-MM
 // Returns the client's own events plus derived job dates plus Apex Club
-// invitations for that month, in one payload.
+// invitations plus their Apex meetings for that month, in one payload.
 async function handleGetGmEvents(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -17692,11 +18739,12 @@ async function handleGetGmEvents(id, request, env) {
         var own = (rows.results || []).map(gmEventOut);
         var derived = await gmDerivedJobEvents(env, id, fromD, toD);
         var club = await gmClubInviteEvents(env, fromD, toD);
+        var apex = await gmApexMeetingEvents(env, id, fromD, toD);
 
         return jsonOk({
             month: month,
             range: { from: fromD, to: toD, month_start: first, month_end: last },
-            events: own.concat(derived).concat(club)
+            events: own.concat(derived).concat(club).concat(apex)
         });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);
@@ -17850,6 +18898,14 @@ async function handleGetGmNotes(id, parentType, parentId, request, env) {
         if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
             return jsonErr("Record not found", 404);
         }
+        // Notes hang off leads AND jobs. Only the lead side has a vendedor to
+        // check, and a seller has no route to a job note at all (gm/jobs is
+        // absent from sellerRequestAllowed), so guarding the lead parent is
+        // the complete check for a seller session.
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
+        }
 
         // Newest first: a thread is read from the most recent entry.
         var rows = await env.DB.prepare(
@@ -17874,6 +18930,14 @@ async function handlePostGmNote(id, parentType, parentId, request, env) {
         if (!GM_NOTE_PARENTS[parentType]) { return jsonErr("Invalid note parent", 400); }
         if (!(await gmNoteParentOk(env, id, parentType, parentId))) {
             return jsonErr("Record not found", 404);
+        }
+        // Notes hang off leads AND jobs. Only the lead side has a vendedor to
+        // check, and a seller has no route to a job note at all (gm/jobs is
+        // absent from sellerRequestAllowed), so guarding the lead parent is
+        // the complete check for a seller session.
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
         }
 
         var body = await request.json();
@@ -17900,6 +18964,11 @@ async function handlePutGmNote(id, parentType, parentId, noteId, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
+        }
 
         var existing = await env.DB.prepare(
             "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
@@ -17932,6 +19001,11 @@ async function handleDeleteGmNote(id, parentType, parentId, noteId, request, env
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        if (parentType === "lead") {
+            var sellerBlock = await gmSellerLeadGuard(env, user, id, parentId);
+            if (sellerBlock) { return sellerBlock; }
+        }
 
         var existing = await env.DB.prepare(
             "SELECT * FROM gm_notes WHERE id = ? AND client_id = ? AND parent_type = ? AND parent_id = ?"
@@ -22715,6 +23789,1369 @@ async function handlePostFinanceNewMatchUndo(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// "Enviar horarios" — client-driven scheduling links.
+//
+// Alice spends ~2 hours every Friday negotiating meeting times with consulting
+// clients one at a time over WhatsApp, plus at least one reschedule a day. She
+// named this her single biggest time cost on 2026-08-12. This replaces the
+// negotiation with a link: the client picks from genuinely open slots and the
+// booking writes itself into `sessions` AND Google Calendar. The goal is
+// REMOVING her work, so nothing here ends in a recurring manual step for her.
+//
+// TIMES NEVER APPEAR IN THE WHATSAPP TEXT. The link is the single source of
+// truth. With first-come-first-served, a time written into a message is stale
+// the moment someone else books it, and the message would be lying within
+// minutes of being sent.
+// ---------------------------------------------------------------------------
+
+var SCHED_SKIP_REASONS = ["vacation", "emergency", "client_cancelled"];
+
+// These two are now rows in message_templates, under the keys
+// 'scheduling_send' and 'scheduling_followup', editable from the Settings page
+// and from the pencil / right-click beside the Enviar button on the queue.
+// They are the two messages Alice sends most often, so leaving them as source
+// constants would have made them the only ones she could not change.
+//
+// The constants below survive as the FALLBACK, exactly like
+// DEFAULT_WHATSAPP_TEMPLATES: if the row is missing the message still goes out
+// correct rather than empty.
+var SCHED_TPL_INVITE =
+    "Olá, {name}! Para marcarmos nossa reunião desta semana, " +
+    "escolha o melhor horário para você neste link:\n\n{link}\n\n" +
+    "É rapidinho e já fica confirmado na agenda.";
+
+// The nudge. Deliberately NOT a repeat of the invite: warm, short, no guilt,
+// and it carries the SAME link.
+//
+// It must NOT refer to "nosso horário desta semana" ("our time this week").
+// This message only ever goes to someone who has NOT booked — that is the
+// entire reason they are being chased — so a reminder about an existing time
+// contradicts itself and tells the client something untrue.
+var SCHED_TPL_FOLLOWUP =
+    "Oi, {name}! Ainda estou com horários abertos para você esta semana. " +
+    "Quando puder, só escolher o que for melhor:\n\n{link}\n\n" +
+    "Qualquer dúvida, é só me chamar.";
+
+// Who the message actually says "Olá," to.
+//
+// It used to be the first word of the COMPANY name, which sent real clients
+// "Olá, GATOR!", "Olá, PERFECT!" and "Olá, ELEVATE!" — embarrassing to send to
+// someone paying you. clients.owners already holds the people: "Marcelo Diniz
+// & Neicy Diniz", "Osmar e Paulinha", "Bruno e Guilherme".
+//
+// BOTH owners are greeted when there are two. Picking one risks addressing the
+// wrong partner every time, which is worse than the company name was.
+// Separators seen in live data: "&", " e ", " E ", and ";".
+//
+// Only the FIRST name of each owner is used: the field also holds full legal
+// names ("Veronice Ferreira da Silva; Thamara Almeida Walker") and a WhatsApp
+// greeting addressed to a full legal name reads like a collections letter.
+//
+// Falls back to the company name only when owners is empty — the old behavior,
+// now the last resort instead of the default.
+function schedGreetingName(client, fallbackName) {
+    var owners = client && client.owners ? String(client.owners).trim() : "";
+    if (owners) {
+        var parts = owners.split(/\s*(?:&|;|\se\s|\sE\s)\s*/);
+        var firsts = [];
+        for (var i = 0; i < parts.length; i++) {
+            var first = String(parts[i]).trim().split(/\s+/)[0];
+            if (first) { firsts.push(first); }
+        }
+        // "Bruno e Guilherme" — Portuguese joins with "e", not a comma, and
+        // this text is always sent in Portuguese.
+        if (firsts.length === 1) { return firsts[0]; }
+        if (firsts.length > 1) {
+            return firsts.slice(0, -1).join(", ") + " e " + firsts[firsts.length - 1];
+        }
+    }
+    return String(fallbackName || "").split(" ")[0].split("-")[0].trim();
+}
+
+// NOTE: there is deliberately NO confirmation template here. The client sees
+// the confirmed date and time on the booking page itself, rendered through
+// datetime.js (American MM/DD/YYYY + 12-hour AM/PM, the site-wide standard).
+// A template with a {when} slot would mean formatting a date in the Worker,
+// where those helpers do not exist — the exact path by which a DD/MM string
+// gets hand-built and shipped. Any future confirmation message must format its
+// date on the page, not here.
+
+// ── Local-time helpers ─────────────────────────────────────────────────────
+// Slot math is LOCAL wall-clock math (Rafa's day runs 09:00-18:00 Eastern, not
+// UTC). Never derive a calendar date by slicing toISOString(): that is UTC and
+// disagrees with the viewer's date every evening west of UTC. This same bug
+// shipped four separate times in two days in July.
+
+function schedMinutes(hhmm) {
+    var p = String(hhmm).split(":");
+    return (parseInt(p[0], 10) * 60) + parseInt(p[1] || "0", 10);
+}
+
+function schedHHMM(mins) {
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+}
+
+// "2026-08-12" + n days -> "2026-08-19". Pure string/UTC-anchored arithmetic on
+// a date-only value, which is safe: Date.UTC never shifts the calendar day
+// because there is no time-of-day component to roll over.
+function schedAddDays(dateStr, n) {
+    var p = String(dateStr).split("-");
+    var d = new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)));
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.getUTCFullYear() + "-" +
+        String(d.getUTCMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getUTCDate()).padStart(2, "0");
+}
+
+// Day of week (0=Sun) for a local date string, without constructing a local
+// Date (which would apply the Worker's own UTC zone and could be off by one).
+function schedDayOfWeek(dateStr) {
+    var p = String(dateStr).split("-");
+    return new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10))).getUTCDay();
+}
+
+// Eastern-clock offset ("-04:00" in EDT, "-05:00" in EST) for a given local
+// date+time, so a local wall-clock slot can be turned into a true instant for
+// Google. Derived from Intl rather than hardcoded, so the DST boundary is
+// handled instead of silently shifting every booking by an hour in November.
+function schedTZOffset(dateStr, hhmm) {
+    var probe = new Date(dateStr + "T" + hhmm + ":00Z");
+    var parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: APEX_TIMEZONE, timeZoneName: "longOffset"
+    }).formatToParts(probe);
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i].type === "timeZoneName") {
+            var m = String(parts[i].value).match(/GMT([+-]\d{2}:\d{2})/);
+            if (m) { return m[1]; }
+        }
+    }
+    return "-05:00";
+}
+
+// A local wall-clock slot as a real instant (epoch ms), for comparing against
+// Google's UTC busy blocks and against "now".
+function schedInstant(dateStr, hhmm) {
+    return new Date(dateStr + "T" + hhmm + ":00" + schedTZOffset(dateStr, hhmm)).getTime();
+}
+
+// First day of the offer window: TODAY in Eastern. The window ROLLS -- it is
+// the next 7 days from the moment the link is created, not the remainder of
+// the calendar week.
+//
+// This used to anchor to Monday of the current week, which meant the number of
+// days a client could choose from SHRANK as the week went on: past days are
+// correctly excluded, so a Wednesday link offered Wed-Fri, a Thursday link
+// offered Friday alone, and a Friday-afternoon link offered NOTHING. Alice
+// does her scheduling on Friday -- that Friday routine is the entire reason
+// this feature exists -- so the anchor broke the feature on the exact day it
+// was used. Found live on Thursday 2026-08-13: a real request offered exactly
+// one day (Friday 08/14) because Mon-Wed had passed and Sat/Sun are not
+// working days.
+//
+// Rolling forward keeps the window the SAME LENGTH. It is still one week and
+// never two: Nicole's reasoning stands -- clients already struggle to commit to
+// the current week and pushing them further out invites reschedules. Non-working
+// days inside the range are filtered by the working-days rule in
+// schedComputeSlots(), so a Friday send naturally yields the following Mon-Fri
+// and a Monday send yields Mon-Fri of the same week.
+//
+// Eastern, never UTC: localDateStrForTZ() formats in America/New_York, because
+// a UTC "today" rolls over at 8pm Florida time and a link created Friday
+// evening would compute SATURDAY as its start.
+function schedWindowStart(env) {
+    return localDateStrForTZ();
+}
+
+// Last day of the offer window: 6 days after the start, inclusive -- 7 days total.
+function schedWindowEnd(startDate) {
+    return schedAddDays(startDate, 6);
+}
+
+// Business-hours age. A link sent Friday must NOT flag on Saturday, when Alice
+// cannot act on it — so weekend hours simply do not count.
+function schedBusinessHoursSince(utcTimestamp) {
+    if (!utcTimestamp) { return 0; }
+    var s = String(utcTimestamp).replace(" ", "T").split(".")[0];
+    if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+    var start = new Date(s).getTime();
+    if (isNaN(start)) { return 0; }
+    var now = Date.now();
+    if (now <= start) { return 0; }
+
+    // Walk hour by hour and count only those landing Mon-Fri in Eastern. Cheap
+    // enough at this scale (a week is 168 iterations) and immune to the
+    // off-by-one errors that closed-form business-hour math invites.
+    var hours = 0;
+    var cursor = start;
+    var HOUR = 3600000;
+    var guard = 0;
+    while (cursor < now && guard < 2000) {
+        var dowStr = new Intl.DateTimeFormat("en-US", {
+            timeZone: APEX_TIMEZONE, weekday: "short"
+        }).format(new Date(cursor));
+        if (dowStr !== "Sat" && dowStr !== "Sun") { hours++; }
+        cursor += HOUR;
+        guard++;
+    }
+    return hours;
+}
+
+async function schedSettings(env) {
+    var row = await env.DB.prepare("SELECT * FROM scheduling_settings WHERE id = 'default'").first();
+    if (row) { return row; }
+    return {
+        day_start: "09:00", day_end: "18:00", work_days: "1,2,3,4,5",
+        min_notice_hours: 4, daily_cap: 4, default_duration: 60, default_travel: 30
+    };
+}
+
+// ── Busy-time assembly ─────────────────────────────────────────────────────
+// THE FREE/BUSY READ MUST INCLUDE RAFA'S OWN GOOGLE CALENDAR, not just the
+// sessions table. If he is driving to a site at 3 PM and that block exists only
+// in his personal calendar, a sessions-only read would happily book over it —
+// creating double-bookings worse than the problem being solved.
+//
+// Returns { blocks: [{start,end}] (epoch ms), perDay: {date: count},
+//           googleOk: bool }.
+async function schedBusyBlocks(env, rangeStart, rangeEnd) {
+    var blocks = [];
+    var perDay = {};
+
+    // 1. Apex's own sessions.
+    var rows = await env.DB.prepare(
+        "SELECT date, time, end_time FROM sessions " +
+        "WHERE date >= ? AND date <= ? AND status != 'cancelled' AND time IS NOT NULL"
+    ).bind(rangeStart, rangeEnd).all();
+
+    for (var i = 0; i < rows.results.length; i++) {
+        var r = rows.results[i];
+        var t = String(r.time).slice(0, 5);
+        var endRaw = r.end_time ? String(r.end_time) : "";
+        // sessions.end_time is a plain "HH:MM" for Apex's own writes but a full
+        // datetime for Google-synced rows. Take the time portion of either.
+        if (endRaw.indexOf("T") !== -1) { endRaw = endRaw.slice(endRaw.indexOf("T") + 1); }
+        var e = endRaw ? endRaw.slice(0, 5) : schedHHMM(schedMinutes(t) + 60);
+        blocks.push({ start: schedInstant(r.date, t), end: schedInstant(r.date, e) });
+        perDay[r.date] = (perDay[r.date] || 0) + 1;
+    }
+
+    // 2. Confirmed bookings NOT YET mirrored into sessions. The booking handler
+    //    writes the constraint row first and the session immediately after, so
+    //    this only ever catches the sliver between the two.
+    //
+    //    `session_id IS NULL` is load-bearing, not a tidy-up: without it a
+    //    completed booking is counted twice — once here and once from its own
+    //    sessions row — and two such bookings silently exhaust a daily cap of
+    //    4 with only two real meetings on the day, blanking the whole day for
+    //    every client. Caught live on 2026-08-12, when one test booking
+    //    pushed Friday from 7 open slots to zero.
+    var bk = await env.DB.prepare(
+        "SELECT slot_date, slot_time, end_time FROM scheduling_bookings " +
+        "WHERE slot_date >= ? AND slot_date <= ? AND session_id IS NULL"
+    ).bind(rangeStart, rangeEnd).all();
+    for (var b = 0; b < bk.results.length; b++) {
+        var bb = bk.results[b];
+        blocks.push({
+            start: schedInstant(bb.slot_date, bb.slot_time),
+            end:   schedInstant(bb.slot_date, String(bb.end_time).slice(0, 5))
+        });
+        perDay[bb.slot_date] = (perDay[bb.slot_date] || 0) + 1;
+    }
+
+    // 3. Rafa's real Google Calendar. A failure here is FAIL-CLOSED: callers
+    //    surface it rather than offering slots computed from half the truth.
+    var googleOk = false;
+    try {
+        var timeMin = new Date(schedInstant(rangeStart, "00:00")).toISOString();
+        var timeMax = new Date(schedInstant(schedAddDays(rangeEnd, 1), "00:00")).toISOString();
+        var items = await listGoogleCalendarEvents(env, timeMin, timeMax);
+        googleOk = true;
+        for (var g = 0; g < items.length; g++) {
+            var ev = items[g];
+            if (ev.status === "cancelled") { continue; }
+            if (ev.transparency === "transparent") { continue; }   // "free" events
+            if (!ev.start) { continue; }
+            if (ev.start.date && !ev.start.dateTime) {
+                // All-day event: block the whole local day.
+                blocks.push({
+                    start: schedInstant(ev.start.date, "00:00"),
+                    end:   schedInstant(schedAddDays(ev.start.date, 1), "00:00")
+                });
+                continue;
+            }
+            var s = new Date(ev.start.dateTime).getTime();
+            var e2 = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime).getTime() : (s + 3600000);
+            if (!isNaN(s) && !isNaN(e2)) { blocks.push({ start: s, end: e2 }); }
+        }
+    } catch (gErr) {
+        googleOk = false;
+    }
+
+    return { blocks: blocks, perDay: perDay, googleOk: googleOk };
+}
+
+// Candidate slots for one request, honouring travel/buffer, minimum notice and
+// the daily cap.
+function schedComputeSlots(req, settings, busy) {
+    var duration = req.duration_min || 60;
+    // In-person travel blocks that many minutes BEFORE AND AFTER the slot.
+    var pad = (req.meeting_type === "in_person")
+        ? (req.travel_min || 0)
+        : (req.buffer_min || 0);
+
+    var workDays = String(settings.work_days || "1,2,3,4,5").split(",");
+    var dayStart = schedMinutes(settings.day_start || "09:00");
+    var dayEnd   = schedMinutes(settings.day_end || "18:00");
+    var cap      = settings.daily_cap || 4;
+    var notice   = (settings.min_notice_hours || 4) * 3600000;
+    var earliest = Date.now() + notice;
+
+    var out = [];
+    var date = req.week_start;
+    var guard = 0;
+    while (date <= req.week_end && guard < 14) {
+        guard++;
+        var dow = schedDayOfWeek(date);
+        if (workDays.indexOf(String(dow)) === -1) { date = schedAddDays(date, 1); continue; }
+        if ((busy.perDay[date] || 0) >= cap) { date = schedAddDays(date, 1); continue; }
+
+        for (var m = dayStart; m + duration <= dayEnd; m += 30) {
+            var slotStart = schedInstant(date, schedHHMM(m));
+            var slotEnd   = schedInstant(date, schedHHMM(m + duration));
+            if (slotStart < earliest) { continue; }   // minimum notice
+
+            // Padded window: travel time is unavailable time on both sides.
+            var padStart = slotStart - (pad * 60000);
+            var padEnd   = slotEnd + (pad * 60000);
+            var free = true;
+            for (var k = 0; k < busy.blocks.length; k++) {
+                if (padStart < busy.blocks[k].end && padEnd > busy.blocks[k].start) { free = false; break; }
+            }
+            if (free) { out.push({ date: date, time: schedHHMM(m), end_time: schedHHMM(m + duration) }); }
+        }
+        date = schedAddDays(date, 1);
+    }
+    return out;
+}
+
+// The client's own historical hours, MATCHED BY client_id AND NEVER BY NAME.
+// The same client exists under multiple name strings — 'METZ', 'RDE - METZ '
+// (trailing space) and 'METZ - RDE' are one client. Name matching silently
+// mis-attributes history to the wrong business.
+//
+// Feedback taps shift the preference: a client who keeps asking for "earlier"
+// has drifted away from what their history says, so the ranking follows them.
+async function schedPreferredHours(env, clientId) {
+    var rows = await env.DB.prepare(
+        "SELECT time, COUNT(*) n FROM sessions " +
+        "WHERE client_id = ? AND time IS NOT NULL AND status != 'cancelled' " +
+        "GROUP BY substr(time,1,2) ORDER BY n DESC"
+    ).bind(clientId).all();
+
+    var hours = [];
+    for (var i = 0; i < rows.results.length; i++) {
+        hours.push({ hour: parseInt(String(rows.results[i].time).slice(0, 2), 10), n: rows.results[i].n });
+    }
+
+    var fb = await env.DB.prepare(
+        "SELECT kind, COUNT(*) n FROM scheduling_feedback WHERE client_id = ? AND kind IN ('earlier','later') GROUP BY kind"
+    ).bind(clientId).all();
+    var drift = 0;
+    for (var f = 0; f < fb.results.length; f++) {
+        if (fb.results[f].kind === "earlier") { drift -= fb.results[f].n; }
+        if (fb.results[f].kind === "later")   { drift += fb.results[f].n; }
+    }
+    return { hours: hours, drift: drift };
+}
+
+// About 2 times per selected day — never a wall of options. Ranked by how close
+// each slot sits to the hours this client has actually booked before.
+function schedSuggest(slots, pref, days, perDay) {
+    var want = perDay || 2;
+    var byDay = {};
+    for (var i = 0; i < slots.length; i++) {
+        if (days && days.length && days.indexOf(slots[i].date) === -1) { continue; }
+        if (!byDay[slots[i].date]) { byDay[slots[i].date] = []; }
+        byDay[slots[i].date].push(slots[i]);
+    }
+
+    var out = [];
+    var keys = Object.keys(byDay).sort();
+    for (var d = 0; d < keys.length; d++) {
+        var list = byDay[keys[d]].slice();
+        list.sort(function (a, b) { return schedScore(a, pref) - schedScore(b, pref); });
+        // Spread the picks apart so two adjacent half-hours are not offered as
+        // if they were a real choice.
+        var picked = [];
+        for (var s = 0; s < list.length && picked.length < want; s++) {
+            var ok = true;
+            for (var p = 0; p < picked.length; p++) {
+                if (Math.abs(schedMinutes(list[s].time) - schedMinutes(picked[p].time)) < 90) { ok = false; break; }
+            }
+            if (ok) { picked.push(list[s]); }
+        }
+        // Ranking chose WHICH slots to offer; it must not decide what ORDER
+        // they read in. Emitted by score, a day showed 2:00 PM above 12:30 PM.
+        // The client reads a list of times, so it ascends like one.
+        picked.sort(function (a, b) { return schedMinutes(a.time) - schedMinutes(b.time); });
+        for (var q = 0; q < picked.length; q++) { out.push(picked[q]); }
+    }
+    return out;
+}
+
+function schedScore(slot, pref) {
+    var h = schedMinutes(slot.time) / 60;
+    if (!pref || !pref.hours || !pref.hours.length) { return Math.abs(h - 14); }
+    var best = 99;
+    for (var i = 0; i < pref.hours.length; i++) {
+        // Weight by how often this client used that hour: a 19-session pattern
+        // should dominate a single one-off booking.
+        var dist = Math.abs(h - (pref.hours[i].hour + (pref.drift || 0) * 0.5));
+        var weighted = dist / (1 + Math.log(1 + pref.hours[i].n));
+        if (weighted < best) { best = weighted; }
+    }
+    return best;
+}
+
+function schedPublicRequest(req, slots, suggestions) {
+    return {
+        token: req.token,
+        client_name: req.client_name,
+        meeting_type: req.meeting_type,
+        duration_min: req.duration_min,
+        location: req.location,
+        status: req.status,
+        week_start: req.week_start,
+        week_end: req.week_end,
+        days: schedDaysFrom(slots),
+        slots: slots,
+        suggestions: suggestions
+    };
+}
+
+function schedDaysFrom(slots) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < slots.length; i++) {
+        if (!seen[slots[i].date]) { seen[slots[i].date] = 1; out.push(slots[i].date); }
+    }
+    out.sort();
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests   (admin) — Alice creates a request.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingRequest(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.client_id) { return jsonErr("client_id is required", 400); }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(body.client_id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var settings = await schedSettings(env);
+        var meetingType = body.meeting_type === "in_person" ? "in_person" : "online_meet";
+        var windowStart = schedWindowStart(env);
+
+        var id = crypto.randomUUID();
+        // Opaque, URL-safe, unguessable. Not the request id: the id shows up in
+        // admin URLs and logs, and the public link must not be derivable.
+        var token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 24);
+
+        await env.DB.prepare(
+            "INSERT INTO scheduling_requests (id, token, client_id, client_name, meeting_type, duration_min, " +
+            "travel_min, buffer_min, location, week_start, week_end, status, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?)"
+        ).bind(
+            id, token, client.id, client.name, meetingType,
+            parseInt(body.duration_min, 10) || settings.default_duration,
+            meetingType === "in_person" ? (parseInt(body.travel_min, 10) || settings.default_travel) : 0,
+            meetingType === "online_meet" && body.buffer_on ? 15 : 0,
+            body.location || null,
+            windowStart, schedWindowEnd(windowStart),
+            actorName(user)
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: row });
+    } catch (e) {
+        return jsonErr("Error creating scheduling request: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/scheduling/requests/:id  (admin) — Editar.
+// ---------------------------------------------------------------------------
+
+async function handlePutSchedulingRequest(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!row) { return jsonErr("Request not found", 404); }
+
+        var meetingType = body.meeting_type === "in_person" ? "in_person"
+            : (body.meeting_type === "online_meet" ? "online_meet" : row.meeting_type);
+
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET meeting_type = ?, duration_min = ?, travel_min = ?, " +
+            "buffer_min = ?, location = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+        ).bind(
+            meetingType,
+            parseInt(body.duration_min, 10) || row.duration_min,
+            meetingType === "in_person" ? (parseInt(body.travel_min, 10) || row.travel_min || 30) : 0,
+            meetingType === "online_meet" && body.buffer_on ? 15 : 0,
+            body.location !== undefined ? body.location : row.location,
+            actorName(user), id
+        ).run();
+
+        var updated = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: updated });
+    } catch (e) {
+        return jsonErr("Error updating scheduling request: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/scheduling/queue  (admin) — Alice's queue, ONE source for
+// both the calendar page and the dashboard.
+//
+// Sort: waiting longest at the TOP; booked rows greyed out at the BOTTOM.
+// Expired rows (the week closed with no booking) leave the active queue so her
+// dashboard does not fill with dead rows.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingQueue(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var today = localDateStrForTZ();
+
+        // Expire in place: a waiting request whose OFFER WINDOW has closed is
+        // dead. week_end is the last day the link could offer, so this fires
+        // the day AFTER the window ends and never early. Under the rolling
+        // window a Friday link runs to the following Thursday, so the client
+        // always has the whole weekend plus the next working week to respond --
+        // strictly more room than the old calendar-week anchor gave them.
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'expired' WHERE status IN ('waiting','none_work') AND week_end < ?"
+        ).bind(today).run();
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM scheduling_requests WHERE status IN ('waiting','booked','none_work') " +
+            "ORDER BY created_at ASC"
+        ).all();
+
+        var out = [];
+        for (var i = 0; i < rows.results.length; i++) {
+            var r = rows.results[i];
+            var bh = schedBusinessHoursSince(r.sent_at || r.created_at);
+            out.push({
+                id: r.id, token: r.token, client_id: r.client_id, client_name: r.client_name,
+                meeting_type: r.meeting_type, duration_min: r.duration_min, travel_min: r.travel_min,
+                buffer_min: r.buffer_min, location: r.location, status: r.status,
+                week_start: r.week_start, week_end: r.week_end,
+                session_id: r.session_id, booked_at: r.booked_at,
+                squeezed_out: !!r.squeezed_out,
+                sent_at: r.sent_at, created_at: r.created_at,
+                followup_sent_at: r.followup_sent_at,
+                followup_count: r.followup_count || 0,
+                business_hours_waiting: bh,
+                // 24 BUSINESS hours. A link sent Friday does not flag on
+                // Saturday, when she could not act on it anyway.
+                needs_followup: (r.status === "waiting" && bh >= 24)
+            });
+        }
+
+        var expired = await env.DB.prepare(
+            "SELECT id, client_name, week_start, week_end, status, skip_reason FROM scheduling_requests " +
+            "WHERE status IN ('expired','skipped') ORDER BY week_end DESC LIMIT 30"
+        ).all();
+
+        return jsonOk({ queue: out, never_scheduled: expired.results });
+    } catch (e) {
+        return jsonErr("Error loading scheduling queue: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/sent  (admin)
+// Records that she actually sent it. `kind` distinguishes the first send from
+// a follow-up chase so the row can show "cobrado ha 3 horas".
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingSent(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+
+        if (body.kind === "followup") {
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET followup_sent_at = datetime('now'), " +
+                "followup_count = COALESCE(followup_count,0) + 1 WHERE id = ?"
+            ).bind(id).run();
+        } else {
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET sent_at = datetime('now') WHERE id = ?"
+            ).bind(id).run();
+        }
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: row });
+    } catch (e) {
+        return jsonErr("Error marking sent: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/skip  (admin) — Pular esta semana.
+// A reason is REQUIRED: without one, nobody can later tell a one-off skip from
+// a client quietly disengaging.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingSkip(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (SCHED_SKIP_REASONS.indexOf(body.reason) === -1) {
+            return jsonErr("A skip reason is required", 400);
+        }
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'skipped', skip_reason = ?, " +
+            "updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+        ).bind(body.reason, actorName(user), id).run();
+        return jsonOk({ skipped: true });
+    } catch (e) {
+        return jsonErr("Error skipping: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/manual  (admin)
+// "Manually add time" — for when a client WhatsApps a time directly. Accepts a
+// time OUTSIDE the offered slots by design (override); the UNIQUE constraint
+// still stops it landing on a slot someone already took.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingManual(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (!body.date || !body.time) { return jsonErr("date and time are required", 400); }
+
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!req) { return jsonErr("Request not found", 404); }
+
+        var result = await schedCommitBooking(env, req, {
+            date: body.date,
+            time: String(body.time).slice(0, 5),
+            end_time: schedHHMM(schedMinutes(String(body.time).slice(0, 5)) + (req.duration_min || 60))
+        }, actorName(user));
+
+        if (!result.ok) { return jsonErr(result.error || "That time is already taken", 409); }
+        return jsonOk({ booked: true, session_id: result.sessionId, gcal_error: result.gcalError });
+    } catch (e) {
+        return jsonErr("Error adding time: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/scheduling/requests/:id/reschedule  (admin) — Reagendar.
+// Issues a FRESH token, so any link already in the client's hands is dead.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingReschedule(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!req) { return jsonErr("Request not found", 404); }
+
+        // Re-anchor to a FRESH rolling window rather than reusing the original
+        // request's dates. A client rescheduling on Wednesday for a link created
+        // the previous Friday must not be offered days that have already gone.
+        var windowStart = schedWindowStart(env);
+        var token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 24);
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET token = ?, status = 'waiting', session_id = NULL, booked_at = NULL, " +
+            "squeezed_out = 0, sent_at = NULL, followup_sent_at = NULL, followup_count = 0, " +
+            "week_start = ?, week_end = ?, created_at = datetime('now'), " +
+            "updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+        ).bind(token, windowStart, schedWindowEnd(windowStart), actorName(user), id).run();
+
+        var row = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        return jsonOk({ request: row });
+    } catch (e) {
+        return jsonErr("Error rescheduling: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: GET /api/scheduling/link/:token — the client's booking page data.
+// No auth by design: the token IS the credential. Returns only what the page
+// renders — never Rafa's event titles, never other clients.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingLink(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+
+        if (req.status === "booked") {
+            var booked = await env.DB.prepare(
+                "SELECT slot_date, slot_time, end_time FROM scheduling_bookings WHERE request_id = ? ORDER BY created_at DESC"
+            ).bind(req.id).first();
+            return jsonOk({
+                request: { token: req.token, client_name: req.client_name, status: "booked",
+                           meeting_type: req.meeting_type, location: req.location },
+                booking: booked || null
+            });
+        }
+        if (req.status === "skipped" || req.status === "expired") {
+            return jsonOk({ request: { token: req.token, client_name: req.client_name, status: req.status } });
+        }
+
+        var settings = await schedSettings(env);
+        var busy = await schedBusyBlocks(env, req.week_start, req.week_end);
+        var slots = schedComputeSlots(req, settings, busy);
+        var pref = await schedPreferredHours(env, req.client_id);
+        var suggestions = schedSuggest(slots, pref, null, 2);
+
+        var payload = schedPublicRequest(req, slots, suggestions);
+        // Fail-closed signal: if Rafa's Google Calendar could not be read, the
+        // slot list is computed from D1 alone and may offer a time he is
+        // actually driving to a site for. The page refuses to book on this.
+        payload.calendar_degraded = !busy.googleOk;
+        return jsonOk(payload);
+    } catch (e) {
+        return jsonErr("Error loading link: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/suggest
+// Step 2 — about 2 times per selected day, for the days the client chose.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingSuggest(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+        if (req.status !== "waiting" && req.status !== "none_work") {
+            return jsonErr("This link is no longer active", 409);
+        }
+
+        var body = await request.json();
+        var days = body.days || [];
+        var perDay = parseInt(body.per_day, 10) || 2;
+
+        var settings = await schedSettings(env);
+        var busy = await schedBusyBlocks(env, req.week_start, req.week_end);
+        var slots = schedComputeSlots(req, settings, busy);
+        var pref = await schedPreferredHours(env, req.client_id);
+
+        // "Something earlier?" / "Something later?" — LOG EVERY TAP. Repeated
+        // taps mean this client's real pattern has drifted from their history
+        // and the default suggestion should move (schedPreferredHours reads
+        // these back as `drift`).
+        if (body.shift === "earlier" || body.shift === "later") {
+            await env.DB.prepare(
+                "INSERT INTO scheduling_feedback (id, request_id, client_id, kind, slot_date) VALUES (?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), req.id, req.client_id, body.shift, days[0] || null).run();
+        }
+
+        var pool = slots;
+        if (body.shift === "earlier" || body.shift === "later") {
+            var seenTimes = body.seen || [];
+            pool = [];
+            for (var i = 0; i < slots.length; i++) {
+                var key = slots[i].date + " " + slots[i].time;
+                if (seenTimes.indexOf(key) !== -1) { continue; }
+                // Only offer slots genuinely in the asked-for direction.
+                var keep = true;
+                for (var s = 0; s < seenTimes.length; s++) {
+                    var parts = seenTimes[s].split(" ");
+                    if (parts[0] !== slots[i].date) { continue; }
+                    if (body.shift === "earlier" && schedMinutes(slots[i].time) >= schedMinutes(parts[1])) { keep = false; }
+                    if (body.shift === "later"   && schedMinutes(slots[i].time) <= schedMinutes(parts[1])) { keep = false; }
+                }
+                if (keep) { pool.push(slots[i]); }
+            }
+            if (!pool.length) { pool = slots; }   // nothing further that way
+        }
+
+        var suggestions = schedSuggest(pool, pref, days, perDay);
+        return jsonOk({ suggestions: suggestions, days: schedDaysFrom(slots), calendar_degraded: !busy.googleOk });
+    } catch (e) {
+        return jsonErr("Error suggesting times: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/none  — "None of these work".
+// Surfaces on Alice's queue. Far better data than silence, which today cannot
+// be distinguished from a client ignoring her.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingNone(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+        await env.DB.prepare(
+            "INSERT INTO scheduling_feedback (id, request_id, client_id, kind) VALUES (?, ?, ?, 'none_work')"
+        ).bind(crypto.randomUUID(), req.id, req.client_id).run();
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'none_work', updated_at = datetime('now') WHERE id = ? AND status = 'waiting'"
+        ).bind(req.id).run();
+        return jsonOk({ recorded: true });
+    } catch (e) {
+        return jsonErr("Error recording: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// THE ATOMIC BOOKING.
+//
+// Never read-then-write. The winner is decided by a conditional INSERT against
+// a UNIQUE(slot_date, slot_time) index: the loser's INSERT raises
+// SQLITE_CONSTRAINT and there is no window in which both can pass. A guard that
+// is a read taken at entry does not work — that is exactly how a live client's
+// assessment ended up with score_json written and status still 'in_progress' on
+// 2026-08-03, when two handlers both passed an entry-time read.
+//
+// Returns { ok, sessionId, gcalError } or { ok:false, taken:true }.
+// ---------------------------------------------------------------------------
+
+async function schedCommitBooking(env, req, slot, actor) {
+    var bookingId = crypto.randomUUID();
+
+    // THE RACE IS DECIDED HERE, by the database.
+    try {
+        await env.DB.prepare(
+            "INSERT INTO scheduling_bookings (id, request_id, client_id, slot_date, slot_time, end_time) " +
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(bookingId, req.id, req.client_id, slot.date, slot.time, slot.end_time).run();
+    } catch (insertErr) {
+        var msg = String(insertErr && insertErr.message || "");
+        if (msg.indexOf("UNIQUE") !== -1 || msg.indexOf("constraint") !== -1) {
+            return { ok: false, taken: true };
+        }
+        throw insertErr;
+    }
+
+    // Won the slot. Everything below is the winner's follow-through.
+    var sessionId = crypto.randomUUID();
+    var meetLink = null;
+    var htmlLink = null;
+    var googleEventId = null;
+    var gcalError = null;
+    var wantsMeet = (req.meeting_type === "online_meet");
+
+    // Google Meet already works in this codebase — reuse the exact shape used
+    // by POST /api/sessions/schedule rather than reinventing it.
+    try {
+        var token = await getGoogleAccessToken(env);
+        var offset = schedTZOffset(slot.date, slot.time);
+        var attendeeEmail = await lookupClientAttendeeEmail(env, req.client_id);
+        var eventBody = {
+            summary: req.client_name + " - RDE",
+            start: { dateTime: slot.date + "T" + slot.time + ":00" + offset, timeZone: APEX_TIMEZONE },
+            end:   { dateTime: slot.date + "T" + slot.end_time + ":00" + offset, timeZone: APEX_TIMEZONE }
+        };
+        if (wantsMeet) {
+            eventBody.conferenceData = {
+                createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+            };
+        } else if (req.location) {
+            eventBody.location = String(req.location).slice(0, 1024);
+        }
+        if (attendeeEmail) { eventBody.attendees = [{ email: attendeeEmail }]; }
+
+        var res = await googleCalendarApiCall(
+            token, "POST",
+            wantsMeet ? "/events?conferenceDataVersion=1" : "/events",
+            eventBody
+        );
+        if (res.ok && res.data) {
+            googleEventId = res.data.id;
+            meetLink = extractGoogleEventMeetLink(res.data);
+            htmlLink = res.data.htmlLink || null;
+        } else {
+            gcalError = googleApiErrMessage(res);
+        }
+    } catch (gErr) {
+        gcalError = gErr.message;
+    }
+
+    await env.DB.prepare(
+        "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, " +
+        "google_meet_link, google_event_id, calendar_provider, status, meeting_category, html_link, created_by) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', 'client', ?, ?)"
+    ).bind(
+        sessionId, req.client_id, req.client_name, slot.date, slot.time, slot.end_time,
+        req.location || null, req.meeting_type, meetLink, googleEventId, htmlLink,
+        actor || "Agendamento pelo cliente"
+    ).run();
+
+    await env.DB.prepare(
+        "UPDATE scheduling_bookings SET session_id = ? WHERE id = ?"
+    ).bind(sessionId, bookingId).run();
+
+    await env.DB.prepare(
+        "UPDATE scheduling_requests SET status = 'booked', session_id = ?, booked_at = datetime('now') WHERE id = ?"
+    ).bind(sessionId, req.id).run();
+
+    try { await advanceLeadStage(env, req.client_id, "Agendamento", actor || "cliente", "auto:session_scheduled"); }
+    catch (e) { /* lead-stage advance is a nicety, never a booking failure */ }
+
+    return { ok: true, sessionId: sessionId, meetLink: meetLink, gcalError: gcalError };
+}
+
+// ---------------------------------------------------------------------------
+// Release the scheduling hold behind a session — the exact inverse of the
+// booking write above. Safe to call for ANY session id: a session that never
+// came from a scheduling link matches nothing and this is a no-op.
+//
+// WHY THIS EXISTS: cancelling a meeting deleted the sessions row and removed
+// the Google event but left scheduling_bookings and scheduling_requests
+// untouched, which broke two things at once.
+//
+//   1. THE SLOT STAYED CLAIMED FOREVER. The UNIQUE index on
+//      scheduling_bookings(slot_date, slot_time) is what makes booking atomic,
+//      so a cancelled meeting permanently blocked that time and Rafa's week
+//      silently filled with phantom holds.
+//   2. The queue still showed the client as booked when they were not, so
+//      Alice would never chase them.
+//
+// The cancel dialog promises "nothing lingers". This is what makes that true.
+//
+// The request returns to 'waiting' rather than a new state: whichever branch
+// cancelled it, that client still needs a meeting this week and must reappear
+// in Alice's queue. Their original link keeps working, which is the point —
+// they can rebook without her issuing anything new. A client who genuinely
+// should NOT be chased is what "Pular esta semana" is for, and that path
+// already writes its own status and reason.
+// ---------------------------------------------------------------------------
+
+async function schedReleaseBookingForSession(env, sessionId) {
+    try {
+        var booking = await env.DB.prepare(
+            "SELECT id, request_id FROM scheduling_bookings WHERE session_id = ?"
+        ).bind(sessionId).first();
+        if (!booking) { return; }
+
+        // Drop the hold first: this is the row the UNIQUE index guards, so
+        // removing it is what actually frees the slot for rebooking.
+        await env.DB.prepare("DELETE FROM scheduling_bookings WHERE id = ?").bind(booking.id).run();
+
+        if (booking.request_id) {
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET status = 'waiting', session_id = NULL, booked_at = NULL " +
+                "WHERE id = ? AND status = 'booked'"
+            ).bind(booking.request_id).run();
+        }
+    } catch (e) {
+        // Never fail a cancellation over the hold: the meeting really is gone
+        // from Google and from sessions by this point, and a thrown error here
+        // would report the cancel as failed after it had already happened.
+        console.log("schedReleaseBookingForSession failed for " + sessionId + ": " + e.message);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/reopen
+//
+// The client's own "I need a different time". Releases the booking this token
+// already holds and returns the request to 'waiting', so the SAME link becomes
+// a working picker again.
+//
+// Before this existed, a booked link rendered "Sua reuniao ja esta marcada --
+// se precisar mudar, fale com a Alice pelo WhatsApp": a dead end that handed
+// the work straight back to the person this whole feature exists to unburden.
+//
+// ORDERING IS THE CONTRACT, same as the admin cancel route: Google is
+// authoritative, so the D1 release runs ONLY after the Google event is
+// verifiably gone (or was already gone, or never existed). Otherwise Apex
+// frees a slot that the client's calendar still shows as booked.
+//
+// The token is the credential, exactly as on the other public link routes.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingReopen(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+
+        // Only a booked request can be reopened. A 'waiting' one already IS a
+        // picker, and skipped/expired links are dead on purpose.
+        if (req.status !== "booked") {
+            if (req.status === "waiting" || req.status === "none_work") {
+                return jsonOk({ ok: true, already_open: true });
+            }
+            return jsonErr("This link is no longer active", 409);
+        }
+
+        var booking = await env.DB.prepare(
+            "SELECT id, session_id FROM scheduling_bookings WHERE request_id = ? ORDER BY created_at DESC"
+        ).bind(req.id).first();
+
+        // Remove the meeting itself first -- the session row AND its Google
+        // event -- so the client's calendar never keeps an event Apex has
+        // already forgotten.
+        if (booking && booking.session_id) {
+            var session = await env.DB.prepare(
+                "SELECT id, google_event_id, calendar_provider FROM sessions WHERE id = ?"
+            ).bind(booking.session_id).first();
+
+            if (session && session.calendar_provider === "apex" && session.google_event_id) {
+                var accessToken;
+                try {
+                    accessToken = await getGoogleAccessToken(env);
+                } catch (tokenErr) {
+                    return jsonErr("Nao foi possivel atualizar a agenda agora. Tente em instantes.", 503);
+                }
+                var delRes;
+                try {
+                    delRes = await googleCalendarApiCall(accessToken, "DELETE",
+                        "/events/" + encodeURIComponent(session.google_event_id), null);
+                } catch (delErr) {
+                    return jsonErr("Nao foi possivel atualizar a agenda agora. Tente em instantes.", 503);
+                }
+                // 404/410 means it is already gone -- the desired end state.
+                if (!delRes.ok && delRes.status !== 404 && delRes.status !== 410) {
+                    return jsonErr("Nao foi possivel atualizar a agenda agora. Tente em instantes.", 503);
+                }
+            }
+
+            if (session) {
+                await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(session.id).run();
+            }
+        }
+
+        // Free the slot. This is the row the UNIQUE index guards, so deleting
+        // it is what actually makes the time bookable again -- by this client
+        // or anyone else.
+        if (booking) {
+            await env.DB.prepare("DELETE FROM scheduling_bookings WHERE id = ?").bind(booking.id).run();
+        }
+
+        // Same token, same week: the link the client already has keeps working
+        // and is now a picker again.
+        await env.DB.prepare(
+            "UPDATE scheduling_requests SET status = 'waiting', session_id = NULL, booked_at = NULL " +
+            "WHERE id = ?"
+        ).bind(req.id).run();
+
+        return jsonOk({ ok: true, token: req.token });
+    } catch (e) {
+        return jsonErr("Error reopening link: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC: POST /api/scheduling/link/:token/book
+//
+// The loser NEVER sees an error page: a 409 carries the remaining times, so a
+// loss becomes another choice rather than a dead end.
+// ---------------------------------------------------------------------------
+
+async function handlePostSchedulingBook(token, request, env) {
+    try {
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE token = ?").bind(token).first();
+        if (!req) { return jsonErr("Link not found", 404); }
+        if (req.status === "booked") { return jsonErr("This meeting is already scheduled", 409); }
+
+        var body = await request.json();
+        if (!body.date || !body.time) { return jsonErr("date and time are required", 400); }
+
+        var settings = await schedSettings(env);
+        var busy = await schedBusyBlocks(env, req.week_start, req.week_end);
+
+        // Never offer — or accept — times computed without Rafa's real
+        // calendar. Booking on a half-truth is worse than asking her to send
+        // the link again in a minute.
+        if (!busy.googleOk) {
+            return jsonErr("Nao foi possivel confirmar a agenda agora. Tente em instantes.", 503);
+        }
+
+        var slots = schedComputeSlots(req, settings, busy);
+        var chosen = null;
+        for (var i = 0; i < slots.length; i++) {
+            if (slots[i].date === body.date && slots[i].time === String(body.time).slice(0, 5)) { chosen = slots[i]; }
+        }
+        if (!chosen) {
+            // Slot vanished between render and tap (someone else took it, or the
+            // notice window closed). Same treatment as losing the race.
+            var pref0 = await schedPreferredHours(env, req.client_id);
+            return new Response(JSON.stringify({
+                error: "taken", taken: true,
+                suggestions: schedSuggest(slots, pref0, null, 2),
+                days: schedDaysFrom(slots)
+            }), { status: 409, headers: Object.assign({ "Content-Type": "application/json" }, CORS_HEADERS) });
+        }
+
+        var result = await schedCommitBooking(env, req, chosen, null);
+
+        if (!result.ok && result.taken) {
+            // LOST THE RACE. Recompute and hand back what is still open.
+            var busy2 = await schedBusyBlocks(env, req.week_start, req.week_end);
+            var slots2 = schedComputeSlots(req, settings, busy2);
+            var pref = await schedPreferredHours(env, req.client_id);
+
+            // Alice must be TOLD this client got squeezed out, or she reads the
+            // silence as them ignoring her.
+            await env.DB.prepare(
+                "UPDATE scheduling_requests SET squeezed_out = 1 WHERE id = ?"
+            ).bind(req.id).run();
+
+            return new Response(JSON.stringify({
+                error: "taken", taken: true,
+                suggestions: schedSuggest(slots2, pref, null, 2),
+                days: schedDaysFrom(slots2)
+            }), { status: 409, headers: Object.assign({ "Content-Type": "application/json" }, CORS_HEADERS) });
+        }
+
+        return jsonOk({
+            booked: true,
+            date: chosen.date, time: chosen.time, end_time: chosen.end_time,
+            meet_link: result.meetLink,
+            meeting_type: req.meeting_type,
+            location: req.location,
+            gcal_error: result.gcalError
+        });
+    } catch (e) {
+        return jsonErr("Error booking: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET/PUT /api/scheduling/settings  (admin) — the availability page.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingSettings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        return jsonOk({ settings: await schedSettings(env) });
+    } catch (e) {
+        return jsonErr("Error loading settings: " + e.message, 500);
+    }
+}
+
+async function handlePutSchedulingSettings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var cur = await schedSettings(env);
+        await env.DB.prepare(
+            "UPDATE scheduling_settings SET day_start = ?, day_end = ?, work_days = ?, min_notice_hours = ?, " +
+            "daily_cap = ?, default_duration = ?, default_travel = ?, updated_at = datetime('now'), updated_by = ? " +
+            "WHERE id = 'default'"
+        ).bind(
+            body.day_start || cur.day_start,
+            body.day_end || cur.day_end,
+            body.work_days || cur.work_days,
+            parseInt(body.min_notice_hours, 10) >= 0 ? parseInt(body.min_notice_hours, 10) : cur.min_notice_hours,
+            parseInt(body.daily_cap, 10) || cur.daily_cap,
+            parseInt(body.default_duration, 10) || cur.default_duration,
+            parseInt(body.default_travel, 10) >= 0 ? parseInt(body.default_travel, 10) : cur.default_travel,
+            actorName(user)
+        ).run();
+        return jsonOk({ settings: await schedSettings(env) });
+    } catch (e) {
+        return jsonErr("Error saving settings: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/scheduling/message/:id  (admin)
+// Builds the WhatsApp TEXT only. It never dials: the page shows Alice the
+// contact list so she picks the recipient, because each client has a group
+// with co-owners and she must control who receives it. Matches the existing
+// sendInvoiceWhatsApp pattern.
+//
+// ?kind=followup returns the nudge template with the SAME link — never a new
+// one, because the client may already have the original open.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingMessage(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var kind = url.searchParams.get("kind") || "invite";
+
+        var req = await env.DB.prepare("SELECT * FROM scheduling_requests WHERE id = ?").bind(id).first();
+        if (!req) { return jsonErr("Request not found", 404); }
+
+        // The link must point at the APP, never at the Worker origin this
+        // request happened to arrive on. DEFAULT_ORIGIN is the canonical host
+        // the rest of the file already uses.
+        var origin = url.origin.indexOf("apex-api") !== -1 ? DEFAULT_ORIGIN : url.origin;
+        var link = origin + "/agendar.html?t=" + req.token;
+
+        var client = await env.DB.prepare(
+            "SELECT id, name, owners, phone, whatsapp, contacts FROM clients WHERE id = ?"
+        ).bind(req.client_id).first();
+
+        // Read the editable row first, exactly as handlePostSessionWhatsapp
+        // does for session_online / session_in_person -- ONE lookup pattern for
+        // every template in the app. The source constant is the fallback, so a
+        // missing row degrades to the correct message rather than an empty one.
+        var tplKey = (kind === "followup") ? "scheduling_followup" : "scheduling_send";
+        var tplRow = await env.DB.prepare(
+            "SELECT template_text FROM message_templates WHERE template_key = ?"
+        ).bind(tplKey).first();
+        var tpl = (tplRow && tplRow.template_text)
+            ? tplRow.template_text
+            : ((kind === "followup") ? SCHED_TPL_FOLLOWUP : SCHED_TPL_INVITE);
+
+        // {name} is the OWNER name, never the company name. This resolution is
+        // load-bearing: the greeting used to read "Olá, PERFECT!" and "Olá,
+        // GATOR!" to paying clients, because it took the first word of the
+        // business name. schedGreetingName() greets both owners when there are
+        // two and falls back to the company name only when owners is empty.
+        // Editing the template text must never change which name is used.
+        var greeting = schedGreetingName(client, req.client_name);
+        var message = tpl.split("{name}").join(greeting).split("{link}").join(link);
+
+        // Every number Alice might legitimately send to — the client record and
+        // each named contact — so she chooses. No number is ever auto-dialled.
+        var contacts = [];
+        if (client) {
+            if (client.whatsapp) { contacts.push({ label: client.name, number: client.whatsapp }); }
+            if (client.phone && client.phone !== client.whatsapp) {
+                contacts.push({ label: client.name + " (telefone)", number: client.phone });
+            }
+            if (client.contacts) {
+                try {
+                    var list = JSON.parse(client.contacts);
+                    for (var i = 0; i < list.length; i++) {
+                        var num = list[i].whatsapp || list[i].phone;
+                        if (num) { contacts.push({ label: list[i].name || "Contato", number: num }); }
+                    }
+                } catch (e) { /* malformed contacts JSON is not fatal */ }
+            }
+        }
+
+        return jsonOk({ message: message, link: link, contacts: contacts, kind: kind });
+    } catch (e) {
+        return jsonErr("Error building message: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/scheduling/client-state  (client portal)
+// Drives the two client-side states: a prominent call-out with the booking link
+// when nothing is scheduled this week, or a Reagendar button when it is.
+// ---------------------------------------------------------------------------
+
+async function handleGetSchedulingClientState(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        // Admin preview (?previewAs=<id>) resolves through the SAME helper every
+        // other portal read uses. Without it this endpoint answered a preview
+        // with 400 "client_id is required" — portal.html appends previewAs but
+        // never client_id — and the page's .catch() swallowed the 400, so the
+        // whole booking panel silently failed to render in preview. The route
+        // was in the client allowlist all along; the allowlist was never the
+        // problem here.
+        var url = new URL(request.url);
+        var previewId = previewClientId(user, request);
+        var clientId = previewId || user.client_id || url.searchParams.get("client_id");
+        if (!clientId) { return jsonErr("client_id is required", 400); }
+        if (user.client_id && clientId !== user.client_id) { return jsonErr("Forbidden", 403); }
+
+        // Same rolling window the link is issued against, so the portal card and
+        // the picker always describe the same 7 days. Anchoring at today also
+        // stops this from surfacing a meeting that ALREADY happened earlier in
+        // the calendar week as if it were upcoming.
+        var windowStart = schedWindowStart(env);
+        var windowEnd = schedWindowEnd(windowStart);
+
+        var session = await env.DB.prepare(
+            "SELECT id, date, time, end_time, session_type, google_meet_link, location FROM sessions " +
+            "WHERE client_id = ? AND date >= ? AND date <= ? AND status != 'cancelled' " +
+            "ORDER BY date ASC, time ASC"
+        ).bind(clientId, windowStart, windowEnd).first();
+
+        // 'booked' IS included, and that is the whole point.
+        //
+        // This used to filter to ('waiting','none_work'), so the moment a
+        // client booked, their request flipped to 'booked' and booking_token
+        // came back null — hiding the Reagendar button at exactly the moment
+        // rescheduling becomes relevant. Worse, the Agenda-tab event modal
+        // told them "para remarcar, use o link de agendamento" while this
+        // endpoint refused to hand over any link at all.
+        //
+        // The ORIGINAL token is reused rather than minting a fresh one. Same
+        // reasoning already documented on Alice's Cobrar/follow-up button: the
+        // client may still have the link open in a tab or in WhatsApp, and a
+        // new token silently turns that page into a dead end. Reuse also keeps
+        // one link per request, so "which link is current?" is never a
+        // question. (Alice's own Reagendar DOES mint a new token — that is a
+        // deliberate override for when she wants the old one dead.)
+        var req = await env.DB.prepare(
+            "SELECT token, status FROM scheduling_requests WHERE client_id = ? " +
+            "AND status IN ('waiting','none_work','booked') ORDER BY created_at DESC"
+        ).bind(clientId).first();
+
+        // Today and tomorrow on APEX's clock -- the SAME window
+        // /api/portal/next-meeting uses to decide a meeting is joinable.
+        // Computed here so the portal's merged card applies one rule from one
+        // source instead of re-deriving "soon" in the browser, where the
+        // viewer's timezone would answer a different question.
+        var joinFrom = easternDateStr(0);
+        var joinTo   = easternDateStr(1);
+
+        return jsonOk({
+            scheduled: !!session,
+            session: session || null,
+            booking_token: req ? req.token : null,
+            request_status: req ? req.status : null,
+            // True when the booked session falls in the join window, so the
+            // card can show Entrar alongside Reagendar.
+            in_join_window: !!(session && session.date >= joinFrom && session.date <= joinTo),
+            week_start: windowStart, week_end: windowEnd
+        });
+    } catch (e) {
+        return jsonErr("Error loading state: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Recurring invoices — generate DRAFTS, never send.
 //
 // "If she has to remember to come in and build an invoice all the time,
@@ -22947,6 +25384,23 @@ async function handleFetch(request, env, ctx) {
         var clubCalPub = path.match(/^\/api\/club\/calendar-click\/([A-Za-z0-9-]+)$/);
         if (clubCalPub && method === "POST") { return handlePostClubCalendarClick(clubCalPub[1], request, env); }
 
+        // PUBLIC client booking links (no auth by design: the token in the URL
+        // IS the credential). Declared here, with the other public routes and
+        // BEFORE the client-role gate, because the client opening this link is
+        // not logged in to anything — that is the entire point of the feature.
+        var schedLink = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)$/);
+        if (schedLink && method === "GET") { return handleGetSchedulingLink(schedLink[1], request, env); }
+        var schedSuggest = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/suggest$/);
+        if (schedSuggest && method === "POST") { return handlePostSchedulingSuggest(schedSuggest[1], request, env); }
+        var schedBook = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/book$/);
+        if (schedBook && method === "POST") { return handlePostSchedulingBook(schedBook[1], request, env); }
+        // The client's own "I need a different time" — releases the hold this
+        // token carries so the same link becomes a picker again.
+        var schedReopen = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/reopen$/);
+        if (schedReopen && method === "POST") { return handlePostSchedulingReopen(schedReopen[1], request, env); }
+        var schedNone = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/none$/);
+        if (schedNone && method === "POST") { return handlePostSchedulingNone(schedNone[1], request, env); }
+
         // PUBLIC partner-referral intake (no auth by design — see handlers).
         var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
         if (refMatch) {
@@ -22995,6 +25449,26 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/google/oauth/callback"     && method === "GET")  { return handleGoogleOAuthCallback(request, env); }
         if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
         if (path === "/api/google/calendar/event"     && method === "POST") { return handlePostGoogleCalendarEvent(request, env); }
+        // "Enviar horarios" — Alice's side. Every handler enforces admin.
+        if (path === "/api/scheduling/requests" && method === "POST") { return handlePostSchedulingRequest(request, env); }
+        if (path === "/api/scheduling/queue"    && method === "GET")  { return handleGetSchedulingQueue(request, env); }
+        if (path === "/api/scheduling/settings" && method === "GET")  { return handleGetSchedulingSettings(request, env); }
+        if (path === "/api/scheduling/settings" && method === "PUT")  { return handlePutSchedulingSettings(request, env); }
+        // Client-portal state (scheduled vs not) — client-role reachable.
+        if (path === "/api/scheduling/client-state" && method === "GET") { return handleGetSchedulingClientState(request, env); }
+        var schedMsg = path.match(/^\/api\/scheduling\/message\/([A-Za-z0-9-]+)$/);
+        if (schedMsg && method === "GET") { return handleGetSchedulingMessage(schedMsg[1], request, env); }
+        var schedReq = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)$/);
+        if (schedReq && method === "PUT") { return handlePutSchedulingRequest(schedReq[1], request, env); }
+        var schedSent = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/sent$/);
+        if (schedSent && method === "POST") { return handlePostSchedulingSent(schedSent[1], request, env); }
+        var schedSkip = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/skip$/);
+        if (schedSkip && method === "POST") { return handlePostSchedulingSkip(schedSkip[1], request, env); }
+        var schedManual = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/manual$/);
+        if (schedManual && method === "POST") { return handlePostSchedulingManual(schedManual[1], request, env); }
+        var schedResched = path.match(/^\/api\/scheduling\/requests\/([A-Za-z0-9-]+)\/reschedule$/);
+        if (schedResched && method === "POST") { return handlePostSchedulingReschedule(schedResched[1], request, env); }
+
         if (path === "/api/google/calendar/events"    && method === "GET")  { return handleGetGoogleCalendarEvents(request, env); }
         // Read-only single-event lookup straight from Google. Declared AFTER
         // the two routes above so neither literal path is shadowed by it.
@@ -23054,6 +25528,14 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance/expenses"          && method === "GET")  { return handleGetFinanceExpenses(request, env); }
         if (path === "/api/finance/expenses"          && method === "POST") { return handlePostFinanceExpense(request, env); }
         if (path === "/api/sales/growth-ranking"      && method === "GET")  { return handleGetSalesGrowthRanking(request, env); }
+        if (path === "/api/vault/clients"             && method === "GET")  { return handleGetVaultClients(request, env); }
+        // Read-only, gated by vaultRead(). See "The vault read gate" above.
+        if (path === "/api/vault/leads"               && method === "GET")  { return handleGetVaultLeads(request, env); }
+        if (path === "/api/vault/apex-leads"          && method === "GET")  { return handleGetVaultApexLeads(request, env); }
+        if (path === "/api/vault/sessions"            && method === "GET")  { return handleGetVaultSessions(request, env); }
+        if (path === "/api/vault/tasks"               && method === "GET")  { return handleGetVaultTasks(request, env); }
+        if (path === "/api/vault/assessments"         && method === "GET")  { return handleGetVaultAssessments(request, env); }
+        if (path === "/api/vault/selftest"            && method === "POST") { return handlePostVaultSelftest(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
         if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }
@@ -23115,6 +25597,18 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "file" && method === "GET") {
                 return handleGetResourceFile(segs[2], request, env);
             }
+        }
+
+        // /api/lead-stages  GET — stage ladder for the client-status editor.
+        // Top-level rather than /api/clients/lead-stages, which would be
+        // swallowed by the /api/clients/:id route below.
+        if (segs[0] === "api" && segs[1] === "lead-stages" && segs.length === 2 && method === "GET") {
+            return handleGetLeadStages(request, env);
+        }
+
+        // /api/clients-needing-review  GET — active clients with no sign of activity
+        if (segs[0] === "api" && segs[1] === "clients-needing-review" && segs.length === 2 && method === "GET") {
+            return handleGetClientsNeedingReview(request, env);
         }
 
         // /api/users/:email  DELETE
@@ -23186,6 +25680,23 @@ async function handleFetch(request, env, ctx) {
             }
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
                 return handleGetClientLatestDocument(cid, request, env);
+            }
+            // Ahead of the generic /documents/:docId patterns below, so
+            // "from-claude" is never mistaken for a document id.
+            if (segs.length === 5 && segs[3] === "documents" && segs[4] === "from-claude" && method === "POST") {
+                return handlePostClientDocumentFromClaude(cid, request, env);
+            }
+            if (segs.length === 5 && segs[3] === "documents" && segs[4] === "placeholder" && method === "POST") {
+                return handlePostClientDocumentPlaceholder(cid, request, env);
+            }
+            if (segs.length === 6 && segs[3] === "documents" && segs[5] === "preview" && method === "GET") {
+                return handleGetClientDocumentPreview(cid, segs[4], request, env);
+            }
+            if (segs.length === 6 && segs[3] === "documents" && segs[5] === "request-file" && method === "POST") {
+                return handleRequestClientDocumentFile(cid, segs[4], request, env);
+            }
+            if (segs.length === 6 && segs[3] === "documents" && segs[5] === "client-visible" && method === "PATCH") {
+                return handlePatchClientDocumentVisible(cid, segs[4], request, env);
             }
             if (segs.length === 4 && segs[3] === "documents") {
                 if (method === "GET")  { return handleGetClientDocuments(cid, request, env); }
@@ -23357,8 +25868,9 @@ async function handleFetch(request, env, ctx) {
                     if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }
                 }
                 // /gm/leads/:leadId/files — attachments on a lead (PDF or
-                // image). NOT in sellerRequestAllowed, so a seller session is
-                // refused upstream — do not add them there.
+                // image). Sellers reach these too (2026-08-12): they are the
+                // ones on site with the photos and the estimate. Scoped to
+                // their OWN leads by gmSellerLeadGuard in each handler.
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "files") {
                     if (method === "GET")  { return handleGetGmLeadFiles(cid, segs[5], request, env); }
                     if (method === "POST") { return handlePostGmLeadFile(cid, segs[5], request, env); }
@@ -23387,7 +25899,8 @@ async function handleFetch(request, env, ctx) {
                 // /gm/leads/:id/notes and /gm/jobs/:id/notes — the dated note
                 // thread on either record. created_by/created_at are stamped
                 // from the session in the handler, never from the body.
-                // NOT in sellerRequestAllowed.
+                // Sellers reach the LEAD side (2026-08-12), scoped to their
+                // own leads by gmSellerLeadGuard; gm/jobs stays admin+owner.
                 if (segs.length === 7 && (gmCol === "leads" || gmCol === "jobs") && segs[6] === "notes") {
                     var noteParent = gmCol === "leads" ? "lead" : "job";
                     if (method === "GET")  { return handleGetGmNotes(cid, noteParent, segs[5], request, env); }

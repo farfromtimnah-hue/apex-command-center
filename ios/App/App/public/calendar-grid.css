@@ -128,15 +128,6 @@
   color: var(--gold);
   border: 1px solid var(--gold);
 }
-/* The client's meeting with APEX. Read-only like the club chip, but solid gold
-   rather than the dark club treatment: this is their own recurring commitment,
-   not an invitation to an event, and it should read as the most important
-   thing on the day it falls on. */
-.cgrid-chip.apex {
-  background: var(--gold, #C9A43A);
-  color: #1a1a1d;
-  border: 1px solid var(--gold, #C9A43A);
-}
 
 /* ── Mobile: mini month + agenda ──────────────────────────────────────── */
 @media (max-width: 768px) {

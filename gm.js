@@ -3747,7 +3747,9 @@ function gmCalToday() {
 function gmCalChip(ev) {
   var btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "cgrid-chip " + (ev.kind === "club" ? "club" : ev.kind === "derived" ? "derived" : "own");
+  btn.className = "cgrid-chip " +
+    (ev.kind === "club" ? "club" : ev.kind === "derived" ? "derived" :
+     ev.kind === "apex" ? "apex" : "own");
 
   var name = document.createElement("span");
   name.className = "cgrid-chip-name";
@@ -3757,6 +3759,8 @@ function gmCalChip(ev) {
     name.textContent = (isEn() ? ev.label_en : ev.label_pt) + ": " + (ev.title || "");
   } else if (ev.kind === "club") {
     name.textContent = "★ " + (ev.title || "Apex Club");
+  } else if (ev.kind === "apex") {
+    name.textContent = isEn() ? "Meeting with Apex" : (ev.title || "Reunião com a Apex");
   } else {
     name.textContent = gmCalDisplayTitle(ev);
   }
@@ -3775,6 +3779,7 @@ function gmCalChip(ev) {
     e.stopPropagation();
     if (ev.kind === "derived") { gmCalOpenJob(ev); }
     else if (ev.kind === "club") { gmCalOpenClub(ev); }
+    else if (ev.kind === "apex") { gmCalOpenApex(ev); }
     else { gmCalOpenEvent(ev); }
   };
   return btn;
@@ -3802,6 +3807,7 @@ function gmRenderCalendar() {
       '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
       '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
       '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
+      '<span><i class="cgrid-chip apex"></i>' + gmT("Reunião com a Apex", "Meeting with Apex") + '</span>' +
     '</div>' +
     '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +
       gmT("+ Novo evento", "+ New event") + '</button>';
@@ -4187,6 +4193,49 @@ function gmCalOpenJob(ev) {
 // An Apex Club invitation. Read-only, and deliberately money-free: the
 // endpoint never sends a price, a headcount or a guest list, so there is
 // nothing here to hide in the UI.
+// The client's meeting with Apex, opened from their own calendar. Read-only:
+// the Meet link if there is one, the location if it is in person, and nothing
+// to edit — the time is changed through the booking link, not from here.
+function gmCalOpenApex(ev) {
+  var body = '<div class="gm-club-invite">';
+  body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Data", "Date") + '</span>' +
+    '<span class="gm-club-v">' + escHtml(formatDate(ev.date)) +
+    (ev.start_time ? " · " + escHtml(formatTime(ev.start_time)) : "") + '</span></div>';
+  if (ev.location) {
+    body += '<div class="gm-club-row"><span class="gm-club-k">' + gmT("Local", "Location") + '</span>' +
+      '<span class="gm-club-v">' + escHtml(ev.location) + '</span></div>';
+  }
+  body += '</div>';
+  if (ev.meet_link) {
+    body += '<a class="btn-gold gm-add-btn" style="display:block;text-align:center;text-decoration:none;" ' +
+      'href="' + escHtml(ev.meet_link) + '" target="_blank" rel="noopener">' +
+      gmT("Entrar no Google Meet", "Join Google Meet") + '</a>';
+  }
+  // A REAL reschedule action, not an instruction to go find a link.
+  //
+  // This footer used to read "para remarcar, use o link de agendamento" while
+  // the endpoint behind that link refused to hand one over for a booked
+  // request -- it told the client to use something that did not exist. The
+  // button below reuses the portal's own reschedule path, so there is one
+  // implementation of "reopen my booking" rather than two.
+  if (typeof window.reopenScheduling === "function" && window.apexBookingToken) {
+    body += '<button type="button" class="btn-outline gm-add-btn" ' +
+      'style="display:block;width:100%;text-align:center;" ' +
+      'onclick="window.reopenScheduling(window.apexBookingToken)">' +
+      gmT("Reagendar", "Reschedule") + '</button>';
+    body += '<p class="muted" style="font-size:11px;padding:0 2px;">' +
+      gmT("Reunião com a Apex.", "A meeting with Apex.") + '</p>';
+  } else {
+    // No token available (Alice booked this directly, so there is no
+    // scheduling request to reopen). Say who to talk to instead of naming a
+    // link that does not exist.
+    body += '<p class="muted" style="font-size:11px;padding:0 2px;">' +
+      gmT("Reunião com a Apex. Para remarcar, fale com a Alice.",
+          "A meeting with Apex. To reschedule, contact Alice.") + '</p>';
+  }
+  gmSheetOpen(gmT("Reunião com a Apex", "Meeting with Apex"), body, "gm-club-invite");
+}
+
 function gmCalOpenClub(ev) {
   var body = '<div class="gm-club-invite">';
   if (ev.flyer_url) {

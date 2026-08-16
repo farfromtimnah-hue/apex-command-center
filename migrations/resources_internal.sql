@@ -1,0 +1,23 @@
+-- Consultant-only resources: APEX's own internal material, filed in the same
+-- library as client-facing resources but never assignable to a client.
+--
+-- Pr. Rafa loses his own deliverables inside Claude conversations and asks for
+-- them again later. The client-facing ones now live on each client's Documentos
+-- tab, but APEX's internal material — the DISC and referral e-books, the
+-- property-valuation calculator, Apex Club event art — belongs to no client and
+-- had nowhere to go.
+--
+-- DEFAULT 0 is load-bearing: every resource that existed before this column was
+-- added is client-facing and must stay assignable. Internal material has to be
+-- filed as such deliberately, the same rule the client_documents visibility
+-- migration follows.
+--
+-- The portal never reads `resources` — clients only ever see rows deliberately
+-- assigned and sent through `client_resources`. So the risk this guards is not
+-- a client browsing the library; it is a staff member assigning internal
+-- material to a client by accident. The flag removes those rows from the
+-- assignment picker entirely.
+--
+-- He has no other consultants yet. When he does, this same flag is what makes
+-- the section visible to them.
+ALTER TABLE resources ADD COLUMN internal INTEGER NOT NULL DEFAULT 0;

@@ -5871,25 +5871,34 @@
       apiFetch("/api/clients/" + clientId + "/documents")
         .then(function(res) { return res.json(); })
         .then(function(d) {
+          // documentsCache stays the FLAT list and keeps its original order:
+          // openDocument(i) indexes into it, so the two sections below must
+          // render rows by their index in this array, never by a per-section
+          // index — that would open the wrong file.
           documentsCache = d.documents || [];
-          // A salesperson's Documentos tab is only ever the shared sales
-          // material, so it says so rather than inheriting the client's
-          // "Arquivos e relatórios" heading — a rep should not be left
-          // wondering which of the client's files they are missing.
-          var html = isSeller()
-            ? '<div class="kpi-section-title">' +
-              '<span class="show-pt">Materiais do Vendedor</span>' +
-              '<span class="show-en">Sales materials</span></div>'
-            : '<div class="kpi-section-title">' +
-              '<span class="show-pt">Arquivos e relat&oacute;rios</span>' +
-              '<span class="show-en">Files and reports</span></div>';
-          if (!documentsCache.length) {
-            html += '<p class="muted">' + (isSeller()
-              ? (isEn() ? "No sales materials yet." : "Nenhum material ainda.")
-              : (isEn() ? "No documents yet." : "Nenhum documento ainda.")) + '</p>';
-          } else {
-            documentsCache.forEach(function(doc, i) {
-              html += '<div class="list-row"><div class="list-main">' +
+
+          var clientDocs = d.client_documents;
+          var salesDocs  = d.sales_documents;
+          if (!clientDocs || !salesDocs) {
+            clientDocs = documentsCache.filter(function(x) {
+              return x.kind === "generated" || x.visibility !== "seller";
+            });
+            salesDocs = documentsCache.filter(function(x) {
+              return x.kind === "uploaded" && x.visibility === "seller";
+            });
+          }
+
+          function sectionHtml(titlePt, titleEn, rows, emptyPt, emptyEn, topMargin) {
+            var h = '<div class="kpi-section-title"' +
+              (topMargin ? ' style="margin-top:18px;"' : '') + '>' +
+              '<span class="show-pt">' + titlePt + '</span>' +
+              '<span class="show-en">' + titleEn + '</span></div>';
+            if (!rows.length) {
+              return h + '<p class="muted">' + (isEn() ? emptyEn : emptyPt) + '</p>';
+            }
+            rows.forEach(function(doc) {
+              var i = documentsCache.indexOf(doc);
+              h += '<div class="list-row"><div class="list-main">' +
                 '<div class="list-title">' + escHtml(doc.title) + '</div>' +
                 '<div class="list-sub">' + formatDateUTC(doc.date) +
                 (doc.kind === "generated"
@@ -5899,7 +5908,33 @@
                 '<button class="btn-outline" onclick="openDocument(' + i + ')">' +
                 (isEn() ? "View" : "Ver") + '</button></div>';
             });
+            return h;
           }
+
+          // A seller gets the sales section and nothing else — not even an
+          // empty "your documents" heading. A labeled empty section tells them
+          // a body of client files exists that they cannot open, which is
+          // information they have no business having.
+          var html = "";
+          if (isSeller()) {
+            // Sales material is the seller's whole tab, so it renders even when
+            // empty — otherwise the tab is blank with no explanation.
+            html += sectionHtml(
+              "Material de Vendas", "Sales material", salesDocs,
+              "Nenhum material de vendas ainda.", "No sales material yet.", false);
+          } else {
+            html += sectionHtml(
+              "Documentos do Cliente", "Your documents", clientDocs,
+              "Nenhum documento ainda.", "No documents yet.", false);
+            // Most clients have no sales material at all (3 of 30 rows live, all
+            // one client). Heading an empty section for them is pure noise, so
+            // it appears only once there is something in it.
+            if (salesDocs.length) {
+              html += sectionHtml(
+                "Material de Vendas", "Sales material", salesDocs, "", "", true);
+            }
+          }
+
           html += completedAssessmentsHtml();
           document.getElementById("documentsBody").innerHTML = html;
         })
@@ -6201,7 +6236,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1786492220"></script>
+  <script src="gm.js?v=1786592762"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

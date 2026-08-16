@@ -1,0 +1,178 @@
+/* Shared "Enviar horarios" queue styles — the matching stylesheet for
+   scheduling-queue.js, following the calendar-grid.js / calendar-grid.css
+   precedent. Both calendar.html and dashboard.html load this file; neither
+   keeps its own copy, so a fix here reaches both pages at once.
+
+   ALICE IS NOT BIG INTO COLOUR, and red must never carry urgency here. Age is
+   expressed by FONT WEIGHT ONLY (set inline by the module, 500 -> 600 -> 700).
+   The single amber accent below marks a squeezed-out/none-work row, which is
+   information she has no other way to get — it is not an alarm.
+
+   Written, short and scannable, plain language: her stated preference. */
+
+.sq-row {
+  border: 1px solid var(--border, #e5e0d6);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--card, #fff);
+}
+
+/* Booked rows stay VISIBLE but out of the way — greyed, at the bottom. */
+.sq-row.sq-done {
+  opacity: 0.55;
+  background: transparent;
+}
+
+.sq-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.sq-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text, #1a1a1a);
+}
+
+/* font-weight is set inline per row: this is the entire staleness mechanism. */
+.sq-age {
+  font-size: 13px;
+  color: var(--muted, #6b6b6b);
+  white-space: nowrap;
+}
+
+.sq-flags {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #8a6d1f;
+  background: rgba(201, 164, 58, 0.10);
+  border: 1px solid rgba(201, 164, 58, 0.35);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin: 6px 0 2px;
+}
+
+.sq-meta {
+  font-size: 12.5px;
+  color: var(--muted, #6b6b6b);
+  margin: 6px 0 10px;
+}
+
+.sq-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Real buttons, never a small pencil icon — and never below a comfortable
+   touch target. */
+.sq-btn {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 14px;
+  min-height: 40px;
+  border-radius: 9px;
+  border: 1px solid var(--border, #e5e0d6);
+  background: transparent;
+  color: var(--text, #1a1a1a);
+  cursor: pointer;
+}
+.sq-btn:hover { border-color: var(--gold, #C9A43A); }
+.sq-btn:focus-visible { outline: 2px solid var(--gold, #C9A43A); outline-offset: 2px; }
+
+.sq-btn-gold {
+  background: var(--gold, #C9A43A);
+  border-color: var(--gold, #C9A43A);
+  color: #12100a;
+}
+
+.sq-empty,
+.sq-never {
+  font-size: 13.5px;
+  color: var(--muted, #6b6b6b);
+  padding: 14px 2px;
+}
+.sq-never { border-top: 1px solid var(--border, #e5e0d6); margin-top: 6px; }
+
+/* ── Contact picker / skip-reason sheet ─────────────────────────────────── */
+.sq-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 9999;
+}
+
+.sq-modal {
+  background: var(--card, #fff);
+  border-radius: 14px;
+  padding: 22px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.sq-modal h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+.sq-modal-sub { margin: 0 0 14px; font-size: 13.5px; color: var(--muted, #6b6b6b); line-height: 1.5; }
+.sq-modal .sq-btn { width: 100%; margin-bottom: 9px; text-align: left; }
+.sq-modal .sq-contact { text-align: left; }
+
+/* The exact text that will be sent, shown before she picks a recipient. */
+.sq-preview {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border, #e5e0d6);
+  border-radius: 9px;
+  padding: 12px;
+  margin: 0 0 14px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+/* "Adicionar horario" fields. These replaced two window.prompt() calls, which
+   rendered as a NATIVE browser dialog titled "apex.resonateai.online says" --
+   the browser's colours, not the site's. The inputs carry ISO values (what the
+   API wants) while the echo line under them renders MM/DD/YYYY and 12-hour
+   AM/PM through datetime.js, the formats used everywhere else on the site. */
+.sq-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted, #6b6b6b);
+  margin: 0 0 5px;
+}
+
+.sq-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  color: inherit;
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e5e0d6);
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin: 0 0 14px;
+}
+.sq-input:focus-visible { outline: 2px solid var(--gold, #C9A43A); outline-offset: 1px; }
+
+/* Slot collision, shown next to the input she needs to change rather than in
+   an alert that would discard the form. Not red: red is reserved. */
+.sq-error { font-weight: 600; color: inherit; }
+
+@media (max-width: 768px) {
+  .sq-actions .sq-btn { flex: 1 1 calc(50% - 4px); text-align: center; }
+}

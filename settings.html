@@ -84,6 +84,11 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
+  <!-- Shared date/time display helpers. Needed here for the Availability
+       summary line, which renders the stored 24-hour day_start/day_end as
+       12-hour AM/PM -- the site-wide format. NOT deferred: it defines plain
+       functions the inline script calls, so it must be parsed first. -->
+  <script src="datetime.js"></script>
   <title data-title-pt="Apex &#8212; Configura&#231;&#245;es" data-title-en="Apex &#8212; Settings">Apex &#8212; Configura&#231;&#245;es</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1034,6 +1039,15 @@
           <span class="show-pt">Pagamento</span>
           <span class="show-en">Payment</span>
         </a>
+        <!-- The Availability section shipped with NO entry here, so every rule
+             the scheduling link runs on -- day start and end, working days,
+             minimum notice, daily cap, default duration and travel -- was
+             unreachable in the live app despite the markup existing. Listed in
+             document order, so the nav reads top to bottom like the page. -->
+        <a href="#availabilitySection">
+          <span class="show-pt">Disponibilidade</span>
+          <span class="show-en">Availability</span>
+        </a>
         <a href="#notificationsSection">
           <span class="show-pt">Notificações</span>
           <span class="show-en">Notifications</span>
@@ -1199,9 +1213,91 @@
       </div>
 
 
+      <!-- ══ Availability for "Enviar horários" ═════════════════════════════
+           The one place the scheduling link's rules are set. Every open slot a
+           client is ever offered is computed from these numbers, so they live
+           on one screen instead of being scattered through the code. -->
+      <div id="availabilitySection" style="margin-top:32px;">
+        <div class="section-heading">
+          <span class="show-pt">Disponibilidade</span>
+          <span class="show-en">Availability</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Regras dos hor&#225;rios que o cliente v&#234; no link de agendamento.</span>
+          <span class="show-en">Rules for the times a client sees on the booking link.</span>
+        </div>
+        <div class="card" style="padding:18px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;">
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">In&#237;cio do dia</span>
+                <span class="show-en">Day starts</span>
+              </span>
+              <input type="time" id="avStart" style="width:100%;" onchange="renderAvSummary()">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Fim do dia</span>
+                <span class="show-en">Day ends</span>
+              </span>
+              <input type="time" id="avEnd" style="width:100%;" onchange="renderAvSummary()">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Aviso m&#237;nimo (horas)</span>
+                <span class="show-en">Minimum notice (hours)</span>
+              </span>
+              <input type="number" id="avNotice" min="0" max="72" style="width:100%;">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">M&#225;ximo de reuni&#245;es por dia</span>
+                <span class="show-en">Maximum meetings per day</span>
+              </span>
+              <input type="number" id="avCap" min="1" max="12" style="width:100%;">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Dura&#231;&#227;o padr&#227;o (min)</span>
+                <span class="show-en">Default duration (min)</span>
+              </span>
+              <input type="number" id="avDuration" min="15" max="240" step="15" style="width:100%;">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Deslocamento padr&#227;o (min)</span>
+                <span class="show-en">Default travel time (min)</span>
+              </span>
+              <input type="number" id="avTravel" min="0" max="180" step="5" style="width:100%;">
+            </label>
+          </div>
+
+          <div style="margin-top:16px;">
+            <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:8px;">
+              <span class="show-pt">Dias de trabalho</span>
+              <span class="show-en">Working days</span>
+            </span>
+            <div id="avDays" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          </div>
+
+          <!-- Plain-language read-back of the two time fields in 12-hour
+               format, so an 18:00 start is obvious before it is saved. -->
+          <div id="avSummary" style="margin-top:14px;font-size:13px;color:var(--muted);"></div>
+
+          <button type="button" id="avSaveBtn" onclick="saveAvailability()"
+                  style="margin-top:18px;font-family:inherit;font-size:14px;font-weight:600;padding:11px 18px;border:0;border-radius:9px;background:var(--gold);color:#12100a;cursor:pointer;">
+            <span class="show-pt">Salvar</span>
+            <span class="show-en">Save</span>
+          </button>
+          <span id="avSaved" style="margin-left:12px;font-size:13px;color:var(--muted);"></span>
+        </div>
+      </div>
+
       <!-- Notifications section. Pulled out of Payment Details, where it was
            only ever nested because that was the nearest block when it was
-           written -- push has nothing to do with invoicing. -->
+           written -- push has nothing to do with invoicing. This comment had
+           drifted above the Availability block, describing a section two
+           divs away. -->
       <div id="notificationsSection" style="margin-top:32px;">
         <div class="section-heading">
           <span class="show-pt">Notifica&#231;&#245;es</span>
@@ -1406,7 +1502,223 @@
       loadTemplates();
       loadPackages();
       loadBusinessSettings();
+      loadAvailability();
       refreshPushState();
+      scrollToHashSection();
+    }
+
+    // Re-apply the URL hash AFTER the page is revealed.
+    //
+    // #appMain is hidden while the role check runs, so when the browser first
+    // resolves the anchor the target section is not laid out yet; the loaders
+    // then fill the page and push it far down. Re-assigning location.hash once
+    // the content exists makes the browser redo its own native anchor jump,
+    // which is the mechanism that actually works here -- setting scrollTop or
+    // calling scrollIntoView() from script is unreliable on this page.
+    //
+    // Bounded and idempotent: it fires once, a moment after the loaders start,
+    // and does nothing at all when there is no hash.
+    function scrollToHashSection() {
+      if (!window.location.hash) { return; }
+      var id = window.location.hash.slice(1);
+      setTimeout(function() {
+        var el = document.getElementById(id);
+        if (!el) { return; }
+        // Re-assigning the SAME hash does not re-trigger the jump, so clear it
+        // and set it back. replace() keeps this out of the history stack, so
+        // Back still returns to the calendar rather than to this page again.
+        window.location.replace("#");
+        window.location.replace("#" + id);
+      }, 600);
+    }
+
+    // ── Availability ("Enviar horários" rules) ─────────────────────────────
+
+    var AV_DAYS = [
+      { n: 1, pt: "Seg", en: "Mon" }, { n: 2, pt: "Ter", en: "Tue" },
+      { n: 3, pt: "Qua", en: "Wed" }, { n: 4, pt: "Qui", en: "Thu" },
+      { n: 5, pt: "Sex", en: "Fri" }, { n: 6, pt: "Sab", en: "Sat" },
+      { n: 0, pt: "Dom", en: "Sun" }
+    ];
+    var AV_SELECTED = [];
+
+    function renderAvDays() {
+      var host = document.getElementById("avDays");
+      if (!host) { return; }
+      var en = document.body.classList.contains("lang-en");
+      host.innerHTML = "";
+      for (var i = 0; i < AV_DAYS.length; i++) {
+        var on = AV_SELECTED.indexOf(AV_DAYS[i].n) !== -1;
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = en ? AV_DAYS[i].en : AV_DAYS[i].pt;
+        b.setAttribute("data-day", AV_DAYS[i].n);
+        b.style.cssText = "font-family:inherit;font-size:13.5px;font-weight:600;padding:9px 14px;" +
+          "border-radius:9px;cursor:pointer;border:1.5px solid " +
+          (on ? "var(--gold)" : "var(--border)") + ";background:" +
+          (on ? "var(--gold)" : "transparent") + ";color:" + (on ? "#12100a" : "var(--text)") + ";";
+        b.onclick = function(ev) {
+          var d = parseInt(ev.currentTarget.getAttribute("data-day"), 10);
+          var at = AV_SELECTED.indexOf(d);
+          if (at === -1) { AV_SELECTED.push(d); } else { AV_SELECTED.splice(at, 1); }
+          renderAvDays();
+          renderAvSummary();
+        };
+        host.appendChild(b);
+      }
+    }
+
+    // Paint the form from a settings row. Shared by the initial load and by
+    // the save response, so what is on screen after a save is what the server
+    // actually stored rather than what was typed at it.
+    function applyAvailability(s) {
+      var start  = document.getElementById("avStart");
+      var end    = document.getElementById("avEnd");
+      var notice = document.getElementById("avNotice");
+      var cap    = document.getElementById("avCap");
+      var dur    = document.getElementById("avDuration");
+      var travel = document.getElementById("avTravel");
+      // <input type="time"> wants 24-hour "HH:MM" and renders it in the
+      // viewer's own locale, which is US 12-hour here -- so the stored 24-hour
+      // string is correct to assign directly. The SUMMARY text below the form
+      // is where formatTime() does the 12-hour rendering.
+      if (start)  { start.value  = String(s.day_start || "09:00").slice(0, 5); }
+      if (end)    { end.value    = String(s.day_end || "18:00").slice(0, 5); }
+      if (notice) { notice.value = s.min_notice_hours; }
+      if (cap)    { cap.value    = s.daily_cap; }
+      if (dur)    { dur.value    = s.default_duration; }
+      if (travel) { travel.value = s.default_travel; }
+
+      AV_SELECTED = [];
+      var parts = String(s.work_days || "1,2,3,4,5").split(",");
+      for (var i = 0; i < parts.length; i++) {
+        var n = parseInt(parts[i], 10);
+        if (!isNaN(n)) { AV_SELECTED.push(n); }
+      }
+      renderAvDays();
+      renderAvSummary();
+    }
+
+    // One plain sentence of what these numbers actually mean, in the site's
+    // 12-hour format via formatTime(). The <input type="time"> controls show
+    // the browser's own widget; this is the line that reads back as English or
+    // Portuguese, so a mistake like an 18:00 start is obvious before saving.
+    function renderAvSummary() {
+      var host = document.getElementById("avSummary");
+      if (!host) { return; }
+      var start = document.getElementById("avStart");
+      var end   = document.getElementById("avEnd");
+      if (!start || !end || !start.value || !end.value) { host.textContent = ""; return; }
+      var en = document.body.classList.contains("lang-en");
+      var dayNames = [];
+      var ordered = AV_SELECTED.slice().sort(function(a, b) { return a - b; });
+      for (var i = 0; i < ordered.length; i++) {
+        for (var j = 0; j < AV_DAYS.length; j++) {
+          if (AV_DAYS[j].n === ordered[i]) { dayNames.push(en ? AV_DAYS[j].en : AV_DAYS[j].pt); }
+        }
+      }
+      var days = dayNames.length
+        ? dayNames.join(", ")
+        : (en ? "no days selected" : "nenhum dia selecionado");
+      host.textContent = (en ? "Clients can book " : "Os clientes podem marcar ")
+        + days + (en ? ", " : ", ")
+        + formatTime(start.value) + (en ? " to " : " às ") + formatTime(end.value) + ".";
+    }
+
+    // NOTE: this page has no apiFetch() helper -- it uses getToken() + fetch
+    // directly, like loadTemplates() and every other loader here. The
+    // Availability code shipped calling apiFetch(), which threw
+    // "apiFetch is not defined" on every load and left the whole form blank.
+    // The empty .catch() it also shipped with meant that ReferenceError never
+    // reached the console, so the section looked merely empty rather than
+    // broken. Same page, same idiom, no new helper.
+    function loadAvailability() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/scheduling/settings", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      })
+        .then(function(res) {
+          // Never a bare .json() here. This feature has twice shipped a bug
+          // that was invisible because a failure landed in an empty catch --
+          // a whole missing panel once, a dead button once. A non-OK response
+          // must say so rather than silently leaving every field blank, which
+          // looks identical to "there are no settings yet".
+          if (!res.ok) { throw new Error("scheduling/settings HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          var s = data.settings;
+          if (!s) { throw new Error("scheduling/settings returned no settings object"); }
+          applyAvailability(s);
+        })
+        .catch(function(e) {
+          console.error("[availability] could not load the scheduling rules:", e.message);
+          var saved = document.getElementById("avSaved");
+          if (saved) {
+            saved.textContent = document.body.classList.contains("lang-en")
+              ? "Could not load these settings. Reload the page."
+              : "Não foi possível carregar estas configurações. Recarregue a página.";
+          }
+        });
+    }
+
+    function saveAvailability() {
+      var start = document.getElementById("avStart");
+      var end = document.getElementById("avEnd");
+      var notice = document.getElementById("avNotice");
+      var cap = document.getElementById("avCap");
+      var dur = document.getElementById("avDuration");
+      var travel = document.getElementById("avTravel");
+      var btn = document.getElementById("avSaveBtn");
+      var saved = document.getElementById("avSaved");
+      if (btn) { btn.disabled = true; }
+
+      AV_SELECTED.sort(function(a, b) { return a - b; });
+      var payload = {
+        day_start: start ? start.value : "09:00",
+        day_end: end ? end.value : "18:00",
+        work_days: AV_SELECTED.join(","),
+        min_notice_hours: notice ? parseInt(notice.value, 10) : 4,
+        daily_cap: cap ? parseInt(cap.value, 10) : 4,
+        default_duration: dur ? parseInt(dur.value, 10) : 60,
+        default_travel: travel ? parseInt(travel.value, 10) : 30
+      };
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/scheduling/settings", {
+          method: "PUT",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      })
+        .then(function(res) {
+          // "Salvo" used to appear whether or not the write succeeded, because
+          // the response was parsed without checking res.ok. Telling Alice her
+          // availability was saved when it was not is worse than any error --
+          // she would go on offering clients times Rafa never agreed to.
+          if (!res.ok) { throw new Error("scheduling/settings PUT HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          if (btn) { btn.disabled = false; }
+          // Re-seed from what the SERVER stored, not from what was typed. The
+          // handler falls back to the current value for anything it rejects,
+          // so this is where a silently-ignored field becomes visible.
+          if (data && data.settings) { applyAvailability(data.settings); }
+          if (saved) {
+            saved.textContent = document.body.classList.contains("lang-en") ? "Saved" : "Salvo";
+            setTimeout(function() { if (saved) { saved.textContent = ""; } }, 2500);
+          }
+        })
+        .catch(function(e) {
+          console.error("[availability] save failed:", e.message);
+          if (btn) { btn.disabled = false; }
+          if (saved) {
+            saved.textContent = document.body.classList.contains("lang-en")
+              ? "Could not save. Nothing was changed."
+              : "Não foi possível salvar. Nada foi alterado.";
+          }
+        });
     }
 
     function init() {
@@ -1792,7 +2104,12 @@
       invoice_send: { pt: "Envio de Fatura", en: "Invoice Send" },
       portal_help_request: { pt: "Pedido de Ajuda (Portal)", en: "Help Request (Portal)" },
       resource_send: { pt: "Envio de Recurso", en: "Resource Send" },
-      partner_referral_share: { pt: "Compartilhar Link de Indica&#231;&#227;o", en: "Referral Link Share" }
+      partner_referral_share: { pt: "Compartilhar Link de Indica&#231;&#227;o", en: "Referral Link Share" },
+      seller_login: { pt: "Acesso do Vendedor", en: "Seller Access" },
+      // Migrated out of worker source constants: these two are the messages
+      // Alice sends most often, and were the only ones she could not edit.
+      scheduling_send: { pt: "Enviar hor&#225;rios", en: "Send times" },
+      scheduling_followup: { pt: "Cobrar hor&#225;rios", en: "Scheduling follow-up" }
     };
 
     // Per-key token hint — only the tokens that key actually substitutes.
@@ -1824,6 +2141,21 @@
       partner_referral_share: {
         pt: 'Vari&#225;vel dispon&#237;vel: <code>{referralUrl}</code>.',
         en: 'Available token: <code>{referralUrl}</code>.'
+      },
+      seller_login: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{sellerName}</code>, <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.',
+        en: 'Available tokens: <code>{sellerName}</code>, <code>{loginUrl}</code>, <code>{username}</code>, <code>{tempPassword}</code>.'
+      },
+      // {name} is the OWNER name, both owners when there are two -- never the
+      // company name. The greeting used to read "Ol&#225;, PERFECT!" to paying
+      // clients; editing this text must not change which name is used.
+      scheduling_send: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{link}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{link}</code>.'
+      },
+      scheduling_followup: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{link}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{link}</code>.'
       }
     };
 
@@ -3029,6 +3361,22 @@
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────
+    // ── Language toggle ────────────────────────────────────────────────────
+    // Most of this page is .show-pt / .show-en span pairs, which CSS swaps by
+    // body class with no JS at all. The Availability section is the exception:
+    // its weekday chips and its plain-language summary line are BUILT IN JS,
+    // so they were frozen in whatever language the page loaded in and a toggle
+    // moved everything around them but not them.
+    //
+    // Replays from state already in memory (AV_SELECTED and the two time
+    // inputs) -- nav.js's own comment asks listeners not to refetch, and a
+    // language toggle must not silently discard an unsaved edit by reloading
+    // the saved values over it.
+    document.addEventListener("apex:langchange", function() {
+      renderAvDays();
+      renderAvSummary();
+    });
+
     window.onload = function() { init(); };
   </script>
 

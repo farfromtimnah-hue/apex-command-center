@@ -98,7 +98,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
   <link rel="stylesheet" href="gm.css?v=1786492219">
-  <link rel="stylesheet" href="calendar-grid.css?v=1786488202">
+  <link rel="stylesheet" href="calendar-grid.css?v=1786590383">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1361,8 +1361,20 @@
              designed the page, still missed her own meeting on it. Rows are
              rendered by loadMeetings(); the card stays hidden when there is
              nothing today or tomorrow rather than showing an empty shell. -->
+        <!-- ══ ONE meeting card ═════════════════════════════════════════════
+             This card and the scheduling call-out were two separate cards
+             showing the SAME meeting, stacked on the page the client lands on:
+             once they booked something for tomorrow, both rendered, both said
+             the same thing, and it read as broken.
+             They are now one card with four states, driven by renderMeetings():
+               no time chosen      -> the prompt + Escolher horario
+               booked, further out -> date + time + Reagendar
+               booked, today/tomorrow -> date + time + Entrar AND Reagendar
+               nothing issued/booked  -> hidden entirely, no dead button
+             The banner clients already recognise is the one that survived; the
+             scheduling states folded into it. -->
         <div class="content-card" id="meetingsCard" hidden>
-          <div class="card-title">
+          <div class="card-title" id="meetingsCardTitle">
             <span class="show-pt">Pr&oacute;ximas reuni&otilde;es</span>
             <span class="show-en">Upcoming meetings</span>
           </div>
@@ -5710,23 +5722,233 @@
       } catch (e) { return todayStr(); }
     }
 
+    // The scheduling half of the card's state (booking token, whether a time
+    // is booked at all). Kept alongside lastMeetings so the language toggle
+    // re-renders both halves from one place without refetching either.
+    var lastSchedState = null;
+
+    // Both halves of ONE card, fetched together.
+    //
+    // /api/portal/next-meeting answers "is there a meeting today or tomorrow,
+    // and how do I join it"; /api/scheduling/client-state answers "is a time
+    // booked at all, and what link changes it". They used to drive two
+    // separate cards that both rendered for the same meeting. Now they feed
+    // one renderer.
+    //
+    // Promise.all, not two independent chains, so the card renders once with
+    // the full picture rather than flickering through a half-state. Neither
+    // failure is allowed to take the other down: each rejection is logged and
+    // degrades to null, and renderMeetings() shows whatever it does have.
     function loadMeetings() {
-      apiFetch("/api/portal/next-meeting")
-        .then(function(res) { return res.json(); })
-        .then(function(d) {
-          lastMeetings = (d && d.meetings) || [];
-          renderMeetings(lastMeetings);
+      var meetingsP = apiFetch("/api/portal/next-meeting")
+        .then(function(res) {
+          if (!res.ok) { throw new Error("next-meeting HTTP " + res.status); }
+          return res.json();
         })
-        .catch(function() {});
+        .catch(function(e) {
+          // NEVER a silent catch here. A swallowed failure on this exact card
+          // is why a whole missing panel once looked like "nothing scheduled".
+          console.error("[portal] next-meeting failed to load:", e.message);
+          return null;
+        });
+
+      var schedP = apiFetch("/api/scheduling/client-state")
+        .then(function(res) {
+          if (!res.ok) { throw new Error("client-state HTTP " + res.status); }
+          return res.json();
+        })
+        .catch(function(e) {
+          console.error("[sched] client-state failed to load:", e.message);
+          return null;
+        });
+
+      return Promise.all([meetingsP, schedP]).then(function(r) {
+        lastMeetings   = (r[0] && r[0].meetings) || [];
+        lastSchedState = r[1];
+        // Published for gm.js, which renders the Agenda tab's event modal and
+        // needs the same token to offer the same Reagendar action. One
+        // implementation, shared -- not a second copy over there.
+        window.apexBookingToken = lastSchedState ? lastSchedState.booking_token : null;
+        renderMeetings(lastMeetings);
+      });
+    }
+
+    // Reagendar. The token's request is currently 'booked', so the link would
+    // otherwise open on "sua reuniao ja esta marcada". /reopen releases that
+    // hold (session row and Google event included) and returns the request to
+    // 'waiting', so the SAME link becomes a working picker.
+    //
+    // Admin preview is read-only at the API level, so this POST is refused
+    // there by design — the button must still RENDER in preview, it just
+    // cannot fire. That refusal is reported rather than swallowed.
+    function reopenScheduling(token) {
+      if (!token) { return; }
+      var url = "agendar.html?t=" + encodeURIComponent(token);
+      apiFetch("/api/scheduling/link/" + encodeURIComponent(token) + "/reopen", { method: "POST" })
+        .then(function(res) {
+          return res.json().then(function(body) { return { ok: res.ok, status: res.status, body: body }; });
+        })
+        .then(function(r) {
+          if (!r.ok) {
+            console.error("[sched] could not reopen the booking link:",
+              r.status, (r.body && r.body.error) || "");
+            window.alert(isEn()
+              ? "Could not reopen the scheduling link. Please try again."
+              : "Não foi possível reabrir o link de agendamento. Tente novamente.");
+            return;
+          }
+          window.location.href = url;
+        })
+        .catch(function(e) {
+          console.error("[sched] reopen request failed:", e.message);
+          window.alert(isEn()
+            ? "Could not reopen the scheduling link. Please try again."
+            : "Não foi possível reabrir o link de agendamento. Tente novamente.");
+        });
+    }
+
+    // gm.js renders the Agenda tab's event modal in this same page scope but
+    // is a separate file, so the shared reschedule path is published rather
+    // than reimplemented there.
+    window.reopenScheduling = reopenScheduling;
+
+    // The card heading changes with the state, so it is swapped here rather
+    // than duplicated as two hidden headings. Both languages are written every
+    // time -- the .show-pt/.show-en spans are what the language toggle reads,
+    // so writing only the active one would leave the other blank after a
+    // toggle. Accents kept: this is page copy, not JS data.
+    function setCardTitle(title, pt, en) {
+      title.innerHTML = "";
+      var ptEl = document.createElement("span");
+      ptEl.className = "show-pt";
+      ptEl.textContent = pt;
+      var enEl = document.createElement("span");
+      enEl.className = "show-en";
+      enEl.textContent = en;
+      title.appendChild(ptEl);
+      title.appendChild(enEl);
+    }
+
+    // Shared gold action button. A real <button> for Reagendar (it POSTs
+    // before navigating) and an <a> for Entrar (a plain outbound link).
+    function meetingActionButton(label, onClick) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn-gold";
+      b.style.cssText = "font-family:inherit;white-space:nowrap;";
+      b.textContent = label;
+      b.onclick = onClick;
+      return b;
+    }
+
+    // State 1 row: no time picked yet.
+    function schedPromptRow(token) {
+      var row = document.createElement("div");
+      row.className = "meeting-card meeting-row";
+
+      var body = document.createElement("div");
+      var t = document.createElement("div");
+      t.className = "list-title";
+      t.textContent = isEn()
+        ? "You have not picked a time yet."
+        : "Você ainda não escolheu um horário.";
+      body.appendChild(t);
+      row.appendChild(body);
+
+      var a = document.createElement("a");
+      a.href = "agendar.html?t=" + encodeURIComponent(token);
+      a.className = "btn-gold";
+      a.style.cssText = "text-decoration:none;display:inline-block;white-space:nowrap;";
+      a.textContent = isEn() ? "Pick a time" : "Escolher horário";
+      row.appendChild(a);
+      return row;
+    }
+
+    // States 2/3 row: booked. `withJoin` adds Entrar when the meeting is close
+    // enough that joining is the primary action.
+    function bookedRow(s, token, withJoin) {
+      var row = document.createElement("div");
+      row.className = "meeting-card meeting-row";
+
+      var body = document.createElement("div");
+      var when = document.createElement("div");
+      when.className = "meeting-when";
+      when.textContent = isEn() ? "Scheduled" : "Agendada";
+      body.appendChild(when);
+
+      var meta = document.createElement("div");
+      meta.className = "meeting-meta";
+      meta.textContent = formatDate(s.date) + (s.time ? " · " + formatTime(s.time) : "");
+      body.appendChild(meta);
+      row.appendChild(body);
+
+      if (withJoin) {
+        var link = s.google_meet_link || "";
+        // Same sentinel guard as the join rows below: "[PENDING_GOOGLE_API]"
+        // reached a live client as a clickable link on 2026-07-22.
+        if (link && link !== "[PENDING_GOOGLE_API]" && link !== "in_person") {
+          var joinA = document.createElement("a");
+          joinA.href = link;
+          joinA.target = "_blank";
+          joinA.rel = "noopener";
+          joinA.className = "btn-gold";
+          joinA.style.cssText = "text-decoration:none;display:inline-block;white-space:nowrap;";
+          joinA.textContent = isEn() ? "Join" : "Entrar";
+          row.appendChild(joinA);
+        }
+      }
+
+      if (token) {
+        row.appendChild(meetingActionButton(
+          isEn() ? "Reschedule" : "Reagendar",
+          function() { reopenScheduling(token); }
+        ));
+      }
+      return row;
     }
 
     function renderMeetings(meetings) {
       var card = document.getElementById("meetingsCard");
       var list = document.getElementById("meetingsList");
+      var title = document.getElementById("meetingsCardTitle");
       if (!card || !list) { return; }
       list.innerHTML = "";
-      // Nothing today or tomorrow -> no empty card at all.
-      if (!meetings.length) { card.hidden = true; return; }
+
+      var sched = lastSchedState;
+
+      // ── State 1: a time is owed but not chosen ──────────────────────────
+      // The client has a link and has not booked. This is the ONE state the
+      // old next-meeting card could never express, and the reason the second
+      // card was added in the first place. It belongs here.
+      if (sched && !sched.scheduled && sched.booking_token) {
+        if (title) { setCardTitle(title, "Sua reunião desta semana", "Your meeting this week"); }
+        list.appendChild(schedPromptRow(sched.booking_token));
+        card.hidden = false;
+        return;
+      }
+
+      // ── State 4: nothing issued and nothing booked ──────────────────────
+      // No link, no meeting in the window -> no card at all, rather than a
+      // heading over a dead button.
+      if (!meetings.length && !(sched && sched.scheduled)) {
+        card.hidden = true;
+        return;
+      }
+
+      // ── State 2: booked, but outside the join window ────────────────────
+      // next-meeting only covers today and tomorrow, so a meeting further out
+      // returns no rows -- but the client still needs to see it and be able to
+      // move it. Rendered from the scheduling state instead.
+      if (!meetings.length && sched && sched.scheduled) {
+        if (title) { setCardTitle(title, "Sua reunião desta semana", "Your meeting this week"); }
+        list.appendChild(bookedRow(sched.session || {}, sched.booking_token, false));
+        card.hidden = false;
+        return;
+      }
+
+      // ── State 3: booked AND inside the join window ──────────────────────
+      // The original card's own rows, now carrying Reagendar beside Entrar.
+      if (title) { setCardTitle(title, "Próximas reuniões", "Upcoming meetings"); }
 
       // "Today" on APEX's clock, not the viewer's. The server picked these two
       // dates in Eastern; todayStr() is the viewer's local date, so a client in
@@ -5795,6 +6017,20 @@
           dirA.style.cssText = "text-decoration:none;display:inline-block;";
           dirA.textContent = isEn() ? "Directions" : "Como chegar";
           row.appendChild(dirA);
+        }
+
+        // Reagendar sits beside Entrar/Como chegar rather than in a second
+        // card. Only on the row that is actually the scheduled meeting: this
+        // window can also hold sessions Alice booked directly, which carry no
+        // scheduling request and nothing to reopen.
+        if (sched && sched.booking_token && sched.session &&
+            sched.session.date === m.date && sched.session.time === m.time) {
+          row.appendChild(meetingActionButton(
+            isEn() ? "Reschedule" : "Reagendar",
+            (function(tok) {
+              return function() { reopenScheduling(tok); };
+            }(sched.booking_token))
+          ));
         }
 
         list.appendChild(row);
@@ -5955,25 +6191,44 @@
       apiFetch("/api/clients/" + clientId + "/documents")
         .then(function(res) { return res.json(); })
         .then(function(d) {
+          // documentsCache stays the FLAT list and keeps its original order:
+          // openDocument(i) indexes into it, so the two sections below must
+          // render rows by their index in this array, never by a per-section
+          // index — that would open the wrong file.
           documentsCache = d.documents || [];
-          // A salesperson's Documentos tab is only ever the shared sales
-          // material, so it says so rather than inheriting the client's
-          // "Arquivos e relatórios" heading — a rep should not be left
-          // wondering which of the client's files they are missing.
-          var html = isSeller()
-            ? '<div class="kpi-section-title">' +
-              '<span class="show-pt">Materiais do Vendedor</span>' +
-              '<span class="show-en">Sales materials</span></div>'
-            : '<div class="kpi-section-title">' +
-              '<span class="show-pt">Arquivos e relat&oacute;rios</span>' +
-              '<span class="show-en">Files and reports</span></div>';
-          if (!documentsCache.length) {
-            html += '<p class="muted">' + (isSeller()
-              ? (isEn() ? "No sales materials yet." : "Nenhum material ainda.")
-              : (isEn() ? "No documents yet." : "Nenhum documento ainda.")) + '</p>';
-          } else {
-            documentsCache.forEach(function(doc, i) {
-              html += '<div class="list-row"><div class="list-main">' +
+
+          var clientDocs = d.client_documents;
+          var salesDocs  = d.sales_documents;
+          if (!clientDocs || !salesDocs) {
+            clientDocs = documentsCache.filter(function(x) {
+              return x.kind === "generated" || x.visibility !== "seller";
+            });
+            salesDocs = documentsCache.filter(function(x) {
+              return x.kind === "uploaded" && x.visibility === "seller";
+            });
+          }
+
+          function sectionHtml(titlePt, titleEn, rows, emptyPt, emptyEn, topMargin) {
+            var h = '<div class="kpi-section-title"' +
+              (topMargin ? ' style="margin-top:18px;"' : '') + '>' +
+              '<span class="show-pt">' + titlePt + '</span>' +
+              '<span class="show-en">' + titleEn + '</span></div>';
+            if (!rows.length) {
+              return h + '<p class="muted">' + (isEn() ? emptyEn : emptyPt) + '</p>';
+            }
+            rows.forEach(function(doc) {
+              // Match on id, NOT indexOf. When the server sends the split
+              // client_documents / sales_documents arrays, those rows are
+              // DIFFERENT OBJECTS from the ones in documentsCache, so indexOf
+              // returned -1 for every row and openDocument(-1) fell straight
+              // out -- every View button did nothing at all. Only the fallback
+              // path above, which filters documentsCache itself, ever worked.
+              var i = -1;
+              for (var di = 0; di < documentsCache.length; di++) {
+                if (documentsCache[di].id === doc.id &&
+                    documentsCache[di].kind === doc.kind) { i = di; break; }
+              }
+              h += '<div class="list-row"><div class="list-main">' +
                 '<div class="list-title">' + escHtml(doc.title) + '</div>' +
                 '<div class="list-sub">' + formatDateUTC(doc.date) +
                 (doc.kind === "generated"
@@ -5983,7 +6238,33 @@
                 '<button class="btn-outline" onclick="openDocument(' + i + ')">' +
                 (isEn() ? "View" : "Ver") + '</button></div>';
             });
+            return h;
           }
+
+          // A seller gets the sales section and nothing else — not even an
+          // empty "your documents" heading. A labeled empty section tells them
+          // a body of client files exists that they cannot open, which is
+          // information they have no business having.
+          var html = "";
+          if (isSeller()) {
+            // Sales material is the seller's whole tab, so it renders even when
+            // empty — otherwise the tab is blank with no explanation.
+            html += sectionHtml(
+              "Material de Vendas", "Sales material", salesDocs,
+              "Nenhum material de vendas ainda.", "No sales material yet.", false);
+          } else {
+            html += sectionHtml(
+              "Documentos do Cliente", "Your documents", clientDocs,
+              "Nenhum documento ainda.", "No documents yet.", false);
+            // Most clients have no sales material at all (3 of 30 rows live, all
+            // one client). Heading an empty section for them is pure noise, so
+            // it appears only once there is something in it.
+            if (salesDocs.length) {
+              html += sectionHtml(
+                "Material de Vendas", "Sales material", salesDocs, "", "", true);
+            }
+          }
+
           html += completedAssessmentsHtml();
           document.getElementById("documentsBody").innerHTML = html;
         })
@@ -6073,11 +6354,19 @@
       var doc = documentsCache[i];
       if (!doc) { return; }
       if (doc.kind === "uploaded") {
+        // A PLACEHOLDER has no file yet, only the approved preview. Asking for
+        // /file would 404 and the client would meet a blank tab and an HTTP
+        // error -- while the confirmation Pr. Rafa saw when he revealed it told
+        // him they would see the preview. Serve the preview instead.
+        // Same blob handoff as the file branch below and as client.html --
+        // document.write() into a window.open("") tab is blocked in some
+        // browsers, so the preview travels as a blob like everything else.
+        var docPath = (!doc.has_file && doc.has_preview) ? "/preview" : "/file";
         // window.open must be synchronous in the click; fetch with auth then
         // hand the blob to the tab (same Safari-safe pattern as client.html).
         var newTab = window.open("", "_blank");
         if (!newTab) { window.alert("Popup bloqueado / Popup blocked"); return; }
-        apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + "/file")
+        apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + docPath)
           .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); })
           .then(function(blob) { newTab.location.href = URL.createObjectURL(blob); })
           .catch(function(e) { newTab.close(); window.alert(e.message); });
@@ -6285,7 +6574,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1786492220"></script>
+  <script src="gm.js?v=1786592762"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

@@ -315,6 +315,39 @@
     }
 
     /* ── Tables ──────────────────────────────────────────────────────────── */
+    /* Stacked sections in the resource hub — the same treatment the client
+       Documentos sections use on client.html, so the two pages read alike. */
+    .res-section + .res-section,
+    .res-section:not(.is-first) {
+      border-top: 1px solid var(--border);
+      margin-top: 22px;
+    }
+    .res-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 18px 20px 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .res-section.is-first > .res-section-title { padding-top: 4px; }
+    .res-section-count {
+      font-weight: 600;
+      opacity: 0.55;
+      letter-spacing: 0;
+    }
+    .res-section-sub {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 0 20px 8px;
+    }
+    /* The second section repeats the same column headers; hiding them keeps
+       the two groups reading as one list split in two, not two tables. */
+    .res-section:not(.is-first) .list-table thead { display: none; }
+
     .list-table {
       width: 100%;
       border-collapse: collapse;
@@ -704,6 +737,19 @@
           </label>
           <textarea id="resDescription" data-ph-pt="Quando usar este recurso..." data-ph-en="When to use this resource..." placeholder="Quando usar este recurso..."></textarea>
         </div>
+        <div class="field-group">
+          <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:normal;">
+            <input type="checkbox" id="resInternal" style="margin-top:2px;width:auto;flex:none;">
+            <span>
+              <span class="show-pt"><strong>Material interno APEX</strong></span>
+              <span class="show-en"><strong>APEX internal material</strong></span>
+              <span style="display:block;font-size:12px;color:var(--muted);margin-top:2px;">
+                <span class="show-pt">Uso do consultor. Não aparece para enviar a clientes.</span>
+                <span class="show-en">Consultant use. Cannot be sent to clients.</span>
+              </span>
+            </span>
+          </label>
+        </div>
 
         <!-- Contact fields -->
         <div id="resContactFields">
@@ -736,7 +782,7 @@
               <span class="show-pt">Arquivo</span>
               <span class="show-en">File</span>
             </label>
-            <input type="file" id="resFile" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv">
+            <input type="file" id="resFile" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv">
             <div class="detail-text" id="resFileCurrent" style="display:none;"></div>
           </div>
         </div>
@@ -929,17 +975,8 @@ function escHtml(str) {
       return "--";
     }
 
-    function renderResources() {
-      var container = document.getElementById("resourceListContainer");
-      if (!container) { return; }
-
-      if (allResources.length === 0) {
-        container.innerHTML =
-          '<div class="empty-state"><span class="show-pt">Nenhum recurso ainda. Clique em "+ Novo Recurso" para começar a biblioteca.</span>' +
-          '<span class="show-en">No resources yet. Click "+ Add Resource" to start the library.</span></div>';
-        return;
-      }
-
+    // One table's worth of rows. Shared by both sections so they cannot drift.
+    function resourceTableHtml(rows) {
       var html =
         '<table class="list-table mc-table"><thead><tr>' +
         '<th><span class="show-pt">Título</span><span class="show-en">Title</span></th>' +
@@ -949,8 +986,8 @@ function escHtml(str) {
         '<th></th>' +
         '</tr></thead><tbody>';
 
-      for (var i = 0; i < allResources.length; i++) {
-        var r = allResources[i];
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
         html +=
           '<tr>' +
           '<td class="mc-head"><div class="resource-title">' + escHtml(r.title) + '</div>' +
@@ -964,7 +1001,67 @@ function escHtml(str) {
           (window.apexMcIcon ? window.apexMcIcon("edit") : "") + '</button></td>' +
           '</tr>';
       }
-      html += '</tbody></table>';
+      return html + '</tbody></table>';
+    }
+
+    // Two stacked sections: client-facing resources, then APEX's own internal
+    // material. The worker returns the same split (client_resources /
+    // internal_resources) and enforces it — this page only presents it.
+    //
+    // The internal section is APEX's, not any client's: the e-books, the
+    // valuation calculator, Apex Club art. It can never be assigned to a
+    // client, and that is enforced in the worker rather than only hidden here.
+    // When Pr. Rafa has other consultants, this is the section they get.
+    function renderResources() {
+      var container = document.getElementById("resourceListContainer");
+      if (!container) { return; }
+
+      if (allResources.length === 0) {
+        container.innerHTML =
+          '<div class="empty-state"><span class="show-pt">Nenhum recurso ainda. Clique em "+ Novo Recurso" para começar a biblioteca.</span>' +
+          '<span class="show-en">No resources yet. Click "+ Add Resource" to start the library.</span></div>';
+        return;
+      }
+
+      var clientRows   = allResources.filter(function (r) { return r.internal !== 1; });
+      var internalRows = allResources.filter(function (r) { return r.internal === 1; });
+
+      // Only label the sections once there is something to separate. With no
+      // internal material the page reads exactly as it did before.
+      if (internalRows.length === 0) {
+        container.innerHTML = resourceTableHtml(clientRows);
+        return;
+      }
+
+      // Matches the client Documentos sections on client.html: a quiet
+      // uppercase label, a rule separating each section, and the count beside
+      // the title. Not an <h3> shoved above a table — that read as one long
+      // table with a heading dropped into the middle of it.
+      function sectionHtml(labelPt, labelEn, count, subPt, subEn, rows, first) {
+        return '<div class="res-section' + (first ? " is-first" : "") + '">' +
+          '<div class="res-section-title">' +
+          '<span class="show-pt">' + labelPt + '</span>' +
+          '<span class="show-en">' + labelEn + '</span>' +
+          '<span class="res-section-count">' + count + '</span>' +
+          '</div>' +
+          (subPt ? '<div class="res-section-sub">' +
+            '<span class="show-pt">' + subPt + '</span>' +
+            '<span class="show-en">' + subEn + '</span></div>' : '') +
+          resourceTableHtml(rows) +
+          '</div>';
+      }
+
+      var html = "";
+      if (clientRows.length) {
+        html += sectionHtml("Recursos para clientes", "Client resources",
+                            clientRows.length, "", "", clientRows, true);
+      }
+      html += sectionHtml("Material interno APEX", "APEX internal material",
+                          internalRows.length,
+                          "Uso do consultor. Não pode ser enviado a clientes.",
+                          "Consultant use. Cannot be sent to clients.",
+                          internalRows, !clientRows.length);
+
       container.innerHTML = html;
     }
 
@@ -1012,6 +1109,7 @@ function escHtml(str) {
 
       document.getElementById("resTitle").value         = r ? (r.title || "") : "";
       document.getElementById("resDescription").value   = r ? (r.description || "") : "";
+      document.getElementById("resInternal").checked    = !!(r && r.internal === 1);
       document.getElementById("resType").value          = r ? r.resource_type : "contact";
       document.getElementById("resContactName").value   = r ? (r.contact_name || "") : "";
       document.getElementById("resContactPhone").value  = r ? (r.contact_phone || "") : "";
@@ -1091,7 +1189,10 @@ function escHtml(str) {
         contact_name:  document.getElementById("resContactName").value.trim()  || null,
         contact_phone: document.getElementById("resContactPhone").value.trim() || null,
         contact_email: document.getElementById("resContactEmail").value.trim() || null,
-        url:           url || null
+        url:           url || null,
+        // Sent as "1"/"0" so it survives the FormData path, where every value
+        // is a string and a boolean false would arrive as "false".
+        internal:      document.getElementById("resInternal").checked ? "1" : "0"
       };
 
       var method = editingResourceId ? "PUT" : "POST";

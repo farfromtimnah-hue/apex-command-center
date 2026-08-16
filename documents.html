@@ -882,6 +882,64 @@ function escHtml(str) {
       document.getElementById("statPending").textContent  = pendingSends;
     }
 
+    // A file that Claude filed with no client attached. Category is set
+    // server-side by /api/vault/resources, so this identifies exactly the rows
+    // that are waiting to be placed — not APEX's permanent internal library.
+    function isStagedDeliverable(r) {
+      return r.resource_type === "file" && r.file_url &&
+             r.category === "Entregaveis sem cliente";
+    }
+
+    // Attach flow. Pr. Rafa often finishes a deliverable before the client
+    // record exists — Alice usually creates those. This moves the file onto the
+    // client profile once it does, hidden from the client until he reveals it.
+    function openAttachToClient(resourceId) {
+      var isEn = document.body.classList.contains("lang-en");
+      apiFetch("/api/clients")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          var clients = (data.clients || data || []).filter(function (c) {
+            return String(c.status || "").toLowerCase() !== "archived";
+          });
+          clients.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+          if (!clients.length) {
+            alert(isEn ? "No clients found." : "Nenhum cliente encontrado.");
+            return;
+          }
+          var pick = window.prompt(
+            (isEn ? "Attach to which client? Type the exact name:\n\n"
+                  : "Anexar a qual cliente? Digite o nome exato:\n\n") +
+            clients.map(function (c) { return c.name; }).join("\n")
+          );
+          if (!pick) { return; }
+          var match = clients.filter(function (c) {
+            return String(c.name).toLowerCase() === String(pick).trim().toLowerCase();
+          })[0];
+          if (!match) {
+            alert((isEn ? "Client not found: " : "Cliente nao encontrado: ") + pick);
+            return;
+          }
+          return getToken().then(function (token) {
+            return fetch(WORKER_URL + "/api/resources/" + encodeURIComponent(resourceId) + "/attach-to-client", {
+              method: "POST",
+              headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ client_id: match.id })
+            });
+          }).then(function (r2) { return r2.json(); })
+            .then(function (out) {
+              if (out.error) { alert(out.error); return; }
+              alert((isEn ? "Moved to " : "Movido para ") + (out.client_name || "") +
+                    (isEn ? ". Hidden from the client until you reveal it."
+                          : ". Oculto do cliente ate voce liberar."));
+              loadResources();
+            });
+        })
+        .catch(function (e) { alert("Erro: " + e.message); });
+    }
+
     function resourceDetailHtml(r) {
       if (r.resource_type === "contact") {
         var parts = [];
@@ -923,6 +981,16 @@ function escHtml(str) {
           '<td class="mc-action"><span class="type-lozenge" data-type="' + escHtml(r.resource_type) + '"></span></td>' +
           '<td class="mc-field detail-text" data-label-pt="Detalhes" data-label-en="Details">' + resourceDetailHtml(r) + '</td>' +
           '<td class="mc-action" style="text-align:right;">' +
+          // Deliverables that arrived from Claude with no client yet are staged
+          // here. This button MOVES the row onto a client profile — it is not
+          // the "share with client" flow, which never applies to internal
+          // material. Only offered for staged files, so nothing else grows a
+          // button that would take APEX's own library out of the hub.
+          (isStagedDeliverable(r)
+            ? '<button class="btn-row-action" onclick="openAttachToClient(\'' + escHtml(r.id) + '\')">' +
+              '<span class="show-pt">Anexar a cliente</span><span class="show-en">Attach to client</span>' +
+              '</button> '
+            : '') +
           '<button class="btn-row-action" onclick="openResourceModal(\'' + escHtml(r.id) + '\')">' +
           '<span class="show-pt">Editar</span><span class="show-en">Edit</span>' +
           (window.apexMcIcon ? window.apexMcIcon("edit") : "") + '</button></td>' +

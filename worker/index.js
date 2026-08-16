@@ -7556,6 +7556,118 @@ async function handlePostResource(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/vault/resources
+//
+// The fallback landing place for a deliverable that has NO client — either it
+// is APEX's own internal material, or it is for a business Alice has not
+// entered into the system yet.
+//
+// Why this exists: Pr. Rafa moves fast. He will finish a deliverable for a
+// prospect before anyone has created that client record. Without somewhere to
+// put it, the file stays in the chat and is lost, which is the exact failure
+// this whole integration exists to prevent. So it lands in the Resource Hub as
+// internal material and waits there until it has a client to live on.
+//
+// internal = 1 ALWAYS, set server-side. The Resource Hub is consultant
+// material; a client-facing deliverable that lands here is staged, not
+// published, and nothing here is ever visible to a client.
+//
+// Service token only — this is the vault Worker's path, not the UI's.
+// ---------------------------------------------------------------------------
+
+async function handlePostVaultResource(request, env) {
+    try {
+        var caller = serviceCaller(request, env);
+        if (!caller) { return jsonErr("Unauthorized", 401); }
+
+        var parsed = await readResourceBody(request);
+        var f = parsed.fields;
+        if (!parsed.file) { return jsonErr("file is required", 400); }
+        var title = String(f.title || "").trim();
+        if (!title) { return jsonErr("title is required", 400); }
+
+        var category = String(f.category || "Entregaveis sem cliente").trim();
+        var id = crypto.randomUUID();
+        var stored = await storeResourceFile(env, id, parsed.file);
+
+        await ensureResourceCategory(env, category);
+        await env.DB.prepare(
+            "INSERT INTO resources (id, category, resource_type, title, description, " +
+            "file_url, file_name, created_by, internal) " +
+            "VALUES (?, ?, 'file', ?, ?, ?, ?, ?, 1)"
+        ).bind(
+            id, category, title,
+            f.description || "Criado no Claude. Sem cliente atribuido ainda.",
+            stored.key, stored.name, "Rafa (Claude)"
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
+        return jsonOk({ resource: row });
+    } catch (e) {
+        return jsonErr("Error creating vault resource: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/resources/:id/attach-to-client
+//
+// MOVES a Resource Hub file onto a client's profile. Body: { client_id }.
+//
+// A move, not a copy, and deliberately: the Resource Hub is APEX's own
+// consultant material, and leaving client work mixed into it is the thing this
+// avoids. Nothing is lost by moving — archiving a client keeps every document
+// on their profile, so the work is still there years later if they come back.
+//
+// Lands with client_visible = 0, same as every other Claude-sourced document.
+// The R2 object is REUSED, not re-uploaded: only the database row moves.
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleAttachResourceToClient(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function () { return {}; });
+        var clientId = String(body.client_id || "").trim();
+        if (!clientId) { return jsonErr("client_id is required", 400); }
+
+        var res = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
+        if (!res) { return jsonErr("Resource not found", 404); }
+        if (res.resource_type !== "file" || !res.file_url) {
+            return jsonErr("Only file resources can be attached to a client", 400);
+        }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(clientId).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var docId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, " +
+            "content_type, uploaded_by, visibility, client_visible) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'client', 0)"
+        ).bind(
+            docId, clientId, res.title, res.file_name || "documento.pdf",
+            res.file_url, "application/pdf", res.created_by || "Rafa (Claude)"
+        ).run();
+
+        // Row moves; the R2 object stays where it is and is now owned by the
+        // client_documents row. Deleting the resource must NOT delete the file.
+        await env.DB.prepare("DELETE FROM resources WHERE id = ?").bind(id).run();
+
+        return jsonOk({
+            document_id: docId,
+            client_id: clientId,
+            client_name: client.name,
+            note: "Moved to the client profile, hidden from the client until you reveal it."
+        });
+    } catch (e) {
+        return jsonErr("Error attaching resource: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: PUT /api/resources/:id
 // Edits a resource. Same body rules as POST; a new file replaces the stored
 // one, otherwise the existing file is kept. alice / rafa / developer only.
@@ -25446,6 +25558,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/vault/selftest"            && method === "POST") { return handlePostVaultSelftest(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
+        if (path === "/api/vault/resources"           && method === "POST") { return handlePostVaultResource(request, env); }
         if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }
         if (path === "/api/client-resources/progress" && method === "GET")  { return handleGetClientResourcesProgress(request, env); }
         if (path === "/api/zoho/contacts/resync-status" && method === "GET")  { return handleGetZohoContactsResyncStatus(request, env); }
@@ -25502,6 +25615,9 @@ async function handleFetch(request, env, ctx) {
         // /api/resources/:id  PUT | /api/resources/:id/file  GET
         if (segs[0] === "api" && segs[1] === "resources" && segs[2]) {
             if (segs.length === 3 && method === "PUT") { return handlePutResource(segs[2], request, env); }
+            if (segs.length === 4 && segs[3] === "attach-to-client" && method === "POST") {
+                return handleAttachResourceToClient(segs[2], request, env);
+            }
             if (segs.length === 4 && segs[3] === "file" && method === "GET") {
                 return handleGetResourceFile(segs[2], request, env);
             }

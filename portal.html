@@ -6275,24 +6275,15 @@
         // /file would 404 and the client would meet a blank tab and an HTTP
         // error -- while the confirmation Pr. Rafa saw when he revealed it told
         // him they would see the preview. Serve the preview instead.
-        if (!doc.has_file && doc.has_preview) {
-          var prevTab = window.open("", "_blank");
-          if (!prevTab) { window.alert("Popup bloqueado / Popup blocked"); return; }
-          apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + "/preview")
-            .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.text(); })
-            .then(function(html) {
-              prevTab.document.open();
-              prevTab.document.write(html);
-              prevTab.document.close();
-            })
-            .catch(function(e) { prevTab.close(); window.alert(e.message); });
-          return;
-        }
+        // Same blob handoff as the file branch below and as client.html --
+        // document.write() into a window.open("") tab is blocked in some
+        // browsers, so the preview travels as a blob like everything else.
+        var docPath = (!doc.has_file && doc.has_preview) ? "/preview" : "/file";
         // window.open must be synchronous in the click; fetch with auth then
         // hand the blob to the tab (same Safari-safe pattern as client.html).
         var newTab = window.open("", "_blank");
         if (!newTab) { window.alert("Popup bloqueado / Popup blocked"); return; }
-        apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + "/file")
+        apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + docPath)
           .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); })
           .then(function(blob) { newTab.location.href = URL.createObjectURL(blob); })
           .catch(function(e) { newTab.close(); window.alert(e.message); });

@@ -11697,6 +11697,13 @@ function clientRequestAllowed(path, method, clientId) {
                 rest === "gm/seller-login-requests" ||
                 rest === "assessments") { return true; }
             if (/^documents\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+            // A PLACEHOLDER deliverable has no file, only the approved preview,
+            // and the confirmation shown when it is revealed promises the client
+            // can read it. Without this the allowlist 403s before the handler is
+            // ever reached, so that promise is false. The handler applies the
+            // same client_visible predicate as /file -- this exposes no row that
+            // /file would not.
+            if (/^documents\/[A-Za-z0-9-]+\/preview$/.test(rest)) { return true; }
             if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }
         }
         if (method === "POST") {

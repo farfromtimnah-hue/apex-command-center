@@ -73,13 +73,17 @@ var APEX_AUTH_KEYS = ["apex_client_token", "apex_client_id", "apex_client_name",
 // grace-period logic, which stays on the monotonic native uptime clock.
 // ---------------------------------------------------------------------------
 
-// Built for the 2026-08-11/12 lock-cover emergency debugging session and left
-// running by default afterward, uncleaned, when that session was cut short.
-// Off by default now: every apexTrace() call and the REPLAY flush loop below
-// become no-ops. Flip to true (or set window.APEX_TRACE_ENABLED before this
-// file loads) to bring the whole diagnostic timeline back for a future
-// investigation - nothing about the mechanism was removed, only its default.
-var APEX_TRACE_ENABLED = !!(window.APEX_TRACE_ENABLED);
+// Built for the 2026-08-11/12 lock-cover emergency debugging session.
+//
+// TEMPORARILY ON AGAIN as of 2026-08-16 (see the double-Face-ID/black-screen
+// investigation still in progress in projects/apex-ios-wrapper-status.md in
+// the vault) - two rounds of static-analysis-only fixes each turned out to
+// be real but incomplete, which is exactly the shape that took 13.5 hours to
+// resolve the first time specifically because it kept being guessed at
+// instead of measured. Once this investigation is actually closed, flip back
+// to `false` (or delete this override and restore `!!(window.APEX_TRACE_ENABLED)`)
+// - it should not ship on by default.
+var APEX_TRACE_ENABLED = true;
 
 var APEX_TRACE_COOKIE = "apextrace";
 var APEX_TRACE_ORIGIN_COOKIE = "apextraceorigin";
@@ -1511,19 +1515,38 @@ function apexInstallBiometricLock() {
   if (!apexLooksLikeNativeShell()) { return; }
 
   // A cold launch must always re-prompt, so any unlock left over from the
-  // previous run is dropped BEFORE it can be read. The promise is kept in
-  // apexUnlockCleared and every freshness read chains off it - firing this and
-  // forgetting it let apexMaybeLock() read a stale timestamp and open the app
-  // with no prompt at all (reproduced by any Xcode rebuild, and by the
-  // post-install first launch on a client's phone).
-  // Runs exactly once per document. apexUnlockCleared starts as a RESOLVED
-  // promise (not null), so an `if (!apexUnlockCleared)` guard would never fire
-  // and the stale unlock would never be cleared -- a cold launch would then
-  // read the previous run's timestamp and open with no prompt, which is the
-  // bug this clear exists to prevent.
+  // PREVIOUS app run is dropped BEFORE it can be read. The promise is kept in
+  // apexUnlockCleared and every freshness read chains off it.
+  //
+  // GATED ON document.referrer, found necessary 2026-08-16. This used to run
+  // on every document unconditionally ("runs exactly once per document"), but
+  // this app navigates between real documents constantly WITHIN one launch
+  // (index.html -> dashboard.html via window.location.href right after a
+  // successful unlock, or any later in-app nav) - and every one of those is
+  // also "a document," so each one wiped out the record the PREVIOUS document
+  // in the SAME launch had just written moments earlier. Reported on device:
+  // Face ID succeeds fast, the app then goes black again navigating to the
+  // next page, and never reveals - because that next page's own cold-launch
+  // clear deleted the fresh unlock before it could read its own freshness.
+  //
+  // document.referrer is empty on the very FIRST document of a launch (a
+  // fresh WKWebView load, whether a true cold launch or a post-force-quit
+  // relaunch - there is no prior page in either case) and non-empty on any
+  // subsequent same-launch navigation driven by window.location.href, which
+  // always sets it to the navigating-away page. That is exactly the line
+  // between "a new app run, may be carrying a stale record from before" and
+  // "the same run continuing," which apexUnlockClearStarted alone could not
+  // express since it resets on every document the same as any other var.
   if (!apexUnlockClearStarted) {
     apexUnlockClearStarted = true;
-    apexUnlockCleared = apexClearUnlock();
+    if (document.referrer) {
+      apexTrace("CLEAR-UNLOCK", "skipped: document.referrer=" + document.referrer +
+        " (same-launch navigation, not a fresh process start)");
+      apexUnlockCleared = Promise.resolve();
+    } else {
+      apexTrace("CLEAR-UNLOCK", "running: no referrer, first document of this launch");
+      apexUnlockCleared = apexClearUnlock();
+    }
   }
 
   function wireResume() {

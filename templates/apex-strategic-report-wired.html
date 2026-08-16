@@ -597,7 +597,7 @@
   // that one origin, which is why the allowlist below has a single entry.
   //
   // capacitor://localhost is deliberately NOT here. The iOS wrapper has a
-  // window.open shim (apexOpenExternal in native-bridge.js?v=1786920000) because WKWebView
+  // window.open shim (apexOpenExternal in native-bridge.js?v=1786930000) because WKWebView
   // blocks window.open, but none of the four senders call it -- they all use
   // window.open directly. A Capacitor page therefore never becomes this page's
   // opener, so listing that origin would grant access no real sender needs.

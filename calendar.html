@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
-       native-bridge.js?v=1786920000, so it is installed before anything that can throw.
+       native-bridge.js?v=1786930000, so it is installed before anything that can throw.
 
        WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
        with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
@@ -14,7 +14,7 @@
 
        Buffers into a cookie as well as the console, because the native log is
        only reachable once the Capacitor plugin exists -- which is exactly what
-       may not have happened yet when the error fires. native-bridge.js?v=1786920000 replays
+       may not have happened yet when the error fires. native-bridge.js?v=1786930000 replays
        this buffer into the native log once the plugin appears. -->
   <script>
   (function () {
@@ -75,7 +75,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1786920000"></script>
+  <script src="native-bridge.js?v=1786930000"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">

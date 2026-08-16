@@ -1221,6 +1221,11 @@ function apexHideLock() {
   //
   // Deliberately NOT disarmed in apexShowRetry() or on a failed/cancelled
   // authentication: those keep the app covered, which is the point.
+  //
+  // Stamped here, not at each individual call site, because EVERY legitimate
+  // unlock funnels through this one function - see apexMaybeLock's debounce
+  // guard above it for why this timestamp exists.
+  apexLastHideLockAt = Date.now();
   apexDisarmPaintCover("apexHideLock");
 
   var el = document.getElementById(APEX_LOCK_ID);
@@ -1407,6 +1412,31 @@ function apexRunUnlock(manual) {
   });
 }
 
+// Reentrancy guard for apexMaybeLock ITSELF, distinct from apexUnlockInFlight
+// (which only covers apexRunUnlock). Found necessary 2026-08-16: a returning
+// admin's cold launch already had two independent triggers (a synchronous
+// hint-cookie path and an async keychain-confirmed path, deduped separately
+// above via apexColdLaunchMaybeLockScheduled) and STILL double-prompted after
+// that fix, because a THIRD trigger exists - the appStateChange resume
+// listener a few screens down, which fires apexMaybeLock() again if the app's
+// isActive state toggles for any reason, including as a side effect of the
+// system Face ID sheet itself being presented and dismissed during the FIRST
+// unlock. Patching each new trigger site individually is exactly the failure
+// pattern the 2026-08-11/12 emergency session repeated five times - this pair
+// of guards makes apexMaybeLock() itself safe against ANY number of
+// redundant callers, current or future, instead of chasing another one.
+var apexMaybeLockInFlight = false;
+
+// UX debounce ONLY - never the security decision. The real 15-minute grace
+// period stays exactly where it always has been, on the monotonic native
+// uptime clock read by apexUnlockIsFresh(); Date.now() here only suppresses a
+// redundant re-run of this function in the few seconds after a real unlock
+// just completed, which is what a spurious extra trigger looks like. Stamped
+// in apexHideLock() - see the comment there - since every legitimate unlock
+// already funnels through that one function.
+var apexLastHideLockAt = 0;
+var APEX_MAYBELOCK_DEBOUNCE_MS = 4000;
+
 // Decides whether this resume needs the prompt, then runs it.
 function apexMaybeLock() {
   // Never prompt on top of the Google OAuth sheet. Signing in necessarily
@@ -1416,7 +1446,17 @@ function apexMaybeLock() {
   // apexHasSession() is synchronous BY DESIGN (see apexNativeSessionPresent),
   // so "is there anything to protect" is answered without awaiting anything.
   if (!apexHasSession()) { apexTrace("MAYBELOCK", "skipped: no session"); return; }
+  if (apexMaybeLockInFlight) {
+    apexTrace("MAYBELOCK", "skipped: another apexMaybeLock() already running");
+    return;
+  }
+  var sinceUnlock = Date.now() - apexLastHideLockAt;
+  if (sinceUnlock < APEX_MAYBELOCK_DEBOUNCE_MS) {
+    apexTrace("MAYBELOCK", "skipped: unlocked " + sinceUnlock + "ms ago, inside debounce window");
+    return;
+  }
   apexTrace("MAYBELOCK", "session present -> cover + freshness check");
+  apexMaybeLockInFlight = true;
 
   // COVER FIRST, ASK QUESTIONS AFTER.
   //
@@ -1443,10 +1483,12 @@ function apexMaybeLock() {
   apexReArmNativeCover("maybeLock");
 
   apexUnlockIsFresh().then(function (fresh) {
+    apexMaybeLockInFlight = false;
     apexTrace("GRACE", fresh ? "FRESH -> reveal without prompting" : "STALE -> prompt");
     if (fresh) { apexHideLock(); return; }
     apexRunUnlock(false);
   }).catch(function (e) {
+    apexMaybeLockInFlight = false;
     // Freshness unknown - stay covered and prompt. Fails closed.
     apexTrace("GRACE", "check failed, failing closed -> prompt: " + (e && e.message));
     apexRunUnlock(false);

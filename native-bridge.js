@@ -73,6 +73,14 @@ var APEX_AUTH_KEYS = ["apex_client_token", "apex_client_id", "apex_client_name",
 // grace-period logic, which stays on the monotonic native uptime clock.
 // ---------------------------------------------------------------------------
 
+// Built for the 2026-08-11/12 lock-cover emergency debugging session and left
+// running by default afterward, uncleaned, when that session was cut short.
+// Off by default now: every apexTrace() call and the REPLAY flush loop below
+// become no-ops. Flip to true (or set window.APEX_TRACE_ENABLED before this
+// file loads) to bring the whole diagnostic timeline back for a future
+// investigation - nothing about the mechanism was removed, only its default.
+var APEX_TRACE_ENABLED = !!(window.APEX_TRACE_ENABLED);
+
 var APEX_TRACE_COOKIE = "apextrace";
 var APEX_TRACE_ORIGIN_COOKIE = "apextraceorigin";
 var APEX_TRACE_MAX = 7000;   // keep well under the ~4KB-per-cookie practical cap
@@ -124,6 +132,7 @@ function apexTraceDoc() {
 }
 
 function apexTrace(event, detail) {
+  if (!APEX_TRACE_ENABLED) { return; }
   try {
     // NATIVE SHELL ONLY. The trace is a diagnostic for the iOS wrapper, and it
     // must leave the web path byte-for-byte unchanged -- no cookies, no console
@@ -184,6 +193,7 @@ window.apexResetTrace = function () {
 // lines. Read-only: it emits nothing new, it just makes what already happened
 // visible.
 (function () {
+  if (!APEX_TRACE_ENABLED) { return; }
   var proto = String(window.location.protocol || "").toLowerCase();
   if (proto !== "capacitor:" && proto !== "ionic:" && proto !== "file:") { return; }
   var flushed = false;
@@ -950,6 +960,30 @@ var APEX_UNLOCK_KEY = "apex_unlock_at";
 var apexSignInInFlight = false;
 var apexUnlockInFlight = false;
 
+// Set when the SYNCHRONOUS cold-launch path (apexInitNativeBridge, driven by
+// the admin-hint cookie left by the PREVIOUS session) has already scheduled a
+// apexMaybeLock() call for this document. apexBootstrapNativeSession's own
+// ASYNC keychain-confirmed path (getCurrentUser()) checks this before calling
+// apexMaybeLock() a second time.
+//
+// WHY THIS EXISTS: a returning admin (a hint cookie already on file) hits BOTH
+// paths on the same cold launch - the synchronous one fires first and drives a
+// real internalAuthenticate() call, and the async one confirms the same
+// session again once Firebase's SDK has loaded and getCurrentUser() resolves.
+// apexUnlockInFlight only guards two calls that OVERLAP in time; it does
+// nothing once the first has already completed. If the first prompt succeeds
+// and apexBootstrapNativeSession's confirmation arrives afterward, the second
+// apexMaybeLock() call re-runs the full flow from a session that is already
+// unlocked - reported live on device as Face ID firing, a wait, a manual
+// Unlock button, and Face ID firing again. This flag makes the redundant
+// second trigger a no-op instead of a second real prompt.
+//
+// Deliberately does NOT change apexShowLock()/apexBootstrapNativeSession's own
+// cover-raise: that stays as the fail-closed backstop for the case this flag
+// is false (no hint cookie yet, e.g. this device's first launch after login) -
+// only the duplicate CALL TO apexMaybeLock() is suppressed, never the cover.
+var apexColdLaunchMaybeLockScheduled = false;
+
 function apexBiometricPlugin() {
   if (!window.Capacitor || !window.Capacitor.Plugins) { return null; }
   return window.Capacitor.Plugins.BiometricAuthNative || null;
@@ -1658,6 +1692,12 @@ function apexInitNativeBridge() {
   // the stale-unlock clear has landed so the grace period cannot be read from
   // the previous run.
   if (coverRaised) {
+    // Marked BEFORE the async wait, not after: apexBootstrapNativeSession's
+    // getCurrentUser() can resolve while this is still waiting on
+    // apexUnlockCleared, and it must see the claim immediately, not once this
+    // promise settles - otherwise both paths can still race into calling
+    // apexMaybeLock() independently.
+    apexColdLaunchMaybeLockScheduled = true;
     apexUnlockCleared.then(function () {
       apexMaybeLock();
     });
@@ -1705,10 +1745,23 @@ function apexBootstrapNativeSession(firebaseSdk) {
     // no cover raised, no prompt, and the dashboard painted. apexRunUnlock
     // already handles a missing plugin correctly (it opens the app rather than
     // stranding the user), so asking here only created a way to skip.
-    apexTrace("BOOTSTRAP", "user present -> showLock + maybeLock (plugin=" +
-      (apexBiometricPlugin() ? "present" : "NULL, maybeLock will handle it") + ")");
     apexShowLock();
-    apexMaybeLock();
+    // Cover stays up regardless (fail-closed backstop). But if the synchronous
+    // cold-launch path (the admin-hint cookie from the PREVIOUS session) has
+    // already scheduled its own apexMaybeLock() for this document, this is a
+    // returning admin hitting both triggers on one launch - calling it again
+    // here re-runs the whole unlock flow on a session that may have already
+    // finished authenticating, producing a second real Face ID prompt on top
+    // of the first. Skip the redundant call; the first trigger owns this
+    // launch's unlock. See apexColdLaunchMaybeLockScheduled above for the full
+    // reasoning.
+    if (apexColdLaunchMaybeLockScheduled) {
+      apexTrace("BOOTSTRAP", "user present - maybeLock already scheduled by cold-launch path, not calling again");
+    } else {
+      apexTrace("BOOTSTRAP", "user present -> maybeLock (plugin=" +
+        (apexBiometricPlugin() ? "present" : "NULL, maybeLock will handle it") + ")");
+      apexMaybeLock();
+    }
     apexTrace("BOOTSTRAP", "restoring firebase session (will fire onAuthStateChanged)");
     return apexRestoreFirebaseSession(firebaseSdk);
   }).catch(function (e) {

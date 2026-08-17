@@ -23511,20 +23511,106 @@ async function handlePostFinanceNewInvoiceDueDate(invoiceId, request, env) {
             return jsonErr("reason is required -- say why the date is changing (e.g. client asked for two more weeks)", 400);
         }
 
-        var inv = await env.DB.prepare("SELECT id, status FROM invoices WHERE id = ?").bind(invoiceId).first();
+        var inv = await env.DB.prepare("SELECT id, status, due_at FROM invoices WHERE id = ?").bind(invoiceId).first();
         if (!inv) { return jsonErr("Invoice not found", 404); }
         if (inv.status !== "sent") {
             return jsonErr("Only a sent invoice's due date can be changed here. This one is " + inv.status + ".", 400);
         }
 
-        await env.DB.prepare(
-            "UPDATE invoices SET due_at = ?, due_date_changed_at = datetime('now'), " +
-            "due_date_changed_by = ?, due_date_change_reason = ? WHERE id = ?"
-        ).bind(dueAt, actorName(user), reason, invoiceId).run();
+        var actor = actorName(user);
+
+        // The full history, so a habit is visible over time -- not just
+        // whether THIS invoice was ever pushed. due_date_changed_at/by/reason
+        // on invoices stay in sync too: they are the cheap "last change, no
+        // join" read every invoice-list load already uses.
+        await env.DB.batch([
+            env.DB.prepare(
+                "INSERT INTO invoice_due_date_changes (id, invoice_id, old_due_at, new_due_at, reason, changed_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), invoiceId, inv.due_at || null, dueAt, reason, actor),
+            env.DB.prepare(
+                "UPDATE invoices SET due_at = ?, due_date_changed_at = datetime('now'), " +
+                "due_date_changed_by = ?, due_date_change_reason = ? WHERE id = ?"
+            ).bind(dueAt, actor, reason, invoiceId)
+        ]);
 
         return jsonOk({ id: invoiceId, due_at: dueAt });
     } catch (e) {
         return jsonErr("Error changing due date: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/invoices/:id/due-date-history — admin only.
+// Full change log for one invoice, newest first.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewInvoiceDueDateHistory(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, old_due_at, new_due_at, reason, changed_by, changed_at " +
+            "FROM invoice_due_date_changes WHERE invoice_id = ? ORDER BY changed_at DESC"
+        ).bind(invoiceId).all();
+
+        return jsonOk({ changes: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching due date history: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/due-date-changes?days=90 — admin only.
+//
+// The HABIT view, across every client, not just one invoice. Groups by
+// client so a pattern ("this client always asks for two more weeks") is
+// visible at a glance rather than buried in per-invoice history nobody
+// opens unprompted.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewDueDateChanges(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var days = parseInt(url.searchParams.get("days"), 10);
+        if (!Number.isFinite(days) || days <= 0) { days = 90; }
+
+        var res = await env.DB.prepare(
+            "SELECT ddc.id, ddc.invoice_id, ddc.old_due_at, ddc.new_due_at, ddc.reason, " +
+            "ddc.changed_by, ddc.changed_at, i.number AS invoice_number, i.client_id, " +
+            "c.name AS client_name " +
+            "FROM invoice_due_date_changes ddc " +
+            "JOIN invoices i ON i.id = ddc.invoice_id " +
+            "LEFT JOIN clients c ON c.id = i.client_id " +
+            "WHERE ddc.changed_at >= datetime('now', ?) " +
+            "ORDER BY ddc.changed_at DESC"
+        ).bind("-" + days + " day").all();
+
+        var rows = res.results || [];
+
+        // Per-client counts so a repeat pattern is visible without scanning
+        // the raw list by eye.
+        var byClient = {};
+        rows.forEach(function(r) {
+            var key = r.client_id || "unknown";
+            if (!byClient[key]) {
+                byClient[key] = { client_id: r.client_id, client_name: r.client_name, count: 0 };
+            }
+            byClient[key].count++;
+        });
+
+        return jsonOk({
+            changes: rows,
+            by_client: Object.values(byClient).sort(function(a, b) { return b.count - a.count; })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching due date changes: " + e.message, 500);
     }
 }
 
@@ -26404,6 +26490,12 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "due-date" && method === "POST") {
             return handlePostFinanceNewInvoiceDueDate(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "due-date-history" && method === "GET") {
+            return handleGetFinanceNewInvoiceDueDateHistory(segs[3], request, env);
+        }
+        if (path === "/api/finance-new/due-date-changes" && method === "GET") {
+            return handleGetFinanceNewDueDateChanges(request, env);
         }
 
         return jsonErr("Not found", 404);

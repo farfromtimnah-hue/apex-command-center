@@ -2134,6 +2134,11 @@
         </label>
       </div>
 
+      <!-- Shows every past push for THIS invoice -- the whole point is
+           spotting a habit, so the moment she's changing it again is the
+           moment she should see it's not the first time. -->
+      <div id="dueDateHistory" style="margin-top:14px"></div>
+
       <div class="modal-actions">
         <button class="btn" onclick="closeDueDate()">
           <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
@@ -5240,7 +5245,38 @@
       DUE_DATE_INVOICE_ID = invoiceId;
       document.getElementById("dueDateNew").value = currentDueAt || "";
       document.getElementById("dueDateReason").value = "";
+      document.getElementById("dueDateHistory").innerHTML = "";
       document.getElementById("dueDateOverlay").hidden = false;
+      loadDueDateHistory(invoiceId);
+    }
+
+    // The whole point of keeping history is spotting a habit -- so the
+    // moment she opens this to push a date again is exactly when she should
+    // see it's already happened before, and how many times.
+    function loadDueDateHistory(invoiceId) {
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/due-date-history")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var changes = data.changes || [];
+          var el = document.getElementById("dueDateHistory");
+          if (!changes.length) { el.innerHTML = ""; return; }
+          el.innerHTML =
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">' +
+              (isEn()
+                ? "Changed " + changes.length + (changes.length === 1 ? " time before:" : " times before:")
+                : "J&aacute; mudou " + changes.length + (changes.length === 1 ? " vez antes:" : " vezes antes:")) +
+            "</div>" +
+            '<div style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto">' +
+            changes.map(function(c) {
+              return '<div style="font-size:11px;color:var(--muted);border-left:2px solid var(--border);padding-left:8px">' +
+                (c.old_due_at ? fmtDate(c.old_due_at) + " &rarr; " : "") + fmtDate(c.new_due_at) +
+                '<br><span style="font-style:italic">' + esc(c.reason || "") + "</span>" +
+                '<br>' + fmtDate(c.changed_at) + (c.changed_by ? " &mdash; " + esc(c.changed_by) : "") +
+              "</div>";
+            }).join("") +
+            "</div>";
+        })
+        .catch(function() {});
     }
 
     function closeDueDate() {

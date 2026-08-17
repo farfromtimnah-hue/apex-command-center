@@ -162,20 +162,36 @@ async function authenticate(request, env) {
 // deliberately NOT a staff login: it returns a role of its own that ONLY the
 // two Claude-source document endpoints accept, so a leaked token cannot read
 // clients, invoices or anything else. It fails canEditResources on purpose.
+//
+// TWO tokens exist, not one. VAULT_SERVICE_TOKEN is Rafa's connector, scope
+// "vault" -- clients, leads, sessions, tasks, assessments, exactly as before,
+// finance still absent. VAULT_SERVICE_TOKEN_ALICE is Alice's, scope
+// "vault-finance" -- everything Rafa's scope reaches, PLUS the finance
+// tables. They are distinct secrets compared independently, so a leaked
+// token from one identity cannot be replayed as the other, and there is no
+// shared value whose exposure widens both scopes at once.
 function serviceCaller(request, env) {
-    if (!env.VAULT_SERVICE_TOKEN) { return null; }
     var auth = request.headers.get("Authorization") || "";
     var m = /^Bearer\s+(.+)$/i.exec(auth.trim());
     if (!m) { return null; }
     var given = m[1].trim();
-    var expected = env.VAULT_SERVICE_TOKEN;
-    if (given.length !== expected.length) { return null; }
-    var diff = 0;
-    for (var i = 0; i < given.length; i++) {
-        diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+
+    function matches(expected) {
+        if (!expected || given.length !== expected.length) { return false; }
+        var diff = 0;
+        for (var i = 0; i < given.length; i++) {
+            diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+        }
+        return diff === 0;
     }
-    if (diff !== 0) { return null; }
-    return { role: "vault-service", display_name: "Rafa (Claude)", client_id: null };
+
+    if (matches(env.VAULT_SERVICE_TOKEN_ALICE)) {
+        return { role: "vault-service", scope: "vault-finance", display_name: "Alice (Claude)", client_id: null };
+    }
+    if (matches(env.VAULT_SERVICE_TOKEN)) {
+        return { role: "vault-service", scope: "vault", display_name: "Rafa (Claude)", client_id: null };
+    }
+    return null;
 }
 
 async function authenticateInner(request, env) {
@@ -2928,11 +2944,12 @@ async function handleGetVaultClients(request, env) {
 // the database.
 // ---------------------------------------------------------------------------
 
-// Only these tables are readable. FINANCE IS ABSENT BY CONSTRUCTION — there is
-// no invoices, invoice_payments, transactions or client_package_terms entry,
-// and no rule that filters them out either. A SELECT against invoices fails
-// because invoices is simply not on this list, which is a guarantee that
-// survives someone editing the rules without remembering why they exist.
+// Only these tables are readable, and only to a caller whose scope is
+// "vault" or "vault-finance" — both scopes reach this list. FINANCE IS A
+// SEPARATE LIST BELOW, reachable only to scope "vault-finance". A SELECT
+// against invoices from Rafa's "vault" scope fails because invoices is
+// simply not on THIS list, which is a guarantee that survives someone
+// editing the rules without remembering why they exist.
 var VAULT_READ_TABLES = [
     "clients",
     "gm_leads",
@@ -2942,6 +2959,19 @@ var VAULT_READ_TABLES = [
     // against sqlite_master before this list was written.
     "client_assessments"
 ];
+
+// Alice-only. Added 2026-08-17 alongside the "vault-finance" scope so her
+// connector can see the same finance data finance-new.html shows her,
+// without widening Rafa's "vault" scope at all — his caller never reaches
+// this list, by construction (assertVaultReadSql is only ever called with it
+// when caller.scope === "vault-finance"). No writes anywhere in this list;
+// vaultRead only ever runs SELECT (enforced above it, not by this list).
+var VAULT_READ_TABLES_FINANCE = VAULT_READ_TABLES.concat([
+    "accounts",
+    "transactions",
+    "invoices",
+    "invoice_payments"
+]);
 
 // Strips leading whitespace and leading SQL comments so that the SELECT check
 // cannot be evaded by prefixing the statement with "/* x */" or "-- x\n".
@@ -2975,7 +3005,12 @@ function vaultReadReject(reason) {
 
 // Throws on anything that is not a single, plain SELECT against an allow-listed
 // table. Returns nothing useful — it is a gate, not a parser.
-function assertVaultReadSql(sql) {
+//
+// tables defaults to VAULT_READ_TABLES so every existing call site is
+// unchanged; a finance route passes VAULT_READ_TABLES_FINANCE explicitly,
+// and only after confirming caller.scope === "vault-finance" itself.
+function assertVaultReadSql(sql, tables) {
+    var allowList = tables || VAULT_READ_TABLES;
     if (typeof sql !== "string" || !sql.trim()) {
         throw vaultReadReject("Refused: empty SQL.");
     }
@@ -3020,11 +3055,11 @@ function assertVaultReadSql(sql) {
         throw vaultReadReject("Refused: could not identify a table to read.");
     }
     for (var i = 0; i < referenced.length; i++) {
-        if (VAULT_READ_TABLES.indexOf(referenced[i]) === -1) {
+        if (allowList.indexOf(referenced[i]) === -1) {
             throw vaultReadReject(
                 "Refused: the table " + JSON.stringify(referenced[i]) +
                 " is not readable by the vault. Readable tables: " +
-                VAULT_READ_TABLES.join(", ") + "."
+                allowList.join(", ") + "."
             );
         }
     }
@@ -3032,8 +3067,8 @@ function assertVaultReadSql(sql) {
 
 // The ONE path from a /api/vault/ endpoint to D1. Values are always bound
 // parameters; SQL is never concatenated from caller input.
-async function vaultRead(env, sql, binds) {
-    assertVaultReadSql(sql);
+async function vaultRead(env, sql, binds, tables) {
+    assertVaultReadSql(sql, tables);
     var stmt = env.DB.prepare(sql);
     var params = binds || [];
     var res = params.length ? await stmt.bind.apply(stmt, params).all() : await stmt.all();
@@ -3043,9 +3078,19 @@ async function vaultRead(env, sql, binds) {
 // Shared front door for every vault read route: same token, same 401, and a
 // rejected statement comes back as 403 rather than a 500, so a blocked write
 // is distinguishable from a genuine fault.
-async function vaultReadRoute(request, env, run) {
+//
+// requireScope defaults to "vault" — every existing route needs only the
+// base scope, which both Rafa's and Alice's tokens carry. Finance routes
+// pass "vault-finance" explicitly; Rafa's caller has scope "vault" and is
+// turned away with a 403 before vaultRead ever runs, the same shape as an
+// unreadable table, not a 500.
+async function vaultReadRoute(request, env, run, requireScope) {
     var caller = serviceCaller(request, env);
     if (!caller) { return jsonErr("Unauthorized", 401); }
+    var need = requireScope || "vault";
+    if (need === "vault-finance" && caller.scope !== "vault-finance") {
+        return jsonErr("Refused: this route requires finance access, which this token does not have.", 403);
+    }
     try {
         return jsonOk(await run());
     } catch (e) {
@@ -3210,6 +3255,87 @@ async function handleGetVaultAssessments(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/vault/finance/accounts
+//
+// Alice-only (scope "vault-finance"). balance_cents and available_cents are
+// both returned — the finance-overhaul plan's headline number is available,
+// not balance, and a reader should not have to guess which is which.
+// access_token lives on plaid_items, never on accounts, so this SELECT * is
+// safe with no explicit column list needed.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultFinanceAccounts(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var sql =
+            "SELECT id, institution, name, mask, subtype, purpose, balance_cents, " +
+            "available_cents, last_synced_at, status FROM accounts " +
+            "WHERE status = 'active' ORDER BY purpose, name";
+        var accounts = await vaultRead(env, sql, [], VAULT_READ_TABLES_FINANCE);
+        return { count: accounts.length, accounts: accounts };
+    }, "vault-finance");
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/finance/transactions[?account_id=...][&limit=...]
+//
+// Alice-only. raw_json is omitted — it is the full Plaid payload and far
+// larger than anything Claude needs to answer a question about spending.
+// Default LIMIT 100, newest first; a caller wanting more should narrow by
+// account_id rather than pulling the entire feed into one tool result.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultFinanceTransactions(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var accountId = (url.searchParams.get("account_id") || "").trim();
+        var limitParam = parseInt(url.searchParams.get("limit"), 10);
+        var limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 100;
+
+        var where = accountId ? " WHERE account_id = ?1" : "";
+        var sql =
+            "SELECT id, account_id, amount_cents, date, posted_date, description, " +
+            "merchant_normalized, category_id, is_transfer, transfer_status, pending " +
+            "FROM transactions" + where +
+            " ORDER BY date DESC LIMIT " + limit;
+
+        var binds = accountId ? [accountId] : [];
+        var transactions = await vaultRead(env, sql, binds, VAULT_READ_TABLES_FINANCE);
+        return { count: transactions.length, transactions: transactions };
+    }, "vault-finance");
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/finance/invoices[?client_id=...][&status=...]
+//
+// Alice-only. There is no JOIN to invoice_payments here on purpose — this
+// route answers "what invoices exist and what state are they in", not
+// "reconcile payments", which is a separate, heavier question this route
+// deliberately does not try to answer.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultFinanceInvoices(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+        var status = (url.searchParams.get("status") || "").trim();
+
+        var where = [];
+        var binds = [];
+        if (clientId) { binds.push(clientId); where.push("client_id = ?" + binds.length); }
+        if (status)   { binds.push(status);   where.push("status = ?" + binds.length); }
+
+        var sql =
+            "SELECT id, client_id, number, amount_cents, issued_at, due_at, status " +
+            "FROM invoices" +
+            (where.length ? " WHERE " + where.join(" AND ") : "") +
+            " ORDER BY issued_at DESC LIMIT 200";
+
+        var invoices = await vaultRead(env, sql, binds, VAULT_READ_TABLES_FINANCE);
+        return { count: invoices.length, invoices: invoices };
+    }, "vault-finance");
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/vault/selftest
 //
 // Proves the gate on the DEPLOYED Worker, over the real network path, with the
@@ -3230,9 +3356,16 @@ async function handlePostVaultSelftest(request, env) {
     try { body = await request.json(); } catch (e) { return jsonErr("Invalid JSON body", 400); }
     var sql = body && body.sql;
     if (typeof sql !== "string" || !sql.trim()) { return jsonErr("sql is required", 400); }
+    // wantFinance lets the same route prove BOTH halves of the guarantee: that
+    // Alice's token can reach a finance table, and — the more important
+    // direction — that Rafa's token still cannot, even when it explicitly asks
+    // for the finance table list. Only actually grants it if caller.scope
+    // agrees; a "vault" caller passing wantFinance=true still gets the 403.
+    var wantFinance = !!(body && body.finance);
+    var tables = (wantFinance && caller.scope === "vault-finance") ? VAULT_READ_TABLES_FINANCE : VAULT_READ_TABLES;
     try {
-        var rows = await vaultRead(env, sql, []);
-        return jsonOk({ blocked: false, row_count: rows.length });
+        var rows = await vaultRead(env, sql, [], tables);
+        return jsonOk({ blocked: false, row_count: rows.length, scope: caller.scope, tables_checked: tables });
     } catch (e) {
         if (e && e.vaultReadRejected) {
             return jsonErr(e.message, 403);
@@ -25555,6 +25688,12 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/vault/sessions"            && method === "GET")  { return handleGetVaultSessions(request, env); }
         if (path === "/api/vault/tasks"               && method === "GET")  { return handleGetVaultTasks(request, env); }
         if (path === "/api/vault/assessments"         && method === "GET")  { return handleGetVaultAssessments(request, env); }
+        // Finance routes require scope "vault-finance" — Alice's token only.
+        // Rafa's token authenticates fine but is turned away with a 403 inside
+        // vaultReadRoute, before any SQL runs. See serviceCaller() above.
+        if (path === "/api/vault/finance/accounts"     && method === "GET")  { return handleGetVaultFinanceAccounts(request, env); }
+        if (path === "/api/vault/finance/transactions" && method === "GET")  { return handleGetVaultFinanceTransactions(request, env); }
+        if (path === "/api/vault/finance/invoices"     && method === "GET")  { return handleGetVaultFinanceInvoices(request, env); }
         if (path === "/api/vault/selftest"            && method === "POST") { return handlePostVaultSelftest(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }

@@ -2071,29 +2071,28 @@
     </div>
   </div>
 
-  <!-- ═══════════════ MARK PAID MANUALLY ═══════════════════════════════════
+  <!-- ═══════════════ MARK PAID (TAG ONLY) ═══════════════════════════════════
        Found live 2026-08-17: a deposit can already show in the account TOTAL
        (Plaid balance call) before /transactions/sync has a row for it -- a
        real gap between two independent Plaid pipelines, not a bug in this
-       page. Amount defaults to what's still owed; a reason is required so a
-       manual override always says why. -->
+       page. Reworked same day, Nicole's call: this is a STICKY NOTE, not an
+       accounting event. It never touches status or the outstanding total --
+       it only stamps a small tag so Alice can see at a glance which sent
+       invoices she personally believes are paid. The invoice becomes
+       OFFICIALLY paid only when the real bank transaction syncs in and gets
+       matched through the normal flow. -->
   <div id="markPaidOverlay" class="overlay" hidden>
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-title">
-        <span class="show-pt">Marcar como pago</span>
-        <span class="show-en">Mark as paid</span>
+        <span class="show-pt">Marcar como pago (lembrete)</span>
+        <span class="show-en">Mark as paid (reminder)</span>
       </div>
       <div class="modal-sub">
-        <span class="show-pt">Use isto quando o dep&oacute;sito j&aacute; apareceu no total da conta mas ainda n&atilde;o apareceu na lista de transa&ccedil;&otilde;es.</span>
-        <span class="show-en">Use this when the deposit already shows in the account total but hasn't shown up in the transaction list yet.</span>
+        <span class="show-pt">Isto s&oacute; coloca uma etiqueta na fatura para voc&ecirc; lembrar. N&atilde;o muda o status nem o total pendente -- a fatura s&oacute; fica paga de verdade quando a transa&ccedil;&atilde;o do banco entrar e for confirmada.</span>
+        <span class="show-en">This just tags the invoice as a reminder. It does not change the status or the outstanding total -- the invoice only becomes officially paid once the real bank transaction syncs in and is confirmed.</span>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:12px">
-        <label style="font-size:12px;color:var(--muted)">
-          <span class="show-pt">Valor recebido (USD)</span><span class="show-en">Amount received (USD)</span>
-          <input type="number" id="markPaidAmount" step="0.01" min="0"
-                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
-        </label>
         <label style="font-size:12px;color:var(--muted)">
           <span class="show-pt">Como voc&ecirc; confirmou</span><span class="show-en">How you confirmed it</span>
           <input type="text" id="markPaidNote" placeholder="Vi no app do BofA, ainda n&atilde;o sincronizou"
@@ -2106,7 +2105,7 @@
           <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
         </button>
         <button class="btn btn-gold" onclick="submitMarkPaid()">
-          <span class="show-pt">Confirmar pagamento</span><span class="show-en">Confirm payment</span>
+          <span class="show-pt">Colocar etiqueta</span><span class="show-en">Add tag</span>
         </button>
       </div>
     </div>
@@ -5009,13 +5008,16 @@
               "WhatsApp</button> ";
         }
         if (inv.status === "sent") {
-          // Manual override for when the deposit already shows in the
-          // account total but /transactions/sync hasn't surfaced the row --
-          // the normal match-approve flow needs a real transaction_id and
-          // has nothing to offer until the sync catches up.
-          actions +=
-            '<button class="btn btn-sm" onclick="openMarkPaid(\'' + inv.id + '\')">' +
-              '<span class="show-pt">Marcar como pago</span><span class="show-en">Mark as paid</span></button> ';
+          // A tag, not an accounting event -- see the modal comment and the
+          // worker-side comment on /mark-paid-manual. Never changes status or
+          // the outstanding total. The button flips to "remove tag" once one
+          // is set, since re-tagging an already-tagged invoice has nothing to
+          // add and unclaim is the only thing she'd want to do next.
+          actions += inv.claimed_paid_at
+            ? '<button class="btn btn-sm" onclick="unclaimPaid(\'' + inv.id + '\')">' +
+                '<span class="show-pt">Remover etiqueta</span><span class="show-en">Remove tag</span></button> '
+            : '<button class="btn btn-sm" onclick="openMarkPaid(\'' + inv.id + '\')">' +
+                '<span class="show-pt">Marcar como pago</span><span class="show-en">Mark as paid</span></button> ';
           actions +=
             '<button class="btn btn-sm" onclick="openDueDate(\'' + inv.id + '\', \'' + (inv.due_at || '') + '\')">' +
               '<span class="show-pt">Mudar vencimento</span><span class="show-en">Change due date</span></button> ';
@@ -5041,11 +5043,21 @@
             "</div>";
         }
 
+        // The tag is deliberately visually distinct from the real status
+        // pill -- a different shape, not just a different color -- so it
+        // never gets misread as the invoice actually being paid. It is
+        // Alice's personal note, not the books closing.
+        var claimTag = inv.claimed_paid_at
+          ? ' <span class="tag-meta" title="' + esc(inv.claimed_paid_note || "") + '">' +
+              (isEn() ? "✓ she believes paid" : "✓ ela acha que pagou") +
+            "</span>"
+          : "";
+
         return "<tr>" +
           "<td>" + esc(inv.number) + "</td>" +
           "<td>" + esc(inv.client_name || "") + "</td>" +
           "<td>" + fmtDate(inv.due_at) + "</td>" +
-          '<td><span class="pill">' + esc(statusLabel(inv)) + "</span></td>" +
+          '<td><span class="pill">' + esc(statusLabel(inv)) + "</span>" + claimTag + "</td>" +
           '<td class="num">' + amountCell + "</td>" +
           '<td class="num">' + actions + "</td>" +
         "</tr>";
@@ -5178,17 +5190,15 @@
         .catch(function() { toast(t("Erro", "Error")); });
     }
 
-    // ── Mark paid manually ──────────────────────────────────────────────────
+    // ── Mark paid (tag only, not an accounting event) ───────────────────────
     // For when the deposit already shows in the account total but hasn't
     // synced into the transaction list yet -- see the worker-side comment on
-    // /mark-paid-manual for why that gap exists.
+    // /mark-paid-manual for why that gap exists. This never changes status or
+    // the outstanding total; it only stamps a tag Alice can see at a glance.
     var MARK_PAID_INVOICE_ID = null;
 
     function openMarkPaid(invoiceId) {
       MARK_PAID_INVOICE_ID = invoiceId;
-      var inv = INVOICES.find(function(i) { return i.id === invoiceId; });
-      document.getElementById("markPaidAmount").value =
-        inv ? (Math.max(0, (inv.amount_cents || 0) - (inv.paid_cents || 0)) / 100).toFixed(2) : "";
       document.getElementById("markPaidNote").value = "";
       document.getElementById("markPaidOverlay").hidden = false;
     }
@@ -5199,21 +5209,25 @@
     }
 
     function submitMarkPaid() {
-      var amount = parseFloat(document.getElementById("markPaidAmount").value);
       var note = document.getElementById("markPaidNote").value.trim();
-      if (!amount || amount <= 0) { toast(t("Informe o valor", "Enter the amount")); return; }
       if (!note) { toast(t("Diga como você confirmou", "Say how you confirmed it")); return; }
 
       apiFetch("/api/finance-new/invoices/" + MARK_PAID_INVOICE_ID + "/mark-paid-manual", {
         method: "POST",
-        body: { amount_cents: Math.round(amount * 100), note: note }
+        body: { note: note }
       })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
+        .then(function() {
           closeMarkPaid();
-          toast(data.status === "paid"
-            ? t("Fatura marcada como paga.", "Invoice marked paid.")
-            : t("Pagamento registrado.", "Payment recorded."));
+          toast(t("Etiqueta adicionada.", "Tag added."));
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function unclaimPaid(invoiceId) {
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/unclaim-paid", { method: "POST" })
+        .then(function() {
+          toast(t("Etiqueta removida.", "Tag removed."));
           loadInvoices();
         })
         .catch(function() { toast(t("Erro", "Error")); });

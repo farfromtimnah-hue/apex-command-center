@@ -23172,6 +23172,7 @@ async function handleGetFinanceNewInvoices(request, env) {
         var sql =
             "SELECT i.id, i.client_id, i.number, i.amount_cents, i.issued_at, i.due_at, i.status, " +
             "i.sent_at, i.paid_at, i.voided_reason, i.voided_by, i.voided_at, i.source, i.created_at, " +
+            "i.claimed_paid_at, i.claimed_paid_by, i.claimed_paid_note, " +
             "c.name AS client_name, c.whatsapp AS client_whatsapp " +
             "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ";
         if (!includeVoided) { sql += "WHERE i.status != 'voided_mistake' "; }
@@ -23405,24 +23406,23 @@ async function handlePostFinanceNewInvoiceMarkSent(invoiceId, request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/finance-new/invoices/:id/mark-paid-manual — admin only.
-// Body: { amount_cents (optional, defaults to what's still owed), note }
+// Body: { note }
 //
 // WHY THIS EXISTS: found live 2026-08-17. JM Luxury Pools' $4,000 deposit
 // already shows in Apex's account TOTAL (Plaid's /accounts/balance/get call
 // is near-real-time) but had no row in /transactions/sync yet -- that is a
 // separate, slower Plaid pipeline, and a large or very recent deposit can lag
-// behind the balance by hours. The normal match-approve route REQUIRES a real
-// transaction_id, so there was no way to mark the invoice paid until the sync
-// caught up -- Alice could see the money was there and still couldn't do
-// anything about it.
+// behind the balance by hours.
 //
-// note is REQUIRED, same house rule as voided_reason: an override with no
-// stated reason is how the numbers drift from what actually happened. This
-// is meant for "I can see it in the bank, the sync hasn't caught it yet" --
-// not a replacement for the real match flow once the transaction does land.
-// If it later syncs in as a real transaction, that transaction will not
-// double-count this invoice: buildMatchCandidates only offers OPEN invoices,
-// and this one will already be 'paid' once fully covered.
+// THIS IS A STICKY NOTE, NOT AN ACCOUNTING EVENT. Nicole's call 2026-08-17,
+// reworked from the first version: it does NOT touch status and does NOT
+// write to invoice_payments. It only stamps claimed_paid_at/by/note on the
+// invoice row, purely so the UI can show "Alice believes this is paid" next
+// to the real status. The invoice stays 'sent', keeps counting toward
+// outstanding, and stays a candidate for buildMatchCandidates -- it becomes
+// OFFICIALLY paid only when the real transaction syncs in and gets matched
+// through the normal approve flow. A wrong claim here never moves a number
+// anywhere else on the page.
 // ---------------------------------------------------------------------------
 
 async function handlePostFinanceNewInvoiceMarkPaidManual(invoiceId, request, env) {
@@ -23437,47 +23437,46 @@ async function handlePostFinanceNewInvoiceMarkPaidManual(invoiceId, request, env
             return jsonErr("note is required -- say how you confirmed this payment (e.g. seen in the BofA app, sync hasn't caught it yet)", 400);
         }
 
-        var inv = await env.DB.prepare(
-            "SELECT id, client_id, amount_cents, status FROM invoices WHERE id = ?"
-        ).bind(invoiceId).first();
+        var inv = await env.DB.prepare("SELECT id, status FROM invoices WHERE id = ?").bind(invoiceId).first();
         if (!inv) { return jsonErr("Invoice not found", 404); }
         if (inv.status !== "sent") {
-            return jsonErr("Only a sent invoice can be marked paid. This one is " + inv.status + ".", 400);
-        }
-
-        var alreadyPaid = await invoicePaidCents(env, inv.id);
-        var remaining   = Math.max(0, (inv.amount_cents || 0) - alreadyPaid);
-
-        var amountCents = body.amount_cents === undefined || body.amount_cents === null
-            ? remaining
-            : parseInt(body.amount_cents, 10);
-        if (!Number.isFinite(amountCents) || amountCents <= 0) {
-            return jsonErr("amount_cents must be a positive number", 400);
+            return jsonErr("Only a sent invoice can be tagged this way. This one is " + inv.status + ".", 400);
         }
 
         await env.DB.prepare(
-            "INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents, match_type, note, approved_by) " +
-            "VALUES (?, ?, NULL, ?, 'manual_no_txn', ?, ?)"
-        ).bind(crypto.randomUUID(), inv.id, amountCents, note, actorName(user)).run();
+            "UPDATE invoices SET claimed_paid_at = datetime('now'), claimed_paid_by = ?, claimed_paid_note = ? WHERE id = ?"
+        ).bind(actorName(user), note, invoiceId).run();
 
-        // Same partial-payment rule as the real match path: only close the
-        // invoice once payments actually cover the full amount.
-        var coveredNow = alreadyPaid + amountCents;
-        var fullyPaid  = coveredNow >= (inv.amount_cents || 0);
-        if (fullyPaid) {
-            await env.DB.prepare(
-                "UPDATE invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?"
-            ).bind(inv.id).run();
-        }
-
-        return jsonOk({
-            id: invoiceId,
-            status: fullyPaid ? "paid" : "sent",
-            paid_cents: coveredNow,
-            remaining_cents: Math.max(0, (inv.amount_cents || 0) - coveredNow)
-        });
+        return jsonOk({ id: invoiceId, claimed_paid: true });
     } catch (e) {
-        return jsonErr("Error marking invoice paid: " + e.message, 500);
+        return jsonErr("Error tagging invoice: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/unclaim-paid — admin only.
+// Clears the tag above. Needed for the obvious case: she tags it, then
+// notices it was actually a different deposit, or the real match lands and
+// she wants the sticky note gone even though the invoice is now genuinely
+// 'paid' through the normal flow.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceUnclaimPaid(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var inv = await env.DB.prepare("SELECT id FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE invoices SET claimed_paid_at = NULL, claimed_paid_by = NULL, claimed_paid_note = NULL WHERE id = ?"
+        ).bind(invoiceId).run();
+
+        return jsonOk({ id: invoiceId, claimed_paid: false });
+    } catch (e) {
+        return jsonErr("Error clearing tag: " + e.message, 500);
     }
 }
 
@@ -26399,6 +26398,9 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-paid-manual" && method === "POST") {
             return handlePostFinanceNewInvoiceMarkPaidManual(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "unclaim-paid" && method === "POST") {
+            return handlePostFinanceNewInvoiceUnclaimPaid(segs[3], request, env);
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "due-date" && method === "POST") {
             return handlePostFinanceNewInvoiceDueDate(segs[3], request, env);

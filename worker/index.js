@@ -23404,6 +23404,132 @@ async function handlePostFinanceNewInvoiceMarkSent(invoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/mark-paid-manual — admin only.
+// Body: { amount_cents (optional, defaults to what's still owed), note }
+//
+// WHY THIS EXISTS: found live 2026-08-17. JM Luxury Pools' $4,000 deposit
+// already shows in Apex's account TOTAL (Plaid's /accounts/balance/get call
+// is near-real-time) but had no row in /transactions/sync yet -- that is a
+// separate, slower Plaid pipeline, and a large or very recent deposit can lag
+// behind the balance by hours. The normal match-approve route REQUIRES a real
+// transaction_id, so there was no way to mark the invoice paid until the sync
+// caught up -- Alice could see the money was there and still couldn't do
+// anything about it.
+//
+// note is REQUIRED, same house rule as voided_reason: an override with no
+// stated reason is how the numbers drift from what actually happened. This
+// is meant for "I can see it in the bank, the sync hasn't caught it yet" --
+// not a replacement for the real match flow once the transaction does land.
+// If it later syncs in as a real transaction, that transaction will not
+// double-count this invoice: buildMatchCandidates only offers OPEN invoices,
+// and this one will already be 'paid' once fully covered.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceMarkPaidManual(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var note = (body.note || "").trim();
+        if (!note) {
+            return jsonErr("note is required -- say how you confirmed this payment (e.g. seen in the BofA app, sync hasn't caught it yet)", 400);
+        }
+
+        var inv = await env.DB.prepare(
+            "SELECT id, client_id, amount_cents, status FROM invoices WHERE id = ?"
+        ).bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status !== "sent") {
+            return jsonErr("Only a sent invoice can be marked paid. This one is " + inv.status + ".", 400);
+        }
+
+        var alreadyPaid = await invoicePaidCents(env, inv.id);
+        var remaining   = Math.max(0, (inv.amount_cents || 0) - alreadyPaid);
+
+        var amountCents = body.amount_cents === undefined || body.amount_cents === null
+            ? remaining
+            : parseInt(body.amount_cents, 10);
+        if (!Number.isFinite(amountCents) || amountCents <= 0) {
+            return jsonErr("amount_cents must be a positive number", 400);
+        }
+
+        await env.DB.prepare(
+            "INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents, match_type, note, approved_by) " +
+            "VALUES (?, ?, NULL, ?, 'manual_no_txn', ?, ?)"
+        ).bind(crypto.randomUUID(), inv.id, amountCents, note, actorName(user)).run();
+
+        // Same partial-payment rule as the real match path: only close the
+        // invoice once payments actually cover the full amount.
+        var coveredNow = alreadyPaid + amountCents;
+        var fullyPaid  = coveredNow >= (inv.amount_cents || 0);
+        if (fullyPaid) {
+            await env.DB.prepare(
+                "UPDATE invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?"
+            ).bind(inv.id).run();
+        }
+
+        return jsonOk({
+            id: invoiceId,
+            status: fullyPaid ? "paid" : "sent",
+            paid_cents: coveredNow,
+            remaining_cents: Math.max(0, (inv.amount_cents || 0) - coveredNow)
+        });
+    } catch (e) {
+        return jsonErr("Error marking invoice paid: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/due-date — admin only.
+// Body: { due_at, reason }
+//
+// WHY THIS EXISTS: clients ask for more time after an invoice is already
+// sent. There was no edit path at all -- due_at was writable only at
+// creation. reason is required for the same audit reason as note above on
+// the manual-paid route: a due-date push with no stated reason is exactly
+// the kind of quiet drift that erodes trust in the numbers later.
+//
+// Only 'sent' invoices can be pushed -- a draft's due date is edited by
+// discarding and remaking it, and paid/void/voided_mistake invoices have no
+// live due date left to argue about.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceDueDate(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var dueAt = (body.due_at || "").trim();
+        var reason = (body.reason || "").trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dueAt)) {
+            return jsonErr("due_at is required, format YYYY-MM-DD", 400);
+        }
+        if (!reason) {
+            return jsonErr("reason is required -- say why the date is changing (e.g. client asked for two more weeks)", 400);
+        }
+
+        var inv = await env.DB.prepare("SELECT id, status FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status !== "sent") {
+            return jsonErr("Only a sent invoice's due date can be changed here. This one is " + inv.status + ".", 400);
+        }
+
+        await env.DB.prepare(
+            "UPDATE invoices SET due_at = ?, due_date_changed_at = datetime('now'), " +
+            "due_date_changed_by = ?, due_date_change_reason = ? WHERE id = ?"
+        ).bind(dueAt, actorName(user), reason, invoiceId).run();
+
+        return jsonOk({ id: invoiceId, due_at: dueAt });
+    } catch (e) {
+        return jsonErr("Error changing due date: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/finance-new/invoices/:id/render-data — admin only.
 //
 // Same JSON shape as the Zoho-backed /api/invoices/:id/render-data, so the
@@ -26270,6 +26396,12 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-sent" && method === "POST") {
             return handlePostFinanceNewInvoiceMarkSent(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-paid-manual" && method === "POST") {
+            return handlePostFinanceNewInvoiceMarkPaidManual(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "due-date" && method === "POST") {
+            return handlePostFinanceNewInvoiceDueDate(segs[3], request, env);
         }
 
         return jsonErr("Not found", 404);

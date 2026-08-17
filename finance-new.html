@@ -2071,6 +2071,81 @@
     </div>
   </div>
 
+  <!-- ═══════════════ MARK PAID MANUALLY ═══════════════════════════════════
+       Found live 2026-08-17: a deposit can already show in the account TOTAL
+       (Plaid balance call) before /transactions/sync has a row for it -- a
+       real gap between two independent Plaid pipelines, not a bug in this
+       page. Amount defaults to what's still owed; a reason is required so a
+       manual override always says why. -->
+  <div id="markPaidOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Marcar como pago</span>
+        <span class="show-en">Mark as paid</span>
+      </div>
+      <div class="modal-sub">
+        <span class="show-pt">Use isto quando o dep&oacute;sito j&aacute; apareceu no total da conta mas ainda n&atilde;o apareceu na lista de transa&ccedil;&otilde;es.</span>
+        <span class="show-en">Use this when the deposit already shows in the account total but hasn't shown up in the transaction list yet.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Valor recebido (USD)</span><span class="show-en">Amount received (USD)</span>
+          <input type="number" id="markPaidAmount" step="0.01" min="0"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Como voc&ecirc; confirmou</span><span class="show-en">How you confirmed it</span>
+          <input type="text" id="markPaidNote" placeholder="Vi no app do BofA, ainda n&atilde;o sincronizou"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeMarkPaid()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="submitMarkPaid()">
+          <span class="show-pt">Confirmar pagamento</span><span class="show-en">Confirm payment</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CHANGE DUE DATE ═══════════════════════════════════════
+       Clients ask for more time after the invoice already went out. There was
+       no edit path before this -- due_at was writable only at creation. -->
+  <div id="dueDateOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Mudar vencimento</span>
+        <span class="show-en">Change due date</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Novo vencimento</span><span class="show-en">New due date</span>
+          <input type="date" id="dueDateNew"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Motivo</span><span class="show-en">Reason</span>
+          <input type="text" id="dueDateReason" placeholder="Cliente pediu mais duas semanas"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeDueDate()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="submitDueDate()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" hidden><span id="toastText"></span></div>
 
   <div id="mobile-tab-bar"></div>
@@ -4933,6 +5008,18 @@
             '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
               "WhatsApp</button> ";
         }
+        if (inv.status === "sent") {
+          // Manual override for when the deposit already shows in the
+          // account total but /transactions/sync hasn't surfaced the row --
+          // the normal match-approve flow needs a real transaction_id and
+          // has nothing to offer until the sync catches up.
+          actions +=
+            '<button class="btn btn-sm" onclick="openMarkPaid(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Marcar como pago</span><span class="show-en">Mark as paid</span></button> ';
+          actions +=
+            '<button class="btn btn-sm" onclick="openDueDate(\'' + inv.id + '\', \'' + (inv.due_at || '') + '\')">' +
+              '<span class="show-pt">Mudar vencimento</span><span class="show-en">Change due date</span></button> ';
+        }
         if (inv.status !== "voided_mistake") {
           actions +=
             '<button class="btn btn-sm" onclick="markMistake(\'' + inv.id + '\')">' +
@@ -5086,6 +5173,80 @@
       })
         .then(function() {
           toast(isEn() ? "Marked as a mistake." : "Marcada como erro.");
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Mark paid manually ──────────────────────────────────────────────────
+    // For when the deposit already shows in the account total but hasn't
+    // synced into the transaction list yet -- see the worker-side comment on
+    // /mark-paid-manual for why that gap exists.
+    var MARK_PAID_INVOICE_ID = null;
+
+    function openMarkPaid(invoiceId) {
+      MARK_PAID_INVOICE_ID = invoiceId;
+      var inv = INVOICES.find(function(i) { return i.id === invoiceId; });
+      document.getElementById("markPaidAmount").value =
+        inv ? (Math.max(0, (inv.amount_cents || 0) - (inv.paid_cents || 0)) / 100).toFixed(2) : "";
+      document.getElementById("markPaidNote").value = "";
+      document.getElementById("markPaidOverlay").hidden = false;
+    }
+
+    function closeMarkPaid() {
+      document.getElementById("markPaidOverlay").hidden = true;
+      MARK_PAID_INVOICE_ID = null;
+    }
+
+    function submitMarkPaid() {
+      var amount = parseFloat(document.getElementById("markPaidAmount").value);
+      var note = document.getElementById("markPaidNote").value.trim();
+      if (!amount || amount <= 0) { toast(t("Informe o valor", "Enter the amount")); return; }
+      if (!note) { toast(t("Diga como você confirmou", "Say how you confirmed it")); return; }
+
+      apiFetch("/api/finance-new/invoices/" + MARK_PAID_INVOICE_ID + "/mark-paid-manual", {
+        method: "POST",
+        body: { amount_cents: Math.round(amount * 100), note: note }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          closeMarkPaid();
+          toast(data.status === "paid"
+            ? t("Fatura marcada como paga.", "Invoice marked paid.")
+            : t("Pagamento registrado.", "Payment recorded."));
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Change due date ─────────────────────────────────────────────────────
+    var DUE_DATE_INVOICE_ID = null;
+
+    function openDueDate(invoiceId, currentDueAt) {
+      DUE_DATE_INVOICE_ID = invoiceId;
+      document.getElementById("dueDateNew").value = currentDueAt || "";
+      document.getElementById("dueDateReason").value = "";
+      document.getElementById("dueDateOverlay").hidden = false;
+    }
+
+    function closeDueDate() {
+      document.getElementById("dueDateOverlay").hidden = true;
+      DUE_DATE_INVOICE_ID = null;
+    }
+
+    function submitDueDate() {
+      var dueAt = document.getElementById("dueDateNew").value;
+      var reason = document.getElementById("dueDateReason").value.trim();
+      if (!dueAt) { toast(t("Escolha a data", "Pick a date")); return; }
+      if (!reason) { toast(t("Diga o motivo", "Say the reason")); return; }
+
+      apiFetch("/api/finance-new/invoices/" + DUE_DATE_INVOICE_ID + "/due-date", {
+        method: "POST",
+        body: { due_at: dueAt, reason: reason }
+      })
+        .then(function() {
+          closeDueDate();
+          toast(t("Vencimento atualizado.", "Due date updated."));
           loadInvoices();
         })
         .catch(function() { toast(t("Erro", "Error")); });

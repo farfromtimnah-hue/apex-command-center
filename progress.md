@@ -2459,3 +2459,16 @@ before assuming any change carried over.
 ⚠️ **A 200 OK proves nothing here.** A button on this page returned 200 while writing
 nothing for months. Verified by running the handler's exact INSERT and UPDATE against remote
 D1 and reading the row back (`changes: 1`, row present, then cleared, probe deleted).
+
+## 2026-08-19 (d) — Sync iOS public copy
+
+`ios/App/App/public/` holds a **real third copy** of the frontend (last touched
+2026-08-17) and silently misses everything unless synced by hand. Synced from the repo
+root: `finance-new.html`, `dashboard.html`, `sw.js`, `version.json` — all four are tracked.
+
+Swept every tracked path whose basename matches a file this build touched; those four are
+the only other copies. `worker/index.js` has exactly one copy.
+
+⚠️ `www/` also contains `finance-new.html` and `dashboard.html`, and both are **untracked
+stale build output** — `www/finance-new.html` contains zero budget code. Do NOT edit or
+sync them; the live finance file is `finance-new.html` at the repo root.

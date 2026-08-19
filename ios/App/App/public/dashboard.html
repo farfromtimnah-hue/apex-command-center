@@ -2,7 +2,6 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <script src="native-bridge.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -11,8 +10,13 @@
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
+  <!-- Shared scheduling queue — the SAME module calendar.html renders. -->
+  <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <script src="scheduling-queue.js?v=1786597358"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1786595619">
+  <script src="template-edit.js?v=1786595618"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -737,6 +741,28 @@
       </div>
       <!-- Below photo section -->
       <div class="below-section">
+        <!-- Scheduling queue. THE SAME shared module calendar.html renders
+             (scheduling-queue.js/.css). This page does NOT keep a private
+             copy — that is exactly how dashboard.html has silently missed
+             fixes made to calendar.html before.
+             ABOVE Recent Sessions on purpose: this is a time-sensitive daily
+             task carrying a 24-business-hour follow-up clock, while Recent
+             Sessions is static history. History must not sit in front of the
+             work still waiting to be done. -->
+        <div class="content-card" id="schedQueueBlock" hidden>
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Aguardando horário</span>
+              <span class="show-en">Waiting on a time</span>
+            </h2>
+            <a href="calendar.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
+              <span class="show-pt">Calendário &rarr;</span>
+              <span class="show-en">Calendar &rarr;</span>
+            </a>
+          </div>
+          <div id="schedQueue"></div>
+        </div>
+
         <div class="content-card">
           <div class="content-card-header">
             <h2 class="content-card-title">
@@ -754,6 +780,7 @@
             </div>
           </div>
         </div>
+
       </div>
     </div><!-- /aliceDash -->
 
@@ -937,6 +964,28 @@
           </h2>
         </div>
         <div id="goalApprovalsList"></div>
+      </div>
+    </div>
+
+    <!-- Interview sittings: Alice pressed "Entrevista concluida" on the
+         finance page after talking her answers through with her own Claude.
+         The answers live in the separate vault DB, NOT in Apex -- her
+         connector is read-only against Apex on purpose. This is the cue for a
+         developer session to go retrieve them and write them in.
+
+         An open row means "a sitting happened whose answers have not been
+         pulled in yet" -- NOT "everything is done". Clearing it is what a
+         developer session does AFTER writing the answers into Apex. -->
+    <div class="below-section" id="interviewSittingsSection" hidden>
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Entrevistas conclu&iacute;das</span>
+            <span class="show-en">Interviews completed</span>
+            <span id="interviewSittingsBadge" style="display:inline-block;margin-left:8px;background:rgba(201,164,58,0.16);color:#8a6d1f;font-size:12px;font-weight:800;padding:2px 10px;border-radius:12px;vertical-align:middle;"></span>
+          </h2>
+        </div>
+        <div id="interviewSittingsList"></div>
       </div>
     </div>
 
@@ -1180,6 +1229,7 @@
       window.initNav && window.initNav();
 
       loadGoalApprovals();
+      loadInterviewSittings();
       loadSellerLoginRequests();
       // Pre-fetch so the credentials modal's WhatsApp button can open
       // synchronously on click (popup-blocker rule).
@@ -1190,6 +1240,7 @@
         if (aliceDash) { aliceDash.hidden = false; }
         initHeroBg("heroBgImage", "heroBgScrim");
         renderAliceDashboard();
+        loadSchedQueue();
       } else if (role === "rafa") {
         var rafaDash = document.getElementById("rafaDash");
         if (rafaDash) { rafaDash.hidden = false; }
@@ -1311,6 +1362,56 @@
           section.hidden = false;
         })
         .catch(function() {});
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // INTERVIEW SITTINGS — Alice's "I did a sitting" signal from the finance
+    // page. Surfaced here so she never has to send a text message about it;
+    // she still can, this is just the low-effort path.
+    // ══════════════════════════════════════════════════════════════════════
+
+    function loadInterviewSittings() {
+      apiFetch("/api/interview-sittings")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var section = document.getElementById("interviewSittingsSection");
+          var listEl  = document.getElementById("interviewSittingsList");
+          var badge   = document.getElementById("interviewSittingsBadge");
+          if (!section || !listEl) { return; }
+          var open = (data && data.sittings) || [];
+          if (!open.length) { section.hidden = true; return; }
+          if (badge) { badge.textContent = open.length; }
+          var isEnLang = document.body.classList.contains("lang-en");
+          var html = "";
+          open.forEach(function(sit) {
+            var when = sit.created_at || "";
+            var who  = sit.created_by_email || sit.created_by || "";
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
+              '<div style="flex:1;min-width:220px;">' +
+              '<div style="font-size:14px;font-weight:600;">' +
+              (isEnLang ? 'Answers waiting in the vault' : 'Respostas aguardando no vault') + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+              escHtml(when) + (who ? ' &middot; ' + escHtml(who) : '') +
+              '</div></div></div>';
+          });
+          html += '<div style="display:flex;gap:8px;margin-top:14px;">' +
+            '<button style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="clearInterviewSittings(this)">' +
+            (isEnLang ? 'Answers written into Apex' : 'Respostas j&aacute; lan&ccedil;adas no Apex') + '</button></div>';
+          listEl.innerHTML = html;
+          section.hidden = false;
+        })
+        .catch(function() {});
+    }
+
+    // Clears the flag. Only correct AFTER the collected answers have actually
+    // been written into Apex -- the flag is about retrieval, not about whether
+    // the client list is empty.
+    function clearInterviewSittings(btn) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/interview-sittings", { method: "POST", body: { clear: true } })
+        .then(function(res) { return res.json(); })
+        .then(function() { loadInterviewSittings(); })
+        .catch(function() { if (btn) { btn.disabled = false; } });
     }
 
     function decideGoalApproval(clientId, indicatorKey, monthLabel, decision, btn) {
@@ -2155,6 +2256,7 @@
         if (aliceDash) { aliceDash.hidden = false; }
         initHeroBg("heroBgImage", "heroBgScrim");
         renderAliceDashboard();
+        loadSchedQueue();
       } else if (role === "rafa") {
         if (rafaDash) { rafaDash.hidden = false; }
         initHeroBg("heroBgImageRafa", "heroBgScrimRafa");
@@ -2167,6 +2269,26 @@
     };
 
     // ── Bootstrap ──────────────────────────────────────────────────────────
+    // ── Scheduling queue ─────────────────────────────────────────────────
+    // Renders the SHARED module. Editar has no create-modal on this page (that
+    // lives on calendar.html, where a request is born), so onEdit sends her
+    // there rather than opening a second, drifting copy of the form.
+    function loadSchedQueue() {
+      if (!window.SchedulingQueue) {
+        console.error("[sched] scheduling-queue.js did not load — queue cannot render");
+        return;
+      }
+      window.SchedulingQueue.init({
+        containerId: "schedQueue",
+        blockId: "schedQueueBlock",
+        apiFetch: apiFetch,
+        isEn: function() {
+          return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+        },
+        onEdit: function() { window.location.href = "calendar.html"; }
+      });
+    }
+
     window.onload = function() { init(); };
   
     // ── Bilingual attributes ──────────────────────────────────────────────

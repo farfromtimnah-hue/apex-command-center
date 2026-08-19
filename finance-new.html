@@ -1958,6 +1958,29 @@
       </div>
     </div>
 
+    <!-- "Paguei no cartão" — one time, or from now on? Only the recurring
+         answer flips funding_source; a one-off must never permanently
+         reclassify a bill just because one month was tight. Top-level
+         sibling of the tab panels, never nested inside one. -->
+    <div id="cardPayOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeCardPay()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeCardPay()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title" id="cardPayTitle"></h3>
+        <div class="net-note" style="margin-bottom:16px;">
+          <span class="show-pt">Foi s&oacute; este m&ecirc;s ou vai passar a ser sempre no cart&atilde;o?</span>
+          <span class="show-en">Just this month, or from now on?</span>
+        </div>
+        <button type="button" class="btn btn-gold" onclick="confirmCardPay(false)" style="width:100%;margin-bottom:8px;">
+          <span class="show-pt">S&oacute; este m&ecirc;s</span>
+          <span class="show-en">Just this month</span>
+        </button>
+        <button type="button" class="btn" onclick="confirmCardPay(true)" style="width:100%;">
+          <span class="show-pt">Sempre no cart&atilde;o</span>
+          <span class="show-en">Always on the card</span>
+        </button>
+      </div>
+    </div>
+
     <!-- ══ Panel: Categorias ════════════════════════════════════════════ -->
     <!-- Occasional and deepening work, which is why it is its own tab rather
          than a column on the transaction list. NOTHING here gates anything on
@@ -3507,7 +3530,11 @@
             '<button class="btn btn-sm" onclick="openBillMatch(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\',' + b.amount_cents + ')">' +
               '<span class="show-pt">Vincular transa&ccedil;&atilde;o</span><span class="show-en">Link transaction</span></button> ' +
             '<button class="btn btn-sm btn-gold" onclick="markBillPaid(\'' + esc(b.id) + '\')">' +
-              '<span class="show-pt">Marcar pago</span><span class="show-en">Mark paid</span></button>' +
+              '<span class="show-pt">Marcar pago</span><span class="show-en">Mark paid</span></button> ' +
+            '<button class="btn btn-sm" onclick="payBillWithCard(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\')">' +
+              '<span class="show-pt">Paguei no cart&atilde;o</span><span class="show-en">Paid with card</span></button> ' +
+            '<button class="btn btn-sm" onclick="cancelBillService(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\')">' +
+              '<span class="show-pt">Cancelei</span><span class="show-en">Cancelled</span></button>' +
           "</div>" +
         "</div>";
       }).join("");
@@ -3521,6 +3548,57 @@
         .then(function(d) {
           if (d.error) { toast(d.error); return; }
           toast(t("Marcado como pago.", "Marked paid."));
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // "Paguei no cartão" — clears the bill for this month without claiming
+    // the money left the bank. The recurring answer flips funding_source so
+    // future months skip bank math entirely (same treatment as Claude).
+    var CARD_PAY_BILL_ID = null;
+
+    function payBillWithCard(billId, billName) {
+      CARD_PAY_BILL_ID = billId;
+      document.getElementById("cardPayTitle").textContent = billName;
+      document.getElementById("cardPayOverlay").hidden = false;
+    }
+
+    function closeCardPay() {
+      var ov = document.getElementById("cardPayOverlay");
+      if (ov) { ov.hidden = true; }
+      CARD_PAY_BILL_ID = null;
+    }
+
+    function confirmCardPay(recurring) {
+      if (!CARD_PAY_BILL_ID) { return; }
+      apiFetch("/api/finance-new/bills/" + encodeURIComponent(CARD_PAY_BILL_ID) + "/mark-paid", {
+        method: "POST", body: { paid_with_card: true, recurring: !!recurring }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(recurring ? t("Marcado como sempre no cart&atilde;o.", "Now always on the card.")
+                          : t("Marcado como pago no cart&atilde;o.", "Marked paid with card."));
+          closeCardPay();
+          loadForward();
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // "Cancelei" — the service is gone, which is different from Remover
+    // (delete). Keeps the row as history so a charge that shows up on the
+    // card two months later can still be looked up.
+    function cancelBillService(billId, billName) {
+      if (!confirm(t("Cancelou " + billName + "? A conta sai da lista.",
+                     "Cancelled " + billName + "? It comes off the list."))) { return; }
+      apiFetch("/api/finance-new/bills/" + encodeURIComponent(billId) + "/cancel", { method: "POST", body: {} })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(t("Cancelada.", "Cancelled."));
+          loadForward();
           loadOverdue();
         })
         .catch(function() { toast(t("Erro", "Error")); });

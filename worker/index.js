@@ -21800,18 +21800,72 @@ async function handlePostFinanceNewBillMarkPaid(billId, request, env) {
         var amountCents = isFinite(Number(body.amount_cents)) && Number(body.amount_cents) > 0
             ? Math.round(Number(body.amount_cents)) : bill.amount_cents;
 
+        // Paid on the credit card instead of from the bank. Nicole
+        // 2026-08-19: when things are tight Alice sometimes has to put a
+        // bill on the card. It still clears the month (so it leaves the
+        // overdue list), but no bank transaction will ever match it.
+        //
+        // `recurring` is the answer to "one time, or from now on?" -- only
+        // the recurring answer flips funding_source, which permanently
+        // removes the bill from bank math and the matcher (same treatment
+        // as Claude). A one-off must NOT change the bill itself, or a single
+        // tight month would silently reclassify it forever.
+        var paidWithCard = body.paid_with_card === true;
+        var matchType = paidWithCard ? "credit_card" : "manual";
+
         var id = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO fixed_bill_payments (id, bill_id, period_key, paid_at, amount_cents, " +
-            "transaction_id, match_type) VALUES (?, ?, ?, datetime('now'), ?, NULL, 'manual') " +
+            "transaction_id, match_type) VALUES (?, ?, ?, datetime('now'), ?, NULL, ?) " +
             "ON CONFLICT(bill_id, period_key) DO UPDATE SET " +
             "paid_at = datetime('now'), amount_cents = excluded.amount_cents, " +
-            "transaction_id = NULL, match_type = 'manual'"
-        ).bind(id, billId, periodKey, amountCents).run();
+            "transaction_id = NULL, match_type = excluded.match_type"
+        ).bind(id, billId, periodKey, amountCents, matchType).run();
 
-        return jsonOk({ paid: true, period_key: periodKey });
+        var nowRecurring = false;
+        if (paidWithCard && body.recurring === true) {
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET funding_source = 'credit_card' WHERE id = ?"
+            ).bind(billId).run();
+            nowRecurring = true;
+        }
+
+        return jsonOk({ paid: true, period_key: periodKey, paid_with_card: paidWithCard, now_on_card: nowRecurring });
     } catch (e) {
         return jsonErr("Error marking bill paid: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/:id/cancel — alice/rafa/developer only.
+//
+// "I cancelled this service." Distinct from Remover, which reads as delete
+// and tells you nothing about WHY the bill stopped. Nicole 2026-08-19.
+//
+// Deactivates the bill and stamps cancelled_at, so the row survives as
+// history -- a cancelled subscription that shows up on the card two months
+// later is a real thing to be able to look up, and a deleted row cannot
+// answer that.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillCancel(billId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var bill = await env.DB.prepare(
+            "SELECT id FROM fixed_bills WHERE id = ? AND active = 1"
+        ).bind(billId).first();
+        if (!bill) { return jsonErr("Bill not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE fixed_bills SET active = 0, cancelled_at = datetime('now') WHERE id = ?"
+        ).bind(billId).run();
+
+        return jsonOk({ cancelled: true });
+    } catch (e) {
+        return jsonErr("Error cancelling bill: " + e.message, 500);
     }
 }
 
@@ -27675,6 +27729,8 @@ async function handleFetch(request, env, ctx) {
         // on `fb_apple_ia` returned "Not found".
         var billMarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/mark-paid$/);
         if (billMarkPaidMatch && method === "POST") { return handlePostFinanceNewBillMarkPaid(billMarkPaidMatch[1], request, env); }
+        var billCancelMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/cancel$/);
+        if (billCancelMatch && method === "POST") { return handlePostFinanceNewBillCancel(billCancelMatch[1], request, env); }
         var billUnmarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/unmark-paid$/);
         if (billUnmarkPaidMatch && method === "POST") { return handlePostFinanceNewBillUnmarkPaid(billUnmarkPaidMatch[1], request, env); }
         if (path === "/api/finance-new/forward"           && method === "GET")  { return handleGetFinanceNewForward(request, env); }

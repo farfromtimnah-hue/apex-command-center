@@ -3370,10 +3370,17 @@
       }
       var parts = OVERDUE.upcoming_income.slice(0, 4).map(function(inc) {
         var name = esc(inc.client_name || t("cliente", "client"));
-        return t(
-          fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
-          fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at)
-        );
+        // is_scheduled = an active recurrence not yet turned into a real
+        // invoice -- most invoices generate and send ON their due date, so
+        // requiring a real invoice would hide reliable near-term income
+        // until the day it's already due. Still real (it fires
+        // automatically), just marked "prevista" (scheduled) rather than
+        // stated as flatly as an invoice already sent.
+        return inc.is_scheduled
+          ? t(fmtCents(inc.amount_cents) + " previsto de " + name + " em " + fmtDate(inc.due_at) + " (a faturar)",
+              fmtCents(inc.amount_cents) + " scheduled from " + name + " on " + fmtDate(inc.due_at) + " (not yet invoiced)")
+          : t(fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
+              fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at));
       });
       return '<span>' + parts.join(" &middot; ") + "</span>";
     }
@@ -3419,8 +3426,11 @@
         // participates in this allocation. See overdueInvoicesTagHtml().
         var coverageHtml = b.covered_by
           ? '<div class="bill-coverage is-covered">' +
-              t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
-                 "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at)) +
+              (b.covered_by.is_scheduled
+                ? t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; a faturar em " + fmtDate(b.covered_by.due_at),
+                     "Covered by " + esc(b.covered_by.client_name) + " &mdash; scheduled to invoice " + fmtDate(b.covered_by.due_at))
+                : t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
+                     "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at))) +
             "</div>"
           : '<div class="bill-coverage is-uncovered">' +
               t("Sem cobertura prevista", "No coverage expected") +

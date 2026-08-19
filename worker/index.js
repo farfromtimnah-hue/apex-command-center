@@ -21517,9 +21517,45 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
             }
             futureInvoices.push({
                 id: inv.id, client_id: inv.client_id, client_name: inv.client_name,
-                due_at: inv.due_at, remaining_cents: remaining
+                due_at: inv.due_at, remaining_cents: remaining, is_scheduled: false
             });
         }
+
+        // Active recurrences not yet generated into a real invoice. Nicole
+        // 2026-08-19: "most of the invoices are generated on the due day and
+        // sent that day" -- so requiring a real `invoices` row would exclude
+        // genuinely reliable near-term income right up until the moment it's
+        // already due, which defeats a forecast meant to show her Friday's
+        // money before Friday. Still excludes anything already covered by a
+        // real invoice for that period (the same guard runRecurringInvoices
+        // itself uses), and is labeled is_scheduled so the UI can show it as
+        // a notch less certain than money already invoiced -- the recurrence
+        // could still be edited or deactivated before it actually fires.
+        var recRes = await env.DB.prepare(
+            "SELECT ir.id, ir.client_id, ir.amount_cents, ir.interval_unit, ir.next_due_at, " +
+            "ir.end_after_n, ir.generated_count, ir.last_satisfied_period, c.name AS client_name " +
+            "FROM invoice_recurrence ir LEFT JOIN clients c ON c.id = ir.client_id " +
+            "WHERE ir.active = 1"
+        ).all();
+        for (var r = 0; r < (recRes.results || []).length; r++) {
+            var rec = recRes.results[r];
+            if (rec.end_after_n && rec.generated_count >= rec.end_after_n) { continue; }   // exhausted, about to self-deactivate
+            var vendorAddons = await getActiveVendorAddonsForClient(rec.client_id, env);
+            var recAmount = (rec.amount_cents || 0) + vendorAddons.totalCents;
+            if (!recAmount) { continue; }
+            var recPeriod = periodKeyFor(rec.next_due_at, rec.interval_unit);
+            if (rec.last_satisfied_period === recPeriod) { continue; }   // already covered by a real invoice
+            var alreadyInvoiced = await env.DB.prepare(
+                "SELECT id FROM invoices WHERE client_id = ? AND status != 'voided_mistake' " +
+                "AND (period_key = ? OR (issued_at IS NOT NULL AND substr(issued_at, 1, ?) = ?))"
+            ).bind(rec.client_id, recPeriod, recPeriod.length, recPeriod).first();
+            if (alreadyInvoiced) { continue; }
+            futureInvoices.push({
+                id: rec.id, client_id: rec.client_id, client_name: rec.client_name,
+                due_at: rec.next_due_at, remaining_cents: recAmount, is_scheduled: true
+            });
+        }
+        futureInvoices.sort(function(a, b) { return String(a.due_at) < String(b.due_at) ? -1 : 1; });
 
         // Allocation walk: cumulative pool across FUTURE invoices only, in
         // due-date order, bills consumed in priority order. Never splits a
@@ -21541,7 +21577,8 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
                 bill.covered_by = {
                     client_name: currentInvoice.client_name,
                     due_at: currentInvoice.due_at,
-                    invoice_id: currentInvoice.id
+                    invoice_id: currentInvoice.id,
+                    is_scheduled: !!currentInvoice.is_scheduled
                 };
                 pool -= bill.amount_cents;
             } else {
@@ -21553,8 +21590,14 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
         // worked example: "$4,000 esperado de JM Pools em 05/09 · $1,000
         // esperado de [cliente] em 07/09". Only genuinely future invoices --
         // see note above on why overdue ones are reported separately.
+        // is_scheduled marks money from an active recurrence not yet turned
+        // into a real invoice -- reliable (it's set to auto-generate on its
+        // due date), but a notch less certain than an invoice already sent.
         var upcomingIncome = futureInvoices.map(function(inv) {
-            return { client_name: inv.client_name, amount_cents: inv.remaining_cents, due_at: inv.due_at };
+            return {
+                client_name: inv.client_name, amount_cents: inv.remaining_cents,
+                due_at: inv.due_at, is_scheduled: !!inv.is_scheduled
+            };
         });
 
         return jsonOk({

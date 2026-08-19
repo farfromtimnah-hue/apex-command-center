@@ -1753,8 +1753,8 @@
       <div class="sec-head">
         <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
         <div class="card-title">
-          <span class="show-pt">Vis&atilde;o geral</span>
-          <span class="show-en">Overview</span>
+          <span class="show-pt">Gr&aacute;ficos</span>
+          <span class="show-en">Charts</span>
         </div>
         <span class="sec-move-btns">
           <button class="rank-btn" onclick="moveSection('charts',-1)" aria-label="Mover para cima">&#9650;</button>
@@ -7817,6 +7817,14 @@ names,
 
       } else if (key === "transactions") {
         html = (TRANSACTIONS || []).length + t(" transa&ccedil;&otilde;es", " transactions");
+
+      } else if (key === "charts") {
+        // Name what is inside. Collapsed, this section used to render an empty
+        // summary under the title "Visao geral", so it said nothing at all
+        // about its contents -- and the vendor-share chart Alice specifically
+        // asked for was invisible behind a label that never mentioned it.
+        html = t("Entrou e saiu &middot; por categoria &middot; saldo por conta &middot; fornecedores vs Apex",
+                 "Money in and out &middot; by category &middot; balance per account &middot; vendors vs Apex");
       }
 
       el.innerHTML = html;

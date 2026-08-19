@@ -1329,9 +1329,45 @@
            generating enough to pay him consistently. -->
       <div id="fwdOwnerPay" class="fwd-owner"></div>
 
+      <!-- Category budgets: a monthly spending TARGET, not a bill. No due
+           date, no single transaction that "is" the payment -- fuel,
+           groceries. Separate from Contas fixas below on purpose, per
+           Nicole 2026-08-19: a spreadsheet import had wrongly put fuel
+           spending into fixed_bills with a placeholder day, which made it
+           show up "overdue" every month and compete for coverage-forecast
+           dollars against real bills like the mortgage.
+
+           Placed ABOVE fixed bills -- Nicole 2026-08-19: "the budget is
+           more important" and needs the trend math (weeks left, projected
+           overage) front and center, not buried under a flat list. -->
+      <div class="fwd-bills">
+        <div class="fwd-bills-head">
+          <span class="show-pt">Or&ccedil;amentos por categoria</span>
+          <span class="show-en">Category budgets</span>
+        </div>
+        <div id="budgetsList"></div>
+        <div class="filter-row" style="margin-top:10px;margin-bottom:0">
+          <select id="budgetCategory" style="flex:2 1 150px"></select>
+          <input id="budgetAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
+                 data-ph-pt="Valor mensal" data-ph-en="Monthly amount" placeholder="Valor mensal">
+          <select id="budgetPurpose" style="flex:0 1 120px">
+            <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
+            <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
+          </select>
+          <button class="btn btn-sm btn-gold" id="budgetFormSubmitBtn" onclick="submitBudgetForm()">
+            <span class="show-pt">Adicionar</span>
+            <span class="show-en">Add</span>
+          </button>
+          <button class="btn btn-sm" id="budgetFormCancelBtn" onclick="cancelBudgetEdit()" hidden>
+            <span class="show-pt">Cancelar</span>
+            <span class="show-en">Cancel</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Fixed bills. Ships EMPTY -- nothing is seeded, suggested, or
            pre-filled. Alice enters what she wants tracked. -->
-      <div class="fwd-bills">
+      <div class="fwd-bills" style="margin-top:20px;">
         <div class="fwd-bills-head">
           <span class="show-pt">Contas fixas</span>
           <span class="show-en">Fixed bills</span>
@@ -1364,38 +1400,6 @@
             <span class="show-en">Add</span>
           </button>
           <button class="btn btn-sm" id="billFormCancelBtn" onclick="cancelBillEdit()" hidden>
-            <span class="show-pt">Cancelar</span>
-            <span class="show-en">Cancel</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Category budgets: a monthly spending TARGET, not a bill. No due
-           date, no single transaction that "is" the payment -- fuel,
-           groceries. Separate from Contas fixas above on purpose, per
-           Nicole 2026-08-19: a spreadsheet import had wrongly put fuel
-           spending into fixed_bills with a placeholder day, which made it
-           show up "overdue" every month and compete for coverage-forecast
-           dollars against real bills like the mortgage. -->
-      <div class="fwd-bills" style="margin-top:20px;">
-        <div class="fwd-bills-head">
-          <span class="show-pt">Or&ccedil;amentos por categoria</span>
-          <span class="show-en">Category budgets</span>
-        </div>
-        <div id="budgetsList"></div>
-        <div class="filter-row" style="margin-top:10px;margin-bottom:0">
-          <select id="budgetCategory" style="flex:2 1 150px"></select>
-          <input id="budgetAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
-                 data-ph-pt="Valor mensal" data-ph-en="Monthly amount" placeholder="Valor mensal">
-          <select id="budgetPurpose" style="flex:0 1 120px">
-            <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
-            <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
-          </select>
-          <button class="btn btn-sm btn-gold" id="budgetFormSubmitBtn" onclick="submitBudgetForm()">
-            <span class="show-pt">Adicionar</span>
-            <span class="show-en">Add</span>
-          </button>
-          <button class="btn btn-sm" id="budgetFormCancelBtn" onclick="cancelBudgetEdit()" hidden>
             <span class="show-pt">Cancelar</span>
             <span class="show-en">Cancel</span>
           </button>
@@ -3214,13 +3218,44 @@
         var remainingLabel = overBudget
           ? t("estourou em ", "over by ") + fmtCents(Math.abs(b.remaining_cents))
           : t("restam ", "") + fmtCents(b.remaining_cents) + (isEn() ? " left" : "");
-        return '<div class="fwd-bill-row" onclick="startEditBudget(\'' + esc(b.id) + '\')" style="cursor:pointer;">' +
+
+        var weeksLeftLabel = b.weeks_remaining === 1
+          ? t("1 semana restante no m&ecirc;s", "1 week left in the month")
+          : t(b.weeks_remaining + " semanas restantes no m&ecirc;s", b.weeks_remaining + " weeks left in the month");
+
+        // Projection: the whole point of a budget view is seeing the trend
+        // before the money is gone, not just today's snapshot -- Nicole
+        // 2026-08-19. Only worth saying if she hasn't already blown past it
+        // (that's remainingLabel's job) or if the projection is still
+        // comfortably under (no need to narrate "on track" every time,
+        // only when it's informative -- close to the line or over it).
+        var projectionHtml = "";
+        if (b.weeks_remaining > 0) {
+          var overProjected = b.projected_over_cents > 0;
+          if (overProjected) {
+            projectionHtml = '<div class="bill-coverage is-uncovered" style="margin-top:4px;">' +
+              t("No ritmo atual, deve estourar em " + fmtCents(b.projected_over_cents) + " at&eacute; o fim do m&ecirc;s",
+                 "At this pace, projected to go over by " + fmtCents(b.projected_over_cents) + " by month end") +
+              "</div>";
+          } else if (b.projected_spend_cents > b.monthly_amount_cents * 0.8) {
+            // Close to the line but not projected over -- worth a quieter
+            // heads-up, not the same visual weight as an actual overage.
+            projectionHtml = '<div class="tag-meta" style="margin-top:4px;">' +
+              t("No ritmo atual, deve fechar perto do limite", "At this pace, should land close to the limit") +
+              "</div>";
+          }
+        }
+
+        return '<div class="fwd-bill-row" onclick="startEditBudget(\'' + esc(b.id) + '\')" style="cursor:pointer;flex-wrap:wrap;">' +
           '<span class="grow">' + esc(b.category_name || b.category_id) +
             ' <span class="tag-meta">' +
               t("gasto ", "spent ") + fmtCents(b.spent_cents) + " / " + fmtCents(b.monthly_amount_cents) +
               " &middot; " + remainingLabel +
               " &middot; " + t("m&eacute;dia semanal ", "weekly avg ") + fmtCents(b.weekly_avg_cents) +
-            "</span></span>" +
+              " &middot; " + weeksLeftLabel +
+            "</span>" +
+            projectionHtml +
+          "</span>" +
         "</div>";
       }).join("");
     }

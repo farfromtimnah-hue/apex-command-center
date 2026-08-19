@@ -21582,7 +21582,14 @@ async function handleGetFinanceNewCategoryBudgets(request, env) {
 
         var now = new Date();
         var dayOfMonth = now.getUTCDate();
+        var daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
         var weeksElapsed = Math.max(1, Math.ceil(dayOfMonth / 7));
+        // Weeks remaining counts the current partial week as still open --
+        // "3 weeks left" on day 22 of a 30-day month should include the
+        // handful of days still in this week, not just the whole ones after
+        // it, since spending in the next few days still counts toward this
+        // week's pace.
+        var weeksRemaining = Math.max(0, Math.ceil((daysInMonth - dayOfMonth) / 7));
 
         var out = [];
         for (var i = 0; i < budgets.length; i++) {
@@ -21594,11 +21601,25 @@ async function handleGetFinanceNewCategoryBudgets(request, env) {
             ).bind(b.category_id).first();
             var spentCents = spentRow ? spentRow.spent : 0;
             var remainingCents = b.monthly_amount_cents - spentCents;   // negative = over budget, shown as-is
+            var weeklyAvgCents = Math.round(spentCents / weeksElapsed);
+
+            // Projection: if spending keeps pace with the average so far,
+            // what does the month end at, and how far over (or under) the
+            // budget does that land. Nicole 2026-08-19: "how much over they
+            // would be if the weekly average continues" -- the whole point
+            // of a budget view is seeing the trend before the money is
+            // already gone, not just a snapshot of what already happened.
+            var projectedSpendCents = spentCents + (weeklyAvgCents * weeksRemaining);
+            var projectedOverCents = projectedSpendCents - b.monthly_amount_cents;   // positive = projected over
+
             out.push({
                 id: b.id, category_id: b.category_id, category_name: b.category_name,
                 monthly_amount_cents: b.monthly_amount_cents, purpose: b.purpose, notes: b.notes,
                 spent_cents: spentCents, remaining_cents: remainingCents,
-                weekly_avg_cents: Math.round(spentCents / weeksElapsed)
+                weekly_avg_cents: weeklyAvgCents,
+                weeks_elapsed: weeksElapsed, weeks_remaining: weeksRemaining,
+                projected_spend_cents: projectedSpendCents,
+                projected_over_cents: projectedOverCents
             });
         }
 

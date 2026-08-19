@@ -1465,6 +1465,11 @@
         <span class="show-en">Overdue bills</span>
       </div>
       <div id="overdueSentence" class="fwd-sentence" style="font-size:15px"></div>
+      <!-- Deposits the matcher already recognised, waiting on one click.
+           Sits ABOVE the overdue rows on purpose: a bill sitting here is
+           almost certainly already paid, so confirming it is the fastest
+           way to shrink the list below. -->
+      <div id="billMatchSuggest" class="club-suggest" hidden></div>
       <div id="overdueRows" class="overdue-rows"></div>
       <div id="overdueEmpty" class="tag-meta" hidden>
         <span class="show-pt">Nenhuma conta atrasada. Tudo em dia.</span>
@@ -3387,13 +3392,59 @@
     // reason to hide it. Priority order (drag or the up/down fallback)
     // reorders optimistically in the browser, then persists via PUT.
 
+    var BILL_MATCHES = [];
+
     function loadOverdue() {
-      return apiFetch("/api/finance-new/bills/overdue").then(function(r) { return r.json(); })
+      return Promise.all([
+        apiFetch("/api/finance-new/bills/overdue").then(function(r) { return r.json(); }).catch(function() { return null; }),
+        apiFetch("/api/finance-new/bills/matches").then(function(r) { return r.json(); }).catch(function() { return null; })
+      ]).then(function(res) {
+        OVERDUE = res[0] && !res[0].error ? res[0] : null;
+        BILL_MATCHES = (res[1] && res[1].matches) || [];
+        renderOverdue();
+      });
+    }
+
+    // The matcher found these and nothing was showing them. Found live
+    // 2026-08-19: Planet Fitness was auto-detected as a bill, accepted,
+    // its $10.70 debit landed on its exact due date with an identical
+    // merchant string -- a perfect match -- and it still read as overdue,
+    // because /bills/matches had no UI. Accepting one also teaches
+    // payer_match_pattern, so that bill matches itself from then on.
+    function renderBillMatchSuggestions() {
+      var box = document.getElementById("billMatchSuggest");
+      if (!box) { return; }
+      if (!BILL_MATCHES.length) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML =
+        '<div class="club-suggest-head">' +
+          '<span class="show-pt">J&aacute; parece pago &mdash; confirma?</span>' +
+          '<span class="show-en">Looks already paid &mdash; confirm?</span>' +
+        "</div>" +
+        BILL_MATCHES.map(function(m) {
+          var txn = m.transaction || {};
+          return '<div class="club-sug-row">' +
+            '<span class="grow">' + esc(m.bill_name || "") +
+              ' <span class="tag-meta">' + fmtDate(txn.date) + " &middot; " + esc(txn.description || "") + "</span></span>" +
+            "<b>" + fmtCents(Math.abs(txn.amount_cents || 0)) + "</b>" +
+            '<button class="btn btn-sm btn-gold" onclick="approveBillMatch(\'' + esc(m.bill_id) + '\',\'' + esc(txn.id) + '\')">' +
+              '<span class="show-pt">Confirmar</span><span class="show-en">Confirm</span></button>' +
+          "</div>";
+        }).join("");
+    }
+
+    function approveBillMatch(billId, transactionId) {
+      apiFetch("/api/finance-new/bills/matches/approve", {
+        method: "POST", body: { bill_id: billId, transaction_id: transactionId }
+      })
+        .then(function(r) { return r.json(); })
         .then(function(d) {
-          OVERDUE = d && !d.error ? d : null;
-          renderOverdue();
+          if (d.error) { toast(d.error); return; }
+          toast(t("Confirmado.", "Confirmed."));
+          loadForward();
+          loadOverdue();
         })
-        .catch(function() { OVERDUE = null; renderOverdue(); });
+        .catch(function() { toast(t("Erro", "Error")); });
     }
 
     // Plain-sentence header, same "sentence first" principle as the forward
@@ -3468,11 +3519,21 @@
     function renderOverdue() {
       var card = document.getElementById("overdueCard");
       if (!card) { return; }
-      if (!OVERDUE || !OVERDUE.overdue_bills) { card.hidden = true; return; }
+      // Stay visible if there are matches waiting, even with no overdue data.
+      if (!OVERDUE || !OVERDUE.overdue_bills) {
+        if (BILL_MATCHES.length) { card.hidden = false; renderBillMatchSuggestions(); }
+        else { card.hidden = true; }
+        return;
+      }
       card.hidden = false;
 
       document.getElementById("overdueSentence").innerHTML =
         overdueSentenceHtml() + overdueInvoicesTagHtml() + cardChargesHtml();
+
+      // Before the early return below: a pending match is exactly what
+      // empties the overdue list, so it must render even when the list is
+      // currently empty.
+      renderBillMatchSuggestions();
 
       var rows = document.getElementById("overdueRows");
       var empty = document.getElementById("overdueEmpty");

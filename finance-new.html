@@ -1549,22 +1549,22 @@
         <span class="show-en">Transactions</span>
       </div>
       <div class="filter-row">
-        <input type="search" id="txnSearch" oninput="renderTransactions()"
+        <input type="search" id="txnSearch" oninput="resetAndRenderTransactions()"
                data-ph-pt="Buscar descri&ccedil;&atilde;o..." data-ph-en="Search description..." placeholder="Buscar descri&ccedil;&atilde;o...">
-        <select id="txnAccount" onchange="renderTransactions()">
+        <select id="txnAccount" onchange="resetAndRenderTransactions()">
           <option value="">Todas as contas / All accounts</option>
         </select>
-        <select id="txnPending" onchange="renderTransactions()">
+        <select id="txnPending" onchange="resetAndRenderTransactions()">
           <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
           <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
           <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
         </select>
-        <select id="txnCategoryFilter" onchange="renderTransactions()">
+        <select id="txnCategoryFilter" onchange="resetAndRenderTransactions()">
           <option value="">Todas as categorias / All categories</option>
           <option value="uncategorized">Sem categoria / Uncategorized</option>
         </select>
-        <input type="date" id="txnFrom" onchange="renderTransactions()">
-        <input type="date" id="txnTo" onchange="renderTransactions()">
+        <input type="date" id="txnFrom" onchange="resetAndRenderTransactions()">
+        <input type="date" id="txnTo" onchange="resetAndRenderTransactions()">
       </div>
       <div class="table-wrap">
         <table>
@@ -1583,6 +1583,9 @@
       <div id="txnEmpty" class="empty" hidden>
         <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
         <span class="show-en">No transactions found.</span>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-sm" id="txnShowMoreBtn" onclick="showMoreTransactions()" hidden></button>
       </div>
     </div>
 
@@ -4496,6 +4499,27 @@
       }).then(function() { loadAll(); }).catch(function() { toast(t("Erro", "Error")); });
     }
 
+    // Shown in batches, not all at once -- Nicole 2026-08-19: the finance
+    // page had grown into an endless scroll and she could no longer see
+    // things at a glance. Resets to the first batch whenever a filter
+    // changes (searching/filtering and then having to scroll past 400 rows
+    // to see if the filter worked would defeat the point).
+    var TXN_BATCH_SIZE = 25;
+    var txnVisibleCount = TXN_BATCH_SIZE;
+
+    function showMoreTransactions() {
+      txnVisibleCount += TXN_BATCH_SIZE;
+      renderTransactions();
+    }
+
+    // A filter/search change means she's looking for something specific --
+    // start back at the first batch so the result she's after isn't hidden
+    // behind whatever "show more" state was left over from before.
+    function resetAndRenderTransactions() {
+      txnVisibleCount = TXN_BATCH_SIZE;
+      renderTransactions();
+    }
+
     function renderTransactions() {
       var card = document.getElementById("txnCard");
       if (!ACCOUNTS.length) { card.hidden = true; return; }
@@ -4528,7 +4552,20 @@
       ACCOUNTS.forEach(function(a) { nameById[a.id] = a.name; });
 
       document.getElementById("txnEmpty").hidden = rows.length > 0;
-      document.getElementById("txnBody").innerHTML = rows.slice(0, 400).map(function(t) {
+
+      var visible = rows.slice(0, txnVisibleCount);
+      var moreBtn = document.getElementById("txnShowMoreBtn");
+      var remaining = rows.length - visible.length;
+      if (remaining > 0) {
+        moreBtn.hidden = false;
+        moreBtn.innerHTML =
+          '<span class="show-pt">Mostrar mais (' + Math.min(remaining, TXN_BATCH_SIZE) + ' de ' + remaining + ' restantes)</span>' +
+          '<span class="show-en">Show more (' + Math.min(remaining, TXN_BATCH_SIZE) + ' of ' + remaining + ' remaining)</span>';
+      } else {
+        moreBtn.hidden = true;
+      }
+
+      document.getElementById("txnBody").innerHTML = visible.map(function(t) {
         var pills = "";
         if (t.pending) { pills += ' <span class="pill pill-pending">pendente</span>'; }
         if (t.is_transfer) { pills += ' <span class="pill pill-transfer">transf.</span>'; }

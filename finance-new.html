@@ -3490,6 +3490,12 @@
             ? ' &middot; <a class="bill-compare-link" href="internet-options.html" target="_blank" rel="noopener">' +
               t("ver outras op&ccedil;&otilde;es", "see other options") + "</a>"
             : "") +
+          // The usage bills get the savings sheet instead: there is no competitor
+          // to switch to for power or county water, so the only lever is using less.
+          (b.is_variable
+            ? ' &middot; <a class="bill-compare-link" href="utility-savings.html" target="_blank" rel="noopener">' +
+              t("como baixar", "how to lower it") + "</a>"
+            : "") +
           (b.pay_url ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) +
             '" target="_blank" rel="noopener">' + t("pagar", "pay") + "</a>" : "") +
           (b.payee_notes ? " &middot; " + esc(b.payee_notes) : "") +

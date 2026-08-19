@@ -116,6 +116,14 @@
       box-shadow: 0 2px 16px rgba(26,26,29,0.18);
       padding: 24px;
       max-width: 400px; width: 100%;
+      /* Longer forms (vendor detail: 7 fields + attached-clients list) can
+         exceed the viewport on a short screen. .nc-overlay centers with
+         flex and no scroll of its own, so without this the bottom of the
+         modal -- including the Save button -- is simply unreachable.
+         max-height leaves room for the overlay's own 20px padding on each
+         side. */
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
     }
     .nc-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
     .nc-close {

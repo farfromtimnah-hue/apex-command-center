@@ -21523,6 +21523,33 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
         var today = new Date().toISOString().slice(0, 10);
         var periodKey = currentPeriodKey();
 
+        // Apply the matches the engine is CERTAIN about before deciding what is
+        // overdue. Until now buildBillMatchCandidates only ever proposed: an
+        // "auto" tier match -- learned pattern, exact amount, within days of the
+        // due date -- still required a click on a screen that was collapsed by
+        // default, so a bill that was demonstrably paid sat red indefinitely.
+        // Previdencia Joy was paid 08-11 and still showed overdue on 08-19 for
+        // exactly this reason.
+        //
+        // Only the "auto" tier self-applies. "suggest" still waits for her, and
+        // an ambiguous candidate (two bills sharing merchant, amount and day)
+        // is never auto-applied at all -- see buildBillMatchCandidates.
+        try {
+            var autoMatches = (await buildBillMatchCandidates(env)).filter(function(c) {
+                return c.tier === "auto" && !c.ambiguous;
+            });
+            for (var ai = 0; ai < autoMatches.length; ai++) {
+                var am = autoMatches[ai];
+                await env.DB.prepare(
+                    "INSERT INTO fixed_bill_payments (id, bill_id, period_key, paid_at, " +
+                    "amount_cents, transaction_id, match_type) " +
+                    "VALUES (?, ?, ?, datetime('now'), ?, ?, 'bank_matched') " +
+                    "ON CONFLICT(bill_id, period_key) DO NOTHING"
+                ).bind(crypto.randomUUID(), am.bill_id, periodKey,
+                       Math.abs(am.transaction.amount_cents), am.transaction.id).run();
+            }
+        } catch (e) { /* never let auto-apply break the overdue read */ }
+
         var billRes = await env.DB.prepare(
             "SELECT * FROM fixed_bills WHERE active = 1"
         ).all();
@@ -22048,8 +22075,16 @@ async function buildBillMatchCandidates(env) {
             // correct test. Amount equality and date proximity already gate
             // every candidate above, so this cannot widen matching to an
             // unrelated debit.
-            var patternMatch = !!bill.payer_match_pattern && !!txn.merchant_normalized &&
-                txn.merchant_normalized.indexOf(bill.payer_match_pattern) !== -1;
+            // Check the RAW description as well as the merchant key. A policy
+            // code like LS2223888 lives only in the description -- normalizeMerchant
+            // strips digits, so merchant_normalized is the bare "LIFE INS OF SW"
+            // for all three children. Matching the merchant key alone meant a
+            // policy code could be stored on a bill and still never match
+            // anything, leaving a paid bill sitting red.
+            var patternMatch = !!bill.payer_match_pattern && (
+                (!!txn.merchant_normalized && txn.merchant_normalized.indexOf(bill.payer_match_pattern) !== -1) ||
+                (!!txn.description && txn.description.indexOf(bill.payer_match_pattern) !== -1)
+            );
             // Fuzzy fallback when no learned pattern yet: the bill's own name
             // appears in the normalized merchant text.
             var fuzzyMatch = !bill.payer_match_pattern && txn.merchant_normalized &&

@@ -64,6 +64,22 @@
   .foot h2{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
   .foot p{margin:0 0 10px;font-size:13.5px}
   .foot p:last-child{margin-bottom:0}
+  .helpbtn{display:block;margin-top:7px;background:var(--gold-dim);border:1px solid var(--gold);
+           color:var(--brown);font-family:inherit;font-size:12px;font-weight:700;
+           padding:7px 10px;border-radius:8px;cursor:pointer;width:100%;text-align:center}
+  .helpbtn:hover{background:rgba(201,164,58,.22)}
+  .ov{position:fixed;inset:0;background:rgba(26,26,29,.55);display:flex;align-items:center;
+      justify-content:center;padding:18px;z-index:100}
+  .ov[hidden]{display:none}
+  .ovbox{background:var(--card);border-radius:var(--radius);max-width:520px;width:100%;
+         padding:22px;max-height:86vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+  .ovbox h3{margin:0 0 10px;font-size:16px}
+  .ovbox ol{margin:0 0 14px;padding-left:20px}
+  .ovbox li{margin-bottom:7px}
+  .ovbox .warn{background:var(--gold-dim);border-left:3px solid var(--gold);padding:10px 12px;
+               border-radius:6px;margin-bottom:14px;font-size:13px}
+  .ovbox button{width:100%;background:var(--gold);border:none;color:#1a1a1d;font-family:inherit;
+                font-size:14px;font-weight:700;padding:11px;border-radius:8px;cursor:pointer}
   .src{margin-top:18px;color:var(--muted);font-size:11.5px;line-height:1.6}
 
   @media (max-width:760px){
@@ -210,10 +226,14 @@
         <td data-lbl="Verizon 5G Business">
           <a class="btn" href="https://www.verizon.com/business/products/internet/5g/" target="_blank" rel="noopener">
             <span class="show-pt">Ver e contratar</span><span class="show-en">See it and order</span></a>
+          <button class="helpbtn" onclick="copyHelp('vz')">
+            <span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
         </td>
         <td class="best" data-lbl="Frontier Fiber 1 Gig">
           <a class="btn" href="https://go.frontier.com/availability/fl/zephyrhills" target="_blank" rel="noopener">
             <span class="show-pt">Ver e contratar</span><span class="show-en">See it and order</span></a>
+          <button class="helpbtn" onclick="copyHelp('fr')">
+            <span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
         </td>
       </tr>
 
@@ -260,7 +280,106 @@
 
 </div>
 
+
+<div id="ov" class="ov" hidden onclick="if(event.target===this)closeOv()">
+  <div class="ovbox" role="dialog" aria-modal="true">
+    <h3><span class="show-pt">Prompt copiado</span><span class="show-en">Prompt copied</span></h3>
+    <div class="warn">
+      <span class="show-pt"><b>Este vai no computador, na conta do Pastor Rafael</b> &mdash; no Claude
+        Code, n&atilde;o no aplicativo de conversa. &Eacute; a &uacute;nica conta que consegue abrir o
+        navegador e clicar junto com voc&ecirc;.</span>
+      <span class="show-en"><b>This one goes on the desktop, in Pastor Rafael's account</b> &mdash; in
+        Claude Code, not the chat app. It is the only account that can open the browser and click
+        through it with you.</span>
+    </div>
+    <ol>
+      <li><span class="show-pt">Abra o Claude Code no computador, na conta do Pastor Rafael.</span>
+          <span class="show-en">Open Claude Code on the desktop, in Pastor Rafael's account.</span></li>
+      <li><span class="show-pt">Comece uma conversa nova.</span>
+          <span class="show-en">Start a new conversation.</span></li>
+      <li><span class="show-pt">Cole o texto e mande.</span>
+          <span class="show-en">Paste the text and send it.</span></li>
+    </ol>
+    <button onclick="closeOv()"><span class="show-pt">Entendi</span><span class="show-en">Got it</span></button>
+  </div>
+</div>
+
 <script>
+  // Ordering internet is a longer errand than a rebate form: it starts with an
+  // availability check that can simply fail, and only becomes an order if the
+  // address qualifies. The prompt has to handle both outcomes.
+  var PROMPTS = {
+    vz: {
+      url: "https://www.verizon.com/business/products/internet/5g/",
+      pt: "verificar se o Verizon 5G Business Internet atende o meu endereco e, se atender, contratar o plano de 100 Mbps",
+      en: "check whether Verizon 5G Business Internet serves my address and, if it does, order the 100 Mbps plan"
+    },
+    fr: {
+      url: "https://go.frontier.com/availability/fl/zephyrhills",
+      pt: "verificar se a fibra da Frontier chega no meu endereco e, se chegar, contratar o plano Fiber 1 Gig (cerca de $64,99 por mes)",
+      en: "check whether Frontier fiber reaches my address and, if it does, order the Fiber 1 Gig plan (about $64.99/month)"
+    }
+  };
+
+  function buildPrompt(k){
+    var p = PROMPTS[k];
+    var en = document.body.classList.contains("lang-en");
+    return [
+"Me ajude a fazer isto no navegador, do comeco ao fim: " + (en ? p.en : p.pt) + ".",
+"",
+"Comece abrindo esta pagina no Chrome: " + p.url,
+"",
+"IMPORTANTE, ANTES DE QUALQUER COISA: use o meu Chrome de verdade, o que esta",
+"aberto nesta maquina, com as minhas abas e os meus logins. NAO use navegador",
+"em sandbox, navegador interno, preview, headless nem nenhuma janela isolada.",
+"Eu preciso VER a pagina na minha tela e clicar junto com voce - se abrir em",
+"um navegador que eu nao enxergo, nao serve para nada e eu nem vou perceber.",
+"Use a extensao Claude in Chrome / claude-in-chrome, que controla o navegador",
+"real. Se por algum motivo voce so conseguir abrir um navegador isolado, PARE",
+"e me diga - nao continue mesmo assim.",
+"",
+"Como eu preciso que voce trabalhe:",
+"",
+"- Fale comigo em portugues. O site esta em ingles; va me traduzindo o que",
+"  importa em cada tela, sem me pedir para ler ingles.",
+"- Faca voce mesmo tudo o que der: navegar, clicar, preencher o que ja souber.",
+"  So me pergunte quando for informacao que so eu tenho.",
+"- O primeiro passo e sempre conferir o endereco. As duas empresas liberam",
+"  servico rua por rua. Se o meu endereco NAO for atendido, me diga isso com",
+"  todas as letras e pare - nao tente contratar assim mesmo, e nao me ofereca",
+"  um plano diferente sem antes me explicar o que mudou.",
+"- Se for atendido, me diga o preco exato que aparecer na tela ANTES de",
+"  qualquer coisa. Se o preco for diferente do que eu esperava, pare e me",
+"  avise.",
+"- Quando precisar de um dado meu (endereco completo, telefone, email), me",
+"  peca. NUNCA invente nem chute nenhum dado meu.",
+"- Antes de fechar o pedido, me mostre exatamente o que vai ser enviado:",
+"  plano, preco mensal, taxas, prazo. Espere eu confirmar.",
+"- Se pedir cartao, senha, banco ou numero de documento, PARE e me avise.",
+"  Eu digito. Voce nao digita esses dados por mim.",
+"- Nao aceite nenhum servico extra, seguro ou upgrade que eu nao tenha pedido.",
+"",
+"No fim, me diga em uma frase o que ficou decidido: se foi contratado, o que",
+"foi contratado e por quanto, ou se nao da para contratar e por que."
+    ].join("\n");
+  }
+
+  function copyHelp(k){
+    var text = buildPrompt(k);
+    var done = function(){ document.getElementById("ov").hidden = false; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function(){ fallback(text, done); });
+    } else { fallback(text, done); }
+  }
+  function fallback(text, done){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); } catch(e){}
+    document.body.removeChild(ta); done();
+  }
+  function closeOv(){ document.getElementById("ov").hidden = true; }
+
   function setLang(l){
     document.body.classList.toggle("lang-en", l === "en");
     document.body.classList.toggle("lang-pt", l !== "en");

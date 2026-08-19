@@ -22024,7 +22024,19 @@ async function buildBillMatchCandidates(env) {
             ));
             if (dayDiff > 5) { return; }
 
-            var patternMatch = bill.payer_match_pattern && txn.merchant_normalized === bill.payer_match_pattern;
+            // A learned pattern matches when it is CONTAINED in the merchant
+            // key, not only when the two are byte-identical. Exact equality
+            // failed for every biller whose bank description carries a
+            // per-payment id: "DUKEENERGY" never equals "DUKEENERGY RETRY PYMT
+            // XXXXX WEB USER PRATA SANTOS DEFJPM WEB", so a bill that had been
+            // matched once STILL went unrecognised the next month and showed
+            // as overdue after she had already paid it. The stored pattern is
+            // the stable leading part of the merchant, so containment is the
+            // correct test. Amount equality and date proximity already gate
+            // every candidate above, so this cannot widen matching to an
+            // unrelated debit.
+            var patternMatch = !!bill.payer_match_pattern && !!txn.merchant_normalized &&
+                txn.merchant_normalized.indexOf(bill.payer_match_pattern) !== -1;
             // Fuzzy fallback when no learned pattern yet: the bill's own name
             // appears in the normalized merchant text.
             var fuzzyMatch = !bill.payer_match_pattern && txn.merchant_normalized &&

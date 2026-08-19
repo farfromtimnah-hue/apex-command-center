@@ -32,7 +32,7 @@ EXPECTED_SECTIONS = {
 ALLOWED_PANEL_OVERLAYS = {"newCatOverlay": "finPanelFaturas"}
 
 # Overlays that must exist AND must never drift into a tab panel.
-REQUIRED_OVERLAYS = {"promptCopiedOverlay"}
+REQUIRED_OVERLAYS = {"promptCopiedOverlay", "interviewDoneOverlay"}
 
 
 class Checker(HTMLParser):

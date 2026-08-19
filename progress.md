@@ -2433,3 +2433,29 @@ is read-only against Apex and that must not change — the two are deliberately 
 her instance can never overwrite client data. The interview only COLLECTS; every Apex write
 is done afterwards by a developer session. Do not build a write path from her Claude into
 Apex.
+
+## 2026-08-19 (c) — Interview completion signal
+
+`migrations/interview_sittings.sql` + `GET/POST /api/interview-sittings`. She clicks
+"Entrevista concluída" **once per sitting**, after doing as much as she had time for.
+Deliberately **not one click per client** — six clicks would repeat the original mistake of
+demanding too much input. Surfaced on dashboard.html so she never has to send a text about
+it (she still can; this is the low-effort path).
+
+Meaning of an open row: **"a sitting happened whose answers have not been retrieved yet"** —
+it does NOT mean "everything is done." It clears when a developer session writes the
+collected answers into Apex (`POST {clear:true}`).
+
+The count of what remains is **never stored** — it stays computed live by the NOT EXISTS
+query, which gives the right behaviour for free: writing terms drops a client out of the
+queue, and correcting one to lead/paused/closed drops it out by the status route. Four of
+six done → the queue shows two next visit and the next copied prompt names only those two.
+Partial work is a first-class outcome.
+
+⚠️ dashboard.html keeps its **own copies** of shared code — this surface was added there
+explicitly, in that file's own idiom (`escHtml`, `content-card`, `below-section`). Grep it
+before assuming any change carried over.
+
+⚠️ **A 200 OK proves nothing here.** A button on this page returned 200 while writing
+nothing for months. Verified by running the handler's exact INSERT and UPDATE against remote
+D1 and reading the row back (`changes: 1`, row present, then cleared, probe deleted).

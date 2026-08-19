@@ -2551,6 +2551,72 @@ async function handleGetClientsNeedingReview(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Routes: GET/POST /api/interview-sittings
+//
+// One signal per SITTING, not per client. She clicks "Entrevista concluida"
+// once after doing as much as she had time for; six clicks (one per client)
+// would repeat the exact mistake -- demanding too much input -- that left the
+// original queue unused for months.
+//
+// An unretrieved row means "a sitting happened whose answers have not been
+// pulled into Apex yet" -- NOT "everything is done". What remains is never
+// stored here: it stays computed live by the NOT EXISTS query in the
+// attention endpoint, so partial work needs no cleanup by hand.
+//
+// GET returns the open (unretrieved) sittings for the developer dashboard.
+// POST records one. POST {clear:true} stamps retrieved_at, which a developer
+// session does AFTER writing the collected answers into Apex.
+// ---------------------------------------------------------------------------
+async function handleGetInterviewSittings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT id, kind, created_at, created_by, created_by_email, note, retrieved_at " +
+            "FROM interview_sittings WHERE retrieved_at IS NULL ORDER BY created_at DESC"
+        ).all();
+
+        var open = rows.results || [];
+        return jsonOk({ sittings: open, open_count: open.length });
+    } catch (e) {
+        return jsonErr("Error fetching interview sittings: " + e.message, 500);
+    }
+}
+
+async function handlePostInterviewSitting(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        if (body && body.clear) {
+            var res = await env.DB.prepare(
+                "UPDATE interview_sittings SET retrieved_at = datetime('now'), retrieved_by = ? " +
+                "WHERE retrieved_at IS NULL"
+            ).bind(user.email || user.uid || null).run();
+            return jsonOk({ cleared: true, count: (res.meta && res.meta.changes) || 0 });
+        }
+
+        var id = crypto.randomUUID();
+        var kind = (body && body.kind) || "terms";
+        var note = (body && body.note) || null;
+
+        await env.DB.prepare(
+            "INSERT INTO interview_sittings (id, kind, created_by, created_by_email, note) " +
+            "VALUES (?, ?, ?, ?, ?)"
+        ).bind(id, kind, user.uid || null, user.email || null, note).run();
+
+        return jsonOk({ id: id, kind: kind });
+    } catch (e) {
+        return jsonErr("Error recording interview sitting: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/documents
 // Combined Documents list for the client profile: auto-generated session
 // reports (rendered client-side from sessions.pdf_data, same as the existing
@@ -27255,6 +27321,12 @@ async function handleFetch(request, env, ctx) {
         // /api/clients-needing-review  GET — active clients with no sign of activity
         if (segs[0] === "api" && segs[1] === "clients-needing-review" && segs.length === 2 && method === "GET") {
             return handleGetClientsNeedingReview(request, env);
+        }
+
+        // /api/interview-sittings  GET/POST — the "she did a sitting" signal
+        if (segs[0] === "api" && segs[1] === "interview-sittings" && segs.length === 2) {
+            if (method === "GET")  { return handleGetInterviewSittings(request, env); }
+            if (method === "POST") { return handlePostInterviewSitting(request, env); }
         }
 
         // /api/users/:email  DELETE

@@ -1548,6 +1548,15 @@
           <span class="show-pt">Nada pendente. As regras cuidaram de tudo at&eacute; aqui.</span>
           <span class="show-en">Nothing pending. The rules handled everything so far.</span>
         </div>
+        <!-- One signal per sitting, after doing as much as she had time for.
+             Never one per client: six clicks is the demand that killed the
+             original queue. -->
+        <div class="btn-row" id="attnDoneRow" style="margin-top:14px" hidden>
+          <button class="btn btn-sm" onclick="markInterviewDone()">
+            <span class="show-pt">Entrevista conclu&iacute;da</span>
+            <span class="show-en">Interview done</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2243,6 +2252,24 @@
       </div>
     </div>
 
+    <!-- ══ Interview completion signal ══════════════════════════════════ -->
+    <div id="interviewDoneOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeInterviewDone()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeInterviewDone()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Entrevista registrada.</span>
+          <span class="show-en">Interview recorded.</span>
+        </h3>
+        <div class="net-note" style="margin-bottom:16px;">
+          <span class="show-pt">A lista continua at&eacute; as respostas entrarem no Apex.</span>
+          <span class="show-en">The list stays until the answers land in Apex.</span>
+        </div>
+        <button type="button" class="btn btn-gold" onclick="closeInterviewDone()" style="width:100%;">
+          <span class="show-pt">Fechar</span>
+          <span class="show-en">Close</span>
+        </button>
+      </div>
+    </div>
 
     <!-- ══ Panel: Categorias ════════════════════════════════════════════ -->
     <!-- Occasional and deepening work, which is why it is its own tab rather
@@ -3198,6 +3225,8 @@
       }).join("");
 
       document.getElementById("attnClear").hidden = rows.length > 0;
+      var doneRow = document.getElementById("attnDoneRow");
+      if (doneRow) { doneRow.hidden = rows.length === 0; }
 
       // The work shrinking, stated as a fact about the rules rather than a
       // score about her. Only shown once the rules have actually done
@@ -7464,6 +7493,25 @@ names,
       }).catch(function() {
         toast(t("N&atilde;o consegui copiar.", "Could not copy."));
       });
+    }
+
+    // Records that a sitting happened. It does NOT clear the queue: what is
+    // left stays computed live from the terms table, so the count shrinks only
+    // as answers actually land in Apex.
+    function markInterviewDone() {
+      apiFetch("/api/interview-sittings", { method: "POST", body: { kind: "terms" } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || d.error) { toast(t("Erro", "Error")); return; }
+          var el = document.getElementById("interviewDoneOverlay");
+          if (el) { el.hidden = false; }
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function closeInterviewDone() {
+      var el = document.getElementById("interviewDoneOverlay");
+      if (el) { el.hidden = true; }
     }
 
     function openPromptCopied() {

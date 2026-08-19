@@ -21030,9 +21030,19 @@ async function handlePostFinanceNewTransactionCategory(request, env, txnId) {
 
         // The transaction itself, in every scope. Marked 'manual' so no later
         // automatic pass can quietly overwrite her answer.
+        //
+        // categorized_by records WHO. Without it "why is this a tithe?" has no
+        // answer at all: the table had category_source but no actor column, so
+        // a manual categorisation was indistinguishable between Alice, Rafa and
+        // a developer session. Apex added actor attribution elsewhere in July;
+        // categorisation never got it.
+        //
+        // NOTE ON THE TIMESTAMP: datetime('now') is UTC, four hours ahead of
+        // Eastern. Convert before displaying -- 21:59 UTC is 5:59 PM local.
         await env.DB.prepare(
-            "UPDATE transactions SET category_id = ?, category_source = 'manual', categorized_at = datetime('now') WHERE id = ?"
-        ).bind(categoryId, txnId).run();
+            "UPDATE transactions SET category_id = ?, category_source = 'manual', " +
+            "categorized_at = datetime('now'), categorized_by = ? WHERE id = ?"
+        ).bind(categoryId, actorName(user), txnId).run();
 
         var ruleWritten = false;
         var retroApplied = 0;

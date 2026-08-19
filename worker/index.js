@@ -21457,20 +21457,35 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
 
         // Overdue: due date for this period has passed, and no payment row
         // exists for this bill this period.
+        //
+        // ⚠️ funding_source != 'bank' is EXCLUDED from overdue entirely.
+        // A charge that lands on a credit card the system cannot see (the
+        // Apple Card: no Plaid institution, no aggregator, FinanceKit is
+        // on-device-only) will NEVER produce a matching bank transaction, so
+        // treating its due date as "overdue, payment missing" is permanently
+        // wrong -- it would sit red forever and eat coverage-forecast dollars
+        // that are not actually owed from the bank. It is still returned to
+        // the UI separately (upcoming_card_charges) so Alice can SEE it
+        // coming and check the card herself. Nicole 2026-08-19: "still show
+        // them... but she has to look at the credit card to make sure that
+        // they get charged there."
         var overdue = [];
+        var cardCharges = [];
         bills.forEach(function(b) {
             var od = daysOverdueFor(b.day_of_month, today);
-            if (od.days_overdue > 0 && !paidBillIds[b.id]) {
-                overdue.push({
-                    id: b.id, name: b.name, amount_cents: b.amount_cents,
-                    purpose: b.purpose, payment_method: b.payment_method,
-                    pay_url: b.pay_url, payee_notes: b.payee_notes,
-                    priority_rank: b.priority_rank, day_of_month: b.day_of_month,
-                    due_at: od.due_at, days_overdue: od.days_overdue,
-                    payer_match_pattern: b.payer_match_pattern
-                });
-            }
+            var row = {
+                id: b.id, name: b.name, amount_cents: b.amount_cents,
+                purpose: b.purpose, payment_method: b.payment_method,
+                pay_url: b.pay_url, payee_notes: b.payee_notes,
+                priority_rank: b.priority_rank, day_of_month: b.day_of_month,
+                due_at: od.due_at, days_overdue: od.days_overdue,
+                payer_match_pattern: b.payer_match_pattern,
+                funding_source: b.funding_source || "bank"
+            };
+            if (row.funding_source !== "bank") { cardCharges.push(row); return; }
+            if (od.days_overdue > 0 && !paidBillIds[b.id]) { overdue.push(row); }
         });
+        cardCharges.sort(function(a, b) { return a.day_of_month - b.day_of_month; });
 
         // Priority order: ranked bills first (by rank), then unranked bills
         // by day_of_month so a newly added bill isn't silently invisible
@@ -21602,6 +21617,7 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
 
         return jsonOk({
             period_key: periodKey,
+            upcoming_card_charges: cardCharges,
             overdue_invoices_total_cents: overdueInvoiceTotal,
             today: today,
             overdue_bills: overdue,
@@ -21843,8 +21859,12 @@ async function buildBillMatchCandidates(env) {
     var today = new Date().toISOString().slice(0, 10);
     var periodKey = currentPeriodKey();
 
+    // funding_source != 'bank' can never produce a bank transaction to match
+    // against (see the note in handleGetFinanceNewBillsOverdue), so proposing
+    // matches for it would only ever produce false positives against some
+    // unrelated debit of a similar amount.
     var billRes = await env.DB.prepare(
-        "SELECT * FROM fixed_bills WHERE active = 1"
+        "SELECT * FROM fixed_bills WHERE active = 1 AND COALESCE(funding_source, 'bank') = 'bank'"
     ).all();
     var bills = billRes.results || [];
 
@@ -27648,9 +27668,14 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/bills/priority"    && method === "PUT")  { return handlePutFinanceNewBillsPriority(request, env); }
         if (path === "/api/finance-new/bills/matches"     && method === "GET")  { return handleGetFinanceNewBillMatches(request, env); }
         if (path === "/api/finance-new/bills/matches/approve" && method === "POST") { return handlePostFinanceNewBillMatchApprove(request, env); }
-        var billMarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9-]+)\/mark-paid$/);
+        // NOTE: the id class must include underscore. Seeded bills use ids like
+        // `fb_apple_ia` / `fb_cartao_apple`, so an [A-Za-z0-9-]+ class silently
+        // 404s mark-paid and unmark-paid for EVERY spreadsheet-seeded bill --
+        // only the UUID-id rows worked. Found live 2026-08-19 when unmark-paid
+        // on `fb_apple_ia` returned "Not found".
+        var billMarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/mark-paid$/);
         if (billMarkPaidMatch && method === "POST") { return handlePostFinanceNewBillMarkPaid(billMarkPaidMatch[1], request, env); }
-        var billUnmarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9-]+)\/unmark-paid$/);
+        var billUnmarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/unmark-paid$/);
         if (billUnmarkPaidMatch && method === "POST") { return handlePostFinanceNewBillUnmarkPaid(billUnmarkPaidMatch[1], request, env); }
         if (path === "/api/finance-new/forward"           && method === "GET")  { return handleGetFinanceNewForward(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }

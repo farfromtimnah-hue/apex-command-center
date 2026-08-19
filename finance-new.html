@@ -801,6 +801,23 @@
     .budget-projection.is-over { color: var(--red); }
     .budget-projection.is-watch { color: var(--brown); }
 
+    /* ── Charges on a card the system cannot see ──
+       Deliberately NOT red and NOT in the overdue list: these are not late
+       and not owed from the bank, they are a heads-up to go look at the
+       card statement. Neutral bordered block, quieter than an overdue row. */
+    .card-charges {
+      margin-top: 10px; padding: 10px 12px;
+      border: 1px dashed var(--border); border-radius: 8px;
+    }
+    .card-charges-head {
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .card-charge-row {
+      display: flex; justify-content: space-between; gap: 10px;
+      font-size: 13px; padding: 3px 0;
+    }
+
     /* ── Apex Club event P&L ──
        The verdict sentence carries the whole answer. A small loss on an event
        Apex is still learning to run is NOT a failure -- Apex went full time in
@@ -3385,6 +3402,32 @@
       return '<span>' + parts.join(" &middot; ") + "</span>";
     }
 
+    // Charges that hit a credit card the system cannot see (Apple Card has
+    // no Plaid institution and no aggregator support at all -- Apple's
+    // FinanceKit is on-device/iPhone-only). They are NOT overdue, NOT owed
+    // from the bank, and never bank-matchable -- but Alice still wants to
+    // see them coming so she remembers to check the card. Nicole 2026-08-19:
+    // "still show them... but she has to look at the credit card to make
+    // sure that they get charged there."
+    function cardChargesHtml() {
+      var rows = (OVERDUE && OVERDUE.upcoming_card_charges) || [];
+      if (!rows.length) { return ""; }
+      var total = rows.reduce(function(s, r) { return s + (r.amount_cents || 0); }, 0);
+      return '<div class="card-charges">' +
+        '<div class="card-charges-head">' +
+          t("No cart&atilde;o &mdash; " + fmtCents(total) + "/m&ecirc;s (confira na fatura do cart&atilde;o)",
+             "On the card &mdash; " + fmtCents(total) + "/mo (check the card statement)") +
+        "</div>" +
+        rows.map(function(r) {
+          return '<div class="card-charge-row">' +
+            "<span>" + esc(r.name) + ' <span class="tag-meta">' +
+              t("dia " + r.day_of_month, "day " + r.day_of_month) + "</span></span>" +
+            "<b>" + fmtCents(r.amount_cents) + "</b>" +
+          "</div>";
+        }).join("") +
+      "</div>";
+    }
+
     // A separate, plainly-stated total -- NOT folded into the coverage
     // forecast or the sentence above. Nicole 2026-08-19: "add it as a tag
     // above the list saying $X in overdue invoices outstanding" -- real
@@ -3405,7 +3448,8 @@
       if (!OVERDUE || !OVERDUE.overdue_bills) { card.hidden = true; return; }
       card.hidden = false;
 
-      document.getElementById("overdueSentence").innerHTML = overdueSentenceHtml() + overdueInvoicesTagHtml();
+      document.getElementById("overdueSentence").innerHTML =
+        overdueSentenceHtml() + overdueInvoicesTagHtml() + cardChargesHtml();
 
       var rows = document.getElementById("overdueRows");
       var empty = document.getElementById("overdueEmpty");

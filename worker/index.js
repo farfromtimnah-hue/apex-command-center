@@ -21322,6 +21322,40 @@ async function handlePostFinanceNewBill(request, env) {
             return jsonOk({ deleted: true });
         }
 
+        var paymentMethod = body.payment_method === "draft" ? "draft" : "manual";
+        var payUrl = body.pay_url ? String(body.pay_url).trim().slice(0, 500) : null;
+        var payeeNotes = body.payee_notes ? String(body.payee_notes).trim().slice(0, 2000) : null;
+
+        // Editing an existing bill. Same row, not a new one -- priority_rank
+        // and payer_match_pattern (and payment history) must survive an edit
+        // to name/amount/day, otherwise every typo fix would silently reset
+        // her ranking and re-break bank-matching.
+        if (body.update_id) {
+            var existing = await env.DB.prepare(
+                "SELECT id FROM fixed_bills WHERE id = ? AND active = 1"
+            ).bind(body.update_id).first();
+            if (!existing) { return jsonErr("Bill not found", 404); }
+
+            var uName = String(body.name || "").trim();
+            var uCents = Math.round(Number(body.amount_cents));
+            var uDay = Math.round(Number(body.day_of_month));
+            if (!uName) { return jsonErr("name required", 400); }
+            if (!isFinite(uCents) || uCents <= 0) { return jsonErr("amount must be positive", 400); }
+            if (!isFinite(uDay) || uDay < 1 || uDay > 31) { return jsonErr("day_of_month must be 1-31", 400); }
+
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET name = ?, amount_cents = ?, day_of_month = ?, purpose = ?, " +
+                "notes = ?, payment_method = ?, pay_url = ?, payee_notes = ? WHERE id = ?"
+            ).bind(
+                uName, uCents, uDay,
+                body.purpose === "business" ? "business" : "personal",
+                body.notes || null, paymentMethod, payUrl, payeeNotes,
+                body.update_id
+            ).run();
+
+            return jsonOk({ id: body.update_id, updated: true });
+        }
+
         var name = String(body.name || "").trim();
         var cents = Math.round(Number(body.amount_cents));
         var day = Math.round(Number(body.day_of_month));
@@ -21331,17 +21365,434 @@ async function handlePostFinanceNewBill(request, env) {
 
         var id = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO fixed_bills (id, name, amount_cents, day_of_month, purpose, notes, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO fixed_bills (id, name, amount_cents, day_of_month, purpose, notes, created_by, " +
+            "payment_method, pay_url, payee_notes) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             id, name, cents, day,
             body.purpose === "business" ? "business" : "personal",
-            body.notes || null, actorName(user)
+            body.notes || null, actorName(user),
+            paymentMethod, payUrl, payeeNotes
         ).run();
 
         return jsonOk({ id: id });
     } catch (e) {
         return jsonErr("Error saving bill: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// OVERDUE BILLS + COVERAGE FORECAST.
+//
+// Overdue is purely date-based: day_of_month has passed for the current
+// period (clamped to the month's real length) AND no fixed_bill_payments row
+// exists for bill_id + period_key. Computed on read, same reasoning as
+// invoices deriving remaining_cents on read rather than caching a stale
+// status.
+//
+// The coverage forecast is INFORMATIONAL CONTEXT next to the overdue flag,
+// never a softening of it. A bill that is covered by an incoming invoice is
+// still shown as overdue -- the money isn't in hand yet, only expected.
+// ===========================================================================
+
+function currentPeriodKey() {
+    return new Date().toISOString().slice(0, 7);   // 'YYYY-MM'
+}
+
+// Days overdue: today minus this period's due date, clamped to the month.
+function daysOverdueFor(dayOfMonth, todayIso) {
+    var parts = todayIso.split("-");
+    var y = Number(parts[0]), mIdx = Number(parts[1]) - 1;
+    var dueIso = billDateFor(y, mIdx, dayOfMonth);
+    var due = Date.parse(dueIso + "T00:00:00Z");
+    var today = Date.parse(todayIso + "T00:00:00Z");
+    return { due_at: dueIso, days_overdue: Math.round((today - due) / 86400000) };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/bills/overdue — alice/rafa/developer only.
+//
+// Computes, for the current period: which bills are overdue, sorted by
+// priority_rank (nulls last, then day_of_month as secondary key so an
+// unranked bill isn't invisible), joined with a coverage-forecast allocation
+// against open invoices.
+//
+// Coverage forecast — allocation logic (spec, exact algorithm):
+// Walk overdue bills in priority order, maintaining a running "available"
+// pool that starts at the first invoice's remaining_cents.
+//   1. If the pool covers this bill's amount_cents, mark it covered_by that
+//      invoice, subtract the bill's amount from the pool.
+//   2. If the pool runs out mid-bill, advance to the next invoice by due
+//      date and add its remaining_cents to the pool. A bill's coverage
+//      doesn't split across two invoices in the display -- it's attributed
+//      to whichever invoice's money completes it.
+//   3. If no more invoices remain and the bill still isn't covered, it shows
+//      no coverage -- surfaced plainly. That's the real, uncovered overdue
+//      debt this feature exists to catch.
+//
+// Only real generated invoices with a firm due date and open balance count
+// (status IN ('sent','overdue'), remaining_cents > 0, due_at IS NOT NULL) --
+// not speculative future recurrence that hasn't generated a row yet.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewBillsOverdue(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var today = new Date().toISOString().slice(0, 10);
+        var periodKey = currentPeriodKey();
+
+        var billRes = await env.DB.prepare(
+            "SELECT * FROM fixed_bills WHERE active = 1"
+        ).all();
+        var bills = billRes.results || [];
+
+        var paidRes = await env.DB.prepare(
+            "SELECT bill_id FROM fixed_bill_payments WHERE period_key = ?"
+        ).bind(periodKey).all();
+        var paidBillIds = {};
+        (paidRes.results || []).forEach(function(p) { paidBillIds[p.bill_id] = true; });
+
+        // Overdue: due date for this period has passed, and no payment row
+        // exists for this bill this period.
+        var overdue = [];
+        bills.forEach(function(b) {
+            var od = daysOverdueFor(b.day_of_month, today);
+            if (od.days_overdue > 0 && !paidBillIds[b.id]) {
+                overdue.push({
+                    id: b.id, name: b.name, amount_cents: b.amount_cents,
+                    purpose: b.purpose, payment_method: b.payment_method,
+                    pay_url: b.pay_url, payee_notes: b.payee_notes,
+                    priority_rank: b.priority_rank, day_of_month: b.day_of_month,
+                    due_at: od.due_at, days_overdue: od.days_overdue,
+                    payer_match_pattern: b.payer_match_pattern
+                });
+            }
+        });
+
+        // Priority order: ranked bills first (by rank), then unranked bills
+        // by day_of_month so a newly added bill isn't silently invisible
+        // before she's ranked it.
+        overdue.sort(function(a, b) {
+            var aR = (a.priority_rank === null || a.priority_rank === undefined) ? null : a.priority_rank;
+            var bR = (b.priority_rank === null || b.priority_rank === undefined) ? null : b.priority_rank;
+            if (aR !== null && bR !== null) { return aR - bR; }
+            if (aR !== null) { return -1; }
+            if (bR !== null) { return 1; }
+            return a.day_of_month - b.day_of_month;
+        });
+
+        // Open invoices: real money already invoiced, firm due date, unpaid
+        // balance. Sorted by due date ascending for the allocation walk.
+        var invRes = await env.DB.prepare(
+            "SELECT i.id, i.client_id, i.amount_cents, i.due_at, c.name AS client_name " +
+            "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id " +
+            "WHERE i.status IN ('sent','overdue') AND i.due_at IS NOT NULL " +
+            "ORDER BY i.due_at ASC"
+        ).all();
+        var openInvoices = [];
+        for (var q = 0; q < (invRes.results || []).length; q++) {
+            var inv = invRes.results[q];
+            var paidCents = await invoicePaidCents(env, inv.id);
+            var remaining = (inv.amount_cents || 0) - paidCents;
+            if (remaining > 0) {
+                openInvoices.push({
+                    id: inv.id, client_id: inv.client_id, client_name: inv.client_name,
+                    due_at: inv.due_at, remaining_cents: remaining
+                });
+            }
+        }
+
+        // Allocation walk: cumulative pool across invoices in due-date order,
+        // bills consumed in priority order. Never splits a bill's coverage
+        // across two invoices in the display.
+        var invIdx = 0;
+        var pool = openInvoices.length ? openInvoices[0].remaining_cents : 0;
+        var currentInvoice = openInvoices.length ? openInvoices[0] : null;
+
+        overdue.forEach(function(bill) {
+            // Advance through invoices until the pool covers this bill, or
+            // invoices run out.
+            while (currentInvoice && pool < bill.amount_cents && invIdx + 1 < openInvoices.length) {
+                invIdx += 1;
+                currentInvoice = openInvoices[invIdx];
+                pool += currentInvoice.remaining_cents;
+            }
+
+            if (currentInvoice && pool >= bill.amount_cents) {
+                bill.covered_by = {
+                    client_name: currentInvoice.client_name,
+                    due_at: currentInvoice.due_at,
+                    invoice_id: currentInvoice.id
+                };
+                pool -= bill.amount_cents;
+            } else {
+                bill.covered_by = null;
+            }
+        });
+
+        // Header note: upcoming invoice income, plain sentence form. Nicole's
+        // worked example: "$4,000 esperado de JM Pools em 05/09 · $1,000
+        // esperado de [cliente] em 07/09".
+        var upcomingIncome = openInvoices.map(function(inv) {
+            return { client_name: inv.client_name, amount_cents: inv.remaining_cents, due_at: inv.due_at };
+        });
+
+        return jsonOk({
+            period_key: periodKey,
+            today: today,
+            overdue_bills: overdue,
+            upcoming_income: upcomingIncome
+        });
+    } catch (e) {
+        return jsonErr("Error computing overdue bills: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance-new/bills/priority — alice/rafa/developer only.
+// Body: { order: [bill_id, bill_id, ...] }  (in the new priority order)
+//
+// Rewrites priority_rank for the affected rows only, 1-based by position in
+// the array. Set once via drag-and-drop (or the button fallback), reused
+// every month -- editable any time, never re-derived from scratch.
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceNewBillsPriority(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var order = Array.isArray(body.order) ? body.order : null;
+        if (!order || !order.length) { return jsonErr("order (array of bill_id) required", 400); }
+
+        for (var i = 0; i < order.length; i++) {
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET priority_rank = ? WHERE id = ?"
+            ).bind(i + 1, order[i]).run();
+        }
+
+        return jsonOk({ updated: order.length });
+    } catch (e) {
+        return jsonErr("Error saving priority order: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/:id/mark-paid — alice/rafa/developer only.
+// Body: { amount_cents? }  -- defaults to the bill's own amount_cents.
+//
+// Manual mark-paid, ALWAYS available -- not a fallback state hidden behind a
+// failed auto-match. Alice/Rafa may pay something off-system (credit card,
+// etc.) and this button must never disappear on the assumption bank-matching
+// will always work. Writes match_type: 'manual', transaction_id: NULL --
+// same paid-state as a bank match, only the provenance differs.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillMarkPaid(billId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var bill = await env.DB.prepare(
+            "SELECT id, amount_cents FROM fixed_bills WHERE id = ? AND active = 1"
+        ).bind(billId).first();
+        if (!bill) { return jsonErr("Bill not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var periodKey = currentPeriodKey();
+        var amountCents = isFinite(Number(body.amount_cents)) && Number(body.amount_cents) > 0
+            ? Math.round(Number(body.amount_cents)) : bill.amount_cents;
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO fixed_bill_payments (id, bill_id, period_key, paid_at, amount_cents, " +
+            "transaction_id, match_type) VALUES (?, ?, ?, datetime('now'), ?, NULL, 'manual') " +
+            "ON CONFLICT(bill_id, period_key) DO UPDATE SET " +
+            "paid_at = datetime('now'), amount_cents = excluded.amount_cents, " +
+            "transaction_id = NULL, match_type = 'manual'"
+        ).bind(id, billId, periodKey, amountCents).run();
+
+        return jsonOk({ paid: true, period_key: periodKey });
+    } catch (e) {
+        return jsonErr("Error marking bill paid: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/:id/unmark-paid — alice/rafa/developer only.
+//
+// Undo, for a mis-click or a mistaken bank match. Mirrors the "sticky-note,
+// never an accounting event" reversibility already established for invoice
+// mark-paid (handlePostFinanceNewInvoiceUnclaimPaid).
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillUnmarkPaid(billId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var periodKey = currentPeriodKey();
+        await env.DB.prepare(
+            "DELETE FROM fixed_bill_payments WHERE bill_id = ? AND period_key = ?"
+        ).bind(billId, periodKey).run();
+
+        return jsonOk({ unmarked: true });
+    } catch (e) {
+        return jsonErr("Error unmarking bill: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Bank-matching for bill payments -- the OUTGOING mirror of
+// buildMatchCandidates (deposits -> invoices). Suggest-only: never writes
+// fixed_bill_payments without her confirming, same house pattern as deposit
+// matching and client_payer_aliases.
+//
+// Match on: exact amount_cents (negative, outgoing) · date within a few days
+// of the bill's day_of_month for the current period · payer_match_pattern if
+// already known, else a suggest-only fuzzy pass on merchant_normalized
+// against the bill name.
+//
+// First confirmed match for a bill writes fixed_bills.payer_match_pattern,
+// same learn-once-reuse-forever shape as client_payer_aliases.
+// ---------------------------------------------------------------------------
+
+async function buildBillMatchCandidates(env) {
+    var today = new Date().toISOString().slice(0, 10);
+    var periodKey = currentPeriodKey();
+
+    var billRes = await env.DB.prepare(
+        "SELECT * FROM fixed_bills WHERE active = 1"
+    ).all();
+    var bills = billRes.results || [];
+
+    var paidRes = await env.DB.prepare(
+        "SELECT bill_id FROM fixed_bill_payments WHERE period_key = ?"
+    ).bind(periodKey).all();
+    var paidBillIds = {};
+    (paidRes.results || []).forEach(function(p) { paidBillIds[p.bill_id] = true; });
+
+    // Outgoing, non-transfer transactions in the last 45 days, not already
+    // matched to a bill this period.
+    var txnRes = await env.DB.prepare(
+        "SELECT t.id, t.amount_cents, t.date, t.description, t.merchant_normalized " +
+        "FROM transactions t " +
+        "WHERE t.amount_cents < 0 AND t.is_transfer = 0 " +
+        "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+        "AND t.id NOT IN (SELECT transaction_id FROM fixed_bill_payments WHERE transaction_id IS NOT NULL) " +
+        "AND t.date >= date('now', '-45 day')"
+    ).all();
+    var txns = txnRes.results || [];
+
+    var out = [];
+    bills.forEach(function(bill) {
+        if (paidBillIds[bill.id]) { return; }   // already paid this period
+
+        var dueInfo = daysOverdueFor(bill.day_of_month, today);
+
+        txns.forEach(function(txn) {
+            var amountMatches = Math.abs(txn.amount_cents) === bill.amount_cents;
+            if (!amountMatches) { return; }
+
+            // Date proximity: within 5 days of this period's due date --
+            // autopay can fire a couple days early or a bill can be paid a
+            // little late and still clearly be THIS month's instance.
+            var dayDiff = Math.abs(Math.round(
+                (Date.parse(txn.date + "T00:00:00Z") - Date.parse(dueInfo.due_at + "T00:00:00Z")) / 86400000
+            ));
+            if (dayDiff > 5) { return; }
+
+            var patternMatch = bill.payer_match_pattern && txn.merchant_normalized === bill.payer_match_pattern;
+            // Fuzzy fallback when no learned pattern yet: the bill's own name
+            // appears in the normalized merchant text.
+            var fuzzyMatch = !bill.payer_match_pattern && txn.merchant_normalized &&
+                normalizeMerchant(bill.name).length > 0 &&
+                txn.merchant_normalized.indexOf(normalizeMerchant(bill.name).split(" ")[0]) !== -1;
+
+            if (!patternMatch && !fuzzyMatch) { return; }
+
+            out.push({
+                bill_id: bill.id, bill_name: bill.name, amount_cents: bill.amount_cents,
+                transaction: txn, tier: patternMatch ? "auto" : "suggest",
+                via_pattern: !!patternMatch, days: dayDiff
+            });
+        });
+    });
+
+    return out;
+}
+
+async function handleGetFinanceNewBillMatches(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var candidates = await buildBillMatchCandidates(env);
+        return jsonOk({ matches: candidates });
+    } catch (e) {
+        return jsonErr("Error building bill matches: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/matches/approve — alice/rafa/developer only.
+// Body: { bill_id, transaction_id }
+//
+// One-click confirm on a SUGGESTED match -- never a blind auto-write. Writes
+// fixed_bill_payments (match_type: 'bank_matched') and, on first confirmation
+// for this bill, learns payer_match_pattern from the transaction's
+// merchant_normalized so future months match without her.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillMatchApprove(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.bill_id || !body.transaction_id) { return jsonErr("bill_id and transaction_id required", 400); }
+
+        var bill = await env.DB.prepare(
+            "SELECT id, amount_cents, payer_match_pattern FROM fixed_bills WHERE id = ? AND active = 1"
+        ).bind(body.bill_id).first();
+        if (!bill) { return jsonErr("Bill not found", 404); }
+
+        var txn = await env.DB.prepare(
+            "SELECT id, amount_cents, merchant_normalized FROM transactions WHERE id = ?"
+        ).bind(body.transaction_id).first();
+        if (!txn) { return jsonErr("Transaction not found", 404); }
+
+        var periodKey = currentPeriodKey();
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO fixed_bill_payments (id, bill_id, period_key, paid_at, amount_cents, " +
+            "transaction_id, match_type) VALUES (?, ?, ?, datetime('now'), ?, ?, 'bank_matched') " +
+            "ON CONFLICT(bill_id, period_key) DO UPDATE SET " +
+            "paid_at = datetime('now'), amount_cents = excluded.amount_cents, " +
+            "transaction_id = excluded.transaction_id, match_type = 'bank_matched'"
+        ).bind(id, body.bill_id, periodKey, Math.abs(txn.amount_cents), body.transaction_id).run();
+
+        // Learn-once: first confirmation for this bill sets its match
+        // pattern so future months match automatically, same shape as
+        // client_payer_aliases.
+        if (!bill.payer_match_pattern && txn.merchant_normalized) {
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET payer_match_pattern = ? WHERE id = ?"
+            ).bind(txn.merchant_normalized, body.bill_id).run();
+        }
+
+        return jsonOk({ matched: true, period_key: periodKey });
+    } catch (e) {
+        return jsonErr("Error approving bill match: " + e.message, 500);
     }
 }
 
@@ -26991,6 +27442,14 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/bills"             && method === "GET")  { return handleGetFinanceNewBills(request, env); }
         if (path === "/api/finance-new/bills/suggestions" && method === "GET")  { return handleGetFinanceNewBillSuggestions(request, env); }
         if (path === "/api/finance-new/bills"             && method === "POST") { return handlePostFinanceNewBill(request, env); }
+        if (path === "/api/finance-new/bills/overdue"     && method === "GET")  { return handleGetFinanceNewBillsOverdue(request, env); }
+        if (path === "/api/finance-new/bills/priority"    && method === "PUT")  { return handlePutFinanceNewBillsPriority(request, env); }
+        if (path === "/api/finance-new/bills/matches"     && method === "GET")  { return handleGetFinanceNewBillMatches(request, env); }
+        if (path === "/api/finance-new/bills/matches/approve" && method === "POST") { return handlePostFinanceNewBillMatchApprove(request, env); }
+        var billMarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9-]+)\/mark-paid$/);
+        if (billMarkPaidMatch && method === "POST") { return handlePostFinanceNewBillMarkPaid(billMarkPaidMatch[1], request, env); }
+        var billUnmarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9-]+)\/unmark-paid$/);
+        if (billUnmarkPaidMatch && method === "POST") { return handlePostFinanceNewBillUnmarkPaid(billUnmarkPaidMatch[1], request, env); }
         if (path === "/api/finance-new/forward"           && method === "GET")  { return handleGetFinanceNewForward(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }

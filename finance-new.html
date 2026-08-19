@@ -7656,26 +7656,38 @@ names,
     // The hero tiles and #acctGrid are deliberately OUTSIDE #sectionsList.
     // Balances are the one number that must never cost a click.
 
+    // The charts are NOT decoration and must not be filed at the bottom behind
+    // a collapse: they are the visual read of the month, and hiding them means
+    // they simply never get looked at. Same for transactions -- the list is
+    // already capped at 25 with "show more", so collapsing it hides work that
+    // was already made small enough to sit open.
     var SECTIONS = [
       { key: "overdue",      def: "open"      },
       { key: "budgets",      def: "open"      },
+      { key: "charts",       def: "open"      },
       { key: "attention",    def: "collapsed" },
       { key: "forward",      def: "open"      },
       { key: "bills",        def: "collapsed" },
+      { key: "transactions", def: "open"      },
       { key: "ownerpay",     def: "collapsed" },
-      { key: "linked",       def: "collapsed" },
       { key: "transfers",    def: "collapsed" },
-      { key: "charts",       def: "collapsed" },
-      { key: "transactions", def: "collapsed" }
+      { key: "linked",       def: "collapsed" }
     ];
 
+    // Linked accounts is last on purpose: it is setup, not something she reads.
     var DEFAULT_SECTION_ORDER = [
-      "overdue", "budgets", "attention", "forward", "bills",
-      "ownerpay", "linked", "transfers", "charts", "transactions"
+      "overdue", "budgets", "charts", "attention", "forward",
+      "bills", "transactions", "ownerpay", "transfers", "linked"
     ];
 
-    function collapseKey(sectionKey) { return "apex_fin_collapse_" + sectionKey; }
-    function sectionOrderKey()       { return "apex_fin_section_order"; }
+    // The suffix is bumped when the SHIPPED defaults change in a way that must
+    // reach someone who has already opened the page. A stored order/collapse
+    // state always wins over the defaults -- correct, since it is her choice --
+    // but that also means a corrected default would never arrive for anyone who
+    // had loaded the old one. Bumping the key retires the old value once. Do
+    // not bump it for cosmetic edits: it discards any arrangement she made.
+    function collapseKey(sectionKey) { return "apex_fin_collapse_v2_" + sectionKey; }
+    function sectionOrderKey()       { return "apex_fin_section_order_v2"; }
 
     function sectionByKey(key) {
       for (var i = 0; i < SECTIONS.length; i++) {

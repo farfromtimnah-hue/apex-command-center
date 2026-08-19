@@ -25536,6 +25536,42 @@ async function handleGetSchedulingClientState(request, env) {
 // period, which also covers invoices created outside the collision modal.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// getActiveVendorAddonsForClient — sum the client's active vendor add-ons
+// with a KNOWN amount, for folding into a recurring invoice's total.
+//
+// vendor_amount_cents IS NOT NULL is the whole filter: a row with a NULL
+// amount is a known relationship (Alice attached the vendor) with a price
+// still pending her spreadsheet, not a $0 charge. Silently billing $0 for a
+// real add-on would be worse than temporarily omitting it, so those rows are
+// excluded entirely -- they contribute nothing to the total and get no line
+// item, until Alice fills in an amount.
+//
+// Returns { totalCents, lines: [{ label, amountCents, clientVendorTermsId }] }.
+// ---------------------------------------------------------------------------
+async function getActiveVendorAddonsForClient(clientId, env) {
+    var res = await env.DB.prepare(
+        "SELECT cvt.id, cvt.vendor_amount_cents, cvt.markup_cents, cvt.label, v.name AS vendor_name " +
+        "FROM client_vendor_terms cvt JOIN vendors v ON v.id = cvt.vendor_id " +
+        "WHERE cvt.client_id = ? AND cvt.active = 1 AND cvt.vendor_amount_cents IS NOT NULL"
+    ).bind(clientId).all();
+
+    var lines = [];
+    var totalCents = 0;
+    (res.results || []).forEach(function(row) {
+        var amount = (row.vendor_amount_cents || 0) + (row.markup_cents || 0);
+        if (amount <= 0) { return; }   // defensive -- never emit a $0/negative line
+        lines.push({
+            label: row.label || (row.vendor_name + " add-on"),
+            amountCents: amount,
+            clientVendorTermsId: row.id
+        });
+        totalCents += amount;
+    });
+
+    return { totalCents: totalCents, lines: lines };
+}
+
 async function runRecurringInvoices(env) {
     var due = await env.DB.prepare(
         "SELECT id, client_id, amount_cents, interval_n, interval_unit, next_due_at, " +
@@ -25581,22 +25617,48 @@ async function runRecurringInvoices(env) {
 
         var number = await allocateInvoiceNumber(env);
         var invId = crypto.randomUUID();
+
+        // Vendor add-ons ride on this same invoice -- never a second invoice
+        // for the same period (see apex-vendors-spec.md). Clients with no
+        // active vendor terms (or none with a known amount yet) get addons
+        // with totalCents 0 and an empty lines array, so this is a pure
+        // no-op for every existing package-only client.
+        var addons = await getActiveVendorAddonsForClient(rec.client_id, env);
+        var packageAmount = rec.amount_cents;
+        var totalAmount = packageAmount + addons.totalCents;
+
         // Generated off a recurrence, which now only ever comes from a client's
         // payment plan — so these always count toward that plan.
+        // amount_cents is the invoice's authoritative total (package +
+        // vendor add-ons); invoice_line_items break it down, but nothing
+        // that reads amount_cents today needs to change.
         await env.DB.prepare(
             "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, " +
             "source, recurrence_id, period_key, is_installment) VALUES (?, ?, ?, ?, ?, ?, 'draft', 'recurrence', ?, ?, 1)"
         ).bind(
-            invId, rec.client_id, number, rec.amount_cents,
+            invId, rec.client_id, number, totalAmount,
             rec.next_due_at, rec.next_due_at, rec.id, pk
         ).run();
+
+        await env.DB.prepare(
+            "INSERT INTO invoice_line_items (id, invoice_id, kind, label, amount_cents, client_vendor_terms_id) " +
+            "VALUES (?, ?, 'package', ?, ?, NULL)"
+        ).bind(crypto.randomUUID(), invId, "Package", packageAmount).run();
+
+        for (var li = 0; li < addons.lines.length; li++) {
+            var line = addons.lines[li];
+            await env.DB.prepare(
+                "INSERT INTO invoice_line_items (id, invoice_id, kind, label, amount_cents, client_vendor_terms_id) " +
+                "VALUES (?, ?, 'vendor_addon', ?, ?, ?)"
+            ).bind(crypto.randomUUID(), invId, line.label, line.amountCents, line.clientVendorTermsId).run();
+        }
 
         await env.DB.prepare(
             "UPDATE invoice_recurrence SET next_due_at = ?, generated_count = generated_count + 1, " +
             "last_satisfied_period = ? WHERE id = ?"
         ).bind(addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit), pk, rec.id).run();
 
-        generated.push({ id: invId, number: number, client_id: rec.client_id });
+        generated.push({ id: invId, number: number, client_id: rec.client_id, amount_cents: totalAmount });
     }
 
     return { generated: generated };

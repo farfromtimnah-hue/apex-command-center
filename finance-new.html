@@ -1406,6 +1406,23 @@
           <div class="chart-box"><canvas id="balanceChart"></canvas></div>
           <div id="balanceCaveat" class="chart-caveat" hidden></div>
         </div>
+        <!-- Vendor share of income: two-slice donut, per Alice's ask ("90%
+             Apex / 10% vendors"). Lives with the other headline charts, not
+             behind the Fornecedores tab -- Nicole 2026-08-19: this is a
+             number Alice glances at with the rest of the income picture,
+             not something she should have to click into vendor management
+             to see. -->
+        <div>
+          <div class="flow-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+            <span>
+              <span class="show-pt">Fatia dos fornecedores</span>
+              <span class="show-en">Vendor share</span>
+            </span>
+            <input type="month" id="vendorShareMonth" onchange="loadVendorShare()" style="font-size:12px;padding:2px 6px">
+          </div>
+          <div class="chart-box"><canvas id="vendorShareChart"></canvas></div>
+          <div id="vendorShareCaveat" class="chart-caveat" hidden></div>
+        </div>
       </div>
     </div>
 
@@ -1908,31 +1925,18 @@
          specific clients as a paid add-on riding on that client's regular
          invoice -- never a separate invoice. This is Pra Alice's tool, so
          it lives here alongside her other finance surfaces rather than on
-         the general client-profile nav. See apex-vendors-spec.md. -->
+         the general client-profile nav. See apex-vendors-spec.md.
+
+         The vendor-share donut itself lives on the main Sa&uacute;de
+         Financeira panel's chart grid, not here -- Nicole 2026-08-19: it's
+         a headline income number Alice should see with the other charts,
+         not something buried behind this tab. This panel is vendor
+         management only (list / add / edit / attach to clients). -->
     <div id="finPanelVendors" class="fin-tab-panel" hidden>
 
       <div class="page-sub">
         <span class="show-pt">Empresas terceirizadas que atendem clientes espec&iacute;ficos. O valor entra na fatura normal do cliente &mdash; nunca uma fatura separada.</span>
         <span class="show-en">Third-party companies that service specific clients. The amount rides on the client's regular invoice &mdash; never a separate invoice.</span>
-      </div>
-
-      <!-- Vendor share of income: two-slice donut, per Alice's ask ("90%
-           Apex / 10% vendors"). Placed here near the other income picture,
-           not buried as a vendor-management detail. -->
-      <div class="card">
-        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <span>
-            <span class="show-pt">Fatia dos fornecedores na receita</span>
-            <span class="show-en">Vendor share of income</span>
-          </span>
-          <input type="month" id="vendorShareMonth" onchange="loadVendorShare()">
-        </div>
-        <div class="net-note" style="margin-bottom:14px">
-          <span class="show-pt">A marcaç&atilde;o (markup) conta como receita da Apex, n&atilde;o como fatia do fornecedor.</span>
-          <span class="show-en">Markup counts as Apex revenue, not vendor share.</span>
-        </div>
-        <div class="chart-box" style="max-width:340px;margin:0 auto;"><canvas id="vendorShareChart"></canvas></div>
-        <div id="vendorShareCaveat" class="net-note" style="text-align:center;margin-top:10px;"></div>
       </div>
 
       <div class="card">
@@ -4105,6 +4109,16 @@
       renderMomChart();
       renderCategoryChart();
       renderBalanceChart();
+
+      // Vendor share lives on this panel now, not behind the Fornecedores
+      // tab -- Nicole 2026-08-19. Loads once with the other headline charts;
+      // the month picker re-fires it on change same as the others.
+      if (!vendorShareLoaded) {
+        vendorShareLoaded = true;
+        var vsMonthInput = document.getElementById("vendorShareMonth");
+        if (vsMonthInput && !vsMonthInput.value) { vsMonthInput.value = new Date().toISOString().slice(0, 7); }
+        loadVendorShare();
+      }
     }
 
     function renderFlowChart() {
@@ -4546,6 +4560,7 @@
     var categoriasLoaded = false;
     var eventosLoaded = false;
     var vendorsLoaded = false;
+    var vendorShareLoaded = false;
 
     function switchFinanceTab(tab) {
       currentFinanceTab = tab;
@@ -4576,14 +4591,12 @@
         loadClub().then(initEventMonth);
       }
 
-      // Vendors: its own queries (vendors + vendor-share), no reason to run
-      // them for someone who never opens the tab.
+      // Vendors: management list is its own query, no reason to run it for
+      // someone who never opens the tab. (Vendor-share chart is loaded
+      // separately with the main panel's other charts -- see renderCharts().)
       if (tab === "vendors" && !vendorsLoaded) {
         vendorsLoaded = true;
-        var vsMonthInput = document.getElementById("vendorShareMonth");
-        if (vsMonthInput && !vsMonthInput.value) { vsMonthInput.value = new Date().toISOString().slice(0, 7); }
         loadVendors();
-        loadVendorShare();
       }
     }
 

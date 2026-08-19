@@ -25061,7 +25061,7 @@ async function handlePostFinanceNewMatchApprove(request, env) {
                 "SELECT id, client_id, amount_cents, status FROM invoices WHERE id = ?"
             ).bind(m.invoice_id).first();
             var txn = await env.DB.prepare(
-                "SELECT id, amount_cents, merchant_normalized FROM transactions WHERE id = ?"
+                "SELECT id, amount_cents, merchant_normalized, date FROM transactions WHERE id = ?"
             ).bind(m.transaction_id).first();
             if (!inv || !txn) { continue; }
             if (inv.status !== "sent") {
@@ -25101,9 +25101,19 @@ async function handlePostFinanceNewMatchApprove(request, env) {
             var fullyPaid  = coveredNow >= (inv.amount_cents || 0);
 
             if (fullyPaid) {
+                // paid_at is WHEN THE MONEY ARRIVED, not when someone got round
+                // to confirming it. datetime('now') recorded the approval click:
+                // JM Luxury Pools paid on 08-17 and the invoice read 08-19,
+                // because that is when the match was approved. Every
+                // days-to-pay figure built on paid_at would inherit that lag and
+                // make clients look slower than they are.
+                //
+                // The transaction date is the bank's own date for the deposit.
+                // Falls back to now only when a payment is recorded with no
+                // transaction behind it.
                 await env.DB.prepare(
-                    "UPDATE invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?"
-                ).bind(inv.id).run();
+                    "UPDATE invoices SET status = 'paid', paid_at = COALESCE(?, datetime('now')) WHERE id = ?"
+                ).bind(txn.date || null, inv.id).run();
             }
 
             // Learn the payer. The deposit says BRAZILIAN INC, the invoice

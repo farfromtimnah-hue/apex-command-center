@@ -1840,6 +1840,37 @@
       </div>
     </div>
 
+    <!-- Manual bill-transaction match picker. Backend already supported this
+         (handlePostFinanceNewBillMatchApprove) but had no frontend -- found
+         live 2026-08-19: the mortgage payment posted (PENNYMAC, $2,560.10)
+         but never linked to the MORTGAGE bill because the fuzzy-match
+         fallback only checks whether the bill's NAME appears in the
+         transaction text, and "MORTGAGE" never appears in "PENNYMAC". Rather
+         than try to make the guess smarter, this lets her point at the real
+         transaction directly -- which also teaches payer_match_pattern so
+         every future month matches automatically, same learn-once shape as
+         client_payer_aliases. Top-level sibling of the tab panels, not
+         nested inside one -- see the note on newVendorOverlay for why that
+         placement matters. -->
+    <div id="billMatchOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeBillMatch()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeBillMatch()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Vincular transa&ccedil;&atilde;o</span>
+          <span class="show-en">Link a transaction</span>
+        </h3>
+        <div class="net-note" style="margin-bottom:12px;">
+          <span class="show-pt">Qual transa&ccedil;&atilde;o &eacute; o pagamento de <strong id="bmBillName"></strong>? Uma vez vinculada, os pr&oacute;ximos meses s&atilde;o reconhecidos automaticamente.</span>
+          <span class="show-en">Which transaction is the payment for <strong id="bmBillName2"></strong>? Once linked, future months are recognized automatically.</span>
+        </div>
+        <div id="bmList" class="table-wrap" style="max-height:320px;overflow-y:auto;"></div>
+        <div id="bmEmpty" class="empty" hidden>
+          <span class="show-pt">Nenhuma transa&ccedil;&atilde;o recente parecida encontrada.</span>
+          <span class="show-en">No similar recent transactions found.</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Panel: Categorias ════════════════════════════════════════════ -->
     <!-- Occasional and deepening work, which is why it is its own tab rather
          than a column on the transaction list. NOTHING here gates anything on
@@ -3196,6 +3227,8 @@
           "</span>" +
           '<span class="bill-amount">' + fmtCents(b.amount_cents) + "</span>" +
           '<div class="overdue-row-actions">' +
+            '<button class="btn btn-sm" onclick="openBillMatch(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\',' + b.amount_cents + ')">' +
+              '<span class="show-pt">Vincular transa&ccedil;&atilde;o</span><span class="show-en">Link transaction</span></button> ' +
             '<button class="btn btn-sm btn-gold" onclick="markBillPaid(\'' + esc(b.id) + '\')">' +
               '<span class="show-pt">Marcar pago</span><span class="show-en">Mark paid</span></button>' +
           "</div>" +
@@ -3211,6 +3244,72 @@
         .then(function(d) {
           if (d.error) { toast(d.error); return; }
           toast(t("Marcado como pago.", "Marked paid."));
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // Manual bill-transaction match. buildBillMatchCandidates() only offers
+    // exact-amount, name-in-description matches -- which silently misses
+    // anything where the bill's own name isn't literally in the payee text
+    // (MORTGAGE / PENNYMAC is exactly this case). This lists recent outgoing
+    // transactions near the bill's amount so she can point at the real one
+    // directly, rather than waiting on a smarter guess that may never fire.
+    var BM_BILL_ID = null;
+
+    function openBillMatch(billId, billName, amountCents) {
+      BM_BILL_ID = billId;
+      document.getElementById("bmBillName").textContent = billName;
+      document.getElementById("bmBillName2").textContent = billName;
+      var list = document.getElementById("bmList");
+      var empty = document.getElementById("bmEmpty");
+      list.innerHTML = '<div class="net-note">' + t("Carregando...", "Loading...") + '</div>';
+      empty.hidden = true;
+      document.getElementById("billMatchOverlay").hidden = false;
+
+      // Outgoing transactions (negative amount_cents) within the last 60
+      // days, closest-amount-first -- she recognizes the real one by date
+      // and description, not by trusting an auto-pick.
+      var candidates = (TRANSACTIONS || []).filter(function(txn) {
+        return txn.amount_cents < 0 && !txn.is_transfer;
+      }).map(function(txn) {
+        return { txn: txn, diff: Math.abs(Math.abs(txn.amount_cents) - amountCents) };
+      }).sort(function(a, b) { return a.diff - b.diff; }).slice(0, 15);
+
+      if (!candidates.length) {
+        list.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+
+      list.innerHTML = '<table><tbody>' + candidates.map(function(c) {
+        var txn = c.txn;
+        return '<tr>' +
+          '<td>' + fmtDate(txn.date) + '</td>' +
+          '<td>' + esc(txn.description || "") + '</td>' +
+          '<td class="num">' + fmtCents(Math.abs(txn.amount_cents)) + '</td>' +
+          '<td><button class="btn btn-sm btn-gold" onclick="confirmBillMatch(\'' + esc(txn.id) + '\')">' +
+            t("Esta &eacute;", "This one") + '</button></td>' +
+        '</tr>';
+      }).join('') + '</tbody></table>';
+    }
+
+    function closeBillMatch() {
+      var ov = document.getElementById("billMatchOverlay");
+      if (ov) { ov.hidden = true; }
+      BM_BILL_ID = null;
+    }
+
+    function confirmBillMatch(transactionId) {
+      if (!BM_BILL_ID) { return; }
+      apiFetch("/api/finance-new/bills/matches/approve", {
+        method: "POST", body: { bill_id: BM_BILL_ID, transaction_id: transactionId }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(t("Vinculado.", "Linked."));
+          closeBillMatch();
           loadOverdue();
         })
         .catch(function() { toast(t("Erro", "Error")); });

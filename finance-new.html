@@ -726,6 +726,49 @@
       font-size: 13px; padding: 5px 0; flex-wrap: wrap;
     }
     .fwd-bill-row .grow { flex: 1 1 auto; min-width: 120px; }
+    .fwd-bill-row .bill-extra { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+    .fwd-bill-row a.bill-pay-link { color: var(--gold); font-weight: 600; text-decoration: none; }
+    .fwd-bill-row a.bill-pay-link:hover { text-decoration: underline; }
+
+    /* ── Overdue bills ──
+       Red is used ONLY here -- days-overdue and the section itself -- since
+       this is the one place on the page that IS meant to read as urgent.
+       Coverage is informational, shown muted, never softening the red. */
+    .overdue-rows { margin-top: 6px; }
+    .overdue-row {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 12px 0; border-top: 1px solid var(--border);
+    }
+    .overdue-row:first-child { border-top: 0; }
+    .overdue-row .grow { flex: 1 1 auto; min-width: 140px; }
+    .overdue-row .bill-name { font-size: 14px; font-weight: 600; }
+    .overdue-row .bill-days-overdue { color: var(--red); font-weight: 700; font-size: 12.5px; }
+    .overdue-row .bill-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+    .overdue-row .bill-coverage { font-size: 11.5px; margin-top: 3px; }
+    .overdue-row .bill-coverage.is-covered { color: var(--green); }
+    .overdue-row .bill-coverage.is-uncovered { color: var(--red); }
+    .overdue-row .bill-amount { font-weight: 700; font-size: 14px; white-space: nowrap; }
+    .overdue-row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    /* Priority controls: a visible drag handle (long-press/touch friendly on
+       its own, PLUS explicit up/down buttons so reordering never REQUIRES a
+       successful drag gesture on a small screen). */
+    .drag-handle {
+      cursor: grab; touch-action: none; user-select: none;
+      font-size: 16px; color: var(--muted); padding: 6px 8px;
+      line-height: 1; border-radius: 6px;
+    }
+    .drag-handle:active { cursor: grabbing; background: var(--gold-dim); }
+    .rank-btns { display: flex; flex-direction: column; gap: 2px; }
+    .rank-btn {
+      width: 26px; height: 22px; border: 1px solid var(--border); background: #fff;
+      border-radius: 5px; color: var(--muted); cursor: pointer; font-size: 11px;
+      display: flex; align-items: center; justify-content: center; padding: 0;
+    }
+    .rank-btn:hover { background: var(--gold-dim); color: var(--brown); }
+    .rank-btn:disabled { opacity: 0.35; cursor: default; }
+    .overdue-row.is-dragging { opacity: 0.5; }
+    .overdue-row.is-drag-over { border-top: 2px solid var(--gold); }
 
     /* ── Apex Club event P&L ──
        The verdict sentence carries the whole answer. A small loss on an event
@@ -1308,11 +1351,40 @@
             <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
             <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
           </select>
-          <button class="btn btn-sm btn-gold" onclick="addFixedBill()">
+          <select id="billPaymentMethod" style="flex:0 1 150px">
+            <option value="manual" data-opt-pt="Manual" data-opt-en="Manual">Manual</option>
+            <option value="draft" data-opt-pt="D&eacute;bito autom&aacute;tico" data-opt-en="Autopay (draft)">D&eacute;bito autom&aacute;tico</option>
+          </select>
+          <input id="billPayUrl" type="text" style="flex:1 1 150px"
+                 data-ph-pt="URL de pagamento (opcional)" data-ph-en="Pay URL (optional)" placeholder="URL de pagamento (opcional)">
+          <input id="billPayeeNotes" type="text" style="flex:1 1 150px"
+                 data-ph-pt="Notas de conta (opcional)" data-ph-en="Account notes (optional)" placeholder="Notas de conta (opcional)">
+          <button class="btn btn-sm btn-gold" id="billFormSubmitBtn" onclick="submitBillForm()">
             <span class="show-pt">Adicionar</span>
             <span class="show-en">Add</span>
           </button>
+          <button class="btn btn-sm" id="billFormCancelBtn" onclick="cancelBillEdit()" hidden>
+            <span class="show-pt">Cancelar</span>
+            <span class="show-en">Cancel</span>
+          </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ── Overdue bills + coverage forecast ──
+         Separate from the flat "Contas fixas" list above. Overdue is purely
+         date-based -- the coverage note is context alongside the flag, never
+         a suppression of it. -->
+    <div id="overdueCard" class="card" hidden>
+      <div class="card-title">
+        <span class="show-pt">Contas atrasadas</span>
+        <span class="show-en">Overdue bills</span>
+      </div>
+      <div id="overdueSentence" class="fwd-sentence" style="font-size:15px"></div>
+      <div id="overdueRows" class="overdue-rows"></div>
+      <div id="overdueEmpty" class="tag-meta" hidden>
+        <span class="show-pt">Nenhuma conta atrasada. Tudo em dia.</span>
+        <span class="show-en">No overdue bills. Everything is current.</span>
       </div>
     </div>
 
@@ -2385,6 +2457,9 @@
     var CURRENT_INVOICE_TAB = "draft";
     var CHARTS = { flow: null, mom: null, balance: null };
     var VENDORS = [];
+    var OVERDUE = null;        // { overdue_bills[], upcoming_income[] } from /bills/overdue
+    var EDITING_BILL_ID = null;   // set while the add-bill form is editing an existing row
+    var DRAG_BILL_ID = null;      // bill_id currently being dragged in the overdue list
 
     // Prefetched at page load ON PURPOSE: the WhatsApp handler must be able to
     // build its message without awaiting anything, so window.open() can run
@@ -2853,14 +2928,23 @@
         return;
       }
       list.innerHTML = BILLS.map(function(b) {
+        var methodLabel = b.payment_method === "draft"
+          ? (isEn() ? "autopay" : "d&eacute;bito autom&aacute;tico")
+          : (isEn() ? "manual" : "manual");
+        var extra = '<span class="bill-extra">' +
+          (isEn() ? "day " : "dia ") + b.day_of_month + " &middot; " +
+          (b.purpose === "business" ? (isEn() ? "business" : "comercial")
+                                    : (isEn() ? "personal" : "pessoal")) +
+          " &middot; " + methodLabel +
+          (b.pay_url ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) +
+            '" target="_blank" rel="noopener">' + t("pagar", "pay") + "</a>" : "") +
+          (b.payee_notes ? " &middot; " + esc(b.payee_notes) : "") +
+        "</span>";
         return '<div class="fwd-bill-row">' +
-          '<span class="grow">' + esc(b.name) +
-            ' <span class="tag-meta">' +
-              (isEn() ? "day " : "dia ") + b.day_of_month + " &middot; " +
-              (b.purpose === "business" ? (isEn() ? "business" : "comercial")
-                                        : (isEn() ? "personal" : "pessoal")) +
-            "</span></span>" +
+          '<span class="grow">' + esc(b.name) + extra + "</span>" +
           "<b>" + fmtCents(b.amount_cents) + "</b>" +
+          '<button class="btn btn-sm" onclick="startEditBill(\'' + b.id + '\')">' +
+            '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button>' +
           '<button class="btn btn-sm" onclick="removeFixedBill(\'' + b.id + '\')">' +
             '<span class="show-pt">Remover</span><span class="show-en">Remove</span></button>' +
         "</div>";
@@ -2944,37 +3028,301 @@
       });
     }
 
-    function addFixedBill() {
+    // Add and edit share one form: submitBillForm() sends update_id when
+    // EDITING_BILL_ID is set, otherwise it's a plain create. Keeps the form
+    // markup (and its validation) in one place instead of duplicating it in
+    // a separate edit modal.
+    function submitBillForm() {
       var name = document.getElementById("billName").value.trim();
       var amtRaw = document.getElementById("billAmount").value.trim().replace(/[^0-9.,-]/g, "").replace(",", ".");
       var day = parseInt(document.getElementById("billDay").value, 10);
       var purpose = document.getElementById("billPurpose").value;
+      var paymentMethod = document.getElementById("billPaymentMethod").value;
+      var payUrl = document.getElementById("billPayUrl").value.trim();
+      var payeeNotes = document.getElementById("billPayeeNotes").value.trim();
 
       if (!name) { toast(t("Informe o nome da conta.", "Enter the bill name.")); return; }
       var amt = Number(amtRaw);
       if (!isFinite(amt) || amt <= 0) { toast(t("Valor inv&aacute;lido.", "Invalid amount.")); return; }
       if (!isFinite(day) || day < 1 || day > 31) { toast(t("Dia precisa ser 1-31.", "Day must be 1-31.")); return; }
 
-      apiFetch("/api/finance-new/bills", {
-        method: "POST",
-        body: { name: name, amount_cents: Math.round(amt * 100), day_of_month: day, purpose: purpose }
-      })
+      var body = {
+        name: name, amount_cents: Math.round(amt * 100), day_of_month: day, purpose: purpose,
+        payment_method: paymentMethod, pay_url: payUrl || null, payee_notes: payeeNotes || null
+      };
+      if (EDITING_BILL_ID) { body.update_id = EDITING_BILL_ID; }
+
+      apiFetch("/api/finance-new/bills", { method: "POST", body: body })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.error) { toast(d.error); return; }
-          document.getElementById("billName").value = "";
-          document.getElementById("billAmount").value = "";
-          document.getElementById("billDay").value = "";
+          resetBillForm();
           loadForward();
+          loadOverdue();
         })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function resetBillForm() {
+      document.getElementById("billName").value = "";
+      document.getElementById("billAmount").value = "";
+      document.getElementById("billDay").value = "";
+      document.getElementById("billPaymentMethod").value = "manual";
+      document.getElementById("billPayUrl").value = "";
+      document.getElementById("billPayeeNotes").value = "";
+      EDITING_BILL_ID = null;
+      document.getElementById("billFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Adicionar</span><span class="show-en">Add</span>';
+      document.getElementById("billFormCancelBtn").hidden = true;
+      applyFinBilingualAttrs();
+    }
+
+    function startEditBill(id) {
+      var b = BILLS.filter(function(x) { return x.id === id; })[0];
+      if (!b) { return; }
+      EDITING_BILL_ID = id;
+      document.getElementById("billName").value = b.name;
+      document.getElementById("billAmount").value = (b.amount_cents / 100).toFixed(2);
+      document.getElementById("billDay").value = b.day_of_month;
+      document.getElementById("billPurpose").value = b.purpose;
+      document.getElementById("billPaymentMethod").value = b.payment_method || "manual";
+      document.getElementById("billPayUrl").value = b.pay_url || "";
+      document.getElementById("billPayeeNotes").value = b.payee_notes || "";
+      document.getElementById("billFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Salvar</span><span class="show-en">Save</span>';
+      document.getElementById("billFormCancelBtn").hidden = false;
+      document.getElementById("billName").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function cancelBillEdit() {
+      resetBillForm();
     }
 
     function removeFixedBill(id) {
       apiFetch("/api/finance-new/bills", { method: "POST", body: { delete_id: id } })
         .then(function(r) { return r.json(); })
-        .then(function() { loadForward(); })
+        .then(function() { loadForward(); loadOverdue(); })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Overdue bills + coverage forecast ───────────────────────────────
+    //
+    // Overdue is purely date-based, computed server-side. The coverage
+    // forecast is informational context shown alongside the flag -- never a
+    // reason to hide it. Priority order (drag or the up/down fallback)
+    // reorders optimistically in the browser, then persists via PUT.
+
+    function loadOverdue() {
+      return apiFetch("/api/finance-new/bills/overdue").then(function(r) { return r.json(); })
+        .then(function(d) {
+          OVERDUE = d && !d.error ? d : null;
+          renderOverdue();
+        })
+        .catch(function() { OVERDUE = null; renderOverdue(); });
+    }
+
+    // Plain-sentence header, same "sentence first" principle as the forward
+    // view: "$4,000 esperado de JM Pools em 05/09 · $1,000 esperado de X em 07/09".
+    function overdueSentenceHtml() {
+      if (!OVERDUE || !OVERDUE.upcoming_income || !OVERDUE.upcoming_income.length) {
+        return '<span class="show-pt">Nenhuma entrada de fatura prevista no momento.</span>' +
+               '<span class="show-en">No invoice income currently expected.</span>';
+      }
+      var parts = OVERDUE.upcoming_income.slice(0, 4).map(function(inc) {
+        var name = esc(inc.client_name || t("cliente", "client"));
+        return t(
+          fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
+          fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at)
+        );
+      });
+      return '<span>' + parts.join(" &middot; ") + "</span>";
+    }
+
+    function renderOverdue() {
+      var card = document.getElementById("overdueCard");
+      if (!card) { return; }
+      if (!OVERDUE || !OVERDUE.overdue_bills) { card.hidden = true; return; }
+      card.hidden = false;
+
+      document.getElementById("overdueSentence").innerHTML = overdueSentenceHtml();
+
+      var rows = document.getElementById("overdueRows");
+      var empty = document.getElementById("overdueEmpty");
+      var bills = OVERDUE.overdue_bills;
+
+      if (!bills.length) {
+        rows.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+
+      rows.innerHTML = bills.map(function(b, i) {
+        var methodLabel = b.payment_method === "draft"
+          ? t("d&eacute;bito autom&aacute;tico", "autopay") : t("manual", "manual");
+        var coverageHtml = b.covered_by
+          ? '<div class="bill-coverage is-covered">' +
+              t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
+                 "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at)) +
+            "</div>"
+          : '<div class="bill-coverage is-uncovered">' +
+              t("Sem cobertura prevista", "No coverage expected") +
+            "</div>";
+        var payLink = b.pay_url
+          ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) + '" target="_blank" rel="noopener">' +
+            t("pagar", "pay") + "</a>" : "";
+
+        return '<div class="overdue-row" draggable="true" data-bill-id="' + esc(b.id) + '" ' +
+          'ondragstart="onBillDragStart(event,\'' + esc(b.id) + '\')" ' +
+          'ondragover="onBillDragOver(event)" ondrop="onBillDrop(event,\'' + esc(b.id) + '\')" ' +
+          'ondragend="onBillDragEnd(event)">' +
+          '<span class="drag-handle" title="' + t("Arraste para reordenar", "Drag to reorder") + '" ' +
+            'aria-label="' + t("Arraste para reordenar", "Drag to reorder") + '" ' +
+            'ontouchstart="onBillTouchStart(event,\'' + esc(b.id) + '\')" ' +
+            'ontouchmove="onBillTouchMove(event)" ontouchend="onBillTouchEnd(event)">&#9776;</span>' +
+          '<span class="rank-btns">' +
+            '<button class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',-1)" ' +
+              (i === 0 ? "disabled" : "") + ' aria-label="' + t("Mover para cima", "Move up") + '">&#9650;</button>' +
+            '<button class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',1)" ' +
+              (i === bills.length - 1 ? "disabled" : "") + ' aria-label="' + t("Mover para baixo", "Move down") + '">&#9660;</button>' +
+          "</span>" +
+          '<span class="grow">' +
+            '<span class="bill-name">' + esc(b.name) + payLink + "</span>" +
+            '<div class="bill-meta">' +
+              t(b.days_overdue + " dia" + (b.days_overdue === 1 ? "" : "s") + " em atraso &middot; " + methodLabel,
+                 b.days_overdue + " day" + (b.days_overdue === 1 ? "" : "s") + " overdue &middot; " + methodLabel) +
+            "</div>" +
+            coverageHtml +
+          "</span>" +
+          '<span class="bill-amount">' + fmtCents(b.amount_cents) + "</span>" +
+          '<div class="overdue-row-actions">' +
+            '<button class="btn btn-sm btn-gold" onclick="markBillPaid(\'' + esc(b.id) + '\')">' +
+              '<span class="show-pt">Marcar pago</span><span class="show-en">Mark paid</span></button>' +
+          "</div>" +
+        "</div>";
+      }).join("");
+
+      applyFinBilingualAttrs();
+    }
+
+    function markBillPaid(billId) {
+      apiFetch("/api/finance-new/bills/" + encodeURIComponent(billId) + "/mark-paid", { method: "POST", body: {} })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(t("Marcado como pago.", "Marked paid."));
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // Non-drag fallback: swaps this bill with its neighbour in the CURRENT
+    // displayed order, then persists the whole order. Works identically on
+    // touch and mouse, and never requires a successful drag gesture.
+    function moveBillPriority(billId, dir) {
+      if (!OVERDUE || !OVERDUE.overdue_bills) { return; }
+      var bills = OVERDUE.overdue_bills;
+      var idx = bills.findIndex(function(b) { return b.id === billId; });
+      var swapIdx = idx + dir;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= bills.length) { return; }
+      var tmp = bills[idx];
+      bills[idx] = bills[swapIdx];
+      bills[swapIdx] = tmp;
+      renderOverdue();
+      persistBillPriorityOrder();
+    }
+
+    function onBillDragStart(ev, billId) {
+      DRAG_BILL_ID = billId;
+      ev.currentTarget.classList.add("is-dragging");
+      ev.dataTransfer.effectAllowed = "move";
+      try { ev.dataTransfer.setData("text/plain", billId); } catch (e) {}
+    }
+
+    function onBillDragOver(ev) {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("is-drag-over");
+    }
+
+    function onBillDrop(ev, targetBillId) {
+      ev.preventDefault();
+      ev.currentTarget.classList.remove("is-drag-over");
+      if (!DRAG_BILL_ID || DRAG_BILL_ID === targetBillId || !OVERDUE) { return; }
+      var bills = OVERDUE.overdue_bills;
+      var fromIdx = bills.findIndex(function(b) { return b.id === DRAG_BILL_ID; });
+      var toIdx = bills.findIndex(function(b) { return b.id === targetBillId; });
+      if (fromIdx < 0 || toIdx < 0) { return; }
+      var moved = bills.splice(fromIdx, 1)[0];
+      bills.splice(toIdx, 0, moved);
+      renderOverdue();
+      persistBillPriorityOrder();
+    }
+
+    function onBillDragEnd(ev) {
+      ev.currentTarget.classList.remove("is-dragging");
+      var rows = document.querySelectorAll(".overdue-row.is-drag-over");
+      rows.forEach(function(r) { r.classList.remove("is-drag-over"); });
+      DRAG_BILL_ID = null;
+    }
+
+    // Touch fallback for the drag handle. HTML5 native drag-and-drop
+    // (ondragstart/over/drop above) does not fire reliably on touch/PWA, so
+    // this tracks the finger directly: on touchmove it finds which row the
+    // finger is currently over (by Y position) and reorders live, matching
+    // the visual feedback of a real drag. Same PUT persist as the mouse path
+    // and the up/down buttons -- one source of truth for saving order.
+    function onBillTouchStart(ev, billId) {
+      DRAG_BILL_ID = billId;
+      var row = ev.currentTarget.closest(".overdue-row");
+      if (row) { row.classList.add("is-dragging"); }
+      ev.preventDefault();
+    }
+
+    function onBillTouchMove(ev) {
+      if (!DRAG_BILL_ID || !OVERDUE) { return; }
+      ev.preventDefault();
+      var touch = ev.touches[0];
+      if (!touch) { return; }
+      var el = document.elementFromPoint(touch.clientX, touch.clientY);
+      var overRow = el && el.closest(".overdue-row");
+      document.querySelectorAll(".overdue-row.is-drag-over").forEach(function(r) {
+        r.classList.remove("is-drag-over");
+      });
+      if (!overRow) { return; }
+      overRow.classList.add("is-drag-over");
+      var targetId = overRow.getAttribute("data-bill-id");
+      if (!targetId || targetId === DRAG_BILL_ID) { return; }
+
+      var bills = OVERDUE.overdue_bills;
+      var fromIdx = bills.findIndex(function(b) { return b.id === DRAG_BILL_ID; });
+      var toIdx = bills.findIndex(function(b) { return b.id === targetId; });
+      if (fromIdx < 0 || toIdx < 0) { return; }
+      var moved = bills.splice(fromIdx, 1)[0];
+      bills.splice(toIdx, 0, moved);
+      renderOverdue();
+      // Re-mark dragging state on the moved row after the re-render replaced
+      // the DOM node under it.
+      var newRow = document.querySelector('.overdue-row[data-bill-id="' + DRAG_BILL_ID + '"]');
+      if (newRow) { newRow.classList.add("is-dragging"); }
+    }
+
+    function onBillTouchEnd() {
+      if (DRAG_BILL_ID) { persistBillPriorityOrder(); }
+      document.querySelectorAll(".overdue-row.is-dragging,.overdue-row.is-drag-over").forEach(function(r) {
+        r.classList.remove("is-dragging", "is-drag-over");
+      });
+      DRAG_BILL_ID = null;
+    }
+
+    // Optimistic: the local reorder already rendered, this just persists it.
+    // On failure, reload from the server so the UI can't drift from what's
+    // actually saved.
+    function persistBillPriorityOrder() {
+      var order = OVERDUE.overdue_bills.map(function(b) { return b.id; });
+      apiFetch("/api/finance-new/bills/priority", { method: "PUT", body: { order: order } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) { if (d.error) { toast(d.error); loadOverdue(); } })
+        .catch(function() { toast(t("Erro ao salvar ordem", "Error saving order")); loadOverdue(); });
     }
 
     // ── Apex Club event P&L ─────────────────────────────────────────────
@@ -6032,6 +6380,7 @@
       // first open, so someone who only wants balances never pays for the
       // event queries. See switchFinanceTab.
       loadForward();
+      loadOverdue();
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
         apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),
@@ -6072,6 +6421,7 @@
       renderAccountCards();
       renderForward();
       renderBillSuggestions();
+      renderOverdue();
       renderClub();
       renderCharts();
       renderLinked();

@@ -831,6 +831,9 @@
     .overdue-row .bill-coverage.is-covered { color: var(--green); }
     .overdue-row .bill-coverage.is-uncovered { color: var(--red); }
     .overdue-row .bill-amount { font-weight: 700; font-size: 14px; white-space: nowrap; }
+    /* Marks a bill the bank feed structurally cannot see, so its silence in the
+       overdue list reads as expected rather than as something gone wrong. */
+    .bill-oncard { color: var(--gold); font-weight: 600; }
     /* The estimate label sits under the amount and reads quieter than it: it is
        context for the number, not a second number competing with it. */
     .bill-est-note {
@@ -894,23 +897,6 @@
     }
     .budget-projection.is-over { color: var(--red); }
     .budget-projection.is-watch { color: var(--brown); }
-
-    /* ── Charges on a card the system cannot see ──
-       Deliberately NOT red and NOT in the overdue list: these are not late
-       and not owed from the bank, they are a heads-up to go look at the
-       card statement. Neutral bordered block, quieter than an overdue row. */
-    .card-charges {
-      margin-top: 10px; padding: 10px 12px;
-      border: 1px dashed var(--border); border-radius: 8px;
-    }
-    .card-charges-head {
-      font-size: 12px; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
-    }
-    .card-charge-row {
-      display: flex; justify-content: space-between; gap: 10px;
-      font-size: 13px; padding: 3px 0;
-    }
 
     /* ── Apex Club event P&L ──
        The verdict sentence carries the whole answer. A small loss on an event
@@ -3467,6 +3453,13 @@
           (b.purpose === "business" ? (isEn() ? "business" : "comercial")
                                     : (isEn() ? "personal" : "pessoal")) +
           " &middot; " + methodLabel +
+          // A card-funded bill is already in this list; it just has to say so.
+          // The bank feed cannot see the charge, so it will never show as paid
+          // here -- and without the label that reads as an oversight rather
+          // than as the known limitation it is.
+          (b.funding_source && b.funding_source !== "bank"
+            ? ' &middot; <span class="bill-oncard">' + t("no cart&atilde;o", "on the card") + "</span>"
+            : "") +
           (b.pay_url ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) +
             '" target="_blank" rel="noopener">' + t("pagar", "pay") + "</a>" : "") +
           (b.payee_notes ? " &middot; " + esc(b.payee_notes) : "") +
@@ -3874,24 +3867,6 @@
     // see them coming so she remembers to check the card. Nicole 2026-08-19:
     // "still show them... but she has to look at the credit card to make
     // sure that they get charged there."
-    function cardChargesHtml() {
-      var rows = (OVERDUE && OVERDUE.upcoming_card_charges) || [];
-      if (!rows.length) { return ""; }
-      var total = rows.reduce(function(s, r) { return s + (r.amount_cents || 0); }, 0);
-      return '<div class="card-charges">' +
-        '<div class="card-charges-head">' +
-          t("No cart&atilde;o &mdash; " + fmtCents(total) + "/m&ecirc;s",
-             "On the card &mdash; " + fmtCents(total) + "/mo") +
-        "</div>" +
-        rows.map(function(r) {
-          return '<div class="card-charge-row">' +
-            "<span>" + esc(r.name) + ' <span class="tag-meta">' +
-              t("dia " + r.day_of_month, "day " + r.day_of_month) + "</span></span>" +
-            "<b>" + fmtCents(r.amount_cents) + "</b>" +
-          "</div>";
-        }).join("") +
-      "</div>";
-    }
 
     // A separate, plainly-stated total -- NOT folded into the coverage
     // forecast or the sentence above. Nicole 2026-08-19: "add it as a tag
@@ -3918,8 +3893,14 @@
       }
       card.hidden = false;
 
+      // Card charges are NOT rendered here. They belong in the bills list --
+      // see renderBills(). A credit-card charge the bank feed cannot see can
+      // never be marked paid from here, so in a section whose whole job is to
+      // reach zero it is a line that never clears: permanent noise telling her
+      // to go check something manually. Same failure as any nag that cannot be
+      // resolved where it appears.
       document.getElementById("overdueSentence").innerHTML =
-        overdueSentenceHtml() + overdueInvoicesTagHtml() + cardChargesHtml();
+        overdueSentenceHtml() + overdueInvoicesTagHtml();
 
       // Before the early return below: a pending match is exactly what
       // empties the overdue list, so it must render even when the list is

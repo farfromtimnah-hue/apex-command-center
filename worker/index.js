@@ -2988,10 +2988,36 @@ async function handleGetVaultClients(request, env) {
     try {
         var caller = serviceCaller(request, env);
         if (!caller) { return jsonErr("Unauthorized", 401); }
+        // Legal-entity identifiers travel with the client. Rafa's Claude reads
+        // this route and has no other way to reach them, and they are exactly
+        // what he would otherwise have to go and look up: the registered name
+        // (frequently NOT the trading name -- JM Luxury Pools pays and files as
+        // JM WORKS SOLUTIONS BUSINESS LLC), the state document number, the EIN,
+        // the registered address and the officers. This is the paperwork any
+        // carrier registration for CRM texting asks for character-for-character.
         var rows = await env.DB.prepare(
-            "SELECT id, name, status FROM clients WHERE COALESCE(archived,0) = 0 ORDER BY name"
+            "SELECT id, name, status, owners, industry, location, " +
+            "legal_entity_name, sunbiz_doc_number, legal_entity_ein, " +
+            "legal_entity_address, legal_entity_filed_at, legal_entity_status, " +
+            "legal_entity_officers, legal_entity_dba, legal_entity_dba_number, " +
+            "duns_number, legal_entity_source, legal_entity_verified_at " +
+            "FROM clients WHERE COALESCE(archived,0) = 0 ORDER BY name"
         ).all();
-        return jsonOk({ clients: rows.results || [] });
+        var clients = (rows.results || []).map(function(c) {
+            // officers is stored as JSON text; hand it back parsed so it does
+            // not arrive as a string that has to be unpicked on the far side.
+            if (c.legal_entity_officers) {
+                try { c.legal_entity_officers = JSON.parse(c.legal_entity_officers); } catch (e) {}
+            }
+            return c;
+        });
+        return jsonOk({
+            clients: clients,
+            note: "legal_entity_name is the REGISTERED name and is often not the " +
+                  "name the client trades under. Use it, not `name`, on anything " +
+                  "official. A null legal_entity_name means nobody has looked it " +
+                  "up yet -- not that the company is unregistered."
+        });
     } catch (e) {
         return jsonErr("Error listing clients: " + e.message, 500);
     }

@@ -1551,7 +1551,7 @@
         <!-- One signal per sitting, after doing as much as she had time for.
              Never one per client: six clicks is the demand that killed the
              original queue. -->
-        <div class="btn-row" id="attnDoneRow" style="margin-top:14px" hidden>
+        <div class="btn-row" id="attnDoneRow" style="margin-top:14px" hidden aria-hidden="true">
           <button class="btn btn-sm" onclick="markInterviewDone()">
             <span class="show-pt">Entrevista conclu&iacute;da</span>
             <span class="show-en">Interview done</span>
@@ -3231,14 +3231,21 @@
                        'onclick="event.stopPropagation();copyQueuePrompt(\'' + r.copy + '\')">' +
                        '<span class="show-pt">Copiar prompt</span>' +
                        '<span class="show-en">Copy prompt</span>' +
+                     '</button>' +
+                     '<button class="btn btn-sm attn-copy-btn" ' +
+                       'onclick="event.stopPropagation();markInterviewDone(\'' + r.copy + '\')">' +
+                       '<span class="show-pt">Entrevista conclu&iacute;da</span>' +
+                       '<span class="show-en">Interview done</span>' +
                      '</button>'
                    : '') +
                '</div>';
       }).join("");
 
       document.getElementById("attnClear").hidden = rows.length > 0;
+      // The shared button is retired: each row now carries its own, because
+      // one button cannot say WHICH interview was finished.
       var doneRow = document.getElementById("attnDoneRow");
-      if (doneRow) { doneRow.hidden = rows.length === 0; }
+      if (doneRow) { doneRow.hidden = true; }
 
       // The work shrinking, stated as a fact about the rules rather than a
       // score about her. Only shown once the rules have actually done
@@ -7548,8 +7555,13 @@ codes.map(function(c) { return "  - " + c; }).join("\n"),
     // Records that a sitting happened. It does NOT clear the queue: what is
     // left stays computed live from the terms table, so the count shrinks only
     // as answers actually land in Apex.
-    function markInterviewDone() {
-      apiFetch("/api/interview-sittings", { method: "POST", body: { kind: "terms" } })
+    // Kind travels from the row that was actually finished. A single shared
+    // button could only ever report one kind, so a transactions sitting was
+    // being logged as a terms sitting -- and a developer would go looking for
+    // answers that were never given. Terms, transactions and policies are
+    // separate interviews with separate prompts, often on separate days.
+    function markInterviewDone(kind) {
+      apiFetch("/api/interview-sittings", { method: "POST", body: { kind: kind || "terms" } })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (!d || d.error) { toast(t("Erro", "Error")); return; }

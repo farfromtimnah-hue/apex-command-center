@@ -1383,20 +1383,40 @@
           if (badge) { badge.textContent = open.length; }
           var isEnLang = document.body.classList.contains("lang-en");
           var html = "";
+          // WHICH interview she finished, not just that one happened. Terms,
+          // transactions and policies are separate sittings with separate
+          // prompts -- without the kind, a developer goes looking in the vault
+          // for answers to a question she was never asked.
+          var KIND_LABEL = {
+            terms:      { pt: "Valores combinados de clientes", en: "Client agreed terms" },
+            matches:    { pt: "Dep\u00f3sitos e faturas",          en: "Deposits and invoices" },
+            uncategorized: { pt: "Categorias de transa\u00e7\u00f5es", en: "Transaction categories" },
+            policies:   { pt: "Ap\u00f3lices das crian\u00e7as",      en: "Children's policies" }
+          };
           open.forEach(function(sit) {
             var when = sit.created_at || "";
             var who  = sit.created_by_email || sit.created_by || "";
+            var lab  = KIND_LABEL[sit.kind] ||
+                       { pt: sit.kind || "Entrevista", en: sit.kind || "Interview" };
             html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
               '<div style="flex:1;min-width:220px;">' +
               '<div style="font-size:14px;font-weight:600;">' +
-              (isEnLang ? 'Answers waiting in the vault' : 'Respostas aguardando no vault') + '</div>' +
+              escHtml(isEnLang ? lab.en : lab.pt) + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
               escHtml(when) + (who ? ' &middot; ' + escHtml(who) : '') +
               '</div></div></div>';
           });
-          html += '<div style="display:flex;gap:8px;margin-top:14px;">' +
-            '<button style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="clearInterviewSittings(this)">' +
-            (isEnLang ? 'Answers written into Apex' : 'Respostas j&aacute; lan&ccedil;adas no Apex') + '</button></div>';
+          // One clear button PER KIND, so retrieving one interview's answers
+          // never marks another's retrieved.
+          var kinds = {};
+          open.forEach(function(sit) { kinds[sit.kind || "terms"] = true; });
+          html += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">';
+          Object.keys(kinds).forEach(function(k) {
+            var lab = KIND_LABEL[k] || { pt: k, en: k };
+            html += '<button style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="clearInterviewSittings(this,\'' + k + '\')">' +
+              escHtml((isEnLang ? 'Written into Apex: ' : 'Lan\u00e7adas no Apex: ') + (isEnLang ? lab.en : lab.pt)) + '</button>';
+          });
+          html += '</div>';
           listEl.innerHTML = html;
           section.hidden = false;
         })
@@ -1406,9 +1426,9 @@
     // Clears the flag. Only correct AFTER the collected answers have actually
     // been written into Apex -- the flag is about retrieval, not about whether
     // the client list is empty.
-    function clearInterviewSittings(btn) {
+    function clearInterviewSittings(btn, kind) {
       if (btn) { btn.disabled = true; }
-      apiFetch("/api/interview-sittings", { method: "POST", body: { clear: true } })
+      apiFetch("/api/interview-sittings", { method: "POST", body: { clear: true, kind: kind } })
         .then(function(res) { return res.json(); })
         .then(function() { loadInterviewSittings(); })
         .catch(function() { if (btn) { btn.disabled = false; } });

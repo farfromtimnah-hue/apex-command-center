@@ -2594,11 +2594,24 @@ async function handlePostInterviewSitting(request, env) {
         var body = await request.json().catch(function() { return {}; });
 
         if (body && body.clear) {
-            var res = await env.DB.prepare(
-                "UPDATE interview_sittings SET retrieved_at = datetime('now'), retrieved_by = ? " +
-                "WHERE retrieved_at IS NULL"
-            ).bind(user.email || user.uid || null).run();
-            return jsonOk({ cleared: true, count: (res.meta && res.meta.changes) || 0 });
+            // Clearing is scoped to ONE kind when a kind is given. Clearing
+            // everything open would mean retrieving a terms sitting silently
+            // marks a policies sitting retrieved too, and those answers would
+            // sit in the vault forever with nothing left pointing at them.
+            // No kind = clear all, kept only for the pre-existing callers.
+            var res;
+            if (body.kind) {
+                res = await env.DB.prepare(
+                    "UPDATE interview_sittings SET retrieved_at = datetime('now'), retrieved_by = ? " +
+                    "WHERE retrieved_at IS NULL AND kind = ?"
+                ).bind(user.email || user.uid || null, body.kind).run();
+            } else {
+                res = await env.DB.prepare(
+                    "UPDATE interview_sittings SET retrieved_at = datetime('now'), retrieved_by = ? " +
+                    "WHERE retrieved_at IS NULL"
+                ).bind(user.email || user.uid || null).run();
+            }
+            return jsonOk({ cleared: true, kind: body.kind || null, count: (res.meta && res.meta.changes) || 0 });
         }
 
         var id = crypto.randomUUID();

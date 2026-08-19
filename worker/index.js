@@ -25536,6 +25536,478 @@ async function handleGetSchedulingClientState(request, env) {
 // period, which also covers invoices created outside the collision modal.
 // ---------------------------------------------------------------------------
 
+// ===========================================================================
+// VENDORS — third-party vendors (marketing, accounting, etc.) who service
+// specific Apex clients as a paid add-on riding on the client's regular
+// invoice. See apex-vendors-spec.md in the Nicole Second Brain vault for the
+// full decision record. alice/rafa/developer only throughout, same gate as
+// package-terms and every other finance-new route.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/vendors — list all active vendors, each with
+// its attached clients (amount, or "amount pending" when NULL) and the
+// derived "what Apex currently owes this vendor" total.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewVendors(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var vendorsRes = await env.DB.prepare(
+            "SELECT id, name, vendor_type, contact_name, contact_email, contact_phone, " +
+            "payment_method, payment_identifier, info_complete, notes, active, created_at " +
+            "FROM vendors WHERE active = 1 ORDER BY name"
+        ).all();
+
+        var termsRes = await env.DB.prepare(
+            "SELECT cvt.id, cvt.client_id, cvt.vendor_id, cvt.vendor_amount_cents, cvt.markup_cents, " +
+            "cvt.label, cvt.service_note, cvt.recurrence_unit, cvt.recurrence_interval, cvt.active, " +
+            "c.name AS client_name " +
+            "FROM client_vendor_terms cvt JOIN clients c ON c.id = cvt.client_id " +
+            "WHERE cvt.active = 1 ORDER BY c.name"
+        ).all();
+
+        var byVendor = {};
+        (termsRes.results || []).forEach(function(row) {
+            if (!byVendor[row.vendor_id]) { byVendor[row.vendor_id] = []; }
+            var total = (row.vendor_amount_cents === null || row.vendor_amount_cents === undefined)
+                ? null
+                : (row.vendor_amount_cents + (row.markup_cents || 0));
+            byVendor[row.vendor_id].push({
+                id: row.id,
+                client_id: row.client_id,
+                client_name: row.client_name,
+                vendor_amount_cents: row.vendor_amount_cents,   // null = amount pending
+                markup_cents: row.markup_cents || 0,
+                client_total_cents: total,                      // null when amount pending
+                label: row.label,
+                service_note: row.service_note,
+                recurrence_unit: row.recurrence_unit,
+                recurrence_interval: row.recurrence_interval
+            });
+        });
+
+        var vendors = (vendorsRes.results || []).map(function(v) {
+            var clients = byVendor[v.id] || [];
+            var owedCents = clients.reduce(function(sum, c) {
+                return sum + (c.vendor_amount_cents || 0);   // markup is Apex revenue, not owed to the vendor
+            }, 0);
+            return {
+                id: v.id,
+                name: v.name,
+                vendor_type: v.vendor_type,
+                contact_name: v.contact_name,
+                contact_email: v.contact_email,
+                contact_phone: v.contact_phone,
+                payment_method: v.payment_method,
+                payment_identifier: v.payment_identifier,
+                info_complete: !!v.info_complete,
+                notes: v.notes,
+                created_at: v.created_at,
+                clients: clients,
+                owed_cents: owedCents
+            };
+        });
+
+        return jsonOk({ vendors: vendors });
+    } catch (e) {
+        return jsonErr("Error fetching vendors: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/vendors — create a vendor.
+// Body: { name, vendor_type?, contact_name?, contact_email?, contact_phone?,
+//         payment_method?, payment_identifier?, notes? }
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewVendor(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var name = String(body.name || "").trim();
+        if (!name) { return jsonErr("name required", 400); }
+
+        var paymentMethod = body.payment_method || null;
+        if (paymentMethod && ["zelle", "check", "ach", "other"].indexOf(paymentMethod) === -1) {
+            return jsonErr("payment_method must be 'zelle', 'check', 'ach', 'other', or null", 400);
+        }
+
+        var id = crypto.randomUUID();
+        var infoComplete = vendorInfoIsComplete({
+            vendor_type: body.vendor_type,
+            contact_name: body.contact_name,
+            payment_method: paymentMethod,
+            payment_identifier: body.payment_identifier
+        });
+
+        await env.DB.prepare(
+            "INSERT INTO vendors (id, name, vendor_type, contact_name, contact_email, contact_phone, " +
+            "payment_method, payment_identifier, info_complete, notes, active) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)"
+        ).bind(
+            id, name,
+            String(body.vendor_type || "").trim() || null,
+            String(body.contact_name || "").trim() || null,
+            String(body.contact_email || "").trim() || null,
+            String(body.contact_phone || "").trim() || null,
+            paymentMethod,
+            String(body.payment_identifier || "").trim() || null,
+            infoComplete ? 1 : 0,
+            String(body.notes || "").trim() || null
+        ).run();
+
+        return jsonOk({ id: id, name: name });
+    } catch (e) {
+        return jsonErr("Error creating vendor: " + e.message, 500);
+    }
+}
+
+// Required-vs-optional split for the completion modal: vendor_type, a way to
+// reach them (contact_name), and enough payment info to actually pay them
+// (payment_method + payment_identifier) are required. contact_email/phone/
+// notes are optional detail, not blockers -- a UI-detail call left open by
+// the spec, decided here so info_complete has one consistent definition
+// everywhere it's computed (vendor create, vendor edit, completion modal).
+function vendorInfoIsComplete(v) {
+    return !!(
+        (v.vendor_type && String(v.vendor_type).trim()) &&
+        (v.contact_name && String(v.contact_name).trim()) &&
+        (v.payment_method && String(v.payment_method).trim()) &&
+        (v.payment_identifier && String(v.payment_identifier).trim())
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance-new/vendors/:id — edit vendor info. Used both by
+// the Vendors admin page's edit form and by the skippable completion modal
+// -- the modal is just this same route with a narrower form, so
+// info_complete is always recomputed the same way regardless of caller.
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceNewVendor(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id, name FROM vendors WHERE id = ?").bind(id).first();
+        if (!existing) { return jsonErr("Vendor not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var name = (body.name !== undefined) ? String(body.name || "").trim() : existing.name;
+        if (!name) { return jsonErr("name required", 400); }
+
+        var paymentMethod = (body.payment_method !== undefined) ? (body.payment_method || null) : undefined;
+        if (paymentMethod && ["zelle", "check", "ach", "other"].indexOf(paymentMethod) === -1) {
+            return jsonErr("payment_method must be 'zelle', 'check', 'ach', 'other', or null", 400);
+        }
+
+        var current = await env.DB.prepare(
+            "SELECT vendor_type, contact_name, contact_email, contact_phone, payment_method, " +
+            "payment_identifier, notes FROM vendors WHERE id = ?"
+        ).bind(id).first();
+
+        var vendorType   = (body.vendor_type         !== undefined) ? (String(body.vendor_type || "").trim() || null)         : current.vendor_type;
+        var contactName  = (body.contact_name        !== undefined) ? (String(body.contact_name || "").trim() || null)        : current.contact_name;
+        var contactEmail = (body.contact_email       !== undefined) ? (String(body.contact_email || "").trim() || null)       : current.contact_email;
+        var contactPhone = (body.contact_phone       !== undefined) ? (String(body.contact_phone || "").trim() || null)       : current.contact_phone;
+        var payMethod    = (paymentMethod             !== undefined) ? paymentMethod                                          : current.payment_method;
+        var payIdent     = (body.payment_identifier  !== undefined) ? (String(body.payment_identifier || "").trim() || null)  : current.payment_identifier;
+        var notes        = (body.notes               !== undefined) ? (String(body.notes || "").trim() || null)               : current.notes;
+
+        var infoComplete = vendorInfoIsComplete({
+            vendor_type: vendorType,
+            contact_name: contactName,
+            payment_method: payMethod,
+            payment_identifier: payIdent
+        });
+
+        await env.DB.prepare(
+            "UPDATE vendors SET name = ?, vendor_type = ?, contact_name = ?, contact_email = ?, " +
+            "contact_phone = ?, payment_method = ?, payment_identifier = ?, info_complete = ?, notes = ? " +
+            "WHERE id = ?"
+        ).bind(
+            name, vendorType, contactName, contactEmail, contactPhone,
+            payMethod, payIdent, infoComplete ? 1 : 0, notes, id
+        ).run();
+
+        return jsonOk({ id: id, name: name, info_complete: infoComplete });
+    } catch (e) {
+        return jsonErr("Error updating vendor: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/vendor-terms — a client's active vendor
+// attachments, for the Vendors card on client.html.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientVendorTerms(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT cvt.id, cvt.vendor_id, cvt.vendor_amount_cents, cvt.markup_cents, cvt.label, " +
+            "cvt.service_note, cvt.recurrence_unit, cvt.recurrence_interval, cvt.started_at, cvt.updated_at, " +
+            "v.name AS vendor_name, v.vendor_type " +
+            "FROM client_vendor_terms cvt JOIN vendors v ON v.id = cvt.vendor_id " +
+            "WHERE cvt.client_id = ? AND cvt.active = 1 ORDER BY v.name"
+        ).bind(clientId).all();
+
+        var terms = (res.results || []).map(function(row) {
+            var total = (row.vendor_amount_cents === null || row.vendor_amount_cents === undefined)
+                ? null
+                : (row.vendor_amount_cents + (row.markup_cents || 0));
+            return {
+                id: row.id,
+                vendor_id: row.vendor_id,
+                vendor_name: row.vendor_name,
+                vendor_type: row.vendor_type,
+                vendor_amount_cents: row.vendor_amount_cents,
+                markup_cents: row.markup_cents || 0,
+                client_total_cents: total,
+                label: row.label,
+                service_note: row.service_note,
+                recurrence_unit: row.recurrence_unit,
+                recurrence_interval: row.recurrence_interval,
+                started_at: row.started_at,
+                updated_at: row.updated_at
+            };
+        });
+
+        return jsonOk({ terms: terms });
+    } catch (e) {
+        return jsonErr("Error fetching client vendor terms: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/vendor-terms — attach a vendor to this
+// client. Body: { vendor_id, vendor_amount_cents?, markup_cents?, label?,
+// service_note?, recurrence_unit?, recurrence_interval? }
+//
+// vendor_amount_cents may be omitted/null -- "attached, amount pending" is a
+// legitimate, expected state (Alice's spreadsheet not landed yet), never
+// coerced to 0.
+//
+// Enforces the same one-active-pairing-per-client-vendor rule the UNIQUE
+// constraint enforces at the DB layer, but checked here first so a
+// duplicate attempt gets a clear 409 instead of a raw SQLite constraint
+// error bubbling up as a 500.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientVendorTerms(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(clientId).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.vendor_id) { return jsonErr("vendor_id required", 400); }
+
+        var vendor = await env.DB.prepare("SELECT id, name FROM vendors WHERE id = ? AND active = 1").bind(body.vendor_id).first();
+        if (!vendor) { return jsonErr("Vendor not found", 404); }
+
+        var existing = await env.DB.prepare(
+            "SELECT id FROM client_vendor_terms WHERE client_id = ? AND vendor_id = ? AND active = 1"
+        ).bind(clientId, body.vendor_id).first();
+        if (existing) { return jsonErr("This vendor is already attached to this client", 409); }
+
+        var vendorAmount = null;
+        if (body.vendor_amount_cents !== null && body.vendor_amount_cents !== undefined && body.vendor_amount_cents !== "") {
+            vendorAmount = parseInt(body.vendor_amount_cents, 10);
+            if (isNaN(vendorAmount) || vendorAmount < 0) { return jsonErr("vendor_amount_cents must be a non-negative whole number of cents", 400); }
+        }
+
+        var markupCents = 0;
+        if (body.markup_cents !== null && body.markup_cents !== undefined && body.markup_cents !== "") {
+            markupCents = parseInt(body.markup_cents, 10);
+            if (isNaN(markupCents) || markupCents < 0) { return jsonErr("markup_cents must be a non-negative whole number of cents", 400); }
+        }
+
+        var recurrenceUnit = body.recurrence_unit || null;
+        if (recurrenceUnit && ["day", "week", "month", "year"].indexOf(recurrenceUnit) === -1) {
+            return jsonErr("recurrence_unit must be 'day', 'week', 'month', 'year', or null", 400);
+        }
+        var recurrenceInterval = (body.recurrence_interval !== null && body.recurrence_interval !== undefined && body.recurrence_interval !== "")
+            ? parseInt(body.recurrence_interval, 10) : null;
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_vendor_terms (id, client_id, vendor_id, vendor_amount_cents, markup_cents, " +
+            "label, service_note, recurrence_unit, recurrence_interval, active, started_at, updated_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'))"
+        ).bind(
+            id, clientId, body.vendor_id, vendorAmount, markupCents,
+            String(body.label || "").trim() || (vendor.name + " add-on"),
+            String(body.service_note || "").trim() || null,
+            recurrenceUnit, recurrenceInterval,
+            localDateStrForTZ()
+        ).run();
+
+        // Server-computed, never trusted from the client -- same pattern as
+        // adjusted_total in handlePutClientPackageTerms.
+        var clientTotal = (vendorAmount === null) ? null : (vendorAmount + markupCents);
+
+        return jsonOk({ id: id, client_total_cents: clientTotal });
+    } catch (e) {
+        return jsonErr("Error attaching vendor: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/vendor-terms/:termsId — edit an existing
+// attachment's amount/markup/label/cadence.
+// Route: DELETE /api/clients/:id/vendor-terms/:termsId — end the
+// attachment (flips active to 0, never deletes the row or leaves active
+// NULL -- see [[sqlite-null-defeats-unique]], the UNIQUE(client_id,
+// vendor_id, active) constraint depends on active always being 0 or 1).
+// ---------------------------------------------------------------------------
+
+async function handlePutClientVendorTerm(clientId, termsId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id, vendor_amount_cents, markup_cents, label, service_note, recurrence_unit, recurrence_interval " +
+            "FROM client_vendor_terms WHERE id = ? AND client_id = ? AND active = 1"
+        ).bind(termsId, clientId).first();
+        if (!row) { return jsonErr("Vendor term not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var vendorAmount = row.vendor_amount_cents;
+        if (body.vendor_amount_cents !== undefined) {
+            if (body.vendor_amount_cents === null || body.vendor_amount_cents === "") {
+                vendorAmount = null;
+            } else {
+                vendorAmount = parseInt(body.vendor_amount_cents, 10);
+                if (isNaN(vendorAmount) || vendorAmount < 0) { return jsonErr("vendor_amount_cents must be a non-negative whole number of cents", 400); }
+            }
+        }
+
+        var markupCents = row.markup_cents;
+        if (body.markup_cents !== undefined) {
+            markupCents = parseInt(body.markup_cents, 10);
+            if (isNaN(markupCents) || markupCents < 0) { return jsonErr("markup_cents must be a non-negative whole number of cents", 400); }
+        }
+
+        var recurrenceUnit = (body.recurrence_unit !== undefined) ? (body.recurrence_unit || null) : row.recurrence_unit;
+        if (recurrenceUnit && ["day", "week", "month", "year"].indexOf(recurrenceUnit) === -1) {
+            return jsonErr("recurrence_unit must be 'day', 'week', 'month', 'year', or null", 400);
+        }
+        var recurrenceInterval = (body.recurrence_interval !== undefined)
+            ? (body.recurrence_interval === null || body.recurrence_interval === "" ? null : parseInt(body.recurrence_interval, 10))
+            : row.recurrence_interval;
+
+        var label = (body.label !== undefined) ? (String(body.label || "").trim() || null) : row.label;
+        var serviceNote = (body.service_note !== undefined) ? (String(body.service_note || "").trim() || null) : row.service_note;
+
+        await env.DB.prepare(
+            "UPDATE client_vendor_terms SET vendor_amount_cents = ?, markup_cents = ?, label = ?, " +
+            "service_note = ?, recurrence_unit = ?, recurrence_interval = ?, updated_at = datetime('now') " +
+            "WHERE id = ?"
+        ).bind(vendorAmount, markupCents, label, serviceNote, recurrenceUnit, recurrenceInterval, termsId).run();
+
+        var clientTotal = (vendorAmount === null) ? null : (vendorAmount + markupCents);
+        return jsonOk({ id: termsId, client_total_cents: clientTotal });
+    } catch (e) {
+        return jsonErr("Error updating vendor term: " + e.message, 500);
+    }
+}
+
+async function handleDeleteClientVendorTerm(clientId, termsId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM client_vendor_terms WHERE id = ? AND client_id = ? AND active = 1"
+        ).bind(termsId, clientId).first();
+        if (!row) { return jsonErr("Vendor term not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE client_vendor_terms SET active = 0, ended_at = ?, updated_at = datetime('now') WHERE id = ?"
+        ).bind(localDateStrForTZ(), termsId).run();
+
+        return jsonOk({ id: termsId, active: false });
+    } catch (e) {
+        return jsonErr("Error ending vendor term: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/vendor-share?month=YYYY-MM — the two-slice
+// donut Alice asked for: of total income, what share goes to vendors vs
+// what Apex keeps.
+//
+// Numerator (vendor share): sum of vendor_amount_cents (NOT + markup_cents
+// -- markup is Apex's own revenue, not money leaving the business) across
+// invoice_line_items of kind 'vendor_addon', for invoices marked paid whose
+// paid_at falls in the requested month.
+// Denominator: total paid-invoice revenue for the same month (same
+// amount_cents sum the rest of the dashboard already uses).
+// Apex share = total - vendor share (this already includes markup
+// correctly, since markup was never subtracted out).
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewVendorShare(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month") || localDateStrForTZ().slice(0, 7);
+        if (!/^\d{4}-\d{2}$/.test(month)) { return jsonErr("month must be YYYY-MM", 400); }
+
+        var totalRow = await env.DB.prepare(
+            "SELECT COALESCE(SUM(amount_cents), 0) AS total FROM invoices " +
+            "WHERE status = 'paid' AND paid_at IS NOT NULL AND substr(paid_at, 1, 7) = ?"
+        ).bind(month).first();
+        var totalCents = (totalRow && totalRow.total) || 0;
+
+        var vendorRow = await env.DB.prepare(
+            "SELECT COALESCE(SUM(ili.amount_cents - COALESCE(cvt.markup_cents, 0)), 0) AS vendor_total " +
+            "FROM invoice_line_items ili " +
+            "JOIN invoices i ON i.id = ili.invoice_id " +
+            "LEFT JOIN client_vendor_terms cvt ON cvt.id = ili.client_vendor_terms_id " +
+            "WHERE ili.kind = 'vendor_addon' AND i.status = 'paid' AND i.paid_at IS NOT NULL " +
+            "AND substr(i.paid_at, 1, 7) = ?"
+        ).bind(month).first();
+        var vendorCents = (vendorRow && vendorRow.vendor_total) || 0;
+        if (vendorCents < 0) { vendorCents = 0; }   // defensive floor -- markup should never exceed the line amount
+
+        var apexCents = totalCents - vendorCents;
+        if (apexCents < 0) { apexCents = 0; }
+
+        return jsonOk({
+            month: month,
+            total_cents: totalCents,
+            vendor_cents: vendorCents,
+            apex_cents: apexCents
+        });
+    } catch (e) {
+        return jsonErr("Error computing vendor share: " + e.message, 500);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // getActiveVendorAddonsForClient — sum the client's active vendor add-ons
 // with a KNOWN amount, for folding into a recurring invoice's total.
@@ -26170,6 +26642,14 @@ async function handleFetch(request, env, ctx) {
                 if (method === "GET") { return handleGetClientPackageTerms(cid, request, env); }
                 if (method === "PUT") { return handlePutClientPackageTerms(cid, request, env); }
             }
+            if (segs.length === 4 && segs[3] === "vendor-terms") {
+                if (method === "GET")  { return handleGetClientVendorTerms(cid, request, env); }
+                if (method === "POST") { return handlePostClientVendorTerms(cid, request, env); }
+            }
+            if (segs.length === 5 && segs[3] === "vendor-terms") {
+                if (method === "PUT")    { return handlePutClientVendorTerm(cid, segs[4], request, env); }
+                if (method === "DELETE") { return handleDeleteClientVendorTerm(cid, segs[4], request, env); }
+            }
             if (segs.length === 4 && segs[3] === "zoho-contact") {
                 if (method === "GET") { return handleGetClientZohoContact(cid, request, env); }
                 if (method === "PUT") { return handlePutClientZohoContact(cid, request, env); }
@@ -26535,6 +27015,12 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/matches/undo"      && method === "POST") { return handlePostFinanceNewMatchUndo(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "GET")  { return handleGetFinanceNewRecurrences(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "POST") { return handlePostFinanceNewRecurrence(request, env); }
+        if (path === "/api/finance-new/vendors"           && method === "GET")  { return handleGetFinanceNewVendors(request, env); }
+        if (path === "/api/finance-new/vendors"           && method === "POST") { return handlePostFinanceNewVendor(request, env); }
+        if (path.indexOf("/api/finance-new/vendors/") === 0 && method === "PUT") {
+            return handlePutFinanceNewVendor(path.slice("/api/finance-new/vendors/".length), request, env);
+        }
+        if (path === "/api/finance-new/vendor-share"      && method === "GET")  { return handleGetFinanceNewVendorShare(request, env); }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "render-data" && method === "GET") {
             return handleGetFinanceNewInvoiceRenderData(segs[3], request, env);
         }

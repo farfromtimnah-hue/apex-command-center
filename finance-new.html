@@ -1181,6 +1181,11 @@
             <span class="show-en">Events</span>
             <span class="fin-tab-badge" id="finBadgeEventos" hidden>0</span>
           </button>
+          <button class="fin-tab-pill" id="finTabBtnVendors" onclick="switchFinanceTab('vendors')">
+            <span class="show-pt">Fornecedores</span>
+            <span class="show-en">Vendors</span>
+            <span class="fin-tab-badge" id="finBadgeVendors" hidden>0</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1545,6 +1550,113 @@
       </div>
     </div>
 
+    <!-- New vendor. Same nc-overlay/nc-box idiom as "Nova categoria" above --
+         not a new UI idiom for a page that already has one for "add a
+         simple named thing". -->
+    <div id="newVendorOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeNewVendor()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeNewVendor()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Novo fornecedor</span>
+          <span class="show-en">New vendor</span>
+        </h3>
+        <label class="nc-label">
+          <span class="show-pt">Nome</span>
+          <span class="show-en">Name</span>
+        </label>
+        <input type="text" id="nvName" class="nc-input" autocomplete="off">
+        <label class="nc-label">
+          <span class="show-pt">Tipo (palavras da Alice, ex: Marketing)</span>
+          <span class="show-en">Type (Alice's own words, e.g. Marketing)</span>
+        </label>
+        <input type="text" id="nvType" class="nc-input" autocomplete="off">
+        <button type="button" class="btn btn-gold" id="nvSaveBtn" onclick="saveNewVendor()" style="width:100%;margin-top:16px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div id="nvStatus" class="net-note" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- Vendor detail / completion modal. Same element opens both from the
+         Vendors list (edit) and automatically when Alice clicks into a
+         vendor with info_complete = 0 -- the completion prompt is just this
+         same form, dismissible, never a gate. Sets info_complete = 1 once
+         the required fields (vendor_type, contact_name, payment_method,
+         payment_identifier) are filled -- see vendorInfoIsComplete() in
+         worker/index.js for the same rule applied server-side. -->
+    <div id="vendorDetailOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeVendorDetail()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeVendorDetail()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title" id="vdTitle"></h3>
+        <div id="vdCompletionHint" class="net-note" style="margin-bottom:10px;" hidden>
+          <span class="show-pt">Faltam alguns dados deste fornecedor. Pode preencher agora ou deixar para depois &mdash; nada trava.</span>
+          <span class="show-en">A few details are missing for this vendor. Fill them in now or leave it for later &mdash; nothing is blocked.</span>
+        </div>
+
+        <label class="nc-label">
+          <span class="show-pt">Tipo</span>
+          <span class="show-en">Type</span>
+        </label>
+        <input type="text" id="vdType" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Contato (nome)</span>
+          <span class="show-en">Contact name</span>
+        </label>
+        <input type="text" id="vdContactName" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">Email</label>
+        <input type="email" id="vdContactEmail" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Telefone</span>
+          <span class="show-en">Phone</span>
+        </label>
+        <input type="text" id="vdContactPhone" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Forma de pagamento</span>
+          <span class="show-en">Payment method</span>
+        </label>
+        <select id="vdPaymentMethod" class="nc-input">
+          <option value="">--</option>
+          <option value="zelle">Zelle</option>
+          <option value="check">Check</option>
+          <option value="ach">ACH</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label class="nc-label">
+          <span class="show-pt">Identificador de pagamento (telefone/email/nome no Zelle, etc)</span>
+          <span class="show-en">Payment identifier (Zelle phone/email/name, etc)</span>
+        </label>
+        <input type="text" id="vdPaymentIdentifier" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Notas</span>
+          <span class="show-en">Notes</span>
+        </label>
+        <input type="text" id="vdNotes" class="nc-input" autocomplete="off">
+
+        <button type="button" class="btn btn-gold" id="vdSaveBtn" onclick="saveVendorDetail()" style="width:100%;margin-top:16px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div id="vdStatus" class="net-note" style="margin-top:8px;"></div>
+
+        <!-- Attached clients for this vendor -- amount pending state shown
+             explicitly, never invented or hidden. -->
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:14px;">
+          <div class="nc-label" style="margin-bottom:8px;">
+            <span class="show-pt">Clientes atendidos</span>
+            <span class="show-en">Clients served</span>
+          </div>
+          <div id="vdClientsList"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Confirms she landed where she meant to, for anyone arriving from the
          old page's switch prompt. Stays until she clicks the tab or the create
          button — a timed hint is too easy to miss on a page she is still
@@ -1790,6 +1902,58 @@
       </div>
 
     </div><!-- /finPanelEventos -->
+
+    <!-- ══ Panel: Fornecedores (Vendors) ═══════════════════════════════
+         Third-party vendors (marketing, accounting, etc.) who service
+         specific clients as a paid add-on riding on that client's regular
+         invoice -- never a separate invoice. This is Pra Alice's tool, so
+         it lives here alongside her other finance surfaces rather than on
+         the general client-profile nav. See apex-vendors-spec.md. -->
+    <div id="finPanelVendors" class="fin-tab-panel" hidden>
+
+      <div class="page-sub">
+        <span class="show-pt">Empresas terceirizadas que atendem clientes espec&iacute;ficos. O valor entra na fatura normal do cliente &mdash; nunca uma fatura separada.</span>
+        <span class="show-en">Third-party companies that service specific clients. The amount rides on the client's regular invoice &mdash; never a separate invoice.</span>
+      </div>
+
+      <!-- Vendor share of income: two-slice donut, per Alice's ask ("90%
+           Apex / 10% vendors"). Placed here near the other income picture,
+           not buried as a vendor-management detail. -->
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span>
+            <span class="show-pt">Fatia dos fornecedores na receita</span>
+            <span class="show-en">Vendor share of income</span>
+          </span>
+          <input type="month" id="vendorShareMonth" onchange="loadVendorShare()">
+        </div>
+        <div class="net-note" style="margin-bottom:14px">
+          <span class="show-pt">A marcaç&atilde;o (markup) conta como receita da Apex, n&atilde;o como fatia do fornecedor.</span>
+          <span class="show-en">Markup counts as Apex revenue, not vendor share.</span>
+        </div>
+        <div class="chart-box" style="max-width:340px;margin:0 auto;"><canvas id="vendorShareChart"></canvas></div>
+        <div id="vendorShareCaveat" class="net-note" style="text-align:center;margin-top:10px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span>
+            <span class="show-pt">Fornecedores</span>
+            <span class="show-en">Vendors</span>
+          </span>
+          <button class="btn btn-sm btn-gold" onclick="openNewVendorModal()">
+            <span class="show-pt">+ Novo fornecedor</span>
+            <span class="show-en">+ New vendor</span>
+          </button>
+        </div>
+        <div id="vendorsList"></div>
+        <div id="vendorsEmpty" class="empty" hidden>
+          <span class="show-pt">Nenhum fornecedor cadastrado ainda.</span>
+          <span class="show-en">No vendors set up yet.</span>
+        </div>
+      </div>
+
+    </div><!-- /finPanelVendors -->
 
     </div><!-- /fn-body -->
   </main>
@@ -2202,6 +2366,7 @@
     var PENDING_RECURRENCE = null;
     var CURRENT_INVOICE_TAB = "draft";
     var CHARTS = { flow: null, mom: null, balance: null };
+    var VENDORS = [];
 
     // Prefetched at page load ON PURPOSE: the WhatsApp handler must be able to
     // build its message without awaiting anything, so window.open() can run
@@ -4377,9 +4542,10 @@
     // entire dashboard first.
 
     var currentFinanceTab = "saude";
-    var FIN_TABS = ["saude", "faturas", "categorias", "eventos"];
+    var FIN_TABS = ["saude", "faturas", "categorias", "eventos", "vendors"];
     var categoriasLoaded = false;
     var eventosLoaded = false;
+    var vendorsLoaded = false;
 
     function switchFinanceTab(tab) {
       currentFinanceTab = tab;
@@ -4408,6 +4574,16 @@
       if (tab === "eventos" && !eventosLoaded) {
         eventosLoaded = true;
         loadClub().then(initEventMonth);
+      }
+
+      // Vendors: its own queries (vendors + vendor-share), no reason to run
+      // them for someone who never opens the tab.
+      if (tab === "vendors" && !vendorsLoaded) {
+        vendorsLoaded = true;
+        var vsMonthInput = document.getElementById("vendorShareMonth");
+        if (vsMonthInput && !vsMonthInput.value) { vsMonthInput.value = new Date().toISOString().slice(0, 7); }
+        loadVendors();
+        loadVendorShare();
       }
     }
 
@@ -4575,6 +4751,265 @@
         if (CATEGORIES[i].id === id) { return CATEGORIES[i]; }
       }
       return null;
+    }
+
+    // ── Vendors ──────────────────────────────────────────────────────────
+    // Third-party vendors (marketing, accounting, etc) who service specific
+    // clients as a paid add-on riding on that client's regular invoice.
+    // See apex-vendors-spec.md.
+
+    function loadVendors() {
+      return apiFetch("/api/finance-new/vendors")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          VENDORS = data.vendors || [];
+          renderVendorsList();
+        })
+        .catch(function() { VENDORS = []; renderVendorsList(); });
+    }
+
+    function vendorById(id) {
+      for (var i = 0; i < VENDORS.length; i++) {
+        if (VENDORS[i].id === id) { return VENDORS[i]; }
+      }
+      return null;
+    }
+
+    function renderVendorsList() {
+      var wrap  = document.getElementById("vendorsList");
+      var empty = document.getElementById("vendorsEmpty");
+      if (!wrap) { return; }
+
+      if (!VENDORS.length) {
+        wrap.innerHTML = "";
+        if (empty) { empty.hidden = false; }
+        return;
+      }
+      if (empty) { empty.hidden = true; }
+
+      var html = "";
+      for (var i = 0; i < VENDORS.length; i++) {
+        var v = VENDORS[i];
+        var clientCount = v.clients.length;
+        var pendingCount = v.clients.filter(function(c) { return c.vendor_amount_cents === null; }).length;
+
+        html += '<div class="vendor-row" onclick="openVendorDetail(\'' + v.id + '\')" ' +
+                'style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;cursor:pointer;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+            '<div>' +
+              '<div style="font-weight:700;">' + esc(v.name) +
+                (v.vendor_type ? ' <span style="font-weight:400;color:var(--muted);">&mdash; ' + esc(v.vendor_type) + '</span>' : '') +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+                (clientCount
+                  ? (clientCount + (isEn() ? " client(s)" : " cliente(s)") +
+                     (pendingCount ? (isEn() ? ", " + pendingCount + " amount pending" : ", " + pendingCount + " valor pendente") : ""))
+                  : (isEn() ? "No clients attached" : "Nenhum cliente vinculado")) +
+              '</div>' +
+            '</div>' +
+            '<div style="text-align:right;">' +
+              (!v.info_complete
+                ? '<span class="fin-tab-badge" style="position:static;">' + (isEn() ? "Incomplete" : "Incompleto") + '</span>'
+                : '') +
+              '<div style="font-size:13px;font-weight:700;margin-top:4px;">' +
+                (v.owed_cents ? fmtCents(v.owed_cents) : "&mdash;") +
+              '</div>' +
+              '<div style="font-size:11px;color:var(--muted);">' + (isEn() ? "owed" : "a pagar") + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+      wrap.innerHTML = html;
+    }
+
+    function openNewVendorModal() {
+      document.getElementById("nvName").value = "";
+      document.getElementById("nvType").value = "";
+      document.getElementById("nvStatus").textContent = "";
+      document.getElementById("newVendorOverlay").hidden = false;
+      setTimeout(function() { document.getElementById("nvName").focus(); }, 50);
+    }
+
+    function closeNewVendor() {
+      var ov = document.getElementById("newVendorOverlay");
+      if (ov) { ov.hidden = true; }
+    }
+
+    function saveNewVendor() {
+      var name = document.getElementById("nvName").value.trim();
+      var statusEl = document.getElementById("nvStatus");
+      if (!name) {
+        statusEl.textContent = isEn() ? "Enter a name." : "Informe um nome.";
+        return;
+      }
+      var btn = document.getElementById("nvSaveBtn");
+      btn.disabled = true;
+      statusEl.textContent = isEn() ? "Saving..." : "Salvando...";
+
+      apiFetch("/api/finance-new/vendors", {
+        method: "POST",
+        body: { name: name, vendor_type: document.getElementById("nvType").value.trim() || null }
+      }).then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          return loadVendors();
+        })
+        .then(function() {
+          btn.disabled = false;
+          closeNewVendor();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          statusEl.textContent = (isEn() ? "Error: " : "Erro: ") + e.message;
+        });
+    }
+
+    // Same modal serves two callers: the Vendors list "click a row to edit"
+    // and the skippable completion prompt for a vendor whose info_complete
+    // is 0 -- the only difference is the hint banner, never a gate.
+    function openVendorDetail(vendorId) {
+      var v = vendorById(vendorId);
+      if (!v) { return; }
+
+      document.getElementById("vdTitle").textContent = v.name;
+      document.getElementById("vdType").value             = v.vendor_type || "";
+      document.getElementById("vdContactName").value      = v.contact_name || "";
+      document.getElementById("vdContactEmail").value     = v.contact_email || "";
+      document.getElementById("vdContactPhone").value     = v.contact_phone || "";
+      document.getElementById("vdPaymentMethod").value    = v.payment_method || "";
+      document.getElementById("vdPaymentIdentifier").value = v.payment_identifier || "";
+      document.getElementById("vdNotes").value             = v.notes || "";
+      document.getElementById("vdStatus").textContent = "";
+      document.getElementById("vdCompletionHint").hidden = !!v.info_complete;
+      document.getElementById("vendorDetailOverlay").setAttribute("data-vendor-id", vendorId);
+
+      var clientsWrap = document.getElementById("vdClientsList");
+      if (!v.clients.length) {
+        clientsWrap.innerHTML = '<div class="net-note">' +
+          '<span class="show-pt">Nenhum cliente vinculado ainda.</span>' +
+          '<span class="show-en">No clients attached yet.</span></div>';
+      } else {
+        var html = "";
+        for (var i = 0; i < v.clients.length; i++) {
+          var c = v.clients[i];
+          html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">' +
+            '<span>' + esc(c.client_name) + (c.label ? ' <span style="color:var(--muted);">&mdash; ' + esc(c.label) + '</span>' : '') + '</span>' +
+            '<span style="font-weight:600;">' +
+              (c.client_total_cents === null
+                ? '<span style="color:var(--muted);font-weight:400;">' + (isEn() ? "amount pending" : "valor pendente") + '</span>'
+                : fmtCents(c.client_total_cents)) +
+            '</span>' +
+          '</div>';
+        }
+        clientsWrap.innerHTML = html;
+      }
+
+      document.getElementById("vendorDetailOverlay").hidden = false;
+    }
+
+    function closeVendorDetail() {
+      var ov = document.getElementById("vendorDetailOverlay");
+      if (ov) { ov.hidden = true; }
+    }
+
+    // Called automatically on open of an incomplete vendor row elsewhere in
+    // the app (e.g. a future vendor-picker on client.html) -- exposed as a
+    // standalone entry point so any caller can trigger the same prompt
+    // without duplicating the completeness check.
+    function maybePromptVendorCompletion(vendorId) {
+      var v = vendorById(vendorId);
+      if (v && !v.info_complete) { openVendorDetail(vendorId); }
+    }
+
+    function saveVendorDetail() {
+      var vendorId = document.getElementById("vendorDetailOverlay").getAttribute("data-vendor-id");
+      var statusEl = document.getElementById("vdStatus");
+      var btn = document.getElementById("vdSaveBtn");
+      btn.disabled = true;
+      statusEl.textContent = isEn() ? "Saving..." : "Salvando...";
+
+      apiFetch("/api/finance-new/vendors/" + encodeURIComponent(vendorId), {
+        method: "PUT",
+        body: {
+          vendor_type:        document.getElementById("vdType").value.trim() || null,
+          contact_name:       document.getElementById("vdContactName").value.trim() || null,
+          contact_email:      document.getElementById("vdContactEmail").value.trim() || null,
+          contact_phone:      document.getElementById("vdContactPhone").value.trim() || null,
+          payment_method:     document.getElementById("vdPaymentMethod").value || null,
+          payment_identifier: document.getElementById("vdPaymentIdentifier").value.trim() || null,
+          notes:              document.getElementById("vdNotes").value.trim() || null
+        }
+      }).then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          return loadVendors();
+        })
+        .then(function() {
+          btn.disabled = false;
+          closeVendorDetail();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          statusEl.textContent = (isEn() ? "Error: " : "Erro: ") + e.message;
+        });
+    }
+
+    // Vendor share of income: two-slice donut (Apex / Vendors), following
+    // the same "donut for part-to-whole" rule as the categories chart --
+    // two parts of one whole, no axis to read.
+    function loadVendorShare() {
+      var monthEl = document.getElementById("vendorShareMonth");
+      var month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
+      return apiFetch("/api/finance-new/vendor-share?month=" + encodeURIComponent(month))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          renderVendorShareChart(data);
+        })
+        .catch(function() { renderVendorShareChart(null); });
+    }
+
+    function renderVendorShareChart(data) {
+      destroyChart("vendorShare");
+
+      if (!data || !data.total_cents) {
+        showCaveat("vendorShareCaveat", isEn()
+          ? "No paid revenue yet for this month."
+          : "Ainda sem receita paga neste m&ecirc;s.");
+        return;
+      }
+      showCaveat("vendorShareCaveat",
+        fmtCents(data.apex_cents) + " " + (isEn() ? "Apex" : "Apex") + " &middot; " +
+        fmtCents(data.vendor_cents) + " " + (isEn() ? "vendors" : "fornecedores"));
+
+      if (typeof Chart === "undefined") { return; }
+
+      var opts = baseChartOpts();
+      opts.scales = {};
+      opts.plugins.legend.display = true;
+      opts.plugins.legend.position = "bottom";
+      opts.plugins.tooltip = {
+        callbacks: {
+          label: function(ctx) {
+            var total = data.total_cents;
+            var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
+            return ctx.label + ": " + fmtCents(ctx.parsed * 100) + " (" + pct + "%)";
+          }
+        }
+      };
+
+      CHARTS.vendorShare = new Chart(document.getElementById("vendorShareChart"), {
+        type: "doughnut",
+        data: {
+          labels: [isEn() ? "Apex" : "Apex", isEn() ? "Vendors" : "Fornecedores"],
+          datasets: [{
+            data: [centsToNum(data.apex_cents), centsToNum(data.vendor_cents)],
+            backgroundColor: ["#C9A43A", "#7A5C2E"],
+            borderWidth: 0
+          }]
+        },
+        options: opts
+      });
     }
 
     function loadCategoryBreakdown() {

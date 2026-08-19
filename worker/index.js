@@ -23818,6 +23818,47 @@ async function handleGetFinanceNewAttention(request, env) {
         // ratio answers "how much did it do for me", not "how much is left".
         var everConsidered = uncategorized + handledByRules + handledManually;
 
+        // 4. Policy references the bank DOES send but nobody has named yet.
+        //
+        //    Every "LIFE INS OF SW" debit carries a stable policy id in its
+        //    description, after "PMT INFO:" -- LS2223888, LS1587640, LS1586026.
+        //    The same policy shows the same code in consecutive months (07-13
+        //    and 08-11 are both LS2223888), so it identifies the POLICY, unlike
+        //    the "ID:" field beside it which changes every single payment.
+        //
+        //    This matters because the three children's Previdencia bills are
+        //    $50 each on similar days: amount, merchant and date cannot tell
+        //    them apart, and matching would otherwise be a coin flip onto some
+        //    child's row. The policy code separates them perfectly -- the only
+        //    missing piece is which code belongs to which child, which only
+        //    Alice knows.
+        //
+        //    normalizeMerchant() strips digits, so this code is invisible in
+        //    merchant_normalized and has to be read from the raw description.
+        var policyRows = await env.DB.prepare(
+            "SELECT DISTINCT description FROM transactions " +
+            "WHERE description LIKE '%PMT INFO:%' AND amount_cents < 0"
+        ).all();
+        var seenPolicies = {};
+        (policyRows.results || []).forEach(function(r) {
+            var m = /PMT INFO:([A-Z0-9]+)/.exec(r.description || "");
+            // Reject anything the bank masked. A code that is all X's is
+            // obviously masked, but so is XXXXX1200 -- the $45.32 debit -- and
+            // an earlier version of this let that through and would have asked
+            // her to name a reference that does not exist. Any X at all means
+            // the real code is not in the feed.
+            if (m && m[1] && m[1].indexOf("X") === -1) { seenPolicies[m[1]] = true; }
+        });
+        var claimedRes = await env.DB.prepare(
+            "SELECT payer_match_pattern AS p FROM fixed_bills " +
+            "WHERE active = 1 AND payer_match_pattern IS NOT NULL"
+        ).all();
+        var claimed = {};
+        (claimedRes.results || []).forEach(function(r) { claimed[r.p] = true; });
+        var unnamedPolicies = Object.keys(seenPolicies).filter(function(code) {
+            return !claimed[code];
+        });
+
         return jsonOk({
             matches: {
                 count: actionable.length,
@@ -23825,11 +23866,12 @@ async function handleGetFinanceNewAttention(request, env) {
             },
             uncategorized: { count: uncategorized },
             missing_terms: { count: missingTerms },
+            unnamed_policies: { count: unnamedPolicies.length, codes: unnamedPolicies },
             rules_handled: {
                 count: handledByRules,
                 of: everConsidered
             },
-            total: actionable.length + uncategorized + missingTerms
+            total: actionable.length + uncategorized + missingTerms + unnamedPolicies.length
         });
     } catch (e) {
         return jsonErr("Error building attention queue: " + e.message, 500);

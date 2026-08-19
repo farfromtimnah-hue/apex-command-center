@@ -3184,6 +3184,18 @@
         });
       }
 
+      if (ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.count > 0) {
+        rows.push({
+          n: ATTENTION.unnamed_policies.count,
+          go: null,
+          copy: "policies",
+          pt: "ap&oacute;lice" + (ATTENTION.unnamed_policies.count > 1 ? "s" : "") + " sem nome",
+          en: "polic" + (ATTENTION.unnamed_policies.count > 1 ? "ies" : "y") + " not named",
+          subPt: "S&oacute; voc&ecirc; sabe de quem &eacute; cada uma.",
+          subEn: "Only you know whose each one is."
+        });
+      }
+
       if (ATTENTION.uncategorized && ATTENTION.uncategorized.count > 0) {
         rows.push({
           n: ATTENTION.uncategorized.count,
@@ -7421,6 +7433,7 @@ names,
     // to be stated for all of them, not only the financial ones.
     function copyQueuePrompt(kind) {
       if (kind === "terms") { copyTermsInterviewPrompt(); return; }
+      if (kind === "policies") { copyPoliciesPrompt(); return; }
 
       var text;
       if (kind === "matches") {
@@ -7480,6 +7493,43 @@ names,
 "tipo: <pessoal | comercial>",
 "```"
       ].join("\n");
+    }
+
+    // The bank DOES tell these apart -- each debit carries a policy code after
+    // "PMT INFO:" that stays the same month to month. What it cannot say is
+    // whose policy it is. Three children, three $50 policies: without a name
+    // on each code, matching would be a coin flip onto some child's row.
+    function copyPoliciesPrompt() {
+      var codes = (ATTENTION && ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.codes) || [];
+      if (!codes.length) {
+        toast(t("Nenhuma ap&oacute;lice pendente.", "No policies pending."));
+        return;
+      }
+      var text = [
+"Me ajude a identificar as apolices de seguro de vida das criancas.",
+"",
+"O banco mostra estes codigos de apolice nos debitos da Life Insurance of",
+"the Southwest, mas nao mostra de quem e cada um:",
+"",
+codes.map(function(c) { return "  - " + c; }).join("\n"),
+"",
+"Fale comigo em portugues, de forma conversacional, um codigo por vez.",
+"Me pergunte de qual filho e cada apolice. Se eu nao souber de cabeca,",
+"pode ser que esteja no documento da apolice ou no portal da seguradora.",
+"",
+"Nao precisamos terminar todos hoje. Pare quando eu quiser parar.",
+"",
+"Ao final, chame a ferramenta de captura da memoria com o resultado,",
+"um bloco por apolice:",
+"",
+"```",
+"apolice: <codigo, por exemplo LS2223888>",
+"filho: <nome>",
+"```"
+      ].join("\n");
+      copyTextToClipboard(text)
+        .then(function() { openPromptCopied(); })
+        .catch(function() { toast(t("N&atilde;o consegui copiar.", "Could not copy.")); });
     }
 
     function copyTermsInterviewPrompt() {

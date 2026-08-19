@@ -834,6 +834,10 @@
     /* Marks a bill the bank feed structurally cannot see, so its silence in the
        overdue list reads as expected rather than as something gone wrong. */
     .bill-oncard { color: var(--gold); font-weight: 600; }
+    /* An estimated amount is italic so the number itself reads as soft. The
+       parenthesised word is lighter still: the figure is the point, the label
+       only confirms it. */
+    .bill-amt-est { font-style: italic; font-weight: 600; }
     /* The estimate label sits under the amount and reads quieter than it: it is
        context for the number, not a second number competing with it. */
     .bill-est-note {
@@ -3417,13 +3421,22 @@
     // is labelled -- and paired with the amount that really left the account
     // last time, which is the number that actually tells her what is coming.
     function variableAmountHtml(b, cls) {
-      var main = '<span class="' + cls + '">' + fmtCents(b.amount_cents) + "</span>";
-      if (!b.is_variable) { return main; }
-      var note = t("estimado", "estimate");
-      if (b.last_charge && b.last_charge.amount_cents) {
-        note += " &middot; " + t("&uacute;ltimo ", "last ") + fmtCents(b.last_charge.amount_cents);
+      if (!b.is_variable) {
+        return '<span class="' + cls + '">' + fmtCents(b.amount_cents) + "</span>";
       }
-      return main + '<span class="bill-est-note">' + note + "</span>";
+      // The NUMBER carries the uncertainty, not just a label beside it. Set in
+      // the same size and position as a real amount, an estimate reads as
+      // exactly as solid as the mortgage -- which is $2,560.10 to the cent
+      // every month. Italic plus the parenthesised word makes the difference
+      // visible before the label is read.
+      var main = '<span class="' + cls + ' bill-amt-est">' +
+        fmtCents(b.amount_cents) + " " + t("(estimado)", "(estimate)") + "</span>";
+      if (b.last_charge && b.last_charge.amount_cents) {
+        return main + '<span class="bill-est-note">' +
+          t("&uacute;ltimo m&ecirc;s ", "last month ") + fmtCents(b.last_charge.amount_cents) +
+          "</span>";
+      }
+      return main;
     }
 
     function renderBills() {

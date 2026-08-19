@@ -3358,6 +3358,11 @@
 
     // Plain-sentence header, same "sentence first" principle as the forward
     // view: "$4,000 esperado de JM Pools em 05/09 · $1,000 esperado de X em 07/09".
+    // Only genuinely future invoices -- Nicole 2026-08-19: clients can and do
+    // renegotiate due dates when they're struggling to pay, so an overdue
+    // invoice's real payment date is unknown, not a knowable delay. It's
+    // reported separately (overdueInvoicesTagHtml) instead of stated here as
+    // if it were a trustworthy date.
     function overdueSentenceHtml() {
       if (!OVERDUE || !OVERDUE.upcoming_income || !OVERDUE.upcoming_income.length) {
         return '<span class="show-pt">Nenhuma entrada de fatura prevista no momento.</span>' +
@@ -3365,18 +3370,26 @@
       }
       var parts = OVERDUE.upcoming_income.slice(0, 4).map(function(inc) {
         var name = esc(inc.client_name || t("cliente", "client"));
-        // Found live 2026-08-19: an invoice already overdue itself (checked
-        // today) was being stated as "esperado em [past date]" -- a
-        // confident-sounding future promise for money that is ITSELF late.
-        // Labeled honestly instead: still counted (late money isn't gone),
-        // but never presented as a reliable date that's already passed.
-        return inc.is_late
-          ? t(fmtCents(inc.amount_cents) + " atrasado de " + name + " (venceu " + fmtDate(inc.due_at) + ")",
-              fmtCents(inc.amount_cents) + " late from " + name + " (was due " + fmtDate(inc.due_at) + ")")
-          : t(fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
-              fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at));
+        return t(
+          fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
+          fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at)
+        );
       });
       return '<span>' + parts.join(" &middot; ") + "</span>";
+    }
+
+    // A separate, plainly-stated total -- NOT folded into the coverage
+    // forecast or the sentence above. Nicole 2026-08-19: "add it as a tag
+    // above the list saying $X in overdue invoices outstanding" -- real
+    // money that may arrive, but on no date anyone can currently plan
+    // against, so it must never look like scheduled income.
+    function overdueInvoicesTagHtml() {
+      var total = OVERDUE && OVERDUE.overdue_invoices_total_cents;
+      if (!total) { return ""; }
+      return '<div class="tag-meta" style="margin-top:6px;">' +
+        t(fmtCents(total) + " em faturas de clientes j&aacute; atrasadas (n&atilde;o inclu&iacute;do na cobertura acima, data real desconhecida)",
+           fmtCents(total) + " in overdue client invoices (not included in the coverage above, real date unknown)") +
+        "</div>";
     }
 
     function renderOverdue() {
@@ -3385,7 +3398,7 @@
       if (!OVERDUE || !OVERDUE.overdue_bills) { card.hidden = true; return; }
       card.hidden = false;
 
-      document.getElementById("overdueSentence").innerHTML = overdueSentenceHtml();
+      document.getElementById("overdueSentence").innerHTML = overdueSentenceHtml() + overdueInvoicesTagHtml();
 
       var rows = document.getElementById("overdueRows");
       var empty = document.getElementById("overdueEmpty");
@@ -3401,24 +3414,17 @@
       rows.innerHTML = bills.map(function(b, i) {
         var methodLabel = b.payment_method === "draft"
           ? t("d&eacute;bito autom&aacute;tico", "autopay") : t("manual", "manual");
-        // Same honesty fix as the header sentence: a covering invoice that
-        // is itself already overdue is weaker coverage than one with a
-        // solid future date, and must not read as equally reassuring.
-        var coverageHtml;
-        if (!b.covered_by) {
-          coverageHtml = '<div class="bill-coverage is-uncovered">' +
-            t("Sem cobertura prevista", "No coverage expected") + "</div>";
-        } else if (b.covered_by.is_late) {
-          coverageHtml = '<div class="bill-coverage is-uncovered">' +
-            t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; mas essa fatura j&aacute; est&aacute; atrasada (venceu " + fmtDate(b.covered_by.due_at) + ")",
-               "Covered by " + esc(b.covered_by.client_name) + " &mdash; but that invoice is itself late (was due " + fmtDate(b.covered_by.due_at) + ")") +
+        // Coverage only ever points at a genuinely future invoice now -- an
+        // overdue client invoice's real date is unknown, so it never
+        // participates in this allocation. See overdueInvoicesTagHtml().
+        var coverageHtml = b.covered_by
+          ? '<div class="bill-coverage is-covered">' +
+              t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
+                 "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at)) +
+            "</div>"
+          : '<div class="bill-coverage is-uncovered">' +
+              t("Sem cobertura prevista", "No coverage expected") +
             "</div>";
-        } else {
-          coverageHtml = '<div class="bill-coverage is-covered">' +
-            t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
-               "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at)) +
-            "</div>";
-        }
         var payLink = b.pay_url
           ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) + '" target="_blank" rel="noopener">' +
             t("pagar", "pay") + "</a>" : "";

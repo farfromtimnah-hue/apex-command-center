@@ -21492,32 +21492,48 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
             "WHERE i.status IN ('sent','overdue') AND i.due_at IS NOT NULL " +
             "ORDER BY i.due_at ASC"
         ).all();
-        var openInvoices = [];
+
+        // Split into genuinely future invoices (a real date to plan against)
+        // and ones already overdue themselves. Nicole 2026-08-19: clients
+        // can and do renegotiate due dates when they're struggling to pay
+        // (Alice can push a due date via the due-date-edit feature), so an
+        // overdue invoice's real payment date is UNKNOWN, not just late by
+        // a knowable amount. Treating it as still-scheduled money -- even
+        // with an "is_late" label -- overstated confidence in a number
+        // nobody can actually predict. It no longer counts toward bill
+        // coverage at all; it's reported as its own separate total instead,
+        // per Nicole: "add it as a tag above the list saying $X in overdue
+        // invoices outstanding."
+        var futureInvoices = [];
+        var overdueInvoiceTotal = 0;
         for (var q = 0; q < (invRes.results || []).length; q++) {
             var inv = invRes.results[q];
             var paidCents = await invoicePaidCents(env, inv.id);
             var remaining = (inv.amount_cents || 0) - paidCents;
-            if (remaining > 0) {
-                openInvoices.push({
-                    id: inv.id, client_id: inv.client_id, client_name: inv.client_name,
-                    due_at: inv.due_at, remaining_cents: remaining
-                });
+            if (remaining <= 0) { continue; }
+            if (String(inv.due_at) < today) {
+                overdueInvoiceTotal += remaining;
+                continue;
             }
+            futureInvoices.push({
+                id: inv.id, client_id: inv.client_id, client_name: inv.client_name,
+                due_at: inv.due_at, remaining_cents: remaining
+            });
         }
 
-        // Allocation walk: cumulative pool across invoices in due-date order,
-        // bills consumed in priority order. Never splits a bill's coverage
-        // across two invoices in the display.
+        // Allocation walk: cumulative pool across FUTURE invoices only, in
+        // due-date order, bills consumed in priority order. Never splits a
+        // bill's coverage across two invoices in the display.
         var invIdx = 0;
-        var pool = openInvoices.length ? openInvoices[0].remaining_cents : 0;
-        var currentInvoice = openInvoices.length ? openInvoices[0] : null;
+        var pool = futureInvoices.length ? futureInvoices[0].remaining_cents : 0;
+        var currentInvoice = futureInvoices.length ? futureInvoices[0] : null;
 
         overdue.forEach(function(bill) {
             // Advance through invoices until the pool covers this bill, or
             // invoices run out.
-            while (currentInvoice && pool < bill.amount_cents && invIdx + 1 < openInvoices.length) {
+            while (currentInvoice && pool < bill.amount_cents && invIdx + 1 < futureInvoices.length) {
                 invIdx += 1;
-                currentInvoice = openInvoices[invIdx];
+                currentInvoice = futureInvoices[invIdx];
                 pool += currentInvoice.remaining_cents;
             }
 
@@ -21525,8 +21541,7 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
                 bill.covered_by = {
                     client_name: currentInvoice.client_name,
                     due_at: currentInvoice.due_at,
-                    invoice_id: currentInvoice.id,
-                    is_late: String(currentInvoice.due_at) < today
+                    invoice_id: currentInvoice.id
                 };
                 pool -= bill.amount_cents;
             } else {
@@ -21536,25 +21551,15 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
 
         // Header note: upcoming invoice income, plain sentence form. Nicole's
         // worked example: "$4,000 esperado de JM Pools em 05/09 · $1,000
-        // esperado de [cliente] em 07/09".
-        //
-        // Found live 2026-08-19: an invoice already overdue itself (e.g. due
-        // 08/12, checked on 08/19) was being labeled with its past due_at as
-        // if it were a confident future date -- telling her an overdue bill
-        // is "covered" by money that is ITSELF late is backwards, not
-        // reassuring. The invoice still counts toward the coverage pool
-        // (late client money is not gone, still worth counting), but gets
-        // labeled honestly as already-late rather than a trustworthy date.
-        var upcomingIncome = openInvoices.map(function(inv) {
-            var isLate = String(inv.due_at) < today;
-            return {
-                client_name: inv.client_name, amount_cents: inv.remaining_cents,
-                due_at: inv.due_at, is_late: isLate
-            };
+        // esperado de [cliente] em 07/09". Only genuinely future invoices --
+        // see note above on why overdue ones are reported separately.
+        var upcomingIncome = futureInvoices.map(function(inv) {
+            return { client_name: inv.client_name, amount_cents: inv.remaining_cents, due_at: inv.due_at };
         });
 
         return jsonOk({
             period_key: periodKey,
+            overdue_invoices_total_cents: overdueInvoiceTotal,
             today: today,
             overdue_bills: overdue,
             upcoming_income: upcomingIncome

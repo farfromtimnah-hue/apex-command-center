@@ -321,11 +321,51 @@
     }
   };
 
+  // The WHOLE prompt follows the language she is reading in. An earlier version
+  // picked only the goal by language and hard-coded the rest in Portuguese,
+  // producing a mixed prompt.
   function buildPrompt(k){
     var p = PROMPTS[k];
     var en = document.body.classList.contains("lang-en");
+    if (en) {
+      return [
+"Help me do this in the browser, start to finish: " + p.en + ".",
+"",
+"Start by opening this page in Chrome: " + p.url,
+"",
+"IMPORTANT, BEFORE ANYTHING ELSE: use my real Chrome, the one open on this",
+"machine, with my tabs and my logins. Do NOT use a sandboxed browser, an",
+"internal browser, a preview pane, headless mode, or any isolated window.",
+"I need to SEE the page on my own screen and click along with you - if it",
+"opens somewhere I cannot see, it is useless and I will not even notice.",
+"Use the Claude in Chrome / claude-in-chrome extension, which drives the real",
+"browser. If the only thing you can open is an isolated browser, STOP and tell",
+"me - do not carry on anyway.",
+"",
+"How I need you to work:",
+"",
+"- Do everything you can yourself: navigate, click, fill in whatever you",
+"  already know. Only ask me when it is something only I know.",
+"- The first step is always checking the address. Both companies approve",
+"  service street by street. If my address is NOT covered, tell me so in plain",
+"  words and stop - do not try to order anyway, and do not offer me a different",
+"  plan without first explaining what changed.",
+"- If it is covered, tell me the exact price shown on screen BEFORE anything",
+"  else. If the price differs from what I expected, stop and tell me.",
+"- When you need one of my details (full address, phone, email), ask me.",
+"  NEVER invent or guess any of my details.",
+"- Before completing the order, show me exactly what is about to be submitted:",
+"  plan, monthly price, fees, term. Wait for me to confirm.",
+"- If it asks for a card, password, bank or ID number, STOP and tell me. I will",
+"  type those myself. You do not type those for me.",
+"- Do not accept any extra service, insurance or upgrade I did not ask for.",
+"",
+"At the end, tell me in one sentence what was decided: if it was ordered, what",
+"was ordered and for how much, or if it cannot be ordered and why."
+      ].join("\n");
+    }
     return [
-"Me ajude a fazer isto no navegador, do comeco ao fim: " + (en ? p.en : p.pt) + ".",
+"Me ajude a fazer isto no navegador, do comeco ao fim: " + p.pt + ".",
 "",
 "Comece abrindo esta pagina no Chrome: " + p.url,
 "",
@@ -340,8 +380,10 @@
 "",
 "Como eu preciso que voce trabalhe:",
 "",
-"- Fale comigo em portugues. O site esta em ingles; va me traduzindo o que",
-"  importa em cada tela, sem me pedir para ler ingles.",
+"- Fale comigo em portugues. O meu Chrome ja traduz as paginas para portugues",
+"  automaticamente, mas a traducao as vezes sai estranha ou deixa parte em",
+"  ingles - entao me explique com as suas palavras o que cada tela esta",
+"  pedindo, em vez de so ler o que aparece.",
 "- Faca voce mesmo tudo o que der: navegar, clicar, preencher o que ja souber.",
 "  So me pergunte quando for informacao que so eu tenho.",
 "- O primeiro passo e sempre conferir o endereco. As duas empresas liberam",

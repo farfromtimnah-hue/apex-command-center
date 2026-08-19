@@ -419,11 +419,48 @@
     }
   };
 
+  // The WHOLE prompt follows the language she is reading the page in. An earlier
+  // version picked the goal by language but hard-coded every other line in
+  // Portuguese, so viewing the page in English produced a mixed prompt with an
+  // English goal buried in Portuguese instructions -- precisely the reading
+  // burden this button exists to remove.
   function buildPrompt(k){
     var p = PROMPTS[k];
     var en = document.body.classList.contains("lang-en");
+    if (en) {
+      return [
+"Help me do this in the browser, start to finish: " + p.goalEn + ".",
+"",
+"Start by opening this page in Chrome: " + p.url,
+"",
+"IMPORTANT, BEFORE ANYTHING ELSE: use my real Chrome, the one open on this",
+"machine, with my tabs and my logins. Do NOT use a sandboxed browser, an",
+"internal browser, a preview pane, headless mode, or any isolated window.",
+"I need to SEE the page on my own screen and click along with you - if it",
+"opens somewhere I cannot see, it is useless and I will not even notice.",
+"Use the Claude in Chrome / claude-in-chrome extension, which drives the real",
+"browser. If the only thing you can open is an isolated browser, STOP and tell",
+"me - do not carry on anyway.",
+"",
+"How I need you to work:",
+"",
+"- Do everything you can yourself: navigate, click, fill in whatever you",
+"  already know. Only ask me when it is something only I know.",
+"- When you need one of my details (electric account number, address, phone,",
+"  email), ask me. NEVER invent or guess any of my details.",
+"- Before submitting any form, show me exactly what is about to be sent and",
+"  wait for me to confirm.",
+"- If the page asks for a card, a password or bank details, STOP and tell me.",
+"  I will type those myself.",
+"- If something goes wrong or the page changes, explain what happened and what",
+"  the next option is. Do not keep guessing.",
+"",
+"At the end, tell me in one sentence what is done and whether anything is left",
+"for me to do later."
+      ].join("\n");
+    }
     return [
-"Me ajude a fazer isto no navegador, do comeco ao fim: " + (en ? p.goalEn : p.goalPt) + ".",
+"Me ajude a fazer isto no navegador, do comeco ao fim: " + p.goalPt + ".",
 "",
 "Comece abrindo esta pagina no Chrome: " + p.url,
 "",
@@ -438,8 +475,10 @@
 "",
 "Como eu preciso que voce trabalhe:",
 "",
-"- Fale comigo em portugues. O site esta em ingles; va me traduzindo o que",
-"  importa em cada tela, sem me pedir para ler ingles.",
+"- Fale comigo em portugues. O meu Chrome ja traduz as paginas para portugues",
+"  automaticamente, mas a traducao as vezes sai estranha ou deixa parte em",
+"  ingles - entao me explique com as suas palavras o que cada tela esta",
+"  pedindo, em vez de so ler o que aparece.",
 "- Faca voce mesmo tudo o que der: navegar, clicar, preencher o que ja souber.",
 "  So me pergunte quando for informacao que so eu tenho.",
 "- Quando precisar de um dado meu (numero da conta de luz, endereco, telefone,",

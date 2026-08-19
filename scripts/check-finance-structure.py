@@ -31,6 +31,9 @@ EXPECTED_SECTIONS = {
 # Pre-existing and intentional: this one belongs to the Faturas panel.
 ALLOWED_PANEL_OVERLAYS = {"newCatOverlay": "finPanelFaturas"}
 
+# Overlays that must exist AND must never drift into a tab panel.
+REQUIRED_OVERLAYS = {"promptCopiedOverlay"}
+
 
 class Checker(HTMLParser):
     def __init__(self):
@@ -39,6 +42,7 @@ class Checker(HTMLParser):
         self.errors = []
         self.sections = {}
         self.acct_in_list = None
+        self.overlays = set()
 
     def handle_starttag(self, tag, attrs):
         if tag in VOID:
@@ -56,6 +60,8 @@ class Checker(HTMLParser):
 
         if 'nc-overlay' in (d.get('class') or ''):
             oid = d.get('id')
+            if oid:
+                self.overlays.add(oid)
             panels = [i for i in ids if i and i.startswith('finPanel')]
             allowed = ALLOWED_PANEL_OVERLAYS.get(oid)
             bad = [p for p in panels if p != allowed]
@@ -87,6 +93,10 @@ def main():
     if c.stack:
         for t, i, ln in c.stack:
             c.errors.append("unclosed <%s id=%s> opened at line %d" % (t, i, ln))
+
+    missing_overlays = REQUIRED_OVERLAYS - c.overlays
+    if missing_overlays:
+        c.errors.append("missing overlays: %s" % ", ".join(sorted(missing_overlays)))
 
     missing = EXPECTED_SECTIONS - set(c.sections)
     if missing:

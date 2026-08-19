@@ -2371,3 +2371,65 @@ handler running fine and no console error. A `<div>` open/close COUNT stays bala
 through this and proves nothing — verify with a real parser that walks the stack and
 asserts each overlay's ancestors contain no `finPanel*`. See
 `scripts/check-finance-structure.py`.
+
+## 2026-08-19 (b) — Precisa de você: launches an interview instead of a chore
+
+The queue was correct, worked, and went **unused for months**. Every item in it is a task
+too time-consuming to sit down and complete. The previous finance page died the same way:
+it worked, and it sat unused, because anything that demands her input before it shows her
+a number fails identically.
+
+What DID work, once: someone sat with her and she talked to a Claude conversationally
+while the Claude did the work. ~200 uncategorized transactions that were impossible as a
+data-entry chore became tractable as an **interview**. So the queue is now a launcher for
+that flow, not a form.
+
+- Default **collapsed** (per the section table above).
+- Every row gets a "Copiar prompt" button — all three types, not just the financial ones.
+- `navigator.clipboard.writeText` with a real `document.execCommand('copy')` fallback on a
+  temporary textarea: the async clipboard API is not always available in the installed PWA
+  webview.
+
+**The prompt is generated fresh at click time** and fetches the remaining clients live from
+`GET /api/clients-needing-review` — never a hardcoded list. Partial completion is expected,
+so it always names exactly who is left today. That endpoint already runs the canonical
+query, reused rather than rewritten:
+
+```sql
+... WHERE COALESCE(c.status,'active')='active' AND COALESCE(c.archived,0)=0
+    AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id)
+```
+
+⚠️ The table is **`client_package_terms`** (what Apex charges the client), NOT
+`client_vendor_terms` (vendor cost per client, a separate unfinished feature). Querying the
+wrong one returns eight and disagrees with the interface; the interface is correct.
+Verified live 2026-08-19: six — JM LUXURY POOLS, LIRA OUTDOOR LIVING, METZ, MY PURE FILTER,
+PERFECT SQUARE, PRODUWALL.
+
+**Terms are never the first question.** The queue item effectively says "enter terms," but
+half these clients should not be answering that — prospects were entered as active clients
+before signing anything, and until recently there was no way to correct it. Asking for terms
+first is exactly why the task felt impossible. The prompt asks "is this still an active
+client?" first, then branches: yes → terms; never signed → `lead` + a mandatory stage (or
+`lead_dormant` if cold); on hold → `paused`; finished → `closed`.
+
+Status values come from **`CLIENT_STATUS` in worker/index.js**, the authority — `active`,
+`paused`, `closed`, `lead`, `lead_dormant`. ⚠️ The dropdown on clients.html omits
+`lead_dormant` and is an incomplete list; build against the worker array. Stages come from
+`LEAD_STAGES`: Lead → Contato inicial → Raio X enviado → Raio X recebido → Agendamento. A
+`lead` without a stage is rejected by `handlePatchClient`. Terminal outcomes are NOT stages:
+converted → `active`, dead → `lead_dormant`.
+
+⚠️ **The modal warning is load-bearing, and the reason is counter-intuitive.** The finance
+read tools are restricted to her identity in two independent places, so a finance question
+asked in Pastor Rafael's Claude fails loudly — a *safe* failure. But the **client-terms
+tools are reachable by both connectors**, so the terms interview run in his Claude
+**silently succeeds**: no error, captures to the same vault, and burns his five-hour session
+limit (his real constraint) on her work. The silent case is what the warning protects
+against, which is why it is stated for every item type.
+
+⚠️ The capture tool writes to a **separate vault DB, never to Apex**. Her Claude connector
+is read-only against Apex and that must not change — the two are deliberately isolated so
+her instance can never overwrite client data. The interview only COLLECTS; every Apex write
+is done afterwards by a developer session. Do not build a write path from her Claude into
+Apex.

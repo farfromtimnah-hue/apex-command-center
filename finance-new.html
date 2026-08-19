@@ -771,6 +771,7 @@
       display: flex; align-items: center; justify-content: center;
     }
     .attn-text { flex: 1 1 auto; min-width: 0; }
+    .attn-copy-btn { flex: 0 0 auto; white-space: nowrap; }
     .attn-title { font-size: 14.5px; font-weight: 600; }
     .attn-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
     .attn-clear { font-size: 13.5px; color: var(--muted); padding: 6px 0 2px; }
@@ -2214,6 +2215,35 @@
       </div>
     </div>
 
+    <!-- ══ Prompt copied ════════════════════════════════════════════════
+         Placed HERE, as a sibling of the other nc-overlay boxes and OUTSIDE
+         every finPanel*, because display:none is inherited: a modal parked
+         inside a hidden tab panel renders invisible with no console error
+         while its click handler runs perfectly. -->
+    <div id="promptCopiedOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closePromptCopied()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closePromptCopied()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Prompt copiado.</span>
+          <span class="show-en">Prompt copied.</span>
+        </h3>
+        <!-- The warning is not about tidiness. Finance tools are locked to her
+             identity and fail loudly in his Claude, but the client-terms tools
+             are reachable from BOTH connectors: run there it succeeds silently,
+             captures to the same vault, and spends his five-hour session limit
+             on her work. The silent case is what this line prevents. -->
+        <div class="net-note" style="margin-bottom:16px;">
+          <span class="show-pt">Cole no seu Claude &mdash; n&atilde;o no do Pastor Rafael.</span>
+          <span class="show-en">Paste into your own Claude &mdash; not Pastor Rafael's.</span>
+        </div>
+        <button type="button" class="btn btn-gold" onclick="closePromptCopied()" style="width:100%;">
+          <span class="show-pt">Entendi</span>
+          <span class="show-en">Got it</span>
+        </button>
+      </div>
+    </div>
+
+
     <!-- ══ Panel: Categorias ════════════════════════════════════════════ -->
     <!-- Occasional and deepening work, which is why it is its own tab rather
          than a column on the transaction list. NOTHING here gates anything on
@@ -3106,6 +3136,7 @@
         rows.push({
           n: ATTENTION.matches.count,
           go: "faturas",
+          copy: "matches",
           pt: "dep&oacute;sito" + (ATTENTION.matches.count > 1 ? "s" : "") + " para confirmar",
           en: "deposit" + (ATTENTION.matches.count > 1 ? "s" : "") + " to confirm",
           subPt: "Chegou dinheiro que parece ser de uma fatura. Confirme e ela fica quitada.",
@@ -3118,6 +3149,7 @@
           n: ATTENTION.missing_terms.count,
           go: null,
           href: "clients.html",
+          copy: "terms",
           pt: "cliente" + (ATTENTION.missing_terms.count > 1 ? "s" : "") + " sem valores combinados",
           en: "client" + (ATTENTION.missing_terms.count > 1 ? "s" : "") + " without agreed terms",
           subPt: "Sem isso n&atilde;o d&aacute; pra prever o que entra nos pr&oacute;ximos meses.",
@@ -3129,6 +3161,7 @@
         rows.push({
           n: ATTENTION.uncategorized.count,
           go: "categorias",
+          copy: "uncategorized",
           pt: "transa&ccedil;&otilde;es ainda sem categoria",
           en: "transactions not categorized yet",
           subPt: "Cada uma que voc&ecirc; classifica vira uma regra e as parecidas se resolvem sozinhas.",
@@ -3154,6 +3187,13 @@
                      '<span class="show-en">' + r.subEn + '</span>' +
                    '</div>' +
                  '</div>' +
+                 (r.copy
+                   ? '<button class="btn btn-sm attn-copy-btn" ' +
+                       'onclick="event.stopPropagation();copyQueuePrompt(\'' + r.copy + '\')">' +
+                       '<span class="show-pt">Copiar prompt</span>' +
+                       '<span class="show-en">Copy prompt</span>' +
+                     '</button>'
+                   : '') +
                '</div>';
       }).join("");
 
@@ -7212,6 +7252,228 @@
         updateFinanceBadges();
         refreshSectionSummaries();
       });
+    }
+
+    // ── "Precisa de voce" as an interview launcher ────────────────────────
+    //
+    // This queue was correct, worked, and went unused for months. Every item
+    // in it is a task too time-consuming to sit down and complete. What DID
+    // work, once, was someone sitting with her while she talked to a Claude
+    // conversationally and the Claude did the categorization -- ~200
+    // uncategorized transactions that were impossible as data entry became
+    // tractable as an interview.
+    //
+    // So the button does not open a form. It copies a prompt that turns the
+    // remaining work into a conversation.
+    //
+    // The capture tool writes to a SEPARATE vault database, never to Apex.
+    // Her Claude connector is read-only against Apex and must stay that way:
+    // the two are deliberately isolated so her instance can never overwrite
+    // client data. The interview only COLLECTS -- a developer session does
+    // every Apex write afterwards.
+
+    var LEAD_STAGE_LADDER = [
+      "Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"
+    ];
+
+    // Fetched live at click time. Partial completion is expected and normal,
+    // so the prompt must always name exactly who is still left today -- never
+    // a list baked in at build time.
+    function fetchClientsMissingTerms() {
+      return apiFetch("/api/clients-needing-review")
+        .then(function(r) { return r.json(); })
+        .then(function(d) { return (d && d.clients) || []; });
+    }
+
+    function buildTermsInterviewPrompt(clients) {
+      var names = clients.map(function(c) { return "- " + c.name; }).join("\n");
+
+      return [
+"Voce vai me entrevistar para atualizar o cadastro de alguns clientes da Apex.",
+"",
+"Clientes pendentes hoje (" + clients.length + "):",
+names,
+"",
+"COMO CONDUZIR",
+"",
+"Fale comigo em portugues, de forma conversacional, UM CLIENTE POR VEZ.",
+"Me deixe falar naturalmente. Nao me peca para preencher campos e nao mostre",
+"formularios. Se eu divagar, aproveite o que for util e siga.",
+"",
+"ORDEM DAS PERGUNTAS -- os valores do pacote NUNCA sao a primeira pergunta.",
+"",
+"Para cada cliente, pergunte primeiro:",
+"",
+"1. Este ainda e um cliente ativo?",
+"",
+"   - SE SIM: pergunte os valores combinados do pacote (o que a Apex cobra).",
+"     status = active",
+"",
+"   - SE NAO, nunca assinou: status = lead, e pergunte em qual etapa do",
+"     funil ele esta. Um lead SEM etapa e rejeitado pela API, entao a etapa",
+"     e obrigatoria. Se o lead esfriou, use status = lead_dormant.",
+"",
+"   - SE NAO, o trabalho esta em pausa e deve voltar: status = paused",
+"",
+"   - SE NAO, o trabalho terminou: status = closed",
+"",
+"Muitos destes clientes foram cadastrados como ativos antes de assinar",
+"qualquer coisa, entao 'nao e cliente' e uma resposta esperada e correta.",
+"",
+"VALORES VALIDOS DE STATUS -- nao ofereca nenhum outro:",
+"",
+"  active        -- cliente pagante",
+"  paused        -- trabalho em pausa, com previsao de voltar",
+"  closed        -- trabalho encerrado",
+"  lead          -- ainda nao e cliente; EXIGE uma etapa do funil",
+"  lead_dormant  -- um lead que esfriou",
+"",
+"ETAPAS DO FUNIL -- fixas, nesta ordem, nao configuraveis:",
+"",
+"  1. " + LEAD_STAGE_LADDER[0],
+"  2. " + LEAD_STAGE_LADDER[1],
+"  3. " + LEAD_STAGE_LADDER[2],
+"  4. " + LEAD_STAGE_LADDER[3],
+"  5. " + LEAD_STAGE_LADDER[4],
+"",
+"Um lead convertido NAO e uma etapa: vira status active.",
+"Um lead que morreu NAO e uma etapa: vira status lead_dormant.",
+"",
+"NAO precisamos terminar todos hoje. Pare quando eu quiser parar.",
+"",
+"AO FINAL",
+"",
+"Chame a ferramenta de captura da memoria com o resultado, usando exatamente",
+"este formato, um bloco por cliente:",
+"",
+"```",
+"cliente: <nome exatamente como aparece na lista acima>",
+"status: <active | paused | closed | lead | lead_dormant>",
+"etapa: <somente se status for lead>",
+"valores: <somente se status for active>",
+"```",
+"",
+"Inclua apenas os clientes que eu realmente respondi."
+      ].join("\n");
+    }
+
+    // Async clipboard API is not always available in an installed PWA webview,
+    // so the execCommand path is a real fallback, not a legacy leftover.
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(function() {
+          return legacyCopy(text);
+        });
+      }
+      return legacyCopy(text);
+    }
+
+    function legacyCopy(text) {
+      return new Promise(function(resolve, reject) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "0";
+        ta.style.left = "0";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        if (ok) { resolve(); } else { reject(new Error("copy failed")); }
+      });
+    }
+
+    // Every row type gets a prompt. The "paste into YOUR Claude" warning has
+    // to be stated for all of them, not only the financial ones.
+    function copyQueuePrompt(kind) {
+      if (kind === "terms") { copyTermsInterviewPrompt(); return; }
+
+      var text;
+      if (kind === "matches") {
+        text = buildMatchesPrompt();
+      } else {
+        text = buildUncategorizedPrompt();
+      }
+      copyTextToClipboard(text)
+        .then(function() { openPromptCopied(); })
+        .catch(function() { toast(t("N&atilde;o consegui copiar.", "Could not copy.")); });
+    }
+
+    function buildMatchesPrompt() {
+      var n = (ATTENTION && ATTENTION.matches && ATTENTION.matches.count) || 0;
+      return [
+"Me ajude a conferir depositos que parecem ser pagamentos de faturas da Apex.",
+"",
+"Sao " + n + " no momento.",
+"",
+"Fale comigo em portugues, de forma conversacional, um deposito por vez.",
+"Para cada um, me diga o valor, a data e de quem parece ser, e me pergunte",
+"se pode dar a fatura como paga. Me deixe responder com minhas palavras.",
+"",
+"Nao precisamos terminar todos hoje. Pare quando eu quiser parar.",
+"",
+"Ao final, chame a ferramenta de captura da memoria com o que eu confirmei,",
+"um bloco por deposito:",
+"",
+"```",
+"fatura: <numero ou cliente>",
+"deposito: <valor e data>",
+"decisao: <confirmar | nao e esta fatura | nao sei>",
+"```"
+      ].join("\n");
+    }
+
+    function buildUncategorizedPrompt() {
+      var n = (ATTENTION && ATTENTION.uncategorized && ATTENTION.uncategorized.count) || 0;
+      return [
+"Me ajude a categorizar transacoes da conta da Apex.",
+"",
+"Sao " + n + " sem categoria no momento.",
+"",
+"Fale comigo em portugues, de forma conversacional. Me pergunte sobre os",
+"estabelecimentos que aparecem, nao sobre transacoes uma a uma -- quando eu",
+"digo o que e um estabelecimento, isso vale para todas as compras dele.",
+"Me deixe falar naturalmente em vez de preencher campos.",
+"",
+"Nao precisamos terminar todas hoje. Pare quando eu quiser parar.",
+"",
+"Ao final, chame a ferramenta de captura da memoria com o resultado,",
+"um bloco por estabelecimento:",
+"",
+"```",
+"estabelecimento: <nome como aparece no extrato>",
+"categoria: <categoria>",
+"tipo: <pessoal | comercial>",
+"```"
+      ].join("\n");
+    }
+
+    function copyTermsInterviewPrompt() {
+      fetchClientsMissingTerms().then(function(clients) {
+        if (!clients.length) {
+          toast(t("Nenhum cliente pendente.", "No clients pending."));
+          return;
+        }
+        return copyTextToClipboard(buildTermsInterviewPrompt(clients))
+          .then(function() { openPromptCopied(); });
+      }).catch(function() {
+        toast(t("N&atilde;o consegui copiar.", "Could not copy."));
+      });
+    }
+
+    function openPromptCopied() {
+      var el = document.getElementById("promptCopiedOverlay");
+      if (el) { el.hidden = false; }
+    }
+
+    function closePromptCopied() {
+      var el = document.getElementById("promptCopiedOverlay");
+      if (el) { el.hidden = true; }
     }
 
     // ── Section collapse + drag reorder ───────────────────────────────────

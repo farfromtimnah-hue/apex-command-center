@@ -21408,7 +21408,15 @@ async function handleGetFinanceNewBills(request, env) {
         var res = await env.DB.prepare(
             "SELECT * FROM fixed_bills WHERE active = 1 ORDER BY day_of_month, name"
         ).all();
-        return jsonOk({ bills: res.results || [] });
+        var bills = res.results || [];
+        // Same as the overdue list: a variable bill carries the last amount
+        // that really left the account, so the estimate is never shown alone.
+        for (var i = 0; i < bills.length; i++) {
+            if (bills[i].is_variable === 1) {
+                bills[i].last_charge = await lastRealChargeFor(env, bills[i]);
+            }
+        }
+        return jsonOk({ bills: bills });
     } catch (e) {
         return jsonErr("Error fetching bills: " + e.message, 500);
     }
@@ -21540,6 +21548,31 @@ function daysOverdueFor(dayOfMonth, todayIso) {
 // not speculative future recurrence that hasn't generated a row yet.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The last real charge for a variable bill.
+//
+// A usage bill's stored amount is an estimate Alice typed at an unknown point;
+// what actually helps her judge what is coming is the amount that really left
+// the account last time. Matched the same way the bill matcher matches -- the
+// learned payer pattern against merchant key OR raw description -- so this
+// never invents a link the matcher itself would not make.
+//
+// Returns null when nothing has ever matched, which the UI renders as the
+// estimate alone rather than as a zero.
+// ---------------------------------------------------------------------------
+
+async function lastRealChargeFor(env, bill) {
+    if (!bill || !bill.payer_match_pattern) { return null; }
+    var row = await env.DB.prepare(
+        "SELECT amount_cents, date FROM transactions " +
+        "WHERE amount_cents < 0 AND is_transfer = 0 " +
+        "AND (merchant_normalized LIKE ? OR description LIKE ?) " +
+        "ORDER BY date DESC LIMIT 1"
+    ).bind("%" + bill.payer_match_pattern + "%", "%" + bill.payer_match_pattern + "%").first();
+    if (!row) { return null; }
+    return { amount_cents: Math.abs(row.amount_cents), date: row.date };
+}
+
 async function handleGetFinanceNewBillsOverdue(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -21612,12 +21645,23 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
                 priority_rank: b.priority_rank, day_of_month: b.day_of_month,
                 due_at: od.due_at, days_overdue: od.days_overdue,
                 payer_match_pattern: b.payer_match_pattern,
-                funding_source: b.funding_source || "bank"
+                funding_source: b.funding_source || "bank",
+                is_variable: b.is_variable === 1
             };
             if (row.funding_source !== "bank") { cardCharges.push(row); return; }
             if (od.days_overdue > 0 && !paidBillIds[b.id]) { overdue.push(row); }
         });
         cardCharges.sort(function(a, b) { return a.day_of_month - b.day_of_month; });
+
+        // For variable bills, attach the last amount that actually left the
+        // account. The estimate alone gives her nothing to judge against --
+        // "$170" could have been written a year ago -- while "$170 estimado ·
+        // ultimo mes $193.89" tells her what is really coming.
+        for (var vi = 0; vi < overdue.length; vi++) {
+            if (overdue[vi].is_variable) {
+                overdue[vi].last_charge = await lastRealChargeFor(env, overdue[vi]);
+            }
+        }
 
         // Priority order: ranked bills first (by rank), then unranked bills
         // by day_of_month so a newly added bill isn't silently invisible

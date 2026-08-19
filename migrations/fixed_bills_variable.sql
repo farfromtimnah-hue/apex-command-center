@@ -1,0 +1,16 @@
+-- Usage bills are not fixed amounts, and presenting them as if they were is a
+-- quiet lie the rest of the page then does arithmetic on.
+--
+-- Electric, water and trash change every month. The stored amount for those is
+-- whatever Alice wrote on her spreadsheet at some unknown point, so it is an
+-- ESTIMATE -- but it currently renders identically to the mortgage, which is
+-- exactly $2,560.10 every month, and it feeds the overdue total and the
+-- coverage forecast at the same weight.
+--
+-- is_variable marks the row as an estimate rather than an obligation. The UI
+-- shows the estimate together with the last real charge ("$170 estimado ·
+-- ultimo mes $193.89"), which is the number that actually helps her judge what
+-- is coming. It does NOT change the stored amount: her figure stays until
+-- there is enough history to do better, and a usage bill can never be
+-- "corrected" to one exact number anyway.
+ALTER TABLE fixed_bills ADD COLUMN is_variable INTEGER NOT NULL DEFAULT 0;

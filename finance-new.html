@@ -3424,6 +3424,20 @@
       return sameMonth ? d : d + " de " + monthsPt[mi];
     }
 
+    // A usage bill's stored amount is an estimate, not an obligation. Showing it
+    // the same way as the mortgage implies a precision it does not have, so it
+    // is labelled -- and paired with the amount that really left the account
+    // last time, which is the number that actually tells her what is coming.
+    function variableAmountHtml(b, cls) {
+      var main = '<span class="' + cls + '">' + fmtCents(b.amount_cents) + "</span>";
+      if (!b.is_variable) { return main; }
+      var note = t("estimado", "estimate");
+      if (b.last_charge && b.last_charge.amount_cents) {
+        note += " &middot; " + t("&uacute;ltimo ", "last ") + fmtCents(b.last_charge.amount_cents);
+      }
+      return main + '<span class="bill-est-note">' + note + "</span>";
+    }
+
     function renderBills() {
       var list = document.getElementById("billsList");
       if (!list) { return; }
@@ -3448,7 +3462,7 @@
         "</span>";
         return '<div class="fwd-bill-row">' +
           '<span class="grow">' + esc(b.name) + extra + "</span>" +
-          "<b>" + fmtCents(b.amount_cents) + "</b>" +
+          "<b>" + variableAmountHtml(b, "bill-amt-inline") + "</b>" +
           '<button class="btn btn-sm" onclick="startEditBill(\'' + b.id + '\')">' +
             '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button>' +
           '<button class="btn btn-sm" onclick="removeFixedBill(\'' + b.id + '\')">' +
@@ -3952,7 +3966,7 @@
             "</div>" +
             coverageHtml +
           "</span>" +
-          '<span class="bill-amount">' + fmtCents(b.amount_cents) + "</span>" +
+          variableAmountHtml(b, "bill-amount") +
           '<div class="overdue-row-actions">' +
             '<button class="btn btn-sm" onclick="openBillMatch(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\',' + b.amount_cents + ')">' +
               '<span class="show-pt">Vincular transa&ccedil;&atilde;o</span><span class="show-en">Link transaction</span></button> ' +

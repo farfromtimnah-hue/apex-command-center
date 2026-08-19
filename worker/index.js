@@ -21525,7 +21525,8 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
                 bill.covered_by = {
                     client_name: currentInvoice.client_name,
                     due_at: currentInvoice.due_at,
-                    invoice_id: currentInvoice.id
+                    invoice_id: currentInvoice.id,
+                    is_late: String(currentInvoice.due_at) < today
                 };
                 pool -= bill.amount_cents;
             } else {
@@ -21536,8 +21537,20 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
         // Header note: upcoming invoice income, plain sentence form. Nicole's
         // worked example: "$4,000 esperado de JM Pools em 05/09 · $1,000
         // esperado de [cliente] em 07/09".
+        //
+        // Found live 2026-08-19: an invoice already overdue itself (e.g. due
+        // 08/12, checked on 08/19) was being labeled with its past due_at as
+        // if it were a confident future date -- telling her an overdue bill
+        // is "covered" by money that is ITSELF late is backwards, not
+        // reassuring. The invoice still counts toward the coverage pool
+        // (late client money is not gone, still worth counting), but gets
+        // labeled honestly as already-late rather than a trustworthy date.
         var upcomingIncome = openInvoices.map(function(inv) {
-            return { client_name: inv.client_name, amount_cents: inv.remaining_cents, due_at: inv.due_at };
+            var isLate = String(inv.due_at) < today;
+            return {
+                client_name: inv.client_name, amount_cents: inv.remaining_cents,
+                due_at: inv.due_at, is_late: isLate
+            };
         });
 
         return jsonOk({

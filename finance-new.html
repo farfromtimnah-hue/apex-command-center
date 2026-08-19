@@ -3365,10 +3365,16 @@
       }
       var parts = OVERDUE.upcoming_income.slice(0, 4).map(function(inc) {
         var name = esc(inc.client_name || t("cliente", "client"));
-        return t(
-          fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
-          fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at)
-        );
+        // Found live 2026-08-19: an invoice already overdue itself (checked
+        // today) was being stated as "esperado em [past date]" -- a
+        // confident-sounding future promise for money that is ITSELF late.
+        // Labeled honestly instead: still counted (late money isn't gone),
+        // but never presented as a reliable date that's already passed.
+        return inc.is_late
+          ? t(fmtCents(inc.amount_cents) + " atrasado de " + name + " (venceu " + fmtDate(inc.due_at) + ")",
+              fmtCents(inc.amount_cents) + " late from " + name + " (was due " + fmtDate(inc.due_at) + ")")
+          : t(fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
+              fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at));
       });
       return '<span>' + parts.join(" &middot; ") + "</span>";
     }
@@ -3395,14 +3401,24 @@
       rows.innerHTML = bills.map(function(b, i) {
         var methodLabel = b.payment_method === "draft"
           ? t("d&eacute;bito autom&aacute;tico", "autopay") : t("manual", "manual");
-        var coverageHtml = b.covered_by
-          ? '<div class="bill-coverage is-covered">' +
-              t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
-                 "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at)) +
-            "</div>"
-          : '<div class="bill-coverage is-uncovered">' +
-              t("Sem cobertura prevista", "No coverage expected") +
+        // Same honesty fix as the header sentence: a covering invoice that
+        // is itself already overdue is weaker coverage than one with a
+        // solid future date, and must not read as equally reassuring.
+        var coverageHtml;
+        if (!b.covered_by) {
+          coverageHtml = '<div class="bill-coverage is-uncovered">' +
+            t("Sem cobertura prevista", "No coverage expected") + "</div>";
+        } else if (b.covered_by.is_late) {
+          coverageHtml = '<div class="bill-coverage is-uncovered">' +
+            t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; mas essa fatura j&aacute; est&aacute; atrasada (venceu " + fmtDate(b.covered_by.due_at) + ")",
+               "Covered by " + esc(b.covered_by.client_name) + " &mdash; but that invoice is itself late (was due " + fmtDate(b.covered_by.due_at) + ")") +
             "</div>";
+        } else {
+          coverageHtml = '<div class="bill-coverage is-covered">' +
+            t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
+               "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at)) +
+            "</div>";
+        }
         var payLink = b.pay_url
           ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) + '" target="_blank" rel="noopener">' +
             t("pagar", "pay") + "</a>" : "";

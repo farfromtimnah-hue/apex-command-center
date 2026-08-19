@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
-       native-bridge.js?v=1786930000, so it is installed before anything that can throw.
+       native-bridge.js?v=1786940000, so it is installed before anything that can throw.
 
        WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
        with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
@@ -13,7 +13,7 @@
 
        Buffers into a cookie as well as the console, because the native log is
        only reachable once the Capacitor plugin exists -- which is exactly what
-       may not have happened yet when the error fires. native-bridge.js?v=1786930000 replays
+       may not have happened yet when the error fires. native-bridge.js?v=1786940000 replays
        this buffer into the native log once the plugin appears. -->
   <script>
   (function () {
@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1786930000"></script>
+  <script src="native-bridge.js?v=1786940000"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -2208,10 +2208,18 @@
 
     // ── Formatting ─────────────────────────────────────────────────────────
     // Money arrives as INTEGER CENTS and is divided exactly once, here.
+    //
+    // ALWAYS en-US, regardless of the PT/EN display-language toggle. Apex
+    // operates in USD in the US -- the amount is genuinely USD either way,
+    // and pt-BR grouping/decimal conventions (period thousands, comma
+    // decimal) on a dollar figure is wrong, not just a stylistic choice, the
+    // same rule datetime.js already applies to dates ("the PT/EN toggle must
+    // never change how a date or time renders" -- the same holds for money).
+    // Found 2026-08-16: this was rendering Brazilian-notation dollar amounts
+    // whenever the toggle was set to PT.
     function fmtCents(cents) {
       var v = (Number(cents) || 0) / 100;
-      return v.toLocaleString(isEn() ? "en-US" : "pt-BR",
-        { style: "currency", currency: "USD" });
+      return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
     }
 
     function fmtDate(iso) {
@@ -3834,7 +3842,8 @@
             beginAtZero: true,
             ticks: {
               font: { family: "Inter", size: 10 },
-              callback: function(v) { return "$" + Number(v).toLocaleString(); }
+              // en-US pinned, not device-default -- see fmtCents above for why.
+              callback: function(v) { return "$" + Number(v).toLocaleString("en-US"); }
             },
             grid: { color: "#f0ece4" }
           },
@@ -4040,7 +4049,8 @@
         x: {
           ticks: {
             font: { family: "Inter", size: 10 },
-            callback: function(v) { return "$" + Number(v).toLocaleString(); }
+            // en-US pinned, not device-default -- see fmtCents above for why.
+            callback: function(v) { return "$" + Number(v).toLocaleString("en-US"); }
           },
           grid: { color: "#f0ece4" }
         },
@@ -4140,7 +4150,8 @@
           label: function(ctx) {
             var total = data.reduce(function(s, v) { return s + v; }, 0);
             var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
-            return ctx.label + ": $" + Number(ctx.parsed).toLocaleString() + " (" + pct + "%)";
+            // en-US pinned, not device-default -- see fmtCents above for why.
+            return ctx.label + ": $" + Number(ctx.parsed).toLocaleString("en-US") + " (" + pct + "%)";
           }
         }
       };
@@ -4182,7 +4193,8 @@
           beginAtZero: true,
           ticks: {
             font: { family: "Inter", size: 10 },
-            callback: function(v) { return "$" + Number(v).toLocaleString(); }
+            // en-US pinned, not device-default -- see fmtCents above for why.
+            callback: function(v) { return "$" + Number(v).toLocaleString("en-US"); }
           },
           grid: { color: "#f0ece4" }
         },
@@ -4227,7 +4239,10 @@
       if (!newest) { stale.hidden = true; return; }
       stale.hidden = false;
       var d = new Date(newest.replace(" ", "T") + "Z");
-      var when = isNaN(d.getTime()) ? newest : d.toLocaleString(isEn() ? "en-US" : "pt-BR");
+      // en-US pinned, not tied to the PT/EN toggle -- same rule as fmtCents
+      // above: US date/time convention (M/D/YYYY, h:mm AM/PM) regardless of
+      // display language, matching datetime.js's own stated policy.
+      var when = isNaN(d.getTime()) ? newest : d.toLocaleString("en-US");
       document.getElementById("staleText").textContent =
         (isEn() ? "Data from " : "Dados de ") + when;
     }

@@ -21552,6 +21552,99 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/category-budgets — alice/rafa/developer only.
+//
+// A monthly SPENDING TARGET for a category, not a bill. No due date, no
+// single transaction that "is" the payment -- fuel, groceries, that kind of
+// variable recurring cost. Tracked as spent-vs-remaining against the
+// category's own transactions this month, not paid/overdue against one
+// expected charge. This is deliberately separate from fixed_bills; see
+// migrations/category_budgets.sql for why.
+//
+// weekly_avg_cents = spent so far / weeks elapsed in the current month
+// (partial weeks count, so day 3 of the month is "week 1" not "week 0" --
+// otherwise the average would be undefined or infinite on day 1).
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewCategoryBudgets(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var budgetRes = await env.DB.prepare(
+            "SELECT cb.id, cb.category_id, cb.monthly_amount_cents, cb.purpose, cb.notes, " +
+            "c.name_pt AS category_name " +
+            "FROM category_budgets cb LEFT JOIN categories c ON c.id = cb.category_id " +
+            "WHERE cb.active = 1"
+        ).all();
+        var budgets = budgetRes.results || [];
+
+        var now = new Date();
+        var dayOfMonth = now.getUTCDate();
+        var weeksElapsed = Math.max(1, Math.ceil(dayOfMonth / 7));
+
+        var out = [];
+        for (var i = 0; i < budgets.length; i++) {
+            var b = budgets[i];
+            var spentRow = await env.DB.prepare(
+                "SELECT COALESCE(SUM(-amount_cents), 0) AS spent " +
+                "FROM transactions WHERE category_id = ? AND amount_cents < 0 " +
+                "AND date >= date('now', 'start of month')"
+            ).bind(b.category_id).first();
+            var spentCents = spentRow ? spentRow.spent : 0;
+            var remainingCents = b.monthly_amount_cents - spentCents;   // negative = over budget, shown as-is
+            out.push({
+                id: b.id, category_id: b.category_id, category_name: b.category_name,
+                monthly_amount_cents: b.monthly_amount_cents, purpose: b.purpose, notes: b.notes,
+                spent_cents: spentCents, remaining_cents: remainingCents,
+                weekly_avg_cents: Math.round(spentCents / weeksElapsed)
+            });
+        }
+
+        return jsonOk({ budgets: out });
+    } catch (e) {
+        return jsonErr("Error fetching category budgets: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/category-budgets — alice/rafa/developer only.
+// Body: { update_id?, category_id, monthly_amount_cents, purpose, notes? }
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewCategoryBudget(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.category_id) { return jsonErr("category_id required", 400); }
+        var amount = Number(body.monthly_amount_cents);
+        if (!isFinite(amount) || amount <= 0) { return jsonErr("monthly_amount_cents must be a positive number", 400); }
+        var purpose = body.purpose === "business" ? "business" : "personal";
+
+        if (body.update_id) {
+            await env.DB.prepare(
+                "UPDATE category_budgets SET category_id = ?, monthly_amount_cents = ?, purpose = ?, notes = ? WHERE id = ?"
+            ).bind(body.category_id, Math.round(amount), purpose, body.notes || null, body.update_id).run();
+            return jsonOk({ id: body.update_id, updated: true });
+        }
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO category_budgets (id, category_id, monthly_amount_cents, purpose, notes, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(id, body.category_id, Math.round(amount), purpose, body.notes || null, user.name || user.role).run();
+
+        return jsonOk({ id: id, created: true });
+    } catch (e) {
+        return jsonErr("Error saving category budget: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: PUT /api/finance-new/bills/priority — alice/rafa/developer only.
 // Body: { order: [bill_id, bill_id, ...] }  (in the new priority order)
 //
@@ -27443,6 +27536,8 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/bills/suggestions" && method === "GET")  { return handleGetFinanceNewBillSuggestions(request, env); }
         if (path === "/api/finance-new/bills"             && method === "POST") { return handlePostFinanceNewBill(request, env); }
         if (path === "/api/finance-new/bills/overdue"     && method === "GET")  { return handleGetFinanceNewBillsOverdue(request, env); }
+        if (path === "/api/finance-new/category-budgets"  && method === "GET")  { return handleGetFinanceNewCategoryBudgets(request, env); }
+        if (path === "/api/finance-new/category-budgets"  && method === "POST") { return handlePostFinanceNewCategoryBudget(request, env); }
         if (path === "/api/finance-new/bills/priority"    && method === "PUT")  { return handlePutFinanceNewBillsPriority(request, env); }
         if (path === "/api/finance-new/bills/matches"     && method === "GET")  { return handleGetFinanceNewBillMatches(request, env); }
         if (path === "/api/finance-new/bills/matches/approve" && method === "POST") { return handlePostFinanceNewBillMatchApprove(request, env); }

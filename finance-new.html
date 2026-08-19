@@ -1369,6 +1369,38 @@
           </button>
         </div>
       </div>
+
+      <!-- Category budgets: a monthly spending TARGET, not a bill. No due
+           date, no single transaction that "is" the payment -- fuel,
+           groceries. Separate from Contas fixas above on purpose, per
+           Nicole 2026-08-19: a spreadsheet import had wrongly put fuel
+           spending into fixed_bills with a placeholder day, which made it
+           show up "overdue" every month and compete for coverage-forecast
+           dollars against real bills like the mortgage. -->
+      <div class="fwd-bills" style="margin-top:20px;">
+        <div class="fwd-bills-head">
+          <span class="show-pt">Or&ccedil;amentos por categoria</span>
+          <span class="show-en">Category budgets</span>
+        </div>
+        <div id="budgetsList"></div>
+        <div class="filter-row" style="margin-top:10px;margin-bottom:0">
+          <select id="budgetCategory" style="flex:2 1 150px"></select>
+          <input id="budgetAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
+                 data-ph-pt="Valor mensal" data-ph-en="Monthly amount" placeholder="Valor mensal">
+          <select id="budgetPurpose" style="flex:0 1 120px">
+            <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
+            <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
+          </select>
+          <button class="btn btn-sm btn-gold" id="budgetFormSubmitBtn" onclick="submitBudgetForm()">
+            <span class="show-pt">Adicionar</span>
+            <span class="show-en">Add</span>
+          </button>
+          <button class="btn btn-sm" id="budgetFormCancelBtn" onclick="cancelBudgetEdit()" hidden>
+            <span class="show-pt">Cancelar</span>
+            <span class="show-en">Cancel</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ── Overdue bills + coverage forecast ──
@@ -3133,6 +3165,104 @@
       apiFetch("/api/finance-new/bills", { method: "POST", body: { delete_id: id } })
         .then(function(r) { return r.json(); })
         .then(function() { loadForward(); loadOverdue(); })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Category budgets ─────────────────────────────────────────────────
+    //
+    // A monthly spending TARGET, not a bill -- no due date, no single
+    // transaction that "is" the payment. Spent/remaining/weekly-average are
+    // all computed server-side from the category's own transactions this
+    // month. See migrations/category_budgets.sql for why this is a
+    // separate table from fixed_bills.
+
+    var BUDGETS = [];
+    var editingBudgetId = null;
+
+    function loadBudgets() {
+      return Promise.all([
+        CATEGORIES.length ? Promise.resolve() : loadCategories(),
+        apiFetch("/api/finance-new/category-budgets").then(function(r) { return r.json(); })
+      ]).then(function(res) {
+        BUDGETS = (res[1] && res[1].budgets) || [];
+        populateBudgetCategorySelect();
+        renderBudgets();
+      }).catch(function() { BUDGETS = []; renderBudgets(); });
+    }
+
+    function populateBudgetCategorySelect() {
+      var sel = document.getElementById("budgetCategory");
+      if (!sel) { return; }
+      var current = sel.value;
+      sel.innerHTML = CATEGORIES.map(function(c) {
+        return '<option value="' + esc(c.id) + '">' + esc(categoryName(c)) + '</option>';
+      }).join("");
+      if (current) { sel.value = current; }
+    }
+
+    function renderBudgets() {
+      var wrap = document.getElementById("budgetsList");
+      if (!wrap) { return; }
+      if (!BUDGETS.length) {
+        wrap.innerHTML = '<div class="tag-meta">' +
+          '<span class="show-pt">Nenhum ainda.</span>' +
+          '<span class="show-en">None yet.</span></div>';
+        return;
+      }
+      wrap.innerHTML = BUDGETS.map(function(b) {
+        var overBudget = b.remaining_cents < 0;
+        var remainingLabel = overBudget
+          ? t("estourou em ", "over by ") + fmtCents(Math.abs(b.remaining_cents))
+          : t("restam ", "") + fmtCents(b.remaining_cents) + (isEn() ? " left" : "");
+        return '<div class="fwd-bill-row" onclick="startEditBudget(\'' + esc(b.id) + '\')" style="cursor:pointer;">' +
+          '<span class="grow">' + esc(b.category_name || b.category_id) +
+            ' <span class="tag-meta">' +
+              t("gasto ", "spent ") + fmtCents(b.spent_cents) + " / " + fmtCents(b.monthly_amount_cents) +
+              " &middot; " + remainingLabel +
+              " &middot; " + t("m&eacute;dia semanal ", "weekly avg ") + fmtCents(b.weekly_avg_cents) +
+            "</span></span>" +
+        "</div>";
+      }).join("");
+    }
+
+    function startEditBudget(id) {
+      var b = BUDGETS.find(function(x) { return x.id === id; });
+      if (!b) { return; }
+      editingBudgetId = id;
+      document.getElementById("budgetCategory").value = b.category_id;
+      document.getElementById("budgetAmount").value = (b.monthly_amount_cents / 100).toFixed(2);
+      document.getElementById("budgetPurpose").value = b.purpose;
+      document.getElementById("budgetFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Salvar</span><span class="show-en">Save</span>';
+      document.getElementById("budgetFormCancelBtn").hidden = false;
+    }
+
+    function cancelBudgetEdit() {
+      editingBudgetId = null;
+      document.getElementById("budgetAmount").value = "";
+      document.getElementById("budgetFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Adicionar</span><span class="show-en">Add</span>';
+      document.getElementById("budgetFormCancelBtn").hidden = true;
+    }
+
+    function submitBudgetForm() {
+      var categoryId = document.getElementById("budgetCategory").value;
+      var amtRaw = document.getElementById("budgetAmount").value.trim().replace(/[^0-9.,-]/g, "").replace(",", ".");
+      var purpose = document.getElementById("budgetPurpose").value;
+      var amt = Number(amtRaw);
+      if (!categoryId) { toast(t("Escolha uma categoria.", "Choose a category.")); return; }
+      if (!isFinite(amt) || amt <= 0) { toast(t("Valor inv&aacute;lido.", "Invalid amount.")); return; }
+
+      var body = { category_id: categoryId, monthly_amount_cents: Math.round(amt * 100), purpose: purpose };
+      if (editingBudgetId) { body.update_id = editingBudgetId; }
+
+      apiFetch("/api/finance-new/category-budgets", { method: "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          cancelBudgetEdit();
+          loadBudgets();
+        })
         .catch(function() { toast(t("Erro", "Error")); });
     }
 
@@ -6480,6 +6610,7 @@
       // event queries. See switchFinanceTab.
       loadForward();
       loadOverdue();
+      loadBudgets();
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
         apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),

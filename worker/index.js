@@ -21924,13 +21924,22 @@ async function handleGetFinanceNewBillSuggestions(request, env) {
             "AND t.date >= date('now', '-180 day')"
         ).all();
 
-        // Anything already tracked is not a suggestion. Matched on name so a
-        // bill she typed by hand still suppresses the prompt for it.
+        // Anything already tracked is not a suggestion. Matched on BOTH the
+        // bill's display name AND its learned payer_match_pattern -- name
+        // alone misses every bill she renamed to something human-friendly
+        // ("Celular - Edinho") whose underlying merchant key is the raw
+        // transaction text ("ZELLE PAYMENT TO EDINHO LAGOINHA"). Found live
+        // 2026-08-19: exactly that case kept re-suggesting a bill that was
+        // already tracked under a different name, which would have created
+        // a second fixed_bills row for the same real payment if accepted.
         var existing = await env.DB.prepare(
-            "SELECT UPPER(name) AS n FROM fixed_bills WHERE active = 1"
+            "SELECT UPPER(name) AS n, UPPER(payer_match_pattern) AS p FROM fixed_bills WHERE active = 1"
         ).all();
         var taken = {};
-        (existing.results || []).forEach(function(b) { taken[b.n] = true; });
+        (existing.results || []).forEach(function(b) {
+            taken[b.n] = true;
+            if (b.p) { taken[b.p] = true; }
+        });
 
         var groups = {};
         (rows.results || []).forEach(function(r) {

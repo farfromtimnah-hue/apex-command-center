@@ -2139,8 +2139,8 @@
     <div id="finPanelVendors" class="fin-tab-panel" hidden>
 
       <div class="page-sub">
-        <span class="show-pt">Empresas terceirizadas que atendem clientes espec&iacute;ficos. O valor entra na fatura normal do cliente &mdash; nunca uma fatura separada.</span>
-        <span class="show-en">Third-party companies that service specific clients. The amount rides on the client's regular invoice &mdash; never a separate invoice.</span>
+        <span class="show-pt">Empresas terceirizadas que atendem clientes espec&iacute;ficos.</span>
+        <span class="show-en">Third-party companies that service specific clients.</span>
       </div>
 
       <div class="card">
@@ -3291,12 +3291,12 @@
           var overProjected = b.projected_over_cents > 0;
           if (overProjected) {
             projectionHtml = '<div class="budget-projection is-over">' +
-              t("No ritmo atual, deve estourar em " + fmtCents(b.projected_over_cents) + " at&eacute; o fim do m&ecirc;s",
-                 "At this pace, projected to go over by " + fmtCents(b.projected_over_cents) + " by month end") +
+              t("Deve estourar em " + fmtCents(b.projected_over_cents),
+                 "Projected over by " + fmtCents(b.projected_over_cents)) +
               "</div>";
           } else if (b.projected_spend_cents > b.monthly_amount_cents * 0.8) {
             projectionHtml = '<div class="budget-projection is-watch">' +
-              t("No ritmo atual, deve fechar perto do limite", "At this pace, should land close to the limit") +
+              t("Perto do limite", "Close to the limit") +
               "</div>";
           }
         }
@@ -3394,8 +3394,8 @@
         // automatically), just marked "prevista" (scheduled) rather than
         // stated as flatly as an invoice already sent.
         return inc.is_scheduled
-          ? t(fmtCents(inc.amount_cents) + " previsto de " + name + " em " + fmtDate(inc.due_at) + " (a faturar)",
-              fmtCents(inc.amount_cents) + " scheduled from " + name + " on " + fmtDate(inc.due_at) + " (not yet invoiced)")
+          ? t(fmtCents(inc.amount_cents) + " previsto de " + name + " em " + fmtDate(inc.due_at),
+              fmtCents(inc.amount_cents) + " scheduled from " + name + " on " + fmtDate(inc.due_at))
           : t(fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
               fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at));
       });
@@ -3415,8 +3415,8 @@
       var total = rows.reduce(function(s, r) { return s + (r.amount_cents || 0); }, 0);
       return '<div class="card-charges">' +
         '<div class="card-charges-head">' +
-          t("No cart&atilde;o &mdash; " + fmtCents(total) + "/m&ecirc;s (confira na fatura do cart&atilde;o)",
-             "On the card &mdash; " + fmtCents(total) + "/mo (check the card statement)") +
+          t("No cart&atilde;o &mdash; " + fmtCents(total) + "/m&ecirc;s",
+             "On the card &mdash; " + fmtCents(total) + "/mo") +
         "</div>" +
         rows.map(function(r) {
           return '<div class="card-charge-row">' +
@@ -3437,8 +3437,8 @@
       var total = OVERDUE && OVERDUE.overdue_invoices_total_cents;
       if (!total) { return ""; }
       return '<div class="tag-meta" style="margin-top:6px;">' +
-        t(fmtCents(total) + " em faturas de clientes j&aacute; atrasadas (n&atilde;o inclu&iacute;do na cobertura acima, data real desconhecida)",
-           fmtCents(total) + " in overdue client invoices (not included in the coverage above, real date unknown)") +
+        t(fmtCents(total) + " em faturas atrasadas",
+           fmtCents(total) + " in overdue invoices") +
         "</div>";
     }
 
@@ -3470,14 +3470,11 @@
         // participates in this allocation. See overdueInvoicesTagHtml().
         var coverageHtml = b.covered_by
           ? '<div class="bill-coverage is-covered">' +
-              (b.covered_by.is_scheduled
-                ? t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; a faturar em " + fmtDate(b.covered_by.due_at),
-                     "Covered by " + esc(b.covered_by.client_name) + " &mdash; scheduled to invoice " + fmtDate(b.covered_by.due_at))
-                : t("Coberto por " + esc(b.covered_by.client_name) + " &mdash; vence " + fmtDate(b.covered_by.due_at),
-                     "Covered by " + esc(b.covered_by.client_name) + " &mdash; due " + fmtDate(b.covered_by.due_at))) +
+              t(esc(b.covered_by.client_name) + " &mdash; " + fmtDate(b.covered_by.due_at),
+                 esc(b.covered_by.client_name) + " &mdash; " + fmtDate(b.covered_by.due_at)) +
             "</div>"
           : '<div class="bill-coverage is-uncovered">' +
-              t("Sem cobertura prevista", "No coverage expected") +
+              t("Sem cobertura", "Not covered") +
             "</div>";
         var payLink = b.pay_url
           ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) + '" target="_blank" rel="noopener">' +

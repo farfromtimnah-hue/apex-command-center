@@ -22197,6 +22197,57 @@ async function handlePostFinanceNewBillMatchApprove(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/name-policy — alice/rafa/developer only.
+// Body: { bill_id, policy_code }
+//
+// Names a policy WITHOUT marking anything paid. The match-approve route also
+// learns a pattern, but only as a side effect of confirming a payment, and it
+// requires a transaction id -- wrong shape here: she is telling us whose
+// policy a code belongs to, which is an identity fact, not a payment.
+//
+// Why this is worth its own route at all: three children's policies bill $50
+// each at the same insurer on nearby days, so amount, merchant and date all
+// fail to separate them. The bank DOES send a stable code per policy (after
+// "PMT INFO:"), and normalizeMerchant strips digits so it never reaches
+// merchant_normalized. Writing the code here is what makes every future month
+// match exactly instead of guessing onto some child's row.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillNamePolicy(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.bill_id || !body.policy_code) { return jsonErr("bill_id and policy_code required", 400); }
+
+        // The code must be one the feed actually carries, so a typo cannot
+        // write a pattern that will never match anything.
+        var seen = await env.DB.prepare(
+            "SELECT 1 AS ok FROM transactions WHERE description LIKE ? AND amount_cents < 0 LIMIT 1"
+        ).bind("%PMT INFO:" + body.policy_code + "%").first();
+        if (!seen) { return jsonErr("That policy code does not appear in any transaction", 400); }
+
+        // One code belongs to exactly one bill. Reassigning it moves it rather
+        // than silently living on two rows, which would resurrect the ambiguity
+        // this whole route exists to remove.
+        await env.DB.prepare(
+            "UPDATE fixed_bills SET payer_match_pattern = NULL WHERE payer_match_pattern = ? AND id != ?"
+        ).bind(body.policy_code, body.bill_id).run();
+
+        var res = await env.DB.prepare(
+            "UPDATE fixed_bills SET payer_match_pattern = ? WHERE id = ? AND active = 1"
+        ).bind(body.policy_code, body.bill_id).run();
+
+        if (!res.meta || res.meta.changes === 0) { return jsonErr("Bill not found", 404); }
+        return jsonOk({ named: true, bill_id: body.bill_id, policy_code: body.policy_code });
+    } catch (e) {
+        return jsonErr("Error naming policy: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/finance-new/bills/suggestions — alice/rafa/developer only.
 //
 // The fixed-bills table ships empty and stays empty until Alice puts
@@ -23872,6 +23923,39 @@ async function handleGetFinanceNewAttention(request, env) {
             return !claimed[code];
         });
 
+        //    A LIKELY owner for each code, from the due date. Every one of
+        //    these debits posts one to two days after its bill's due day, and
+        //    the days are far enough apart (10, 21, 25) that the nearest bill
+        //    is unambiguous. This is inference, not something the bank states,
+        //    so it is returned as a SUGGESTION the UI pre-selects and she
+        //    confirms -- never written on her behalf.
+        var policyGuess = {};
+        if (unnamedPolicies.length) {
+            var candRes = await env.DB.prepare(
+                "SELECT id, name, day_of_month FROM fixed_bills " +
+                "WHERE active = 1 AND payer_match_pattern IS NULL AND " +
+                "(name LIKE 'Previdencia%' OR name LIKE 'Seguro de Vida%')"
+            ).all();
+            var cands = candRes.results || [];
+            for (var pi = 0; pi < unnamedPolicies.length; pi++) {
+                var code = unnamedPolicies[pi];
+                var dayRes = await env.DB.prepare(
+                    "SELECT date FROM transactions WHERE description LIKE ? " +
+                    "AND amount_cents < 0 ORDER BY date DESC LIMIT 1"
+                ).bind("%PMT INFO:" + code + "%").first();
+                if (!dayRes || !dayRes.date) { continue; }
+                var chargedDay = parseInt(dayRes.date.slice(8, 10), 10);
+                var best = null, bestGap = 99;
+                for (var ci = 0; ci < cands.length; ci++) {
+                    // Charges land ON or AFTER the due day, so only look forward.
+                    var gap = chargedDay - cands[ci].day_of_month;
+                    if (gap < 0 || gap > 4) { continue; }
+                    if (gap < bestGap) { bestGap = gap; best = cands[ci]; }
+                }
+                if (best) { policyGuess[code] = { bill_id: best.id, bill_name: best.name, days_after_due: bestGap }; }
+            }
+        }
+
         return jsonOk({
             matches: {
                 count: actionable.length,
@@ -23879,7 +23963,7 @@ async function handleGetFinanceNewAttention(request, env) {
             },
             uncategorized: { count: uncategorized },
             missing_terms: { count: missingTerms },
-            unnamed_policies: { count: unnamedPolicies.length, codes: unnamedPolicies },
+            unnamed_policies: { count: unnamedPolicies.length, codes: unnamedPolicies, guess: policyGuess },
             rules_handled: {
                 count: handledByRules,
                 of: everConsidered
@@ -27919,6 +28003,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/category-budgets"  && method === "GET")  { return handleGetFinanceNewCategoryBudgets(request, env); }
         if (path === "/api/finance-new/category-budgets"  && method === "POST") { return handlePostFinanceNewCategoryBudget(request, env); }
         if (path === "/api/finance-new/bills/priority"    && method === "PUT")  { return handlePutFinanceNewBillsPriority(request, env); }
+        if (path === "/api/finance-new/bills/name-policy" && method === "POST") { return handlePostFinanceNewBillNamePolicy(request, env); }
         if (path === "/api/finance-new/bills/matches"     && method === "GET")  { return handleGetFinanceNewBillMatches(request, env); }
         if (path === "/api/finance-new/bills/matches/approve" && method === "POST") { return handlePostFinanceNewBillMatchApprove(request, env); }
         // NOTE: the id class must include underscore. Seeded bills use ids like

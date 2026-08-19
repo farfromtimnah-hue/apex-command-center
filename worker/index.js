@@ -26730,10 +26730,26 @@ async function runRecurringInvoices(env) {
             ).bind(crypto.randomUUID(), invId, line.label, line.amountCents, line.clientVendorTermsId).run();
         }
 
+        // Deactivate the SAME instant the final installment generates, not
+        // on the next cron pass that happens to notice. Found live
+        // 2026-08-19: a finite custom-installment plan (Delicie Cakes, two
+        // installments) sat `active = 1` with generated_count already equal
+        // to end_after_n for a full week between its last real invoice and
+        // its next scheduled date -- correctly self-correcting once that
+        // date arrived (the exhaustion check at the top of this loop runs
+        // before generation), but reading the row in that window looked
+        // exactly like a live, still-recurring weekly charge. That's the
+        // exact confusion that led to double-checking whether a client was
+        // about to be billed a third time for a two-part package.
+        var newGeneratedCount = rec.generated_count + 1;
+        var exhausted = rec.end_after_n && newGeneratedCount >= rec.end_after_n;
         await env.DB.prepare(
-            "UPDATE invoice_recurrence SET next_due_at = ?, generated_count = generated_count + 1, " +
-            "last_satisfied_period = ? WHERE id = ?"
-        ).bind(addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit), pk, rec.id).run();
+            "UPDATE invoice_recurrence SET next_due_at = ?, generated_count = ?, " +
+            "last_satisfied_period = ?, active = ? WHERE id = ?"
+        ).bind(
+            addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit),
+            newGeneratedCount, pk, exhausted ? 0 : 1, rec.id
+        ).run();
 
         generated.push({ id: invId, number: number, client_id: rec.client_id, amount_cents: totalAmount });
     }

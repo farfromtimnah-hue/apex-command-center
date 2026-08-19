@@ -58,6 +58,23 @@
   .skip ul{margin:8px 0 0;padding-left:18px}
   .skip li{margin-bottom:5px;color:var(--muted);font-size:13px}
 
+  .helpbtn{display:inline-block;margin-top:8px;background:var(--gold-dim);border:1px solid var(--gold);
+           color:var(--brown);font-family:inherit;font-size:12.5px;font-weight:700;
+           padding:7px 12px;border-radius:8px;cursor:pointer}
+  .helpbtn:hover{background:rgba(201,164,58,.22)}
+
+  .ov{position:fixed;inset:0;background:rgba(26,26,29,.55);display:flex;align-items:center;
+      justify-content:center;padding:18px;z-index:100}
+  .ov[hidden]{display:none}
+  .ovbox{background:var(--card);border-radius:var(--radius);max-width:520px;width:100%;
+         padding:22px;max-height:86vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+  .ovbox h3{margin:0 0 10px;font-size:16px}
+  .ovbox ol{margin:0 0 14px;padding-left:20px}
+  .ovbox li{margin-bottom:7px}
+  .ovbox .warn{background:var(--gold-dim);border-left:3px solid var(--gold);padding:10px 12px;
+               border-radius:6px;margin-bottom:14px;font-size:13px}
+  .ovbox button{width:100%;background:var(--gold);border:none;color:#1a1a1d;font-family:inherit;
+                font-size:14px;font-weight:700;padding:11px;border-radius:8px;cursor:pointer}
   .src{margin-top:24px;color:var(--muted);font-size:11.5px;line-height:1.6}
 </style>
 </head>
@@ -133,6 +150,7 @@
     <p class="how"><b><span class="show-pt">Como fazer:</span><span class="show-en">How:</span></b>
       <span class="show-pt"><a href="https://www.duke-energy.com/home/products/ev-complete/off-peak-credit" target="_blank" rel="noopener">abrir a p&aacute;gina do cr&eacute;dito</a> e seguir as instru&ccedil;&otilde;es dali. Se em algum momento pedir liga&ccedil;&atilde;o, o n&uacute;mero &eacute; 877.230.6609.</span>
       <span class="show-en"><a href="https://www.duke-energy.com/home/products/ev-complete/off-peak-credit" target="_blank" rel="noopener">open the credit page</a> and follow it from there. If it does ask you to call, the number is 877.230.6609.</span></p>
+    <button class="helpbtn" onclick="copyHelp('ev')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
   </div>
 
   <div class="item">
@@ -148,6 +166,7 @@
       rebate can be claimed without this check done within the last 2 years</b>. It is the gate for
       everything else.</span></p>
     <p class="how"><b><span class="show-pt">Como fazer:</span><span class="show-en">How:</span></b> <a href="https://onlinehec.duke-energy.com/audit" target="_blank" rel="noopener"><span class="show-pt">fazer online agora</span><span class="show-en">do it online now</span></a> <span class="show-pt">— ou <a href="https://www.duke-energy.com/home/products/home-energy-check" target="_blank" rel="noopener">agendar a visita</a>. Sem telefonema.</span><span class="show-en">— or <a href="https://www.duke-energy.com/home/products/home-energy-check" target="_blank" rel="noopener">schedule the in-home visit</a>. No phone call.</span></p>
+    <button class="helpbtn" onclick="copyHelp('hec')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
   </div>
 
   <div class="item">
@@ -166,6 +185,7 @@
     <p class="how"><b><span class="show-pt">Como fazer:</span><span class="show-en">How:</span></b>
       <a href="https://www.duke-energy.com/home/products/energywise-home" target="_blank" rel="noopener">
       <span class="show-pt">inscrever-se online</span><span class="show-en">enroll online</span></a>.</p>
+    <button class="helpbtn" onclick="copyHelp('ew')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
   </div>
 
   <h2><span class="show-pt">Dois minutos, custo zero</span>
@@ -259,6 +279,7 @@
       de começar o serviço.</span>
       <span class="show-en"> — the claim is online, but the free Home Energy Check has to be done
       <b>before</b> the work starts.</span></p>
+    <button class="helpbtn" onclick="copyHelp('duct')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
   </div>
 
   <div class="item">
@@ -280,6 +301,7 @@
       <span class="show-en"> — create an account and the whole claim is in writing. Eligibility depends
       partly on water-use history, and the portal itself answers that. If you would rather write:
       SaveH2O@MyPasco.net.</span></p>
+    <button class="helpbtn" onclick="copyHelp('irr')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
   </div>
 
   <div class="item">
@@ -335,7 +357,111 @@
 
 </div>
 
+
+<div id="ov" class="ov" hidden onclick="if(event.target===this)closeOv()">
+  <div class="ovbox" role="dialog" aria-modal="true">
+    <h3><span class="show-pt">Prompt copiado</span><span class="show-en">Prompt copied</span></h3>
+    <div class="warn">
+      <span class="show-pt"><b>Este vai no computador, na conta do Pastor Rafael</b> — no Claude Code,
+        não no aplicativo de conversa. É a única conta que consegue abrir o navegador e clicar junto
+        com você.</span>
+      <span class="show-en"><b>This one goes on the desktop, in Pastor Rafael's account</b> — in Claude
+        Code, not the chat app. It is the only account that can open the browser and click through it
+        with you.</span>
+    </div>
+    <ol>
+      <li><span class="show-pt">Abra o Claude Code no computador, na conta do Pastor Rafael.</span>
+          <span class="show-en">Open Claude Code on the desktop, in Pastor Rafael's account.</span></li>
+      <li><span class="show-pt">Comece uma conversa nova.</span>
+          <span class="show-en">Start a new conversation.</span></li>
+      <li><span class="show-pt">Cole o texto e mande.</span>
+          <span class="show-en">Paste the text and send it.</span></li>
+    </ol>
+    <button onclick="closeOv()"><span class="show-pt">Entendi</span><span class="show-en">Got it</span></button>
+  </div>
+</div>
+
 <script>
+  // Each task's prompt is self-contained: a fresh session on another account has
+  // none of this context. It names the site, what she is trying to achieve, and
+  // the two rules that matter -- never invent her details, never submit without
+  // showing her first.
+  var PROMPTS = {
+    hec: {
+      title: "Home Energy Check",
+      url: "https://onlinehec.duke-energy.com/audit",
+      goalPt: "fazer a avaliacao de energia gratuita da Duke Energy",
+      goalEn: "complete Duke Energy's free Home Energy Check"
+    },
+    ev: {
+      title: "Credito de recarga EV / EV charging credit",
+      url: "https://www.duke-energy.com/home/products/ev-complete/off-peak-credit",
+      goalPt: "pedir o credito de $7,50 por mes para recarregar o carro eletrico fora do horario de pico",
+      goalEn: "sign up for the $7.50/month off-peak EV charging credit"
+    },
+    ew: {
+      title: "EnergyWise Home",
+      url: "https://www.duke-energy.com/home/products/energywise-home",
+      goalPt: "inscrever-se no EnergyWise Home da Duke, que da credito na conta",
+      goalEn: "enroll in Duke's EnergyWise Home program for bill credits"
+    },
+    duct: {
+      title: "Desconto de dutos / Duct rebate",
+      url: "https://www.duke-energy.com/Rebates",
+      goalPt: "pedir o desconto da Duke para teste e vedacao dos dutos do ar-condicionado (ate $450)",
+      goalEn: "claim Duke's rebate for AC duct testing and sealing (up to $450)"
+    },
+    irr: {
+      title: "Controlador de irrigacao / Irrigation controller",
+      url: "https://tbw.conservationrebates.com/index.php?lang=en",
+      goalPt: "pedir o desconto do condado para um controlador de irrigacao inteligente",
+      goalEn: "apply for the county rebate on a smart irrigation controller"
+    }
+  };
+
+  function buildPrompt(k){
+    var p = PROMPTS[k];
+    var en = document.body.classList.contains("lang-en");
+    return [
+"Me ajude a fazer isto no navegador, do comeco ao fim: " + (en ? p.goalEn : p.goalPt) + ".",
+"",
+"Comece abrindo esta pagina no Chrome: " + p.url,
+"",
+"Como eu preciso que voce trabalhe:",
+"",
+"- Fale comigo em portugues. O site esta em ingles; va me traduzindo o que",
+"  importa em cada tela, sem me pedir para ler ingles.",
+"- Faca voce mesmo tudo o que der: navegar, clicar, preencher o que ja souber.",
+"  So me pergunte quando for informacao que so eu tenho.",
+"- Quando precisar de um dado meu (numero da conta de luz, endereco, telefone,",
+"  email), me peca. NUNCA invente nem chute nenhum dado meu.",
+"- Antes de enviar qualquer formulario, me mostre exatamente o que vai ser",
+"  enviado e espere eu confirmar.",
+"- Se a pagina pedir cartao, senha ou dado bancario, PARE e me avise. Eu digito.",
+"- Se algo der errado ou a pagina mudar, me explique em portugues o que aconteceu",
+"  e qual e a proxima opcao. Nao siga adivinhando.",
+"",
+"No fim, me diga em uma frase o que ficou pronto e se sobrou alguma coisa para",
+"eu fazer depois."
+    ].join("\n");
+  }
+
+  function copyHelp(k){
+    var text = buildPrompt(k);
+    var done = function(){ document.getElementById("ov").hidden = false; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function(){ fallback(text, done); });
+    } else { fallback(text, done); }
+  }
+  function fallback(text, done){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); } catch(e){}
+    document.body.removeChild(ta); done();
+  }
+  function closeOv(){ document.getElementById("ov").hidden = true; }
+
   function setLang(l){
     document.body.classList.toggle("lang-en", l === "en");
     document.body.classList.toggle("lang-pt", l !== "en");

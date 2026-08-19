@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Internet — opções / options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --surface:#f9f7f4; --header:#1a1a1d; --gold:#C9A43A; --gold-dim:rgba(201,164,58,0.14);
+    --text:#1a1a1d; --muted:#6b6660; --border:#e8e2d9; --card:#ffffff;
+    --radius:10px; --shadow:0 2px 16px rgba(26,26,29,0.08);
+    --green:#2e7d44; --red:#b3261e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--surface);color:var(--text);
+       font-size:14px;line-height:1.55;-webkit-text-size-adjust:100%}
+  body.lang-pt .show-en{display:none}
+  body.lang-en .show-pt{display:none}
+
+  header{background:var(--header);color:#fff;padding:18px 20px;display:flex;
+         align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.2px}
+  .langbtns{display:flex;gap:6px}
+  .langbtn{background:transparent;border:1px solid rgba(255,255,255,.28);color:rgba(255,255,255,.72);
+           font-family:inherit;font-size:12px;font-weight:600;padding:5px 12px;border-radius:14px;cursor:pointer}
+  .langbtn.on{background:var(--gold);border-color:var(--gold);color:#1a1a1d}
+
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 56px}
+  .lede{color:var(--muted);margin:0 0 20px;font-size:14px}
+
+  /* Desktop: real table. Mobile: each provider becomes its own stacked card. */
+  table{width:100%;border-collapse:collapse;background:var(--card);
+        border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  th,td{padding:13px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--border);font-size:13.5px}
+  thead th{background:#faf8f5;font-size:11px;font-weight:700;text-transform:uppercase;
+           letter-spacing:.6px;color:var(--muted)}
+  thead th.best{background:var(--gold-dim);color:var(--brown)}
+  tbody th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+           color:var(--muted);white-space:nowrap;width:118px;background:#fcfbf9}
+  tr:last-child td,tr:last-child th{border-bottom:none}
+  td.best{background:rgba(201,164,58,0.05)}
+
+  .prov{font-size:15px;font-weight:700}
+  .prov small{display:block;font-weight:500;font-size:11.5px;color:var(--muted);margin-top:2px;text-transform:none;letter-spacing:0}
+  .price{font-size:22px;font-weight:700;line-height:1.15}
+  .price .per{font-size:12px;font-weight:500;color:var(--muted)}
+  .save{display:inline-block;margin-top:5px;background:rgba(46,125,68,.1);color:var(--green);
+        font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:10px}
+  .same{display:inline-block;margin-top:5px;color:var(--muted);font-size:11.5px;font-weight:600}
+  .big{font-weight:700}
+  .up{color:var(--green);font-weight:700}
+  .down-bad{color:var(--red);font-weight:600}
+  .note{display:block;color:var(--muted);font-size:11.5px;margin-top:3px}
+
+  .btn{display:inline-block;background:var(--gold);color:#1a1a1d;text-decoration:none;
+       font-weight:700;font-size:13px;padding:9px 14px;border-radius:8px;margin-top:4px}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:600}
+
+  .foot{margin-top:22px;background:var(--card);border:1px solid var(--border);
+        border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+  .foot h2{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .foot p{margin:0 0 10px;font-size:13.5px}
+  .foot p:last-child{margin-bottom:0}
+  .src{margin-top:18px;color:var(--muted);font-size:11.5px;line-height:1.6}
+
+  @media (max-width:760px){
+    thead{display:none}
+    table,tbody,tr,td,th{display:block;width:auto}
+    table{border:none;background:transparent;box-shadow:none;overflow:visible}
+    tbody tr{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+             margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden}
+    tbody th{width:auto;background:#faf8f5;border-bottom:1px solid var(--border)}
+    td{border-bottom:1px solid var(--border)}
+    td::before{content:attr(data-lbl);display:block;font-size:10.5px;font-weight:700;
+               text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:3px}
+  }
+</style>
+</head>
+<body class="lang-pt">
+
+<header>
+  <h1>
+    <span class="show-pt">Internet — vale a pena trocar?</span>
+    <span class="show-en">Internet — is it worth switching?</span>
+  </h1>
+  <div class="langbtns">
+    <button class="langbtn on" id="btPt" onclick="setLang('pt')">Português</button>
+    <button class="langbtn" id="btEn" onclick="setLang('en')">English</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <p class="lede">
+    <span class="show-pt">Três opções para o endereço de vocês em Zephyrhills. Os preços das duas
+      alternativas foram tirados dos sites oficiais em agosto de 2026. Nada muda até você decidir.</span>
+    <span class="show-en">Three options for your address in Zephyrhills. Pricing for both alternatives
+      comes from the providers' own sites, August 2026. Nothing changes until you decide.</span>
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        <th>Spectrum <small style="display:block;font-weight:500;text-transform:none;letter-spacing:0">
+          <span class="show-pt">o que vocês têm hoje</span><span class="show-en">what you have today</span></small></th>
+        <th>Verizon 5G Business</th>
+        <th class="best">Frontier Fiber 1&nbsp;Gig</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <th><span class="show-pt">Preço</span><span class="show-en">Price</span></th>
+        <td data-lbl="Spectrum">
+          <span class="price">$85<span class="per">/mês</span></span>
+          <span class="same"><span class="show-pt">valor atual</span><span class="show-en">current cost</span></span>
+        </td>
+        <td data-lbl="Verizon 5G Business">
+          <span class="price">$69<span class="per">/mês</span></span>
+          <span class="save">− $16/<span class="show-pt">mês</span><span class="show-en">mo</span></span>
+          <span class="note"><span class="show-pt">$35/mês com um plano de celular empresarial Verizon</span>
+                             <span class="show-en">$35/mo with a Verizon business phone plan</span></span>
+        </td>
+        <td class="best" data-lbl="Frontier Fiber 1 Gig">
+          <span class="price">$64.99<span class="per">/mês</span></span>
+          <span class="save">− $20/<span class="show-pt">mês</span><span class="show-en">mo</span> · $240/<span class="show-pt">ano</span><span class="show-en">yr</span></span>
+          <span class="note"><span class="show-pt">roteador incluído · preço travado por 5 anos</span>
+                             <span class="show-en">router included · price locked 5 years</span></span>
+        </td>
+      </tr>
+
+      <tr>
+        <th><span class="show-pt">Velocidade</span><span class="show-en">Speed</span></th>
+        <td data-lbl="Spectrum">
+          <span class="big">~1000</span> <span class="show-pt">de descida</span><span class="show-en">down</span><br>
+          <span class="down-bad">~35 <span class="show-pt">de subida</span><span class="show-en">up</span></span>
+          <span class="note"><span class="show-pt">A subida é o que carrega vídeo, chamadas e arquivos para fora.</span>
+                             <span class="show-en">Upload is what carries video calls and files out.</span></span>
+        </td>
+        <td data-lbl="Verizon 5G Business">
+          <span class="big">85–400</span> <span class="show-pt">de descida</span><span class="show-en">down</span><br>
+          <span class="big">8–40 <span class="show-pt">de subida</span><span class="show-en">up</span></span>
+        </td>
+        <td class="best" data-lbl="Frontier Fiber 1 Gig">
+          <span class="big">1000</span> <span class="show-pt">de descida</span><span class="show-en">down</span><br>
+          <span class="up">1000 <span class="show-pt">de subida</span><span class="show-en">up</span></span>
+          <span class="note"><span class="show-pt">Cerca de 28× a subida de hoje. Fibra sobe e desce igual.</span>
+                             <span class="show-en">About 28× today's upload. Fiber is symmetrical.</span></span>
+        </td>
+      </tr>
+
+      <tr>
+        <th><span class="show-pt">Em tempestade</span><span class="show-en">In a storm</span></th>
+        <td data-lbl="Spectrum">
+          <span class="show-pt">Cabo aéreo, no poste. Depois do furacão Milton (out/2024), cerca de
+            <b>580.000 clientes da Spectrum na Flórida</b> ficaram sem internet, e ainda havia
+            <b>menos de 200.000 sem serviço em 15/10</b>. Depois do Helene, <b>34.000 seguiam sem
+            serviço três semanas depois</b>.</span>
+          <span class="show-en">Aerial cable, on poles. After Hurricane Milton (Oct 2024) about
+            <b>580,000 Spectrum customers in Florida</b> lost internet, and <b>under 200,000 were
+            still out on Oct 15</b>. After Helene, <b>34,000 were still out three weeks later</b>.</span>
+        </td>
+        <td data-lbl="Verizon 5G Business">
+          <span class="show-pt">Vem da torre de celular. Na Flórida, as torres saíram de
+            <b>12,3% fora do ar para 2,2% em quatro dias</b> depois do Milton — enquanto o cabo
+            ainda tinha centenas de milhares de clientes parados. As torres têm gerador próprio.</span>
+          <span class="show-en">Comes from the cell tower. In Florida, towers went from
+            <b>12.3% out to 2.2% in four days</b> after Milton — while cable still had hundreds of
+            thousands of customers down. Towers carry their own generators.</span>
+        </td>
+        <td class="best" data-lbl="Frontier Fiber 1 Gig">
+          <span class="show-pt">Fibra enterrada. Não há poste para cair nem cabo para arrebentar
+            no vento. É a rede menos exposta das três.</span>
+          <span class="show-en">Buried fiber. No poles to fall and no line to snap in the wind.
+            The least exposed of the three.</span>
+        </td>
+      </tr>
+
+      <tr>
+        <th><span class="show-pt">Instalação</span><span class="show-en">Setup</span></th>
+        <td data-lbl="Spectrum">
+          <span class="show-pt">Técnico na casa, com janela de horário.</span>
+          <span class="show-en">Technician visit, with an appointment window.</span>
+        </td>
+        <td data-lbl="Verizon 5G Business">
+          <b><span class="show-pt">O mais fácil dos três.</span><span class="show-en">The easiest of the three.</span></b>
+          <span class="note"><span class="show-pt">O aparelho chega pelo correio ou se retira na loja.
+            Liga na tomada, lê o QR code da caixa e pronto. Sem técnico e sem esperar em casa.</span>
+            <span class="show-en">The gateway arrives by mail or is picked up in store. Plug it in,
+            scan the QR code on the box, done. No technician, no waiting at home.</span></span>
+        </td>
+        <td class="best" data-lbl="Frontier Fiber 1 Gig">
+          <span class="show-pt">Técnico na casa, com janela de horário — igual à Spectrum.
+            É uma tarde de trabalho uma vez só.</span>
+          <span class="show-en">Technician visit with an appointment window, same as Spectrum.
+            One afternoon, once.</span>
+        </td>
+      </tr>
+
+      <tr>
+        <th><span class="show-pt">Contratar</span><span class="show-en">Order</span></th>
+        <td data-lbl="Spectrum">
+          <span class="show-pt" style="color:var(--muted)">Não precisa fazer nada. Fica como está.</span>
+          <span class="show-en" style="color:var(--muted)">Nothing to do. Stays as it is.</span>
+        </td>
+        <td data-lbl="Verizon 5G Business">
+          <a class="btn" href="https://www.verizon.com/business/products/internet/5g/" target="_blank" rel="noopener">
+            <span class="show-pt">Ver e contratar</span><span class="show-en">See it and order</span></a>
+        </td>
+        <td class="best" data-lbl="Frontier Fiber 1 Gig">
+          <a class="btn" href="https://go.frontier.com/availability/fl/zephyrhills" target="_blank" rel="noopener">
+            <span class="show-pt">Ver e contratar</span><span class="show-en">See it and order</span></a>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+
+  <div class="foot">
+    <h2><span class="show-pt">Duas coisas honestas</span><span class="show-en">Two honest notes</span></h2>
+
+    <p>
+      <b><span class="show-pt">Falta confirmar o endereço.</span><span class="show-en">The address still has to be checked.</span></b>
+      <span class="show-pt">As duas empresas liberam serviço rua por rua, não por cidade — a Verizon
+        limita quantas casas usam cada torre, e a fibra da Frontier só chega onde já passou o cabo.
+        Os botões acima já abrem na página certa; é só colocar o endereço.</span>
+      <span class="show-en">Both providers approve service street by street, not city-wide — Verizon
+        limits how many homes use each tower, and Frontier fiber only reaches where the line was
+        already run. The buttons above open the right page; just enter the address.</span>
+    </p>
+
+    <p>
+      <b><span class="show-pt">Sem energia, nenhuma funciona — mas dá para resolver barato.</span>
+       <span class="show-en">None of them work without power — but that is cheap to fix.</span></b>
+      <span class="show-pt">O modem precisa de tomada, seja qual for a empresa. Um nobreak (APC) de
+        uns $150 segura modem e roteador por várias horas, porque juntos gastam pouquíssima energia.
+        A diferença é que com a Spectrum, mesmo com o nobreak, você continua sem internet se o cabo
+        da rua caiu — e com as outras duas, não.</span>
+      <span class="show-en">The modem needs an outlet no matter which provider. A UPS (APC) of around
+        $150 keeps a modem and router running for several hours, because together they draw very
+        little. The difference: with Spectrum, even on a UPS you still have nothing if the street
+        line is down — with the other two, you do.</span>
+    </p>
+  </div>
+
+  <p class="src">
+    <span class="show-pt"><b>De onde vêm os números:</b> preços e velocidades dos sites oficiais da
+      Frontier e da Verizon Business (agosto/2026). Dados de queda de serviço: relatórios da FCC
+      (Disaster Information Reporting System) para os furacões Milton e Helene, e reportagem da WFLA
+      sobre a Spectrum. Velocidades reais variam conforme o endereço.</span>
+    <span class="show-en"><b>Where the numbers come from:</b> pricing and speeds from Frontier's and
+      Verizon Business's own sites (August 2026). Outage figures: FCC Disaster Information Reporting
+      System filings for Hurricanes Milton and Helene, and WFLA reporting on Spectrum. Real speeds
+      vary by address.</span>
+  </p>
+
+</div>
+
+<script>
+  function setLang(l){
+    document.body.classList.toggle("lang-en", l === "en");
+    document.body.classList.toggle("lang-pt", l !== "en");
+    document.getElementById("btEn").classList.toggle("on", l === "en");
+    document.getElementById("btPt").classList.toggle("on", l !== "en");
+    try { localStorage.setItem("apex_lang", l); } catch(e){}
+  }
+  // Follow whatever language she already uses elsewhere in Apex.
+  try {
+    var saved = localStorage.getItem("apex_lang");
+    if (saved === "en" || saved === "pt") { setLang(saved); }
+  } catch(e){}
+</script>
+
+</body>
+</html>

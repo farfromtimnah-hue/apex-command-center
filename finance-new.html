@@ -834,6 +834,7 @@
     /* Marks a bill the bank feed structurally cannot see, so its silence in the
        overdue list reads as expected rather than as something gone wrong. */
     .bill-oncard { color: var(--gold); font-weight: 600; }
+    .bill-compare-link { color: var(--brown); font-weight: 600; text-decoration: underline; }
     /* An estimated amount is italic so the number itself reads as soft. The
        parenthesised word is lighter still: the figure is the point, the label
        only confirms it. */
@@ -3481,6 +3482,13 @@
           // than as the known limitation it is.
           (b.funding_source && b.funding_source !== "bank"
             ? ' &middot; <span class="bill-oncard">' + t("no cart&atilde;o", "on the card") + "</span>"
+            : "") +
+          // Only on the internet bill: a side-by-side of what else is available
+          // at their address. Alice makes the billing decisions, so the compare
+          // sheet lives where the bill is, not in a document she has to find.
+          (/spectrum|internet/i.test(b.name || "")
+            ? ' &middot; <a class="bill-compare-link" href="internet-options.html" target="_blank" rel="noopener">' +
+              t("ver outras op&ccedil;&otilde;es", "see other options") + "</a>"
             : "") +
           (b.pay_url ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) +
             '" target="_blank" rel="noopener">' + t("pagar", "pay") + "</a>" : "") +

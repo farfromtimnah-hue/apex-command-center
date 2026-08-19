@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
-       native-bridge.js?v=1786940000, so it is installed before anything that can throw.
+       native-bridge.js?v=1786950000, so it is installed before anything that can throw.
 
        WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
        with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
@@ -13,7 +13,7 @@
 
        Buffers into a cookie as well as the console, because the native log is
        only reachable once the Capacitor plugin exists -- which is exactly what
-       may not have happened yet when the error fires. native-bridge.js?v=1786940000 replays
+       may not have happened yet when the error fires. native-bridge.js?v=1786950000 replays
        this buffer into the native log once the plugin appears. -->
   <script>
   (function () {
@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1786940000"></script>
+  <script src="native-bridge.js?v=1786950000"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -2222,11 +2222,15 @@
       return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
     }
 
+    // ALWAYS MM/DD/YYYY, not tied to isEn() -- see fmtCents above for why the
+    // PT/EN toggle must never change a date's field order. Found 2026-08-16:
+    // this local duplicate had drifted from datetime.js's own formatDate(),
+    // which already gets this right.
     function fmtDate(iso) {
       if (!iso) { return ""; }
       var p = String(iso).slice(0, 10).split("-");
       if (p.length !== 3) { return iso; }
-      return isEn() ? (p[1] + "/" + p[2] + "/" + p[0]) : (p[2] + "/" + p[1] + "/" + p[0]);
+      return p[1] + "/" + p[2] + "/" + p[0];
     }
 
     function esc(s) {
@@ -3954,8 +3958,9 @@
     function prettyLabel(useWeekly) {
       return function(k) {
         if (useWeekly) {
+          // ALWAYS M/D, not tied to isEn() -- same rule as fmtDate above.
           var p = String(k).split("-");
-          return isEn() ? (p[1] + "/" + p[2]) : (p[2] + "/" + p[1]);
+          return p[1] + "/" + p[2];
         }
         var mp = String(k).split("-");
         var names = isEn()

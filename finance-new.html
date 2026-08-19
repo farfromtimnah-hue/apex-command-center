@@ -4813,20 +4813,22 @@
 
         // Names visible at a glance, not hidden behind a click into detail
         // -- Nicole 2026-08-19: "you should see at a glance how many
-        // clients are being helped under each vendor." Each name carries
-        // its own amount-pending state inline rather than a single
-        // rolled-up count.
+        // clients are being helped under each vendor." A real list, not a
+        // comma-joined paragraph -- each name gets its own line so a
+        // vendor with several clients is scannable, not a run-on sentence.
+        // Each name carries its own amount-pending state inline.
         var namesHtml = "";
         if (clientCount) {
-          var parts = [];
+          var items = "";
           for (var j = 0; j < v.clients.length; j++) {
             var c = v.clients[j];
-            parts.push(esc(c.client_name) +
+            items += '<li>' + esc(c.client_name) +
               (c.vendor_amount_cents === null
                 ? ' <span style="color:var(--muted);">(' + (isEn() ? "amount pending" : "valor pendente") + ')</span>'
-                : ''));
+                : '') +
+              '</li>';
           }
-          namesHtml = parts.join(", ");
+          namesHtml = '<ul style="margin:2px 0 0;padding-left:16px;">' + items + '</ul>';
         } else {
           namesHtml = isEn() ? "No clients attached" : "Nenhum cliente vinculado";
         }

@@ -637,6 +637,88 @@
       margin-bottom: 18px;
     }
 
+    /* ─── Section collapse + drag reorder (ported from client.html) ───────
+       The page had grown into one long scroll where nothing could be found
+       at a glance. Same interaction as the client profile page on purpose:
+       she already knows it from there. */
+    .sec-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .sec-head .card-title { margin-bottom: 0; flex: 1 1 auto; }
+
+    .collapse-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      line-height: 1;
+      border-radius: 4px;
+      transition: color 0.1s, background 0.1s;
+      flex-shrink: 0;
+    }
+    .collapse-btn:hover { color: var(--text); background: var(--gold-dim); }
+
+    .card-body-collapsible { transition: none; }
+    .card-body-collapsible[hidden] { display: none !important; }
+
+    /* The collapsed summary. Carries the one fact the section is for, so a
+       closed section is still answering a question rather than hiding one. */
+    .sec-summary { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .sec-summary[hidden] { display: none !important; }
+    .sec-summary .is-bad { color: var(--red); font-weight: 700; }
+    .sec-summary .is-good { color: var(--green); font-weight: 600; }
+
+    .btn-edit-sections {
+      background: rgba(255,255,255,0.10);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      color: rgba(255,255,255,0.82);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 7px;
+      padding: 6px 14px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-edit-sections:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+
+    .edit-sections-bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+
+    .drag-handle {
+      display: none;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: grab;
+      padding: 0 6px 0 0;
+      user-select: none;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    /* Touch fallback. This runs as an installed PWA, where HTML5 drag events
+       are unreliable on a phone -- the buttons are the reliability net, not
+       the primary interaction. Same pattern as the overdue bill rows. */
+    .sec-move-btns { display: none; gap: 2px; flex-shrink: 0; }
+    body.is-edit-sections .sec-move-btns { display: flex; }
+
+    body.is-edit-sections .drag-handle { display: block; }
+    body.is-edit-sections .collapse-btn { display: none; }
+    body.is-edit-sections .sec-head { cursor: grab; }
+    body.is-edit-sections .card-body-collapsible { display: none !important; }
+    body.is-edit-sections .sec-summary { display: none !important; }
+
+    .section-drag-over { outline: 2px dashed var(--gold); outline-offset: 2px; border-radius: var(--radius); }
+    .section-dragging { opacity: 0.45; }
+
+    #sectionsList { display: block; }
+
     .card-title {
       font-size: 13px;
       font-weight: 700;
@@ -1286,6 +1368,19 @@
             <span class="fin-tab-badge" id="finBadgeVendors" hidden>0</span>
           </button>
         </div>
+
+        <!-- Reorder control. Lives in the hero, same place as the client
+             profile page, so the page it reorders stays fully visible. -->
+        <div class="edit-sections-bar" id="editSectionsBar" hidden>
+          <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
+            <span class="show-pt">&#9776; Editar se&ccedil;&otilde;es</span>
+            <span class="show-en">&#9776; Edit sections</span>
+          </button>
+          <button class="btn-edit-sections" id="btnDoneSections" onclick="exitEditSectionsMode()" style="display:none;border-color:rgba(201,164,58,0.75);color:#e8c96a;">
+            <span class="show-pt">Conclu&iacute;do</span>
+            <span class="show-en">Done</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1338,86 +1433,44 @@
       </div>
     </div>
 
-    <!-- ── "Precisa de voce" queue ──
-         Sits above the balances deliberately: the balances are the thing she
-         checks, this is the thing she would otherwise never learn about. -->
-    <div id="attentionCard" class="card attn-card" hidden>
-      <div class="attn-head">
-        <div class="card-title" style="margin:0">
-          <span class="show-pt">Precisa de voc&ecirc;</span>
-          <span class="show-en">Needs you</span>
-        </div>
-        <div id="attnProgress" class="attn-progress"></div>
-      </div>
-      <div id="attnRows" class="attn-rows"></div>
-      <div id="attnClear" class="attn-clear" hidden>
-        <span class="show-pt">Nada pendente. As regras cuidaram de tudo at&eacute; aqui.</span>
-        <span class="show-en">Nothing pending. The rules handled everything so far.</span>
-      </div>
-    </div>
-
     <!-- ── Dashboard cards ── -->
     <div id="acctGrid" class="acct-grid"></div>
 
-    <!-- ── Forward view ──
-         The reason the tool exists: will there be enough to pay Rafa this
-         month, and when is it tight. The SENTENCE is the product; everything
-         below it is the evidence for the sentence. -->
-    <div id="forwardCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Pr&oacute;ximos 90 dias &mdash; conta comercial</span>
-        <span class="show-en">Next 90 days &mdash; business account</span>
-      </div>
-      <div id="fwdSentence" class="fwd-sentence"></div>
-      <div id="fwdDetail" class="fwd-detail"></div>
-      <div id="fwdGaps" class="fwd-gaps"></div>
+    <div id="sectionsList">
 
-      <!-- Owner pay. Never framed as leakage or as an expense to minimise:
-           this is Rafa's pay and the question is whether the business is
-           generating enough to pay him consistently. -->
-      <div id="fwdOwnerPay" class="fwd-owner"></div>
-
-      <!-- Fixed bills. Ships EMPTY -- nothing is seeded, suggested, or
-           pre-filled. Alice enters what she wants tracked. -->
-      <div class="fwd-bills">
-        <div class="fwd-bills-head">
-          <span class="show-pt">Contas fixas</span>
-          <span class="show-en">Fixed bills</span>
+    <!-- ── Overdue bills + coverage forecast ──
+         Separate from the flat "Contas fixas" list above. Overdue is purely
+         date-based -- the coverage note is context alongside the flag, never
+         a suppression of it. -->
+    <div id="overdueCard" data-section-id="overdue" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Contas atrasadas</span>
+          <span class="show-en">Overdue bills</span>
         </div>
-        <div id="billsList"></div>
-        <!-- Detected from her own history, never seeded. Nothing here is
-             tracked until she presses the button on that row. -->
-        <div id="billSuggest" class="club-suggest" hidden></div>
-        <div class="filter-row" style="margin-top:10px;margin-bottom:0">
-          <input id="billName" type="text" style="flex:2 1 150px"
-                 data-ph-pt="Nome da conta" data-ph-en="Bill name" placeholder="Nome da conta">
-          <input id="billAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
-                 data-ph-pt="Valor" data-ph-en="Amount" placeholder="Valor">
-          <input id="billDay" type="text" inputmode="numeric" style="flex:0 1 70px"
-                 data-ph-pt="Dia do m&ecirc;s" data-ph-en="Day" placeholder="Dia">
-          <select id="billPurpose" style="flex:0 1 120px">
-            <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
-            <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
-          </select>
-          <select id="billPaymentMethod" style="flex:0 1 150px">
-            <option value="manual" data-opt-pt="Manual" data-opt-en="Manual">Manual</option>
-            <option value="draft" data-opt-pt="D&eacute;bito autom&aacute;tico" data-opt-en="Autopay (draft)">D&eacute;bito autom&aacute;tico</option>
-          </select>
-          <input id="billPayUrl" type="text" style="flex:1 1 150px"
-                 data-ph-pt="URL de pagamento (opcional)" data-ph-en="Pay URL (optional)" placeholder="URL de pagamento (opcional)">
-          <input id="billPayeeNotes" type="text" style="flex:1 1 150px"
-                 data-ph-pt="Notas de conta (opcional)" data-ph-en="Account notes (optional)" placeholder="Notas de conta (opcional)">
-          <button class="btn btn-sm btn-gold" id="billFormSubmitBtn" onclick="submitBillForm()">
-            <span class="show-pt">Adicionar</span>
-            <span class="show-en">Add</span>
-          </button>
-          <button class="btn btn-sm" id="billFormCancelBtn" onclick="cancelBillEdit()" hidden>
-            <span class="show-pt">Cancelar</span>
-            <span class="show-en">Cancel</span>
-          </button>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('overdue',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('overdue',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('overdue')" id="collapse_overdue" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_overdue" hidden></div>
+      <div class="card-body-collapsible" id="body_overdue">
+        <div id="overdueSentence" class="fwd-sentence" style="font-size:15px"></div>
+        <!-- Deposits the matcher already recognised, waiting on one click.
+             Sits ABOVE the overdue rows on purpose: a bill sitting here is
+             almost certainly already paid, so confirming it is the fastest
+             way to shrink the list below. -->
+        <div id="billMatchSuggest" class="club-suggest" hidden></div>
+        <div id="overdueRows" class="overdue-rows"></div>
+        <div id="overdueEmpty" class="tag-meta" hidden>
+          <span class="show-pt">Nenhuma conta atrasada. Tudo em dia.</span>
+          <span class="show-en">No overdue bills. Everything is current.</span>
         </div>
       </div>
     </div>
+
 
     <!-- ── Category budgets ──
          Own top-level card, same visual weight as overdue bills -- Nicole
@@ -1426,221 +1479,396 @@
          date, no single transaction that "is" the payment (fuel,
          groceries). Placed ABOVE overdue/fixed bills: "the budget is more
          important." -->
-    <div id="budgetsCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Or&ccedil;amentos por categoria</span>
-        <span class="show-en">Category budgets</span>
+    <div id="budgetsCard" data-section-id="budgets" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Or&ccedil;amentos por categoria</span>
+          <span class="show-en">Category budgets</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('budgets',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('budgets',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('budgets')" id="collapse_budgets" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div id="budgetsList" class="budget-rows"></div>
-      <div id="budgetsEmpty" class="tag-meta" hidden>
-        <span class="show-pt">Nenhum ainda.</span>
-        <span class="show-en">None yet.</span>
-      </div>
-      <div class="filter-row" style="margin-top:14px;margin-bottom:0">
-        <select id="budgetCategory" style="flex:2 1 150px"></select>
-        <input id="budgetAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
-               data-ph-pt="Valor mensal" data-ph-en="Monthly amount" placeholder="Valor mensal">
-        <select id="budgetPurpose" style="flex:0 1 120px">
-          <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
-          <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
-        </select>
-        <button class="btn btn-sm btn-gold" id="budgetFormSubmitBtn" onclick="submitBudgetForm()">
-          <span class="show-pt">Adicionar</span>
-          <span class="show-en">Add</span>
-        </button>
-        <button class="btn btn-sm" id="budgetFormCancelBtn" onclick="cancelBudgetEdit()" hidden>
-          <span class="show-pt">Cancelar</span>
-          <span class="show-en">Cancel</span>
-        </button>
+      <div class="sec-summary" id="summary_budgets" hidden></div>
+      <div class="card-body-collapsible" id="body_budgets">
+        <div id="budgetsList" class="budget-rows"></div>
+        <div id="budgetsEmpty" class="tag-meta" hidden>
+          <span class="show-pt">Nenhum ainda.</span>
+          <span class="show-en">None yet.</span>
+        </div>
+        <div class="btn-row" style="margin-top:14px" id="budgetAddRow">
+          <button class="btn btn-sm btn-gold" onclick="showBudgetForm()">
+            <span class="show-pt">Adicionar or&ccedil;amento</span>
+            <span class="show-en">Add budget</span>
+          </button>
+        </div>
+        <div class="filter-row" id="budgetForm" hidden style="margin-top:14px;margin-bottom:0">
+          <select id="budgetCategory" style="flex:2 1 150px"></select>
+          <input id="budgetAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
+                 data-ph-pt="Valor mensal" data-ph-en="Monthly amount" placeholder="Valor mensal">
+          <select id="budgetPurpose" style="flex:0 1 120px">
+            <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
+            <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
+          </select>
+          <button class="btn btn-sm btn-gold" id="budgetFormSubmitBtn" onclick="submitBudgetForm()">
+            <span class="show-pt">Adicionar</span>
+            <span class="show-en">Add</span>
+          </button>
+          <button class="btn btn-sm" id="budgetFormCancelBtn" onclick="cancelBudgetEdit()">
+            <span class="show-pt">Cancelar</span>
+            <span class="show-en">Cancel</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- ── Overdue bills + coverage forecast ──
-         Separate from the flat "Contas fixas" list above. Overdue is purely
-         date-based -- the coverage note is context alongside the flag, never
-         a suppression of it. -->
-    <div id="overdueCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Contas atrasadas</span>
-        <span class="show-en">Overdue bills</span>
+
+    <div id="attentionCard" class="card attn-card" data-section-id="attention" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Precisa de voc&ecirc;</span>
+          <span class="show-en">Needs you</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('attention',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('attention',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('attention')" id="collapse_attention" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div id="overdueSentence" class="fwd-sentence" style="font-size:15px"></div>
-      <!-- Deposits the matcher already recognised, waiting on one click.
-           Sits ABOVE the overdue rows on purpose: a bill sitting here is
-           almost certainly already paid, so confirming it is the fastest
-           way to shrink the list below. -->
-      <div id="billMatchSuggest" class="club-suggest" hidden></div>
-      <div id="overdueRows" class="overdue-rows"></div>
-      <div id="overdueEmpty" class="tag-meta" hidden>
-        <span class="show-pt">Nenhuma conta atrasada. Tudo em dia.</span>
-        <span class="show-en">No overdue bills. Everything is current.</span>
+      <div class="sec-summary" id="summary_attention" hidden></div>
+      <div class="card-body-collapsible" id="body_attention">
+        <div id="attnProgress" class="attn-progress"></div>
+        <div id="attnRows" class="attn-rows"></div>
+        <div id="attnClear" class="attn-clear" hidden>
+          <span class="show-pt">Nada pendente. As regras cuidaram de tudo at&eacute; aqui.</span>
+          <span class="show-en">Nothing pending. The rules handled everything so far.</span>
+        </div>
       </div>
     </div>
+
+
+    <div id="forwardCard" class="card" data-section-id="forward" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Pr&oacute;ximos 90 dias &mdash; conta comercial</span>
+          <span class="show-en">Next 90 days &mdash; business account</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('forward',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('forward',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('forward')" id="collapse_forward" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_forward" hidden></div>
+      <div class="card-body-collapsible" id="body_forward">
+        <div id="fwdSentence" class="fwd-sentence"></div>
+        <div id="fwdDetail" class="fwd-detail"></div>
+        <div id="fwdGaps" class="fwd-gaps"></div>
+
+        <!-- Owner pay. Never framed as leakage or as an expense to minimise:
+             this is Rafa's pay and the question is whether the business is
+             generating enough to pay him consistently. -->      </div>
+    </div>
+
+
+    <div id="billsCard" class="card" data-section-id="bills" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Contas fixas</span>
+          <span class="show-en">Fixed bills</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('bills',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('bills',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('bills')" id="collapse_bills" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_bills" hidden></div>
+      <div class="card-body-collapsible" id="body_bills">
+        <!-- Fixed bills. Ships EMPTY -- nothing is seeded, suggested, or
+             pre-filled. Alice enters what she wants tracked. -->
+          <div id="billsList"></div>
+          <!-- Detected from her own history, never seeded. Nothing here is
+               tracked until she presses the button on that row. -->
+          <div id="billSuggest" class="club-suggest" hidden></div>
+          <div class="btn-row" style="margin-top:10px" id="billAddRow">
+            <button class="btn btn-sm btn-gold" onclick="showBillForm()">
+              <span class="show-pt">Adicionar conta</span>
+              <span class="show-en">Add bill</span>
+            </button>
+          </div>
+          <div class="filter-row" id="billForm" hidden style="margin-top:10px;margin-bottom:0">
+            <input id="billName" type="text" style="flex:2 1 150px"
+                   data-ph-pt="Nome da conta" data-ph-en="Bill name" placeholder="Nome da conta">
+            <input id="billAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
+                   data-ph-pt="Valor" data-ph-en="Amount" placeholder="Valor">
+            <input id="billDay" type="text" inputmode="numeric" style="flex:0 1 70px"
+                   data-ph-pt="Dia do m&ecirc;s" data-ph-en="Day" placeholder="Dia">
+            <select id="billPurpose" style="flex:0 1 120px">
+              <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
+              <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
+            </select>
+            <select id="billPaymentMethod" style="flex:0 1 150px">
+              <option value="manual" data-opt-pt="Manual" data-opt-en="Manual">Manual</option>
+              <option value="draft" data-opt-pt="D&eacute;bito autom&aacute;tico" data-opt-en="Autopay (draft)">D&eacute;bito autom&aacute;tico</option>
+            </select>
+            <input id="billPayUrl" type="text" style="flex:1 1 150px"
+                   data-ph-pt="URL de pagamento (opcional)" data-ph-en="Pay URL (optional)" placeholder="URL de pagamento (opcional)">
+            <input id="billPayeeNotes" type="text" style="flex:1 1 150px"
+                   data-ph-pt="Notas de conta (opcional)" data-ph-en="Account notes (optional)" placeholder="Notas de conta (opcional)">
+            <button class="btn btn-sm btn-gold" id="billFormSubmitBtn" onclick="submitBillForm()">
+              <span class="show-pt">Adicionar</span>
+              <span class="show-en">Add</span>
+            </button>
+            <button class="btn btn-sm" id="billFormCancelBtn" onclick="cancelBillEdit()" hidden>
+              <span class="show-pt">Cancelar</span>
+              <span class="show-en">Cancel</span>
+            </button>
+          </div>
+      </div>
+    </div>
+
+
+    <div id="ownerPayCard" class="card" data-section-id="ownerpay" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Pr&oacute;-labore</span>
+          <span class="show-en">Owner pay</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('ownerpay',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('ownerpay',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('ownerpay')" id="collapse_ownerpay" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_ownerpay" hidden></div>
+      <div class="card-body-collapsible" id="body_ownerpay">
+        <div id="fwdOwnerPay" class="fwd-owner"></div>
+      </div>
+    </div>
+
 
     <!-- ── Linked accounts / re-tagging ── -->
-    <div id="linkedCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Contas conectadas</span>
-        <span class="show-en">Linked accounts</span>
+    <div id="linkedCard" data-section-id="linked" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Contas conectadas</span>
+          <span class="show-en">Linked accounts</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('linked',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('linked',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('linked')" id="collapse_linked" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
-              <th><span class="show-pt">Banco</span><span class="show-en">Bank</span></th>
-              <th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>
-              <th class="num"><span class="show-pt">Saldo</span><span class="show-en">Balance</span></th>
-            </tr>
-          </thead>
-          <tbody id="linkedBody"></tbody>
-        </table>
-      </div>
-      <div class="btn-row" style="margin-top:16px">
-        <button class="btn btn-sm" onclick="startLink('business')">
-          <span class="show-pt">+ Conta comercial</span>
-          <span class="show-en">+ Business account</span>
-        </button>
-        <button class="btn btn-sm" onclick="startLink('personal')">
-          <span class="show-pt">+ Conta pessoal</span>
-          <span class="show-en">+ Personal account</span>
-        </button>
+      <div class="sec-summary" id="summary_linked" hidden></div>
+      <div class="card-body-collapsible" id="body_linked">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
+                <th><span class="show-pt">Banco</span><span class="show-en">Bank</span></th>
+                <th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>
+                <th class="num"><span class="show-pt">Saldo</span><span class="show-en">Balance</span></th>
+              </tr>
+            </thead>
+            <tbody id="linkedBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:16px">
+          <button class="btn btn-sm" onclick="startLink('business')">
+            <span class="show-pt">+ Conta comercial</span>
+            <span class="show-en">+ Business account</span>
+          </button>
+          <button class="btn btn-sm" onclick="startLink('personal')">
+            <span class="show-pt">+ Conta pessoal</span>
+            <span class="show-en">+ Personal account</span>
+          </button>
+        </div>
       </div>
     </div>
 
+
     <!-- ── Suspected transfers ── -->
-    <div id="transferCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Transfer&ecirc;ncias suspeitas</span>
-        <span class="show-en">Suspected transfers</span>
+    <div id="transferCard" data-section-id="transfers" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Transfer&ecirc;ncias suspeitas</span>
+          <span class="show-en">Suspected transfers</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('transfers',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('transfers',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('transfers')" id="collapse_transfers" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="page-sub" style="margin-bottom:12px">
-        <span class="show-pt">Dinheiro movido entre as suas pr&oacute;prias contas n&atilde;o &eacute; receita nem despesa. Confirme para tirar dos totais.</span>
-        <span class="show-en">Money moved between your own accounts is neither income nor expense. Confirm to remove it from the totals.</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
-              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
-              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="transferBody"></tbody>
-        </table>
+      <div class="sec-summary" id="summary_transfers" hidden></div>
+      <div class="card-body-collapsible" id="body_transfers">
+        <div class="page-sub" style="margin-bottom:12px">
+          <span class="show-pt">Dinheiro movido entre as suas pr&oacute;prias contas n&atilde;o &eacute; receita nem despesa. Confirme para tirar dos totais.</span>
+          <span class="show-en">Money moved between your own accounts is neither income nor expense. Confirm to remove it from the totals.</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
+                <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
+                <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="transferBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
+
 
     <!-- ── Charts ── -->
     <!-- Not decoration. Nicole is dyslexic and works from visual tools, and
          Alice is not a numbers person -- a wall of figures is the version that
          goes unused, which is how the last tool died. -->
-    <div id="chartCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Vis&atilde;o geral</span>
-        <span class="show-en">Overview</span>
+    <div id="chartCard" data-section-id="charts" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Vis&atilde;o geral</span>
+          <span class="show-en">Overview</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('charts',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('charts',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('charts')" id="collapse_charts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="chart-grid">
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Entrou e saiu</span>
-            <span class="show-en">Money in and out</span>
+      <div class="sec-summary" id="summary_charts" hidden></div>
+      <div class="card-body-collapsible" id="body_charts">
+        <div class="chart-grid">
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">Entrou e saiu</span>
+              <span class="show-en">Money in and out</span>
+            </div>
+            <div class="chart-box"><canvas id="flowChart"></canvas></div>
+            <div id="flowCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="flowChart"></canvas></div>
-          <div id="flowCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">O que mudou por categoria</span>
-            <span class="show-en">What changed by category</span>
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">O que mudou por categoria</span>
+              <span class="show-en">What changed by category</span>
+            </div>
+            <div class="chart-box"><canvas id="momChart"></canvas></div>
+            <div id="momCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="momChart"></canvas></div>
-          <div id="momCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Para onde foi o dinheiro</span>
-            <span class="show-en">Where the money went</span>
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">Para onde foi o dinheiro</span>
+              <span class="show-en">Where the money went</span>
+            </div>
+            <div class="chart-box"><canvas id="catChart"></canvas></div>
+            <div id="catCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="catChart"></canvas></div>
-          <div id="catCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Saldo por conta</span>
-            <span class="show-en">Balance by account</span>
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">Saldo por conta</span>
+              <span class="show-en">Balance by account</span>
+            </div>
+            <div class="chart-box"><canvas id="balanceChart"></canvas></div>
+            <div id="balanceCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="balanceChart"></canvas></div>
-          <div id="balanceCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <!-- Vendor share of income: two-slice donut, per Alice's ask ("90%
-             Apex / 10% vendors"). Lives with the other headline charts, not
-             behind the Fornecedores tab -- Nicole 2026-08-19: this is a
-             number Alice glances at with the rest of the income picture,
-             not something she should have to click into vendor management
-             to see. -->
-        <div>
-          <div class="flow-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-            <span>
-              <span class="show-pt">Fatia dos fornecedores</span>
-              <span class="show-en">Vendor share</span>
-            </span>
-            <input type="month" id="vendorShareMonth" onchange="loadVendorShare()" style="font-size:12px;padding:2px 6px">
+          <!-- Vendor share of income: two-slice donut, per Alice's ask ("90%
+               Apex / 10% vendors"). Lives with the other headline charts, not
+               behind the Fornecedores tab -- Nicole 2026-08-19: this is a
+               number Alice glances at with the rest of the income picture,
+               not something she should have to click into vendor management
+               to see. -->
+          <div>
+            <div class="flow-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+              <span>
+                <span class="show-pt">Fatia dos fornecedores</span>
+                <span class="show-en">Vendor share</span>
+              </span>
+              <input type="month" id="vendorShareMonth" onchange="loadVendorShare()" style="font-size:12px;padding:2px 6px">
+            </div>
+            <div class="chart-box"><canvas id="vendorShareChart"></canvas></div>
+            <div id="vendorShareCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="vendorShareChart"></canvas></div>
-          <div id="vendorShareCaveat" class="chart-caveat" hidden></div>
         </div>
       </div>
     </div>
 
+
     <!-- ── Transactions (Stage 4) ── -->
-    <div id="txnCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Transa&ccedil;&otilde;es</span>
-        <span class="show-en">Transactions</span>
+    <div id="txnCard" data-section-id="transactions" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Transa&ccedil;&otilde;es</span>
+          <span class="show-en">Transactions</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('transactions',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('transactions',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('transactions')" id="collapse_transactions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="filter-row">
-        <input type="search" id="txnSearch" oninput="resetAndRenderTransactions()"
-               data-ph-pt="Buscar descri&ccedil;&atilde;o..." data-ph-en="Search description..." placeholder="Buscar descri&ccedil;&atilde;o...">
-        <select id="txnAccount" onchange="resetAndRenderTransactions()">
-          <option value="">Todas as contas / All accounts</option>
-        </select>
-        <select id="txnPending" onchange="resetAndRenderTransactions()">
-          <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
-          <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
-          <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
-        </select>
-        <select id="txnCategoryFilter" onchange="resetAndRenderTransactions()">
-          <option value="">Todas as categorias / All categories</option>
-          <option value="uncategorized">Sem categoria / Uncategorized</option>
-        </select>
-        <input type="date" id="txnFrom" onchange="resetAndRenderTransactions()">
-        <input type="date" id="txnTo" onchange="resetAndRenderTransactions()">
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
-              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
-              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
-              <th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>
-              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
-            </tr>
-          </thead>
-          <tbody id="txnBody"></tbody>
-        </table>
-      </div>
-      <div id="txnEmpty" class="empty" hidden>
-        <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
-        <span class="show-en">No transactions found.</span>
-      </div>
-      <div class="btn-row" style="margin-top:10px;">
-        <button class="btn btn-sm" id="txnShowMoreBtn" onclick="showMoreTransactions()" hidden></button>
+      <div class="sec-summary" id="summary_transactions" hidden></div>
+      <div class="card-body-collapsible" id="body_transactions">
+        <div class="filter-row">
+          <input type="search" id="txnSearch" oninput="resetAndRenderTransactions()"
+                 data-ph-pt="Buscar descri&ccedil;&atilde;o..." data-ph-en="Search description..." placeholder="Buscar descri&ccedil;&atilde;o...">
+          <select id="txnAccount" onchange="resetAndRenderTransactions()">
+            <option value="">Todas as contas / All accounts</option>
+          </select>
+          <select id="txnPending" onchange="resetAndRenderTransactions()">
+            <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
+            <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
+            <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
+          </select>
+          <select id="txnCategoryFilter" onchange="resetAndRenderTransactions()">
+            <option value="">Todas as categorias / All categories</option>
+            <option value="uncategorized">Sem categoria / Uncategorized</option>
+          </select>
+          <input type="date" id="txnFrom" onchange="resetAndRenderTransactions()">
+          <input type="date" id="txnTo" onchange="resetAndRenderTransactions()">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
+                <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
+                <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
+                <th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>
+                <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+              </tr>
+            </thead>
+            <tbody id="txnBody"></tbody>
+          </table>
+        </div>
+        <div id="txnEmpty" class="empty" hidden>
+          <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
+          <span class="show-en">No transactions found.</span>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn btn-sm" id="txnShowMoreBtn" onclick="showMoreTransactions()" hidden></button>
+        </div>
       </div>
     </div>
+
+    </div><!-- /sectionsList -->
+
 
     </div><!-- /finPanelSaude -->
 
@@ -2946,6 +3174,7 @@
 
       card.hidden = false;
       applyFinBilingualAttrs();
+      if (isCollapsed("attention")) { renderSectionSummary("attention"); }
     }
 
     // ── Forward view ────────────────────────────────────────────────────
@@ -2959,6 +3188,13 @@
     // a confident wrong number -- the same honesty threshold the net figure
     // on the hero tiles already uses.
     function renderForward() {
+      // Fixed bills stands on its own: it is where she ENTERS the bills, so
+      // it has to be reachable even when the forward walk cannot be built.
+      renderBills();
+      var billsCard0 = document.getElementById("billsCard");
+      if (billsCard0) { billsCard0.hidden = false; }
+      if (isCollapsed("bills")) { renderSectionSummary("bills"); }
+
       var card = document.getElementById("forwardCard");
       if (!card || !FORWARD) { return; }
       card.hidden = false;
@@ -3046,7 +3282,19 @@
       }
 
       renderBills();
+
+      // Fixed bills and owner pay are their own sections now, so each has to
+      // be revealed on its own -- they used to ride along inside the forward
+      // card and would otherwise stay hidden forever.
+      var billsCard = document.getElementById("billsCard");
+      if (billsCard) { billsCard.hidden = false; }
+      var ownerCard = document.getElementById("ownerPayCard");
+      if (ownerCard) { ownerCard.hidden = false; }
+
       applyFinBilingualAttrs();
+      if (isCollapsed("forward"))  { renderSectionSummary("forward"); }
+      if (isCollapsed("bills"))    { renderSectionSummary("bills"); }
+      if (isCollapsed("ownerpay")) { renderSectionSummary("ownerpay"); }
     }
 
     // "dia 12" / "August 12" -- a date she can act on, not an ISO string.
@@ -3203,6 +3451,7 @@
         .then(function(d) {
           if (d.error) { toast(d.error); return; }
           resetBillForm();
+          hideBillForm();
           loadForward();
           loadOverdue();
         })
@@ -3227,6 +3476,7 @@
       var b = BILLS.filter(function(x) { return x.id === id; })[0];
       if (!b) { return; }
       EDITING_BILL_ID = id;
+      showBillForm();
       document.getElementById("billName").value = b.name;
       document.getElementById("billAmount").value = (b.amount_cents / 100).toFixed(2);
       document.getElementById("billDay").value = b.day_of_month;
@@ -3242,6 +3492,7 @@
 
     function cancelBillEdit() {
       resetBillForm();
+      hideBillForm();
     }
 
     function removeFixedBill(id) {
@@ -3342,12 +3593,14 @@
           projectionHtml +
         '</div>';
       }).join("");
+      if (isCollapsed("budgets")) { renderSectionSummary("budgets"); }
     }
 
     function startEditBudget(id) {
       var b = BUDGETS.find(function(x) { return x.id === id; });
       if (!b) { return; }
       editingBudgetId = id;
+      showBudgetForm();
       document.getElementById("budgetCategory").value = b.category_id;
       document.getElementById("budgetAmount").value = (b.monthly_amount_cents / 100).toFixed(2);
       document.getElementById("budgetPurpose").value = b.purpose;
@@ -3357,6 +3610,7 @@
     }
 
     function cancelBudgetEdit() {
+      hideBudgetForm();
       editingBudgetId = null;
       document.getElementById("budgetAmount").value = "";
       document.getElementById("budgetFormSubmitBtn").innerHTML =
@@ -3601,6 +3855,7 @@
       }).join("");
 
       applyFinBilingualAttrs();
+      if (isCollapsed("overdue")) { renderSectionSummary("overdue"); }
     }
 
     function markBillPaid(billId) {
@@ -6955,7 +7210,397 @@
         populateAccountFilter();
         renderTransactions();
         updateFinanceBadges();
+        refreshSectionSummaries();
       });
+    }
+
+    // ── Section collapse + drag reorder ───────────────────────────────────
+    //
+    // Ported wholesale from client.html rather than reinvented: she already
+    // knows this interaction from the client profile page, and the point of
+    // reusing it is that there is nothing new to learn. The page had grown
+    // into one endless scroll where nothing could be found at a glance.
+    //
+    // The hero tiles and #acctGrid are deliberately OUTSIDE #sectionsList.
+    // Balances are the one number that must never cost a click.
+
+    var SECTIONS = [
+      { key: "overdue",      def: "open"      },
+      { key: "budgets",      def: "open"      },
+      { key: "attention",    def: "collapsed" },
+      { key: "forward",      def: "open"      },
+      { key: "bills",        def: "collapsed" },
+      { key: "ownerpay",     def: "collapsed" },
+      { key: "linked",       def: "collapsed" },
+      { key: "transfers",    def: "collapsed" },
+      { key: "charts",       def: "collapsed" },
+      { key: "transactions", def: "collapsed" }
+    ];
+
+    var DEFAULT_SECTION_ORDER = [
+      "overdue", "budgets", "attention", "forward", "bills",
+      "ownerpay", "linked", "transfers", "charts", "transactions"
+    ];
+
+    function collapseKey(sectionKey) { return "apex_fin_collapse_" + sectionKey; }
+    function sectionOrderKey()       { return "apex_fin_section_order"; }
+
+    function sectionByKey(key) {
+      for (var i = 0; i < SECTIONS.length; i++) {
+        if (SECTIONS[i].key === key) { return SECTIONS[i]; }
+      }
+      return null;
+    }
+
+    function isCollapsed(key) {
+      var body = document.getElementById("body_" + key);
+      return !!(body && body.hidden);
+    }
+
+    function applyCollapse(key, collapsed) {
+      var body = document.getElementById("body_" + key);
+      var btn  = document.getElementById("collapse_" + key);
+      var sum  = document.getElementById("summary_" + key);
+      if (!body) { return; }
+      body.hidden = collapsed;
+      if (btn) { btn.innerHTML = collapsed ? "&#9654;" : "&#9660;"; }
+      if (sum) { sum.hidden = !collapsed; }
+      if (collapsed) { renderSectionSummary(key); }
+    }
+
+    function initCollapseStates() {
+      for (var i = 0; i < SECTIONS.length; i++) {
+        var s = SECTIONS[i];
+        var stored = localStorage.getItem(collapseKey(s.key));
+        // No stored preference falls back to the shipped default. Budgets
+        // ship EXPANDED on purpose -- it is the easiest thing on the page to
+        // miss, so collapsing it stays her choice, never the default.
+        var collapsed = stored ? (stored === "collapsed") : (s.def === "collapsed");
+        applyCollapse(s.key, collapsed);
+      }
+    }
+
+    function toggleSection(key) {
+      if (document.body.classList.contains("is-edit-sections")) { return; }
+      var body = document.getElementById("body_" + key);
+      if (!body) { return; }
+      var nowCollapsed = !body.hidden;
+      applyCollapse(key, nowCollapsed);
+      localStorage.setItem(collapseKey(key), nowCollapsed ? "collapsed" : "open");
+    }
+
+    // Every collapsed section still answers its own question. A closed
+    // section that says nothing is just a hidden section.
+    function renderSectionSummary(key) {
+      var el = document.getElementById("summary_" + key);
+      if (!el) { return; }
+      var html = "";
+
+      if (key === "overdue") {
+        var bills = (OVERDUE && OVERDUE.overdue_bills) || [];
+        if (!bills.length) {
+          html = t("Nenhuma conta atrasada.", "No overdue bills.");
+        } else {
+          var totalC = 0, coveredC = 0, uncoveredC = 0;
+          for (var i = 0; i < bills.length; i++) {
+            var amt = bills[i].amount_cents || 0;
+            totalC += amt;
+            if (bills[i].covered) { coveredC += amt; } else { uncoveredC += amt; }
+          }
+          html = '<span class="is-bad">' + fmtCents(totalC) + "</span> &middot; " +
+                 bills.length + t(" conta", " bill") + (bills.length === 1 ? "" : "s") + "<br>" +
+                 t("Coberto ", "Covered ") + fmtCents(coveredC) + " &middot; " +
+                 t("descoberto ", "uncovered ") + fmtCents(uncoveredC);
+        }
+
+      } else if (key === "budgets") {
+        // Only budgets in trouble. An on-track budget says nothing at all --
+        // listing them would bury the two that matter.
+        var trouble = [];
+        for (var b = 0; b < (BUDGETS || []).length; b++) {
+          var bu = BUDGETS[b];
+          var over = bu.projected_over_cents || 0;
+          if (over > 0) {
+            trouble.push(esc(bu.category_name || bu.category_id) + " &middot; " +
+                         t("deve estourar em ", "over by ") + fmtCents(over));
+          }
+        }
+        html = trouble.length
+          ? '<span class="is-bad">' + trouble.join("<br>") + "</span>"
+          : '<span class="is-good">' + t("Tudo dentro do or&ccedil;amento.", "All budgets on track.") + "</span>";
+
+      } else if (key === "attention") {
+        var n = ATTENTION ? (ATTENTION.total || 0) : 0;
+        html = n > 0
+          ? n + t(" item", " item") + (n === 1 ? "" : "s")
+          : t("Nada pendente.", "Nothing pending.");
+
+      } else if (key === "forward") {
+        var fs = document.getElementById("fwdSentence");
+        html = fs ? fs.innerHTML : "";
+
+      } else if (key === "bills") {
+        // This week only. The full list is what the expand is for.
+        var wk = billsDueThisWeek();
+        if (!wk.length) {
+          html = t("Nada vence esta semana.", "Nothing due this week.");
+        } else {
+          var parts = [];
+          for (var w = 0; w < wk.length; w++) {
+            parts.push(esc(wk[w].name) + " &middot; " + fmtCents(wk[w].amount_cents));
+          }
+          html = parts.join("<br>");
+        }
+
+      } else if (key === "ownerpay") {
+        var op = document.getElementById("fwdOwnerPay");
+        var line = op ? (op.textContent || "").trim() : "";
+        html = line ? esc(line.split("\n")[0]) : t("Sem dados.", "No data.");
+
+      } else if (key === "linked") {
+        var rows = [];
+        for (var a = 0; a < (ACCOUNTS || []).length; a++) {
+          rows.push(esc(ACCOUNTS[a].name || "") + " &middot; " + fmtCents(ACCOUNTS[a].balance_cents || 0));
+        }
+        html = rows.length ? rows.join("<br>") : t("Nenhuma conta conectada.", "No linked accounts.");
+
+      } else if (key === "transfers") {
+        var tn = 0;
+        for (var x = 0; x < (TRANSACTIONS || []).length; x++) {
+          if (TRANSACTIONS[x].transfer_status === "suspected") { tn++; }
+        }
+        html = tn + t(" transfer&ecirc;ncia", " transfer") + (tn === 1 ? "" : "s");
+
+      } else if (key === "transactions") {
+        html = (TRANSACTIONS || []).length + t(" transa&ccedil;&otilde;es", " transactions");
+      }
+
+      el.innerHTML = html;
+    }
+
+    // Bills whose due day lands in the next 7 days.
+    function billsDueThisWeek() {
+      var out = [];
+      var list = (typeof BILLS !== "undefined" && BILLS) ? BILLS : [];
+      var now = new Date();
+      var today = now.getDate();
+      var dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      for (var i = 0; i < list.length; i++) {
+        var d = parseInt(list[i].day_of_month, 10);
+        if (!d) { continue; }
+        var delta = d - today;
+        if (delta < 0) { delta += dim; }
+        if (delta >= 0 && delta <= 7) { out.push(list[i]); }
+      }
+      return out;
+    }
+
+    // Refresh whatever summaries are currently showing. Called after each
+    // render so a collapsed section never shows a number the expanded view
+    // has already moved past.
+    function refreshSectionSummaries() {
+      for (var i = 0; i < SECTIONS.length; i++) {
+        if (isCollapsed(SECTIONS[i].key)) { renderSectionSummary(SECTIONS[i].key); }
+      }
+    }
+
+    // ── Order ─────────────────────────────────────────────────────────────
+
+    var dragSrcEl = null;
+
+    function loadSectionOrder() {
+      var order;
+      var stored = localStorage.getItem(sectionOrderKey());
+      if (!stored) {
+        order = DEFAULT_SECTION_ORDER.slice();
+      } else {
+        try {
+          var arr = JSON.parse(stored);
+          order = (Array.isArray(arr) && arr.length > 0) ? arr : DEFAULT_SECTION_ORDER.slice();
+        } catch (e) { order = DEFAULT_SECTION_ORDER.slice(); }
+      }
+      // A section in the DOM but missing from a saved order is appended, so a
+      // newly added section can never be silently stranded.
+      var list = document.getElementById("sectionsList");
+      if (list) {
+        var cards = list.querySelectorAll("[data-section-id]");
+        for (var i = 0; i < cards.length; i++) {
+          var id = cards[i].getAttribute("data-section-id");
+          if (order.indexOf(id) === -1) { order.push(id); }
+        }
+      }
+      return order;
+    }
+
+    function applySectionOrder(order) {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      for (var i = 0; i < order.length; i++) {
+        var el = list.querySelector('[data-section-id="' + order[i] + '"]');
+        if (el) { list.appendChild(el); }
+      }
+    }
+
+    function saveSectionOrder() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      var order = [];
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) {
+        order.push(cards[i].getAttribute("data-section-id"));
+      }
+      localStorage.setItem(sectionOrderKey(), JSON.stringify(order));
+    }
+
+    function initSectionOrder() { applySectionOrder(loadSectionOrder()); }
+
+    function enterEditSectionsMode() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      document.body.classList.add("is-edit-sections");
+      var btnEdit = document.getElementById("btnEditSections");
+      var btnDone = document.getElementById("btnDoneSections");
+      if (btnEdit) { btnEdit.style.display = "none"; }
+      if (btnDone) { btnDone.style.display = ""; }
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) { enableDrag(cards[i]); }
+    }
+
+    function exitEditSectionsMode() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      document.body.classList.remove("is-edit-sections");
+      var btnEdit = document.getElementById("btnEditSections");
+      var btnDone = document.getElementById("btnDoneSections");
+      if (btnEdit) { btnEdit.style.display = ""; }
+      if (btnDone) { btnDone.style.display = "none"; }
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) {
+        disableDrag(cards[i]);
+        cards[i].classList.remove("section-drag-over");
+      }
+      saveSectionOrder();
+      initCollapseStates();
+    }
+
+    // Touch fallback. Drag is the primary interaction; these exist because
+    // HTML5 drag is unreliable in an installed PWA on a phone.
+    function moveSection(key, dir) {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      var el = list.querySelector('[data-section-id="' + key + '"]');
+      if (!el) { return; }
+      if (dir < 0) {
+        var prev = el.previousElementSibling;
+        while (prev && !prev.hasAttribute("data-section-id")) { prev = prev.previousElementSibling; }
+        if (prev) { list.insertBefore(el, prev); }
+      } else {
+        var next = el.nextElementSibling;
+        while (next && !next.hasAttribute("data-section-id")) { next = next.nextElementSibling; }
+        if (next) { list.insertBefore(next, el); }
+      }
+      saveSectionOrder();
+    }
+
+    function enableDrag(el) {
+      el.setAttribute("draggable", "true");
+      el.ondragstart = function(e) { handleDragStart(e, el); };
+      el.ondragover  = function(e) { handleDragOver(e, el); };
+      el.ondragleave = function(e) { handleDragLeave(e, el); };
+      el.ondrop      = function(e) { handleDrop(e, el); };
+      el.ondragend   = function(e) { handleDragEnd(e, el); };
+    }
+
+    function disableDrag(el) {
+      el.setAttribute("draggable", "false");
+      el.ondragstart = null;
+      el.ondragover  = null;
+      el.ondragleave = null;
+      el.ondrop      = null;
+      el.ondragend   = null;
+    }
+
+    function handleDragStart(e, el) {
+      dragSrcEl = el;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", el.getAttribute("data-section-id"));
+      el.classList.add("section-dragging");
+    }
+
+    function handleDragOver(e, el) {
+      if (e.preventDefault) { e.preventDefault(); }
+      if (el === dragSrcEl) { return; }
+      e.dataTransfer.dropEffect = "move";
+      el.classList.add("section-drag-over");
+      return false;
+    }
+
+    function handleDragLeave(e, el) { el.classList.remove("section-drag-over"); }
+
+    function handleDrop(e, el) {
+      if (e.stopPropagation) { e.stopPropagation(); }
+      if (e.preventDefault)  { e.preventDefault(); }
+      if (!dragSrcEl || dragSrcEl === el) { return false; }
+      el.classList.remove("section-drag-over");
+      var list = document.getElementById("sectionsList");
+      if (!list) { return false; }
+      var children = list.children;
+      var srcIdx = -1, tgtIdx = -1;
+      for (var i = 0; i < children.length; i++) {
+        if (children[i] === dragSrcEl) { srcIdx = i; }
+        if (children[i] === el)        { tgtIdx = i; }
+      }
+      if (srcIdx === -1 || tgtIdx === -1) { return false; }
+      if (srcIdx < tgtIdx) { list.insertBefore(dragSrcEl, el.nextSibling); }
+      else                 { list.insertBefore(dragSrcEl, el); }
+      saveSectionOrder();
+      return false;
+    }
+
+    function handleDragEnd(e, el) {
+      el.classList.remove("section-dragging");
+      var list = document.getElementById("sectionsList");
+      if (list) {
+        var cards = list.querySelectorAll("[data-section-id]");
+        for (var i = 0; i < cards.length; i++) { cards[i].classList.remove("section-drag-over"); }
+      }
+      dragSrcEl = null;
+    }
+
+    // ── Add-form reveals ──────────────────────────────────────────────────
+    //
+    // Both forms used to sit permanently open under their data, which read as
+    // part of the data rather than as an action.
+    function showBudgetForm() {
+      var f = document.getElementById("budgetForm");
+      var r = document.getElementById("budgetAddRow");
+      if (f) { f.hidden = false; }
+      if (r) { r.hidden = true; }
+      var c = document.getElementById("budgetCategory");
+      if (c) { c.focus(); }
+    }
+
+    function hideBudgetForm() {
+      var f = document.getElementById("budgetForm");
+      var r = document.getElementById("budgetAddRow");
+      if (f) { f.hidden = true; }
+      if (r) { r.hidden = false; }
+    }
+
+    function showBillForm() {
+      var f = document.getElementById("billForm");
+      var r = document.getElementById("billAddRow");
+      if (f) { f.hidden = false; }
+      if (r) { r.hidden = true; }
+      var n = document.getElementById("billName");
+      if (n) { n.focus(); }
+    }
+
+    function hideBillForm() {
+      var f = document.getElementById("billForm");
+      var r = document.getElementById("billAddRow");
+      if (f) { f.hidden = true; }
+      if (r) { r.hidden = false; }
     }
 
     // ── Language toggle re-render ─────────────────────────────────────────
@@ -6980,6 +7625,7 @@
       populateCategoryFilter();
       renderTransactions();
       updateFinanceBadges();
+      refreshSectionSummaries();
     });
 
     // The category list is needed by the transaction rows on the Saude tab, so
@@ -7043,6 +7689,12 @@
 
       window.initNav && window.initNav();
       initHeroBg("fnHeroBg", "fnHeroScrim");
+      // Order before collapse: applySectionOrder re-appends the cards, and
+      // reading collapse state afterwards keeps the two independent.
+      initSectionOrder();
+      initCollapseStates();
+      var esb = document.getElementById("editSectionsBar");
+      if (esb) { esb.hidden = false; }
       // Templates and clients are fetched up front so the WhatsApp click
       // handler never has to await before opening its window.
       loadMessageTemplates();

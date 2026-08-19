@@ -2325,3 +2325,49 @@ Pr. Rafa's Claude could read his vault but knew nothing about Apex, so he was ex
 - **`scripts/test-vault-readonly.mjs`** fires at the deployed Worker over the real network with the real token and asserts six writes FAIL: INSERT, UPDATE, DELETE, DROP TABLE, the stacked `SELECT 1; DELETE FROM clients`, and `SELECT * FROM invoices`. It also asserts the reads still return real data, because a gate that rejects everything would pass all six while being broken.
 
 - **`scripts/deploy.sh`** deploys and then runs that test, in that order. The gate is invisible in normal use — every read keeps working if someone deletes it, and the only thing that changes is that a write becomes possible. So it is checked on every deploy, not once.
+
+## 2026-08-19 — Finance page: collapsible sections so it stops scrolling forever
+
+The finance page had grown into one endless scroll and nothing could be found at a
+glance. Ported the collapse + drag-reorder pattern from `client.html` verbatim
+(`COLLAPSE_SECTIONS`/`toggleSection`/`enterEditSectionsMode`/`handleDrop`, renamed to
+finance-local names) rather than inventing a second interaction — she already knows it
+from the client profile page, and that familiarity is the whole point.
+
+**Pinned, never collapsible:** the hero tiles and `#acctGrid`. They sit OUTSIDE
+`#sectionsList`. Balances are the one number that must never cost a click.
+
+**Shipped order and defaults** (`SECTIONS` / `DEFAULT_SECTION_ORDER`):
+overdue (open) → budgets (open) → precisa de você (collapsed) → forward 90d (open) →
+fixed bills (collapsed) → owner pay (collapsed) → linked (collapsed) →
+transfers (collapsed) → charts (collapsed) → transactions (collapsed).
+
+Budgets ships **expanded** deliberately. It is the easiest thing on the page to miss, so
+collapsing it stays her choice and is never the shipped default. The DOM previously had
+budgets above overdue; overdue is now 2 and budgets 3.
+
+Every collapsed section carries a summary (`#summary_<key>`) so a closed section still
+answers its question instead of just hiding it. Budgets summarises **only** the ones in
+trouble — listing on-track budgets would bury the two that matter.
+
+**Structural change:** `#forwardCard` used to contain owner pay and fixed bills as
+children, so neither could be ordered or collapsed on its own. Split into three sibling
+cards (`forwardCard`, `billsCard`, `ownerPayCard`). Both new cards need their own
+`hidden = false` — they used to ride along on the forward card's reveal. Fixed bills is
+revealed BEFORE `renderForward`'s `!FORWARD` early return, since that section is where
+she enters the bills and must be reachable even when the forward walk can't be built.
+
+Add-a-budget and add-a-bill forms now sit behind an "Adicionar" button instead of a bare
+row of inputs under the data, where they read as part of the data rather than an action.
+
+Reorder works by drag AND by up/down buttons (`moveSection`) — HTML5 drag is unreliable
+in the installed PWA on a phone, so the buttons are the reliability net.
+
+⚠️ **Restructuring this file by script is how you strand a modal.** Extracting the cards
+left an orphan `.fwd-bills` open tag and a stray `</div>` from the old `attn-head`, which
+closed `#sectionsList` early and swallowed FIVE `nc-overlay` modals into `#finPanelSaude`.
+`display:none` is inherited, so those modals would have rendered invisible with the click
+handler running fine and no console error. A `<div>` open/close COUNT stays balanced
+through this and proves nothing — verify with a real parser that walks the stack and
+asserts each overlay's ancestors contain no `finPanel*`. See
+`scripts/check-finance-structure.py`.

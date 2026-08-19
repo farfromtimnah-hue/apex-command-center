@@ -20785,7 +20785,30 @@ async function applyCategorizationRules(env, opts) {
             "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL AND pattern = ?"
           ).bind(onlyPattern).all()
         : await env.DB.prepare(
-            "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL"
+            // ORDER MATTERS AND MUST NOT BE LEFT TO SQLITE. Each rule below only
+            // fills rows still NULL, so the FIRST rule to match a transaction
+            // claims it -- and without an ORDER BY that winner is arbitrary and
+            // can change between runs.
+            //
+            // Real collision this guards: "Zelle payment to Edinho Lagoinha" is
+            // the phone bill, but it also contains LAGOINHA, which is the tithe
+            // rule. The exact rule for Edinho is the more specific statement of
+            // intent and must always win over a substring rule.
+            //
+            // Order: a MANUAL rule always outranks an auto-written one, because a
+            // person's decision must beat a machine's guess. Live proof this is
+            // the right precedence: 22 identical "Zelle payment from APEX
+            // BUSINESS LEADERSHIP" rows exist, 21 categorised cat_retirada by a
+            // manual rule and exactly 1 categorised transfer by an auto rule --
+            // same transaction shape, different answer, decided purely by which
+            // row SQLite happened to return first.
+            //
+            // Then exact before contains, then longest pattern first, since a
+            // longer pattern is the more specific claim.
+            "SELECT pattern, match_type, category_id FROM categorization_rules " +
+            "WHERE category_id IS NOT NULL " +
+            "ORDER BY CASE COALESCE(source,'manual') WHEN 'manual' THEN 0 ELSE 1 END, " +
+            "CASE match_type WHEN 'merchant_exact' THEN 0 ELSE 1 END, LENGTH(pattern) DESC"
           ).all();
 
     var rules = rulesRes.results || [];

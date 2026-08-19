@@ -22045,10 +22045,70 @@ async function buildBillMatchCandidates(env) {
 
             if (!patternMatch && !fuzzyMatch) { return; }
 
+            // IDENTITY IS (merchant + amount + due day), NOT merchant alone.
+            //
+            // What the bank actually sends for an App Store charge, verified
+            // across six real transactions in two months:
+            //
+            //     CHECKCARD 08/18 APPLE.COM/BILL XXXXX27753
+            //
+            // That string is BYTE-IDENTICAL for iCloud, ChatGPT Plus and the
+            // Instagram certificate. Plaid's merchant_name is the bare word
+            // "Apple" and the category is ENTERTAINMENT_OTHER_ENTERTAINMENT on
+            // all of them. The product name exists only in OUR bill labels --
+            // people wrote those; the feed has never carried them. So merchant
+            // text can never separate these three, and any future attempt to
+            // read a product name out of the description will fail.
+            //
+            // Amount does separate them today ($9.99 / $14.99 / $19.99), but
+            // amount ALONE is fragile: those are the most common subscription
+            // prices there are, and the day another $9.99 service is added it
+            // would silently attach to the iCloud bill. So the due day guards
+            // it. A wrong match now needs the same merchant, the same price AND
+            // the same billing day -- and if that ever happens the sibling
+            // check below catches it and downgrades to a suggestion.
+            //
+            // A shared-merchant bill therefore gets a TIGHTER date window than
+            // the +/-5 days used generally: these three sit on days 7, 10 and
+            // 18, so a +/-5 window would let the day-7 and day-10 bills overlap.
+            var sharesMerchant = bills.some(function(other) {
+                if (other.id === bill.id || paidBillIds[other.id]) { return false; }
+                var otherKey = other.payer_match_pattern ||
+                    (normalizeMerchant(other.name).split(" ")[0] || " ");
+                return txn.merchant_normalized && otherKey.length > 1 &&
+                    txn.merchant_normalized.indexOf(otherKey) !== -1;
+            });
+            if (sharesMerchant && dayDiff > 2) { return; }
+
+            // Genuinely undecidable: two ACTIVE bills sharing merchant, amount
+            // AND billing day -- the three $50 "Previdencia" policies at LIFE
+            // INS OF SW. Nothing in the feed distinguishes those, so they are
+            // offered for her to pick, never auto-confirmed onto whichever row
+            // happened to be iterated first.
+            var siblings = bills.filter(function(other) {
+                if (other.id === bill.id) { return false; }
+                if (other.amount_cents !== bill.amount_cents) { return false; }
+                if (paidBillIds[other.id]) { return false; }
+                var otherKey = other.payer_match_pattern ||
+                    (normalizeMerchant(other.name).split(" ")[0] || " ");
+                if (!txn.merchant_normalized || txn.merchant_normalized.indexOf(otherKey) === -1) { return false; }
+                // Only a genuine rival if its OWN due day is also close to this
+                // transaction; otherwise it was never a candidate for it.
+                var otherDue = daysOverdueFor(other.day_of_month, today);
+                var otherDiff = Math.abs(Math.round(
+                    (Date.parse(txn.date + "T00:00:00Z") - Date.parse(otherDue.due_at + "T00:00:00Z")) / 86400000
+                ));
+                return otherDiff <= 2;
+            });
+            var ambiguous = siblings.length > 0;
+
             out.push({
                 bill_id: bill.id, bill_name: bill.name, amount_cents: bill.amount_cents,
-                transaction: txn, tier: patternMatch ? "auto" : "suggest",
-                via_pattern: !!patternMatch, days: dayDiff
+                transaction: txn,
+                tier: (patternMatch && !ambiguous) ? "auto" : "suggest",
+                via_pattern: !!patternMatch, days: dayDiff,
+                ambiguous: ambiguous,
+                ambiguous_with: siblings.map(function(s) { return s.name; })
             });
         });
     });

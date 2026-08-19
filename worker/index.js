@@ -21218,17 +21218,30 @@ async function handlePostFinanceNewTransferConfirm(request, env) {
         ).bind(body.transfer_pair_id).run();
 
         if (body.always) {
-            var leg = await env.DB.prepare(
-                "SELECT merchant_normalized FROM transactions WHERE transfer_pair_id = ? LIMIT 1"
-            ).bind(body.transfer_pair_id).first();
-            if (leg && leg.merchant_normalized) {
+            // A transfer pair is two DIFFERENT descriptions -- the outflow leg
+            // ("Zelle payment to Alice Corsino") and the inflow leg ("Zelle
+            // payment from Apex Business Leadership"), one per account. A rule
+            // keyed on only one of them (the old code took whichever row an
+            // unordered LIMIT 1 happened to return) can only ever silence one
+            // side: applyTransferRules() matches future 'suspected' rows by
+            // merchant_normalized, so the un-ruled leg gets re-flagged as
+            // suspected every single month even though "Always" was clicked.
+            // Found live 2026-08-19: zero transfer rules existed in
+            // production despite repeated "Sempre" clicks over several
+            // months of the recurring owner-draw transfer.
+            var legs = await env.DB.prepare(
+                "SELECT DISTINCT merchant_normalized FROM transactions " +
+                "WHERE transfer_pair_id = ? AND merchant_normalized IS NOT NULL AND merchant_normalized != ''"
+            ).bind(body.transfer_pair_id).all();
+            for (var li = 0; li < (legs.results || []).length; li++) {
+                var pattern = legs.results[li].merchant_normalized;
                 var dupe = await env.DB.prepare(
                     "SELECT id FROM categorization_rules WHERE pattern = ? AND category_id = 'transfer'"
-                ).bind(leg.merchant_normalized).first();
+                ).bind(pattern).first();
                 if (!dupe) {
                     await env.DB.prepare(
                         "INSERT INTO categorization_rules (id, pattern, category_id, source) VALUES (?, ?, 'transfer', 'auto')"
-                    ).bind(crypto.randomUUID(), leg.merchant_normalized).run();
+                    ).bind(crypto.randomUUID(), pattern).run();
                 }
             }
         }

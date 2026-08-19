@@ -1548,12 +1548,6 @@
         <!-- One signal per sitting, after doing as much as she had time for.
              Never one per client: six clicks is the demand that killed the
              original queue. -->
-        <div class="btn-row" id="attnDoneRow" style="margin-top:14px" hidden aria-hidden="true">
-          <button class="btn btn-sm" onclick="markInterviewDone()">
-            <span class="show-pt">Entrevista conclu&iacute;da</span>
-            <span class="show-en">Interview done</span>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -3263,10 +3257,7 @@
       }).join("");
 
       document.getElementById("attnClear").hidden = rows.length > 0;
-      // The shared button is retired: each row now carries its own, because
-      // one button cannot say WHICH interview was finished.
-      var doneRow = document.getElementById("attnDoneRow");
-      if (doneRow) { doneRow.hidden = true; }
+
 
       // The work shrinking, stated as a fact about the rules rather than a
       // score about her. Only shown once the rules have actually done

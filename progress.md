@@ -2472,3 +2472,9 @@ the only other copies. `worker/index.js` has exactly one copy.
 ⚠️ `www/` also contains `finance-new.html` and `dashboard.html`, and both are **untracked
 stale build output** — `www/finance-new.html` contains zero budget code. Do NOT edit or
 sync them; the live finance file is `finance-new.html` at the repo root.
+
+⚠️ The pre-commit hook stamped **only the root** `sw.js`/`version.json`, and it runs *after*
+staging — so a by-hand sync of the iOS copies in the same commit was stale the moment it
+landed, every time. The hook (and its tracked copy `scripts/pre-commit`) now stamps
+`ios/App/App/public/sw.js` and `version.json` with the same `$STAMP`, so the three copies
+can no longer drift apart.

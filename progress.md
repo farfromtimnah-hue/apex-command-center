@@ -2753,3 +2753,39 @@ this page must stay plain ASCII, so the accented character is built with
 - DELICIE CAKES 10:30 AM online -> "Olá, Dayane! ... amanhã às 10:30 AM ..."
 - LIRA 1:30 PM in-person, `location` NULL -> **guard fires, no live button**, reason shown
 - Times render 12-hour AM/PM, never 24-hour. `{when}` is the word, never a date.
+
+## 2026-08-19 (i) — The sent state compared a UTC date against a local one
+
+⚠️ **Caught in the real browser, not by reading the code.** `reminder_sent_at` is stored as
+a UTC ISO instant. Slicing its first ten characters yields a **UTC calendar date**, which
+after 8 PM Eastern is already tomorrow — the same UTC-vs-Eastern disagreement that shipped
+four times in two days in July, arriving through a different door.
+
+Verified live: at the moment of testing, local date was `2026-08-19` while
+`new Date().toISOString()` gave `2026-08-20`.
+
+Two wrong answers, both silent:
+- Send a reminder at 9 PM for **tonight's** meeting -> stamp slices to `2026-08-20`,
+  meeting is dated `2026-08-19`, no match, and the button quietly drops back to
+  "Enviar Lembrete" as though nothing had been sent.
+- That same stamp **falsely matched tomorrow's** meeting, marking a meeting she has not
+  reminded anyone about as already done.
+
+Fixed by converting the instant to LOCAL wall-clock before comparing
+(`reminderSentLocalDate()`), which is what makes the comparison mean what it reads like it
+means. The stale-stamp case (a reminder sent Monday must not mark Wednesday's meeting done)
+still behaves correctly.
+
+### Verified in a real browser (deployed page, Alice view)
+- Card renders; "Hoje" and "Amanhã" groups both appear with headings
+- **Past meetings absent** — tested in the evening, the 2:30 PM and 8:00 PM meetings that
+  had already ended were gone; only tomorrow's rows carried live buttons
+- Guards fire on real rows: "Sem link do Meet ainda" (null Meet link),
+  "Sem endereço cadastrado" (null `location`) — no live button on any of them
+- Message built: "Olá, Dayane! Passando para confirmar nossa reunião amanhã às 10:30 AM.
+  O link está aqui: https://meet.google.com/jsr-xciz-sjn. Até breve!" — bare `wa.me` with
+  no phone number, owner greeting, 12-hour time, the word "amanhã" not a date
+- Sent state: label "Enviado", class `is-sent`, **`disabled` false** — still clickable
+- Stamp confirmed in remote D1; `whatsapp_sent_at` on the same row still holds its
+  untouched 2026-08-17 confirmation, which is exactly the collision the separate column
+  prevents

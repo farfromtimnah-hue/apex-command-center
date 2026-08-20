@@ -2182,11 +2182,26 @@
     // reminder_sent_at is its OWN column. sessions.whatsapp_sent_at belongs to
     // the booking-confirmation message; reusing it would make a confirmation
     // sent three days ago mark today's meeting as already reminded.
+    // reminder_sent_at is stored as a UTC ISO instant. Slicing its first ten
+    // characters yields a UTC CALENDAR DATE, which after 8 PM Eastern is
+    // already tomorrow -- the same UTC-vs-Eastern disagreement that shipped
+    // four times in two days in July. Send a reminder at 9 PM for tonight's
+    // meeting and the naive slice compares "2026-08-20" against a meeting
+    // dated "2026-08-19", finds no match, and quietly drops the button back
+    // to "Enviar Lembrete" as though nothing had been sent.
+    // Converting the instant to LOCAL wall-clock first is what makes the
+    // comparison mean what it reads like it means.
+    function reminderSentLocalDate(iso) {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) { return String(iso).slice(0, 10); }
+      return d.getFullYear() + "-" + padZ(d.getMonth() + 1) + "-" + padZ(d.getDate());
+    }
+
     function reminderIsAlreadySent(m) {
       if (!m.reminder_sent_at) { return false; }
       // Compared against the MEETING'S OWN date, so a reminder sent Monday
       // does not mark Wednesday's meeting as done.
-      return String(m.reminder_sent_at).slice(0, 10) === m.date;
+      return reminderSentLocalDate(m.reminder_sent_at) === m.date;
     }
 
     function applyReminderSentLook(btn) {

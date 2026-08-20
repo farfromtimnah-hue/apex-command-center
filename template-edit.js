@@ -45,7 +45,9 @@
     resource_send:          { pt: "Envio de Recurso",               en: "Resource Send" },
     partner_referral_share: { pt: "Compartilhar Link de Indicação", en: "Referral Link Share" },
     scheduling_send:        { pt: "Enviar horários",                en: "Send times" },
-    scheduling_followup:    { pt: "Cobrar horários",                en: "Scheduling follow-up" }
+    scheduling_followup:    { pt: "Cobrar horários",                en: "Scheduling follow-up" },
+    reminder_online:        { pt: "Lembrete Online",                en: "Online Reminder" },
+    reminder_in_person:     { pt: "Lembrete Presencial",            en: "In-Person Reminder" }
   };
 
   // Only the tokens each key actually substitutes. Shown as chips so a
@@ -64,7 +66,12 @@
     // company name -- the greeting used to read "Ola, PERFECT!" to paying
     // clients. {link} is the client's own booking link.
     scheduling_send:        ["{name}", "{link}"],
-    scheduling_followup:    ["{name}", "{link}"]
+    scheduling_followup:    ["{name}", "{link}"],
+    // NO {date} chip on purpose. {when} is the WORD "hoje"/"amanha" -- that is
+    // the whole point of the message, and a date chip would let a calendar
+    // date get put back in.
+    reminder_online:        ["{name}", "{when}", "{time}", "{meetLink}"],
+    reminder_in_person:     ["{name}", "{when}", "{time}", "{location}"]
   };
 
   function esc(s) {

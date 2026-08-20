@@ -2036,7 +2036,11 @@
       // Migrated out of worker source constants: these two are the messages
       // Alice sends most often, and were the only ones she could not edit.
       scheduling_send: { pt: "Enviar hor&#225;rios", en: "Send times" },
-      scheduling_followup: { pt: "Cobrar hor&#225;rios", en: "Scheduling follow-up" }
+      scheduling_followup: { pt: "Cobrar hor&#225;rios", en: "Scheduling follow-up" },
+      // Meeting reminders. Two keys, because an online meeting carries the
+      // Meet link and an in-person one carries the street address.
+      reminder_online: { pt: "Lembrete Online", en: "Online Reminder" },
+      reminder_in_person: { pt: "Lembrete Presencial", en: "In-Person Reminder" }
     };
 
     // Per-key token hint — only the tokens that key actually substitutes.
@@ -2083,6 +2087,17 @@
       scheduling_followup: {
         pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{link}</code>.',
         en: 'Available tokens: <code>{name}</code> (owner name), <code>{link}</code>.'
+      },
+      // {when} is the WORD "hoje"/"amanh&#227;", never a calendar date -- that is
+      // the point of the message, and there is deliberately no {date} token
+      // to put one back in. {name} is the OWNER name, same rule as above.
+      reminder_online: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{meetLink}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{meetLink}</code>.'
+      },
+      reminder_in_person: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
       }
     };
 

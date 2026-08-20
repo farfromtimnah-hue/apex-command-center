@@ -2518,3 +2518,55 @@ iOS blank-tab bug, afc4ee0) — everything the message needs is in memory first.
 
 ### Files
 - `dashboard.html` - Meeting Reminders card, group headings CSS, reminder module
+
+## 2026-08-19 (f) — Meeting reminder templates, editable from the row
+
+Two rows in `message_templates`, **executed against remote D1**
+(`apex-command-center`, `03fdcf49-4a1f-43f3-a0d9-d54772074b74`), not just written as a
+migration file:
+
+- `reminder_online` — carries the Google Meet link
+- `reminder_in_person` — carries the street address from `sessions.location`
+
+Two keys, not one, because the content genuinely differs by meeting type.
+
+⚠️ **`{when}` resolves to the literal word "hoje" / "amanha", never a calendar date** —
+Nicole's explicit decision. It is computed **on the page**, not in the worker:
+`worker/index.js` has no datetime helpers and already carries a comment warning that
+formatting a date there is exactly how a wrong-format date string gets hand-built and
+shipped. There is deliberately **no `{date}` token** on either key — offering the chip
+would let a calendar date get put back in.
+
+⚠️ **`{name}` goes through the ported `schedGreetingName()` logic**, not a second greeting
+function and never the company name. `clients.owners` holds real people; separators in live
+data are `&`, `;`, ` e `, ` E `. Both owners are greeted when there are two, first names
+only. Without this, paying clients get "Ola, GATOR!" and "Ola, PERFECT!" — which already
+happened once and was fixed for the scheduling feature. The worker's copy is server-side
+only, so the same logic was ported to the page with identical behaviour.
+
+⚠️ `/api/sessions/calendar` does **not** carry `clients.owners`, so `/api/clients` is
+fetched alongside the meetings purely to resolve the greeting.
+
+### Adding a template key means editing THREE places
+`template-edit.js` says so in its own comment; miss any and the editor opens with no title
+and no token chips. All three were updated:
+1. `settings.html` — `TEMPLATE_TITLES` + `TEMPLATE_TOKEN_HINTS`
+2. `template-edit.js` — `TITLES`
+3. `template-edit.js` — `TOKENS`
+
+The pencil is attached **per row** (the key differs: `reminder_online` vs
+`reminder_in_person` by that session's type), **after** the rows are in the DOM, on every
+re-render. `TemplateEdit.attach` is idempotent so re-renders do not stack pencils.
+
+⚠️ **`onSaved` refreshes the in-memory templates copy.** Without it she edits the message,
+sends it, and the OLD text goes out — the click handler reads from memory, because
+`window.open()` cannot await.
+
+`dashboard.html` already loaded `template-edit.js` and `template-edit.css` — confirmed, no
+duplicate tags added. The pre-commit hook bumps the `?v=` stamp on every HTML reference to
+`template-edit.js` automatically.
+
+### Files
+- `migrations/meeting_reminders.sql` - both template rows + reminder_sent_at column
+- `settings.html` - both keys in the title map and the token-hint map
+- `template-edit.js` - both keys in TITLES and TOKENS

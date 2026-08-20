@@ -1946,8 +1946,11 @@
       }
       block.hidden = false;
 
+      // "amanha" carries a tilde in the message the client reads, but a JS
+      // string literal on this page must stay plain ASCII (project rule), so
+      // the accented character is built from its code point rather than typed.
       buildReminderRows(todayListEl, todayRows, "hoje");
-      buildReminderRows(tomListEl,   tomRows,   "amanha");
+      buildReminderRows(tomListEl,   tomRows,   "amanh" + String.fromCharCode(227));
       todayEl.hidden = todayRows.length === 0;
       tomEl.hidden   = tomRows.length === 0;
 
@@ -2099,10 +2102,18 @@
     // one risks addressing the wrong partner every single time. First names
     // only: the field also holds full legal names, and a WhatsApp greeting
     // addressed to a full legal name reads like a collections letter.
+    // COMMA IS A SEPARATOR HERE, and the worker's copy does not have it yet.
+    // Three live clients list three owners as "Ana Carolina, Anthony e
+    // Anderson" / "Marcelo Diniz, Neicy Diniz e Heri" / "Marcelo Diniz, Heri e
+    // Rafael". Without the comma, "Ana Carolina, Anthony" is read as ONE owner
+    // whose first name is "Ana", and the middle owner is silently dropped from
+    // the greeting -- LIRA would have been greeted "Ola, Ana e Anderson!",
+    // leaving Anthony out of a message sent to his own company. Dropping a real
+    // owner is the same class of mistake "Ola, GATOR!" was.
     function reminderGreetingName(owners, fallbackName) {
       var raw = owners ? String(owners).trim() : "";
       if (raw) {
-        var parts = raw.split(/\s*(?:&|;|\se\s|\sE\s)\s*/);
+        var parts = raw.split(/\s*(?:&|;|,|\se\s|\sE\s)\s*/);
         var firsts = [];
         for (var i = 0; i < parts.length; i++) {
           var first = String(parts[i]).trim().split(/\s+/)[0];

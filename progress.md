@@ -2717,3 +2717,39 @@ did open, and claiming otherwise in either direction would be a lie.
 ### Files
 - `worker/index.js` - reminder_sent_at on the calendar endpoint, POST reminder-sent route
 - `ios/App/App/public/dashboard.html`, `settings.html` - synced third copy of the frontend
+
+## 2026-08-19 (h) — The greeting drops a real owner when owners are comma-separated
+
+⚠️ **Found while verifying the reminder message against live data, NOT hypothetical.**
+`schedGreetingName()`'s separator set is `&`, `;`, ` e `, ` E ` — **no comma**. Three live
+clients list three owners with a comma:
+
+- LIRA OUTDOOR LIVING — `Ana Carolina, Anthony e Anderson`
+- GATOR OUTDOOR LIVING — `Marcelo Diniz, Neicy Diniz e Heri`
+- MY PURE FILTER — `Marcelo Diniz, Heri e Rafael`
+
+Without the comma, `"Ana Carolina, Anthony"` is read as ONE owner whose first name is
+`"Ana"`, and **the middle owner is silently dropped**. LIRA would have been greeted
+"Olá, Ana e Anderson!" — leaving Anthony out of a message sent to his own company, and
+LIRA has a meeting **tomorrow**, so it would have shipped. Dropping a real owner is the
+same class of mistake "Olá, GATOR!" was.
+
+The page-side copy used by the reminder now includes the comma:
+`Olá, Ana, Anthony e Anderson!`, `Olá, Marcelo, Neicy e Heri!`, `Olá, Marcelo, Heri e Rafael!`
+
+⚠️ **`schedGreetingName()` in `worker/index.js` is STILL UNFIXED** and still drops the
+middle owner in the two scheduling messages (`scheduling_send`, `scheduling_followup`) for
+these same three clients. Left alone deliberately: changing it alters the behaviour of a
+different, already-shipped feature and was outside this build's scope. **Needs Nicole's
+call.**
+
+⚠️ `"amanhã"` carries a tilde in the message the client reads, but a JS string literal on
+this page must stay plain ASCII, so the accented character is built with
+`String.fromCharCode(227)` rather than typed.
+
+### Verified against live D1 rows (2026-08-19 / 2026-08-20)
+- JM LUXURY POOLS 2:30 PM online -> "Olá, Juliano! ... hoje às 2:30 PM. O link está aqui: ..."
+- METZ 8:00 PM online -> "Olá, Bruno e Guilherme! ... hoje às 8:00 PM ..."
+- DELICIE CAKES 10:30 AM online -> "Olá, Dayane! ... amanhã às 10:30 AM ..."
+- LIRA 1:30 PM in-person, `location` NULL -> **guard fires, no live button**, reason shown
+- Times render 12-hour AM/PM, never 24-hour. `{when}` is the word, never a date.

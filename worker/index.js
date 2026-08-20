@@ -4554,6 +4554,66 @@ async function handlePostSessionReminderSent(sessionId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: PATCH /api/sessions/:id/location
+// Body: { location }
+//
+// Records the street address for a meeting, from the Meeting Reminders card
+// on Alice's dashboard: an in-person reminder embeds the address, so the card
+// asks for one on click when the row has none, and this is where the answer
+// is kept so she is never asked for the same meeting twice.
+//
+// WHY THIS IS NOT PATCH /api/sessions/:id, WHICH ALREADY WRITES THIS COLUMN.
+// That route is the full calendar edit and REFUSES most of the rows this card
+// shows: it rejects calendar_provider 'google_external' ("cannot be edited
+// from Apex") and anything that is not 'apex' ("read-only history"). Of the
+// 142 in-person sessions on the books in August 2026, 91 were google_external
+// and 34 manual -- so routing the card through it would have thrown an error
+// at Alice on roughly seven rows in eight, after she had already typed the
+// address and sent the message.
+//
+// D1 ONLY -- NO GOOGLE WRITE, and that is the point rather than a shortcut.
+// The rows that need this most are events Apex does not own; pushing an
+// address back onto someone else's Google event is precisely what the full
+// edit route refuses to do, and it is right to refuse. This column is Apex's
+// own note, used to build Apex's own reminder. Changing what the CLIENT sees
+// on their calendar entry is still the calendar edit modal's job, unchanged.
+//
+// Narrow, single-column, no series scope: same shape and same reasoning as
+// PATCH /api/sessions/:id/meet-link above, which exists for the same reason.
+// ---------------------------------------------------------------------------
+
+async function handlePatchSessionLocation(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        if (typeof body.location !== "string") { return jsonErr("location must be a string", 400); }
+        var location = body.location.trim();
+        // Blank is not a clear. The card's blank answer means "send without an
+        // address" and never calls this route at all, so an empty string here
+        // is a bug on the way in -- refuse it rather than wipe an address that
+        // someone entered on the calendar.
+        if (!location) { return jsonErr("location cannot be empty", 400); }
+        if (location.length > 1024) { location = location.slice(0, 1024); }
+
+        var session = await env.DB.prepare(
+            "SELECT id FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE sessions SET location = ? WHERE id = ?"
+        ).bind(location, sessionId).run();
+
+        return jsonOk({ location: location });
+    } catch (e) {
+        return jsonErr("Error saving location: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/sessions/match-for-event
 // Query: date (YYYY-MM-DD, required), time (HH:MM, optional), meet_link
 //        (optional), exclude_id (optional -- the calendar event's own
@@ -27804,6 +27864,9 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "reminder-sent" && method === "POST") {
             return handlePostSessionReminderSent(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "location" && method === "PATCH") {
+            return handlePatchSessionLocation(segs[2], request, env);
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "cancel" && method === "POST") {
             return handlePostSessionCancel(segs[2], request, env);

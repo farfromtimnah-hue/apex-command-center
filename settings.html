@@ -2114,6 +2114,9 @@
       // Meet link and an in-person one carries the street address.
       reminder_online: { pt: "Lembrete Online", en: "Online Reminder" },
       reminder_in_person: { pt: "Lembrete Presencial", en: "In-Person Reminder" },
+      // The same message minus the address sentence, for an in-person meeting
+      // with no address on file. The card offers it as the "send anyway" path.
+      reminder_in_person_no_address: { pt: "Lembrete Presencial (sem endere&#231;o)", en: "In-Person Reminder (no address)" },
       // ONE message listing everything non-Apex Pr. Rafa has today and
       // tomorrow, sent from calendar.html straight to his own number.
       rafa_non_apex_reminder: { pt: "Lembrete n&#227;o-Apex (Pr. Rafa)", en: "Non-Apex reminder (Pr. Rafa)" }
@@ -2176,6 +2179,13 @@
       reminder_in_person: {
         pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
         en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
+      },
+      // Deliberately no <code>{location}</code> here. This is the version sent
+      // when there is no address to give, so that token would have nothing to
+      // fill it and would go out to the client as literal text.
+      reminder_in_person_no_address: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>. Esta &#233; a vers&#227;o enviada quando a reuni&#227;o presencial n&#227;o tem endere&#231;o cadastrado — por isso n&#227;o existe <code>{location}</code> aqui.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>. This is the version sent when an in-person meeting has no address on file, which is why there is no <code>{location}</code> token.'
       },
       // {items} is the generated list (one line per meeting, with the Hoje:/
       // Amanh&#227;: subheadings). There is deliberately no {date} or {time}

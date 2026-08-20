@@ -48,6 +48,8 @@
     scheduling_followup:    { pt: "Cobrar horários",                en: "Scheduling follow-up" },
     reminder_online:        { pt: "Lembrete Online",                en: "Online Reminder" },
     reminder_in_person:     { pt: "Lembrete Presencial",            en: "In-Person Reminder" },
+    reminder_in_person_no_address:
+                            { pt: "Lembrete Presencial (sem endereço)", en: "In-Person Reminder (no address)" },
     rafa_non_apex_reminder: { pt: "Lembrete não-Apex (Pr. Rafa)",    en: "Non-Apex reminder (Pr. Rafa)" }
   };
 
@@ -73,6 +75,10 @@
     // date get put back in.
     reminder_online:        ["{when}", "{time}", "{meetLink}"],
     reminder_in_person:     ["{when}", "{time}", "{location}"],
+    // NO {location} chip, on purpose: this is the template used precisely
+    // when there is no address to put in one, so the chip could only ever
+    // ship the literal "{location}" to a client.
+    reminder_in_person_no_address: ["{when}", "{time}"],
     // ONE token, on purpose. The item list is generated per send from however
     // many non-Apex meetings exist, so it cannot be a template field -- the
     // template owns the greeting and the closing line around it. No {date} or

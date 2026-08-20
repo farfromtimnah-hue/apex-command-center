@@ -1383,6 +1383,13 @@
             <span class="show-pt">Conclu&iacute;do</span>
             <span class="show-en">Done</span>
           </button>
+          <!-- Only inside edit mode: this is a recovery control, not something
+               to offer beside the everyday buttons where it could be hit by
+               accident. It discards her arrangement, so it asks first. -->
+          <button class="btn-edit-sections" id="btnResetSections" onclick="confirmResetSections()" style="display:none;">
+            <span class="show-pt">Voltar ao padr&atilde;o</span>
+            <span class="show-en">Reset to default</span>
+          </button>
         </div>
       </div>
     </div>
@@ -7728,8 +7735,32 @@ names,
     // but that also means a corrected default would never arrive for anyone who
     // had loaded the old one. Bumping the key retires the old value once. Do
     // not bump it for cosmetic edits: it discards any arrangement she made.
-    function collapseKey(sectionKey) { return "apex_fin_collapse_v2_" + sectionKey; }
-    function sectionOrderKey()       { return "apex_fin_section_order_v2"; }
+    function collapseKey(sectionKey) { return "apex_fin_collapse_v3_" + sectionKey; }
+    function sectionOrderKey()       { return "apex_fin_section_order_v3"; }
+
+    // Put the page back the way it ships. A saved order and saved collapse
+    // states always win over the defaults -- correct, since they are her
+    // arrangement -- but that also means there was no way to GET BACK to the
+    // shipped layout without editing localStorage by hand. Clears both key
+    // families, including older versioned ones, then reloads.
+    function confirmResetSections() {
+      var msg = t("Isso descarta a ordem e o que voc\u00ea abriu ou fechou, e volta a p\u00e1gina como ela vem de f\u00e1brica. Continuar?",
+                  "This discards your order and which sections you opened or closed, and puts the page back the way it ships. Continue?");
+      if (window.confirm(msg.replace(/&[a-z]+;/g, ""))) { resetSectionLayout(); }
+    }
+
+    function resetSectionLayout() {
+      try {
+        var kill = [];
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("apex_fin_collapse") === 0) { kill.push(k); }
+          if (k && k.indexOf("apex_fin_section_order") === 0) { kill.push(k); }
+        }
+        for (var j = 0; j < kill.length; j++) { localStorage.removeItem(kill[j]); }
+      } catch (e) {}
+      location.reload();
+    }
 
     function sectionByKey(key) {
       for (var i = 0; i < SECTIONS.length; i++) {
@@ -7954,8 +7985,10 @@ names,
       document.body.classList.add("is-edit-sections");
       var btnEdit = document.getElementById("btnEditSections");
       var btnDone = document.getElementById("btnDoneSections");
+      var btnReset = document.getElementById("btnResetSections");
       if (btnEdit) { btnEdit.style.display = "none"; }
       if (btnDone) { btnDone.style.display = ""; }
+      if (btnReset) { btnReset.style.display = ""; }
       var cards = list.querySelectorAll("[data-section-id]");
       for (var i = 0; i < cards.length; i++) { enableDrag(cards[i]); }
     }
@@ -7966,6 +7999,8 @@ names,
       document.body.classList.remove("is-edit-sections");
       var btnEdit = document.getElementById("btnEditSections");
       var btnDone = document.getElementById("btnDoneSections");
+      var btnReset = document.getElementById("btnResetSections");
+      if (btnReset) { btnReset.style.display = "none"; }
       if (btnEdit) { btnEdit.style.display = ""; }
       if (btnDone) { btnDone.style.display = "none"; }
       var cards = list.querySelectorAll("[data-section-id]");

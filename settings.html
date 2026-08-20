@@ -2113,7 +2113,10 @@
       // Meeting reminders. Two keys, because an online meeting carries the
       // Meet link and an in-person one carries the street address.
       reminder_online: { pt: "Lembrete Online", en: "Online Reminder" },
-      reminder_in_person: { pt: "Lembrete Presencial", en: "In-Person Reminder" }
+      reminder_in_person: { pt: "Lembrete Presencial", en: "In-Person Reminder" },
+      // ONE message listing everything non-Apex Pr. Rafa has today and
+      // tomorrow, sent from calendar.html straight to his own number.
+      rafa_non_apex_reminder: { pt: "Lembrete n&#227;o-Apex (Pr. Rafa)", en: "Non-Apex reminder (Pr. Rafa)" }
     };
 
     // Per-key token hint — only the tokens that key actually substitutes.
@@ -2173,6 +2176,13 @@
       reminder_in_person: {
         pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
         en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
+      },
+      // {items} is the generated list (one line per meeting, with the Hoje:/
+      // Amanh&#227;: subheadings). There is deliberately no {date} or {time}
+      // token -- those belong to the individual rows inside that list.
+      rafa_non_apex_reminder: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{items}</code> (a lista de compromissos, uma linha por reuni&#227;o). O texto ao redor &#233; seu.',
+        en: 'Available token: <code>{items}</code> (the list of items, one line per meeting). The wording around it is yours.'
       }
     };
 

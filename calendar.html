@@ -91,7 +91,7 @@
   <script src="datetime.js"></script>
   <script src="scheduling-queue.js?v=1786597358"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787190694"></script>
+  <script src="template-edit.js?v=1787192346"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -405,6 +405,49 @@
       font-size: 15px; font-weight: 600; margin: 0 0 12px;
       color: var(--text);
     }
+
+    /* ─── Pr. Rafa's non-Apex reminder ────────────────────────────────────
+       ONE button sending ONE message listing every non-Apex item still
+       upcoming today and tomorrow. It goes straight to his own number, unlike
+       every other WhatsApp send on the site, because it has exactly one
+       recipient forever. */
+    .rafa-wa-block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+      margin-top: 18px;
+    }
+    .rafa-wa-title {
+      font-size: 15px; font-weight: 600; margin: 0 0 4px;
+      color: var(--text);
+    }
+    .rafa-wa-sub {
+      font-size: 12px; color: var(--muted); margin: 0 0 12px;
+    }
+    .rafa-wa-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn-rafa-wa {
+      background: #25d366;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0b3d20;
+      cursor: pointer;
+    }
+    .btn-rafa-wa:hover { opacity: 0.9; }
+    /* Nothing non-Apex today or tomorrow: the button says WHY rather than
+       sending a greeting followed by an empty list. */
+    .btn-rafa-wa[disabled] {
+      background: var(--border);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .rafa-wa-note { font-size: 12px; color: var(--muted); }
+    .rafa-wa-note.is-error { color: #b42318; font-weight: 600; }
 
     /* ─── Calendar toolbar ────────────────────────────────────────────────── */
     .cal-toolbar {
@@ -1559,6 +1602,27 @@
       <!-- Calendar content area -->
       <div id="calendarContent">
         <!-- Rendered by JS -->
+      </div>
+
+      <!-- Pr. Rafa's non-Apex reminder. ONE button, not one per row: this
+           sends a single message listing everything. Kept out of the hero
+           toolbar so there is room for the disabled reason and the pencil. -->
+      <div class="rafa-wa-block" id="rafaWaBlock">
+        <h2 class="rafa-wa-title">
+          <span class="show-pt">Lembrete n&#227;o-Apex (Pr. Rafa)</span>
+          <span class="show-en">Non-Apex reminder (Pr. Rafa)</span>
+        </h2>
+        <p class="rafa-wa-sub">
+          <span class="show-pt">Eventos e reuni&#245;es n&#227;o-Apex de hoje e amanh&#227;, em uma s&#243; mensagem.</span>
+          <span class="show-en">Non-Apex events and meetings for today and tomorrow, in one message.</span>
+        </p>
+        <div class="rafa-wa-row">
+          <button type="button" class="btn-rafa-wa" id="btnRafaWa" disabled>
+            <span class="show-pt">Enviar lembrete</span>
+            <span class="show-en">Send reminder</span>
+          </button>
+          <span class="rafa-wa-note" id="rafaWaNote"></span>
+        </div>
       </div>
 
       <!-- Alice's queue. Rendered by scheduling-queue.js, which dashboard.html
@@ -2811,6 +2875,262 @@
       // dashboard.html always called it from its own post-auth setup, which
       // is why the same shared module worked there and not here.
       loadSchedQueue();
+      loadRafaWaTemplate();
+      loadRafaNonApex();
+      // The button exists in the markup from the start (disabled), so the
+      // click handler and the pencil are wired once here rather than on every
+      // re-render. TemplateEdit.attach is idempotent regardless.
+      attachRafaWaEditor();
+    }
+
+    // ═══ Pr. Rafa's non-Apex reminder ══════════════════════════════════════
+    // ONE button sending ONE WhatsApp message listing every non-Apex item
+    // still upcoming today and tomorrow, so Alice can remind him of things
+    // like his daughter's first day of kindergarten.
+    //
+    // Pr. Rafa, +1 214 448 7559. Digits only, WITH the country code: a bare
+    // 10-digit US number makes WhatsApp report that the number does not
+    // exist, even for a real working number. Proven on a sibling project by
+    // four real numbers that failed bare and worked the instant "1" was
+    // prepended. Never "2144487559", never "+1 (214) 448-7559".
+    //
+    // WARNING: this is ONE DIGIT from Pra. Alice's number -- same prefix, his
+    // ends 7559, hers ends 5917. A transposition sends his private family
+    // schedule to the wrong person.
+    var RAFA_WA = "12144487559";
+
+    // A DELIBERATE exception to the app's usual bare wa.me pattern. Every
+    // other send uses wa.me/?text= with no number, because the recipient is a
+    // client group the sender must pick. This one has exactly one recipient
+    // forever, so it addresses him directly.
+    var RAFA_WA_TPL_KEY = "rafa_non_apex_reminder";
+
+    // Fallback only. The live text is the D1 row, which is what the pencil
+    // edits. Plain ASCII here by project rule; the accented copy lives in D1.
+    var RAFA_WA_TPL_FALLBACK = "Bom dia, Pr. Rafa! Isto e o que o senhor tem:\n\n{items}";
+
+    var rafaWaTemplate = null;   // in-memory copy, refreshed by the pencil
+    var rafaWaRows     = null;   // { today: [], tomorrow: [] }, already filtered
+
+    function loadRafaWaTemplate() {
+      apiFetch("/api/settings/templates")
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          var list = data.templates || [];
+          for (var i = 0; i < list.length; i++) {
+            if (list[i].template_key === RAFA_WA_TPL_KEY) {
+              rafaWaTemplate = list[i].template_text;
+              return;
+            }
+          }
+          // The row is missing from D1 -- say so rather than quietly shipping
+          // the fallback and letting an edit through the pencil look saved.
+          console.error("[rafa-wa] template row '" + RAFA_WA_TPL_KEY + "' not found in message_templates");
+        })
+        .catch(function(err) {
+          console.error("[rafa-wa] could not load the message template:", err);
+        });
+    }
+
+    // "YYYY-MM-DD" + n days, on the LOCAL calendar. Built from a noon Date so
+    // a DST shift cannot roll the result into the neighbouring day.
+    function rafaAddDays(dateStr, n) {
+      var d = new Date(dateStr + "T12:00:00");
+      d.setDate(d.getDate() + n);
+      return localDateStr(d);
+    }
+
+    // end_time arrives in TWO shapes: a plain "HH:MM" on Apex rows, a full ISO
+    // datetime on Google-synced ones. Same parse dashboard.html already uses.
+    function rafaEndHHMM(s) {
+      var endRaw = s.end_time;
+      if (endRaw) {
+        return String(endRaw).indexOf("T") !== -1 ? String(endRaw).slice(11, 16) : String(endRaw).slice(0, 5);
+      }
+      return null;
+    }
+
+    // Already finished? Uses end_time when present so a meeting currently in
+    // progress does not vanish out from under her while it is still running.
+    function rafaIsPast(s, todayDate, nowMinutes) {
+      if (s.date !== todayDate) { return false; }
+      var hhmm = rafaEndHHMM(s) || s.time;
+      if (!hhmm) { return false; }
+      var p = String(hhmm).split(":");
+      var mins = (parseInt(p[0], 10) * 60) + parseInt(p[1] || "0", 10);
+      if (isNaN(mins)) { return false; }
+      return mins < nowMinutes;
+    }
+
+    // The two WHITE categories, and only those. NOT 'vendor' (pale green, and
+    // it is Apex business), NOT 'external' (beige, Google's own synced rows),
+    // NOT 'client' or 'prospective'.
+    function rafaIsNonApex(s) {
+      if (isExternalSession(s)) { return false; }
+      return s.meeting_category === "event" || s.meeting_category === "personal";
+    }
+
+    function rafaSortByTime(list) {
+      return list.slice().sort(function(a, b) {
+        return String(a.time || "").localeCompare(String(b.time || ""));
+      });
+    }
+
+    function loadRafaNonApex() {
+      var block = document.getElementById("rafaWaBlock");
+      if (!block) { return; }
+
+      // NEVER toISOString() -- that is UTC and disagrees with Eastern every
+      // evening. This exact bug shipped four times in two days in July.
+      var today    = localDateStr();
+      var tomorrow = rafaAddDays(today, 1);
+
+      // Tomorrow can fall in the NEXT month (the 31st). A single month-scoped
+      // fetch would silently drop every one of tomorrow's items on that day.
+      var months = [today.slice(0, 7)];
+      var tomorrowMonth = tomorrow.slice(0, 7);
+      if (tomorrowMonth !== months[0]) { months.push(tomorrowMonth); }
+
+      var fetches = months.map(function(mo) {
+        return apiFetch("/api/sessions/calendar?month=" + mo)
+          .then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          });
+      });
+
+      Promise.all(fetches)
+        .then(function(results) {
+          var sessions = [];
+          for (var i = 0; i < results.length; i++) {
+            sessions = sessions.concat(results[i].sessions || []);
+          }
+          var now = new Date();
+          var nowMinutes = (now.getHours() * 60) + now.getMinutes();
+          var kept = sessions.filter(function(s) {
+            if (s.date !== today && s.date !== tomorrow) { return false; }
+            if (s.status === "cancelled") { return false; }
+            if (!rafaIsNonApex(s)) { return false; }
+            return !rafaIsPast(s, today, nowMinutes);
+          });
+          rafaWaRows = {
+            today:    rafaSortByTime(kept.filter(function(s) { return s.date === today; })),
+            tomorrow: rafaSortByTime(kept.filter(function(s) { return s.date === tomorrow; }))
+          };
+          renderRafaWa();
+        })
+        .catch(function(err) {
+          // NEVER swallow this into an empty list. A button that silently
+          // says "nothing today" is indistinguishable from a quiet day, and
+          // she would trust it and send nothing.
+          console.error("[rafa-wa] could not load the calendar:", err);
+          rafaWaRows = null;
+          var btn  = document.getElementById("btnRafaWa");
+          var note = document.getElementById("rafaWaNote");
+          if (btn) { btn.disabled = true; }
+          if (note) {
+            note.className = "rafa-wa-note is-error";
+            note.textContent = isEn()
+              ? "Could not load the calendar - reload the page."
+              : "Nao foi possivel carregar a agenda - recarregue a pagina.";
+          }
+        });
+    }
+
+    function renderRafaWa() {
+      var btn  = document.getElementById("btnRafaWa");
+      var note = document.getElementById("rafaWaNote");
+      if (!btn || !note) { return; }
+      var en = isEn();
+      var count = rafaWaRows ? (rafaWaRows.today.length + rafaWaRows.tomorrow.length) : 0;
+
+      note.className = "rafa-wa-note";
+      if (count === 0) {
+        // Empty state: disabled WITH the reason, never a live button that
+        // would send a greeting followed by nothing.
+        btn.disabled = true;
+        note.textContent = en
+          ? "Nothing non-Apex today or tomorrow."
+          : "Nada nao-Apex hoje ou amanha.";
+        return;
+      }
+      btn.disabled = false;
+      note.textContent = en
+        ? (count === 1 ? "1 item" : count + " items")
+        : (count === 1 ? "1 compromisso" : count + " compromissos");
+    }
+
+    // One line per item, 12-hour with AM/PM ALWAYS (Pr. Rafa required the
+    // whole site in US standard; datetime.js says the PT/EN toggle must never
+    // change how a time renders). A "Hoje:"/"Amanha:" subheading appears ONLY
+    // when that day actually has items.
+    function rafaItemsBlock() {
+      if (!rafaWaRows) { return ""; }
+      // "Amanha" carries a tilde in the message Rafa reads, but a JS string
+      // literal on this page must stay plain ASCII (project rule), so the
+      // accented character is built from its code point rather than typed.
+      var amanha = "Amanh" + String.fromCharCode(227);
+      var out = [];
+
+      function addDay(heading, rows) {
+        if (!rows.length) { return; }
+        out.push(heading + ":");
+        for (var i = 0; i < rows.length; i++) {
+          out.push("- " + formatTime(rows[i].time) + " - " + (rows[i].client_name || ""));
+        }
+        out.push("");
+      }
+
+      addDay("Hoje", rafaWaRows.today);
+      addDay(amanha, rafaWaRows.tomorrow);
+      return out.join("\n");
+    }
+
+    function buildRafaWaMessage() {
+      var tpl = rafaWaTemplate || RAFA_WA_TPL_FALLBACK;
+      var items = rafaItemsBlock();
+      // A template edited to drop {items} would ship a greeting with no list
+      // at all, which is the exact thing the empty state exists to prevent --
+      // so the list is appended rather than silently lost.
+      if (tpl.indexOf("{items}") === -1) { return tpl + "\n\n" + items; }
+      return tpl.split("{items}").join(items);
+    }
+
+    // window.open MUST be called SYNCHRONOUSLY here, never after an await:
+    // an async open is a popup-block risk and caused a real iOS blank-tab bug
+    // (commit afc4ee0). Everything it needs is already in memory.
+    function sendRafaWa() {
+      if (!rafaWaRows) { return; }
+      if (rafaWaRows.today.length + rafaWaRows.tomorrow.length === 0) { return; }
+      var msg = buildRafaWaMessage();
+      window.open("https://wa.me/" + RAFA_WA + "?text=" + encodeURIComponent(msg), "_blank");
+    }
+
+    function attachRafaWaEditor() {
+      var btn = document.getElementById("btnRafaWa");
+      if (!btn) { return; }
+      btn.addEventListener("click", sendRafaWa);
+      if (!window.TemplateEdit) {
+        console.error("[rafa-wa] template-edit.js did not load - the pencil cannot render");
+        return;
+      }
+      window.TemplateEdit.attach({
+        button: btn,
+        key: RAFA_WA_TPL_KEY,
+        apiFetch: apiFetch,
+        // Without this the in-memory copy stays stale: she edits the message,
+        // sends it, and the OLD text goes out.
+        onSaved: function(saved) {
+          if (saved && saved.template_text) {
+            rafaWaTemplate = saved.template_text;
+          } else {
+            loadRafaWaTemplate();
+          }
+        }
+      });
     }
 
     function init() {

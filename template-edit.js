@@ -47,7 +47,8 @@
     scheduling_send:        { pt: "Enviar horários",                en: "Send times" },
     scheduling_followup:    { pt: "Cobrar horários",                en: "Scheduling follow-up" },
     reminder_online:        { pt: "Lembrete Online",                en: "Online Reminder" },
-    reminder_in_person:     { pt: "Lembrete Presencial",            en: "In-Person Reminder" }
+    reminder_in_person:     { pt: "Lembrete Presencial",            en: "In-Person Reminder" },
+    rafa_non_apex_reminder: { pt: "Lembrete não-Apex (Pr. Rafa)",    en: "Non-Apex reminder (Pr. Rafa)" }
   };
 
   // Only the tokens each key actually substitutes. Shown as chips so a
@@ -71,7 +72,12 @@
     // the whole point of the message, and a date chip would let a calendar
     // date get put back in.
     reminder_online:        ["{when}", "{time}", "{meetLink}"],
-    reminder_in_person:     ["{when}", "{time}", "{location}"]
+    reminder_in_person:     ["{when}", "{time}", "{location}"],
+    // ONE token, on purpose. The item list is generated per send from however
+    // many non-Apex meetings exist, so it cannot be a template field -- the
+    // template owns the greeting and the closing line around it. No {date} or
+    // {time} chip either: those belong to the rows INSIDE the list.
+    rafa_non_apex_reminder: ["{items}"]
   };
 
   function esc(s) {

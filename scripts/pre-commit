@@ -29,6 +29,19 @@ if [ "$TRIGGER" = "1" ]; then
   sed -i '' -E 's/apex-static-[a-z0-9]+/apex-static-'"$STAMP"'/' sw.js
   printf '{"version": "%s"}\n' "$STAMP" > version.json
   git add sw.js version.json
+
+  # ios/App/App/public/ is a REAL third copy of the frontend, not build output.
+  # Stamping only the root copies left the iOS ones one stamp behind after
+  # every single commit -- the hook runs after staging, so a sync done by hand
+  # in the same commit is immediately stale. Stamp both, always.
+  if [ -f ios/App/App/public/sw.js ]; then
+    sed -i '' -E 's/apex-static-[a-z0-9]+/apex-static-'"$STAMP"'/' ios/App/App/public/sw.js
+    git add ios/App/App/public/sw.js
+  fi
+  if [ -f ios/App/App/public/version.json ]; then
+    printf '{"version": "%s"}\n' "$STAMP" > ios/App/App/public/version.json
+    git add ios/App/App/public/version.json
+  fi
 fi
 
 # Bump the ?v= cache-buster on <link>/<script> references to versioned assets.

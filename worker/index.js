@@ -240,20 +240,36 @@ async function authenticate(request, env) {
 // deliberately NOT a staff login: it returns a role of its own that ONLY the
 // two Claude-source document endpoints accept, so a leaked token cannot read
 // clients, invoices or anything else. It fails canEditResources on purpose.
+//
+// TWO tokens exist, not one. VAULT_SERVICE_TOKEN is Rafa's connector, scope
+// "vault" -- clients, leads, sessions, tasks, assessments, exactly as before,
+// finance still absent. VAULT_SERVICE_TOKEN_ALICE is Alice's, scope
+// "vault-finance" -- everything Rafa's scope reaches, PLUS the finance
+// tables. They are distinct secrets compared independently, so a leaked
+// token from one identity cannot be replayed as the other, and there is no
+// shared value whose exposure widens both scopes at once.
 function serviceCaller(request, env) {
-    if (!env.VAULT_SERVICE_TOKEN) { return null; }
     var auth = request.headers.get("Authorization") || "";
     var m = /^Bearer\s+(.+)$/i.exec(auth.trim());
     if (!m) { return null; }
     var given = m[1].trim();
-    var expected = env.VAULT_SERVICE_TOKEN;
-    if (given.length !== expected.length) { return null; }
-    var diff = 0;
-    for (var i = 0; i < given.length; i++) {
-        diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+
+    function matches(expected) {
+        if (!expected || given.length !== expected.length) { return false; }
+        var diff = 0;
+        for (var i = 0; i < given.length; i++) {
+            diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+        }
+        return diff === 0;
     }
-    if (diff !== 0) { return null; }
-    return { role: "vault-service", display_name: "Rafa (Claude)", client_id: null };
+
+    if (matches(env.VAULT_SERVICE_TOKEN_ALICE)) {
+        return { role: "vault-service", scope: "vault-finance", display_name: "Alice (Claude)", client_id: null };
+    }
+    if (matches(env.VAULT_SERVICE_TOKEN)) {
+        return { role: "vault-service", scope: "vault", display_name: "Rafa (Claude)", client_id: null };
+    }
+    return null;
 }
 
 async function authenticateInner(request, env) {
@@ -2613,6 +2629,85 @@ async function handleGetClientsNeedingReview(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Routes: GET/POST /api/interview-sittings
+//
+// One signal per SITTING, not per client. She clicks "Entrevista concluida"
+// once after doing as much as she had time for; six clicks (one per client)
+// would repeat the exact mistake -- demanding too much input -- that left the
+// original queue unused for months.
+//
+// An unretrieved row means "a sitting happened whose answers have not been
+// pulled into Apex yet" -- NOT "everything is done". What remains is never
+// stored here: it stays computed live by the NOT EXISTS query in the
+// attention endpoint, so partial work needs no cleanup by hand.
+//
+// GET returns the open (unretrieved) sittings for the developer dashboard.
+// POST records one. POST {clear:true} stamps retrieved_at, which a developer
+// session does AFTER writing the collected answers into Apex.
+// ---------------------------------------------------------------------------
+async function handleGetInterviewSittings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT id, kind, created_at, created_by, created_by_email, note, retrieved_at " +
+            "FROM interview_sittings WHERE retrieved_at IS NULL ORDER BY created_at DESC"
+        ).all();
+
+        var open = rows.results || [];
+        return jsonOk({ sittings: open, open_count: open.length });
+    } catch (e) {
+        return jsonErr("Error fetching interview sittings: " + e.message, 500);
+    }
+}
+
+async function handlePostInterviewSitting(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        if (body && body.clear) {
+            // Clearing is scoped to ONE kind when a kind is given. Clearing
+            // everything open would mean retrieving a terms sitting silently
+            // marks a policies sitting retrieved too, and those answers would
+            // sit in the vault forever with nothing left pointing at them.
+            // No kind = clear all, kept only for the pre-existing callers.
+            var res;
+            if (body.kind) {
+                res = await env.DB.prepare(
+                    "UPDATE interview_sittings SET retrieved_at = datetime('now'), retrieved_by = ? " +
+                    "WHERE retrieved_at IS NULL AND kind = ?"
+                ).bind(user.email || user.uid || null, body.kind).run();
+            } else {
+                res = await env.DB.prepare(
+                    "UPDATE interview_sittings SET retrieved_at = datetime('now'), retrieved_by = ? " +
+                    "WHERE retrieved_at IS NULL"
+                ).bind(user.email || user.uid || null).run();
+            }
+            return jsonOk({ cleared: true, kind: body.kind || null, count: (res.meta && res.meta.changes) || 0 });
+        }
+
+        var id = crypto.randomUUID();
+        var kind = (body && body.kind) || "terms";
+        var note = (body && body.note) || null;
+
+        await env.DB.prepare(
+            "INSERT INTO interview_sittings (id, kind, created_by, created_by_email, note) " +
+            "VALUES (?, ?, ?, ?, ?)"
+        ).bind(id, kind, user.uid || null, user.email || null, note).run();
+
+        return jsonOk({ id: id, kind: kind });
+    } catch (e) {
+        return jsonErr("Error recording interview sitting: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/documents
 // Combined Documents list for the client profile: auto-generated session
 // reports (rendered client-side from sessions.pdf_data, same as the existing
@@ -2971,10 +3066,36 @@ async function handleGetVaultClients(request, env) {
     try {
         var caller = serviceCaller(request, env);
         if (!caller) { return jsonErr("Unauthorized", 401); }
+        // Legal-entity identifiers travel with the client. Rafa's Claude reads
+        // this route and has no other way to reach them, and they are exactly
+        // what he would otherwise have to go and look up: the registered name
+        // (frequently NOT the trading name -- JM Luxury Pools pays and files as
+        // JM WORKS SOLUTIONS BUSINESS LLC), the state document number, the EIN,
+        // the registered address and the officers. This is the paperwork any
+        // carrier registration for CRM texting asks for character-for-character.
         var rows = await env.DB.prepare(
-            "SELECT id, name, status FROM clients WHERE COALESCE(archived,0) = 0 ORDER BY name"
+            "SELECT id, name, status, owners, industry, location, " +
+            "legal_entity_name, sunbiz_doc_number, legal_entity_ein, " +
+            "legal_entity_address, legal_entity_filed_at, legal_entity_status, " +
+            "legal_entity_officers, legal_entity_dba, legal_entity_dba_number, " +
+            "duns_number, legal_entity_source, legal_entity_verified_at " +
+            "FROM clients WHERE COALESCE(archived,0) = 0 ORDER BY name"
         ).all();
-        return jsonOk({ clients: rows.results || [] });
+        var clients = (rows.results || []).map(function(c) {
+            // officers is stored as JSON text; hand it back parsed so it does
+            // not arrive as a string that has to be unpicked on the far side.
+            if (c.legal_entity_officers) {
+                try { c.legal_entity_officers = JSON.parse(c.legal_entity_officers); } catch (e) {}
+            }
+            return c;
+        });
+        return jsonOk({
+            clients: clients,
+            note: "legal_entity_name is the REGISTERED name and is often not the " +
+                  "name the client trades under. Use it, not `name`, on anything " +
+                  "official. A null legal_entity_name means nobody has looked it " +
+                  "up yet -- not that the company is unregistered."
+        });
     } catch (e) {
         return jsonErr("Error listing clients: " + e.message, 500);
     }
@@ -3006,11 +3127,12 @@ async function handleGetVaultClients(request, env) {
 // the database.
 // ---------------------------------------------------------------------------
 
-// Only these tables are readable. FINANCE IS ABSENT BY CONSTRUCTION — there is
-// no invoices, invoice_payments, transactions or client_package_terms entry,
-// and no rule that filters them out either. A SELECT against invoices fails
-// because invoices is simply not on this list, which is a guarantee that
-// survives someone editing the rules without remembering why they exist.
+// Only these tables are readable, and only to a caller whose scope is
+// "vault" or "vault-finance" — both scopes reach this list. FINANCE IS A
+// SEPARATE LIST BELOW, reachable only to scope "vault-finance". A SELECT
+// against invoices from Rafa's "vault" scope fails because invoices is
+// simply not on THIS list, which is a guarantee that survives someone
+// editing the rules without remembering why they exist.
 var VAULT_READ_TABLES = [
     "clients",
     "gm_leads",
@@ -3020,6 +3142,19 @@ var VAULT_READ_TABLES = [
     // against sqlite_master before this list was written.
     "client_assessments"
 ];
+
+// Alice-only. Added 2026-08-17 alongside the "vault-finance" scope so her
+// connector can see the same finance data finance-new.html shows her,
+// without widening Rafa's "vault" scope at all — his caller never reaches
+// this list, by construction (assertVaultReadSql is only ever called with it
+// when caller.scope === "vault-finance"). No writes anywhere in this list;
+// vaultRead only ever runs SELECT (enforced above it, not by this list).
+var VAULT_READ_TABLES_FINANCE = VAULT_READ_TABLES.concat([
+    "accounts",
+    "transactions",
+    "invoices",
+    "invoice_payments"
+]);
 
 // Strips leading whitespace and leading SQL comments so that the SELECT check
 // cannot be evaded by prefixing the statement with "/* x */" or "-- x\n".
@@ -3053,7 +3188,12 @@ function vaultReadReject(reason) {
 
 // Throws on anything that is not a single, plain SELECT against an allow-listed
 // table. Returns nothing useful — it is a gate, not a parser.
-function assertVaultReadSql(sql) {
+//
+// tables defaults to VAULT_READ_TABLES so every existing call site is
+// unchanged; a finance route passes VAULT_READ_TABLES_FINANCE explicitly,
+// and only after confirming caller.scope === "vault-finance" itself.
+function assertVaultReadSql(sql, tables) {
+    var allowList = tables || VAULT_READ_TABLES;
     if (typeof sql !== "string" || !sql.trim()) {
         throw vaultReadReject("Refused: empty SQL.");
     }
@@ -3098,11 +3238,11 @@ function assertVaultReadSql(sql) {
         throw vaultReadReject("Refused: could not identify a table to read.");
     }
     for (var i = 0; i < referenced.length; i++) {
-        if (VAULT_READ_TABLES.indexOf(referenced[i]) === -1) {
+        if (allowList.indexOf(referenced[i]) === -1) {
             throw vaultReadReject(
                 "Refused: the table " + JSON.stringify(referenced[i]) +
                 " is not readable by the vault. Readable tables: " +
-                VAULT_READ_TABLES.join(", ") + "."
+                allowList.join(", ") + "."
             );
         }
     }
@@ -3110,8 +3250,8 @@ function assertVaultReadSql(sql) {
 
 // The ONE path from a /api/vault/ endpoint to D1. Values are always bound
 // parameters; SQL is never concatenated from caller input.
-async function vaultRead(env, sql, binds) {
-    assertVaultReadSql(sql);
+async function vaultRead(env, sql, binds, tables) {
+    assertVaultReadSql(sql, tables);
     var stmt = env.DB.prepare(sql);
     var params = binds || [];
     var res = params.length ? await stmt.bind.apply(stmt, params).all() : await stmt.all();
@@ -3121,9 +3261,19 @@ async function vaultRead(env, sql, binds) {
 // Shared front door for every vault read route: same token, same 401, and a
 // rejected statement comes back as 403 rather than a 500, so a blocked write
 // is distinguishable from a genuine fault.
-async function vaultReadRoute(request, env, run) {
+//
+// requireScope defaults to "vault" — every existing route needs only the
+// base scope, which both Rafa's and Alice's tokens carry. Finance routes
+// pass "vault-finance" explicitly; Rafa's caller has scope "vault" and is
+// turned away with a 403 before vaultRead ever runs, the same shape as an
+// unreadable table, not a 500.
+async function vaultReadRoute(request, env, run, requireScope) {
     var caller = serviceCaller(request, env);
     if (!caller) { return jsonErr("Unauthorized", 401); }
+    var need = requireScope || "vault";
+    if (need === "vault-finance" && caller.scope !== "vault-finance") {
+        return jsonErr("Refused: this route requires finance access, which this token does not have.", 403);
+    }
     try {
         return jsonOk(await run());
     } catch (e) {
@@ -3288,6 +3438,87 @@ async function handleGetVaultAssessments(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/vault/finance/accounts
+//
+// Alice-only (scope "vault-finance"). balance_cents and available_cents are
+// both returned — the finance-overhaul plan's headline number is available,
+// not balance, and a reader should not have to guess which is which.
+// access_token lives on plaid_items, never on accounts, so this SELECT * is
+// safe with no explicit column list needed.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultFinanceAccounts(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var sql =
+            "SELECT id, institution, name, mask, subtype, purpose, balance_cents, " +
+            "available_cents, last_synced_at, status FROM accounts " +
+            "WHERE status = 'active' ORDER BY purpose, name";
+        var accounts = await vaultRead(env, sql, [], VAULT_READ_TABLES_FINANCE);
+        return { count: accounts.length, accounts: accounts };
+    }, "vault-finance");
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/finance/transactions[?account_id=...][&limit=...]
+//
+// Alice-only. raw_json is omitted — it is the full Plaid payload and far
+// larger than anything Claude needs to answer a question about spending.
+// Default LIMIT 100, newest first; a caller wanting more should narrow by
+// account_id rather than pulling the entire feed into one tool result.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultFinanceTransactions(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var accountId = (url.searchParams.get("account_id") || "").trim();
+        var limitParam = parseInt(url.searchParams.get("limit"), 10);
+        var limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 100;
+
+        var where = accountId ? " WHERE account_id = ?1" : "";
+        var sql =
+            "SELECT id, account_id, amount_cents, date, posted_date, description, " +
+            "merchant_normalized, category_id, is_transfer, transfer_status, pending " +
+            "FROM transactions" + where +
+            " ORDER BY date DESC LIMIT " + limit;
+
+        var binds = accountId ? [accountId] : [];
+        var transactions = await vaultRead(env, sql, binds, VAULT_READ_TABLES_FINANCE);
+        return { count: transactions.length, transactions: transactions };
+    }, "vault-finance");
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/finance/invoices[?client_id=...][&status=...]
+//
+// Alice-only. There is no JOIN to invoice_payments here on purpose — this
+// route answers "what invoices exist and what state are they in", not
+// "reconcile payments", which is a separate, heavier question this route
+// deliberately does not try to answer.
+// ---------------------------------------------------------------------------
+
+async function handleGetVaultFinanceInvoices(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var url = new URL(request.url);
+        var clientId = (url.searchParams.get("client_id") || "").trim();
+        var status = (url.searchParams.get("status") || "").trim();
+
+        var where = [];
+        var binds = [];
+        if (clientId) { binds.push(clientId); where.push("client_id = ?" + binds.length); }
+        if (status)   { binds.push(status);   where.push("status = ?" + binds.length); }
+
+        var sql =
+            "SELECT id, client_id, number, amount_cents, issued_at, due_at, status " +
+            "FROM invoices" +
+            (where.length ? " WHERE " + where.join(" AND ") : "") +
+            " ORDER BY issued_at DESC LIMIT 200";
+
+        var invoices = await vaultRead(env, sql, binds, VAULT_READ_TABLES_FINANCE);
+        return { count: invoices.length, invoices: invoices };
+    }, "vault-finance");
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/vault/selftest
 //
 // Proves the gate on the DEPLOYED Worker, over the real network path, with the
@@ -3308,9 +3539,16 @@ async function handlePostVaultSelftest(request, env) {
     try { body = await request.json(); } catch (e) { return jsonErr("Invalid JSON body", 400); }
     var sql = body && body.sql;
     if (typeof sql !== "string" || !sql.trim()) { return jsonErr("sql is required", 400); }
+    // wantFinance lets the same route prove BOTH halves of the guarantee: that
+    // Alice's token can reach a finance table, and — the more important
+    // direction — that Rafa's token still cannot, even when it explicitly asks
+    // for the finance table list. Only actually grants it if caller.scope
+    // agrees; a "vault" caller passing wantFinance=true still gets the 403.
+    var wantFinance = !!(body && body.finance);
+    var tables = (wantFinance && caller.scope === "vault-finance") ? VAULT_READ_TABLES_FINANCE : VAULT_READ_TABLES;
     try {
-        var rows = await vaultRead(env, sql, []);
-        return jsonOk({ blocked: false, row_count: rows.length });
+        var rows = await vaultRead(env, sql, [], tables);
+        return jsonOk({ blocked: false, row_count: rows.length, scope: caller.scope, tables_checked: tables });
     } catch (e) {
         if (e && e.vaultReadRejected) {
             return jsonErr(e.message, 403);
@@ -7630,6 +7868,118 @@ async function handlePostResource(request, env) {
         return jsonOk({ resource: row });
     } catch (e) {
         return jsonErr("Error creating resource: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/vault/resources
+//
+// The fallback landing place for a deliverable that has NO client — either it
+// is APEX's own internal material, or it is for a business Alice has not
+// entered into the system yet.
+//
+// Why this exists: Pr. Rafa moves fast. He will finish a deliverable for a
+// prospect before anyone has created that client record. Without somewhere to
+// put it, the file stays in the chat and is lost, which is the exact failure
+// this whole integration exists to prevent. So it lands in the Resource Hub as
+// internal material and waits there until it has a client to live on.
+//
+// internal = 1 ALWAYS, set server-side. The Resource Hub is consultant
+// material; a client-facing deliverable that lands here is staged, not
+// published, and nothing here is ever visible to a client.
+//
+// Service token only — this is the vault Worker's path, not the UI's.
+// ---------------------------------------------------------------------------
+
+async function handlePostVaultResource(request, env) {
+    try {
+        var caller = serviceCaller(request, env);
+        if (!caller) { return jsonErr("Unauthorized", 401); }
+
+        var parsed = await readResourceBody(request);
+        var f = parsed.fields;
+        if (!parsed.file) { return jsonErr("file is required", 400); }
+        var title = String(f.title || "").trim();
+        if (!title) { return jsonErr("title is required", 400); }
+
+        var category = String(f.category || "Entregaveis sem cliente").trim();
+        var id = crypto.randomUUID();
+        var stored = await storeResourceFile(env, id, parsed.file);
+
+        await ensureResourceCategory(env, category);
+        await env.DB.prepare(
+            "INSERT INTO resources (id, category, resource_type, title, description, " +
+            "file_url, file_name, created_by, internal) " +
+            "VALUES (?, ?, 'file', ?, ?, ?, ?, ?, 1)"
+        ).bind(
+            id, category, title,
+            f.description || "Criado no Claude. Sem cliente atribuido ainda.",
+            stored.key, stored.name, "Rafa (Claude)"
+        ).run();
+
+        var row = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
+        return jsonOk({ resource: row });
+    } catch (e) {
+        return jsonErr("Error creating vault resource: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/resources/:id/attach-to-client
+//
+// MOVES a Resource Hub file onto a client's profile. Body: { client_id }.
+//
+// A move, not a copy, and deliberately: the Resource Hub is APEX's own
+// consultant material, and leaving client work mixed into it is the thing this
+// avoids. Nothing is lost by moving — archiving a client keeps every document
+// on their profile, so the work is still there years later if they come back.
+//
+// Lands with client_visible = 0, same as every other Claude-sourced document.
+// The R2 object is REUSED, not re-uploaded: only the database row moves.
+// alice / rafa / developer only.
+// ---------------------------------------------------------------------------
+
+async function handleAttachResourceToClient(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function () { return {}; });
+        var clientId = String(body.client_id || "").trim();
+        if (!clientId) { return jsonErr("client_id is required", 400); }
+
+        var res = await env.DB.prepare("SELECT * FROM resources WHERE id = ?").bind(id).first();
+        if (!res) { return jsonErr("Resource not found", 404); }
+        if (res.resource_type !== "file" || !res.file_url) {
+            return jsonErr("Only file resources can be attached to a client", 400);
+        }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(clientId).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var docId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_documents (id, client_id, title, file_name, file_url, " +
+            "content_type, uploaded_by, visibility, client_visible) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'client', 0)"
+        ).bind(
+            docId, clientId, res.title, res.file_name || "documento.pdf",
+            res.file_url, "application/pdf", res.created_by || "Rafa (Claude)"
+        ).run();
+
+        // Row moves; the R2 object stays where it is and is now owned by the
+        // client_documents row. Deleting the resource must NOT delete the file.
+        await env.DB.prepare("DELETE FROM resources WHERE id = ?").bind(id).run();
+
+        return jsonOk({
+            document_id: docId,
+            client_id: clientId,
+            client_name: client.name,
+            note: "Moved to the client profile, hidden from the client until you reveal it."
+        });
+    } catch (e) {
+        return jsonErr("Error attaching resource: " + e.message, 500);
     }
 }
 
@@ -20519,7 +20869,30 @@ async function applyCategorizationRules(env, opts) {
             "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL AND pattern = ?"
           ).bind(onlyPattern).all()
         : await env.DB.prepare(
-            "SELECT pattern, match_type, category_id FROM categorization_rules WHERE category_id IS NOT NULL"
+            // ORDER MATTERS AND MUST NOT BE LEFT TO SQLITE. Each rule below only
+            // fills rows still NULL, so the FIRST rule to match a transaction
+            // claims it -- and without an ORDER BY that winner is arbitrary and
+            // can change between runs.
+            //
+            // Real collision this guards: "Zelle payment to Edinho Lagoinha" is
+            // the phone bill, but it also contains LAGOINHA, which is the tithe
+            // rule. The exact rule for Edinho is the more specific statement of
+            // intent and must always win over a substring rule.
+            //
+            // Order: a MANUAL rule always outranks an auto-written one, because a
+            // person's decision must beat a machine's guess. Live proof this is
+            // the right precedence: 22 identical "Zelle payment from APEX
+            // BUSINESS LEADERSHIP" rows exist, 21 categorised cat_retirada by a
+            // manual rule and exactly 1 categorised transfer by an auto rule --
+            // same transaction shape, different answer, decided purely by which
+            // row SQLite happened to return first.
+            //
+            // Then exact before contains, then longest pattern first, since a
+            // longer pattern is the more specific claim.
+            "SELECT pattern, match_type, category_id FROM categorization_rules " +
+            "WHERE category_id IS NOT NULL " +
+            "ORDER BY CASE COALESCE(source,'manual') WHEN 'manual' THEN 0 ELSE 1 END, " +
+            "CASE match_type WHEN 'merchant_exact' THEN 0 ELSE 1 END, LENGTH(pattern) DESC"
           ).all();
 
     var rules = rulesRes.results || [];
@@ -20554,6 +20927,24 @@ async function applyCategorizationRules(env, opts) {
 // never overwrites a manual one.
 async function upsertCategorizationRule(env, pattern, categoryId, source) {
     if (!pattern) { return; }
+
+    // A PERSON is not a purpose. This function only ever writes merchant_exact
+    // rules, which is already the safe shape, but the guard below documents the
+    // failure it protects against because broad rules HAVE been written into
+    // this table by other paths (the bulk interview import writes D1 directly).
+    //
+    // Two real examples of the shape going wrong:
+    //   - LAGOINHA (contains) meant "tithe", but church members put the church
+    //     name in their own contact names, so a phone bill paid to a friend
+    //     matched the tithe rule.
+    //   - ELIZ USA -> haircut was generalised from ONE $30 payment. Every future
+    //     payment to that person is now assumed to be Rafael's hair.
+    //
+    // The rule of thumb when adding rules by any path: a rule keyed on a
+    // BUSINESS name states a purpose. A rule keyed on a PERSON's name states a
+    // guess, because a person can be paid for more than one reason. Prefer
+    // leaving those uncategorised -- an item in her queue is recoverable, a
+    // silently wrong category in a total she reports on is not.
 
     var existing = await env.DB.prepare(
         "SELECT id, source FROM categorization_rules WHERE pattern = ? AND match_type = 'merchant_exact'"
@@ -20741,9 +21132,19 @@ async function handlePostFinanceNewTransactionCategory(request, env, txnId) {
 
         // The transaction itself, in every scope. Marked 'manual' so no later
         // automatic pass can quietly overwrite her answer.
+        //
+        // categorized_by records WHO. Without it "why is this a tithe?" has no
+        // answer at all: the table had category_source but no actor column, so
+        // a manual categorisation was indistinguishable between Alice, Rafa and
+        // a developer session. Apex added actor attribution elsewhere in July;
+        // categorisation never got it.
+        //
+        // NOTE ON THE TIMESTAMP: datetime('now') is UTC, four hours ahead of
+        // Eastern. Convert before displaying -- 21:59 UTC is 5:59 PM local.
         await env.DB.prepare(
-            "UPDATE transactions SET category_id = ?, category_source = 'manual', categorized_at = datetime('now') WHERE id = ?"
-        ).bind(categoryId, txnId).run();
+            "UPDATE transactions SET category_id = ?, category_source = 'manual', " +
+            "categorized_at = datetime('now'), categorized_by = ? WHERE id = ?"
+        ).bind(categoryId, actorName(user), txnId).run();
 
         var ruleWritten = false;
         var retroApplied = 0;
@@ -21057,17 +21458,30 @@ async function handlePostFinanceNewTransferConfirm(request, env) {
         ).bind(body.transfer_pair_id).run();
 
         if (body.always) {
-            var leg = await env.DB.prepare(
-                "SELECT merchant_normalized FROM transactions WHERE transfer_pair_id = ? LIMIT 1"
-            ).bind(body.transfer_pair_id).first();
-            if (leg && leg.merchant_normalized) {
+            // A transfer pair is two DIFFERENT descriptions -- the outflow leg
+            // ("Zelle payment to Alice Corsino") and the inflow leg ("Zelle
+            // payment from Apex Business Leadership"), one per account. A rule
+            // keyed on only one of them (the old code took whichever row an
+            // unordered LIMIT 1 happened to return) can only ever silence one
+            // side: applyTransferRules() matches future 'suspected' rows by
+            // merchant_normalized, so the un-ruled leg gets re-flagged as
+            // suspected every single month even though "Always" was clicked.
+            // Found live 2026-08-19: zero transfer rules existed in
+            // production despite repeated "Sempre" clicks over several
+            // months of the recurring owner-draw transfer.
+            var legs = await env.DB.prepare(
+                "SELECT DISTINCT merchant_normalized FROM transactions " +
+                "WHERE transfer_pair_id = ? AND merchant_normalized IS NOT NULL AND merchant_normalized != ''"
+            ).bind(body.transfer_pair_id).all();
+            for (var li = 0; li < (legs.results || []).length; li++) {
+                var pattern = legs.results[li].merchant_normalized;
                 var dupe = await env.DB.prepare(
                     "SELECT id FROM categorization_rules WHERE pattern = ? AND category_id = 'transfer'"
-                ).bind(leg.merchant_normalized).first();
+                ).bind(pattern).first();
                 if (!dupe) {
                     await env.DB.prepare(
                         "INSERT INTO categorization_rules (id, pattern, category_id, source) VALUES (?, ?, 'transfer', 'auto')"
-                    ).bind(crypto.randomUUID(), leg.merchant_normalized).run();
+                    ).bind(crypto.randomUUID(), pattern).run();
                 }
             }
         }
@@ -21129,7 +21543,15 @@ async function handleGetFinanceNewBills(request, env) {
         var res = await env.DB.prepare(
             "SELECT * FROM fixed_bills WHERE active = 1 ORDER BY day_of_month, name"
         ).all();
-        return jsonOk({ bills: res.results || [] });
+        var bills = res.results || [];
+        // Same as the overdue list: a variable bill carries the last amount
+        // that really left the account, so the estimate is never shown alone.
+        for (var i = 0; i < bills.length; i++) {
+            if (bills[i].is_variable === 1) {
+                bills[i].last_charge = await lastRealChargeFor(env, bills[i]);
+            }
+        }
+        return jsonOk({ bills: bills });
     } catch (e) {
         return jsonErr("Error fetching bills: " + e.message, 500);
     }
@@ -21148,6 +21570,40 @@ async function handlePostFinanceNewBill(request, env) {
             return jsonOk({ deleted: true });
         }
 
+        var paymentMethod = body.payment_method === "draft" ? "draft" : "manual";
+        var payUrl = body.pay_url ? String(body.pay_url).trim().slice(0, 500) : null;
+        var payeeNotes = body.payee_notes ? String(body.payee_notes).trim().slice(0, 2000) : null;
+
+        // Editing an existing bill. Same row, not a new one -- priority_rank
+        // and payer_match_pattern (and payment history) must survive an edit
+        // to name/amount/day, otherwise every typo fix would silently reset
+        // her ranking and re-break bank-matching.
+        if (body.update_id) {
+            var existing = await env.DB.prepare(
+                "SELECT id FROM fixed_bills WHERE id = ? AND active = 1"
+            ).bind(body.update_id).first();
+            if (!existing) { return jsonErr("Bill not found", 404); }
+
+            var uName = String(body.name || "").trim();
+            var uCents = Math.round(Number(body.amount_cents));
+            var uDay = Math.round(Number(body.day_of_month));
+            if (!uName) { return jsonErr("name required", 400); }
+            if (!isFinite(uCents) || uCents <= 0) { return jsonErr("amount must be positive", 400); }
+            if (!isFinite(uDay) || uDay < 1 || uDay > 31) { return jsonErr("day_of_month must be 1-31", 400); }
+
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET name = ?, amount_cents = ?, day_of_month = ?, purpose = ?, " +
+                "notes = ?, payment_method = ?, pay_url = ?, payee_notes = ? WHERE id = ?"
+            ).bind(
+                uName, uCents, uDay,
+                body.purpose === "business" ? "business" : "personal",
+                body.notes || null, paymentMethod, payUrl, payeeNotes,
+                body.update_id
+            ).run();
+
+            return jsonOk({ id: body.update_id, updated: true });
+        }
+
         var name = String(body.name || "").trim();
         var cents = Math.round(Number(body.amount_cents));
         var day = Math.round(Number(body.day_of_month));
@@ -21157,17 +21613,877 @@ async function handlePostFinanceNewBill(request, env) {
 
         var id = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO fixed_bills (id, name, amount_cents, day_of_month, purpose, notes, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO fixed_bills (id, name, amount_cents, day_of_month, purpose, notes, created_by, " +
+            "payment_method, pay_url, payee_notes) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             id, name, cents, day,
             body.purpose === "business" ? "business" : "personal",
-            body.notes || null, actorName(user)
+            body.notes || null, actorName(user),
+            paymentMethod, payUrl, payeeNotes
         ).run();
 
         return jsonOk({ id: id });
     } catch (e) {
         return jsonErr("Error saving bill: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// OVERDUE BILLS + COVERAGE FORECAST.
+//
+// Overdue is purely date-based: day_of_month has passed for the current
+// period (clamped to the month's real length) AND no fixed_bill_payments row
+// exists for bill_id + period_key. Computed on read, same reasoning as
+// invoices deriving remaining_cents on read rather than caching a stale
+// status.
+//
+// The coverage forecast is INFORMATIONAL CONTEXT next to the overdue flag,
+// never a softening of it. A bill that is covered by an incoming invoice is
+// still shown as overdue -- the money isn't in hand yet, only expected.
+// ===========================================================================
+
+function currentPeriodKey() {
+    return new Date().toISOString().slice(0, 7);   // 'YYYY-MM'
+}
+
+// Days overdue: today minus this period's due date, clamped to the month.
+function daysOverdueFor(dayOfMonth, todayIso) {
+    var parts = todayIso.split("-");
+    var y = Number(parts[0]), mIdx = Number(parts[1]) - 1;
+    var dueIso = billDateFor(y, mIdx, dayOfMonth);
+    var due = Date.parse(dueIso + "T00:00:00Z");
+    var today = Date.parse(todayIso + "T00:00:00Z");
+    return { due_at: dueIso, days_overdue: Math.round((today - due) / 86400000) };
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/bills/overdue — alice/rafa/developer only.
+//
+// Computes, for the current period: which bills are overdue, sorted by
+// priority_rank (nulls last, then day_of_month as secondary key so an
+// unranked bill isn't invisible), joined with a coverage-forecast allocation
+// against open invoices.
+//
+// Coverage forecast — allocation logic (spec, exact algorithm):
+// Walk overdue bills in priority order, maintaining a running "available"
+// pool that starts at the first invoice's remaining_cents.
+//   1. If the pool covers this bill's amount_cents, mark it covered_by that
+//      invoice, subtract the bill's amount from the pool.
+//   2. If the pool runs out mid-bill, advance to the next invoice by due
+//      date and add its remaining_cents to the pool. A bill's coverage
+//      doesn't split across two invoices in the display -- it's attributed
+//      to whichever invoice's money completes it.
+//   3. If no more invoices remain and the bill still isn't covered, it shows
+//      no coverage -- surfaced plainly. That's the real, uncovered overdue
+//      debt this feature exists to catch.
+//
+// Only real generated invoices with a firm due date and open balance count
+// (status IN ('sent','overdue'), remaining_cents > 0, due_at IS NOT NULL) --
+// not speculative future recurrence that hasn't generated a row yet.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// The last real charge for a variable bill.
+//
+// A usage bill's stored amount is an estimate Alice typed at an unknown point;
+// what actually helps her judge what is coming is the amount that really left
+// the account last time. Matched the same way the bill matcher matches -- the
+// learned payer pattern against merchant key OR raw description -- so this
+// never invents a link the matcher itself would not make.
+//
+// Returns null when nothing has ever matched, which the UI renders as the
+// estimate alone rather than as a zero.
+// ---------------------------------------------------------------------------
+
+async function lastRealChargeFor(env, bill) {
+    if (!bill || !bill.payer_match_pattern) { return null; }
+    var row = await env.DB.prepare(
+        "SELECT amount_cents, date FROM transactions " +
+        "WHERE amount_cents < 0 AND is_transfer = 0 " +
+        "AND (merchant_normalized LIKE ? OR description LIKE ?) " +
+        "ORDER BY date DESC LIMIT 1"
+    ).bind("%" + bill.payer_match_pattern + "%", "%" + bill.payer_match_pattern + "%").first();
+    if (!row) { return null; }
+    return { amount_cents: Math.abs(row.amount_cents), date: row.date };
+}
+
+async function handleGetFinanceNewBillsOverdue(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var today = new Date().toISOString().slice(0, 10);
+        var periodKey = currentPeriodKey();
+
+        // Apply the matches the engine is CERTAIN about before deciding what is
+        // overdue. Until now buildBillMatchCandidates only ever proposed: an
+        // "auto" tier match -- learned pattern, exact amount, within days of the
+        // due date -- still required a click on a screen that was collapsed by
+        // default, so a bill that was demonstrably paid sat red indefinitely.
+        // Previdencia Joy was paid 08-11 and still showed overdue on 08-19 for
+        // exactly this reason.
+        //
+        // Only the "auto" tier self-applies. "suggest" still waits for her, and
+        // an ambiguous candidate (two bills sharing merchant, amount and day)
+        // is never auto-applied at all -- see buildBillMatchCandidates.
+        try {
+            var autoMatches = (await buildBillMatchCandidates(env)).filter(function(c) {
+                return c.tier === "auto" && !c.ambiguous;
+            });
+            for (var ai = 0; ai < autoMatches.length; ai++) {
+                var am = autoMatches[ai];
+                await env.DB.prepare(
+                    "INSERT INTO fixed_bill_payments (id, bill_id, period_key, paid_at, " +
+                    "amount_cents, transaction_id, match_type) " +
+                    "VALUES (?, ?, ?, datetime('now'), ?, ?, 'bank_matched') " +
+                    "ON CONFLICT(bill_id, period_key) DO NOTHING"
+                ).bind(crypto.randomUUID(), am.bill_id, periodKey,
+                       Math.abs(am.transaction.amount_cents), am.transaction.id).run();
+            }
+        } catch (e) { /* never let auto-apply break the overdue read */ }
+
+        var billRes = await env.DB.prepare(
+            "SELECT * FROM fixed_bills WHERE active = 1"
+        ).all();
+        var bills = billRes.results || [];
+
+        var paidRes = await env.DB.prepare(
+            "SELECT bill_id FROM fixed_bill_payments WHERE period_key = ?"
+        ).bind(periodKey).all();
+        var paidBillIds = {};
+        (paidRes.results || []).forEach(function(p) { paidBillIds[p.bill_id] = true; });
+
+        // Overdue: due date for this period has passed, and no payment row
+        // exists for this bill this period.
+        //
+        // ⚠️ funding_source != 'bank' is EXCLUDED from overdue entirely.
+        // A charge that lands on a credit card the system cannot see (the
+        // Apple Card: no Plaid institution, no aggregator, FinanceKit is
+        // on-device-only) will NEVER produce a matching bank transaction, so
+        // treating its due date as "overdue, payment missing" is permanently
+        // wrong -- it would sit red forever and eat coverage-forecast dollars
+        // that are not actually owed from the bank. It is still returned to
+        // the UI separately (upcoming_card_charges) so Alice can SEE it
+        // coming and check the card herself. Nicole 2026-08-19: "still show
+        // them... but she has to look at the credit card to make sure that
+        // they get charged there."
+        var overdue = [];
+        var cardCharges = [];
+        bills.forEach(function(b) {
+            var od = daysOverdueFor(b.day_of_month, today);
+            var row = {
+                id: b.id, name: b.name, amount_cents: b.amount_cents,
+                purpose: b.purpose, payment_method: b.payment_method,
+                pay_url: b.pay_url, payee_notes: b.payee_notes,
+                priority_rank: b.priority_rank, day_of_month: b.day_of_month,
+                due_at: od.due_at, days_overdue: od.days_overdue,
+                payer_match_pattern: b.payer_match_pattern,
+                funding_source: b.funding_source || "bank",
+                is_variable: b.is_variable === 1
+            };
+            if (row.funding_source !== "bank") { cardCharges.push(row); return; }
+            if (od.days_overdue > 0 && !paidBillIds[b.id]) { overdue.push(row); }
+        });
+        cardCharges.sort(function(a, b) { return a.day_of_month - b.day_of_month; });
+
+        // For variable bills, attach the last amount that actually left the
+        // account. The estimate alone gives her nothing to judge against --
+        // "$170" could have been written a year ago -- while "$170 estimado ·
+        // ultimo mes $193.89" tells her what is really coming.
+        for (var vi = 0; vi < overdue.length; vi++) {
+            if (overdue[vi].is_variable) {
+                overdue[vi].last_charge = await lastRealChargeFor(env, overdue[vi]);
+            }
+        }
+
+        // Priority order: ranked bills first (by rank), then unranked bills
+        // by day_of_month so a newly added bill isn't silently invisible
+        // before she's ranked it.
+        overdue.sort(function(a, b) {
+            var aR = (a.priority_rank === null || a.priority_rank === undefined) ? null : a.priority_rank;
+            var bR = (b.priority_rank === null || b.priority_rank === undefined) ? null : b.priority_rank;
+            if (aR !== null && bR !== null) { return aR - bR; }
+            if (aR !== null) { return -1; }
+            if (bR !== null) { return 1; }
+            return a.day_of_month - b.day_of_month;
+        });
+
+        // Open invoices: real money already invoiced, firm due date, unpaid
+        // balance. Sorted by due date ascending for the allocation walk.
+        var invRes = await env.DB.prepare(
+            "SELECT i.id, i.client_id, i.amount_cents, i.due_at, c.name AS client_name " +
+            "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id " +
+            "WHERE i.status IN ('sent','overdue') AND i.due_at IS NOT NULL " +
+            "ORDER BY i.due_at ASC"
+        ).all();
+
+        // Split into genuinely future invoices (a real date to plan against)
+        // and ones already overdue themselves. Nicole 2026-08-19: clients
+        // can and do renegotiate due dates when they're struggling to pay
+        // (Alice can push a due date via the due-date-edit feature), so an
+        // overdue invoice's real payment date is UNKNOWN, not just late by
+        // a knowable amount. Treating it as still-scheduled money -- even
+        // with an "is_late" label -- overstated confidence in a number
+        // nobody can actually predict. It no longer counts toward bill
+        // coverage at all; it's reported as its own separate total instead,
+        // per Nicole: "add it as a tag above the list saying $X in overdue
+        // invoices outstanding."
+        var futureInvoices = [];
+        var overdueInvoiceTotal = 0;
+        for (var q = 0; q < (invRes.results || []).length; q++) {
+            var inv = invRes.results[q];
+            var paidCents = await invoicePaidCents(env, inv.id);
+            var remaining = (inv.amount_cents || 0) - paidCents;
+            if (remaining <= 0) { continue; }
+            if (String(inv.due_at) < today) {
+                overdueInvoiceTotal += remaining;
+                continue;
+            }
+            futureInvoices.push({
+                id: inv.id, client_id: inv.client_id, client_name: inv.client_name,
+                due_at: inv.due_at, remaining_cents: remaining, is_scheduled: false
+            });
+        }
+
+        // Active recurrences not yet generated into a real invoice. Nicole
+        // 2026-08-19: "most of the invoices are generated on the due day and
+        // sent that day" -- so requiring a real `invoices` row would exclude
+        // genuinely reliable near-term income right up until the moment it's
+        // already due, which defeats a forecast meant to show her Friday's
+        // money before Friday. Still excludes anything already covered by a
+        // real invoice for that period (the same guard runRecurringInvoices
+        // itself uses), and is labeled is_scheduled so the UI can show it as
+        // a notch less certain than money already invoiced -- the recurrence
+        // could still be edited or deactivated before it actually fires.
+        var recRes = await env.DB.prepare(
+            "SELECT ir.id, ir.client_id, ir.amount_cents, ir.interval_unit, ir.next_due_at, " +
+            "ir.end_after_n, ir.generated_count, ir.last_satisfied_period, c.name AS client_name " +
+            "FROM invoice_recurrence ir LEFT JOIN clients c ON c.id = ir.client_id " +
+            "WHERE ir.active = 1"
+        ).all();
+        for (var r = 0; r < (recRes.results || []).length; r++) {
+            var rec = recRes.results[r];
+            if (rec.end_after_n && rec.generated_count >= rec.end_after_n) { continue; }   // exhausted, about to self-deactivate
+            var vendorAddons = await getActiveVendorAddonsForClient(rec.client_id, env);
+            var recAmount = (rec.amount_cents || 0) + vendorAddons.totalCents;
+            if (!recAmount) { continue; }
+            var recPeriod = periodKeyFor(rec.next_due_at, rec.interval_unit);
+            if (rec.last_satisfied_period === recPeriod) { continue; }   // already covered by a real invoice
+            var alreadyInvoiced = await env.DB.prepare(
+                "SELECT id FROM invoices WHERE client_id = ? AND status != 'voided_mistake' " +
+                "AND (period_key = ? OR (issued_at IS NOT NULL AND substr(issued_at, 1, ?) = ?))"
+            ).bind(rec.client_id, recPeriod, recPeriod.length, recPeriod).first();
+            if (alreadyInvoiced) { continue; }
+            futureInvoices.push({
+                id: rec.id, client_id: rec.client_id, client_name: rec.client_name,
+                due_at: rec.next_due_at, remaining_cents: recAmount, is_scheduled: true
+            });
+        }
+        futureInvoices.sort(function(a, b) { return String(a.due_at) < String(b.due_at) ? -1 : 1; });
+
+        // Allocation walk: cumulative pool across FUTURE invoices only, in
+        // due-date order, bills consumed in priority order. Never splits a
+        // bill's coverage across two invoices in the display.
+        var invIdx = 0;
+        var pool = futureInvoices.length ? futureInvoices[0].remaining_cents : 0;
+        var currentInvoice = futureInvoices.length ? futureInvoices[0] : null;
+
+        overdue.forEach(function(bill) {
+            // Advance through invoices until the pool covers this bill, or
+            // invoices run out.
+            while (currentInvoice && pool < bill.amount_cents && invIdx + 1 < futureInvoices.length) {
+                invIdx += 1;
+                currentInvoice = futureInvoices[invIdx];
+                pool += currentInvoice.remaining_cents;
+            }
+
+            if (currentInvoice && pool >= bill.amount_cents) {
+                bill.covered_by = {
+                    client_name: currentInvoice.client_name,
+                    due_at: currentInvoice.due_at,
+                    invoice_id: currentInvoice.id,
+                    is_scheduled: !!currentInvoice.is_scheduled
+                };
+                pool -= bill.amount_cents;
+            } else {
+                bill.covered_by = null;
+            }
+        });
+
+        // Header note: upcoming invoice income, plain sentence form. Nicole's
+        // worked example: "$4,000 esperado de JM Pools em 05/09 · $1,000
+        // esperado de [cliente] em 07/09". Only genuinely future invoices --
+        // see note above on why overdue ones are reported separately.
+        // is_scheduled marks money from an active recurrence not yet turned
+        // into a real invoice -- reliable (it's set to auto-generate on its
+        // due date), but a notch less certain than an invoice already sent.
+        var upcomingIncome = futureInvoices.map(function(inv) {
+            return {
+                client_name: inv.client_name, amount_cents: inv.remaining_cents,
+                due_at: inv.due_at, is_scheduled: !!inv.is_scheduled
+            };
+        });
+
+        return jsonOk({
+            period_key: periodKey,
+            upcoming_card_charges: cardCharges,
+            overdue_invoices_total_cents: overdueInvoiceTotal,
+            today: today,
+            overdue_bills: overdue,
+            upcoming_income: upcomingIncome
+        });
+    } catch (e) {
+        return jsonErr("Error computing overdue bills: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/category-budgets — alice/rafa/developer only.
+//
+// A monthly SPENDING TARGET for a category, not a bill. No due date, no
+// single transaction that "is" the payment -- fuel, groceries, that kind of
+// variable recurring cost. Tracked as spent-vs-remaining against the
+// category's own transactions this month, not paid/overdue against one
+// expected charge. This is deliberately separate from fixed_bills; see
+// migrations/category_budgets.sql for why.
+//
+// weekly_avg_cents = spent so far / weeks elapsed in the current month
+// (partial weeks count, so day 3 of the month is "week 1" not "week 0" --
+// otherwise the average would be undefined or infinite on day 1).
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewCategoryBudgets(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var budgetRes = await env.DB.prepare(
+            "SELECT cb.id, cb.category_id, cb.monthly_amount_cents, cb.purpose, cb.notes, " +
+            "c.name_pt AS category_name " +
+            "FROM category_budgets cb LEFT JOIN categories c ON c.id = cb.category_id " +
+            "WHERE cb.active = 1"
+        ).all();
+        var budgets = budgetRes.results || [];
+
+        var now = new Date();
+        var dayOfMonth = now.getUTCDate();
+        var daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+        var weeksElapsed = Math.max(1, Math.ceil(dayOfMonth / 7));
+        // Weeks remaining counts the current partial week as still open --
+        // "3 weeks left" on day 22 of a 30-day month should include the
+        // handful of days still in this week, not just the whole ones after
+        // it, since spending in the next few days still counts toward this
+        // week's pace.
+        var weeksRemaining = Math.max(0, Math.ceil((daysInMonth - dayOfMonth) / 7));
+
+        var out = [];
+        for (var i = 0; i < budgets.length; i++) {
+            var b = budgets[i];
+            var spentRow = await env.DB.prepare(
+                "SELECT COALESCE(SUM(-amount_cents), 0) AS spent " +
+                "FROM transactions WHERE category_id = ? AND amount_cents < 0 " +
+                "AND date >= date('now', 'start of month')"
+            ).bind(b.category_id).first();
+            var spentCents = spentRow ? spentRow.spent : 0;
+            var remainingCents = b.monthly_amount_cents - spentCents;   // negative = over budget, shown as-is
+            var weeklyAvgCents = Math.round(spentCents / weeksElapsed);
+
+            // Projection: if spending keeps pace with the average so far,
+            // what does the month end at, and how far over (or under) the
+            // budget does that land. Nicole 2026-08-19: "how much over they
+            // would be if the weekly average continues" -- the whole point
+            // of a budget view is seeing the trend before the money is
+            // already gone, not just a snapshot of what already happened.
+            var projectedSpendCents = spentCents + (weeklyAvgCents * weeksRemaining);
+            var projectedOverCents = projectedSpendCents - b.monthly_amount_cents;   // positive = projected over
+
+            out.push({
+                id: b.id, category_id: b.category_id, category_name: b.category_name,
+                monthly_amount_cents: b.monthly_amount_cents, purpose: b.purpose, notes: b.notes,
+                spent_cents: spentCents, remaining_cents: remainingCents,
+                weekly_avg_cents: weeklyAvgCents,
+                weeks_elapsed: weeksElapsed, weeks_remaining: weeksRemaining,
+                projected_spend_cents: projectedSpendCents,
+                projected_over_cents: projectedOverCents
+            });
+        }
+
+        return jsonOk({ budgets: out });
+    } catch (e) {
+        return jsonErr("Error fetching category budgets: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/category-budgets — alice/rafa/developer only.
+// Body: { update_id?, category_id, monthly_amount_cents, purpose, notes? }
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewCategoryBudget(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.category_id) { return jsonErr("category_id required", 400); }
+        var amount = Number(body.monthly_amount_cents);
+        if (!isFinite(amount) || amount <= 0) { return jsonErr("monthly_amount_cents must be a positive number", 400); }
+        var purpose = body.purpose === "business" ? "business" : "personal";
+
+        if (body.update_id) {
+            await env.DB.prepare(
+                "UPDATE category_budgets SET category_id = ?, monthly_amount_cents = ?, purpose = ?, notes = ? WHERE id = ?"
+            ).bind(body.category_id, Math.round(amount), purpose, body.notes || null, body.update_id).run();
+            return jsonOk({ id: body.update_id, updated: true });
+        }
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO category_budgets (id, category_id, monthly_amount_cents, purpose, notes, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(id, body.category_id, Math.round(amount), purpose, body.notes || null, user.name || user.role).run();
+
+        return jsonOk({ id: id, created: true });
+    } catch (e) {
+        return jsonErr("Error saving category budget: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance-new/bills/priority — alice/rafa/developer only.
+// Body: { order: [bill_id, bill_id, ...] }  (in the new priority order)
+//
+// Rewrites priority_rank for the affected rows only, 1-based by position in
+// the array. Set once via drag-and-drop (or the button fallback), reused
+// every month -- editable any time, never re-derived from scratch.
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceNewBillsPriority(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var order = Array.isArray(body.order) ? body.order : null;
+        if (!order || !order.length) { return jsonErr("order (array of bill_id) required", 400); }
+
+        for (var i = 0; i < order.length; i++) {
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET priority_rank = ? WHERE id = ?"
+            ).bind(i + 1, order[i]).run();
+        }
+
+        return jsonOk({ updated: order.length });
+    } catch (e) {
+        return jsonErr("Error saving priority order: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/:id/mark-paid — alice/rafa/developer only.
+// Body: { amount_cents? }  -- defaults to the bill's own amount_cents.
+//
+// Manual mark-paid, ALWAYS available -- not a fallback state hidden behind a
+// failed auto-match. Alice/Rafa may pay something off-system (credit card,
+// etc.) and this button must never disappear on the assumption bank-matching
+// will always work. Writes match_type: 'manual', transaction_id: NULL --
+// same paid-state as a bank match, only the provenance differs.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillMarkPaid(billId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var bill = await env.DB.prepare(
+            "SELECT id, amount_cents FROM fixed_bills WHERE id = ? AND active = 1"
+        ).bind(billId).first();
+        if (!bill) { return jsonErr("Bill not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var periodKey = currentPeriodKey();
+        var amountCents = isFinite(Number(body.amount_cents)) && Number(body.amount_cents) > 0
+            ? Math.round(Number(body.amount_cents)) : bill.amount_cents;
+
+        // Paid on the credit card instead of from the bank. Nicole
+        // 2026-08-19: when things are tight Alice sometimes has to put a
+        // bill on the card. It still clears the month (so it leaves the
+        // overdue list), but no bank transaction will ever match it.
+        //
+        // `recurring` is the answer to "one time, or from now on?" -- only
+        // the recurring answer flips funding_source, which permanently
+        // removes the bill from bank math and the matcher (same treatment
+        // as Claude). A one-off must NOT change the bill itself, or a single
+        // tight month would silently reclassify it forever.
+        var paidWithCard = body.paid_with_card === true;
+        var matchType = paidWithCard ? "credit_card" : "manual";
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO fixed_bill_payments (id, bill_id, period_key, paid_at, amount_cents, " +
+            "transaction_id, match_type) VALUES (?, ?, ?, datetime('now'), ?, NULL, ?) " +
+            "ON CONFLICT(bill_id, period_key) DO UPDATE SET " +
+            "paid_at = datetime('now'), amount_cents = excluded.amount_cents, " +
+            "transaction_id = NULL, match_type = excluded.match_type"
+        ).bind(id, billId, periodKey, amountCents, matchType).run();
+
+        var nowRecurring = false;
+        if (paidWithCard && body.recurring === true) {
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET funding_source = 'credit_card' WHERE id = ?"
+            ).bind(billId).run();
+            nowRecurring = true;
+        }
+
+        return jsonOk({ paid: true, period_key: periodKey, paid_with_card: paidWithCard, now_on_card: nowRecurring });
+    } catch (e) {
+        return jsonErr("Error marking bill paid: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/:id/cancel — alice/rafa/developer only.
+//
+// "I cancelled this service." Distinct from Remover, which reads as delete
+// and tells you nothing about WHY the bill stopped. Nicole 2026-08-19.
+//
+// Deactivates the bill and stamps cancelled_at, so the row survives as
+// history -- a cancelled subscription that shows up on the card two months
+// later is a real thing to be able to look up, and a deleted row cannot
+// answer that.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillCancel(billId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var bill = await env.DB.prepare(
+            "SELECT id FROM fixed_bills WHERE id = ? AND active = 1"
+        ).bind(billId).first();
+        if (!bill) { return jsonErr("Bill not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE fixed_bills SET active = 0, cancelled_at = datetime('now') WHERE id = ?"
+        ).bind(billId).run();
+
+        return jsonOk({ cancelled: true });
+    } catch (e) {
+        return jsonErr("Error cancelling bill: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/:id/unmark-paid — alice/rafa/developer only.
+//
+// Undo, for a mis-click or a mistaken bank match. Mirrors the "sticky-note,
+// never an accounting event" reversibility already established for invoice
+// mark-paid (handlePostFinanceNewInvoiceUnclaimPaid).
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillUnmarkPaid(billId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var periodKey = currentPeriodKey();
+        await env.DB.prepare(
+            "DELETE FROM fixed_bill_payments WHERE bill_id = ? AND period_key = ?"
+        ).bind(billId, periodKey).run();
+
+        return jsonOk({ unmarked: true });
+    } catch (e) {
+        return jsonErr("Error unmarking bill: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Bank-matching for bill payments -- the OUTGOING mirror of
+// buildMatchCandidates (deposits -> invoices). Suggest-only: never writes
+// fixed_bill_payments without her confirming, same house pattern as deposit
+// matching and client_payer_aliases.
+//
+// Match on: exact amount_cents (negative, outgoing) · date within a few days
+// of the bill's day_of_month for the current period · payer_match_pattern if
+// already known, else a suggest-only fuzzy pass on merchant_normalized
+// against the bill name.
+//
+// First confirmed match for a bill writes fixed_bills.payer_match_pattern,
+// same learn-once-reuse-forever shape as client_payer_aliases.
+// ---------------------------------------------------------------------------
+
+async function buildBillMatchCandidates(env) {
+    var today = new Date().toISOString().slice(0, 10);
+    var periodKey = currentPeriodKey();
+
+    // funding_source != 'bank' can never produce a bank transaction to match
+    // against (see the note in handleGetFinanceNewBillsOverdue), so proposing
+    // matches for it would only ever produce false positives against some
+    // unrelated debit of a similar amount.
+    var billRes = await env.DB.prepare(
+        "SELECT * FROM fixed_bills WHERE active = 1 AND COALESCE(funding_source, 'bank') = 'bank'"
+    ).all();
+    var bills = billRes.results || [];
+
+    var paidRes = await env.DB.prepare(
+        "SELECT bill_id FROM fixed_bill_payments WHERE period_key = ?"
+    ).bind(periodKey).all();
+    var paidBillIds = {};
+    (paidRes.results || []).forEach(function(p) { paidBillIds[p.bill_id] = true; });
+
+    // Outgoing, non-transfer transactions in the last 45 days, not already
+    // matched to a bill this period.
+    var txnRes = await env.DB.prepare(
+        "SELECT t.id, t.amount_cents, t.date, t.description, t.merchant_normalized " +
+        "FROM transactions t " +
+        "WHERE t.amount_cents < 0 AND t.is_transfer = 0 " +
+        "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+        "AND t.id NOT IN (SELECT transaction_id FROM fixed_bill_payments WHERE transaction_id IS NOT NULL) " +
+        "AND t.date >= date('now', '-45 day')"
+    ).all();
+    var txns = txnRes.results || [];
+
+    var out = [];
+    bills.forEach(function(bill) {
+        if (paidBillIds[bill.id]) { return; }   // already paid this period
+
+        var dueInfo = daysOverdueFor(bill.day_of_month, today);
+
+        txns.forEach(function(txn) {
+            var amountMatches = Math.abs(txn.amount_cents) === bill.amount_cents;
+            if (!amountMatches) { return; }
+
+            // Date proximity: within 5 days of this period's due date --
+            // autopay can fire a couple days early or a bill can be paid a
+            // little late and still clearly be THIS month's instance.
+            var dayDiff = Math.abs(Math.round(
+                (Date.parse(txn.date + "T00:00:00Z") - Date.parse(dueInfo.due_at + "T00:00:00Z")) / 86400000
+            ));
+            if (dayDiff > 5) { return; }
+
+            // A learned pattern matches when it is CONTAINED in the merchant
+            // key, not only when the two are byte-identical. Exact equality
+            // failed for every biller whose bank description carries a
+            // per-payment id: "DUKEENERGY" never equals "DUKEENERGY RETRY PYMT
+            // XXXXX WEB USER PRATA SANTOS DEFJPM WEB", so a bill that had been
+            // matched once STILL went unrecognised the next month and showed
+            // as overdue after she had already paid it. The stored pattern is
+            // the stable leading part of the merchant, so containment is the
+            // correct test. Amount equality and date proximity already gate
+            // every candidate above, so this cannot widen matching to an
+            // unrelated debit.
+            // Check the RAW description as well as the merchant key. A policy
+            // code like LS2223888 lives only in the description -- normalizeMerchant
+            // strips digits, so merchant_normalized is the bare "LIFE INS OF SW"
+            // for all three children. Matching the merchant key alone meant a
+            // policy code could be stored on a bill and still never match
+            // anything, leaving a paid bill sitting red.
+            var patternMatch = !!bill.payer_match_pattern && (
+                (!!txn.merchant_normalized && txn.merchant_normalized.indexOf(bill.payer_match_pattern) !== -1) ||
+                (!!txn.description && txn.description.indexOf(bill.payer_match_pattern) !== -1)
+            );
+            // Fuzzy fallback when no learned pattern yet: the bill's own name
+            // appears in the normalized merchant text.
+            var fuzzyMatch = !bill.payer_match_pattern && txn.merchant_normalized &&
+                normalizeMerchant(bill.name).length > 0 &&
+                txn.merchant_normalized.indexOf(normalizeMerchant(bill.name).split(" ")[0]) !== -1;
+
+            if (!patternMatch && !fuzzyMatch) { return; }
+
+            // IDENTITY IS (merchant + amount + due day), NOT merchant alone.
+            //
+            // What the bank actually sends for an App Store charge, verified
+            // across six real transactions in two months:
+            //
+            //     CHECKCARD 08/18 APPLE.COM/BILL XXXXX27753
+            //
+            // That string is BYTE-IDENTICAL for iCloud, ChatGPT Plus and the
+            // Instagram certificate. Plaid's merchant_name is the bare word
+            // "Apple" and the category is ENTERTAINMENT_OTHER_ENTERTAINMENT on
+            // all of them. The product name exists only in OUR bill labels --
+            // people wrote those; the feed has never carried them. So merchant
+            // text can never separate these three, and any future attempt to
+            // read a product name out of the description will fail.
+            //
+            // Amount does separate them today ($9.99 / $14.99 / $19.99), but
+            // amount ALONE is fragile: those are the most common subscription
+            // prices there are, and the day another $9.99 service is added it
+            // would silently attach to the iCloud bill. So the due day guards
+            // it. A wrong match now needs the same merchant, the same price AND
+            // the same billing day -- and if that ever happens the sibling
+            // check below catches it and downgrades to a suggestion.
+            //
+            // A shared-merchant bill therefore gets a TIGHTER date window than
+            // the +/-5 days used generally: these three sit on days 7, 10 and
+            // 18, so a +/-5 window would let the day-7 and day-10 bills overlap.
+            var sharesMerchant = bills.some(function(other) {
+                if (other.id === bill.id || paidBillIds[other.id]) { return false; }
+                var otherKey = other.payer_match_pattern ||
+                    (normalizeMerchant(other.name).split(" ")[0] || " ");
+                return txn.merchant_normalized && otherKey.length > 1 &&
+                    txn.merchant_normalized.indexOf(otherKey) !== -1;
+            });
+            if (sharesMerchant && dayDiff > 2) { return; }
+
+            // Genuinely undecidable: two ACTIVE bills sharing merchant, amount
+            // AND billing day -- the three $50 "Previdencia" policies at LIFE
+            // INS OF SW. Nothing in the feed distinguishes those, so they are
+            // offered for her to pick, never auto-confirmed onto whichever row
+            // happened to be iterated first.
+            var siblings = bills.filter(function(other) {
+                if (other.id === bill.id) { return false; }
+                if (other.amount_cents !== bill.amount_cents) { return false; }
+                if (paidBillIds[other.id]) { return false; }
+                var otherKey = other.payer_match_pattern ||
+                    (normalizeMerchant(other.name).split(" ")[0] || " ");
+                if (!txn.merchant_normalized || txn.merchant_normalized.indexOf(otherKey) === -1) { return false; }
+                // Only a genuine rival if its OWN due day is also close to this
+                // transaction; otherwise it was never a candidate for it.
+                var otherDue = daysOverdueFor(other.day_of_month, today);
+                var otherDiff = Math.abs(Math.round(
+                    (Date.parse(txn.date + "T00:00:00Z") - Date.parse(otherDue.due_at + "T00:00:00Z")) / 86400000
+                ));
+                return otherDiff <= 2;
+            });
+            var ambiguous = siblings.length > 0;
+
+            out.push({
+                bill_id: bill.id, bill_name: bill.name, amount_cents: bill.amount_cents,
+                transaction: txn,
+                tier: (patternMatch && !ambiguous) ? "auto" : "suggest",
+                via_pattern: !!patternMatch, days: dayDiff,
+                ambiguous: ambiguous,
+                ambiguous_with: siblings.map(function(s) { return s.name; })
+            });
+        });
+    });
+
+    return out;
+}
+
+async function handleGetFinanceNewBillMatches(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var candidates = await buildBillMatchCandidates(env);
+        return jsonOk({ matches: candidates });
+    } catch (e) {
+        return jsonErr("Error building bill matches: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/matches/approve — alice/rafa/developer only.
+// Body: { bill_id, transaction_id }
+//
+// One-click confirm on a SUGGESTED match -- never a blind auto-write. Writes
+// fixed_bill_payments (match_type: 'bank_matched') and, on first confirmation
+// for this bill, learns payer_match_pattern from the transaction's
+// merchant_normalized so future months match without her.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillMatchApprove(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.bill_id || !body.transaction_id) { return jsonErr("bill_id and transaction_id required", 400); }
+
+        var bill = await env.DB.prepare(
+            "SELECT id, amount_cents, payer_match_pattern FROM fixed_bills WHERE id = ? AND active = 1"
+        ).bind(body.bill_id).first();
+        if (!bill) { return jsonErr("Bill not found", 404); }
+
+        var txn = await env.DB.prepare(
+            "SELECT id, amount_cents, merchant_normalized FROM transactions WHERE id = ?"
+        ).bind(body.transaction_id).first();
+        if (!txn) { return jsonErr("Transaction not found", 404); }
+
+        var periodKey = currentPeriodKey();
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO fixed_bill_payments (id, bill_id, period_key, paid_at, amount_cents, " +
+            "transaction_id, match_type) VALUES (?, ?, ?, datetime('now'), ?, ?, 'bank_matched') " +
+            "ON CONFLICT(bill_id, period_key) DO UPDATE SET " +
+            "paid_at = datetime('now'), amount_cents = excluded.amount_cents, " +
+            "transaction_id = excluded.transaction_id, match_type = 'bank_matched'"
+        ).bind(id, body.bill_id, periodKey, Math.abs(txn.amount_cents), body.transaction_id).run();
+
+        // Learn-once: first confirmation for this bill sets its match
+        // pattern so future months match automatically, same shape as
+        // client_payer_aliases.
+        if (!bill.payer_match_pattern && txn.merchant_normalized) {
+            await env.DB.prepare(
+                "UPDATE fixed_bills SET payer_match_pattern = ? WHERE id = ?"
+            ).bind(txn.merchant_normalized, body.bill_id).run();
+        }
+
+        return jsonOk({ matched: true, period_key: periodKey });
+    } catch (e) {
+        return jsonErr("Error approving bill match: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/bills/name-policy — alice/rafa/developer only.
+// Body: { bill_id, policy_code }
+//
+// Names a policy WITHOUT marking anything paid. The match-approve route also
+// learns a pattern, but only as a side effect of confirming a payment, and it
+// requires a transaction id -- wrong shape here: she is telling us whose
+// policy a code belongs to, which is an identity fact, not a payment.
+//
+// Why this is worth its own route at all: three children's policies bill $50
+// each at the same insurer on nearby days, so amount, merchant and date all
+// fail to separate them. The bank DOES send a stable code per policy (after
+// "PMT INFO:"), and normalizeMerchant strips digits so it never reaches
+// merchant_normalized. Writing the code here is what makes every future month
+// match exactly instead of guessing onto some child's row.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewBillNamePolicy(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.bill_id || !body.policy_code) { return jsonErr("bill_id and policy_code required", 400); }
+
+        // The code must be one the feed actually carries, so a typo cannot
+        // write a pattern that will never match anything.
+        var seen = await env.DB.prepare(
+            "SELECT 1 AS ok FROM transactions WHERE description LIKE ? AND amount_cents < 0 LIMIT 1"
+        ).bind("%PMT INFO:" + body.policy_code + "%").first();
+        if (!seen) { return jsonErr("That policy code does not appear in any transaction", 400); }
+
+        // One code belongs to exactly one bill. Reassigning it moves it rather
+        // than silently living on two rows, which would resurrect the ambiguity
+        // this whole route exists to remove.
+        await env.DB.prepare(
+            "UPDATE fixed_bills SET payer_match_pattern = NULL WHERE payer_match_pattern = ? AND id != ?"
+        ).bind(body.policy_code, body.bill_id).run();
+
+        var res = await env.DB.prepare(
+            "UPDATE fixed_bills SET payer_match_pattern = ? WHERE id = ? AND active = 1"
+        ).bind(body.policy_code, body.bill_id).run();
+
+        if (!res.meta || res.meta.changes === 0) { return jsonErr("Bill not found", 404); }
+        return jsonOk({ named: true, bill_id: body.bill_id, policy_code: body.policy_code });
+    } catch (e) {
+        return jsonErr("Error naming policy: " + e.message, 500);
     }
 }
 
@@ -21206,13 +22522,22 @@ async function handleGetFinanceNewBillSuggestions(request, env) {
             "AND t.date >= date('now', '-180 day')"
         ).all();
 
-        // Anything already tracked is not a suggestion. Matched on name so a
-        // bill she typed by hand still suppresses the prompt for it.
+        // Anything already tracked is not a suggestion. Matched on BOTH the
+        // bill's display name AND its learned payer_match_pattern -- name
+        // alone misses every bill she renamed to something human-friendly
+        // ("Celular - Edinho") whose underlying merchant key is the raw
+        // transaction text ("ZELLE PAYMENT TO EDINHO LAGOINHA"). Found live
+        // 2026-08-19: exactly that case kept re-suggesting a bill that was
+        // already tracked under a different name, which would have created
+        // a second fixed_bills row for the same real payment if accepted.
         var existing = await env.DB.prepare(
-            "SELECT UPPER(name) AS n FROM fixed_bills WHERE active = 1"
+            "SELECT UPPER(name) AS n, UPPER(payer_match_pattern) AS p FROM fixed_bills WHERE active = 1"
         ).all();
         var taken = {};
-        (existing.results || []).forEach(function(b) { taken[b.n] = true; });
+        (existing.results || []).forEach(function(b) {
+            taken[b.n] = true;
+            if (b.p) { taken[b.p] = true; }
+        });
 
         var groups = {};
         (rows.results || []).forEach(function(r) {
@@ -22797,6 +24122,80 @@ async function handleGetFinanceNewAttention(request, env) {
         // ratio answers "how much did it do for me", not "how much is left".
         var everConsidered = uncategorized + handledByRules + handledManually;
 
+        // 4. Policy references the bank DOES send but nobody has named yet.
+        //
+        //    Every "LIFE INS OF SW" debit carries a stable policy id in its
+        //    description, after "PMT INFO:" -- LS2223888, LS1587640, LS1586026.
+        //    The same policy shows the same code in consecutive months (07-13
+        //    and 08-11 are both LS2223888), so it identifies the POLICY, unlike
+        //    the "ID:" field beside it which changes every single payment.
+        //
+        //    This matters because the three children's Previdencia bills are
+        //    $50 each on similar days: amount, merchant and date cannot tell
+        //    them apart, and matching would otherwise be a coin flip onto some
+        //    child's row. The policy code separates them perfectly -- the only
+        //    missing piece is which code belongs to which child, which only
+        //    Alice knows.
+        //
+        //    normalizeMerchant() strips digits, so this code is invisible in
+        //    merchant_normalized and has to be read from the raw description.
+        var policyRows = await env.DB.prepare(
+            "SELECT DISTINCT description FROM transactions " +
+            "WHERE description LIKE '%PMT INFO:%' AND amount_cents < 0"
+        ).all();
+        var seenPolicies = {};
+        (policyRows.results || []).forEach(function(r) {
+            var m = /PMT INFO:([A-Z0-9]+)/.exec(r.description || "");
+            // Reject anything the bank masked. A code that is all X's is
+            // obviously masked, but so is XXXXX1200 -- the $45.32 debit -- and
+            // an earlier version of this let that through and would have asked
+            // her to name a reference that does not exist. Any X at all means
+            // the real code is not in the feed.
+            if (m && m[1] && m[1].indexOf("X") === -1) { seenPolicies[m[1]] = true; }
+        });
+        var claimedRes = await env.DB.prepare(
+            "SELECT payer_match_pattern AS p FROM fixed_bills " +
+            "WHERE active = 1 AND payer_match_pattern IS NOT NULL"
+        ).all();
+        var claimed = {};
+        (claimedRes.results || []).forEach(function(r) { claimed[r.p] = true; });
+        var unnamedPolicies = Object.keys(seenPolicies).filter(function(code) {
+            return !claimed[code];
+        });
+
+        //    A LIKELY owner for each code, from the due date. Every one of
+        //    these debits posts one to two days after its bill's due day, and
+        //    the days are far enough apart (10, 21, 25) that the nearest bill
+        //    is unambiguous. This is inference, not something the bank states,
+        //    so it is returned as a SUGGESTION the UI pre-selects and she
+        //    confirms -- never written on her behalf.
+        var policyGuess = {};
+        if (unnamedPolicies.length) {
+            var candRes = await env.DB.prepare(
+                "SELECT id, name, day_of_month FROM fixed_bills " +
+                "WHERE active = 1 AND payer_match_pattern IS NULL AND " +
+                "(name LIKE 'Previdencia%' OR name LIKE 'Seguro de Vida%')"
+            ).all();
+            var cands = candRes.results || [];
+            for (var pi = 0; pi < unnamedPolicies.length; pi++) {
+                var code = unnamedPolicies[pi];
+                var dayRes = await env.DB.prepare(
+                    "SELECT date FROM transactions WHERE description LIKE ? " +
+                    "AND amount_cents < 0 ORDER BY date DESC LIMIT 1"
+                ).bind("%PMT INFO:" + code + "%").first();
+                if (!dayRes || !dayRes.date) { continue; }
+                var chargedDay = parseInt(dayRes.date.slice(8, 10), 10);
+                var best = null, bestGap = 99;
+                for (var ci = 0; ci < cands.length; ci++) {
+                    // Charges land ON or AFTER the due day, so only look forward.
+                    var gap = chargedDay - cands[ci].day_of_month;
+                    if (gap < 0 || gap > 4) { continue; }
+                    if (gap < bestGap) { bestGap = gap; best = cands[ci]; }
+                }
+                if (best) { policyGuess[code] = { bill_id: best.id, bill_name: best.name, days_after_due: bestGap }; }
+            }
+        }
+
         return jsonOk({
             matches: {
                 count: actionable.length,
@@ -22804,11 +24203,12 @@ async function handleGetFinanceNewAttention(request, env) {
             },
             uncategorized: { count: uncategorized },
             missing_terms: { count: missingTerms },
+            unnamed_policies: { count: unnamedPolicies.length, codes: unnamedPolicies, guess: policyGuess },
             rules_handled: {
                 count: handledByRules,
                 of: everConsidered
             },
-            total: actionable.length + uncategorized + missingTerms
+            total: actionable.length + uncategorized + missingTerms + unnamedPolicies.length
         });
     } catch (e) {
         return jsonErr("Error building attention queue: " + e.message, 500);
@@ -23011,6 +24411,7 @@ async function handleGetFinanceNewInvoices(request, env) {
         var sql =
             "SELECT i.id, i.client_id, i.number, i.amount_cents, i.issued_at, i.due_at, i.status, " +
             "i.sent_at, i.paid_at, i.voided_reason, i.voided_by, i.voided_at, i.source, i.created_at, " +
+            "i.claimed_paid_at, i.claimed_paid_by, i.claimed_paid_note, " +
             "c.name AS client_name, c.whatsapp AS client_whatsapp " +
             "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ";
         if (!includeVoided) { sql += "WHERE i.status != 'voided_mistake' "; }
@@ -23239,6 +24640,216 @@ async function handlePostFinanceNewInvoiceMarkSent(invoiceId, request, env) {
         return jsonOk({ id: invoiceId, status: "sent" });
     } catch (e) {
         return jsonErr("Error marking invoice sent: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/mark-paid-manual — admin only.
+// Body: { note }
+//
+// WHY THIS EXISTS: found live 2026-08-17. JM Luxury Pools' $4,000 deposit
+// already shows in Apex's account TOTAL (Plaid's /accounts/balance/get call
+// is near-real-time) but had no row in /transactions/sync yet -- that is a
+// separate, slower Plaid pipeline, and a large or very recent deposit can lag
+// behind the balance by hours.
+//
+// THIS IS A STICKY NOTE, NOT AN ACCOUNTING EVENT. Nicole's call 2026-08-17,
+// reworked from the first version: it does NOT touch status and does NOT
+// write to invoice_payments. It only stamps claimed_paid_at/by/note on the
+// invoice row, purely so the UI can show "Alice believes this is paid" next
+// to the real status. The invoice stays 'sent', keeps counting toward
+// outstanding, and stays a candidate for buildMatchCandidates -- it becomes
+// OFFICIALLY paid only when the real transaction syncs in and gets matched
+// through the normal approve flow. A wrong claim here never moves a number
+// anywhere else on the page.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceMarkPaidManual(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var note = (body.note || "").trim();
+        if (!note) {
+            return jsonErr("note is required -- say how you confirmed this payment (e.g. seen in the BofA app, sync hasn't caught it yet)", 400);
+        }
+
+        var inv = await env.DB.prepare("SELECT id, status FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status !== "sent") {
+            return jsonErr("Only a sent invoice can be tagged this way. This one is " + inv.status + ".", 400);
+        }
+
+        await env.DB.prepare(
+            "UPDATE invoices SET claimed_paid_at = datetime('now'), claimed_paid_by = ?, claimed_paid_note = ? WHERE id = ?"
+        ).bind(actorName(user), note, invoiceId).run();
+
+        return jsonOk({ id: invoiceId, claimed_paid: true });
+    } catch (e) {
+        return jsonErr("Error tagging invoice: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/unclaim-paid — admin only.
+// Clears the tag above. Needed for the obvious case: she tags it, then
+// notices it was actually a different deposit, or the real match lands and
+// she wants the sticky note gone even though the invoice is now genuinely
+// 'paid' through the normal flow.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceUnclaimPaid(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var inv = await env.DB.prepare("SELECT id FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE invoices SET claimed_paid_at = NULL, claimed_paid_by = NULL, claimed_paid_note = NULL WHERE id = ?"
+        ).bind(invoiceId).run();
+
+        return jsonOk({ id: invoiceId, claimed_paid: false });
+    } catch (e) {
+        return jsonErr("Error clearing tag: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/due-date — admin only.
+// Body: { due_at, reason }
+//
+// WHY THIS EXISTS: clients ask for more time after an invoice is already
+// sent. There was no edit path at all -- due_at was writable only at
+// creation. reason is required for the same audit reason as note above on
+// the manual-paid route: a due-date push with no stated reason is exactly
+// the kind of quiet drift that erodes trust in the numbers later.
+//
+// Only 'sent' invoices can be pushed -- a draft's due date is edited by
+// discarding and remaking it, and paid/void/voided_mistake invoices have no
+// live due date left to argue about.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceDueDate(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var dueAt = (body.due_at || "").trim();
+        var reason = (body.reason || "").trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dueAt)) {
+            return jsonErr("due_at is required, format YYYY-MM-DD", 400);
+        }
+        if (!reason) {
+            return jsonErr("reason is required -- say why the date is changing (e.g. client asked for two more weeks)", 400);
+        }
+
+        var inv = await env.DB.prepare("SELECT id, status, due_at FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status !== "sent") {
+            return jsonErr("Only a sent invoice's due date can be changed here. This one is " + inv.status + ".", 400);
+        }
+
+        var actor = actorName(user);
+
+        // The full history, so a habit is visible over time -- not just
+        // whether THIS invoice was ever pushed. due_date_changed_at/by/reason
+        // on invoices stay in sync too: they are the cheap "last change, no
+        // join" read every invoice-list load already uses.
+        await env.DB.batch([
+            env.DB.prepare(
+                "INSERT INTO invoice_due_date_changes (id, invoice_id, old_due_at, new_due_at, reason, changed_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), invoiceId, inv.due_at || null, dueAt, reason, actor),
+            env.DB.prepare(
+                "UPDATE invoices SET due_at = ?, due_date_changed_at = datetime('now'), " +
+                "due_date_changed_by = ?, due_date_change_reason = ? WHERE id = ?"
+            ).bind(dueAt, actor, reason, invoiceId)
+        ]);
+
+        return jsonOk({ id: invoiceId, due_at: dueAt });
+    } catch (e) {
+        return jsonErr("Error changing due date: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/invoices/:id/due-date-history — admin only.
+// Full change log for one invoice, newest first.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewInvoiceDueDateHistory(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, old_due_at, new_due_at, reason, changed_by, changed_at " +
+            "FROM invoice_due_date_changes WHERE invoice_id = ? ORDER BY changed_at DESC"
+        ).bind(invoiceId).all();
+
+        return jsonOk({ changes: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching due date history: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/due-date-changes?days=90 — admin only.
+//
+// The HABIT view, across every client, not just one invoice. Groups by
+// client so a pattern ("this client always asks for two more weeks") is
+// visible at a glance rather than buried in per-invoice history nobody
+// opens unprompted.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewDueDateChanges(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var days = parseInt(url.searchParams.get("days"), 10);
+        if (!Number.isFinite(days) || days <= 0) { days = 90; }
+
+        var res = await env.DB.prepare(
+            "SELECT ddc.id, ddc.invoice_id, ddc.old_due_at, ddc.new_due_at, ddc.reason, " +
+            "ddc.changed_by, ddc.changed_at, i.number AS invoice_number, i.client_id, " +
+            "c.name AS client_name " +
+            "FROM invoice_due_date_changes ddc " +
+            "JOIN invoices i ON i.id = ddc.invoice_id " +
+            "LEFT JOIN clients c ON c.id = i.client_id " +
+            "WHERE ddc.changed_at >= datetime('now', ?) " +
+            "ORDER BY ddc.changed_at DESC"
+        ).bind("-" + days + " day").all();
+
+        var rows = res.results || [];
+
+        // Per-client counts so a repeat pattern is visible without scanning
+        // the raw list by eye.
+        var byClient = {};
+        rows.forEach(function(r) {
+            var key = r.client_id || "unknown";
+            if (!byClient[key]) {
+                byClient[key] = { client_id: r.client_id, client_name: r.client_name, count: 0 };
+            }
+            byClient[key].count++;
+        });
+
+        return jsonOk({
+            changes: rows,
+            by_client: Object.values(byClient).sort(function(a, b) { return b.count - a.count; })
+        });
+    } catch (e) {
+        return jsonErr("Error fetching due date changes: " + e.message, 500);
     }
 }
 
@@ -23655,7 +25266,7 @@ async function handlePostFinanceNewMatchApprove(request, env) {
                 "SELECT id, client_id, amount_cents, status FROM invoices WHERE id = ?"
             ).bind(m.invoice_id).first();
             var txn = await env.DB.prepare(
-                "SELECT id, amount_cents, merchant_normalized FROM transactions WHERE id = ?"
+                "SELECT id, amount_cents, merchant_normalized, date FROM transactions WHERE id = ?"
             ).bind(m.transaction_id).first();
             if (!inv || !txn) { continue; }
             if (inv.status !== "sent") {
@@ -23695,9 +25306,19 @@ async function handlePostFinanceNewMatchApprove(request, env) {
             var fullyPaid  = coveredNow >= (inv.amount_cents || 0);
 
             if (fullyPaid) {
+                // paid_at is WHEN THE MONEY ARRIVED, not when someone got round
+                // to confirming it. datetime('now') recorded the approval click:
+                // JM Luxury Pools paid on 08-17 and the invoice read 08-19,
+                // because that is when the match was approved. Every
+                // days-to-pay figure built on paid_at would inherit that lag and
+                // make clients look slower than they are.
+                //
+                // The transaction date is the bank's own date for the deposit.
+                // Falls back to now only when a payment is recorded with no
+                // transaction behind it.
                 await env.DB.prepare(
-                    "UPDATE invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?"
-                ).bind(inv.id).run();
+                    "UPDATE invoices SET status = 'paid', paid_at = COALESCE(?, datetime('now')) WHERE id = ?"
+                ).bind(txn.date || null, inv.id).run();
             }
 
             // Learn the payer. The deposit says BRAZILIAN INC, the invoice
@@ -25164,6 +26785,514 @@ async function handleGetSchedulingClientState(request, env) {
 // period, which also covers invoices created outside the collision modal.
 // ---------------------------------------------------------------------------
 
+// ===========================================================================
+// VENDORS — third-party vendors (marketing, accounting, etc.) who service
+// specific Apex clients as a paid add-on riding on the client's regular
+// invoice. See apex-vendors-spec.md in the Nicole Second Brain vault for the
+// full decision record. alice/rafa/developer only throughout, same gate as
+// package-terms and every other finance-new route.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/vendors — list all active vendors, each with
+// its attached clients (amount, or "amount pending" when NULL) and the
+// derived "what Apex currently owes this vendor" total.
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewVendors(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var vendorsRes = await env.DB.prepare(
+            "SELECT id, name, vendor_type, contact_name, contact_email, contact_phone, " +
+            "payment_method, payment_identifier, info_complete, notes, active, created_at " +
+            "FROM vendors WHERE active = 1 ORDER BY name"
+        ).all();
+
+        var termsRes = await env.DB.prepare(
+            "SELECT cvt.id, cvt.client_id, cvt.vendor_id, cvt.vendor_amount_cents, cvt.markup_cents, " +
+            "cvt.label, cvt.service_note, cvt.recurrence_unit, cvt.recurrence_interval, cvt.active, " +
+            "c.name AS client_name " +
+            "FROM client_vendor_terms cvt JOIN clients c ON c.id = cvt.client_id " +
+            "WHERE cvt.active = 1 ORDER BY c.name"
+        ).all();
+
+        var byVendor = {};
+        (termsRes.results || []).forEach(function(row) {
+            if (!byVendor[row.vendor_id]) { byVendor[row.vendor_id] = []; }
+            var total = (row.vendor_amount_cents === null || row.vendor_amount_cents === undefined)
+                ? null
+                : (row.vendor_amount_cents + (row.markup_cents || 0));
+            byVendor[row.vendor_id].push({
+                id: row.id,
+                client_id: row.client_id,
+                client_name: row.client_name,
+                vendor_amount_cents: row.vendor_amount_cents,   // null = amount pending
+                markup_cents: row.markup_cents || 0,
+                client_total_cents: total,                      // null when amount pending
+                label: row.label,
+                service_note: row.service_note,
+                recurrence_unit: row.recurrence_unit,
+                recurrence_interval: row.recurrence_interval
+            });
+        });
+
+        var vendors = (vendorsRes.results || []).map(function(v) {
+            var clients = byVendor[v.id] || [];
+            var owedCents = clients.reduce(function(sum, c) {
+                return sum + (c.vendor_amount_cents || 0);   // markup is Apex revenue, not owed to the vendor
+            }, 0);
+            return {
+                id: v.id,
+                name: v.name,
+                vendor_type: v.vendor_type,
+                contact_name: v.contact_name,
+                contact_email: v.contact_email,
+                contact_phone: v.contact_phone,
+                payment_method: v.payment_method,
+                payment_identifier: v.payment_identifier,
+                info_complete: !!v.info_complete,
+                notes: v.notes,
+                created_at: v.created_at,
+                clients: clients,
+                owed_cents: owedCents
+            };
+        });
+
+        return jsonOk({ vendors: vendors });
+    } catch (e) {
+        return jsonErr("Error fetching vendors: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/vendors — create a vendor.
+// Body: { name, vendor_type?, contact_name?, contact_email?, contact_phone?,
+//         payment_method?, payment_identifier?, notes? }
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewVendor(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var name = String(body.name || "").trim();
+        if (!name) { return jsonErr("name required", 400); }
+
+        var paymentMethod = body.payment_method || null;
+        if (paymentMethod && ["zelle", "check", "ach", "other"].indexOf(paymentMethod) === -1) {
+            return jsonErr("payment_method must be 'zelle', 'check', 'ach', 'other', or null", 400);
+        }
+
+        var id = crypto.randomUUID();
+        var infoComplete = vendorInfoIsComplete({
+            vendor_type: body.vendor_type,
+            contact_name: body.contact_name,
+            payment_method: paymentMethod,
+            payment_identifier: body.payment_identifier
+        });
+
+        await env.DB.prepare(
+            "INSERT INTO vendors (id, name, vendor_type, contact_name, contact_email, contact_phone, " +
+            "payment_method, payment_identifier, info_complete, notes, active) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)"
+        ).bind(
+            id, name,
+            String(body.vendor_type || "").trim() || null,
+            String(body.contact_name || "").trim() || null,
+            String(body.contact_email || "").trim() || null,
+            String(body.contact_phone || "").trim() || null,
+            paymentMethod,
+            String(body.payment_identifier || "").trim() || null,
+            infoComplete ? 1 : 0,
+            String(body.notes || "").trim() || null
+        ).run();
+
+        return jsonOk({ id: id, name: name });
+    } catch (e) {
+        return jsonErr("Error creating vendor: " + e.message, 500);
+    }
+}
+
+// Required-vs-optional split for the completion modal: vendor_type, a way to
+// reach them (contact_name), and enough payment info to actually pay them
+// (payment_method + payment_identifier) are required. contact_email/phone/
+// notes are optional detail, not blockers -- a UI-detail call left open by
+// the spec, decided here so info_complete has one consistent definition
+// everywhere it's computed (vendor create, vendor edit, completion modal).
+function vendorInfoIsComplete(v) {
+    return !!(
+        (v.vendor_type && String(v.vendor_type).trim()) &&
+        (v.contact_name && String(v.contact_name).trim()) &&
+        (v.payment_method && String(v.payment_method).trim()) &&
+        (v.payment_identifier && String(v.payment_identifier).trim())
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance-new/vendors/:id — edit vendor info. Used both by
+// the Vendors admin page's edit form and by the skippable completion modal
+// -- the modal is just this same route with a narrower form, so
+// info_complete is always recomputed the same way regardless of caller.
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceNewVendor(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id, name FROM vendors WHERE id = ?").bind(id).first();
+        if (!existing) { return jsonErr("Vendor not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var name = (body.name !== undefined) ? String(body.name || "").trim() : existing.name;
+        if (!name) { return jsonErr("name required", 400); }
+
+        var paymentMethod = (body.payment_method !== undefined) ? (body.payment_method || null) : undefined;
+        if (paymentMethod && ["zelle", "check", "ach", "other"].indexOf(paymentMethod) === -1) {
+            return jsonErr("payment_method must be 'zelle', 'check', 'ach', 'other', or null", 400);
+        }
+
+        var current = await env.DB.prepare(
+            "SELECT vendor_type, contact_name, contact_email, contact_phone, payment_method, " +
+            "payment_identifier, notes FROM vendors WHERE id = ?"
+        ).bind(id).first();
+
+        var vendorType   = (body.vendor_type         !== undefined) ? (String(body.vendor_type || "").trim() || null)         : current.vendor_type;
+        var contactName  = (body.contact_name        !== undefined) ? (String(body.contact_name || "").trim() || null)        : current.contact_name;
+        var contactEmail = (body.contact_email       !== undefined) ? (String(body.contact_email || "").trim() || null)       : current.contact_email;
+        var contactPhone = (body.contact_phone       !== undefined) ? (String(body.contact_phone || "").trim() || null)       : current.contact_phone;
+        var payMethod    = (paymentMethod             !== undefined) ? paymentMethod                                          : current.payment_method;
+        var payIdent     = (body.payment_identifier  !== undefined) ? (String(body.payment_identifier || "").trim() || null)  : current.payment_identifier;
+        var notes        = (body.notes               !== undefined) ? (String(body.notes || "").trim() || null)               : current.notes;
+
+        var infoComplete = vendorInfoIsComplete({
+            vendor_type: vendorType,
+            contact_name: contactName,
+            payment_method: payMethod,
+            payment_identifier: payIdent
+        });
+
+        await env.DB.prepare(
+            "UPDATE vendors SET name = ?, vendor_type = ?, contact_name = ?, contact_email = ?, " +
+            "contact_phone = ?, payment_method = ?, payment_identifier = ?, info_complete = ?, notes = ? " +
+            "WHERE id = ?"
+        ).bind(
+            name, vendorType, contactName, contactEmail, contactPhone,
+            payMethod, payIdent, infoComplete ? 1 : 0, notes, id
+        ).run();
+
+        return jsonOk({ id: id, name: name, info_complete: infoComplete });
+    } catch (e) {
+        return jsonErr("Error updating vendor: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/vendor-terms — a client's active vendor
+// attachments, for the Vendors card on client.html.
+// ---------------------------------------------------------------------------
+
+async function handleGetClientVendorTerms(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT cvt.id, cvt.vendor_id, cvt.vendor_amount_cents, cvt.markup_cents, cvt.label, " +
+            "cvt.service_note, cvt.recurrence_unit, cvt.recurrence_interval, cvt.started_at, cvt.updated_at, " +
+            "v.name AS vendor_name, v.vendor_type " +
+            "FROM client_vendor_terms cvt JOIN vendors v ON v.id = cvt.vendor_id " +
+            "WHERE cvt.client_id = ? AND cvt.active = 1 ORDER BY v.name"
+        ).bind(clientId).all();
+
+        var terms = (res.results || []).map(function(row) {
+            var total = (row.vendor_amount_cents === null || row.vendor_amount_cents === undefined)
+                ? null
+                : (row.vendor_amount_cents + (row.markup_cents || 0));
+            return {
+                id: row.id,
+                vendor_id: row.vendor_id,
+                vendor_name: row.vendor_name,
+                vendor_type: row.vendor_type,
+                vendor_amount_cents: row.vendor_amount_cents,
+                markup_cents: row.markup_cents || 0,
+                client_total_cents: total,
+                label: row.label,
+                service_note: row.service_note,
+                recurrence_unit: row.recurrence_unit,
+                recurrence_interval: row.recurrence_interval,
+                started_at: row.started_at,
+                updated_at: row.updated_at
+            };
+        });
+
+        return jsonOk({ terms: terms });
+    } catch (e) {
+        return jsonErr("Error fetching client vendor terms: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/vendor-terms — attach a vendor to this
+// client. Body: { vendor_id, vendor_amount_cents?, markup_cents?, label?,
+// service_note?, recurrence_unit?, recurrence_interval? }
+//
+// vendor_amount_cents may be omitted/null -- "attached, amount pending" is a
+// legitimate, expected state (Alice's spreadsheet not landed yet), never
+// coerced to 0.
+//
+// Enforces the same one-active-pairing-per-client-vendor rule the UNIQUE
+// constraint enforces at the DB layer, but checked here first so a
+// duplicate attempt gets a clear 409 instead of a raw SQLite constraint
+// error bubbling up as a 500.
+// ---------------------------------------------------------------------------
+
+async function handlePostClientVendorTerms(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(clientId).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.vendor_id) { return jsonErr("vendor_id required", 400); }
+
+        var vendor = await env.DB.prepare("SELECT id, name FROM vendors WHERE id = ? AND active = 1").bind(body.vendor_id).first();
+        if (!vendor) { return jsonErr("Vendor not found", 404); }
+
+        var existing = await env.DB.prepare(
+            "SELECT id FROM client_vendor_terms WHERE client_id = ? AND vendor_id = ? AND active = 1"
+        ).bind(clientId, body.vendor_id).first();
+        if (existing) { return jsonErr("This vendor is already attached to this client", 409); }
+
+        var vendorAmount = null;
+        if (body.vendor_amount_cents !== null && body.vendor_amount_cents !== undefined && body.vendor_amount_cents !== "") {
+            vendorAmount = parseInt(body.vendor_amount_cents, 10);
+            if (isNaN(vendorAmount) || vendorAmount < 0) { return jsonErr("vendor_amount_cents must be a non-negative whole number of cents", 400); }
+        }
+
+        var markupCents = 0;
+        if (body.markup_cents !== null && body.markup_cents !== undefined && body.markup_cents !== "") {
+            markupCents = parseInt(body.markup_cents, 10);
+            if (isNaN(markupCents) || markupCents < 0) { return jsonErr("markup_cents must be a non-negative whole number of cents", 400); }
+        }
+
+        var recurrenceUnit = body.recurrence_unit || null;
+        if (recurrenceUnit && ["day", "week", "month", "year"].indexOf(recurrenceUnit) === -1) {
+            return jsonErr("recurrence_unit must be 'day', 'week', 'month', 'year', or null", 400);
+        }
+        var recurrenceInterval = (body.recurrence_interval !== null && body.recurrence_interval !== undefined && body.recurrence_interval !== "")
+            ? parseInt(body.recurrence_interval, 10) : null;
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO client_vendor_terms (id, client_id, vendor_id, vendor_amount_cents, markup_cents, " +
+            "label, service_note, recurrence_unit, recurrence_interval, active, started_at, updated_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'))"
+        ).bind(
+            id, clientId, body.vendor_id, vendorAmount, markupCents,
+            String(body.label || "").trim() || (vendor.name + " add-on"),
+            String(body.service_note || "").trim() || null,
+            recurrenceUnit, recurrenceInterval,
+            localDateStrForTZ()
+        ).run();
+
+        // Server-computed, never trusted from the client -- same pattern as
+        // adjusted_total in handlePutClientPackageTerms.
+        var clientTotal = (vendorAmount === null) ? null : (vendorAmount + markupCents);
+
+        return jsonOk({ id: id, client_total_cents: clientTotal });
+    } catch (e) {
+        return jsonErr("Error attaching vendor: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/vendor-terms/:termsId — edit an existing
+// attachment's amount/markup/label/cadence.
+// Route: DELETE /api/clients/:id/vendor-terms/:termsId — end the
+// attachment (flips active to 0, never deletes the row or leaves active
+// NULL -- see [[sqlite-null-defeats-unique]], the UNIQUE(client_id,
+// vendor_id, active) constraint depends on active always being 0 or 1).
+// ---------------------------------------------------------------------------
+
+async function handlePutClientVendorTerm(clientId, termsId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id, vendor_amount_cents, markup_cents, label, service_note, recurrence_unit, recurrence_interval " +
+            "FROM client_vendor_terms WHERE id = ? AND client_id = ? AND active = 1"
+        ).bind(termsId, clientId).first();
+        if (!row) { return jsonErr("Vendor term not found", 404); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var vendorAmount = row.vendor_amount_cents;
+        if (body.vendor_amount_cents !== undefined) {
+            if (body.vendor_amount_cents === null || body.vendor_amount_cents === "") {
+                vendorAmount = null;
+            } else {
+                vendorAmount = parseInt(body.vendor_amount_cents, 10);
+                if (isNaN(vendorAmount) || vendorAmount < 0) { return jsonErr("vendor_amount_cents must be a non-negative whole number of cents", 400); }
+            }
+        }
+
+        var markupCents = row.markup_cents;
+        if (body.markup_cents !== undefined) {
+            markupCents = parseInt(body.markup_cents, 10);
+            if (isNaN(markupCents) || markupCents < 0) { return jsonErr("markup_cents must be a non-negative whole number of cents", 400); }
+        }
+
+        var recurrenceUnit = (body.recurrence_unit !== undefined) ? (body.recurrence_unit || null) : row.recurrence_unit;
+        if (recurrenceUnit && ["day", "week", "month", "year"].indexOf(recurrenceUnit) === -1) {
+            return jsonErr("recurrence_unit must be 'day', 'week', 'month', 'year', or null", 400);
+        }
+        var recurrenceInterval = (body.recurrence_interval !== undefined)
+            ? (body.recurrence_interval === null || body.recurrence_interval === "" ? null : parseInt(body.recurrence_interval, 10))
+            : row.recurrence_interval;
+
+        var label = (body.label !== undefined) ? (String(body.label || "").trim() || null) : row.label;
+        var serviceNote = (body.service_note !== undefined) ? (String(body.service_note || "").trim() || null) : row.service_note;
+
+        await env.DB.prepare(
+            "UPDATE client_vendor_terms SET vendor_amount_cents = ?, markup_cents = ?, label = ?, " +
+            "service_note = ?, recurrence_unit = ?, recurrence_interval = ?, updated_at = datetime('now') " +
+            "WHERE id = ?"
+        ).bind(vendorAmount, markupCents, label, serviceNote, recurrenceUnit, recurrenceInterval, termsId).run();
+
+        var clientTotal = (vendorAmount === null) ? null : (vendorAmount + markupCents);
+        return jsonOk({ id: termsId, client_total_cents: clientTotal });
+    } catch (e) {
+        return jsonErr("Error updating vendor term: " + e.message, 500);
+    }
+}
+
+async function handleDeleteClientVendorTerm(clientId, termsId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id FROM client_vendor_terms WHERE id = ? AND client_id = ? AND active = 1"
+        ).bind(termsId, clientId).first();
+        if (!row) { return jsonErr("Vendor term not found", 404); }
+
+        await env.DB.prepare(
+            "UPDATE client_vendor_terms SET active = 0, ended_at = ?, updated_at = datetime('now') WHERE id = ?"
+        ).bind(localDateStrForTZ(), termsId).run();
+
+        return jsonOk({ id: termsId, active: false });
+    } catch (e) {
+        return jsonErr("Error ending vendor term: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/vendor-share?month=YYYY-MM — the two-slice
+// donut Alice asked for: of total income, what share goes to vendors vs
+// what Apex keeps.
+//
+// Numerator (vendor share): sum of vendor_amount_cents (NOT + markup_cents
+// -- markup is Apex's own revenue, not money leaving the business) across
+// invoice_line_items of kind 'vendor_addon', for invoices marked paid whose
+// paid_at falls in the requested month.
+// Denominator: total paid-invoice revenue for the same month (same
+// amount_cents sum the rest of the dashboard already uses).
+// Apex share = total - vendor share (this already includes markup
+// correctly, since markup was never subtracted out).
+// ---------------------------------------------------------------------------
+
+async function handleGetFinanceNewVendorShare(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month") || localDateStrForTZ().slice(0, 7);
+        if (!/^\d{4}-\d{2}$/.test(month)) { return jsonErr("month must be YYYY-MM", 400); }
+
+        var totalRow = await env.DB.prepare(
+            "SELECT COALESCE(SUM(amount_cents), 0) AS total FROM invoices " +
+            "WHERE status = 'paid' AND paid_at IS NOT NULL AND substr(paid_at, 1, 7) = ?"
+        ).bind(month).first();
+        var totalCents = (totalRow && totalRow.total) || 0;
+
+        var vendorRow = await env.DB.prepare(
+            "SELECT COALESCE(SUM(ili.amount_cents - COALESCE(cvt.markup_cents, 0)), 0) AS vendor_total " +
+            "FROM invoice_line_items ili " +
+            "JOIN invoices i ON i.id = ili.invoice_id " +
+            "LEFT JOIN client_vendor_terms cvt ON cvt.id = ili.client_vendor_terms_id " +
+            "WHERE ili.kind = 'vendor_addon' AND i.status = 'paid' AND i.paid_at IS NOT NULL " +
+            "AND substr(i.paid_at, 1, 7) = ?"
+        ).bind(month).first();
+        var vendorCents = (vendorRow && vendorRow.vendor_total) || 0;
+        if (vendorCents < 0) { vendorCents = 0; }   // defensive floor -- markup should never exceed the line amount
+
+        var apexCents = totalCents - vendorCents;
+        if (apexCents < 0) { apexCents = 0; }
+
+        return jsonOk({
+            month: month,
+            total_cents: totalCents,
+            vendor_cents: vendorCents,
+            apex_cents: apexCents
+        });
+    } catch (e) {
+        return jsonErr("Error computing vendor share: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// getActiveVendorAddonsForClient — sum the client's active vendor add-ons
+// with a KNOWN amount, for folding into a recurring invoice's total.
+//
+// vendor_amount_cents IS NOT NULL is the whole filter: a row with a NULL
+// amount is a known relationship (Alice attached the vendor) with a price
+// still pending her spreadsheet, not a $0 charge. Silently billing $0 for a
+// real add-on would be worse than temporarily omitting it, so those rows are
+// excluded entirely -- they contribute nothing to the total and get no line
+// item, until Alice fills in an amount.
+//
+// Returns { totalCents, lines: [{ label, amountCents, clientVendorTermsId }] }.
+// ---------------------------------------------------------------------------
+async function getActiveVendorAddonsForClient(clientId, env) {
+    var res = await env.DB.prepare(
+        "SELECT cvt.id, cvt.vendor_amount_cents, cvt.markup_cents, cvt.label, v.name AS vendor_name " +
+        "FROM client_vendor_terms cvt JOIN vendors v ON v.id = cvt.vendor_id " +
+        "WHERE cvt.client_id = ? AND cvt.active = 1 AND cvt.vendor_amount_cents IS NOT NULL"
+    ).bind(clientId).all();
+
+    var lines = [];
+    var totalCents = 0;
+    (res.results || []).forEach(function(row) {
+        var amount = (row.vendor_amount_cents || 0) + (row.markup_cents || 0);
+        if (amount <= 0) { return; }   // defensive -- never emit a $0/negative line
+        lines.push({
+            label: row.label || (row.vendor_name + " add-on"),
+            amountCents: amount,
+            clientVendorTermsId: row.id
+        });
+        totalCents += amount;
+    });
+
+    return { totalCents: totalCents, lines: lines };
+}
+
 async function runRecurringInvoices(env) {
     var due = await env.DB.prepare(
         "SELECT id, client_id, amount_cents, interval_n, interval_unit, next_due_at, " +
@@ -25209,22 +27338,64 @@ async function runRecurringInvoices(env) {
 
         var number = await allocateInvoiceNumber(env);
         var invId = crypto.randomUUID();
+
+        // Vendor add-ons ride on this same invoice -- never a second invoice
+        // for the same period (see apex-vendors-spec.md). Clients with no
+        // active vendor terms (or none with a known amount yet) get addons
+        // with totalCents 0 and an empty lines array, so this is a pure
+        // no-op for every existing package-only client.
+        var addons = await getActiveVendorAddonsForClient(rec.client_id, env);
+        var packageAmount = rec.amount_cents;
+        var totalAmount = packageAmount + addons.totalCents;
+
         // Generated off a recurrence, which now only ever comes from a client's
         // payment plan — so these always count toward that plan.
+        // amount_cents is the invoice's authoritative total (package +
+        // vendor add-ons); invoice_line_items break it down, but nothing
+        // that reads amount_cents today needs to change.
         await env.DB.prepare(
             "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, " +
             "source, recurrence_id, period_key, is_installment) VALUES (?, ?, ?, ?, ?, ?, 'draft', 'recurrence', ?, ?, 1)"
         ).bind(
-            invId, rec.client_id, number, rec.amount_cents,
+            invId, rec.client_id, number, totalAmount,
             rec.next_due_at, rec.next_due_at, rec.id, pk
         ).run();
 
         await env.DB.prepare(
-            "UPDATE invoice_recurrence SET next_due_at = ?, generated_count = generated_count + 1, " +
-            "last_satisfied_period = ? WHERE id = ?"
-        ).bind(addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit), pk, rec.id).run();
+            "INSERT INTO invoice_line_items (id, invoice_id, kind, label, amount_cents, client_vendor_terms_id) " +
+            "VALUES (?, ?, 'package', ?, ?, NULL)"
+        ).bind(crypto.randomUUID(), invId, "Package", packageAmount).run();
 
-        generated.push({ id: invId, number: number, client_id: rec.client_id });
+        for (var li = 0; li < addons.lines.length; li++) {
+            var line = addons.lines[li];
+            await env.DB.prepare(
+                "INSERT INTO invoice_line_items (id, invoice_id, kind, label, amount_cents, client_vendor_terms_id) " +
+                "VALUES (?, ?, 'vendor_addon', ?, ?, ?)"
+            ).bind(crypto.randomUUID(), invId, line.label, line.amountCents, line.clientVendorTermsId).run();
+        }
+
+        // Deactivate the SAME instant the final installment generates, not
+        // on the next cron pass that happens to notice. Found live
+        // 2026-08-19: a finite custom-installment plan (Delicie Cakes, two
+        // installments) sat `active = 1` with generated_count already equal
+        // to end_after_n for a full week between its last real invoice and
+        // its next scheduled date -- correctly self-correcting once that
+        // date arrived (the exhaustion check at the top of this loop runs
+        // before generation), but reading the row in that window looked
+        // exactly like a live, still-recurring weekly charge. That's the
+        // exact confusion that led to double-checking whether a client was
+        // about to be billed a third time for a two-part package.
+        var newGeneratedCount = rec.generated_count + 1;
+        var exhausted = rec.end_after_n && newGeneratedCount >= rec.end_after_n;
+        await env.DB.prepare(
+            "UPDATE invoice_recurrence SET next_due_at = ?, generated_count = ?, " +
+            "last_satisfied_period = ?, active = ? WHERE id = ?"
+        ).bind(
+            addInterval(rec.next_due_at, rec.interval_n, rec.interval_unit),
+            newGeneratedCount, pk, exhausted ? 0 : 1, rec.id
+        ).run();
+
+        generated.push({ id: invId, number: number, client_id: rec.client_id, amount_cents: totalAmount });
     }
 
     return { generated: generated };
@@ -25535,9 +27706,16 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/vault/sessions"            && method === "GET")  { return handleGetVaultSessions(request, env); }
         if (path === "/api/vault/tasks"               && method === "GET")  { return handleGetVaultTasks(request, env); }
         if (path === "/api/vault/assessments"         && method === "GET")  { return handleGetVaultAssessments(request, env); }
+        // Finance routes require scope "vault-finance" — Alice's token only.
+        // Rafa's token authenticates fine but is turned away with a 403 inside
+        // vaultReadRoute, before any SQL runs. See serviceCaller() above.
+        if (path === "/api/vault/finance/accounts"     && method === "GET")  { return handleGetVaultFinanceAccounts(request, env); }
+        if (path === "/api/vault/finance/transactions" && method === "GET")  { return handleGetVaultFinanceTransactions(request, env); }
+        if (path === "/api/vault/finance/invoices"     && method === "GET")  { return handleGetVaultFinanceInvoices(request, env); }
         if (path === "/api/vault/selftest"            && method === "POST") { return handlePostVaultSelftest(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }
         if (path === "/api/resources"                 && method === "POST") { return handlePostResource(request, env); }
+        if (path === "/api/vault/resources"           && method === "POST") { return handlePostVaultResource(request, env); }
         if (path === "/api/client-resources/pending"  && method === "GET")  { return handleGetClientResourcesPending(request, env); }
         if (path === "/api/client-resources/progress" && method === "GET")  { return handleGetClientResourcesProgress(request, env); }
         if (path === "/api/zoho/contacts/resync-status" && method === "GET")  { return handleGetZohoContactsResyncStatus(request, env); }
@@ -25594,6 +27772,9 @@ async function handleFetch(request, env, ctx) {
         // /api/resources/:id  PUT | /api/resources/:id/file  GET
         if (segs[0] === "api" && segs[1] === "resources" && segs[2]) {
             if (segs.length === 3 && method === "PUT") { return handlePutResource(segs[2], request, env); }
+            if (segs.length === 4 && segs[3] === "attach-to-client" && method === "POST") {
+                return handleAttachResourceToClient(segs[2], request, env);
+            }
             if (segs.length === 4 && segs[3] === "file" && method === "GET") {
                 return handleGetResourceFile(segs[2], request, env);
             }
@@ -25609,6 +27790,12 @@ async function handleFetch(request, env, ctx) {
         // /api/clients-needing-review  GET — active clients with no sign of activity
         if (segs[0] === "api" && segs[1] === "clients-needing-review" && segs.length === 2 && method === "GET") {
             return handleGetClientsNeedingReview(request, env);
+        }
+
+        // /api/interview-sittings  GET/POST — the "she did a sitting" signal
+        if (segs[0] === "api" && segs[1] === "interview-sittings" && segs.length === 2) {
+            if (method === "GET")  { return handleGetInterviewSittings(request, env); }
+            if (method === "POST") { return handlePostInterviewSitting(request, env); }
         }
 
         // /api/users/:email  DELETE
@@ -25733,6 +27920,14 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "package-terms") {
                 if (method === "GET") { return handleGetClientPackageTerms(cid, request, env); }
                 if (method === "PUT") { return handlePutClientPackageTerms(cid, request, env); }
+            }
+            if (segs.length === 4 && segs[3] === "vendor-terms") {
+                if (method === "GET")  { return handleGetClientVendorTerms(cid, request, env); }
+                if (method === "POST") { return handlePostClientVendorTerms(cid, request, env); }
+            }
+            if (segs.length === 5 && segs[3] === "vendor-terms") {
+                if (method === "PUT")    { return handlePutClientVendorTerm(cid, segs[4], request, env); }
+                if (method === "DELETE") { return handleDeleteClientVendorTerm(cid, segs[4], request, env); }
             }
             if (segs.length === 4 && segs[3] === "zoho-contact") {
                 if (method === "GET") { return handleGetClientZohoContact(cid, request, env); }
@@ -26062,6 +28257,24 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/bills"             && method === "GET")  { return handleGetFinanceNewBills(request, env); }
         if (path === "/api/finance-new/bills/suggestions" && method === "GET")  { return handleGetFinanceNewBillSuggestions(request, env); }
         if (path === "/api/finance-new/bills"             && method === "POST") { return handlePostFinanceNewBill(request, env); }
+        if (path === "/api/finance-new/bills/overdue"     && method === "GET")  { return handleGetFinanceNewBillsOverdue(request, env); }
+        if (path === "/api/finance-new/category-budgets"  && method === "GET")  { return handleGetFinanceNewCategoryBudgets(request, env); }
+        if (path === "/api/finance-new/category-budgets"  && method === "POST") { return handlePostFinanceNewCategoryBudget(request, env); }
+        if (path === "/api/finance-new/bills/priority"    && method === "PUT")  { return handlePutFinanceNewBillsPriority(request, env); }
+        if (path === "/api/finance-new/bills/name-policy" && method === "POST") { return handlePostFinanceNewBillNamePolicy(request, env); }
+        if (path === "/api/finance-new/bills/matches"     && method === "GET")  { return handleGetFinanceNewBillMatches(request, env); }
+        if (path === "/api/finance-new/bills/matches/approve" && method === "POST") { return handlePostFinanceNewBillMatchApprove(request, env); }
+        // NOTE: the id class must include underscore. Seeded bills use ids like
+        // `fb_apple_ia` / `fb_cartao_apple`, so an [A-Za-z0-9-]+ class silently
+        // 404s mark-paid and unmark-paid for EVERY spreadsheet-seeded bill --
+        // only the UUID-id rows worked. Found live 2026-08-19 when unmark-paid
+        // on `fb_apple_ia` returned "Not found".
+        var billMarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/mark-paid$/);
+        if (billMarkPaidMatch && method === "POST") { return handlePostFinanceNewBillMarkPaid(billMarkPaidMatch[1], request, env); }
+        var billCancelMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/cancel$/);
+        if (billCancelMatch && method === "POST") { return handlePostFinanceNewBillCancel(billCancelMatch[1], request, env); }
+        var billUnmarkPaidMatch = path.match(/^\/api\/finance-new\/bills\/([A-Za-z0-9_-]+)\/unmark-paid$/);
+        if (billUnmarkPaidMatch && method === "POST") { return handlePostFinanceNewBillUnmarkPaid(billUnmarkPaidMatch[1], request, env); }
         if (path === "/api/finance-new/forward"           && method === "GET")  { return handleGetFinanceNewForward(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }
@@ -26099,6 +28312,12 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/matches/undo"      && method === "POST") { return handlePostFinanceNewMatchUndo(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "GET")  { return handleGetFinanceNewRecurrences(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "POST") { return handlePostFinanceNewRecurrence(request, env); }
+        if (path === "/api/finance-new/vendors"           && method === "GET")  { return handleGetFinanceNewVendors(request, env); }
+        if (path === "/api/finance-new/vendors"           && method === "POST") { return handlePostFinanceNewVendor(request, env); }
+        if (path.indexOf("/api/finance-new/vendors/") === 0 && method === "PUT") {
+            return handlePutFinanceNewVendor(path.slice("/api/finance-new/vendors/".length), request, env);
+        }
+        if (path === "/api/finance-new/vendor-share"      && method === "GET")  { return handleGetFinanceNewVendorShare(request, env); }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "render-data" && method === "GET") {
             return handleGetFinanceNewInvoiceRenderData(segs[3], request, env);
         }
@@ -26107,6 +28326,21 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-sent" && method === "POST") {
             return handlePostFinanceNewInvoiceMarkSent(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-paid-manual" && method === "POST") {
+            return handlePostFinanceNewInvoiceMarkPaidManual(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "unclaim-paid" && method === "POST") {
+            return handlePostFinanceNewInvoiceUnclaimPaid(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "due-date" && method === "POST") {
+            return handlePostFinanceNewInvoiceDueDate(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "due-date-history" && method === "GET") {
+            return handleGetFinanceNewInvoiceDueDateHistory(segs[3], request, env);
+        }
+        if (path === "/api/finance-new/due-date-changes" && method === "GET") {
+            return handleGetFinanceNewDueDateChanges(request, env);
         }
 
         return jsonErr("Not found", 404);

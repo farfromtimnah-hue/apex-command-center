@@ -116,6 +116,14 @@
       box-shadow: 0 2px 16px rgba(26,26,29,0.18);
       padding: 24px;
       max-width: 400px; width: 100%;
+      /* Longer forms (vendor detail: 7 fields + attached-clients list) can
+         exceed the viewport on a short screen. .nc-overlay centers with
+         flex and no scroll of its own, so without this the bottom of the
+         modal -- including the Save button -- is simply unreachable.
+         max-height leaves room for the overlay's own 20px padding on each
+         side. */
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
     }
     .nc-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
     .nc-close {
@@ -629,6 +637,88 @@
       margin-bottom: 18px;
     }
 
+    /* ─── Section collapse + drag reorder (ported from client.html) ───────
+       The page had grown into one long scroll where nothing could be found
+       at a glance. Same interaction as the client profile page on purpose:
+       she already knows it from there. */
+    .sec-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .sec-head .card-title { margin-bottom: 0; flex: 1 1 auto; }
+
+    .collapse-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      line-height: 1;
+      border-radius: 4px;
+      transition: color 0.1s, background 0.1s;
+      flex-shrink: 0;
+    }
+    .collapse-btn:hover { color: var(--text); background: var(--gold-dim); }
+
+    .card-body-collapsible { transition: none; }
+    .card-body-collapsible[hidden] { display: none !important; }
+
+    /* The collapsed summary. Carries the one fact the section is for, so a
+       closed section is still answering a question rather than hiding one. */
+    .sec-summary { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .sec-summary[hidden] { display: none !important; }
+    .sec-summary .is-bad { color: var(--red); font-weight: 700; }
+    .sec-summary .is-good { color: var(--green); font-weight: 600; }
+
+    .btn-edit-sections {
+      background: rgba(255,255,255,0.10);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      color: rgba(255,255,255,0.82);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 7px;
+      padding: 6px 14px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-edit-sections:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+
+    .edit-sections-bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+
+    .drag-handle {
+      display: none;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: grab;
+      padding: 0 6px 0 0;
+      user-select: none;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    /* Touch fallback. This runs as an installed PWA, where HTML5 drag events
+       are unreliable on a phone -- the buttons are the reliability net, not
+       the primary interaction. Same pattern as the overdue bill rows. */
+    .sec-move-btns { display: none; gap: 2px; flex-shrink: 0; }
+    body.is-edit-sections .sec-move-btns { display: flex; }
+
+    body.is-edit-sections .drag-handle { display: block; }
+    body.is-edit-sections .collapse-btn { display: none; }
+    body.is-edit-sections .sec-head { cursor: grab; }
+    body.is-edit-sections .card-body-collapsible { display: none !important; }
+    body.is-edit-sections .sec-summary { display: none !important; }
+
+    .section-drag-over { outline: 2px dashed var(--gold); outline-offset: 2px; border-radius: var(--radius); }
+    .section-dragging { opacity: 0.45; }
+
+    #sectionsList { display: block; }
+
     .card-title {
       font-size: 13px;
       font-weight: 700;
@@ -681,6 +771,7 @@
       display: flex; align-items: center; justify-content: center;
     }
     .attn-text { flex: 1 1 auto; min-width: 0; }
+    .attn-copy-btn { flex: 0 0 auto; white-space: nowrap; }
     .attn-title { font-size: 14.5px; font-weight: 600; }
     .attn-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
     .attn-clear { font-size: 13.5px; color: var(--muted); padding: 6px 0 2px; }
@@ -718,6 +809,99 @@
       font-size: 13px; padding: 5px 0; flex-wrap: wrap;
     }
     .fwd-bill-row .grow { flex: 1 1 auto; min-width: 120px; }
+    .fwd-bill-row .bill-extra { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+    .fwd-bill-row a.bill-pay-link { color: var(--gold); font-weight: 600; text-decoration: none; }
+    .fwd-bill-row a.bill-pay-link:hover { text-decoration: underline; }
+
+    /* ── Overdue bills ──
+       Red is used ONLY here -- days-overdue and the section itself -- since
+       this is the one place on the page that IS meant to read as urgent.
+       Coverage is informational, shown muted, never softening the red. */
+    .overdue-rows { margin-top: 6px; }
+    .overdue-row {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 12px 0; border-top: 1px solid var(--border);
+    }
+    .overdue-row:first-child { border-top: 0; }
+    .overdue-row .grow { flex: 1 1 auto; min-width: 140px; }
+    .overdue-row .bill-name { font-size: 14px; font-weight: 600; }
+    .overdue-row .bill-days-overdue { color: var(--red); font-weight: 700; font-size: 12.5px; }
+    .overdue-row .bill-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+    .overdue-row .bill-coverage { font-size: 11.5px; margin-top: 3px; }
+    .overdue-row .bill-coverage.is-covered { color: var(--green); }
+    .overdue-row .bill-coverage.is-uncovered { color: var(--red); }
+    .overdue-row .bill-amount { font-weight: 700; font-size: 14px; white-space: nowrap; }
+    /* Marks a bill the bank feed structurally cannot see, so its silence in the
+       overdue list reads as expected rather than as something gone wrong. */
+    .bill-oncard { color: var(--gold); font-weight: 600; }
+    .bill-compare-link { color: var(--brown); font-weight: 600; text-decoration: underline; }
+    /* An estimated amount is italic so the number itself reads as soft. The
+       parenthesised word is lighter still: the figure is the point, the label
+       only confirms it. */
+    .bill-amt-est { font-style: italic; font-weight: 600; }
+    /* The estimate label sits under the amount and reads quieter than it: it is
+       context for the number, not a second number competing with it. */
+    .bill-est-note {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-top: 2px;
+      text-align: right;
+    }
+    .overdue-row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    /* Priority controls: a visible drag handle (long-press/touch friendly on
+       its own, PLUS explicit up/down buttons so reordering never REQUIRES a
+       successful drag gesture on a small screen). */
+    .drag-handle {
+      cursor: grab; touch-action: none; user-select: none;
+      font-size: 16px; color: var(--muted); padding: 6px 8px;
+      line-height: 1; border-radius: 6px;
+    }
+    .drag-handle:active { cursor: grabbing; background: var(--gold-dim); }
+    .rank-btns { display: flex; flex-direction: column; gap: 2px; }
+    .rank-btn {
+      width: 26px; height: 22px; border: 1px solid var(--border); background: #fff;
+      border-radius: 5px; color: var(--muted); cursor: pointer; font-size: 11px;
+      display: flex; align-items: center; justify-content: center; padding: 0;
+    }
+    .rank-btn:hover { background: var(--gold-dim); color: var(--brown); }
+    .rank-btn:disabled { opacity: 0.35; cursor: default; }
+    .overdue-row.is-dragging { opacity: 0.5; }
+    .overdue-row.is-drag-over { border-top: 2px solid var(--gold); }
+
+    /* ── Category budgets ──
+       Own card, same visual weight as overdue bills -- Nicole 2026-08-19:
+       "It needs its own section and not small text. It's too easy to
+       miss." A projected overage is exactly the kind of thing this app
+       exists to surface before the money is already gone; burying it in
+       .tag-meta gray text buried the one line that mattered most. Red is
+       reserved for an actual/projected overage, matching the "red means
+       urgent" rule already established for overdue bills. */
+    .budget-rows { margin-top: 6px; }
+    .budget-row {
+      padding: 14px 0; border-top: 1px solid var(--border);
+    }
+    .budget-row:first-child { border-top: 0; }
+    .budget-row-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap;
+    }
+    .budget-name { font-size: 15px; font-weight: 700; }
+    .budget-figures { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .budget-progress {
+      height: 8px; border-radius: 4px; background: var(--border);
+      margin-top: 10px; overflow: hidden;
+    }
+    .budget-progress-fill { height: 100%; background: var(--gold); border-radius: 4px; }
+    .budget-progress-fill.is-over { background: var(--red); }
+    .budget-projection {
+      font-size: 13.5px; font-weight: 600; margin-top: 8px;
+    }
+    .budget-projection.is-over { color: var(--red); }
+    .budget-projection.is-watch { color: var(--brown); }
 
     /* ── Apex Club event P&L ──
        The verdict sentence carries the whole answer. A small loss on an event
@@ -1181,6 +1365,31 @@
             <span class="show-en">Events</span>
             <span class="fin-tab-badge" id="finBadgeEventos" hidden>0</span>
           </button>
+          <button class="fin-tab-pill" id="finTabBtnVendors" onclick="switchFinanceTab('vendors')">
+            <span class="show-pt">Fornecedores</span>
+            <span class="show-en">Vendors</span>
+            <span class="fin-tab-badge" id="finBadgeVendors" hidden>0</span>
+          </button>
+        </div>
+
+        <!-- Reorder control. Lives in the hero, same place as the client
+             profile page, so the page it reorders stays fully visible. -->
+        <div class="edit-sections-bar" id="editSectionsBar" hidden>
+          <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
+            <span class="show-pt">&#9776; Editar se&ccedil;&otilde;es</span>
+            <span class="show-en">&#9776; Edit sections</span>
+          </button>
+          <button class="btn-edit-sections" id="btnDoneSections" onclick="exitEditSectionsMode()" style="display:none;border-color:rgba(201,164,58,0.75);color:#e8c96a;">
+            <span class="show-pt">Conclu&iacute;do</span>
+            <span class="show-en">Done</span>
+          </button>
+          <!-- Only inside edit mode: this is a recovery control, not something
+               to offer beside the everyday buttons where it could be hit by
+               accident. It discards her arrangement, so it asks first. -->
+          <button class="btn-edit-sections" id="btnResetSections" onclick="confirmResetSections()" style="display:none;">
+            <span class="show-pt">Voltar ao padr&atilde;o</span>
+            <span class="show-en">Reset to default</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1234,219 +1443,445 @@
       </div>
     </div>
 
-    <!-- ── "Precisa de voce" queue ──
-         Sits above the balances deliberately: the balances are the thing she
-         checks, this is the thing she would otherwise never learn about. -->
-    <div id="attentionCard" class="card attn-card" hidden>
-      <div class="attn-head">
-        <div class="card-title" style="margin:0">
-          <span class="show-pt">Precisa de voc&ecirc;</span>
-          <span class="show-en">Needs you</span>
-        </div>
-        <div id="attnProgress" class="attn-progress"></div>
-      </div>
-      <div id="attnRows" class="attn-rows"></div>
-      <div id="attnClear" class="attn-clear" hidden>
-        <span class="show-pt">Nada pendente. As regras cuidaram de tudo at&eacute; aqui.</span>
-        <span class="show-en">Nothing pending. The rules handled everything so far.</span>
-      </div>
-    </div>
-
     <!-- ── Dashboard cards ── -->
     <div id="acctGrid" class="acct-grid"></div>
 
-    <!-- ── Forward view ──
-         The reason the tool exists: will there be enough to pay Rafa this
-         month, and when is it tight. The SENTENCE is the product; everything
-         below it is the evidence for the sentence. -->
-    <div id="forwardCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Pr&oacute;ximos 90 dias &mdash; conta comercial</span>
-        <span class="show-en">Next 90 days &mdash; business account</span>
-      </div>
-      <div id="fwdSentence" class="fwd-sentence"></div>
-      <div id="fwdDetail" class="fwd-detail"></div>
-      <div id="fwdGaps" class="fwd-gaps"></div>
+    <div id="sectionsList">
 
-      <!-- Owner pay. Never framed as leakage or as an expense to minimise:
-           this is Rafa's pay and the question is whether the business is
-           generating enough to pay him consistently. -->
-      <div id="fwdOwnerPay" class="fwd-owner"></div>
-
-      <!-- Fixed bills. Ships EMPTY -- nothing is seeded, suggested, or
-           pre-filled. Alice enters what she wants tracked. -->
-      <div class="fwd-bills">
-        <div class="fwd-bills-head">
-          <span class="show-pt">Contas fixas</span>
-          <span class="show-en">Fixed bills</span>
+    <!-- ── Overdue bills + coverage forecast ──
+         Separate from the flat "Contas fixas" list above. Overdue is purely
+         date-based -- the coverage note is context alongside the flag, never
+         a suppression of it. -->
+    <div id="overdueCard" data-section-id="overdue" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Contas atrasadas</span>
+          <span class="show-en">Overdue bills</span>
         </div>
-        <div id="billsList"></div>
-        <!-- Detected from her own history, never seeded. Nothing here is
-             tracked until she presses the button on that row. -->
-        <div id="billSuggest" class="club-suggest" hidden></div>
-        <div class="filter-row" style="margin-top:10px;margin-bottom:0">
-          <input id="billName" type="text" style="flex:2 1 150px"
-                 data-ph-pt="Nome da conta" data-ph-en="Bill name" placeholder="Nome da conta">
-          <input id="billAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
-                 data-ph-pt="Valor" data-ph-en="Amount" placeholder="Valor">
-          <input id="billDay" type="text" inputmode="numeric" style="flex:0 1 70px"
-                 data-ph-pt="Dia do m&ecirc;s" data-ph-en="Day" placeholder="Dia">
-          <select id="billPurpose" style="flex:0 1 120px">
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('overdue',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('overdue',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('overdue')" id="collapse_overdue" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_overdue" hidden></div>
+      <div class="card-body-collapsible" id="body_overdue">
+        <div id="overdueSentence" class="fwd-sentence" style="font-size:15px"></div>
+        <!-- Deposits the matcher already recognised, waiting on one click.
+             Sits ABOVE the overdue rows on purpose: a bill sitting here is
+             almost certainly already paid, so confirming it is the fastest
+             way to shrink the list below. -->
+        <div id="billMatchSuggest" class="club-suggest" hidden></div>
+        <div id="overdueRows" class="overdue-rows"></div>
+        <div id="overdueEmpty" class="tag-meta" hidden>
+          <span class="show-pt">Nenhuma conta atrasada. Tudo em dia.</span>
+          <span class="show-en">No overdue bills. Everything is current.</span>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ── Category budgets ──
+         Own top-level card, same visual weight as overdue bills -- Nicole
+         2026-08-19: "It needs its own section and not small text. It's too
+         easy to miss." A monthly spending TARGET, not a bill -- no due
+         date, no single transaction that "is" the payment (fuel,
+         groceries). Placed ABOVE overdue/fixed bills: "the budget is more
+         important." -->
+    <div id="budgetsCard" data-section-id="budgets" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Or&ccedil;amentos por categoria</span>
+          <span class="show-en">Category budgets</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('budgets',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('budgets',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('budgets')" id="collapse_budgets" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_budgets" hidden></div>
+      <div class="card-body-collapsible" id="body_budgets">
+        <div id="budgetsList" class="budget-rows"></div>
+        <div id="budgetsEmpty" class="tag-meta" hidden>
+          <span class="show-pt">Nenhum ainda.</span>
+          <span class="show-en">None yet.</span>
+        </div>
+        <div class="btn-row" style="margin-top:14px" id="budgetAddRow">
+          <button class="btn btn-sm btn-gold" onclick="showBudgetForm()">
+            <span class="show-pt">Adicionar or&ccedil;amento</span>
+            <span class="show-en">Add budget</span>
+          </button>
+        </div>
+        <div class="filter-row" id="budgetForm" hidden style="margin-top:14px;margin-bottom:0">
+          <select id="budgetCategory" style="flex:2 1 150px"></select>
+          <input id="budgetAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
+                 data-ph-pt="Valor mensal" data-ph-en="Monthly amount" placeholder="Valor mensal">
+          <select id="budgetPurpose" style="flex:0 1 120px">
             <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
             <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
           </select>
-          <button class="btn btn-sm btn-gold" onclick="addFixedBill()">
+          <button class="btn btn-sm btn-gold" id="budgetFormSubmitBtn" onclick="submitBudgetForm()">
             <span class="show-pt">Adicionar</span>
             <span class="show-en">Add</span>
+          </button>
+          <button class="btn btn-sm" id="budgetFormCancelBtn" onclick="cancelBudgetEdit()">
+            <span class="show-pt">Cancelar</span>
+            <span class="show-en">Cancel</span>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- ── Linked accounts / re-tagging ── -->
-    <div id="linkedCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Contas conectadas</span>
-        <span class="show-en">Linked accounts</span>
+
+    <div id="attentionCard" class="card attn-card" data-section-id="attention" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Precisa de voc&ecirc;</span>
+          <span class="show-en">Needs you</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('attention',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('attention',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('attention')" id="collapse_attention" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
-              <th><span class="show-pt">Banco</span><span class="show-en">Bank</span></th>
-              <th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>
-              <th class="num"><span class="show-pt">Saldo</span><span class="show-en">Balance</span></th>
-            </tr>
-          </thead>
-          <tbody id="linkedBody"></tbody>
-        </table>
-      </div>
-      <div class="btn-row" style="margin-top:16px">
-        <button class="btn btn-sm" onclick="startLink('business')">
-          <span class="show-pt">+ Conta comercial</span>
-          <span class="show-en">+ Business account</span>
-        </button>
-        <button class="btn btn-sm" onclick="startLink('personal')">
-          <span class="show-pt">+ Conta pessoal</span>
-          <span class="show-en">+ Personal account</span>
-        </button>
+      <div class="sec-summary" id="summary_attention" hidden></div>
+      <div class="card-body-collapsible" id="body_attention">
+        <div id="attnProgress" class="attn-progress"></div>
+        <div id="attnRows" class="attn-rows"></div>
+        <div id="attnClear" class="attn-clear" hidden>
+          <span class="show-pt">Nada pendente. As regras cuidaram de tudo at&eacute; aqui.</span>
+          <span class="show-en">Nothing pending. The rules handled everything so far.</span>
+        </div>
+        <!-- One signal per sitting, after doing as much as she had time for.
+             Never one per client: six clicks is the demand that killed the
+             original queue. -->
       </div>
     </div>
 
-    <!-- ── Suspected transfers ── -->
-    <div id="transferCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Transfer&ecirc;ncias suspeitas</span>
-        <span class="show-en">Suspected transfers</span>
+
+    <div id="forwardCard" class="card" data-section-id="forward" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Pr&oacute;ximos 90 dias &mdash; conta comercial</span>
+          <span class="show-en">Next 90 days &mdash; business account</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('forward',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('forward',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('forward')" id="collapse_forward" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="page-sub" style="margin-bottom:12px">
-        <span class="show-pt">Dinheiro movido entre as suas pr&oacute;prias contas n&atilde;o &eacute; receita nem despesa. Confirme para tirar dos totais.</span>
-        <span class="show-en">Money moved between your own accounts is neither income nor expense. Confirm to remove it from the totals.</span>
+      <div class="sec-summary" id="summary_forward" hidden></div>
+      <div class="card-body-collapsible" id="body_forward">
+        <div id="fwdSentence" class="fwd-sentence"></div>
+        <div id="fwdDetail" class="fwd-detail"></div>
+        <div id="fwdGaps" class="fwd-gaps"></div>
+
+        <!-- Owner pay. Never framed as leakage or as an expense to minimise:
+             this is Rafa's pay and the question is whether the business is
+             generating enough to pay him consistently. -->      </div>
+    </div>
+
+
+    <div id="billsCard" class="card" data-section-id="bills" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Contas fixas</span>
+          <span class="show-en">Fixed bills</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('bills',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('bills',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('bills')" id="collapse_bills" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
-              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
-              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="transferBody"></tbody>
-        </table>
+      <div class="sec-summary" id="summary_bills" hidden></div>
+      <div class="card-body-collapsible" id="body_bills">
+        <!-- Fixed bills. Ships EMPTY -- nothing is seeded, suggested, or
+             pre-filled. Alice enters what she wants tracked. -->
+          <div id="billsList"></div>
+          <!-- Detected from her own history, never seeded. Nothing here is
+               tracked until she presses the button on that row. -->
+          <div id="billSuggest" class="club-suggest" hidden></div>
+          <div class="btn-row" style="margin-top:10px" id="billAddRow">
+            <button class="btn btn-sm btn-gold" onclick="showBillForm()">
+              <span class="show-pt">Adicionar conta</span>
+              <span class="show-en">Add bill</span>
+            </button>
+          </div>
+          <div class="filter-row" id="billForm" hidden style="margin-top:10px;margin-bottom:0">
+            <input id="billName" type="text" style="flex:2 1 150px"
+                   data-ph-pt="Nome da conta" data-ph-en="Bill name" placeholder="Nome da conta">
+            <input id="billAmount" type="text" inputmode="decimal" style="flex:1 1 90px"
+                   data-ph-pt="Valor" data-ph-en="Amount" placeholder="Valor">
+            <input id="billDay" type="text" inputmode="numeric" style="flex:0 1 70px"
+                   data-ph-pt="Dia do m&ecirc;s" data-ph-en="Day" placeholder="Dia">
+            <select id="billPurpose" style="flex:0 1 120px">
+              <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
+              <option value="business" data-opt-pt="Comercial" data-opt-en="Business">Comercial</option>
+            </select>
+            <select id="billPaymentMethod" style="flex:0 1 150px">
+              <option value="manual" data-opt-pt="Manual" data-opt-en="Manual">Manual</option>
+              <option value="draft" data-opt-pt="D&eacute;bito autom&aacute;tico" data-opt-en="Autopay (draft)">D&eacute;bito autom&aacute;tico</option>
+            </select>
+            <input id="billPayUrl" type="text" style="flex:1 1 150px"
+                   data-ph-pt="URL de pagamento (opcional)" data-ph-en="Pay URL (optional)" placeholder="URL de pagamento (opcional)">
+            <input id="billPayeeNotes" type="text" style="flex:1 1 150px"
+                   data-ph-pt="Notas de conta (opcional)" data-ph-en="Account notes (optional)" placeholder="Notas de conta (opcional)">
+            <button class="btn btn-sm btn-gold" id="billFormSubmitBtn" onclick="submitBillForm()">
+              <span class="show-pt">Adicionar</span>
+              <span class="show-en">Add</span>
+            </button>
+            <button class="btn btn-sm" id="billFormCancelBtn" onclick="cancelBillEdit()" hidden>
+              <span class="show-pt">Cancelar</span>
+              <span class="show-en">Cancel</span>
+            </button>
+          </div>
       </div>
     </div>
+
+
+    <div id="ownerPayCard" class="card" data-section-id="ownerpay" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Pr&oacute;-labore</span>
+          <span class="show-en">Owner pay</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('ownerpay',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('ownerpay',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('ownerpay')" id="collapse_ownerpay" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_ownerpay" hidden></div>
+      <div class="card-body-collapsible" id="body_ownerpay">
+        <div id="fwdOwnerPay" class="fwd-owner"></div>
+      </div>
+    </div>
+
+
+    <!-- ── Linked accounts / re-tagging ── -->
+    <div id="linkedCard" data-section-id="linked" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Contas conectadas</span>
+          <span class="show-en">Linked accounts</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('linked',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('linked',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('linked')" id="collapse_linked" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_linked" hidden></div>
+      <div class="card-body-collapsible" id="body_linked">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
+                <th><span class="show-pt">Banco</span><span class="show-en">Bank</span></th>
+                <th><span class="show-pt">Tipo</span><span class="show-en">Type</span></th>
+                <th class="num"><span class="show-pt">Saldo</span><span class="show-en">Balance</span></th>
+              </tr>
+            </thead>
+            <tbody id="linkedBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:16px">
+          <button class="btn btn-sm" onclick="startLink('business')">
+            <span class="show-pt">+ Conta comercial</span>
+            <span class="show-en">+ Business account</span>
+          </button>
+          <button class="btn btn-sm" onclick="startLink('personal')">
+            <span class="show-pt">+ Conta pessoal</span>
+            <span class="show-en">+ Personal account</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ── Suspected transfers ── -->
+    <div id="transferCard" data-section-id="transfers" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Transfer&ecirc;ncias suspeitas</span>
+          <span class="show-en">Suspected transfers</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('transfers',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('transfers',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('transfers')" id="collapse_transfers" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+      </div>
+      <div class="sec-summary" id="summary_transfers" hidden></div>
+      <div class="card-body-collapsible" id="body_transfers">
+        <div class="page-sub" style="margin-bottom:12px">
+          <span class="show-pt">Dinheiro movido entre as suas pr&oacute;prias contas n&atilde;o &eacute; receita nem despesa. Confirme para tirar dos totais.</span>
+          <span class="show-en">Money moved between your own accounts is neither income nor expense. Confirm to remove it from the totals.</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
+                <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
+                <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="transferBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
 
     <!-- ── Charts ── -->
     <!-- Not decoration. Nicole is dyslexic and works from visual tools, and
          Alice is not a numbers person -- a wall of figures is the version that
          goes unused, which is how the last tool died. -->
-    <div id="chartCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Vis&atilde;o geral</span>
-        <span class="show-en">Overview</span>
+    <div id="chartCard" data-section-id="charts" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Gr&aacute;ficos</span>
+          <span class="show-en">Charts</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('charts',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('charts',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('charts')" id="collapse_charts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="chart-grid">
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Entrou e saiu</span>
-            <span class="show-en">Money in and out</span>
+      <div class="sec-summary" id="summary_charts" hidden></div>
+      <div class="card-body-collapsible" id="body_charts">
+        <div class="chart-grid">
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">Entrou e saiu</span>
+              <span class="show-en">Money in and out</span>
+            </div>
+            <div class="chart-box"><canvas id="flowChart"></canvas></div>
+            <div id="flowCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="flowChart"></canvas></div>
-          <div id="flowCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">O que mudou por categoria</span>
-            <span class="show-en">What changed by category</span>
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">O que mudou por categoria</span>
+              <span class="show-en">What changed by category</span>
+            </div>
+            <div class="chart-box"><canvas id="momChart"></canvas></div>
+            <div id="momCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="momChart"></canvas></div>
-          <div id="momCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Para onde foi o dinheiro</span>
-            <span class="show-en">Where the money went</span>
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">Para onde foi o dinheiro</span>
+              <span class="show-en">Where the money went</span>
+            </div>
+            <div class="chart-box"><canvas id="catChart"></canvas></div>
+            <div id="catCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="catChart"></canvas></div>
-          <div id="catCaveat" class="chart-caveat" hidden></div>
-        </div>
-        <div>
-          <div class="flow-label" style="margin-bottom:8px">
-            <span class="show-pt">Saldo por conta</span>
-            <span class="show-en">Balance by account</span>
+          <div>
+            <div class="flow-label" style="margin-bottom:8px">
+              <span class="show-pt">Saldo por conta</span>
+              <span class="show-en">Balance by account</span>
+            </div>
+            <div class="chart-box"><canvas id="balanceChart"></canvas></div>
+            <div id="balanceCaveat" class="chart-caveat" hidden></div>
           </div>
-          <div class="chart-box"><canvas id="balanceChart"></canvas></div>
-          <div id="balanceCaveat" class="chart-caveat" hidden></div>
+          <!-- Vendor share of income: two-slice donut, per Alice's ask ("90%
+               Apex / 10% vendors"). Lives with the other headline charts, not
+               behind the Fornecedores tab -- Nicole 2026-08-19: this is a
+               number Alice glances at with the rest of the income picture,
+               not something she should have to click into vendor management
+               to see. -->
+          <div>
+            <div class="flow-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+              <span>
+                <span class="show-pt">Fatia dos fornecedores</span>
+                <span class="show-en">Vendor share</span>
+              </span>
+              <input type="month" id="vendorShareMonth" onchange="loadVendorShare()" style="font-size:12px;padding:2px 6px">
+            </div>
+            <div class="chart-box"><canvas id="vendorShareChart"></canvas></div>
+            <div id="vendorShareCaveat" class="chart-caveat" hidden></div>
+          </div>
         </div>
       </div>
     </div>
 
+
     <!-- ── Transactions (Stage 4) ── -->
-    <div id="txnCard" class="card" hidden>
-      <div class="card-title">
-        <span class="show-pt">Transa&ccedil;&otilde;es</span>
-        <span class="show-en">Transactions</span>
+    <div id="txnCard" data-section-id="transactions" class="card" hidden>
+      <div class="sec-head">
+        <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+        <div class="card-title">
+          <span class="show-pt">Transa&ccedil;&otilde;es</span>
+          <span class="show-en">Transactions</span>
+        </div>
+        <span class="sec-move-btns">
+          <button class="rank-btn" onclick="moveSection('transactions',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button class="rank-btn" onclick="moveSection('transactions',1)" aria-label="Mover para baixo">&#9660;</button>
+        </span>
+        <button class="collapse-btn" onclick="toggleSection('transactions')" id="collapse_transactions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
-      <div class="filter-row">
-        <input type="search" id="txnSearch" oninput="renderTransactions()"
-               data-ph-pt="Buscar descri&ccedil;&atilde;o..." data-ph-en="Search description..." placeholder="Buscar descri&ccedil;&atilde;o...">
-        <select id="txnAccount" onchange="renderTransactions()">
-          <option value="">Todas as contas / All accounts</option>
-        </select>
-        <select id="txnPending" onchange="renderTransactions()">
-          <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
-          <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
-          <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
-        </select>
-        <select id="txnCategoryFilter" onchange="renderTransactions()">
-          <option value="">Todas as categorias / All categories</option>
-          <option value="uncategorized">Sem categoria / Uncategorized</option>
-        </select>
-        <input type="date" id="txnFrom" onchange="renderTransactions()">
-        <input type="date" id="txnTo" onchange="renderTransactions()">
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
-              <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
-              <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
-              <th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>
-              <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
-            </tr>
-          </thead>
-          <tbody id="txnBody"></tbody>
-        </table>
-      </div>
-      <div id="txnEmpty" class="empty" hidden>
-        <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
-        <span class="show-en">No transactions found.</span>
+      <div class="sec-summary" id="summary_transactions" hidden></div>
+      <div class="card-body-collapsible" id="body_transactions">
+        <div class="filter-row">
+          <input type="search" id="txnSearch" oninput="resetAndRenderTransactions()"
+                 data-ph-pt="Buscar descri&ccedil;&atilde;o..." data-ph-en="Search description..." placeholder="Buscar descri&ccedil;&atilde;o...">
+          <select id="txnAccount" onchange="resetAndRenderTransactions()">
+            <option value="">Todas as contas / All accounts</option>
+          </select>
+          <select id="txnPending" onchange="resetAndRenderTransactions()">
+            <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
+            <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
+            <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
+          </select>
+          <select id="txnCategoryFilter" onchange="resetAndRenderTransactions()">
+            <option value="">Todas as categorias / All categories</option>
+            <option value="uncategorized">Sem categoria / Uncategorized</option>
+          </select>
+          <input type="date" id="txnFrom" onchange="resetAndRenderTransactions()">
+          <input type="date" id="txnTo" onchange="resetAndRenderTransactions()">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="show-pt">Data</span><span class="show-en">Date</span></th>
+                <th><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></th>
+                <th><span class="show-pt">Conta</span><span class="show-en">Account</span></th>
+                <th><span class="show-pt">Categoria</span><span class="show-en">Category</span></th>
+                <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
+              </tr>
+            </thead>
+            <tbody id="txnBody"></tbody>
+          </table>
+        </div>
+        <div id="txnEmpty" class="empty" hidden>
+          <span class="show-pt">Nenhuma transa&ccedil;&atilde;o encontrada.</span>
+          <span class="show-en">No transactions found.</span>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn btn-sm" id="txnShowMoreBtn" onclick="showMoreTransactions()" hidden></button>
+        </div>
       </div>
     </div>
+
+    </div><!-- /sectionsList -->
+
 
     </div><!-- /finPanelSaude -->
 
@@ -1625,6 +2060,241 @@
 
     </div><!-- /finPanelFaturas -->
 
+    <!-- New vendor. Same nc-overlay/nc-box idiom as "Nova categoria" above --
+         not a new UI idiom for a page that already has one for "add a
+         simple named thing". Top-level sibling of the tab panels, not
+         nested inside one -- a modal nested inside a hidden tab panel
+         inherits that panel's display:none and can never show or be
+         clicked, whichever tab is active. (Found live 2026-08-19: this
+         modal and vendorDetailOverlay were both originally nested inside
+         #finPanelFaturas by mistake.) -->
+    <div id="newVendorOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeNewVendor()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeNewVendor()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Novo fornecedor</span>
+          <span class="show-en">New vendor</span>
+        </h3>
+        <label class="nc-label">
+          <span class="show-pt">Nome</span>
+          <span class="show-en">Name</span>
+        </label>
+        <input type="text" id="nvName" class="nc-input" autocomplete="off">
+        <label class="nc-label">
+          <span class="show-pt">Tipo (palavras da Alice, ex: Marketing)</span>
+          <span class="show-en">Type (Alice's own words, e.g. Marketing)</span>
+        </label>
+        <input type="text" id="nvType" class="nc-input" autocomplete="off">
+        <button type="button" class="btn btn-gold" id="nvSaveBtn" onclick="saveNewVendor()" style="width:100%;margin-top:16px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div id="nvStatus" class="net-note" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- Vendor detail / completion modal. Same element opens both from the
+         Vendors list (edit) and automatically when Alice clicks into a
+         vendor with info_complete = 0 -- the completion prompt is just this
+         same form, dismissible, never a gate. Sets info_complete = 1 once
+         the required fields (vendor_type, contact_name, payment_method,
+         payment_identifier) are filled -- see vendorInfoIsComplete() in
+         worker/index.js for the same rule applied server-side. Top-level
+         sibling of the tab panels -- see note on newVendorOverlay above. -->
+    <div id="vendorDetailOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeVendorDetail()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeVendorDetail()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title" id="vdTitle"></h3>
+        <div id="vdCompletionHint" class="net-note" style="margin-bottom:10px;" hidden>
+          <span class="show-pt">Faltam alguns dados deste fornecedor. Pode preencher agora ou deixar para depois &mdash; nada trava.</span>
+          <span class="show-en">A few details are missing for this vendor. Fill them in now or leave it for later &mdash; nothing is blocked.</span>
+        </div>
+
+        <label class="nc-label">
+          <span class="show-pt">Tipo</span>
+          <span class="show-en">Type</span>
+        </label>
+        <input type="text" id="vdType" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Contato (nome)</span>
+          <span class="show-en">Contact name</span>
+        </label>
+        <input type="text" id="vdContactName" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">Email</label>
+        <input type="email" id="vdContactEmail" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Telefone</span>
+          <span class="show-en">Phone</span>
+        </label>
+        <input type="text" id="vdContactPhone" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Forma de pagamento</span>
+          <span class="show-en">Payment method</span>
+        </label>
+        <select id="vdPaymentMethod" class="nc-input">
+          <option value="">--</option>
+          <option value="zelle">Zelle</option>
+          <option value="check">Check</option>
+          <option value="ach">ACH</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label class="nc-label">
+          <span class="show-pt">Identificador de pagamento (telefone/email/nome no Zelle, etc)</span>
+          <span class="show-en">Payment identifier (Zelle phone/email/name, etc)</span>
+        </label>
+        <input type="text" id="vdPaymentIdentifier" class="nc-input" autocomplete="off">
+
+        <label class="nc-label">
+          <span class="show-pt">Notas</span>
+          <span class="show-en">Notes</span>
+        </label>
+        <input type="text" id="vdNotes" class="nc-input" autocomplete="off">
+
+        <button type="button" class="btn btn-gold" id="vdSaveBtn" onclick="saveVendorDetail()" style="width:100%;margin-top:16px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div id="vdStatus" class="net-note" style="margin-top:8px;"></div>
+
+        <!-- Attached clients for this vendor -- amount pending state shown
+             explicitly, never invented or hidden. -->
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:14px;">
+          <div class="nc-label" style="margin-bottom:8px;">
+            <span class="show-pt">Clientes atendidos</span>
+            <span class="show-en">Clients served</span>
+          </div>
+          <div id="vdClientsList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual bill-transaction match picker. Backend already supported this
+         (handlePostFinanceNewBillMatchApprove) but had no frontend -- found
+         live 2026-08-19: the mortgage payment posted (PENNYMAC, $2,560.10)
+         but never linked to the MORTGAGE bill because the fuzzy-match
+         fallback only checks whether the bill's NAME appears in the
+         transaction text, and "MORTGAGE" never appears in "PENNYMAC". Rather
+         than try to make the guess smarter, this lets her point at the real
+         transaction directly -- which also teaches payer_match_pattern so
+         every future month matches automatically, same learn-once shape as
+         client_payer_aliases. Top-level sibling of the tab panels, not
+         nested inside one -- see the note on newVendorOverlay for why that
+         placement matters. -->
+    <div id="billMatchOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeBillMatch()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeBillMatch()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Vincular transa&ccedil;&atilde;o</span>
+          <span class="show-en">Link a transaction</span>
+        </h3>
+        <div class="net-note" style="margin-bottom:12px;">
+          <span class="show-pt">Qual transa&ccedil;&atilde;o &eacute; o pagamento de <strong id="bmBillName"></strong>? Uma vez vinculada, os pr&oacute;ximos meses s&atilde;o reconhecidos automaticamente.</span>
+          <span class="show-en">Which transaction is the payment for <strong id="bmBillName2"></strong>? Once linked, future months are recognized automatically.</span>
+        </div>
+        <div id="bmList" class="table-wrap" style="max-height:320px;overflow-y:auto;"></div>
+        <div id="bmEmpty" class="empty" hidden>
+          <span class="show-pt">Nenhuma transa&ccedil;&atilde;o recente parecida encontrada.</span>
+          <span class="show-en">No similar recent transactions found.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- "Paguei no cartão" — one time, or from now on? Only the recurring
+         answer flips funding_source; a one-off must never permanently
+         reclassify a bill just because one month was tight. Top-level
+         sibling of the tab panels, never nested inside one. -->
+    <div id="cardPayOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeCardPay()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeCardPay()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title" id="cardPayTitle"></h3>
+        <div class="net-note" style="margin-bottom:16px;">
+          <span class="show-pt">Foi s&oacute; este m&ecirc;s ou vai passar a ser sempre no cart&atilde;o?</span>
+          <span class="show-en">Just this month, or from now on?</span>
+        </div>
+        <button type="button" class="btn btn-gold" onclick="confirmCardPay(false)" style="width:100%;margin-bottom:8px;">
+          <span class="show-pt">S&oacute; este m&ecirc;s</span>
+          <span class="show-en">Just this month</span>
+        </button>
+        <button type="button" class="btn" onclick="confirmCardPay(true)" style="width:100%;">
+          <span class="show-pt">Sempre no cart&atilde;o</span>
+          <span class="show-en">Always on the card</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ Prompt copied ════════════════════════════════════════════════
+         Placed HERE, as a sibling of the other nc-overlay boxes and OUTSIDE
+         every finPanel*, because display:none is inherited: a modal parked
+         inside a hidden tab panel renders invisible with no console error
+         while its click handler runs perfectly. -->
+    <!-- Naming the children's policies. Deliberately NOT an interview: this is
+         three names picked from a list, and a conversational prompt would be
+         more work than the task it replaces. The bank sends a stable policy
+         code on every debit (after "PMT INFO:"), and the same policy carries
+         the same code month to month -- it is the ONLY thing that separates
+         three $50 bills at one merchant. All that is missing is whose is whose. -->
+    <div id="policyNamesOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closePolicyNames()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closePolicyNames()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">De quem &eacute; cada ap&oacute;lice?</span>
+          <span class="show-en">Whose policy is which?</span>
+        </h3>
+        <div id="policyNamesRows"></div>
+        <button type="button" class="btn btn-gold" onclick="savePolicyNames()" style="width:100%;margin-top:16px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="promptCopiedOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closePromptCopied()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closePromptCopied()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Prompt copiado.</span>
+          <span class="show-en">Prompt copied.</span>
+        </h3>
+        <!-- The warning is not about tidiness. Finance tools are locked to her
+             identity and fail loudly in his Claude, but the client-terms tools
+             are reachable from BOTH connectors: run there it succeeds silently,
+             captures to the same vault, and spends his five-hour session limit
+             on her work. The silent case is what this line prevents. -->
+        <div class="net-note" style="margin-bottom:16px;">
+          <span class="show-pt">Cole no seu Claude &mdash; n&atilde;o no do Pastor Rafael.</span>
+          <span class="show-en">Paste into your own Claude &mdash; not Pastor Rafael's.</span>
+        </div>
+        <button type="button" class="btn btn-gold" onclick="closePromptCopied()" style="width:100%;">
+          <span class="show-pt">Entendi</span>
+          <span class="show-en">Got it</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ Interview completion signal ══════════════════════════════════ -->
+    <div id="interviewDoneOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeInterviewDone()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeInterviewDone()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">Entrevista registrada.</span>
+          <span class="show-en">Interview recorded.</span>
+        </h3>
+        <div class="net-note" style="margin-bottom:16px;">
+          <span class="show-pt">A lista continua at&eacute; as respostas entrarem no Apex.</span>
+          <span class="show-en">The list stays until the answers land in Apex.</span>
+        </div>
+        <button type="button" class="btn btn-gold" onclick="closeInterviewDone()" style="width:100%;">
+          <span class="show-pt">Fechar</span>
+          <span class="show-en">Close</span>
+        </button>
+      </div>
+    </div>
+
     <!-- ══ Panel: Categorias ════════════════════════════════════════════ -->
     <!-- Occasional and deepening work, which is why it is its own tab rather
          than a column on the transaction list. NOTHING here gates anything on
@@ -1790,6 +2460,45 @@
       </div>
 
     </div><!-- /finPanelEventos -->
+
+    <!-- ══ Panel: Fornecedores (Vendors) ═══════════════════════════════
+         Third-party vendors (marketing, accounting, etc.) who service
+         specific clients as a paid add-on riding on that client's regular
+         invoice -- never a separate invoice. This is Pra Alice's tool, so
+         it lives here alongside her other finance surfaces rather than on
+         the general client-profile nav. See apex-vendors-spec.md.
+
+         The vendor-share donut itself lives on the main Sa&uacute;de
+         Financeira panel's chart grid, not here -- Nicole 2026-08-19: it's
+         a headline income number Alice should see with the other charts,
+         not something buried behind this tab. This panel is vendor
+         management only (list / add / edit / attach to clients). -->
+    <div id="finPanelVendors" class="fin-tab-panel" hidden>
+
+      <div class="page-sub">
+        <span class="show-pt">Empresas terceirizadas que atendem clientes espec&iacute;ficos.</span>
+        <span class="show-en">Third-party companies that service specific clients.</span>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span>
+            <span class="show-pt">Fornecedores</span>
+            <span class="show-en">Vendors</span>
+          </span>
+          <button class="btn btn-sm btn-gold" onclick="openNewVendorModal()">
+            <span class="show-pt">+ Novo fornecedor</span>
+            <span class="show-en">+ New vendor</span>
+          </button>
+        </div>
+        <div id="vendorsList"></div>
+        <div id="vendorsEmpty" class="empty" hidden>
+          <span class="show-pt">Nenhum fornecedor cadastrado ainda.</span>
+          <span class="show-en">No vendors set up yet.</span>
+        </div>
+      </div>
+
+    </div><!-- /finPanelVendors -->
 
     </div><!-- /fn-body -->
   </main>
@@ -2071,6 +2780,85 @@
     </div>
   </div>
 
+  <!-- ═══════════════ MARK PAID (TAG ONLY) ═══════════════════════════════════
+       Found live 2026-08-17: a deposit can already show in the account TOTAL
+       (Plaid balance call) before /transactions/sync has a row for it -- a
+       real gap between two independent Plaid pipelines, not a bug in this
+       page. Reworked same day, Nicole's call: this is a STICKY NOTE, not an
+       accounting event. It never touches status or the outstanding total --
+       it only stamps a small tag so Alice can see at a glance which sent
+       invoices she personally believes are paid. The invoice becomes
+       OFFICIALLY paid only when the real bank transaction syncs in and gets
+       matched through the normal flow. -->
+  <div id="markPaidOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Marcar como pago (lembrete)</span>
+        <span class="show-en">Mark as paid (reminder)</span>
+      </div>
+      <div class="modal-sub">
+        <span class="show-pt">Isto s&oacute; coloca uma etiqueta na fatura para voc&ecirc; lembrar. N&atilde;o muda o status nem o total pendente -- a fatura s&oacute; fica paga de verdade quando a transa&ccedil;&atilde;o do banco entrar e for confirmada.</span>
+        <span class="show-en">This just tags the invoice as a reminder. It does not change the status or the outstanding total -- the invoice only becomes officially paid once the real bank transaction syncs in and is confirmed.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Como voc&ecirc; confirmou</span><span class="show-en">How you confirmed it</span>
+          <input type="text" id="markPaidNote" placeholder="Vi no app do BofA, ainda n&atilde;o sincronizou"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeMarkPaid()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="submitMarkPaid()">
+          <span class="show-pt">Colocar etiqueta</span><span class="show-en">Add tag</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CHANGE DUE DATE ═══════════════════════════════════════
+       Clients ask for more time after the invoice already went out. There was
+       no edit path before this -- due_at was writable only at creation. -->
+  <div id="dueDateOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Mudar vencimento</span>
+        <span class="show-en">Change due date</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Novo vencimento</span><span class="show-en">New due date</span>
+          <input type="date" id="dueDateNew"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Motivo</span><span class="show-en">Reason</span>
+          <input type="text" id="dueDateReason" placeholder="Cliente pediu mais duas semanas"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+      </div>
+
+      <!-- Shows every past push for THIS invoice -- the whole point is
+           spotting a habit, so the moment she's changing it again is the
+           moment she should see it's not the first time. -->
+      <div id="dueDateHistory" style="margin-top:14px"></div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeDueDate()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="submitDueDate()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" hidden><span id="toastText"></span></div>
 
   <div id="mobile-tab-bar"></div>
@@ -2123,6 +2911,10 @@
     var PENDING_RECURRENCE = null;
     var CURRENT_INVOICE_TAB = "draft";
     var CHARTS = { flow: null, mom: null, balance: null };
+    var VENDORS = [];
+    var OVERDUE = null;        // { overdue_bills[], upcoming_income[] } from /bills/overdue
+    var EDITING_BILL_ID = null;   // set while the add-bill form is editing an existing row
+    var DRAG_BILL_ID = null;      // bill_id currently being dragged in the overdue list
 
     // Prefetched at page load ON PURPOSE: the WhatsApp handler must be able to
     // build its message without awaiting anything, so window.open() can run
@@ -2231,6 +3023,22 @@
       var p = String(iso).slice(0, 10).split("-");
       if (p.length !== 3) { return iso; }
       return p[1] + "/" + p[2] + "/" + p[0];
+    }
+
+    // "last $193.89" reads as a dangling word -- last what? The month name is
+    // unambiguous and is already carried on the charge, so the row says
+    // "julho $193.89" instead of making her infer the period.
+    var MONTHS_PT = ["janeiro","fevereiro","mar\u00e7o","abril","maio","junho",
+                     "julho","agosto","setembro","outubro","novembro","dezembro"];
+    var MONTHS_EN = ["January","February","March","April","May","June",
+                     "July","August","September","October","November","December"];
+    function fmtMonthName(iso) {
+      if (!iso) { return ""; }
+      var p = String(iso).slice(0, 10).split("-");
+      if (p.length !== 3) { return ""; }
+      var i = parseInt(p[1], 10) - 1;
+      if (i < 0 || i > 11) { return ""; }
+      return isEn() ? MONTHS_EN[i] : MONTHS_PT[i];
     }
 
     function esc(s) {
@@ -2407,6 +3215,7 @@
         rows.push({
           n: ATTENTION.matches.count,
           go: "faturas",
+          copy: "matches",
           pt: "dep&oacute;sito" + (ATTENTION.matches.count > 1 ? "s" : "") + " para confirmar",
           en: "deposit" + (ATTENTION.matches.count > 1 ? "s" : "") + " to confirm",
           subPt: "Chegou dinheiro que parece ser de uma fatura. Confirme e ela fica quitada.",
@@ -2419,6 +3228,7 @@
           n: ATTENTION.missing_terms.count,
           go: null,
           href: "clients.html",
+          copy: "terms",
           pt: "cliente" + (ATTENTION.missing_terms.count > 1 ? "s" : "") + " sem valores combinados",
           en: "client" + (ATTENTION.missing_terms.count > 1 ? "s" : "") + " without agreed terms",
           subPt: "Sem isso n&atilde;o d&aacute; pra prever o que entra nos pr&oacute;ximos meses.",
@@ -2426,10 +3236,24 @@
         });
       }
 
+      // No interview for this one: it is three names typed into three boxes.
+      // Handing it to a conversational prompt would be more work than the task.
+      if (ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.count > 0) {
+        rows.push({
+          n: ATTENTION.unnamed_policies.count,
+          action: "openPolicyNames()",
+          pt: "ap&oacute;lice" + (ATTENTION.unnamed_policies.count > 1 ? "s" : "") + " sem nome",
+          en: "polic" + (ATTENTION.unnamed_policies.count > 1 ? "ies" : "y") + " not named",
+          subPt: "S&oacute; voc&ecirc; sabe de quem &eacute; cada uma.",
+          subEn: "Only you know whose each one is."
+        });
+      }
+
       if (ATTENTION.uncategorized && ATTENTION.uncategorized.count > 0) {
         rows.push({
           n: ATTENTION.uncategorized.count,
           go: "categorias",
+          copy: "uncategorized",
           pt: "transa&ccedil;&otilde;es ainda sem categoria",
           en: "transactions not categorized yet",
           subPt: "Cada uma que voc&ecirc; classifica vira uma regra e as parecidas se resolvem sozinhas.",
@@ -2438,9 +3262,11 @@
       }
 
       document.getElementById("attnRows").innerHTML = rows.map(function(r) {
-        var click = r.href
-          ? 'location.href=\'' + r.href + '\''
-          : 'switchFinanceTab(\'' + r.go + '\')';
+        var click = r.action
+          ? r.action
+          : (r.href
+              ? 'location.href=\'' + r.href + '\''
+              : (r.go ? 'switchFinanceTab(\'' + r.go + '\')' : ''));
         return '<div class="attn-row" role="button" tabindex="0" style="cursor:pointer" ' +
                  'onclick="' + click + '" ' +
                  'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + click + ';}">' +
@@ -2455,10 +3281,23 @@
                      '<span class="show-en">' + r.subEn + '</span>' +
                    '</div>' +
                  '</div>' +
+                 (r.copy
+                   ? '<button class="btn btn-sm attn-copy-btn" ' +
+                       'onclick="event.stopPropagation();copyQueuePrompt(\'' + r.copy + '\')">' +
+                       '<span class="show-pt">Copiar prompt</span>' +
+                       '<span class="show-en">Copy prompt</span>' +
+                     '</button>' +
+                     '<button class="btn btn-sm attn-copy-btn" ' +
+                       'onclick="event.stopPropagation();markInterviewDone(\'' + r.copy + '\')">' +
+                       '<span class="show-pt">Entrevista conclu&iacute;da</span>' +
+                       '<span class="show-en">Interview done</span>' +
+                     '</button>'
+                   : '') +
                '</div>';
       }).join("");
 
       document.getElementById("attnClear").hidden = rows.length > 0;
+
 
       // The work shrinking, stated as a fact about the rules rather than a
       // score about her. Only shown once the rules have actually done
@@ -2475,6 +3314,7 @@
 
       card.hidden = false;
       applyFinBilingualAttrs();
+      if (isCollapsed("attention")) { renderSectionSummary("attention"); }
     }
 
     // ── Forward view ────────────────────────────────────────────────────
@@ -2488,6 +3328,13 @@
     // a confident wrong number -- the same honesty threshold the net figure
     // on the hero tiles already uses.
     function renderForward() {
+      // Fixed bills stands on its own: it is where she ENTERS the bills, so
+      // it has to be reachable even when the forward walk cannot be built.
+      renderBills();
+      var billsCard0 = document.getElementById("billsCard");
+      if (billsCard0) { billsCard0.hidden = false; }
+      if (isCollapsed("bills")) { renderSectionSummary("bills"); }
+
       var card = document.getElementById("forwardCard");
       if (!card || !FORWARD) { return; }
       card.hidden = false;
@@ -2575,7 +3422,19 @@
       }
 
       renderBills();
+
+      // Fixed bills and owner pay are their own sections now, so each has to
+      // be revealed on its own -- they used to ride along inside the forward
+      // card and would otherwise stay hidden forever.
+      var billsCard = document.getElementById("billsCard");
+      if (billsCard) { billsCard.hidden = false; }
+      var ownerCard = document.getElementById("ownerPayCard");
+      if (ownerCard) { ownerCard.hidden = false; }
+
       applyFinBilingualAttrs();
+      if (isCollapsed("forward"))  { renderSectionSummary("forward"); }
+      if (isCollapsed("bills"))    { renderSectionSummary("bills"); }
+      if (isCollapsed("ownerpay")) { renderSectionSummary("ownerpay"); }
     }
 
     // "dia 12" / "August 12" -- a date she can act on, not an ISO string.
@@ -2593,6 +3452,31 @@
       return sameMonth ? d : d + " de " + monthsPt[mi];
     }
 
+    // A usage bill's stored amount is an estimate, not an obligation. Showing it
+    // the same way as the mortgage implies a precision it does not have, so it
+    // is labelled -- and paired with the amount that really left the account
+    // last time, which is the number that actually tells her what is coming.
+    function variableAmountHtml(b, cls) {
+      if (!b.is_variable) {
+        return '<span class="' + cls + '">' + fmtCents(b.amount_cents) + "</span>";
+      }
+      // The NUMBER carries the uncertainty, not just a label beside it. Set in
+      // the same size and position as a real amount, an estimate reads as
+      // exactly as solid as the mortgage -- which is $2,560.10 to the cent
+      // every month. Italic plus the parenthesised word makes the difference
+      // visible before the label is read.
+      var main = '<span class="' + cls + ' bill-amt-est">' +
+        fmtCents(b.amount_cents) + " " + t("(estimado)", "(estimate)") + "</span>";
+      if (b.last_charge && b.last_charge.amount_cents) {
+        var when = fmtMonthName(b.last_charge.date);
+        return main + '<span class="bill-est-note">' +
+          (when ? when + " " : t("&uacute;ltimo m&ecirc;s ", "last month ")) +
+          fmtCents(b.last_charge.amount_cents) +
+          "</span>";
+      }
+      return main;
+    }
+
     function renderBills() {
       var list = document.getElementById("billsList");
       if (!list) { return; }
@@ -2603,14 +3487,43 @@
         return;
       }
       list.innerHTML = BILLS.map(function(b) {
+        var methodLabel = b.payment_method === "draft"
+          ? (isEn() ? "autopay" : "d&eacute;bito autom&aacute;tico")
+          : (isEn() ? "manual" : "manual");
+        var extra = '<span class="bill-extra">' +
+          (isEn() ? "day " : "dia ") + b.day_of_month + " &middot; " +
+          (b.purpose === "business" ? (isEn() ? "business" : "comercial")
+                                    : (isEn() ? "personal" : "pessoal")) +
+          " &middot; " + methodLabel +
+          // A card-funded bill is already in this list; it just has to say so.
+          // The bank feed cannot see the charge, so it will never show as paid
+          // here -- and without the label that reads as an oversight rather
+          // than as the known limitation it is.
+          (b.funding_source && b.funding_source !== "bank"
+            ? ' &middot; <span class="bill-oncard">' + t("no cart&atilde;o", "on the card") + "</span>"
+            : "") +
+          // Only on the internet bill: a side-by-side of what else is available
+          // at their address. Alice makes the billing decisions, so the compare
+          // sheet lives where the bill is, not in a document she has to find.
+          (/spectrum|internet/i.test(b.name || "")
+            ? ' &middot; <a class="bill-compare-link" href="internet-options.html" target="_blank" rel="noopener">' +
+              t("ver outras op&ccedil;&otilde;es", "see other options") + "</a>"
+            : "") +
+          // The usage bills get the savings sheet instead: there is no competitor
+          // to switch to for power or county water, so the only lever is using less.
+          (b.is_variable
+            ? ' &middot; <a class="bill-compare-link" href="utility-savings.html" target="_blank" rel="noopener">' +
+              t("como baixar", "how to lower it") + "</a>"
+            : "") +
+          (b.pay_url ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) +
+            '" target="_blank" rel="noopener">' + t("pagar", "pay") + "</a>" : "") +
+          (b.payee_notes ? " &middot; " + esc(b.payee_notes) : "") +
+        "</span>";
         return '<div class="fwd-bill-row">' +
-          '<span class="grow">' + esc(b.name) +
-            ' <span class="tag-meta">' +
-              (isEn() ? "day " : "dia ") + b.day_of_month + " &middot; " +
-              (b.purpose === "business" ? (isEn() ? "business" : "comercial")
-                                        : (isEn() ? "personal" : "pessoal")) +
-            "</span></span>" +
-          "<b>" + fmtCents(b.amount_cents) + "</b>" +
+          '<span class="grow">' + esc(b.name) + extra + "</span>" +
+          "<b>" + variableAmountHtml(b, "bill-amt-inline") + "</b>" +
+          '<button class="btn btn-sm" onclick="startEditBill(\'' + b.id + '\')">' +
+            '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button>' +
           '<button class="btn btn-sm" onclick="removeFixedBill(\'' + b.id + '\')">' +
             '<span class="show-pt">Remover</span><span class="show-en">Remove</span></button>' +
         "</div>";
@@ -2694,37 +3607,665 @@
       });
     }
 
-    function addFixedBill() {
+    // Add and edit share one form: submitBillForm() sends update_id when
+    // EDITING_BILL_ID is set, otherwise it's a plain create. Keeps the form
+    // markup (and its validation) in one place instead of duplicating it in
+    // a separate edit modal.
+    function submitBillForm() {
       var name = document.getElementById("billName").value.trim();
       var amtRaw = document.getElementById("billAmount").value.trim().replace(/[^0-9.,-]/g, "").replace(",", ".");
       var day = parseInt(document.getElementById("billDay").value, 10);
       var purpose = document.getElementById("billPurpose").value;
+      var paymentMethod = document.getElementById("billPaymentMethod").value;
+      var payUrl = document.getElementById("billPayUrl").value.trim();
+      var payeeNotes = document.getElementById("billPayeeNotes").value.trim();
 
       if (!name) { toast(t("Informe o nome da conta.", "Enter the bill name.")); return; }
       var amt = Number(amtRaw);
       if (!isFinite(amt) || amt <= 0) { toast(t("Valor inv&aacute;lido.", "Invalid amount.")); return; }
       if (!isFinite(day) || day < 1 || day > 31) { toast(t("Dia precisa ser 1-31.", "Day must be 1-31.")); return; }
 
-      apiFetch("/api/finance-new/bills", {
-        method: "POST",
-        body: { name: name, amount_cents: Math.round(amt * 100), day_of_month: day, purpose: purpose }
-      })
+      var body = {
+        name: name, amount_cents: Math.round(amt * 100), day_of_month: day, purpose: purpose,
+        payment_method: paymentMethod, pay_url: payUrl || null, payee_notes: payeeNotes || null
+      };
+      if (EDITING_BILL_ID) { body.update_id = EDITING_BILL_ID; }
+
+      apiFetch("/api/finance-new/bills", { method: "POST", body: body })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.error) { toast(d.error); return; }
-          document.getElementById("billName").value = "";
-          document.getElementById("billAmount").value = "";
-          document.getElementById("billDay").value = "";
+          resetBillForm();
+          hideBillForm();
           loadForward();
+          loadOverdue();
         })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function resetBillForm() {
+      document.getElementById("billName").value = "";
+      document.getElementById("billAmount").value = "";
+      document.getElementById("billDay").value = "";
+      document.getElementById("billPaymentMethod").value = "manual";
+      document.getElementById("billPayUrl").value = "";
+      document.getElementById("billPayeeNotes").value = "";
+      EDITING_BILL_ID = null;
+      document.getElementById("billFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Adicionar</span><span class="show-en">Add</span>';
+      document.getElementById("billFormCancelBtn").hidden = true;
+      applyFinBilingualAttrs();
+    }
+
+    function startEditBill(id) {
+      var b = BILLS.filter(function(x) { return x.id === id; })[0];
+      if (!b) { return; }
+      EDITING_BILL_ID = id;
+      showBillForm();
+      document.getElementById("billName").value = b.name;
+      document.getElementById("billAmount").value = (b.amount_cents / 100).toFixed(2);
+      document.getElementById("billDay").value = b.day_of_month;
+      document.getElementById("billPurpose").value = b.purpose;
+      document.getElementById("billPaymentMethod").value = b.payment_method || "manual";
+      document.getElementById("billPayUrl").value = b.pay_url || "";
+      document.getElementById("billPayeeNotes").value = b.payee_notes || "";
+      document.getElementById("billFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Salvar</span><span class="show-en">Save</span>';
+      document.getElementById("billFormCancelBtn").hidden = false;
+      document.getElementById("billName").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function cancelBillEdit() {
+      resetBillForm();
+      hideBillForm();
     }
 
     function removeFixedBill(id) {
       apiFetch("/api/finance-new/bills", { method: "POST", body: { delete_id: id } })
         .then(function(r) { return r.json(); })
-        .then(function() { loadForward(); })
+        .then(function() { loadForward(); loadOverdue(); })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Category budgets ─────────────────────────────────────────────────
+    //
+    // A monthly spending TARGET, not a bill -- no due date, no single
+    // transaction that "is" the payment. Spent/remaining/weekly-average are
+    // all computed server-side from the category's own transactions this
+    // month. See migrations/category_budgets.sql for why this is a
+    // separate table from fixed_bills.
+
+    var BUDGETS = [];
+    var editingBudgetId = null;
+
+    function loadBudgets() {
+      return Promise.all([
+        CATEGORIES.length ? Promise.resolve() : loadCategories(),
+        apiFetch("/api/finance-new/category-budgets").then(function(r) { return r.json(); })
+      ]).then(function(res) {
+        BUDGETS = (res[1] && res[1].budgets) || [];
+        populateBudgetCategorySelect();
+        renderBudgets();
+      }).catch(function() { BUDGETS = []; renderBudgets(); });
+    }
+
+    function populateBudgetCategorySelect() {
+      var sel = document.getElementById("budgetCategory");
+      if (!sel) { return; }
+      var current = sel.value;
+      sel.innerHTML = CATEGORIES.map(function(c) {
+        return '<option value="' + esc(c.id) + '">' + esc(categoryName(c)) + '</option>';
+      }).join("");
+      if (current) { sel.value = current; }
+    }
+
+    function renderBudgets() {
+      var card = document.getElementById("budgetsCard");
+      var wrap = document.getElementById("budgetsList");
+      var empty = document.getElementById("budgetsEmpty");
+      if (!card || !wrap) { return; }
+      card.hidden = false;
+
+      if (!BUDGETS.length) {
+        wrap.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+
+      wrap.innerHTML = BUDGETS.map(function(b) {
+        var overBudget = b.remaining_cents < 0;
+        var remainingLabel = overBudget
+          ? t("estourou em ", "over by ") + fmtCents(Math.abs(b.remaining_cents))
+          : t("restam ", "") + fmtCents(b.remaining_cents) + (isEn() ? " left" : "");
+
+        var weeksLeftLabel = b.weeks_remaining === 1
+          ? t("1 semana restante", "1 week left")
+          : t(b.weeks_remaining + " semanas restantes", b.weeks_remaining + " weeks left");
+
+        var pct = b.monthly_amount_cents > 0
+          ? Math.min(100, Math.round((b.spent_cents / b.monthly_amount_cents) * 100)) : 0;
+
+        // Projection: the whole point of a budget view is seeing the trend
+        // before the money is gone, not just today's snapshot -- Nicole
+        // 2026-08-19. Given real visual weight (its own bold, colored line),
+        // not tucked under gray metadata text where it was too easy to miss.
+        var projectionHtml = "";
+        if (b.weeks_remaining > 0) {
+          var overProjected = b.projected_over_cents > 0;
+          if (overProjected) {
+            projectionHtml = '<div class="budget-projection is-over">' +
+              t("Deve estourar em " + fmtCents(b.projected_over_cents),
+                 "Projected over by " + fmtCents(b.projected_over_cents)) +
+              "</div>";
+          } else if (b.projected_spend_cents > b.monthly_amount_cents * 0.8) {
+            projectionHtml = '<div class="budget-projection is-watch">' +
+              t("Perto do limite", "Close to the limit") +
+              "</div>";
+          }
+        }
+
+        return '<div class="budget-row" onclick="startEditBudget(\'' + esc(b.id) + '\')" style="cursor:pointer;">' +
+          '<div class="budget-row-head">' +
+            '<span class="budget-name">' + esc(b.category_name || b.category_id) + '</span>' +
+            '<span class="budget-name">' + fmtCents(b.spent_cents) + ' / ' + fmtCents(b.monthly_amount_cents) + '</span>' +
+          '</div>' +
+          '<div class="budget-figures">' +
+            remainingLabel + ' &middot; ' + t('m&eacute;dia semanal ', 'weekly avg ') + fmtCents(b.weekly_avg_cents) +
+            ' &middot; ' + weeksLeftLabel +
+          '</div>' +
+          '<div class="budget-progress"><div class="budget-progress-fill' + (overBudget ? ' is-over' : '') + '" style="width:' + pct + '%"></div></div>' +
+          projectionHtml +
+        '</div>';
+      }).join("");
+      if (isCollapsed("budgets")) { renderSectionSummary("budgets"); }
+    }
+
+    function startEditBudget(id) {
+      var b = BUDGETS.find(function(x) { return x.id === id; });
+      if (!b) { return; }
+      editingBudgetId = id;
+      showBudgetForm();
+      document.getElementById("budgetCategory").value = b.category_id;
+      document.getElementById("budgetAmount").value = (b.monthly_amount_cents / 100).toFixed(2);
+      document.getElementById("budgetPurpose").value = b.purpose;
+      document.getElementById("budgetFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Salvar</span><span class="show-en">Save</span>';
+      document.getElementById("budgetFormCancelBtn").hidden = false;
+    }
+
+    function cancelBudgetEdit() {
+      hideBudgetForm();
+      editingBudgetId = null;
+      document.getElementById("budgetAmount").value = "";
+      document.getElementById("budgetFormSubmitBtn").innerHTML =
+        '<span class="show-pt">Adicionar</span><span class="show-en">Add</span>';
+      document.getElementById("budgetFormCancelBtn").hidden = true;
+    }
+
+    function submitBudgetForm() {
+      var categoryId = document.getElementById("budgetCategory").value;
+      var amtRaw = document.getElementById("budgetAmount").value.trim().replace(/[^0-9.,-]/g, "").replace(",", ".");
+      var purpose = document.getElementById("budgetPurpose").value;
+      var amt = Number(amtRaw);
+      if (!categoryId) { toast(t("Escolha uma categoria.", "Choose a category.")); return; }
+      if (!isFinite(amt) || amt <= 0) { toast(t("Valor inv&aacute;lido.", "Invalid amount.")); return; }
+
+      var body = { category_id: categoryId, monthly_amount_cents: Math.round(amt * 100), purpose: purpose };
+      if (editingBudgetId) { body.update_id = editingBudgetId; }
+
+      apiFetch("/api/finance-new/category-budgets", { method: "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          cancelBudgetEdit();
+          loadBudgets();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Overdue bills + coverage forecast ───────────────────────────────
+    //
+    // Overdue is purely date-based, computed server-side. The coverage
+    // forecast is informational context shown alongside the flag -- never a
+    // reason to hide it. Priority order (drag or the up/down fallback)
+    // reorders optimistically in the browser, then persists via PUT.
+
+    var BILL_MATCHES = [];
+
+    function loadOverdue() {
+      return Promise.all([
+        apiFetch("/api/finance-new/bills/overdue").then(function(r) { return r.json(); }).catch(function() { return null; }),
+        apiFetch("/api/finance-new/bills/matches").then(function(r) { return r.json(); }).catch(function() { return null; })
+      ]).then(function(res) {
+        OVERDUE = res[0] && !res[0].error ? res[0] : null;
+        BILL_MATCHES = (res[1] && res[1].matches) || [];
+        renderOverdue();
+      });
+    }
+
+    // The matcher found these and nothing was showing them. Found live
+    // 2026-08-19: Planet Fitness was auto-detected as a bill, accepted,
+    // its $10.70 debit landed on its exact due date with an identical
+    // merchant string -- a perfect match -- and it still read as overdue,
+    // because /bills/matches had no UI. Accepting one also teaches
+    // payer_match_pattern, so that bill matches itself from then on.
+    function renderBillMatchSuggestions() {
+      var box = document.getElementById("billMatchSuggest");
+      if (!box) { return; }
+      if (!BILL_MATCHES.length) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML =
+        '<div class="club-suggest-head">' +
+          '<span class="show-pt">J&aacute; parece pago &mdash; confirma?</span>' +
+          '<span class="show-en">Looks already paid &mdash; confirm?</span>' +
+        "</div>" +
+        BILL_MATCHES.map(function(m) {
+          var txn = m.transaction || {};
+          return '<div class="club-sug-row">' +
+            '<span class="grow">' + esc(m.bill_name || "") +
+              ' <span class="tag-meta">' + fmtDate(txn.date) + " &middot; " + esc(txn.description || "") + "</span></span>" +
+            "<b>" + fmtCents(Math.abs(txn.amount_cents || 0)) + "</b>" +
+            '<button class="btn btn-sm btn-gold" onclick="approveBillMatch(\'' + esc(m.bill_id) + '\',\'' + esc(txn.id) + '\')">' +
+              '<span class="show-pt">Confirmar</span><span class="show-en">Confirm</span></button>' +
+          "</div>";
+        }).join("");
+    }
+
+    function approveBillMatch(billId, transactionId) {
+      apiFetch("/api/finance-new/bills/matches/approve", {
+        method: "POST", body: { bill_id: billId, transaction_id: transactionId }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(t("Confirmado.", "Confirmed."));
+          loadForward();
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // Plain-sentence header, same "sentence first" principle as the forward
+    // view: "$4,000 esperado de JM Pools em 05/09 · $1,000 esperado de X em 07/09".
+    // Only genuinely future invoices -- Nicole 2026-08-19: clients can and do
+    // renegotiate due dates when they're struggling to pay, so an overdue
+    // invoice's real payment date is unknown, not a knowable delay. It's
+    // reported separately (overdueInvoicesTagHtml) instead of stated here as
+    // if it were a trustworthy date.
+    function overdueSentenceHtml() {
+      if (!OVERDUE || !OVERDUE.upcoming_income || !OVERDUE.upcoming_income.length) {
+        return '<span class="show-pt">Nenhuma entrada de fatura prevista no momento.</span>' +
+               '<span class="show-en">No invoice income currently expected.</span>';
+      }
+      var parts = OVERDUE.upcoming_income.slice(0, 4).map(function(inc) {
+        var name = esc(inc.client_name || t("cliente", "client"));
+        // is_scheduled = an active recurrence not yet turned into a real
+        // invoice -- most invoices generate and send ON their due date, so
+        // requiring a real invoice would hide reliable near-term income
+        // until the day it's already due. Still real (it fires
+        // automatically), just marked "prevista" (scheduled) rather than
+        // stated as flatly as an invoice already sent.
+        return inc.is_scheduled
+          ? t(fmtCents(inc.amount_cents) + " previsto de " + name + " em " + fmtDate(inc.due_at),
+              fmtCents(inc.amount_cents) + " scheduled from " + name + " on " + fmtDate(inc.due_at))
+          : t(fmtCents(inc.amount_cents) + " esperado de " + name + " em " + fmtDate(inc.due_at),
+              fmtCents(inc.amount_cents) + " expected from " + name + " on " + fmtDate(inc.due_at));
+      });
+      return '<span>' + parts.join(" &middot; ") + "</span>";
+    }
+
+    // Charges that hit a credit card the system cannot see (Apple Card has
+    // no Plaid institution and no aggregator support at all -- Apple's
+    // FinanceKit is on-device/iPhone-only). They are NOT overdue, NOT owed
+    // from the bank, and never bank-matchable -- but Alice still wants to
+    // see them coming so she remembers to check the card. Nicole 2026-08-19:
+    // "still show them... but she has to look at the credit card to make
+    // sure that they get charged there."
+
+    // A separate, plainly-stated total -- NOT folded into the coverage
+    // forecast or the sentence above. Nicole 2026-08-19: "add it as a tag
+    // above the list saying $X in overdue invoices outstanding" -- real
+    // money that may arrive, but on no date anyone can currently plan
+    // against, so it must never look like scheduled income.
+    function overdueInvoicesTagHtml() {
+      var total = OVERDUE && OVERDUE.overdue_invoices_total_cents;
+      if (!total) { return ""; }
+      return '<div class="tag-meta" style="margin-top:6px;">' +
+        t(fmtCents(total) + " em faturas atrasadas",
+           fmtCents(total) + " in overdue invoices") +
+        "</div>";
+    }
+
+    function renderOverdue() {
+      var card = document.getElementById("overdueCard");
+      if (!card) { return; }
+      // Stay visible if there are matches waiting, even with no overdue data.
+      if (!OVERDUE || !OVERDUE.overdue_bills) {
+        if (BILL_MATCHES.length) { card.hidden = false; renderBillMatchSuggestions(); }
+        else { card.hidden = true; }
+        return;
+      }
+      card.hidden = false;
+
+      // Card charges are NOT rendered here. They belong in the bills list --
+      // see renderBills(). A credit-card charge the bank feed cannot see can
+      // never be marked paid from here, so in a section whose whole job is to
+      // reach zero it is a line that never clears: permanent noise telling her
+      // to go check something manually. Same failure as any nag that cannot be
+      // resolved where it appears.
+      document.getElementById("overdueSentence").innerHTML =
+        overdueSentenceHtml() + overdueInvoicesTagHtml();
+
+      // Before the early return below: a pending match is exactly what
+      // empties the overdue list, so it must render even when the list is
+      // currently empty.
+      renderBillMatchSuggestions();
+
+      var rows = document.getElementById("overdueRows");
+      var empty = document.getElementById("overdueEmpty");
+      var bills = OVERDUE.overdue_bills;
+
+      if (!bills.length) {
+        rows.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+
+      rows.innerHTML = bills.map(function(b, i) {
+        var methodLabel = b.payment_method === "draft"
+          ? t("d&eacute;bito autom&aacute;tico", "autopay") : t("manual", "manual");
+        // Coverage only ever points at a genuinely future invoice now -- an
+        // overdue client invoice's real date is unknown, so it never
+        // participates in this allocation. See overdueInvoicesTagHtml().
+        var coverageHtml = b.covered_by
+          ? '<div class="bill-coverage is-covered">' +
+              t(esc(b.covered_by.client_name) + " &mdash; " + fmtDate(b.covered_by.due_at),
+                 esc(b.covered_by.client_name) + " &mdash; " + fmtDate(b.covered_by.due_at)) +
+            "</div>"
+          : '<div class="bill-coverage is-uncovered">' +
+              t("Sem cobertura", "Not covered") +
+            "</div>";
+        var payLink = b.pay_url
+          ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) + '" target="_blank" rel="noopener">' +
+            t("pagar", "pay") + "</a>" : "";
+
+        return '<div class="overdue-row" draggable="true" data-bill-id="' + esc(b.id) + '" ' +
+          'ondragstart="onBillDragStart(event,\'' + esc(b.id) + '\')" ' +
+          'ondragover="onBillDragOver(event)" ondrop="onBillDrop(event,\'' + esc(b.id) + '\')" ' +
+          'ondragend="onBillDragEnd(event)">' +
+          '<span class="drag-handle" title="' + t("Arraste para reordenar", "Drag to reorder") + '" ' +
+            'aria-label="' + t("Arraste para reordenar", "Drag to reorder") + '" ' +
+            'ontouchstart="onBillTouchStart(event,\'' + esc(b.id) + '\')" ' +
+            'ontouchmove="onBillTouchMove(event)" ontouchend="onBillTouchEnd(event)">&#9776;</span>' +
+          '<span class="rank-btns">' +
+            '<button class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',-1)" ' +
+              (i === 0 ? "disabled" : "") + ' aria-label="' + t("Mover para cima", "Move up") + '">&#9650;</button>' +
+            '<button class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',1)" ' +
+              (i === bills.length - 1 ? "disabled" : "") + ' aria-label="' + t("Mover para baixo", "Move down") + '">&#9660;</button>' +
+          "</span>" +
+          '<span class="grow">' +
+            '<span class="bill-name">' + esc(b.name) + payLink + "</span>" +
+            '<div class="bill-meta">' +
+              t(b.days_overdue + " dia" + (b.days_overdue === 1 ? "" : "s") + " em atraso &middot; " + methodLabel,
+                 b.days_overdue + " day" + (b.days_overdue === 1 ? "" : "s") + " overdue &middot; " + methodLabel) +
+            "</div>" +
+            coverageHtml +
+          "</span>" +
+          variableAmountHtml(b, "bill-amount") +
+          '<div class="overdue-row-actions">' +
+            '<button class="btn btn-sm" onclick="openBillMatch(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\',' + b.amount_cents + ')">' +
+              '<span class="show-pt">Vincular transa&ccedil;&atilde;o</span><span class="show-en">Link transaction</span></button> ' +
+            '<button class="btn btn-sm btn-gold" onclick="markBillPaid(\'' + esc(b.id) + '\')">' +
+              '<span class="show-pt">Marcar pago</span><span class="show-en">Mark paid</span></button> ' +
+            '<button class="btn btn-sm" onclick="payBillWithCard(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\')">' +
+              '<span class="show-pt">Paguei no cart&atilde;o</span><span class="show-en">Paid with card</span></button> ' +
+            '<button class="btn btn-sm" onclick="cancelBillService(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\')">' +
+              '<span class="show-pt">Cancelei</span><span class="show-en">Cancelled</span></button>' +
+          "</div>" +
+        "</div>";
+      }).join("");
+
+      applyFinBilingualAttrs();
+      if (isCollapsed("overdue")) { renderSectionSummary("overdue"); }
+    }
+
+    function markBillPaid(billId) {
+      apiFetch("/api/finance-new/bills/" + encodeURIComponent(billId) + "/mark-paid", { method: "POST", body: {} })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(t("Marcado como pago.", "Marked paid."));
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // "Paguei no cartão" — clears the bill for this month without claiming
+    // the money left the bank. The recurring answer flips funding_source so
+    // future months skip bank math entirely (same treatment as Claude).
+    var CARD_PAY_BILL_ID = null;
+
+    function payBillWithCard(billId, billName) {
+      CARD_PAY_BILL_ID = billId;
+      document.getElementById("cardPayTitle").textContent = billName;
+      document.getElementById("cardPayOverlay").hidden = false;
+    }
+
+    function closeCardPay() {
+      var ov = document.getElementById("cardPayOverlay");
+      if (ov) { ov.hidden = true; }
+      CARD_PAY_BILL_ID = null;
+    }
+
+    function confirmCardPay(recurring) {
+      if (!CARD_PAY_BILL_ID) { return; }
+      apiFetch("/api/finance-new/bills/" + encodeURIComponent(CARD_PAY_BILL_ID) + "/mark-paid", {
+        method: "POST", body: { paid_with_card: true, recurring: !!recurring }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(recurring ? t("Marcado como sempre no cart&atilde;o.", "Now always on the card.")
+                          : t("Marcado como pago no cart&atilde;o.", "Marked paid with card."));
+          closeCardPay();
+          loadForward();
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // "Cancelei" — the service is gone, which is different from Remover
+    // (delete). Keeps the row as history so a charge that shows up on the
+    // card two months later can still be looked up.
+    function cancelBillService(billId, billName) {
+      if (!confirm(t("Cancelou " + billName + "? A conta sai da lista.",
+                     "Cancelled " + billName + "? It comes off the list."))) { return; }
+      apiFetch("/api/finance-new/bills/" + encodeURIComponent(billId) + "/cancel", { method: "POST", body: {} })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(t("Cancelada.", "Cancelled."));
+          loadForward();
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // Manual bill-transaction match. buildBillMatchCandidates() only offers
+    // exact-amount, name-in-description matches -- which silently misses
+    // anything where the bill's own name isn't literally in the payee text
+    // (MORTGAGE / PENNYMAC is exactly this case). This lists recent outgoing
+    // transactions near the bill's amount so she can point at the real one
+    // directly, rather than waiting on a smarter guess that may never fire.
+    var BM_BILL_ID = null;
+
+    function openBillMatch(billId, billName, amountCents) {
+      BM_BILL_ID = billId;
+      document.getElementById("bmBillName").textContent = billName;
+      document.getElementById("bmBillName2").textContent = billName;
+      var list = document.getElementById("bmList");
+      var empty = document.getElementById("bmEmpty");
+      list.innerHTML = '<div class="net-note">' + t("Carregando...", "Loading...") + '</div>';
+      empty.hidden = true;
+      document.getElementById("billMatchOverlay").hidden = false;
+
+      // Outgoing transactions (negative amount_cents) within the last 60
+      // days, closest-amount-first -- she recognizes the real one by date
+      // and description, not by trusting an auto-pick.
+      var candidates = (TRANSACTIONS || []).filter(function(txn) {
+        return txn.amount_cents < 0 && !txn.is_transfer;
+      }).map(function(txn) {
+        return { txn: txn, diff: Math.abs(Math.abs(txn.amount_cents) - amountCents) };
+      }).sort(function(a, b) { return a.diff - b.diff; }).slice(0, 15);
+
+      if (!candidates.length) {
+        list.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+
+      list.innerHTML = '<table><tbody>' + candidates.map(function(c) {
+        var txn = c.txn;
+        return '<tr>' +
+          '<td>' + fmtDate(txn.date) + '</td>' +
+          '<td>' + esc(txn.description || "") + '</td>' +
+          '<td class="num">' + fmtCents(Math.abs(txn.amount_cents)) + '</td>' +
+          '<td><button class="btn btn-sm btn-gold" onclick="confirmBillMatch(\'' + esc(txn.id) + '\')">' +
+            t("Esta &eacute;", "This one") + '</button></td>' +
+        '</tr>';
+      }).join('') + '</tbody></table>';
+    }
+
+    function closeBillMatch() {
+      var ov = document.getElementById("billMatchOverlay");
+      if (ov) { ov.hidden = true; }
+      BM_BILL_ID = null;
+    }
+
+    function confirmBillMatch(transactionId) {
+      if (!BM_BILL_ID) { return; }
+      apiFetch("/api/finance-new/bills/matches/approve", {
+        method: "POST", body: { bill_id: BM_BILL_ID, transaction_id: transactionId }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { toast(d.error); return; }
+          toast(t("Vinculado.", "Linked."));
+          closeBillMatch();
+          loadOverdue();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // Non-drag fallback: swaps this bill with its neighbour in the CURRENT
+    // displayed order, then persists the whole order. Works identically on
+    // touch and mouse, and never requires a successful drag gesture.
+    function moveBillPriority(billId, dir) {
+      if (!OVERDUE || !OVERDUE.overdue_bills) { return; }
+      var bills = OVERDUE.overdue_bills;
+      var idx = bills.findIndex(function(b) { return b.id === billId; });
+      var swapIdx = idx + dir;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= bills.length) { return; }
+      var tmp = bills[idx];
+      bills[idx] = bills[swapIdx];
+      bills[swapIdx] = tmp;
+      renderOverdue();
+      persistBillPriorityOrder();
+    }
+
+    function onBillDragStart(ev, billId) {
+      DRAG_BILL_ID = billId;
+      ev.currentTarget.classList.add("is-dragging");
+      ev.dataTransfer.effectAllowed = "move";
+      try { ev.dataTransfer.setData("text/plain", billId); } catch (e) {}
+    }
+
+    function onBillDragOver(ev) {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("is-drag-over");
+    }
+
+    function onBillDrop(ev, targetBillId) {
+      ev.preventDefault();
+      ev.currentTarget.classList.remove("is-drag-over");
+      if (!DRAG_BILL_ID || DRAG_BILL_ID === targetBillId || !OVERDUE) { return; }
+      var bills = OVERDUE.overdue_bills;
+      var fromIdx = bills.findIndex(function(b) { return b.id === DRAG_BILL_ID; });
+      var toIdx = bills.findIndex(function(b) { return b.id === targetBillId; });
+      if (fromIdx < 0 || toIdx < 0) { return; }
+      var moved = bills.splice(fromIdx, 1)[0];
+      bills.splice(toIdx, 0, moved);
+      renderOverdue();
+      persistBillPriorityOrder();
+    }
+
+    function onBillDragEnd(ev) {
+      ev.currentTarget.classList.remove("is-dragging");
+      var rows = document.querySelectorAll(".overdue-row.is-drag-over");
+      rows.forEach(function(r) { r.classList.remove("is-drag-over"); });
+      DRAG_BILL_ID = null;
+    }
+
+    // Touch fallback for the drag handle. HTML5 native drag-and-drop
+    // (ondragstart/over/drop above) does not fire reliably on touch/PWA, so
+    // this tracks the finger directly: on touchmove it finds which row the
+    // finger is currently over (by Y position) and reorders live, matching
+    // the visual feedback of a real drag. Same PUT persist as the mouse path
+    // and the up/down buttons -- one source of truth for saving order.
+    function onBillTouchStart(ev, billId) {
+      DRAG_BILL_ID = billId;
+      var row = ev.currentTarget.closest(".overdue-row");
+      if (row) { row.classList.add("is-dragging"); }
+      ev.preventDefault();
+    }
+
+    function onBillTouchMove(ev) {
+      if (!DRAG_BILL_ID || !OVERDUE) { return; }
+      ev.preventDefault();
+      var touch = ev.touches[0];
+      if (!touch) { return; }
+      var el = document.elementFromPoint(touch.clientX, touch.clientY);
+      var overRow = el && el.closest(".overdue-row");
+      document.querySelectorAll(".overdue-row.is-drag-over").forEach(function(r) {
+        r.classList.remove("is-drag-over");
+      });
+      if (!overRow) { return; }
+      overRow.classList.add("is-drag-over");
+      var targetId = overRow.getAttribute("data-bill-id");
+      if (!targetId || targetId === DRAG_BILL_ID) { return; }
+
+      var bills = OVERDUE.overdue_bills;
+      var fromIdx = bills.findIndex(function(b) { return b.id === DRAG_BILL_ID; });
+      var toIdx = bills.findIndex(function(b) { return b.id === targetId; });
+      if (fromIdx < 0 || toIdx < 0) { return; }
+      var moved = bills.splice(fromIdx, 1)[0];
+      bills.splice(toIdx, 0, moved);
+      renderOverdue();
+      // Re-mark dragging state on the moved row after the re-render replaced
+      // the DOM node under it.
+      var newRow = document.querySelector('.overdue-row[data-bill-id="' + DRAG_BILL_ID + '"]');
+      if (newRow) { newRow.classList.add("is-dragging"); }
+    }
+
+    function onBillTouchEnd() {
+      if (DRAG_BILL_ID) { persistBillPriorityOrder(); }
+      document.querySelectorAll(".overdue-row.is-dragging,.overdue-row.is-drag-over").forEach(function(r) {
+        r.classList.remove("is-dragging", "is-drag-over");
+      });
+      DRAG_BILL_ID = null;
+    }
+
+    // Optimistic: the local reorder already rendered, this just persists it.
+    // On failure, reload from the server so the UI can't drift from what's
+    // actually saved.
+    function persistBillPriorityOrder() {
+      var order = OVERDUE.overdue_bills.map(function(b) { return b.id; });
+      apiFetch("/api/finance-new/bills/priority", { method: "PUT", body: { order: order } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) { if (d.error) { toast(d.error); loadOverdue(); } })
+        .catch(function() { toast(t("Erro ao salvar ordem", "Error saving order")); loadOverdue(); });
     }
 
     // ── Apex Club event P&L ─────────────────────────────────────────────
@@ -3634,6 +5175,27 @@
       }).then(function() { loadAll(); }).catch(function() { toast(t("Erro", "Error")); });
     }
 
+    // Shown in batches, not all at once -- Nicole 2026-08-19: the finance
+    // page had grown into an endless scroll and she could no longer see
+    // things at a glance. Resets to the first batch whenever a filter
+    // changes (searching/filtering and then having to scroll past 400 rows
+    // to see if the filter worked would defeat the point).
+    var TXN_BATCH_SIZE = 25;
+    var txnVisibleCount = TXN_BATCH_SIZE;
+
+    function showMoreTransactions() {
+      txnVisibleCount += TXN_BATCH_SIZE;
+      renderTransactions();
+    }
+
+    // A filter/search change means she's looking for something specific --
+    // start back at the first batch so the result she's after isn't hidden
+    // behind whatever "show more" state was left over from before.
+    function resetAndRenderTransactions() {
+      txnVisibleCount = TXN_BATCH_SIZE;
+      renderTransactions();
+    }
+
     function renderTransactions() {
       var card = document.getElementById("txnCard");
       if (!ACCOUNTS.length) { card.hidden = true; return; }
@@ -3666,7 +5228,20 @@
       ACCOUNTS.forEach(function(a) { nameById[a.id] = a.name; });
 
       document.getElementById("txnEmpty").hidden = rows.length > 0;
-      document.getElementById("txnBody").innerHTML = rows.slice(0, 400).map(function(t) {
+
+      var visible = rows.slice(0, txnVisibleCount);
+      var moreBtn = document.getElementById("txnShowMoreBtn");
+      var remaining = rows.length - visible.length;
+      if (remaining > 0) {
+        moreBtn.hidden = false;
+        moreBtn.innerHTML =
+          '<span class="show-pt">Mostrar mais (' + Math.min(remaining, TXN_BATCH_SIZE) + ' de ' + remaining + ' restantes)</span>' +
+          '<span class="show-en">Show more (' + Math.min(remaining, TXN_BATCH_SIZE) + ' of ' + remaining + ' remaining)</span>';
+      } else {
+        moreBtn.hidden = true;
+      }
+
+      document.getElementById("txnBody").innerHTML = visible.map(function(t) {
         var pills = "";
         if (t.pending) { pills += ' <span class="pill pill-pending">pendente</span>'; }
         if (t.is_transfer) { pills += ' <span class="pill pill-transfer">transf.</span>'; }
@@ -3874,6 +5449,16 @@
       renderMomChart();
       renderCategoryChart();
       renderBalanceChart();
+
+      // Vendor share lives on this panel now, not behind the Fornecedores
+      // tab -- Nicole 2026-08-19. Loads once with the other headline charts;
+      // the month picker re-fires it on change same as the others.
+      if (!vendorShareLoaded) {
+        vendorShareLoaded = true;
+        var vsMonthInput = document.getElementById("vendorShareMonth");
+        if (vsMonthInput && !vsMonthInput.value) { vsMonthInput.value = new Date().toISOString().slice(0, 7); }
+        loadVendorShare();
+      }
     }
 
     function renderFlowChart() {
@@ -4318,9 +5903,11 @@
     // entire dashboard first.
 
     var currentFinanceTab = "saude";
-    var FIN_TABS = ["saude", "faturas", "categorias", "eventos"];
+    var FIN_TABS = ["saude", "faturas", "categorias", "eventos", "vendors"];
     var categoriasLoaded = false;
     var eventosLoaded = false;
+    var vendorsLoaded = false;
+    var vendorShareLoaded = false;
 
     function switchFinanceTab(tab) {
       currentFinanceTab = tab;
@@ -4349,6 +5936,14 @@
       if (tab === "eventos" && !eventosLoaded) {
         eventosLoaded = true;
         loadClub().then(initEventMonth);
+      }
+
+      // Vendors: management list is its own query, no reason to run it for
+      // someone who never opens the tab. (Vendor-share chart is loaded
+      // separately with the main panel's other charts -- see renderCharts().)
+      if (tab === "vendors" && !vendorsLoaded) {
+        vendorsLoaded = true;
+        loadVendors();
       }
     }
 
@@ -4516,6 +6111,281 @@
         if (CATEGORIES[i].id === id) { return CATEGORIES[i]; }
       }
       return null;
+    }
+
+    // ── Vendors ──────────────────────────────────────────────────────────
+    // Third-party vendors (marketing, accounting, etc) who service specific
+    // clients as a paid add-on riding on that client's regular invoice.
+    // See apex-vendors-spec.md.
+
+    function loadVendors() {
+      return apiFetch("/api/finance-new/vendors")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          VENDORS = data.vendors || [];
+          renderVendorsList();
+        })
+        .catch(function() { VENDORS = []; renderVendorsList(); });
+    }
+
+    function vendorById(id) {
+      for (var i = 0; i < VENDORS.length; i++) {
+        if (VENDORS[i].id === id) { return VENDORS[i]; }
+      }
+      return null;
+    }
+
+    function renderVendorsList() {
+      var wrap  = document.getElementById("vendorsList");
+      var empty = document.getElementById("vendorsEmpty");
+      if (!wrap) { return; }
+
+      if (!VENDORS.length) {
+        wrap.innerHTML = "";
+        if (empty) { empty.hidden = false; }
+        return;
+      }
+      if (empty) { empty.hidden = true; }
+
+      var html = "";
+      for (var i = 0; i < VENDORS.length; i++) {
+        var v = VENDORS[i];
+        var clientCount = v.clients.length;
+
+        // Names visible at a glance, not hidden behind a click into detail
+        // -- Nicole 2026-08-19: "you should see at a glance how many
+        // clients are being helped under each vendor." A real list, not a
+        // comma-joined paragraph -- each name gets its own line so a
+        // vendor with several clients is scannable, not a run-on sentence.
+        // Each name carries its own amount-pending state inline.
+        var namesHtml = "";
+        if (clientCount) {
+          var items = "";
+          for (var j = 0; j < v.clients.length; j++) {
+            var c = v.clients[j];
+            items += '<li>' + esc(c.client_name) +
+              (c.vendor_amount_cents === null
+                ? ' <span style="color:var(--muted);">(' + (isEn() ? "amount pending" : "valor pendente") + ')</span>'
+                : '') +
+              '</li>';
+          }
+          namesHtml = '<ul style="margin:2px 0 0;padding-left:16px;">' + items + '</ul>';
+        } else {
+          namesHtml = isEn() ? "No clients attached" : "Nenhum cliente vinculado";
+        }
+
+        html += '<div class="vendor-row" onclick="openVendorDetail(\'' + v.id + '\')" ' +
+                'style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;cursor:pointer;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+            '<div>' +
+              '<div style="font-weight:700;">' + esc(v.name) +
+                (v.vendor_type ? ' <span style="font-weight:400;color:var(--muted);">&mdash; ' + esc(v.vendor_type) + '</span>' : '') +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + namesHtml + '</div>' +
+            '</div>' +
+            '<div style="text-align:right;">' +
+              (!v.info_complete
+                ? '<span class="fin-tab-badge" style="position:static;">' + (isEn() ? "Incomplete" : "Incompleto") + '</span>'
+                : '') +
+              '<div style="font-size:13px;font-weight:700;margin-top:4px;">' +
+                (v.owed_cents ? fmtCents(v.owed_cents) : "&mdash;") +
+              '</div>' +
+              '<div style="font-size:11px;color:var(--muted);">' + (isEn() ? "owed" : "a pagar") + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+      wrap.innerHTML = html;
+    }
+
+    function openNewVendorModal() {
+      document.getElementById("nvName").value = "";
+      document.getElementById("nvType").value = "";
+      document.getElementById("nvStatus").textContent = "";
+      document.getElementById("newVendorOverlay").hidden = false;
+      setTimeout(function() { document.getElementById("nvName").focus(); }, 50);
+    }
+
+    function closeNewVendor() {
+      var ov = document.getElementById("newVendorOverlay");
+      if (ov) { ov.hidden = true; }
+    }
+
+    function saveNewVendor() {
+      var name = document.getElementById("nvName").value.trim();
+      var statusEl = document.getElementById("nvStatus");
+      if (!name) {
+        statusEl.textContent = isEn() ? "Enter a name." : "Informe um nome.";
+        return;
+      }
+      var btn = document.getElementById("nvSaveBtn");
+      btn.disabled = true;
+      statusEl.textContent = isEn() ? "Saving..." : "Salvando...";
+
+      apiFetch("/api/finance-new/vendors", {
+        method: "POST",
+        body: { name: name, vendor_type: document.getElementById("nvType").value.trim() || null }
+      }).then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          return loadVendors();
+        })
+        .then(function() {
+          btn.disabled = false;
+          closeNewVendor();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          statusEl.textContent = (isEn() ? "Error: " : "Erro: ") + e.message;
+        });
+    }
+
+    // Same modal serves two callers: the Vendors list "click a row to edit"
+    // and the skippable completion prompt for a vendor whose info_complete
+    // is 0 -- the only difference is the hint banner, never a gate.
+    function openVendorDetail(vendorId) {
+      var v = vendorById(vendorId);
+      if (!v) { return; }
+
+      document.getElementById("vdTitle").textContent = v.name;
+      document.getElementById("vdType").value             = v.vendor_type || "";
+      document.getElementById("vdContactName").value      = v.contact_name || "";
+      document.getElementById("vdContactEmail").value     = v.contact_email || "";
+      document.getElementById("vdContactPhone").value     = v.contact_phone || "";
+      document.getElementById("vdPaymentMethod").value    = v.payment_method || "";
+      document.getElementById("vdPaymentIdentifier").value = v.payment_identifier || "";
+      document.getElementById("vdNotes").value             = v.notes || "";
+      document.getElementById("vdStatus").textContent = "";
+      document.getElementById("vdCompletionHint").hidden = !!v.info_complete;
+      document.getElementById("vendorDetailOverlay").setAttribute("data-vendor-id", vendorId);
+
+      var clientsWrap = document.getElementById("vdClientsList");
+      if (!v.clients.length) {
+        clientsWrap.innerHTML = '<div class="net-note">' +
+          '<span class="show-pt">Nenhum cliente vinculado ainda.</span>' +
+          '<span class="show-en">No clients attached yet.</span></div>';
+      } else {
+        var html = "";
+        for (var i = 0; i < v.clients.length; i++) {
+          var c = v.clients[i];
+          html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">' +
+            '<span>' + esc(c.client_name) + (c.label ? ' <span style="color:var(--muted);">&mdash; ' + esc(c.label) + '</span>' : '') + '</span>' +
+            '<span style="font-weight:600;">' +
+              (c.client_total_cents === null
+                ? '<span style="color:var(--muted);font-weight:400;">' + (isEn() ? "amount pending" : "valor pendente") + '</span>'
+                : fmtCents(c.client_total_cents)) +
+            '</span>' +
+          '</div>';
+        }
+        clientsWrap.innerHTML = html;
+      }
+
+      document.getElementById("vendorDetailOverlay").hidden = false;
+    }
+
+    function closeVendorDetail() {
+      var ov = document.getElementById("vendorDetailOverlay");
+      if (ov) { ov.hidden = true; }
+    }
+
+    // Called automatically on open of an incomplete vendor row elsewhere in
+    // the app (e.g. a future vendor-picker on client.html) -- exposed as a
+    // standalone entry point so any caller can trigger the same prompt
+    // without duplicating the completeness check.
+    function maybePromptVendorCompletion(vendorId) {
+      var v = vendorById(vendorId);
+      if (v && !v.info_complete) { openVendorDetail(vendorId); }
+    }
+
+    function saveVendorDetail() {
+      var vendorId = document.getElementById("vendorDetailOverlay").getAttribute("data-vendor-id");
+      var statusEl = document.getElementById("vdStatus");
+      var btn = document.getElementById("vdSaveBtn");
+      btn.disabled = true;
+      statusEl.textContent = isEn() ? "Saving..." : "Salvando...";
+
+      apiFetch("/api/finance-new/vendors/" + encodeURIComponent(vendorId), {
+        method: "PUT",
+        body: {
+          vendor_type:        document.getElementById("vdType").value.trim() || null,
+          contact_name:       document.getElementById("vdContactName").value.trim() || null,
+          contact_email:      document.getElementById("vdContactEmail").value.trim() || null,
+          contact_phone:      document.getElementById("vdContactPhone").value.trim() || null,
+          payment_method:     document.getElementById("vdPaymentMethod").value || null,
+          payment_identifier: document.getElementById("vdPaymentIdentifier").value.trim() || null,
+          notes:              document.getElementById("vdNotes").value.trim() || null
+        }
+      }).then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          return loadVendors();
+        })
+        .then(function() {
+          btn.disabled = false;
+          closeVendorDetail();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          statusEl.textContent = (isEn() ? "Error: " : "Erro: ") + e.message;
+        });
+    }
+
+    // Vendor share of income: two-slice donut (Apex / Vendors), following
+    // the same "donut for part-to-whole" rule as the categories chart --
+    // two parts of one whole, no axis to read.
+    function loadVendorShare() {
+      var monthEl = document.getElementById("vendorShareMonth");
+      var month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
+      return apiFetch("/api/finance-new/vendor-share?month=" + encodeURIComponent(month))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          renderVendorShareChart(data);
+        })
+        .catch(function() { renderVendorShareChart(null); });
+    }
+
+    function renderVendorShareChart(data) {
+      destroyChart("vendorShare");
+
+      if (!data || !data.total_cents) {
+        showCaveat("vendorShareCaveat", isEn()
+          ? "No paid revenue yet for this month."
+          : "Ainda sem receita paga neste m&ecirc;s.");
+        return;
+      }
+      showCaveat("vendorShareCaveat",
+        fmtCents(data.apex_cents) + " " + (isEn() ? "Apex" : "Apex") + " &middot; " +
+        fmtCents(data.vendor_cents) + " " + (isEn() ? "vendors" : "fornecedores"));
+
+      if (typeof Chart === "undefined") { return; }
+
+      var opts = baseChartOpts();
+      opts.scales = {};
+      opts.plugins.legend.display = true;
+      opts.plugins.legend.position = "bottom";
+      opts.plugins.tooltip = {
+        callbacks: {
+          label: function(ctx) {
+            var total = data.total_cents;
+            var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
+            return ctx.label + ": " + fmtCents(ctx.parsed * 100) + " (" + pct + "%)";
+          }
+        }
+      };
+
+      CHARTS.vendorShare = new Chart(document.getElementById("vendorShareChart"), {
+        type: "doughnut",
+        data: {
+          labels: [isEn() ? "Apex" : "Apex", isEn() ? "Vendors" : "Fornecedores"],
+          datasets: [{
+            data: [centsToNum(data.apex_cents), centsToNum(data.vendor_cents)],
+            backgroundColor: ["#C9A43A", "#7A5C2E"],
+            borderWidth: 0
+          }]
+        },
+        options: opts
+      });
     }
 
     function loadCategoryBreakdown() {
@@ -4953,6 +6823,21 @@
             '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
               "WhatsApp</button> ";
         }
+        if (inv.status === "sent") {
+          // A tag, not an accounting event -- see the modal comment and the
+          // worker-side comment on /mark-paid-manual. Never changes status or
+          // the outstanding total. The button flips to "remove tag" once one
+          // is set, since re-tagging an already-tagged invoice has nothing to
+          // add and unclaim is the only thing she'd want to do next.
+          actions += inv.claimed_paid_at
+            ? '<button class="btn btn-sm" onclick="unclaimPaid(\'' + inv.id + '\')">' +
+                '<span class="show-pt">Remover etiqueta</span><span class="show-en">Remove tag</span></button> '
+            : '<button class="btn btn-sm" onclick="openMarkPaid(\'' + inv.id + '\')">' +
+                '<span class="show-pt">Marcar como pago</span><span class="show-en">Mark as paid</span></button> ';
+          actions +=
+            '<button class="btn btn-sm" onclick="openDueDate(\'' + inv.id + '\', \'' + (inv.due_at || '') + '\')">' +
+              '<span class="show-pt">Mudar vencimento</span><span class="show-en">Change due date</span></button> ';
+        }
         if (inv.status !== "voided_mistake") {
           actions +=
             '<button class="btn btn-sm" onclick="markMistake(\'' + inv.id + '\')">' +
@@ -4974,11 +6859,21 @@
             "</div>";
         }
 
+        // The tag is deliberately visually distinct from the real status
+        // pill -- a different shape, not just a different color -- so it
+        // never gets misread as the invoice actually being paid. It is
+        // Alice's personal note, not the books closing.
+        var claimTag = inv.claimed_paid_at
+          ? ' <span class="tag-meta" title="' + esc(inv.claimed_paid_note || "") + '">' +
+              (isEn() ? "✓ she believes paid" : "✓ ela acha que pagou") +
+            "</span>"
+          : "";
+
         return "<tr>" +
           "<td>" + esc(inv.number) + "</td>" +
           "<td>" + esc(inv.client_name || "") + "</td>" +
           "<td>" + fmtDate(inv.due_at) + "</td>" +
-          '<td><span class="pill">' + esc(statusLabel(inv)) + "</span></td>" +
+          '<td><span class="pill">' + esc(statusLabel(inv)) + "</span>" + claimTag + "</td>" +
           '<td class="num">' + amountCell + "</td>" +
           '<td class="num">' + actions + "</td>" +
         "</tr>";
@@ -5106,6 +7001,113 @@
       })
         .then(function() {
           toast(isEn() ? "Marked as a mistake." : "Marcada como erro.");
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Mark paid (tag only, not an accounting event) ───────────────────────
+    // For when the deposit already shows in the account total but hasn't
+    // synced into the transaction list yet -- see the worker-side comment on
+    // /mark-paid-manual for why that gap exists. This never changes status or
+    // the outstanding total; it only stamps a tag Alice can see at a glance.
+    var MARK_PAID_INVOICE_ID = null;
+
+    function openMarkPaid(invoiceId) {
+      MARK_PAID_INVOICE_ID = invoiceId;
+      document.getElementById("markPaidNote").value = "";
+      document.getElementById("markPaidOverlay").hidden = false;
+    }
+
+    function closeMarkPaid() {
+      document.getElementById("markPaidOverlay").hidden = true;
+      MARK_PAID_INVOICE_ID = null;
+    }
+
+    function submitMarkPaid() {
+      var note = document.getElementById("markPaidNote").value.trim();
+      if (!note) { toast(t("Diga como você confirmou", "Say how you confirmed it")); return; }
+
+      apiFetch("/api/finance-new/invoices/" + MARK_PAID_INVOICE_ID + "/mark-paid-manual", {
+        method: "POST",
+        body: { note: note }
+      })
+        .then(function() {
+          closeMarkPaid();
+          toast(t("Etiqueta adicionada.", "Tag added."));
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function unclaimPaid(invoiceId) {
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/unclaim-paid", { method: "POST" })
+        .then(function() {
+          toast(t("Etiqueta removida.", "Tag removed."));
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Change due date ─────────────────────────────────────────────────────
+    var DUE_DATE_INVOICE_ID = null;
+
+    function openDueDate(invoiceId, currentDueAt) {
+      DUE_DATE_INVOICE_ID = invoiceId;
+      document.getElementById("dueDateNew").value = currentDueAt || "";
+      document.getElementById("dueDateReason").value = "";
+      document.getElementById("dueDateHistory").innerHTML = "";
+      document.getElementById("dueDateOverlay").hidden = false;
+      loadDueDateHistory(invoiceId);
+    }
+
+    // The whole point of keeping history is spotting a habit -- so the
+    // moment she opens this to push a date again is exactly when she should
+    // see it's already happened before, and how many times.
+    function loadDueDateHistory(invoiceId) {
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/due-date-history")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var changes = data.changes || [];
+          var el = document.getElementById("dueDateHistory");
+          if (!changes.length) { el.innerHTML = ""; return; }
+          el.innerHTML =
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">' +
+              (isEn()
+                ? "Changed " + changes.length + (changes.length === 1 ? " time before:" : " times before:")
+                : "J&aacute; mudou " + changes.length + (changes.length === 1 ? " vez antes:" : " vezes antes:")) +
+            "</div>" +
+            '<div style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto">' +
+            changes.map(function(c) {
+              return '<div style="font-size:11px;color:var(--muted);border-left:2px solid var(--border);padding-left:8px">' +
+                (c.old_due_at ? fmtDate(c.old_due_at) + " &rarr; " : "") + fmtDate(c.new_due_at) +
+                '<br><span style="font-style:italic">' + esc(c.reason || "") + "</span>" +
+                '<br>' + fmtDate(c.changed_at) + (c.changed_by ? " &mdash; " + esc(c.changed_by) : "") +
+              "</div>";
+            }).join("") +
+            "</div>";
+        })
+        .catch(function() {});
+    }
+
+    function closeDueDate() {
+      document.getElementById("dueDateOverlay").hidden = true;
+      DUE_DATE_INVOICE_ID = null;
+    }
+
+    function submitDueDate() {
+      var dueAt = document.getElementById("dueDateNew").value;
+      var reason = document.getElementById("dueDateReason").value.trim();
+      if (!dueAt) { toast(t("Escolha a data", "Pick a date")); return; }
+      if (!reason) { toast(t("Diga o motivo", "Say the reason")); return; }
+
+      apiFetch("/api/finance-new/invoices/" + DUE_DATE_INVOICE_ID + "/due-date", {
+        method: "POST",
+        body: { due_at: dueAt, reason: reason }
+      })
+        .then(function() {
+          closeDueDate();
+          toast(t("Vencimento atualizado.", "Due date updated."));
           loadInvoices();
         })
         .catch(function() { toast(t("Erro", "Error")); });
@@ -5363,6 +7365,8 @@
       // first open, so someone who only wants balances never pays for the
       // event queries. See switchFinanceTab.
       loadForward();
+      loadOverdue();
+      loadBudgets();
       return Promise.all([
         apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); }).catch(function() { return {}; }),
         apiFetch("/api/finance-new/summary").then(function(r) { return r.json(); }).catch(function() { return {}; }),
@@ -5387,7 +7391,765 @@
         populateAccountFilter();
         renderTransactions();
         updateFinanceBadges();
+        refreshSectionSummaries();
       });
+    }
+
+    // ── "Precisa de voce" as an interview launcher ────────────────────────
+    //
+    // This queue was correct, worked, and went unused for months. Every item
+    // in it is a task too time-consuming to sit down and complete. What DID
+    // work, once, was someone sitting with her while she talked to a Claude
+    // conversationally and the Claude did the categorization -- ~200
+    // uncategorized transactions that were impossible as data entry became
+    // tractable as an interview.
+    //
+    // So the button does not open a form. It copies a prompt that turns the
+    // remaining work into a conversation.
+    //
+    // The capture tool writes to a SEPARATE vault database, never to Apex.
+    // Her Claude connector is read-only against Apex and must stay that way:
+    // the two are deliberately isolated so her instance can never overwrite
+    // client data. The interview only COLLECTS -- a developer session does
+    // every Apex write afterwards.
+
+    var LEAD_STAGE_LADDER = [
+      "Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"
+    ];
+
+    // Fetched live at click time. Partial completion is expected and normal,
+    // so the prompt must always name exactly who is still left today -- never
+    // a list baked in at build time.
+    function fetchClientsMissingTerms() {
+      return apiFetch("/api/clients-needing-review")
+        .then(function(r) { return r.json(); })
+        .then(function(d) { return (d && d.clients) || []; });
+    }
+
+    function buildTermsInterviewPrompt(clients) {
+      var names = clients.map(function(c) { return "- " + c.name; }).join("\n");
+
+      return [
+"Voce vai me entrevistar para atualizar o cadastro de alguns clientes da Apex.",
+"",
+"Clientes pendentes hoje (" + clients.length + "):",
+names,
+"",
+"COMO CONDUZIR",
+"",
+"Fale comigo em portugues, de forma conversacional, UM CLIENTE POR VEZ.",
+"Me deixe falar naturalmente. Nao me peca para preencher campos e nao mostre",
+"formularios. Se eu divagar, aproveite o que for util e siga.",
+"",
+"ORDEM DAS PERGUNTAS -- os valores do pacote NUNCA sao a primeira pergunta.",
+"",
+"Para cada cliente, pergunte primeiro:",
+"",
+"1. Este ainda e um cliente ativo?",
+"",
+"   - SE SIM: pergunte os valores combinados do pacote (o que a Apex cobra).",
+"     status = active",
+"",
+"   - SE NAO, nunca assinou: status = lead, e pergunte em qual etapa do",
+"     funil ele esta. Um lead SEM etapa e rejeitado pela API, entao a etapa",
+"     e obrigatoria. Se o lead esfriou, use status = lead_dormant.",
+"",
+"   - SE NAO, o trabalho esta em pausa e deve voltar: status = paused",
+"",
+"   - SE NAO, o trabalho terminou: status = closed",
+"",
+"Muitos destes clientes foram cadastrados como ativos antes de assinar",
+"qualquer coisa, entao 'nao e cliente' e uma resposta esperada e correta.",
+"",
+"VALORES VALIDOS DE STATUS -- nao ofereca nenhum outro:",
+"",
+"  active        -- cliente pagante",
+"  paused        -- trabalho em pausa, com previsao de voltar",
+"  closed        -- trabalho encerrado",
+"  lead          -- ainda nao e cliente; EXIGE uma etapa do funil",
+"  lead_dormant  -- um lead que esfriou",
+"",
+"ETAPAS DO FUNIL -- fixas, nesta ordem, nao configuraveis:",
+"",
+"  1. " + LEAD_STAGE_LADDER[0],
+"  2. " + LEAD_STAGE_LADDER[1],
+"  3. " + LEAD_STAGE_LADDER[2],
+"  4. " + LEAD_STAGE_LADDER[3],
+"  5. " + LEAD_STAGE_LADDER[4],
+"",
+"Um lead convertido NAO e uma etapa: vira status active.",
+"Um lead que morreu NAO e uma etapa: vira status lead_dormant.",
+"",
+"NAO precisamos terminar todos hoje. Pare quando eu quiser parar.",
+"",
+"AO FINAL",
+"",
+"Chame a ferramenta de captura da memoria com o resultado, usando exatamente",
+"este formato, um bloco por cliente:",
+"",
+"```",
+"cliente: <nome exatamente como aparece na lista acima>",
+"status: <active | paused | closed | lead | lead_dormant>",
+"etapa: <somente se status for lead>",
+"valores: <somente se status for active>",
+"```",
+"",
+"Inclua apenas os clientes que eu realmente respondi."
+      ].join("\n");
+    }
+
+    // Async clipboard API is not always available in an installed PWA webview,
+    // so the execCommand path is a real fallback, not a legacy leftover.
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(function() {
+          return legacyCopy(text);
+        });
+      }
+      return legacyCopy(text);
+    }
+
+    function legacyCopy(text) {
+      return new Promise(function(resolve, reject) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "0";
+        ta.style.left = "0";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        if (ok) { resolve(); } else { reject(new Error("copy failed")); }
+      });
+    }
+
+    // Every row type gets a prompt. The "paste into YOUR Claude" warning has
+    // to be stated for all of them, not only the financial ones.
+    function copyQueuePrompt(kind) {
+      if (kind === "terms") { copyTermsInterviewPrompt(); return; }
+
+      var text;
+      if (kind === "matches") {
+        text = buildMatchesPrompt();
+      } else {
+        text = buildUncategorizedPrompt();
+      }
+      copyTextToClipboard(text)
+        .then(function() { openPromptCopied(); })
+        .catch(function() { toast(t("N&atilde;o consegui copiar.", "Could not copy.")); });
+    }
+
+    function buildMatchesPrompt() {
+      var n = (ATTENTION && ATTENTION.matches && ATTENTION.matches.count) || 0;
+      return [
+"Me ajude a conferir depositos que parecem ser pagamentos de faturas da Apex.",
+"",
+"Sao " + n + " no momento.",
+"",
+"Fale comigo em portugues, de forma conversacional, um deposito por vez.",
+"Para cada um, me diga o valor, a data e de quem parece ser, e me pergunte",
+"se pode dar a fatura como paga. Me deixe responder com minhas palavras.",
+"",
+"Nao precisamos terminar todos hoje. Pare quando eu quiser parar.",
+"",
+"Ao final, chame a ferramenta de captura da memoria com o que eu confirmei,",
+"um bloco por deposito:",
+"",
+"```",
+"fatura: <numero ou cliente>",
+"deposito: <valor e data>",
+"decisao: <confirmar | nao e esta fatura | nao sei>",
+"```"
+      ].join("\n");
+    }
+
+    function buildUncategorizedPrompt() {
+      var n = (ATTENTION && ATTENTION.uncategorized && ATTENTION.uncategorized.count) || 0;
+      return [
+"Me ajude a categorizar transacoes da conta da Apex.",
+"",
+"Sao " + n + " sem categoria no momento.",
+"",
+"Fale comigo em portugues, de forma conversacional. Me pergunte sobre os",
+"estabelecimentos que aparecem, nao sobre transacoes uma a uma -- quando eu",
+"digo o que e um estabelecimento, isso vale para todas as compras dele.",
+"Me deixe falar naturalmente em vez de preencher campos.",
+"",
+"Nao precisamos terminar todas hoje. Pare quando eu quiser parar.",
+"",
+"Ao final, chame a ferramenta de captura da memoria com o resultado,",
+"um bloco por estabelecimento:",
+"",
+"```",
+"estabelecimento: <nome como aparece no extrato>",
+"categoria: <categoria>",
+"tipo: <pessoal | comercial>",
+"```"
+      ].join("\n");
+    }
+
+    // Naming the children's policies. NOT an interview: it is three names
+    // picked from a list, and a conversational prompt would be more work than
+    // the task. The bank sends a stable code per policy (after "PMT INFO:"),
+    // which is the only thing separating three $50 bills at one insurer.
+    function openPolicyNames() {
+      var codes = (ATTENTION && ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.codes) || [];
+      if (!codes.length) {
+        toast(t("Nenhuma ap&oacute;lice pendente.", "No policies pending."));
+        return;
+      }
+      var cands = (BILLS || []).filter(function(b) {
+        return b.active !== 0 && !b.payer_match_pattern &&
+          /previd|seguro de vida/i.test(b.name || "");
+      });
+      if (!cands.length) {
+        toast(t("Nenhuma conta candidata.", "No candidate bills."));
+        return;
+      }
+      // Pre-selected from the due date: each debit posts a day or two after its
+      // bill's due day, and the days are far enough apart (10, 21, 25) to be
+      // unambiguous. It stays a guess she confirms, never written for her.
+      var guess = (ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.guess) || {};
+      var html = "";
+      codes.forEach(function(code, i) {
+        var g = guess[code];
+        html += '<div class="filter-row" style="margin-bottom:10px;align-items:center;">' +
+          '<code style="flex:0 0 118px;font-size:13px;">' + esc(code) + '</code>' +
+          '<select id="polSel' + i + '" data-code="' + esc(code) + '" style="flex:1 1 160px;">' +
+          '<option value="">' + t("&mdash; escolher &mdash;", "&mdash; choose &mdash;") + '</option>' +
+          cands.map(function(b) {
+            var sel = (g && g.bill_id === b.id) ? ' selected' : '';
+            return '<option value="' + esc(b.id) + '"' + sel + '>' + esc(b.name) + '</option>';
+          }).join("") +
+          '</select></div>';
+      });
+      document.getElementById("policyNamesRows").innerHTML = html;
+      var el = document.getElementById("policyNamesOverlay");
+      if (el) { el.hidden = false; }
+    }
+
+    function closePolicyNames() {
+      var el = document.getElementById("policyNamesOverlay");
+      if (el) { el.hidden = true; }
+    }
+
+    // Writing the code onto the bill is what makes future months match exactly
+    // instead of guessing between three identical amounts. One call per answered
+    // row; blanks are skipped, so she can name one now and the rest later.
+    function savePolicyNames() {
+      var sels = document.querySelectorAll("#policyNamesRows select");
+      var jobs = [];
+      var chosen = {};
+      for (var i = 0; i < sels.length; i++) {
+        var billId = sels[i].value;
+        var code = sels[i].getAttribute("data-code");
+        if (!billId) { continue; }
+        if (chosen[billId]) {
+          toast(t("Duas ap&oacute;lices na mesma conta.", "Two policies on the same bill."));
+          return;
+        }
+        chosen[billId] = true;
+        jobs.push({ bill_id: billId, policy_code: code });
+      }
+      if (!jobs.length) { closePolicyNames(); return; }
+      Promise.all(jobs.map(function(j) {
+        return apiFetch("/api/finance-new/bills/name-policy", { method: "POST", body: j });
+      })).then(function() {
+        closePolicyNames();
+        toast(t("Salvo.", "Saved."));
+        loadOverdue();
+        return loadForward();
+      }).catch(function() { toast(t("Erro ao salvar.", "Error saving.")); });
+    }
+
+    function copyTermsInterviewPrompt() {
+      fetchClientsMissingTerms().then(function(clients) {
+        if (!clients.length) {
+          toast(t("Nenhum cliente pendente.", "No clients pending."));
+          return;
+        }
+        return copyTextToClipboard(buildTermsInterviewPrompt(clients))
+          .then(function() { openPromptCopied(); });
+      }).catch(function() {
+        toast(t("N&atilde;o consegui copiar.", "Could not copy."));
+      });
+    }
+
+    // Records that a sitting happened. It does NOT clear the queue: what is
+    // left stays computed live from the terms table, so the count shrinks only
+    // as answers actually land in Apex.
+    // Kind travels from the row that was actually finished. A single shared
+    // button could only ever report one kind, so a transactions sitting was
+    // being logged as a terms sitting -- and a developer would go looking for
+    // answers that were never given. Terms, transactions and policies are
+    // separate interviews with separate prompts, often on separate days.
+    function markInterviewDone(kind) {
+      apiFetch("/api/interview-sittings", { method: "POST", body: { kind: kind || "terms" } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || d.error) { toast(t("Erro", "Error")); return; }
+          var el = document.getElementById("interviewDoneOverlay");
+          if (el) { el.hidden = false; }
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function closeInterviewDone() {
+      var el = document.getElementById("interviewDoneOverlay");
+      if (el) { el.hidden = true; }
+    }
+
+    function openPromptCopied() {
+      var el = document.getElementById("promptCopiedOverlay");
+      if (el) { el.hidden = false; }
+    }
+
+    function closePromptCopied() {
+      var el = document.getElementById("promptCopiedOverlay");
+      if (el) { el.hidden = true; }
+    }
+
+    // ── Section collapse + drag reorder ───────────────────────────────────
+    //
+    // Ported wholesale from client.html rather than reinvented: she already
+    // knows this interaction from the client profile page, and the point of
+    // reusing it is that there is nothing new to learn. The page had grown
+    // into one endless scroll where nothing could be found at a glance.
+    //
+    // The hero tiles and #acctGrid are deliberately OUTSIDE #sectionsList.
+    // Balances are the one number that must never cost a click.
+
+    // The charts are NOT decoration and must not be filed at the bottom behind
+    // a collapse: they are the visual read of the month, and hiding them means
+    // they simply never get looked at. Same for transactions -- the list is
+    // already capped at 25 with "show more", so collapsing it hides work that
+    // was already made small enough to sit open.
+    var SECTIONS = [
+      { key: "overdue",      def: "open"      },
+      { key: "budgets",      def: "open"      },
+      { key: "charts",       def: "open"      },
+      { key: "attention",    def: "collapsed" },
+      { key: "forward",      def: "open"      },
+      { key: "bills",        def: "collapsed" },
+      { key: "transactions", def: "open"      },
+      { key: "ownerpay",     def: "collapsed" },
+      { key: "transfers",    def: "collapsed" },
+      { key: "linked",       def: "collapsed" }
+    ];
+
+    // Linked accounts is last on purpose: it is setup, not something she reads.
+    var DEFAULT_SECTION_ORDER = [
+      "overdue", "budgets", "charts", "attention", "forward",
+      "bills", "transactions", "ownerpay", "transfers", "linked"
+    ];
+
+    // The suffix is bumped when the SHIPPED defaults change in a way that must
+    // reach someone who has already opened the page. A stored order/collapse
+    // state always wins over the defaults -- correct, since it is her choice --
+    // but that also means a corrected default would never arrive for anyone who
+    // had loaded the old one. Bumping the key retires the old value once. Do
+    // not bump it for cosmetic edits: it discards any arrangement she made.
+    function collapseKey(sectionKey) { return "apex_fin_collapse_v3_" + sectionKey; }
+    function sectionOrderKey()       { return "apex_fin_section_order_v3"; }
+
+    // Put the page back the way it ships. A saved order and saved collapse
+    // states always win over the defaults -- correct, since they are her
+    // arrangement -- but that also means there was no way to GET BACK to the
+    // shipped layout without editing localStorage by hand. Clears both key
+    // families, including older versioned ones, then reloads.
+    function confirmResetSections() {
+      var msg = t("Isso descarta a ordem e o que voc\u00ea abriu ou fechou, e volta a p\u00e1gina como ela vem de f\u00e1brica. Continuar?",
+                  "This discards your order and which sections you opened or closed, and puts the page back the way it ships. Continue?");
+      if (window.confirm(msg.replace(/&[a-z]+;/g, ""))) { resetSectionLayout(); }
+    }
+
+    function resetSectionLayout() {
+      try {
+        var kill = [];
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("apex_fin_collapse") === 0) { kill.push(k); }
+          if (k && k.indexOf("apex_fin_section_order") === 0) { kill.push(k); }
+        }
+        for (var j = 0; j < kill.length; j++) { localStorage.removeItem(kill[j]); }
+      } catch (e) {}
+      location.reload();
+    }
+
+    function sectionByKey(key) {
+      for (var i = 0; i < SECTIONS.length; i++) {
+        if (SECTIONS[i].key === key) { return SECTIONS[i]; }
+      }
+      return null;
+    }
+
+    function isCollapsed(key) {
+      var body = document.getElementById("body_" + key);
+      return !!(body && body.hidden);
+    }
+
+    function applyCollapse(key, collapsed) {
+      var body = document.getElementById("body_" + key);
+      var btn  = document.getElementById("collapse_" + key);
+      var sum  = document.getElementById("summary_" + key);
+      if (!body) { return; }
+      body.hidden = collapsed;
+      if (btn) { btn.innerHTML = collapsed ? "&#9654;" : "&#9660;"; }
+      if (sum) { sum.hidden = !collapsed; }
+      if (collapsed) { renderSectionSummary(key); }
+    }
+
+    function initCollapseStates() {
+      for (var i = 0; i < SECTIONS.length; i++) {
+        var s = SECTIONS[i];
+        var stored = localStorage.getItem(collapseKey(s.key));
+        // No stored preference falls back to the shipped default. Budgets
+        // ship EXPANDED on purpose -- it is the easiest thing on the page to
+        // miss, so collapsing it stays her choice, never the default.
+        var collapsed = stored ? (stored === "collapsed") : (s.def === "collapsed");
+        applyCollapse(s.key, collapsed);
+      }
+    }
+
+    function toggleSection(key) {
+      if (document.body.classList.contains("is-edit-sections")) { return; }
+      var body = document.getElementById("body_" + key);
+      if (!body) { return; }
+      var nowCollapsed = !body.hidden;
+      applyCollapse(key, nowCollapsed);
+      localStorage.setItem(collapseKey(key), nowCollapsed ? "collapsed" : "open");
+    }
+
+    // Every collapsed section still answers its own question. A closed
+    // section that says nothing is just a hidden section.
+    function renderSectionSummary(key) {
+      var el = document.getElementById("summary_" + key);
+      if (!el) { return; }
+      var html = "";
+
+      if (key === "overdue") {
+        var bills = (OVERDUE && OVERDUE.overdue_bills) || [];
+        if (!bills.length) {
+          html = t("Nenhuma conta atrasada.", "No overdue bills.");
+        } else {
+          var totalC = 0, coveredC = 0, uncoveredC = 0;
+          for (var i = 0; i < bills.length; i++) {
+            var amt = bills[i].amount_cents || 0;
+            totalC += amt;
+            if (bills[i].covered) { coveredC += amt; } else { uncoveredC += amt; }
+          }
+          html = '<span class="is-bad">' + fmtCents(totalC) + "</span> &middot; " +
+                 bills.length + t(" conta", " bill") + (bills.length === 1 ? "" : "s") + "<br>" +
+                 t("Coberto ", "Covered ") + fmtCents(coveredC) + " &middot; " +
+                 t("descoberto ", "uncovered ") + fmtCents(uncoveredC);
+        }
+
+      } else if (key === "budgets") {
+        // Only budgets in trouble. An on-track budget says nothing at all --
+        // listing them would bury the two that matter.
+        var trouble = [];
+        for (var b = 0; b < (BUDGETS || []).length; b++) {
+          var bu = BUDGETS[b];
+          var over = bu.projected_over_cents || 0;
+          if (over > 0) {
+            trouble.push(esc(bu.category_name || bu.category_id) + " &middot; " +
+                         t("deve estourar em ", "over by ") + fmtCents(over));
+          }
+        }
+        html = trouble.length
+          ? '<span class="is-bad">' + trouble.join("<br>") + "</span>"
+          : '<span class="is-good">' + t("Tudo dentro do or&ccedil;amento.", "All budgets on track.") + "</span>";
+
+      } else if (key === "attention") {
+        var n = ATTENTION ? (ATTENTION.total || 0) : 0;
+        html = n > 0
+          ? n + t(" item", " item") + (n === 1 ? "" : "s")
+          : t("Nada pendente.", "Nothing pending.");
+
+      } else if (key === "forward") {
+        var fs = document.getElementById("fwdSentence");
+        html = fs ? fs.innerHTML : "";
+
+      } else if (key === "bills") {
+        // This week only. The full list is what the expand is for.
+        var wk = billsDueThisWeek();
+        if (!wk.length) {
+          html = t("Nada vence esta semana.", "Nothing due this week.");
+        } else {
+          var parts = [];
+          for (var w = 0; w < wk.length; w++) {
+            parts.push(esc(wk[w].name) + " &middot; " + fmtCents(wk[w].amount_cents));
+          }
+          html = parts.join("<br>");
+        }
+
+      } else if (key === "ownerpay") {
+        var op = document.getElementById("fwdOwnerPay");
+        var line = op ? (op.textContent || "").trim() : "";
+        html = line ? esc(line.split("\n")[0]) : t("Sem dados.", "No data.");
+
+      } else if (key === "linked") {
+        var rows = [];
+        for (var a = 0; a < (ACCOUNTS || []).length; a++) {
+          rows.push(esc(ACCOUNTS[a].name || "") + " &middot; " + fmtCents(ACCOUNTS[a].balance_cents || 0));
+        }
+        html = rows.length ? rows.join("<br>") : t("Nenhuma conta conectada.", "No linked accounts.");
+
+      } else if (key === "transfers") {
+        var tn = 0;
+        for (var x = 0; x < (TRANSACTIONS || []).length; x++) {
+          if (TRANSACTIONS[x].transfer_status === "suspected") { tn++; }
+        }
+        html = tn + t(" transfer&ecirc;ncia", " transfer") + (tn === 1 ? "" : "s");
+
+      } else if (key === "transactions") {
+        html = (TRANSACTIONS || []).length + t(" transa&ccedil;&otilde;es", " transactions");
+
+      } else if (key === "charts") {
+        // Name what is inside. Collapsed, this section used to render an empty
+        // summary under the title "Visao geral", so it said nothing at all
+        // about its contents -- and the vendor-share chart Alice specifically
+        // asked for was invisible behind a label that never mentioned it.
+        html = t("Entrou e saiu &middot; por categoria &middot; saldo por conta &middot; fornecedores vs Apex",
+                 "Money in and out &middot; by category &middot; balance per account &middot; vendors vs Apex");
+      }
+
+      el.innerHTML = html;
+    }
+
+    // Bills whose due day lands in the next 7 days.
+    function billsDueThisWeek() {
+      var out = [];
+      var list = (typeof BILLS !== "undefined" && BILLS) ? BILLS : [];
+      var now = new Date();
+      var today = now.getDate();
+      var dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      for (var i = 0; i < list.length; i++) {
+        var d = parseInt(list[i].day_of_month, 10);
+        if (!d) { continue; }
+        var delta = d - today;
+        if (delta < 0) { delta += dim; }
+        if (delta >= 0 && delta <= 7) { out.push(list[i]); }
+      }
+      return out;
+    }
+
+    // Refresh whatever summaries are currently showing. Called after each
+    // render so a collapsed section never shows a number the expanded view
+    // has already moved past.
+    function refreshSectionSummaries() {
+      for (var i = 0; i < SECTIONS.length; i++) {
+        if (isCollapsed(SECTIONS[i].key)) { renderSectionSummary(SECTIONS[i].key); }
+      }
+    }
+
+    // ── Order ─────────────────────────────────────────────────────────────
+
+    var dragSrcEl = null;
+
+    function loadSectionOrder() {
+      var order;
+      var stored = localStorage.getItem(sectionOrderKey());
+      if (!stored) {
+        order = DEFAULT_SECTION_ORDER.slice();
+      } else {
+        try {
+          var arr = JSON.parse(stored);
+          order = (Array.isArray(arr) && arr.length > 0) ? arr : DEFAULT_SECTION_ORDER.slice();
+        } catch (e) { order = DEFAULT_SECTION_ORDER.slice(); }
+      }
+      // A section in the DOM but missing from a saved order is appended, so a
+      // newly added section can never be silently stranded.
+      var list = document.getElementById("sectionsList");
+      if (list) {
+        var cards = list.querySelectorAll("[data-section-id]");
+        for (var i = 0; i < cards.length; i++) {
+          var id = cards[i].getAttribute("data-section-id");
+          if (order.indexOf(id) === -1) { order.push(id); }
+        }
+      }
+      return order;
+    }
+
+    function applySectionOrder(order) {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      for (var i = 0; i < order.length; i++) {
+        var el = list.querySelector('[data-section-id="' + order[i] + '"]');
+        if (el) { list.appendChild(el); }
+      }
+    }
+
+    function saveSectionOrder() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      var order = [];
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) {
+        order.push(cards[i].getAttribute("data-section-id"));
+      }
+      localStorage.setItem(sectionOrderKey(), JSON.stringify(order));
+    }
+
+    function initSectionOrder() { applySectionOrder(loadSectionOrder()); }
+
+    function enterEditSectionsMode() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      document.body.classList.add("is-edit-sections");
+      var btnEdit = document.getElementById("btnEditSections");
+      var btnDone = document.getElementById("btnDoneSections");
+      var btnReset = document.getElementById("btnResetSections");
+      if (btnEdit) { btnEdit.style.display = "none"; }
+      if (btnDone) { btnDone.style.display = ""; }
+      if (btnReset) { btnReset.style.display = ""; }
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) { enableDrag(cards[i]); }
+    }
+
+    function exitEditSectionsMode() {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      document.body.classList.remove("is-edit-sections");
+      var btnEdit = document.getElementById("btnEditSections");
+      var btnDone = document.getElementById("btnDoneSections");
+      var btnReset = document.getElementById("btnResetSections");
+      if (btnReset) { btnReset.style.display = "none"; }
+      if (btnEdit) { btnEdit.style.display = ""; }
+      if (btnDone) { btnDone.style.display = "none"; }
+      var cards = list.querySelectorAll("[data-section-id]");
+      for (var i = 0; i < cards.length; i++) {
+        disableDrag(cards[i]);
+        cards[i].classList.remove("section-drag-over");
+      }
+      saveSectionOrder();
+      initCollapseStates();
+    }
+
+    // Touch fallback. Drag is the primary interaction; these exist because
+    // HTML5 drag is unreliable in an installed PWA on a phone.
+    function moveSection(key, dir) {
+      var list = document.getElementById("sectionsList");
+      if (!list) { return; }
+      var el = list.querySelector('[data-section-id="' + key + '"]');
+      if (!el) { return; }
+      if (dir < 0) {
+        var prev = el.previousElementSibling;
+        while (prev && !prev.hasAttribute("data-section-id")) { prev = prev.previousElementSibling; }
+        if (prev) { list.insertBefore(el, prev); }
+      } else {
+        var next = el.nextElementSibling;
+        while (next && !next.hasAttribute("data-section-id")) { next = next.nextElementSibling; }
+        if (next) { list.insertBefore(next, el); }
+      }
+      saveSectionOrder();
+    }
+
+    function enableDrag(el) {
+      el.setAttribute("draggable", "true");
+      el.ondragstart = function(e) { handleDragStart(e, el); };
+      el.ondragover  = function(e) { handleDragOver(e, el); };
+      el.ondragleave = function(e) { handleDragLeave(e, el); };
+      el.ondrop      = function(e) { handleDrop(e, el); };
+      el.ondragend   = function(e) { handleDragEnd(e, el); };
+    }
+
+    function disableDrag(el) {
+      el.setAttribute("draggable", "false");
+      el.ondragstart = null;
+      el.ondragover  = null;
+      el.ondragleave = null;
+      el.ondrop      = null;
+      el.ondragend   = null;
+    }
+
+    function handleDragStart(e, el) {
+      dragSrcEl = el;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", el.getAttribute("data-section-id"));
+      el.classList.add("section-dragging");
+    }
+
+    function handleDragOver(e, el) {
+      if (e.preventDefault) { e.preventDefault(); }
+      if (el === dragSrcEl) { return; }
+      e.dataTransfer.dropEffect = "move";
+      el.classList.add("section-drag-over");
+      return false;
+    }
+
+    function handleDragLeave(e, el) { el.classList.remove("section-drag-over"); }
+
+    function handleDrop(e, el) {
+      if (e.stopPropagation) { e.stopPropagation(); }
+      if (e.preventDefault)  { e.preventDefault(); }
+      if (!dragSrcEl || dragSrcEl === el) { return false; }
+      el.classList.remove("section-drag-over");
+      var list = document.getElementById("sectionsList");
+      if (!list) { return false; }
+      var children = list.children;
+      var srcIdx = -1, tgtIdx = -1;
+      for (var i = 0; i < children.length; i++) {
+        if (children[i] === dragSrcEl) { srcIdx = i; }
+        if (children[i] === el)        { tgtIdx = i; }
+      }
+      if (srcIdx === -1 || tgtIdx === -1) { return false; }
+      if (srcIdx < tgtIdx) { list.insertBefore(dragSrcEl, el.nextSibling); }
+      else                 { list.insertBefore(dragSrcEl, el); }
+      saveSectionOrder();
+      return false;
+    }
+
+    function handleDragEnd(e, el) {
+      el.classList.remove("section-dragging");
+      var list = document.getElementById("sectionsList");
+      if (list) {
+        var cards = list.querySelectorAll("[data-section-id]");
+        for (var i = 0; i < cards.length; i++) { cards[i].classList.remove("section-drag-over"); }
+      }
+      dragSrcEl = null;
+    }
+
+    // ── Add-form reveals ──────────────────────────────────────────────────
+    //
+    // Both forms used to sit permanently open under their data, which read as
+    // part of the data rather than as an action.
+    function showBudgetForm() {
+      var f = document.getElementById("budgetForm");
+      var r = document.getElementById("budgetAddRow");
+      if (f) { f.hidden = false; }
+      if (r) { r.hidden = true; }
+      var c = document.getElementById("budgetCategory");
+      if (c) { c.focus(); }
+    }
+
+    function hideBudgetForm() {
+      var f = document.getElementById("budgetForm");
+      var r = document.getElementById("budgetAddRow");
+      if (f) { f.hidden = true; }
+      if (r) { r.hidden = false; }
+    }
+
+    function showBillForm() {
+      var f = document.getElementById("billForm");
+      var r = document.getElementById("billAddRow");
+      if (f) { f.hidden = false; }
+      if (r) { r.hidden = true; }
+      var n = document.getElementById("billName");
+      if (n) { n.focus(); }
+    }
+
+    function hideBillForm() {
+      var f = document.getElementById("billForm");
+      var r = document.getElementById("billAddRow");
+      if (f) { f.hidden = true; }
+      if (r) { r.hidden = false; }
     }
 
     // ── Language toggle re-render ─────────────────────────────────────────
@@ -5403,6 +8165,7 @@
       renderAccountCards();
       renderForward();
       renderBillSuggestions();
+      renderOverdue();
       renderClub();
       renderCharts();
       renderLinked();
@@ -5411,6 +8174,7 @@
       populateCategoryFilter();
       renderTransactions();
       updateFinanceBadges();
+      refreshSectionSummaries();
     });
 
     // The category list is needed by the transaction rows on the Saude tab, so
@@ -5474,6 +8238,12 @@
 
       window.initNav && window.initNav();
       initHeroBg("fnHeroBg", "fnHeroScrim");
+      // Order before collapse: applySectionOrder re-appends the cards, and
+      // reading collapse state afterwards keeps the two independent.
+      initSectionOrder();
+      initCollapseStates();
+      var esb = document.getElementById("editSectionsBar");
+      if (esb) { esb.hidden = false; }
       // Templates and clients are fetched up front so the WhatsApp click
       // handler never has to await before opening its window.
       loadMessageTemplates();

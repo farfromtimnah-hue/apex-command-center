@@ -2437,3 +2437,156 @@ Pr. Rafa's Claude could read his vault but knew nothing about Apex, so he was ex
 - **`scripts/test-vault-readonly.mjs`** fires at the deployed Worker over the real network with the real token and asserts six writes FAIL: INSERT, UPDATE, DELETE, DROP TABLE, the stacked `SELECT 1; DELETE FROM clients`, and `SELECT * FROM invoices`. It also asserts the reads still return real data, because a gate that rejects everything would pass all six while being broken.
 
 - **`scripts/deploy.sh`** deploys and then runs that test, in that order. The gate is invisible in normal use — every read keeps working if someone deletes it, and the only thing that changes is that a write becomes possible. So it is checked on every deploy, not once.
+
+## 2026-08-19 — Finance page: collapsible sections so it stops scrolling forever
+
+The finance page had grown into one endless scroll and nothing could be found at a
+glance. Ported the collapse + drag-reorder pattern from `client.html` verbatim
+(`COLLAPSE_SECTIONS`/`toggleSection`/`enterEditSectionsMode`/`handleDrop`, renamed to
+finance-local names) rather than inventing a second interaction — she already knows it
+from the client profile page, and that familiarity is the whole point.
+
+**Pinned, never collapsible:** the hero tiles and `#acctGrid`. They sit OUTSIDE
+`#sectionsList`. Balances are the one number that must never cost a click.
+
+**Shipped order and defaults** (`SECTIONS` / `DEFAULT_SECTION_ORDER`):
+overdue (open) → budgets (open) → precisa de você (collapsed) → forward 90d (open) →
+fixed bills (collapsed) → owner pay (collapsed) → linked (collapsed) →
+transfers (collapsed) → charts (collapsed) → transactions (collapsed).
+
+Budgets ships **expanded** deliberately. It is the easiest thing on the page to miss, so
+collapsing it stays her choice and is never the shipped default. The DOM previously had
+budgets above overdue; overdue is now 2 and budgets 3.
+
+Every collapsed section carries a summary (`#summary_<key>`) so a closed section still
+answers its question instead of just hiding it. Budgets summarises **only** the ones in
+trouble — listing on-track budgets would bury the two that matter.
+
+**Structural change:** `#forwardCard` used to contain owner pay and fixed bills as
+children, so neither could be ordered or collapsed on its own. Split into three sibling
+cards (`forwardCard`, `billsCard`, `ownerPayCard`). Both new cards need their own
+`hidden = false` — they used to ride along on the forward card's reveal. Fixed bills is
+revealed BEFORE `renderForward`'s `!FORWARD` early return, since that section is where
+she enters the bills and must be reachable even when the forward walk can't be built.
+
+Add-a-budget and add-a-bill forms now sit behind an "Adicionar" button instead of a bare
+row of inputs under the data, where they read as part of the data rather than an action.
+
+Reorder works by drag AND by up/down buttons (`moveSection`) — HTML5 drag is unreliable
+in the installed PWA on a phone, so the buttons are the reliability net.
+
+⚠️ **Restructuring this file by script is how you strand a modal.** Extracting the cards
+left an orphan `.fwd-bills` open tag and a stray `</div>` from the old `attn-head`, which
+closed `#sectionsList` early and swallowed FIVE `nc-overlay` modals into `#finPanelSaude`.
+`display:none` is inherited, so those modals would have rendered invisible with the click
+handler running fine and no console error. A `<div>` open/close COUNT stays balanced
+through this and proves nothing — verify with a real parser that walks the stack and
+asserts each overlay's ancestors contain no `finPanel*`. See
+`scripts/check-finance-structure.py`.
+
+## 2026-08-19 (b) — Precisa de você: launches an interview instead of a chore
+
+The queue was correct, worked, and went **unused for months**. Every item in it is a task
+too time-consuming to sit down and complete. The previous finance page died the same way:
+it worked, and it sat unused, because anything that demands her input before it shows her
+a number fails identically.
+
+What DID work, once: someone sat with her and she talked to a Claude conversationally
+while the Claude did the work. ~200 uncategorized transactions that were impossible as a
+data-entry chore became tractable as an **interview**. So the queue is now a launcher for
+that flow, not a form.
+
+- Default **collapsed** (per the section table above).
+- Every row gets a "Copiar prompt" button — all three types, not just the financial ones.
+- `navigator.clipboard.writeText` with a real `document.execCommand('copy')` fallback on a
+  temporary textarea: the async clipboard API is not always available in the installed PWA
+  webview.
+
+**The prompt is generated fresh at click time** and fetches the remaining clients live from
+`GET /api/clients-needing-review` — never a hardcoded list. Partial completion is expected,
+so it always names exactly who is left today. That endpoint already runs the canonical
+query, reused rather than rewritten:
+
+```sql
+... WHERE COALESCE(c.status,'active')='active' AND COALESCE(c.archived,0)=0
+    AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id)
+```
+
+⚠️ The table is **`client_package_terms`** (what Apex charges the client), NOT
+`client_vendor_terms` (vendor cost per client, a separate unfinished feature). Querying the
+wrong one returns eight and disagrees with the interface; the interface is correct.
+Verified live 2026-08-19: six — JM LUXURY POOLS, LIRA OUTDOOR LIVING, METZ, MY PURE FILTER,
+PERFECT SQUARE, PRODUWALL.
+
+**Terms are never the first question.** The queue item effectively says "enter terms," but
+half these clients should not be answering that — prospects were entered as active clients
+before signing anything, and until recently there was no way to correct it. Asking for terms
+first is exactly why the task felt impossible. The prompt asks "is this still an active
+client?" first, then branches: yes → terms; never signed → `lead` + a mandatory stage (or
+`lead_dormant` if cold); on hold → `paused`; finished → `closed`.
+
+Status values come from **`CLIENT_STATUS` in worker/index.js**, the authority — `active`,
+`paused`, `closed`, `lead`, `lead_dormant`. ⚠️ The dropdown on clients.html omits
+`lead_dormant` and is an incomplete list; build against the worker array. Stages come from
+`LEAD_STAGES`: Lead → Contato inicial → Raio X enviado → Raio X recebido → Agendamento. A
+`lead` without a stage is rejected by `handlePatchClient`. Terminal outcomes are NOT stages:
+converted → `active`, dead → `lead_dormant`.
+
+⚠️ **The modal warning is load-bearing, and the reason is counter-intuitive.** The finance
+read tools are restricted to her identity in two independent places, so a finance question
+asked in Pastor Rafael's Claude fails loudly — a *safe* failure. But the **client-terms
+tools are reachable by both connectors**, so the terms interview run in his Claude
+**silently succeeds**: no error, captures to the same vault, and burns his five-hour session
+limit (his real constraint) on her work. The silent case is what the warning protects
+against, which is why it is stated for every item type.
+
+⚠️ The capture tool writes to a **separate vault DB, never to Apex**. Her Claude connector
+is read-only against Apex and that must not change — the two are deliberately isolated so
+her instance can never overwrite client data. The interview only COLLECTS; every Apex write
+is done afterwards by a developer session. Do not build a write path from her Claude into
+Apex.
+
+## 2026-08-19 (c) — Interview completion signal
+
+`migrations/interview_sittings.sql` + `GET/POST /api/interview-sittings`. She clicks
+"Entrevista concluída" **once per sitting**, after doing as much as she had time for.
+Deliberately **not one click per client** — six clicks would repeat the original mistake of
+demanding too much input. Surfaced on dashboard.html so she never has to send a text about
+it (she still can; this is the low-effort path).
+
+Meaning of an open row: **"a sitting happened whose answers have not been retrieved yet"** —
+it does NOT mean "everything is done." It clears when a developer session writes the
+collected answers into Apex (`POST {clear:true}`).
+
+The count of what remains is **never stored** — it stays computed live by the NOT EXISTS
+query, which gives the right behaviour for free: writing terms drops a client out of the
+queue, and correcting one to lead/paused/closed drops it out by the status route. Four of
+six done → the queue shows two next visit and the next copied prompt names only those two.
+Partial work is a first-class outcome.
+
+⚠️ dashboard.html keeps its **own copies** of shared code — this surface was added there
+explicitly, in that file's own idiom (`escHtml`, `content-card`, `below-section`). Grep it
+before assuming any change carried over.
+
+⚠️ **A 200 OK proves nothing here.** A button on this page returned 200 while writing
+nothing for months. Verified by running the handler's exact INSERT and UPDATE against remote
+D1 and reading the row back (`changes: 1`, row present, then cleared, probe deleted).
+
+## 2026-08-19 (d) — Sync iOS public copy
+
+`ios/App/App/public/` holds a **real third copy** of the frontend (last touched
+2026-08-17) and silently misses everything unless synced by hand. Synced from the repo
+root: `finance-new.html`, `dashboard.html`, `sw.js`, `version.json` — all four are tracked.
+
+Swept every tracked path whose basename matches a file this build touched; those four are
+the only other copies. `worker/index.js` has exactly one copy.
+
+⚠️ `www/` also contains `finance-new.html` and `dashboard.html`, and both are **untracked
+stale build output** — `www/finance-new.html` contains zero budget code. Do NOT edit or
+sync them; the live finance file is `finance-new.html` at the repo root.
+
+⚠️ The pre-commit hook stamped **only the root** `sw.js`/`version.json`, and it runs *after*
+staging — so a by-hand sync of the iOS copies in the same commit was stale the moment it
+landed, every time. The hook (and its tracked copy `scripts/pre-commit`) now stamps
+`ios/App/App/public/sw.js` and `version.json` with the same `$STAMP`, so the three copies
+can no longer drift apart.

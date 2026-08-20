@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luz e água — como baixar / Power &amp; water — how to lower it</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --surface:#f9f7f4;--header:#1a1a1d;--gold:#C9A43A;--gold-dim:rgba(201,164,58,0.14);
+    --brown:#7a5c2e;--text:#1a1a1d;--muted:#6b6660;--border:#e8e2d9;--card:#ffffff;
+    --radius:10px;--shadow:0 2px 16px rgba(26,26,29,0.08);--green:#2e7d44;--red:#b3261e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--surface);color:var(--text);
+       font-size:14px;line-height:1.55;-webkit-text-size-adjust:100%}
+  body.lang-pt .show-en{display:none}
+  body.lang-en .show-pt{display:none}
+
+  header{background:var(--header);color:#fff;padding:18px 20px;display:flex;
+         align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header h1{margin:0;font-size:17px;font-weight:700}
+  .langbtns{display:flex;gap:6px}
+  .langbtn{background:transparent;border:1px solid rgba(255,255,255,.28);color:rgba(255,255,255,.72);
+           font-family:inherit;font-size:12px;font-weight:600;padding:5px 12px;border-radius:14px;cursor:pointer}
+  .langbtn.on{background:var(--gold);border-color:var(--gold);color:#1a1a1d}
+
+  .wrap{max-width:860px;margin:0 auto;padding:20px 16px 56px}
+
+  .why{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--gold);
+       border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);margin-bottom:24px}
+  .why p{margin:0 0 10px}
+  .why p:last-child{margin-bottom:0}
+
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);
+     margin:28px 0 10px;font-weight:700}
+
+  .item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+        padding:15px 17px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .item h3{margin:0 0 6px;font-size:15px;font-weight:700;display:flex;align-items:baseline;
+           gap:9px;flex-wrap:wrap}
+  .tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+       padding:2px 8px;border-radius:10px;white-space:nowrap}
+  .tag.free{background:rgba(46,125,68,.11);color:var(--green)}
+  .tag.cheap{background:var(--gold-dim);color:var(--brown)}
+  .tag.spend{background:#f0ece5;color:var(--muted)}
+  .item p{margin:0 0 8px}
+  .item p:last-child{margin-bottom:0}
+  .worth{font-weight:700;color:var(--green)}
+  .how{color:var(--muted);font-size:13px}
+  .how b{color:var(--text)}
+  a{color:var(--brown);font-weight:600}
+
+  .skip{background:transparent;border:1px dashed var(--border);border-radius:var(--radius);
+        padding:14px 17px;margin-top:8px}
+  .skip ul{margin:8px 0 0;padding-left:18px}
+  .skip li{margin-bottom:5px;color:var(--muted);font-size:13px}
+
+  .helpbtn{display:inline-block;margin-top:8px;background:var(--gold-dim);border:1px solid var(--gold);
+           color:var(--brown);font-family:inherit;font-size:12.5px;font-weight:700;
+           padding:7px 12px;border-radius:8px;cursor:pointer}
+  .helpbtn:hover{background:rgba(201,164,58,.22)}
+
+  .ov{position:fixed;inset:0;background:rgba(26,26,29,.55);display:flex;align-items:center;
+      justify-content:center;padding:18px;z-index:100}
+  .ov[hidden]{display:none}
+  .ovbox{background:var(--card);border-radius:var(--radius);max-width:520px;width:100%;
+         padding:22px;max-height:86vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+  .ovbox h3{margin:0 0 10px;font-size:16px}
+  .ovbox ol{margin:0 0 14px;padding-left:20px}
+  .ovbox li{margin-bottom:7px}
+  .ovbox .warn{background:var(--gold-dim);border-left:3px solid var(--gold);padding:10px 12px;
+               border-radius:6px;margin-bottom:14px;font-size:13px}
+  .ovbox button{width:100%;background:var(--gold);border:none;color:#1a1a1d;font-family:inherit;
+                font-size:14px;font-weight:700;padding:11px;border-radius:8px;cursor:pointer}
+  .src{margin-top:24px;color:var(--muted);font-size:11.5px;line-height:1.6}
+</style>
+</head>
+<body class="lang-pt">
+
+<header>
+  <h1>
+    <span class="show-pt">Luz e água — o que dá para baixar</span>
+    <span class="show-en">Power &amp; water — what can actually come down</span>
+  </h1>
+  <div class="langbtns">
+    <button class="langbtn on" id="btPt" onclick="setLang('pt')">Português</button>
+    <button class="langbtn" id="btEn" onclick="setLang('en')">English</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="why">
+    <p>
+      <b><span class="show-pt">A conta está alta pelo consumo, não pelo preço.</span>
+         <span class="show-en">The bill is high because of usage, not price.</span></b>
+    </p>
+    <p>
+      <span class="show-pt">A Duke Energy baixou as tarifas três vezes em 2026, e de junho a setembro
+        o preço fica cerca de 25% abaixo do de janeiro. Ou seja: a conta de $360,73 de agosto veio
+        alta mesmo com a tarifa mais barata do ano.</span>
+      <span class="show-en">Duke Energy cut rates three times in 2026, and June through September runs
+        about 25% below January. So the $360.73 August bill came in high even at the cheapest rate
+        of the year.</span>
+    </p>
+    <p>
+      <span class="show-pt"><b>Vale saber:</b> o desconto de verão termina depois de setembro. O mesmo
+        consumo vai custar mais no fim do ano — então mexer nisso agora rende duas vezes.</span>
+      <span class="show-en"><b>Worth knowing:</b> the summer discount ends after September. The same
+        usage will cost more in Q4 — so acting now pays twice.</span>
+    </p>
+  </div>
+
+  <div class="why" style="border-left-color:var(--green)">
+    <p>
+      <b><span class="show-pt">Quase tudo aqui dá para fazer online, por escrito.</span>
+         <span class="show-en">Almost everything here can be done online, in writing.</span></b>
+    </p>
+    <p>
+      <span class="show-pt">Nenhum item desta página exige telefonema. Os links vão direto para o
+        formulário. <b>A Duke Energy não tem atendimento em português</b> — tem em espanhol
+        (<a href="https://www.duke-energy.com/spanish" target="_blank" rel="noopener">duke-energy.com/spanish</a>),
+        e o site aceita a tradução automática do navegador. <b>Já o site do condado de Pasco tem
+        português de verdade</b>, no botão de tradução no topo da página.</span>
+      <span class="show-en">Nothing on this page requires a phone call. Every link goes straight to the
+        form. <b>Duke Energy has no Portuguese support</b> — Spanish is available
+        (<a href="https://www.duke-energy.com/spanish" target="_blank" rel="noopener">duke-energy.com/spanish</a>),
+        and the site works with browser translation. <b>Pasco County's site does have real
+        Portuguese</b>, via the translate button at the top of the page.</span>
+    </p>
+  </div>
+
+  <h2><span class="show-pt">Comece por aqui — de graça, uma vez só</span>
+      <span class="show-en">Start here — free, one time only</span></h2>
+
+  <div class="item">
+    <h3><span class="show-pt">Crédito de recarga do carro elétrico</span>
+        <span class="show-en">EV off-peak charging credit</span>
+        <span class="tag free"><span class="show-pt">grátis</span><span class="show-en">free</span></span></h3>
+    <p class="worth">$7,50/<span class="show-pt">mês</span><span class="show-en">mo</span> · $90/<span class="show-pt">ano</span><span class="show-en">yr</span></p>
+    <p><span class="show-pt">A Duke dá esse crédito para quem recarrega fora do horário de pico. Fora
+      de pico é dia de semana das 23h às 5h e das 10h às 18h, mais sábado, domingo e feriado o dia todo.
+      Basta programar o Tesla para começar a carregar às 23h.</span>
+      <span class="show-en">Duke gives this credit for charging outside peak hours. Off-peak is weekdays
+      11 p.m.–5 a.m. and 10 a.m.–6 p.m., plus all day Saturday, Sunday and holidays. Just set the Tesla
+      to start charging at 11 p.m.</span></p>
+    <p class="how"><b><span class="show-pt">Como fazer:</span><span class="show-en">How:</span></b>
+      <span class="show-pt"><a href="https://www.duke-energy.com/home/products/ev-complete/off-peak-credit" target="_blank" rel="noopener">abrir a p&aacute;gina do cr&eacute;dito</a> e seguir as instru&ccedil;&otilde;es dali. Se em algum momento pedir liga&ccedil;&atilde;o, o n&uacute;mero &eacute; 877.230.6609.</span>
+      <span class="show-en"><a href="https://www.duke-energy.com/home/products/ev-complete/off-peak-credit" target="_blank" rel="noopener">open the credit page</a> and follow it from there. If it does ask you to call, the number is 877.230.6609.</span></p>
+    <button class="helpbtn" onclick="copyHelp('ev')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
+  </div>
+
+  <div class="item">
+    <h3><span class="show-pt">Avaliação de energia da casa</span>
+        <span class="show-en">Home Energy Check</span>
+        <span class="tag free"><span class="show-pt">grátis</span><span class="show-en">free</span></span></h3>
+    <p class="worth"><span class="show-pt">libera até $3.800 em descontos</span>
+                     <span class="show-en">unlocks up to $3,800 in rebates</span></p>
+    <p><span class="show-pt">A Duke faz de graça e ainda deixa um kit de economia. O importante: <b>nenhum
+      desconto da Duke pode ser pedido sem essa avaliação feita nos últimos 2 anos</b>. É a porta de
+      entrada para todo o resto.</span>
+      <span class="show-en">Duke does it free and leaves an efficiency kit. The key part: <b>no Duke
+      rebate can be claimed without this check done within the last 2 years</b>. It is the gate for
+      everything else.</span></p>
+    <p class="how"><b><span class="show-pt">Como fazer:</span><span class="show-en">How:</span></b> <a href="https://onlinehec.duke-energy.com/audit" target="_blank" rel="noopener"><span class="show-pt">fazer online agora</span><span class="show-en">do it online now</span></a> <span class="show-pt">— ou <a href="https://www.duke-energy.com/home/products/home-energy-check" target="_blank" rel="noopener">agendar a visita</a>. Sem telefonema.</span><span class="show-en">— or <a href="https://www.duke-energy.com/home/products/home-energy-check" target="_blank" rel="noopener">schedule the in-home visit</a>. No phone call.</span></p>
+    <button class="helpbtn" onclick="copyHelp('hec')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
+  </div>
+
+  <div class="item">
+    <h3>EnergyWise Home
+        <span class="tag free"><span class="show-pt">grátis</span><span class="show-en">free</span></span></h3>
+    <p class="worth"><span class="show-pt">até $141/ano em crédito</span>
+                     <span class="show-en">up to $141/yr in credits</span></p>
+    <p><span class="show-pt">A Duke instala um aparelhinho no ar-condicionado e no boiler, sem custo, e
+      em troca dá crédito na conta. Em dias de pico ela pode desligar o ar por alguns minutos de cada vez.
+      <b>Vale saber disso antes de aceitar</b> — mas na prática ela mexe primeiro no boiler, e no ar
+      raramente.</span>
+      <span class="show-en">Duke installs a small device on the AC and water heater at no cost, and
+      credits your bill in return. On peak days they can cycle the AC off for a few minutes at a time.
+      <b>Worth knowing before saying yes</b> — in practice they cycle water heaters first and the AC
+      rarely.</span></p>
+    <p class="how"><b><span class="show-pt">Como fazer:</span><span class="show-en">How:</span></b>
+      <a href="https://www.duke-energy.com/home/products/energywise-home" target="_blank" rel="noopener">
+      <span class="show-pt">inscrever-se online</span><span class="show-en">enroll online</span></a>.</p>
+    <button class="helpbtn" onclick="copyHelp('ew')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
+  </div>
+
+  <h2><span class="show-pt">Dois minutos, custo zero</span>
+      <span class="show-en">Two minutes, no cost</span></h2>
+
+  <div class="item">
+    <h3><span class="show-pt">Testar vazamento na descarga</span>
+        <span class="show-en">Test the toilets for a silent leak</span>
+        <span class="tag free"><span class="show-pt">grátis</span><span class="show-en">free</span></span></h3>
+    <p class="worth"><span class="show-pt">pode ser $40–55/mês por vaso vazando</span>
+                     <span class="show-en">can be $40–55/mo per leaking toilet</span></p>
+    <p><span class="show-pt">Um vazamento silencioso desperdiça de 100 a 2.000 litros por dia sem fazer
+      barulho nenhum. E como a água de vocês já está na faixa mais cara, esse desperdício é cobrado
+      no preço mais alto da tabela.</span>
+      <span class="show-en">A silent leak wastes 30 to 500 gallons a day without making any sound. And
+      because your water is already in the top pricing tier, that waste is billed at the most expensive
+      rate on the table.</span></p>
+    <p class="how"><b><span class="show-pt">Como testar:</span><span class="show-en">How to test:</span></b>
+      <span class="show-pt">pingue corante de bolo na caixa acoplada, espere 10 minutos sem dar descarga
+      e olhe dentro do vaso. Se a água ficou colorida, está vazando. O reparo é uma borracha de poucos
+      dólares.</span>
+      <span class="show-en">put a few drops of food coloring in the tank, wait 10 minutes without
+      flushing, then look in the bowl. If the water is colored, it is leaking. The fix is a flapper
+      costing a few dollars.</span>
+      <a href="https://www.epa.gov/watersense/fix-leak-week" target="_blank" rel="noopener">EPA</a></p>
+  </div>
+
+  <div class="item">
+    <h3><span class="show-pt">Conferir o dia e o horário da irrigação</span>
+        <span class="show-en">Check the irrigation day and time</span>
+        <span class="tag free"><span class="show-pt">grátis</span><span class="show-en">free</span></span></h3>
+    <p class="worth"><span class="show-pt">a irrigação costuma ser o maior gasto de água da casa</span>
+                     <span class="show-en">irrigation is usually a home's single largest water use</span></p>
+    <p><span class="show-pt">O condado de Pasco está em <b>um dia por semana</b> (ordem de escassez de
+      água, válida até 1º de outubro de 2026). O dia vem do último número da casa: 0-1 segunda, 2-3 terça,
+      4-5 quarta, 6-7 quinta, 8-9 sexta. Sem irrigar no fim de semana. Só um ciclo, entre 00h01 e 4h
+      ou entre 20h e 23h59.</span>
+      <span class="show-en">Pasco County is on <b>one day per week</b> (water shortage order, in effect
+      through Oct 1, 2026). Your day comes from the last digit of the house number: 0-1 Monday, 2-3
+      Tuesday, 4-5 Wednesday, 6-7 Thursday, 8-9 Friday. No weekend watering. One cycle only, between
+      12:01–4 a.m. or 8–11:59 p.m.</span></p>
+    <p class="how"><span class="show-pt">Se o timer ainda estiver na programação que a construtora
+      deixou, provavelmente está regando demais — e fora da regra.</span>
+      <span class="show-en">If the controller is still on the schedule the builder left, it is probably
+      watering too much — and out of compliance.</span></p>
+  </div>
+
+  <div class="item">
+    <h3><span class="show-pt">Por que a água pesa tanto</span>
+        <span class="show-en">Why the water bill bites</span>
+        <span class="tag free"><span class="show-pt">entender</span><span class="show-en">context</span></span></h3>
+    <p><span class="show-pt">A tabela de Pasco sobe muito rápido. Os primeiros 5 mil galões custam
+      $2,18 por mil. Acima de 10 mil, custam $6,94. Acima de 15 mil, <b>$9,36 — mais de 4 vezes o
+      preço inicial</b>.</span>
+      <span class="show-en">Pasco's rate table climbs steeply. The first 5,000 gallons cost $2.18 per
+      thousand. Above 10,000 it is $6.94. Above 15,000 it is <b>$9.36 — over 4× the starting
+      price</b>.</span></p>
+    <p><span class="show-pt">Numa conta de $170 a $194 para cinco pessoas, é quase certo que vocês estão
+      nas faixas de cima. <b>Isso é uma boa notícia:</b> cada galão economizado sai da faixa mais cara
+      primeiro, então os primeiros cortes valem 3 a 4 vezes mais que a média.</span>
+      <span class="show-en">On a $170–194 bill for five people, you are almost certainly in the upper
+      tiers. <b>That is good news:</b> every gallon saved comes off the most expensive tier first, so
+      the first cuts are worth 3–4× the average gallon.</span></p>
+    <p class="how"><a href="https://www.pascocountyfl.gov/services/utilities/my_account/pay_my_utility_bill.php" target="_blank" rel="noopener">
+      <span class="show-pt">Conta de água de Pasco</span><span class="show-en">Pasco water account</span></a></p>
+  </div>
+
+  <h2><span class="show-pt">Vale gastar — com desconto da Duke</span>
+      <span class="show-en">Worth spending — with a Duke rebate</span></h2>
+
+  <div class="item">
+    <h3><span class="show-pt">Testar e vedar os dutos do ar</span>
+        <span class="show-en">Test and seal the AC ducts</span>
+        <span class="tag cheap"><span class="show-pt">quase de graça</span><span class="show-en">near free</span></span></h3>
+    <p class="worth"><span class="show-pt">−18% no consumo do ar-condicionado</span>
+                     <span class="show-en">−18% of AC energy use</span></p>
+    <p><span class="show-pt">É a intervenção com melhor comprovação na Flórida. O Centro de Energia Solar
+      da Flórida acompanhou 24 casas antes e depois: o consumo do ar caiu 18%. Custa cerca de $200,
+      e <b>a Duke devolve até $450</b> — ou seja, na prática pode sair de graça.</span>
+      <span class="show-en">The best-evidenced fix in Florida. The Florida Solar Energy Center measured
+      24 homes before and after: AC energy use fell 18%. It costs around $200, and <b>Duke rebates up
+      to $450</b> — so in practice it can end up free.</span></p>
+    <p class="how"><span class="show-pt">Casa nova não garante duto bem feito: é uma falha comum de
+      construtora. Precisa da avaliação gratuita antes.</span>
+      <span class="show-en">A new house does not guarantee good ductwork — it is a common builder
+      shortcut. Requires the free Home Energy Check first.</span></p>
+    <p class="how"><b><span class="show-pt">Como pedir:</span><span class="show-en">How to claim:</span></b>
+      <a href="https://www.duke-energy.com/Rebates" target="_blank" rel="noopener">
+      <span class="show-pt">central de descontos da Duke</span><span class="show-en">Duke rebate centre</span></a>
+      <span class="show-pt"> — o pedido é online, mas a avaliação gratuita precisa estar feita <b>antes</b>
+      de começar o serviço.</span>
+      <span class="show-en"> — the claim is online, but the free Home Energy Check has to be done
+      <b>before</b> the work starts.</span></p>
+    <button class="helpbtn" onclick="copyHelp('duct')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
+  </div>
+
+  <div class="item">
+    <h3><span class="show-pt">Controlador de irrigação inteligente</span>
+        <span class="show-en">Smart irrigation controller</span>
+        <span class="tag cheap"><span class="show-pt">até grátis</span><span class="show-en">possibly free</span></span></h3>
+    <p class="worth"><span class="show-pt">desconto de até $250, ou instalação gratuita</span>
+                     <span class="show-en">rebate up to $250, or free installation</span></p>
+    <p><span class="show-pt">Ele rega conforme a chuva e a estação, em vez de repetir o mesmo programa
+      o ano todo. Pasco tem desconto e, em alguns casos, instala sem custo.</span>
+      <span class="show-en">It waters according to rain and season instead of repeating the same
+      schedule all year. Pasco offers a rebate and in some cases installs it at no cost.</span></p>
+    <p class="how"><b><span class="show-pt">Como pedir:</span><span class="show-en">How to claim:</span></b>
+      <a href="https://tbw.conservationrebates.com/index.php?lang=en" target="_blank" rel="noopener">
+      <span class="show-pt">pedir online</span><span class="show-en">apply online</span></a>
+      <span class="show-pt"> — cria-se uma conta e o pedido é todo por escrito. A elegibilidade depende
+      em parte do histórico de consumo, e é o próprio portal que responde isso. Se preferir escrever:
+      SaveH2O@MyPasco.net.</span>
+      <span class="show-en"> — create an account and the whole claim is in writing. Eligibility depends
+      partly on water-use history, and the portal itself answers that. If you would rather write:
+      SaveH2O@MyPasco.net.</span></p>
+    <button class="helpbtn" onclick="copyHelp('irr')"><span class="show-pt">Pedir ajuda ao Claude</span><span class="show-en">Have Claude help me</span></button>
+  </div>
+
+  <div class="item">
+    <h3><span class="show-pt">Temperatura do boiler em 120°F</span>
+        <span class="show-en">Set the water heater to 120°F</span>
+        <span class="tag cheap"><span class="show-pt">grátis</span><span class="show-en">free</span></span></h3>
+    <p class="worth"><span class="show-pt">6 a 10% do custo de aquecer água</span>
+                     <span class="show-en">6–10% of water heating cost</span></p>
+    <p><span class="show-pt">O aquecimento de água costuma ser o segundo maior gasto de luz da casa,
+      depois do ar. Muita gente tem o boiler ajustado bem acima do necessário.</span>
+      <span class="show-en">Water heating is usually the second largest electric load after AC. Many
+      tanks are set well above what is needed.</span></p>
+  </div>
+
+  <h2><span class="show-pt">O que não vale o esforço</span>
+      <span class="show-en">Not worth the effort</span></h2>
+
+  <div class="skip">
+    <ul>
+      <li><span class="show-pt"><b>Desligar aparelhos da tomada.</b> Dá de 0,2 a 0,7 kWh por dia — troco
+        perto de uma conta de $360, e um incômodo diário.</span>
+        <span class="show-en"><b>Unplugging devices.</b> Worth 0.2–0.7 kWh a day — pocket change against
+        a $360 bill, and daily friction for nothing.</span></li>
+      <li><span class="show-pt"><b>Ventilador de teto em cômodo vazio.</b> Ventilador refresca pessoa,
+        não ambiente. Ligado num quarto sem ninguém, só gasta.</span>
+        <span class="show-en"><b>Ceiling fans in empty rooms.</b> Fans cool people, not rooms. Running
+        one in an empty room only costs money.</span></li>
+      <li><span class="show-pt"><b>Fechar as saídas de ar de cômodos sem uso.</b> Aumenta a pressão nos
+        dutos e piora o vazamento — o contrário do item mais importante da lista.</span>
+        <span class="show-en"><b>Closing vents in unused rooms.</b> Raises duct pressure and worsens
+        leakage — the opposite of the top item on this list.</span></li>
+      <li><span class="show-pt"><b>Película ou troca de janelas.</b> Funciona, mas o retorno leva muitos
+        anos. Não é por onde começar.</span>
+        <span class="show-en"><b>Window film or replacement.</b> It works, but payback takes many years.
+        Not where to start.</span></li>
+      <li><span class="show-pt"><b>Termostato inteligente</b> — para vocês rende pouco. A economia dele
+        vem de desligar o ar com a casa vazia, e a casa de vocês fica ocupada o dia todo. Se pegar, que
+        seja pelo desconto da Duke.</span>
+        <span class="show-en"><b>Smart thermostat</b> — weak for you. Its savings come from cutting AC
+        while the house is empty, and yours is occupied all day. If you get one, get it through the
+        Duke rebate.</span></li>
+    </ul>
+  </div>
+
+  <p class="src">
+    <span class="show-pt"><b>Fontes:</b> programas e descontos da Duke Energy Florida (os valores mudam — o site tem sempre o atual). Tabela de água e regras de irrigação: Pasco County Utilities
+      e Southwest Florida Water Management District (ordem válida até 01/10/2026). Dados de dutos e
+      aquecimento: Florida Solar Energy Center. Teste de vazamento: EPA WaterSense.</span>
+    <span class="show-en"><b>Sources:</b> Duke Energy Florida programs and rebates (amounts change — the site always has the current one). Water rate table and irrigation rules: Pasco County Utilities and
+      the Southwest Florida Water Management District (order in effect through Oct 1, 2026). Duct and
+      water heating figures: Florida Solar Energy Center. Leak test: EPA WaterSense.</span>
+  </p>
+
+</div>
+
+
+<div id="ov" class="ov" hidden onclick="if(event.target===this)closeOv()">
+  <div class="ovbox" role="dialog" aria-modal="true">
+    <h3><span class="show-pt">Prompt copiado</span><span class="show-en">Prompt copied</span></h3>
+    <div class="warn">
+      <span class="show-pt"><b>Este vai no computador, na conta do Pastor Rafael</b> — no Claude Code,
+        não no aplicativo de conversa. É a única conta que consegue abrir o navegador e clicar junto
+        com você.</span>
+      <span class="show-en"><b>This one goes on the desktop, in Pastor Rafael's account</b> — in Claude
+        Code, not the chat app. It is the only account that can open the browser and click through it
+        with you.</span>
+    </div>
+    <ol>
+      <li><span class="show-pt">Abra o Claude Code no computador, na conta do Pastor Rafael.</span>
+          <span class="show-en">Open Claude Code on the desktop, in Pastor Rafael's account.</span></li>
+      <li><span class="show-pt">Comece uma conversa nova.</span>
+          <span class="show-en">Start a new conversation.</span></li>
+      <li><span class="show-pt">Cole o texto e mande.</span>
+          <span class="show-en">Paste the text and send it.</span></li>
+    </ol>
+    <button onclick="closeOv()"><span class="show-pt">Entendi</span><span class="show-en">Got it</span></button>
+  </div>
+</div>
+
+<script>
+  // Each task's prompt is self-contained: a fresh session on another account has
+  // none of this context. It names the site, what she is trying to achieve, and
+  // the two rules that matter -- never invent her details, never submit without
+  // showing her first.
+  var PROMPTS = {
+    hec: {
+      title: "Home Energy Check",
+      url: "https://onlinehec.duke-energy.com/audit",
+      goalPt: "fazer a avaliacao de energia gratuita da Duke Energy",
+      goalEn: "complete Duke Energy's free Home Energy Check"
+    },
+    ev: {
+      title: "Credito de recarga EV / EV charging credit",
+      url: "https://www.duke-energy.com/home/products/ev-complete/off-peak-credit",
+      goalPt: "pedir o credito de $7,50 por mes para recarregar o carro eletrico fora do horario de pico",
+      goalEn: "sign up for the $7.50/month off-peak EV charging credit"
+    },
+    ew: {
+      title: "EnergyWise Home",
+      url: "https://www.duke-energy.com/home/products/energywise-home",
+      goalPt: "inscrever-se no EnergyWise Home da Duke, que da credito na conta",
+      goalEn: "enroll in Duke's EnergyWise Home program for bill credits"
+    },
+    duct: {
+      title: "Desconto de dutos / Duct rebate",
+      url: "https://www.duke-energy.com/Rebates",
+      goalPt: "pedir o desconto da Duke para teste e vedacao dos dutos do ar-condicionado (ate $450)",
+      goalEn: "claim Duke's rebate for AC duct testing and sealing (up to $450)"
+    },
+    irr: {
+      title: "Controlador de irrigacao / Irrigation controller",
+      url: "https://tbw.conservationrebates.com/index.php?lang=en",
+      goalPt: "pedir o desconto do condado para um controlador de irrigacao inteligente",
+      goalEn: "apply for the county rebate on a smart irrigation controller"
+    }
+  };
+
+  // The WHOLE prompt follows the language she is reading the page in. An earlier
+  // version picked the goal by language but hard-coded every other line in
+  // Portuguese, so viewing the page in English produced a mixed prompt with an
+  // English goal buried in Portuguese instructions -- precisely the reading
+  // burden this button exists to remove.
+  function buildPrompt(k){
+    var p = PROMPTS[k];
+    var en = document.body.classList.contains("lang-en");
+    if (en) {
+      return [
+"Help me do this in the browser, start to finish: " + p.goalEn + ".",
+"",
+"Start by opening this page in Chrome: " + p.url,
+"",
+"IMPORTANT, BEFORE ANYTHING ELSE: use my real Chrome, the one open on this",
+"machine, with my tabs and my logins. Do NOT use a sandboxed browser, an",
+"internal browser, a preview pane, headless mode, or any isolated window.",
+"I need to SEE the page on my own screen and click along with you - if it",
+"opens somewhere I cannot see, it is useless and I will not even notice.",
+"Use the Claude in Chrome / claude-in-chrome extension, which drives the real",
+"browser. If the only thing you can open is an isolated browser, STOP and tell",
+"me - do not carry on anyway.",
+"",
+"How I need you to work:",
+"",
+"- Do everything you can yourself: navigate, click, fill in whatever you",
+"  already know. Only ask me when it is something only I know.",
+"- When you need one of my details (electric account number, address, phone,",
+"  email), ask me. NEVER invent or guess any of my details.",
+"- Before submitting any form, show me exactly what is about to be sent and",
+"  wait for me to confirm.",
+"- If the page asks for a card, a password or bank details, STOP and tell me.",
+"  I will type those myself.",
+"- If something goes wrong or the page changes, explain what happened and what",
+"  the next option is. Do not keep guessing.",
+"",
+"At the end, tell me in one sentence what is done and whether anything is left",
+"for me to do later."
+      ].join("\n");
+    }
+    return [
+"Me ajude a fazer isto no navegador, do comeco ao fim: " + p.goalPt + ".",
+"",
+"Comece abrindo esta pagina no Chrome: " + p.url,
+"",
+"IMPORTANTE, ANTES DE QUALQUER COISA: use o meu Chrome de verdade, o que esta",
+"aberto nesta maquina, com as minhas abas e os meus logins. NAO use navegador",
+"em sandbox, navegador interno, preview, headless nem nenhuma janela isolada.",
+"Eu preciso VER a pagina na minha tela e clicar junto com voce - se abrir em",
+"um navegador que eu nao enxergo, nao serve para nada e eu nem vou perceber.",
+"Use a extensao Claude in Chrome / claude-in-chrome, que controla o navegador",
+"real. Se por algum motivo voce so conseguir abrir um navegador isolado, PARE",
+"e me diga - nao continue mesmo assim.",
+"",
+"Como eu preciso que voce trabalhe:",
+"",
+"- Fale comigo em portugues. O meu Chrome ja traduz as paginas para portugues",
+"  automaticamente, mas a traducao as vezes sai estranha ou deixa parte em",
+"  ingles - entao me explique com as suas palavras o que cada tela esta",
+"  pedindo, em vez de so ler o que aparece.",
+"- Faca voce mesmo tudo o que der: navegar, clicar, preencher o que ja souber.",
+"  So me pergunte quando for informacao que so eu tenho.",
+"- Quando precisar de um dado meu (numero da conta de luz, endereco, telefone,",
+"  email), me peca. NUNCA invente nem chute nenhum dado meu.",
+"- Antes de enviar qualquer formulario, me mostre exatamente o que vai ser",
+"  enviado e espere eu confirmar.",
+"- Se a pagina pedir cartao, senha ou dado bancario, PARE e me avise. Eu digito.",
+"- Se algo der errado ou a pagina mudar, me explique em portugues o que aconteceu",
+"  e qual e a proxima opcao. Nao siga adivinhando.",
+"",
+"No fim, me diga em uma frase o que ficou pronto e se sobrou alguma coisa para",
+"eu fazer depois."
+    ].join("\n");
+  }
+
+  function copyHelp(k){
+    var text = buildPrompt(k);
+    var done = function(){ document.getElementById("ov").hidden = false; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function(){ fallback(text, done); });
+    } else { fallback(text, done); }
+  }
+  function fallback(text, done){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); } catch(e){}
+    document.body.removeChild(ta); done();
+  }
+  function closeOv(){ document.getElementById("ov").hidden = true; }
+
+  function setLang(l){
+    document.body.classList.toggle("lang-en", l === "en");
+    document.body.classList.toggle("lang-pt", l !== "en");
+    document.getElementById("btEn").classList.toggle("on", l === "en");
+    document.getElementById("btPt").classList.toggle("on", l !== "en");
+    try { localStorage.setItem("apex_lang", l); } catch(e){}
+  }
+  try {
+    var saved = localStorage.getItem("apex_lang");
+    if (saved === "en" || saved === "pt") { setLang(saved); }
+  } catch(e){}
+</script>
+
+</body>
+</html>

@@ -1040,6 +1040,28 @@
       </div>
     </div>
 
+    <!-- Interview sittings: Alice pressed "Entrevista concluida" on the
+         finance page after talking her answers through with her own Claude.
+         The answers live in the separate vault DB, NOT in Apex -- her
+         connector is read-only against Apex on purpose. This is the cue for a
+         developer session to go retrieve them and write them in.
+
+         An open row means "a sitting happened whose answers have not been
+         pulled in yet" -- NOT "everything is done". Clearing it is what a
+         developer session does AFTER writing the answers into Apex. -->
+    <div class="below-section" id="interviewSittingsSection" hidden>
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Entrevistas conclu&iacute;das</span>
+            <span class="show-en">Interviews completed</span>
+            <span id="interviewSittingsBadge" style="display:inline-block;margin-left:8px;background:rgba(201,164,58,0.16);color:#8a6d1f;font-size:12px;font-weight:800;padding:2px 10px;border-radius:12px;vertical-align:middle;"></span>
+          </h2>
+        </div>
+        <div id="interviewSittingsList"></div>
+      </div>
+    </div>
+
     <!-- Salesperson login requests: a client asking for a portal login for one
          of their salespeople. Approving here RECORDS the decision only — it
          provisions no login and grants no access. Shown to every admin role;
@@ -1280,6 +1302,7 @@
       window.initNav && window.initNav();
 
       loadGoalApprovals();
+      loadInterviewSittings();
       loadSellerLoginRequests();
       // Pre-fetch so the credentials modal's WhatsApp button can open
       // synchronously on click (popup-blocker rule).
@@ -1412,6 +1435,76 @@
           section.hidden = false;
         })
         .catch(function() {});
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // INTERVIEW SITTINGS — Alice's "I did a sitting" signal from the finance
+    // page. Surfaced here so she never has to send a text message about it;
+    // she still can, this is just the low-effort path.
+    // ══════════════════════════════════════════════════════════════════════
+
+    function loadInterviewSittings() {
+      apiFetch("/api/interview-sittings")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var section = document.getElementById("interviewSittingsSection");
+          var listEl  = document.getElementById("interviewSittingsList");
+          var badge   = document.getElementById("interviewSittingsBadge");
+          if (!section || !listEl) { return; }
+          var open = (data && data.sittings) || [];
+          if (!open.length) { section.hidden = true; return; }
+          if (badge) { badge.textContent = open.length; }
+          var isEnLang = document.body.classList.contains("lang-en");
+          var html = "";
+          // WHICH interview she finished, not just that one happened. Terms,
+          // transactions and policies are separate sittings with separate
+          // prompts -- without the kind, a developer goes looking in the vault
+          // for answers to a question she was never asked.
+          var KIND_LABEL = {
+            terms:      { pt: "Valores combinados de clientes", en: "Client agreed terms" },
+            matches:    { pt: "Dep\u00f3sitos e faturas",          en: "Deposits and invoices" },
+            uncategorized: { pt: "Categorias de transa\u00e7\u00f5es", en: "Transaction categories" },
+            policies:   { pt: "Ap\u00f3lices das crian\u00e7as",      en: "Children's policies" }
+          };
+          open.forEach(function(sit) {
+            var when = sit.created_at || "";
+            var who  = sit.created_by_email || sit.created_by || "";
+            var lab  = KIND_LABEL[sit.kind] ||
+                       { pt: sit.kind || "Entrevista", en: sit.kind || "Interview" };
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
+              '<div style="flex:1;min-width:220px;">' +
+              '<div style="font-size:14px;font-weight:600;">' +
+              escHtml(isEnLang ? lab.en : lab.pt) + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+              escHtml(when) + (who ? ' &middot; ' + escHtml(who) : '') +
+              '</div></div></div>';
+          });
+          // One clear button PER KIND, so retrieving one interview's answers
+          // never marks another's retrieved.
+          var kinds = {};
+          open.forEach(function(sit) { kinds[sit.kind || "terms"] = true; });
+          html += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">';
+          Object.keys(kinds).forEach(function(k) {
+            var lab = KIND_LABEL[k] || { pt: k, en: k };
+            html += '<button style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="clearInterviewSittings(this,\'' + k + '\')">' +
+              escHtml((isEnLang ? 'Written into Apex: ' : 'Lan\u00e7adas no Apex: ') + (isEnLang ? lab.en : lab.pt)) + '</button>';
+          });
+          html += '</div>';
+          listEl.innerHTML = html;
+          section.hidden = false;
+        })
+        .catch(function() {});
+    }
+
+    // Clears the flag. Only correct AFTER the collected answers have actually
+    // been written into Apex -- the flag is about retrieval, not about whether
+    // the client list is empty.
+    function clearInterviewSittings(btn, kind) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/interview-sittings", { method: "POST", body: { clear: true, kind: kind } })
+        .then(function(res) { return res.json(); })
+        .then(function() { loadInterviewSittings(); })
+        .catch(function() { if (btn) { btn.disabled = false; } });
     }
 
     function decideGoalApproval(clientId, indicatorKey, monthLabel, decision, btn) {

@@ -1102,7 +1102,7 @@ async function handleGetSessions(request, env) {
                 "raw_transcript IS NOT NULL as has_transcript " +
                 // Event entries (conferences, Apex Club) are not client
                 // sessions -- keep them out of the summarize/transcript list.
-                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category != 'event' ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category NOT IN ('event', 'personal') ORDER BY created_at DESC"
             );
         }
 
@@ -4255,7 +4255,7 @@ async function handlePatchTask(id, request, env) {
 // Body: { client_id, date, time, session_type, notes, meeting_category?,
 //         end_time?, location?, event_name?, recur_frequency?, recur_count? }
 // session_type: 'online_meet' | 'in_person'
-// meeting_category: 'client' (default) | 'prospective' | 'event'
+// meeting_category: 'client' (default) | 'prospective' | 'event' | 'vendor' | 'personal'
 // 'event' entries (conferences, Apex Club) have no client: client_id is
 // stored NULL and event_name lands in the NOT NULL client_name column.
 // end_time is stored as a plain "HH:MM" (the Google Calendar sync path
@@ -4306,6 +4306,11 @@ async function handlePostSessionsSchedule(request, env) {
         // online -- which is why it is a separate category and not an event
         // variant. Before it existed there was no way to book one at all.
         if (body.meeting_category === "vendor")      { meetingCategory = "vendor"; }
+        // 'personal' is a NON-APEX meeting on Rafa's calendar: church, school,
+        // family. Identical in shape and colour to an event -- a free-text name
+        // in client_name, no client_id, never a Meet link -- and it exists only
+        // because "Event" was the wrong word in Alice's head for a meeting.
+        if (body.meeting_category === "personal")    { meetingCategory = "personal"; }
 
         var endTime = null;
         if (body.end_time) {
@@ -4321,7 +4326,10 @@ async function handlePostSessionsSchedule(request, env) {
         var htmlLink = body.html_link || null;
 
         var clientId, clientName, sessionType;
-        if (meetingCategory === "event") {
+        // 'personal' takes the event shape exactly: free-text name, no client,
+        // forced in_person so no Meet link is ever created for Rafa's church
+        // or school appointments.
+        if (meetingCategory === "event" || meetingCategory === "personal") {
             if (!body.event_name) { return jsonErr("event_name is required for events", 400); }
             clientId    = null;
             clientName  = body.event_name;
@@ -4355,7 +4363,7 @@ async function handlePostSessionsSchedule(request, env) {
         var recurCount = 1;
         var recurFreq  = null;
         if (body.recur_count !== undefined && body.recur_count !== null) {
-            if (meetingCategory === "event") { return jsonErr("Events cannot recur", 400); }
+            if (meetingCategory === "event" || meetingCategory === "personal") { return jsonErr("Events cannot recur", 400); }
             recurCount = parseInt(body.recur_count, 10);
             if (isNaN(recurCount) || recurCount < 2 || recurCount > 26) {
                 return jsonErr("recur_count must be between 2 and 26", 400);
@@ -4386,7 +4394,7 @@ async function handlePostSessionsSchedule(request, env) {
             var seriesWantsMeet = (sessionType === "online_meet");
             var seriesEndHHMM = endTime || plusOneHourHHMM(body.time);
             var seriesTitle = meetingCategory === "prospective" ? clientName : clientName + " - RDE";
-            var attendeeEmail = meetingCategory === "event" ? null : await lookupClientAttendeeEmail(env, clientId);
+            var attendeeEmail = (meetingCategory === "event" || meetingCategory === "personal") ? null : await lookupClientAttendeeEmail(env, clientId);
             try {
                 var seriesToken = await getGoogleAccessToken(env);
                 var seriesEventBody = {
@@ -4652,8 +4660,11 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         if (!session) { return jsonErr("Session not found", 404); }
 
         // Event entries (conferences, Apex Club) are not client sessions --
-        // there is no client to message.
-        if (session.meeting_category === "event") {
+        // there is no client to message. Neither is a 'personal' (non-Apex)
+        // meeting: it has no client_id at all, so this per-session send has
+        // nobody to address. Rafa's non-Apex list goes out from calendar.html
+        // as one combined message instead.
+        if (session.meeting_category === "event" || session.meeting_category === "personal") {
             return jsonErr("Event entries have no client to send WhatsApp to.", 400);
         }
 
@@ -5458,8 +5469,8 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         // ---- Resolve every field to its post-edit value -------------------
         var newCategory = session.meeting_category || "client";
         if (hasCategory) {
-            if (["client", "prospective", "event", "vendor"].indexOf(body.meeting_category) === -1) {
-                return jsonErr("meeting_category must be client, prospective, event or vendor", 400);
+            if (["client", "prospective", "event", "vendor", "personal"].indexOf(body.meeting_category) === -1) {
+                return jsonErr("meeting_category must be client, prospective, event, vendor or personal", 400);
             }
             newCategory = body.meeting_category;
         }
@@ -5473,23 +5484,23 @@ async function handlePatchSessionDetails(sessionId, request, env) {
             }
             newType = body.session_type;
         }
-        if (newCategory === "event") { newType = "in_person"; }
+        if (newCategory === "event" || newCategory === "personal") { newType = "in_person"; }
 
         // Client vs event identity. An event has no client_id and stores its
         // name in the NOT NULL client_name column; a client/prospective
         // meeting must resolve to a real client row.
         var newClientId   = session.client_id;
         var newClientName = session.client_name;
-        if (newCategory === "event") {
+        if (newCategory === "event" || newCategory === "personal") {
             if (hasEventName) {
                 var evName = (body.event_name && String(body.event_name).trim()) || "";
                 if (!evName) { return jsonErr("event_name is required for events", 400); }
                 newClientName = evName;
-            } else if (session.meeting_category !== "event" && !session.client_name) {
+            } else if (session.meeting_category !== "event" && session.meeting_category !== "personal" && !session.client_name) {
                 return jsonErr("event_name is required for events", 400);
             }
             newClientId = null;
-        } else if (hasClient || session.meeting_category === "event") {
+        } else if (hasClient || session.meeting_category === "event" || session.meeting_category === "personal") {
             var wantClientId = hasClient ? body.client_id : null;
             if (!wantClientId) { return jsonErr("client_id is required", 400); }
             var clientRow = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
@@ -5523,14 +5534,14 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         if (newEnd && newTime && newEnd <= newTime) {
             return jsonErr("end_time must be after the session's start time", 400);
         }
-        if (newCategory === "event" && !newEnd) {
+        if ((newCategory === "event" || newCategory === "personal") && !newEnd) {
             return jsonErr("end_time is required for events", 400);
         }
 
         var newLocation = hasLocation ? ((body.location && String(body.location).trim()) || null) : session.location;
         // Location only means something where the meeting has a physical
         // address -- mirrors the create modal's show/hide rule.
-        if (newType === "online_meet" && newCategory !== "event") { newLocation = null; }
+        if (newType === "online_meet" && newCategory !== "event" && newCategory !== "personal") { newLocation = null; }
 
         if (hasNotes && session.status !== "scheduled") {
             return jsonErr("Notes can only be edited while the session is still scheduled.", 400);
@@ -5644,7 +5655,7 @@ async function handlePatchSessionDetails(sessionId, request, env) {
                     createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
                 }
             };
-            var attendee2 = newCategory === "event" ? null : await lookupClientAttendeeEmail(env, newClientId);
+            var attendee2 = (newCategory === "event" || newCategory === "personal") ? null : await lookupClientAttendeeEmail(env, newClientId);
             if (attendee2) { newEventBody2.attendees = [{ email: attendee2 }]; }
             var createRes2 = await googleCalendarApiCall(newToken, "POST",
                 "/events?conferenceDataVersion=1", newEventBody2);

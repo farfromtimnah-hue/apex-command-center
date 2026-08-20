@@ -569,6 +569,7 @@
     .cal-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-chip.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-chip:hover { opacity: 0.88; }
     /* Online session missing its real Meet link (still the internal
        placeholder) -- warn so it isn't mistaken for a healthy meeting. */
@@ -711,6 +712,7 @@
     .cal-block.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-block.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-block.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-block.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-block:hover { opacity: 0.88; }
     .cal-block.cancelled { opacity: 0.55; text-decoration: line-through; }
 
@@ -752,6 +754,7 @@
     .cal-week-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-week-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-week-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-week-chip.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-week-chip:hover { opacity: 0.88; }
 
     /* ─── Day view ───────────────────────────────────────────────────────── */
@@ -818,6 +821,7 @@
     .cal-day-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-day-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-day-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-day-chip.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-day-chip:hover { opacity: 0.88; }
 
     /* ─── Empty state ────────────────────────────────────────────────────── */
@@ -863,6 +867,7 @@
     .type-pill.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .type-pill.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 1px solid var(--cal-event-border); }
     .type-pill.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 1px solid var(--cal-vendor-border); }
+    .type-pill.personal    { background: var(--cal-event);       color: var(--cal-event-text);       border: 1px solid var(--cal-event-border); }
 
     /* ─── Toast ──────────────────────────────────────────────────────────── */
     #calToast {
@@ -1708,6 +1713,13 @@
           <div class="field-label" id="nsVendorNameLabel" hidden>
             <span class="show-pt">Fornecedor / parceiro</span>
             <span class="show-en">Vendor / partner</span>
+          </div>
+          <!-- Third meaning: a non-Apex meeting. "Event name" is precisely the
+               wording that sent Alice looking for a category that did not
+               exist, so it must not be what she reads here. -->
+          <div class="field-label" id="nsPersonalNameLabel" hidden>
+            <span class="show-pt">Nome da reuni&#227;o</span>
+            <span class="show-en">Meeting name</span>
           </div>
           <input type="text" id="nsEventName">
         </div>
@@ -2885,6 +2897,15 @@
       vendorOpt.textContent = (en ? "+ Vendor / Partner" : "+ Fornecedor / Parceiro");
       sel.appendChild(vendorOpt);
 
+      // A NON-APEX meeting: church, school, family. Behaves exactly like
+      // "+ Event" and looks identical on the calendar -- it exists because
+      // "Event" was the wrong word in Alice's head for a meeting Rafa had
+      // with the senior pastor.
+      var personalOpt = document.createElement("option");
+      personalOpt.value = "__personal__";
+      personalOpt.textContent = (en ? "+ Non-Apex meeting" : "+ Reuniao nao-Apex");
+      sel.appendChild(personalOpt);
+
       var sep = document.createElement("option");
       sep.disabled = true;
       sep.textContent = "──────────────";
@@ -2955,7 +2976,7 @@
       }
       // Event / Apex Club: not a client session at all. The dropdown keeps
       // showing the chosen option (unlike "__add_new__").
-      if (sel.value === "__event__" || sel.value === "__apex_club__") {
+      if (sel.value === "__event__" || sel.value === "__apex_club__" || sel.value === "__personal__") {
         setNsEventMode(true, sel.value === "__apex_club__");
         return;
       }
@@ -2979,7 +3000,14 @@
 
     function nsIsEvent() {
       var v = document.getElementById("nsClient").value;
-      return v === "__event__" || v === "__apex_club__";
+      return v === "__event__" || v === "__apex_club__" || v === "__personal__";
+    }
+
+    // True only for the non-Apex sentinel. Everything about the modal is the
+    // event path; this decides the one thing that differs -- the category the
+    // row is saved with.
+    function nsIsPersonal() {
+      return document.getElementById("nsClient").value === "__personal__";
     }
 
     // Switches the New Session modal between event mode (category/type/
@@ -2992,12 +3020,22 @@
       document.getElementById("nsTypeGroup").hidden     = isEvent;
       document.getElementById("nsRecurGroup").hidden    = isEvent;
       nameGroup.hidden = !isEvent;
+      var isPersonal     = nsIsPersonal();
+      var eventLabelE     = document.getElementById("nsEventNameLabel");
+      var personalLabelE  = document.getElementById("nsPersonalNameLabel");
+      var vendorLabelE    = document.getElementById("nsVendorNameLabel");
       if (isEvent) {
         nameEl.value = isApexClub ? "Apex Club" : "";
-        document.getElementById("nsCategoryVal").value = "event";
+        nameEl.placeholder = "";
+        document.getElementById("nsCategoryVal").value = isPersonal ? "personal" : "event";
         setNewSessionType("in_person");
+        if (vendorLabelE)   { vendorLabelE.hidden   = true; }
+        if (eventLabelE)    { eventLabelE.hidden    = isPersonal; }
+        if (personalLabelE) { personalLabelE.hidden = !isPersonal; }
       } else {
         nameEl.value = "";
+        if (eventLabelE)    { eventLabelE.hidden    = false; }
+        if (personalLabelE) { personalLabelE.hidden = true; }
       }
       // Apex Club carries a price, a flyer and a registration page; a plain
       // event does not. Purely additive -- the scheduling path above is
@@ -3074,8 +3112,10 @@
       var eventLabel  = document.getElementById("nsEventNameLabel");
       var vendorLabel = document.getElementById("nsVendorNameLabel");
       var en = isEn();
+      var personalLabelV = document.getElementById("nsPersonalNameLabel");
       if (eventLabel)  { eventLabel.hidden  = !!isVendor; }
       if (vendorLabel) { vendorLabel.hidden = !isVendor; }
+      if (personalLabelV && isVendor) { personalLabelV.hidden = true; }
       if (isVendor) {
         document.getElementById("nsCategoryGroup").hidden = true;
         document.getElementById("nsRecurGroup").hidden    = true;
@@ -3459,6 +3499,9 @@
     function sessionTypeCls(session) {
       if (isExternalSession(session)) { return "external"; }
       if (session.meeting_category === "event") { return "event"; }
+      // Same colours as an event by design, but its own class so the two stay
+      // separately restylable if that ever changes.
+      if (session.meeting_category === "personal") { return "personal"; }
       if (session.meeting_category === "vendor") { return "vendor"; }
       if (session.meeting_category === "prospective") { return "prospective"; }
       return (session.session_type === "in_person") ? "inperson" : "online";
@@ -3472,6 +3515,9 @@
     function needsMeetLink(session) {
       if (!isApexSession(session)) { return false; }
       if (session.meeting_category === "event") { return false; }
+      // A non-Apex meeting never has a Meet link and must never be flagged as
+      // a broken session for that.
+      if (session.meeting_category === "personal") { return false; }
       if (session.session_type !== "online_meet") { return false; }
       return !session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]";
     }
@@ -4895,7 +4941,8 @@
       // A vendor meeting keeps its chosen type -- that is what earns it a Meet
       // link -- unlike an event, which is forced in_person.
       var type      = isEvent ? "in_person" : (document.getElementById("nsTypeVal").value || "online_meet");
-      var category  = isEvent ? "event" : (isVendor ? "vendor" : (document.getElementById("nsCategoryVal").value || "client"));
+      var category  = isEvent ? (nsIsPersonal() ? "personal" : "event")
+                              : (isVendor ? "vendor" : (document.getElementById("nsCategoryVal").value || "client"));
       var notes     = document.getElementById("nsNotes").value;
       var location  = (document.getElementById("nsLocation").value || "").trim();
       var eventName = (document.getElementById("nsEventName").value || "").trim();
@@ -5321,7 +5368,8 @@
       var en = isEn();
       loadClubPanel(session.id);
       var isExternal = isExternalSession(session);
-      var isEventCat = session.meeting_category === "event";
+      var isPersonalCat = session.meeting_category === "personal";
+      var isEventCat = session.meeting_category === "event" || isPersonalCat;
 
       document.getElementById("detailTitle").textContent     = session.client_name || "—";
       document.getElementById("detailClientName").textContent = session.client_name || "—";
@@ -5334,7 +5382,12 @@
       var typePillEl = document.getElementById("detailTypePill");
       var typeCls;
       var typeLabel;
-      if (isEventCat) {
+      if (isPersonalCat) {
+        // Same colour as an event (deliberate), but the LABEL is the whole
+        // reason this category exists -- "Event" was the wrong word.
+        typeCls = "personal";
+        typeLabel = en ? "Non-Apex meeting" : "Reuniao nao-Apex";
+      } else if (isEventCat) {
         typeCls = "event";
         typeLabel = en ? "Event" : "Evento";
       } else if (session.meeting_category === "vendor") {
@@ -5518,7 +5571,7 @@
 
       // Event entries (conferences, Apex Club) are not client sessions --
       // never offer the transcript/PDF record flow for them.
-      if (session.meeting_category === "event") {
+      if (session.meeting_category === "event" || session.meeting_category === "personal") {
         section.hidden = true;
         return;
       }
@@ -5704,6 +5757,7 @@
       // "RDE" marks a real client session. Events, prospects and vendor/partner
       // meetings are none of those, so they keep their plain name.
       var title = (session.meeting_category === "event" ||
+                   session.meeting_category === "personal" ||
                    session.meeting_category === "vendor" ||
                    session.meeting_category === "prospective")
         ? name : name + " - RDE";
@@ -5729,7 +5783,9 @@
       if (session.location) { addBody.location = session.location; }
       // Events and vendor meetings have no client_id, so there is no client
       // email to invite -- looking one up would be meaningless.
-      var addAttendee = (session.meeting_category === "event" || session.meeting_category === "vendor")
+      var addAttendee = (session.meeting_category === "event" ||
+                         session.meeting_category === "personal" ||
+                         session.meeting_category === "vendor")
         ? null : clientEmailById(session.client_id);
       if (addAttendee) { addBody.attendee_email = addAttendee; }
 
@@ -6127,7 +6183,8 @@
       var sel = document.getElementById("edClient");
       var opt = sel.options[sel.selectedIndex];
       var status = opt ? opt.dataset.status : "";
-      if (document.getElementById("edCategoryVal").value !== "event") {
+      var edCatNow = document.getElementById("edCategoryVal").value;
+      if (edCatNow !== "event" && edCatNow !== "personal") {
         setEditCategory(status === "lead" ? "prospective" : "client");
       }
     }
@@ -6156,7 +6213,7 @@
     function updateEditFieldVisibility() {
       var cat  = document.getElementById("edCategoryVal").value;
       var type = document.getElementById("edTypeVal").value;
-      var isEvent = cat === "event";
+      var isEvent = cat === "event" || cat === "personal";
 
       document.getElementById("edClientGroup").hidden    = isEvent;
       document.getElementById("edCategoryGroup").hidden  = isEvent;
@@ -6186,7 +6243,8 @@
       populateHHMMSelect(document.getElementById("edTime"), false);
       populateHHMMSelect(document.getElementById("edEndTime"), true);
 
-      var isEventCat = session.meeting_category === "event";
+      var isEventCat = session.meeting_category === "event" ||
+                       session.meeting_category === "personal";
       document.getElementById("edClient").value    = session.client_id || "";
       document.getElementById("edEventName").value = isEventCat ? (session.client_name || "") : "";
       document.getElementById("edDate").value      = session.date || "";
@@ -6205,7 +6263,13 @@
       document.getElementById("edTypeVal").value     = session.session_type || "online_meet";
       setEditCategory(session.meeting_category || "client");
       setEditType(session.session_type || "online_meet");
-      if (isEventCat) { document.getElementById("edCategoryVal").value = "event"; }
+      // Keep the row's OWN category. Forcing "event" here would silently
+      // convert Rafa's non-Apex meeting into an event the moment Alice saved
+      // an unrelated edit like the time.
+      if (isEventCat) {
+        document.getElementById("edCategoryVal").value =
+          (session.meeting_category === "personal") ? "personal" : "event";
+      }
       updateEditFieldVisibility();
 
       // Notes live in raw_transcript and are only editable while the session
@@ -6231,7 +6295,7 @@
       }
 
       var cat     = document.getElementById("edCategoryVal").value;
-      var isEvent = cat === "event";
+      var isEvent = cat === "event" || cat === "personal";
       var type    = isEvent ? "in_person" : document.getElementById("edTypeVal").value;
       var date    = document.getElementById("edDate").value;
       var time    = document.getElementById("edTime").value;
@@ -6263,7 +6327,11 @@
       if (cat !== origCat)                               { body.meeting_category = cat; }
       if (!isEvent && type !== session.session_type)     { body.session_type = type; }
       if (isEvent) {
-        if (eventName !== (session.client_name || "") || origCat !== "event") { body.event_name = eventName; }
+        // Send the name whenever it changed, OR whenever the row is arriving
+        // from a shape that had no event_name of its own (a client/prospective
+        // /vendor row) -- "event" and "personal" both already carry one.
+        var origHadEventName = (origCat === "event" || origCat === "personal");
+        if (eventName !== (session.client_name || "") || !origHadEventName) { body.event_name = eventName; }
       } else if (clientId !== (session.client_id || "")) {
         body.client_id = clientId;
       }

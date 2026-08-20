@@ -4386,7 +4386,7 @@ async function handleGetSessionsCalendar(request, env) {
         }
 
         var res = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, " +
+            "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, reminder_sent_at, " +
             "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category, series_id " +
             "FROM sessions WHERE date LIKE ? AND status != 'discarded' AND status != 'cancelled' ORDER BY date ASC, time ASC"
         ).bind(month + "-%").all();
@@ -4402,6 +4402,10 @@ async function handleGetSessionsCalendar(request, env) {
                 status:             row.status,
                 google_meet_link:   row.google_meet_link,
                 whatsapp_sent_at:   row.whatsapp_sent_at,
+                // The MEETING REMINDER stamp -- its own column, deliberately
+                // not whatsapp_sent_at, which belongs to the booking
+                // confirmation message.
+                reminder_sent_at:   row.reminder_sent_at,
                 google_event_id:    row.google_event_id,
                 calendar_provider:  row.calendar_provider,
                 html_link:          row.html_link,
@@ -4421,6 +4425,45 @@ async function handleGetSessionsCalendar(request, env) {
         return jsonOk({ sessions: sessions });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/sessions/:id/reminder-sent
+//
+// Stamps that a MEETING REMINDER was started for this session. Called by the
+// Meeting Reminders card on Alice's dashboard right after it opens WhatsApp.
+//
+// WHAT THE STAMP MEANS: the message was STARTED, not that it was received.
+// wa.me hands off to WhatsApp and cannot confirm delivery -- the UI says so in
+// those words, and nothing here should be read as a delivery receipt.
+//
+// A SEPARATE COLUMN from whatsapp_sent_at ON PURPOSE. That column belongs to
+// the booking-confirmation message; reusing it would mean a confirmation sent
+// three days ago makes today's meeting show as already reminded.
+//
+// The message itself is NOT built here. It is built on the page, where the
+// datetime helpers live -- see the note above the scheduling templates.
+// ---------------------------------------------------------------------------
+
+async function handlePostSessionReminderSent(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var session = await env.DB.prepare(
+            "SELECT id FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        var sentAt = new Date().toISOString();
+        await env.DB.prepare(
+            "UPDATE sessions SET reminder_sent_at = ? WHERE id = ?"
+        ).bind(sentAt, sessionId).run();
+
+        return jsonOk({ reminder_sent_at: sentAt });
+    } catch (e) {
+        return jsonErr("Error recording reminder: " + e.message, 500);
     }
 }
 
@@ -27655,6 +27698,9 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "meet-link" && method === "PATCH") {
             return handlePatchSessionMeetLink(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "reminder-sent" && method === "POST") {
+            return handlePostSessionReminderSent(segs[2], request, env);
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "cancel" && method === "POST") {
             return handlePostSessionCancel(segs[2], request, env);

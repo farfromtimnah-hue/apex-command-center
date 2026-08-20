@@ -2570,3 +2570,38 @@ duplicate tags added. The pre-commit hook bumps the `?v=` stamp on every HTML re
 - `migrations/meeting_reminders.sql` - both template rows + reminder_sent_at column
 - `settings.html` - both keys in the title map and the token-hint map
 - `template-edit.js` - both keys in TITLES and TOKENS
+
+## 2026-08-19 (g) — Reminder guards and the sent state
+
+**Do not let a broken message reach a client.** Two rows can never show a live send button;
+both show the **reason** instead, and the row still renders:
+
+1. An online meeting whose `google_meet_link` is `[PENDING_GOOGLE_API]` or empty. On
+   2026-07-22 a real client received that literal string in a WhatsApp message. Rafa's row
+   already guards this; this card guards it the same way.
+2. An in-person meeting with a NULL or empty `sessions.location`, which would ship an
+   empty address.
+
+### Sent state
+After a send the button greys and reads "Enviado" / "Sent" — and **stays clickable**. She
+resends: to a different group, or after no reply. It is never disabled.
+
+New column `sessions.reminder_sent_at`, added to **remote D1** and returned by
+`/api/sessions/calendar`. New route `POST /api/sessions/:id/reminder-sent` stamps it.
+
+⚠️ **Deliberately NOT `sessions.whatsapp_sent_at`.** That column belongs to the
+booking-confirmation message (`worker/index.js`, `handlePostSessionWhatsapp`). Reusing it
+would mean a confirmation sent three days ago makes today's meeting show as already
+reminded.
+
+⚠️ `reminder_sent_at` is compared against **the meeting's own date**, so a reminder sent
+Monday does not mark Wednesday's meeting as done.
+
+⚠️ **The stamp means the message was STARTED, not received.** `wa.me` hands off to WhatsApp
+and cannot confirm delivery — `finance-new.html` already states this plainly, and the route
+comment says the same. If the stamp write fails the button reverts and says so; the message
+did open, and claiming otherwise in either direction would be a lie.
+
+### Files
+- `worker/index.js` - reminder_sent_at on the calendar endpoint, POST reminder-sent route
+- `ios/App/App/public/dashboard.html`, `settings.html` - synced third copy of the frontend

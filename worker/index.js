@@ -20844,6 +20844,24 @@ async function applyCategorizationRules(env, opts) {
 async function upsertCategorizationRule(env, pattern, categoryId, source) {
     if (!pattern) { return; }
 
+    // A PERSON is not a purpose. This function only ever writes merchant_exact
+    // rules, which is already the safe shape, but the guard below documents the
+    // failure it protects against because broad rules HAVE been written into
+    // this table by other paths (the bulk interview import writes D1 directly).
+    //
+    // Two real examples of the shape going wrong:
+    //   - LAGOINHA (contains) meant "tithe", but church members put the church
+    //     name in their own contact names, so a phone bill paid to a friend
+    //     matched the tithe rule.
+    //   - ELIZ USA -> haircut was generalised from ONE $30 payment. Every future
+    //     payment to that person is now assumed to be Rafael's hair.
+    //
+    // The rule of thumb when adding rules by any path: a rule keyed on a
+    // BUSINESS name states a purpose. A rule keyed on a PERSON's name states a
+    // guess, because a person can be paid for more than one reason. Prefer
+    // leaving those uncategorised -- an item in her queue is recoverable, a
+    // silently wrong category in a total she reports on is not.
+
     var existing = await env.DB.prepare(
         "SELECT id, source FROM categorization_rules WHERE pattern = ? AND match_type = 'merchant_exact'"
     ).bind(pattern).first();

@@ -1,0 +1,35 @@
+{
+  "name": "apex-command-center",
+  "version": "1.0.0",
+  "description": "After cloning, run `scripts/install-hooks.sh` to install the pre-commit hook that stamps `sw.js`'s `CACHE_NAME` and `version.json` on relevant commits (keeps the service worker from silently serving stale pages — see comments in `scripts/pre-commit`).",
+  "main": "analytics-view.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:web": "sh scripts/build-webdir.sh",
+    "sync": "sh scripts/build-webdir.sh && npx cap sync ios"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farfromtimnah-hue/apex-command-center.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/farfromtimnah-hue/apex-command-center/issues"
+  },
+  "homepage": "https://github.com/farfromtimnah-hue/apex-command-center#readme",
+  "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^10.0.0",
+    "@capacitor-firebase/authentication": "^8.3.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/preferences": "^8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
+  }
+}

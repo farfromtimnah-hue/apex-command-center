@@ -439,11 +439,34 @@ function gmWaDigits(tel) {
   return digits;
 }
 
+// Inside the iOS wrapper the Call button hands the OpenPhone scheme to the OS
+// instead of tel:, so a rep lands in OpenPhone already dialing rather than in
+// the native phone dialer. In a normal browser gmCallHref() returns the same
+// tel: URL this always produced, so the live PWA is unchanged.
+// gmWaDigits() supplies the normalization; "+" makes it E.164.
+// Returns a FULLY FORMED href, already escaped as needed. The caller must not
+// run this through escHtml(): the openphone URL's "&" separator would become
+// "&amp;", and the action=call parameter is what makes the app dial rather
+// than merely open.
+function gmCallHref(tel) {
+  // No number on file: production renders href="tel:" and the button is
+  // aria-disabled. Kept exactly, because href="" would RELOAD the page if the
+  // disabled-looking button were ever clicked.
+  if (!tel) { return "tel:"; }
+  if (window.apexIsNative && apexIsNative()) {
+    // gmWaDigits() is the single normalization rule; "+" makes it E.164.
+    // encodeURIComponent on the number is the only escaping needed here.
+    return "openphone://dial?number=" + encodeURIComponent("+" + gmWaDigits(tel)) + "&action=call";
+  }
+  // escHtml on the raw number reproduces production's tel: href byte for byte.
+  return "tel:" + escHtml(tel);
+}
+
 function gmContactButtonsHtml(tel) {
   var digits = gmWaDigits(tel);
   var dis = tel ? "" : ' aria-disabled="true"';
   return '<div class="gm-contact-row" data-tour="crm-detail-contact">' +
-    '<a class="gm-contact-btn gm-call"' + dis + ' href="tel:' + escHtml(tel || "") + '"' +
+    '<a class="gm-contact-btn gm-call"' + dis + ' href="' + gmCallHref(tel) + '"' +
       ' onclick="gmLogOutreach(\'Phone call\')">' +
       gmIcon("phone") + gmT("Ligar", "Call") + '</a>' +
     '<a class="gm-contact-btn gm-wa"' + dis + ' href="https://wa.me/' + digits + '" target="_blank" rel="noopener"' +

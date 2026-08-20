@@ -588,16 +588,59 @@
 
   window.renderApexReport = renderReport;
 
-  // ── postMessage listener (used by dashboard iframe flow) ─────────────────
+  // ── postMessage listener ─────────────────────────────────────────────────
+  //
+  // This page is opened with window.open (NOT an iframe) by four senders --
+  // client.html, documents.html, portal.html and sessions.html -- each of
+  // which loads it from https://apex.resonateai.online and pins that same
+  // string as its postMessage target origin. The opener is therefore always
+  // that one origin, which is why the allowlist below has a single entry.
+  //
+  // capacitor://localhost is deliberately NOT here. The iOS wrapper has a
+  // window.open shim (apexOpenExternal in native-bridge.js?v=1786930000) because WKWebView
+  // blocks window.open, but none of the four senders call it -- they all use
+  // window.open directly. A Capacitor page therefore never becomes this page's
+  // opener, so listing that origin would grant access no real sender needs.
+  //
+  // Comparison is EXACT string equality. Not endsWith, not indexOf, not a
+  // regex: "https://evil-resonateai.online" and "https://apex.resonateai.online.attacker.net"
+  // both pass a suffix or substring test. event.origin is scheme+host+port
+  // only -- it never carries the ?v= cache-busting query the iframe URLs use,
+  // so those cannot affect the match.
+  var ALLOWED_REPORT_ORIGINS = ['https://apex.resonateai.online'];
+
+  function isAllowedReportOrigin(origin) {
+    // A sandboxed or data:/file: document sends the literal string "null",
+    // which must never match.
+    if (!origin || origin === 'null') { return false; }
+    for (var i = 0; i < ALLOWED_REPORT_ORIGINS.length; i++) {
+      if (origin === ALLOWED_REPORT_ORIGINS[i]) { return true; }
+    }
+    return false;
+  }
+
+  // A trusted origin is not the same as trusted data: renderReport walks the
+  // payload and writes it into innerHTML, so the shape is checked before it is
+  // handed over, independently of who sent it.
+  function isValidReportPayload(payload) {
+    return !!payload && typeof payload === 'object' && !Array.isArray(payload);
+  }
 
   var messageReceived = false;
 
   window.addEventListener('message', function (event) {
+    if (!isAllowedReportOrigin(event.origin)) { return; }
     if (!event.data || event.data.type !== 'apex-report-data') { return; }
+    if (!isValidReportPayload(event.data.payload)) {
+      console.error('[Apex Report] rejected malformed payload from ' + event.origin);
+      return;
+    }
     messageReceived = true;
     try {
       renderReport(event.data.payload);
-      event.source.postMessage({ type: 'apex-report-rendered' }, event.origin);
+      if (event.source) {
+        event.source.postMessage({ type: 'apex-report-rendered' }, event.origin);
+      }
       window.print();
     } catch (err) {
       console.error('[Apex Report] postMessage render error:', err);

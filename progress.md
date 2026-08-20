@@ -2478,3 +2478,43 @@ staging — so a by-hand sync of the iOS copies in the same commit was stale the
 landed, every time. The hook (and its tracked copy `scripts/pre-commit`) now stamps
 `ios/App/App/public/sw.js` and `version.json` with the same `$STAMP`, so the three copies
 can no longer drift apart.
+
+## 2026-08-19 (e) — Meeting Reminders on Alice's dashboard (section + button)
+
+Alice was sending a pre-meeting reminder **by hand, one at a time, for every meeting**.
+This is the same card Rafa already has ("Reunioes de Hoje"), rebuilt on HER dashboard with
+three deliberate differences: **today AND tomorrow**, **no Entrar/Join button** (she does
+not attend), and a **reminder message** instead of a raw Meet link.
+
+Same endpoint (`/api/sessions/calendar?month=`), no new route, no new D1 table for the
+read path. Positioned **directly above `schedQueueBlock`**: a meeting inside the next 24
+hours outranks a scheduling request still waiting on a reply.
+
+**Past meetings are dropped.** At 4 PM she must not see the morning's meetings — they
+cannot be reminded about anymore. This is also what makes the night-before case work with
+no extra code: at 9 PM today's group is empty and tomorrow's 8 AM meeting is the row
+sitting right there to send. Uses `end_time` when present so a meeting **currently in
+progress does not vanish while she is in it**; the two `end_time` shapes (plain `HH:MM` on
+Apex rows, full ISO on Google-synced rows) are parsed with the same code
+`renderRafaMeetings` already uses.
+
+⚠️ Dates come from **`todayStr()`**, the page's local-date helper — never `toISOString()`,
+which returns a UTC calendar date and disagrees with Eastern every evening. That exact bug
+shipped four separate times in two days in July.
+
+⚠️ **Tomorrow can fall in the next month.** One month fetch would show an empty "Amanha"
+group on the 31st, so the next month is fetched too whenever tomorrow crosses the boundary.
+
+A group with no rows hides; the **whole card hides when both are empty** — a heading over
+blank space reads as something that failed to load. A fetch failure logs and shows a
+visible failed state; it is **never** swallowed into an empty list, which would be
+indistinguishable from a quiet day.
+
+Button reuses the existing `.btn-join-wa` (WhatsApp green) — no new button CSS. Opens a
+**bare `wa.me/?text=`** with no phone number, deliberately: each client has a WhatsApp
+group with co-owners, so Alice picks the recipient inside WhatsApp. `window.open()` runs
+**synchronously** in the click handler (async open is a popup-block risk and caused a real
+iOS blank-tab bug, afc4ee0) — everything the message needs is in memory first.
+
+### Files
+- `dashboard.html` - Meeting Reminders card, group headings CSS, reminder module

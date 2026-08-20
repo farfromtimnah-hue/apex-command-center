@@ -506,6 +506,33 @@
     }
     .btn-join-wa:hover { opacity: 0.85; }
 
+    /* Hoje / Amanha group heading inside the Meeting Reminders card.
+       No new button styling here -- the reminder button reuses .btn-join-wa. */
+    .reminder-group-head {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 10px 4px 4px;
+    }
+    /* Sent state: greyed but STILL CLICKABLE, so she can resend to another
+       group or after no reply. Never disabled. */
+    .btn-join-wa.is-sent {
+      background: var(--border);
+      color: var(--muted);
+    }
+    /* A meeting that cannot be reminded yet (no Meet link / no address)
+       states the reason instead of showing a button that would ship a
+       broken message. */
+    .reminder-blocked {
+      font-size: 11px;
+      color: var(--muted);
+      flex-shrink: 0;
+      max-width: 220px;
+      text-align: right;
+    }
+
     /* Task checkbox */
     .task-check {
       flex-shrink: 0;
@@ -741,6 +768,41 @@
       </div>
       <!-- Below photo section -->
       <div class="below-section">
+        <!-- Meeting reminders. ABOVE the scheduling queue on purpose: a
+             meeting inside the next 24 hours is more urgent than a scheduling
+             request still waiting on a reply.
+             Alice does NOT attend these meetings, so there is deliberately no
+             Entrar/Join button here -- only the reminder she currently sends
+             by hand, one at a time, for every meeting.
+             The whole card hides when both groups are empty: a heading
+             standing over blank space reads as something that failed to load. -->
+        <div class="content-card" id="aliceReminderBlock" hidden>
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Lembretes de Reuni&#227;o</span>
+              <span class="show-en">Meeting Reminders</span>
+            </h2>
+          </div>
+          <div id="aliceReminderToday" hidden>
+            <div class="reminder-group-head">
+              <span class="show-pt">Hoje</span>
+              <span class="show-en">Today</span>
+            </div>
+            <div id="aliceReminderTodayList"></div>
+          </div>
+          <div id="aliceReminderTomorrow" hidden>
+            <div class="reminder-group-head">
+              <span class="show-pt">Amanh&#227;</span>
+              <span class="show-en">Tomorrow</span>
+            </div>
+            <div id="aliceReminderTomorrowList"></div>
+          </div>
+          <div id="aliceReminderError" hidden class="table-empty">
+            <span class="show-pt">N&#227;o foi poss&#237;vel carregar as reuni&#245;es.</span>
+            <span class="show-en">Could not load meetings.</span>
+          </div>
+        </div>
+
         <!-- Scheduling queue. THE SAME shared module calendar.html renders
              (scheduling-queue.js/.css). This page does NOT keep a private
              copy — that is exactly how dashboard.html has silently missed
@@ -1240,6 +1302,7 @@
         if (aliceDash) { aliceDash.hidden = false; }
         initHeroBg("heroBgImage", "heroBgScrim");
         renderAliceDashboard();
+        loadAliceReminders();
         loadSchedQueue();
       } else if (role === "rafa") {
         var rafaDash = document.getElementById("rafaDash");
@@ -1657,6 +1720,414 @@
         .catch(function() {
           var tileEl = document.getElementById("aliceStatResourcePending");
           if (tileEl) { tileEl.textContent = "--"; }
+        });
+    }
+
+
+    // ── Meeting reminders (Alice) ────────────────────────────────────────
+    // Alice sends a reminder to each client before their meeting. She was
+    // doing it by hand, one at a time, out of the calendar.
+    //
+    // SAME endpoint Rafa's "Reunioes de Hoje" card uses -- no new route and no
+    // new table. The differences from his card are all here, not in the data:
+    // today AND tomorrow, no Entrar/Join button (she does not attend), and a
+    // reminder message instead of a raw Meet link.
+    //
+    // PAST MEETINGS ARE DROPPED. If she opens this at 4 PM she must not see
+    // this morning's meetings -- they cannot be reminded about anymore. That
+    // is also what makes the night-before case work with no extra code: at
+    // 9 PM today's group is empty and tomorrow's 8 AM meeting is the row
+    // sitting right there waiting to be sent.
+    var aliceReminderRows = [];   // rows currently rendered, in memory
+
+    // Dates come from todayStr(), the page's LOCAL-date helper -- never from
+    // toISOString(), which returns a UTC calendar date and disagrees with
+    // Eastern every evening. That exact bug shipped four separate times in
+    // two days in July.
+    function reminderAddDays(dateStr, n) {
+      var p = String(dateStr).split("-");
+      var d = new Date(Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)));
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.getUTCFullYear() + "-" + padZ(d.getUTCMonth() + 1) + "-" + padZ(d.getUTCDate());
+    }
+
+    // end_time arrives in two shapes -- plain "HH:MM" on Apex-created rows,
+    // full ISO datetime on Google-synced ones. Same parsing renderRafaMeetings
+    // already does; do not rewrite it.
+    function reminderEndHHMM(m) {
+      var endRaw = m.end_time;
+      if (endRaw) {
+        return endRaw.indexOf("T") !== -1 ? endRaw.slice(11, 16) : endRaw.slice(0, 5);
+      }
+      return null;
+    }
+
+    // Has this meeting already finished? Uses end_time when present so a
+    // meeting currently in progress does not vanish out from under her while
+    // it is still running.
+    function reminderIsPast(m, todayDate, nowMinutes) {
+      if (m.date !== todayDate) { return false; }
+      var hhmm = reminderEndHHMM(m) || m.time;
+      if (!hhmm) { return false; }
+      var p = String(hhmm).split(":");
+      var mins = (parseInt(p[0], 10) * 60) + parseInt(p[1] || "0", 10);
+      if (isNaN(mins)) { return false; }
+      return mins < nowMinutes;
+    }
+
+    function loadAliceReminders() {
+      var block = document.getElementById("aliceReminderBlock");
+      if (!block) { return; }
+
+      var today    = todayStr();
+      var tomorrow = reminderAddDays(today, 1);
+      var monthStr = currentMonthStr();
+
+      // Tomorrow can fall in the NEXT month (the 31st). One month fetch would
+      // silently show an empty Amanha group on that day, so the next month is
+      // fetched too whenever tomorrow crosses the boundary.
+      var months = [monthStr];
+      var tomorrowMonth = tomorrow.slice(0, 7);
+      if (tomorrowMonth !== monthStr) { months.push(tomorrowMonth); }
+
+      var fetches = months.map(function(mo) {
+        return apiFetch("/api/sessions/calendar?month=" + mo)
+          .then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          });
+      });
+      // Owners come from /api/clients -- the calendar endpoint does not carry
+      // clients.owners, and the greeting must name the people, not the company.
+      fetches.push(
+        apiFetch("/api/clients")
+          .then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          })
+      );
+
+      Promise.all(fetches)
+        .then(function(results) {
+          var clientsData = results.pop();
+          aliceClientOwners = {};
+          (clientsData.clients || []).forEach(function(c) {
+            aliceClientOwners[c.id] = c.owners || "";
+          });
+          var sessions = [];
+          for (var i = 0; i < results.length; i++) {
+            sessions = sessions.concat(results[i].sessions || []);
+          }
+          var now = new Date();
+          var nowMinutes = (now.getHours() * 60) + now.getMinutes();
+          var kept = sessions.filter(function(s) {
+            if (s.date !== today && s.date !== tomorrow) { return false; }
+            return !reminderIsPast(s, today, nowMinutes);
+          });
+          renderAliceReminders(kept, today, tomorrow);
+        })
+        .catch(function(err) {
+          // NEVER swallow this into an empty list. A card that silently shows
+          // nothing is indistinguishable from a quiet day, and she would sit
+          // there believing there was nothing to send.
+          console.error("[reminders] could not load meetings:", err);
+          var errEl = document.getElementById("aliceReminderError");
+          var todayEl = document.getElementById("aliceReminderToday");
+          var tomEl   = document.getElementById("aliceReminderTomorrow");
+          if (todayEl) { todayEl.hidden = true; }
+          if (tomEl)   { tomEl.hidden   = true; }
+          if (errEl)   { errEl.hidden   = false; }
+          block.hidden = false;
+        });
+    }
+
+    function reminderSortByTime(list) {
+      return list.slice().sort(function(a, b) {
+        return String(a.time || "").localeCompare(String(b.time || ""));
+      });
+    }
+
+    function renderAliceReminders(meetings, today, tomorrow) {
+      var block   = document.getElementById("aliceReminderBlock");
+      var errEl   = document.getElementById("aliceReminderError");
+      var todayEl = document.getElementById("aliceReminderToday");
+      var tomEl   = document.getElementById("aliceReminderTomorrow");
+      var todayListEl = document.getElementById("aliceReminderTodayList");
+      var tomListEl   = document.getElementById("aliceReminderTomorrowList");
+      if (!block || !todayEl || !tomEl || !todayListEl || !tomListEl) { return; }
+
+      if (errEl) { errEl.hidden = true; }
+
+      var todayRows = reminderSortByTime(meetings.filter(function(m) { return m.date === today; }));
+      var tomRows   = reminderSortByTime(meetings.filter(function(m) { return m.date === tomorrow; }));
+
+      aliceReminderRows = todayRows.concat(tomRows);
+
+      // A group with no rows is hidden entirely, and the whole card hides when
+      // both are empty.
+      if (todayRows.length === 0 && tomRows.length === 0) {
+        block.hidden = true;
+        todayEl.hidden = true;
+        tomEl.hidden   = true;
+        return;
+      }
+      block.hidden = false;
+
+      buildReminderRows(todayListEl, todayRows, "hoje");
+      buildReminderRows(tomListEl,   tomRows,   "amanha");
+      todayEl.hidden = todayRows.length === 0;
+      tomEl.hidden   = tomRows.length === 0;
+
+      attachReminderEditors();
+    }
+
+    // The pencil + right-click editor, attached AFTER the rows are in the DOM
+    // and on every re-render. TemplateEdit.attach is idempotent, so surviving
+    // rows do not collect a second pencil.
+    //
+    // The key differs PER ROW -- an online meeting edits reminder_online, an
+    // in-person one edits reminder_in_person -- so this attaches per button,
+    // never once for the whole list.
+    function attachReminderEditors() {
+      if (!window.TemplateEdit) {
+        console.error("[reminders] template-edit.js did not load - the pencil cannot render");
+        return;
+      }
+      var btns = document.querySelectorAll("#aliceReminderBlock [data-tpl-key]");
+      for (var i = 0; i < btns.length; i++) {
+        window.TemplateEdit.attach({
+          button: btns[i],
+          key: btns[i].getAttribute("data-tpl-key"),
+          apiFetch: apiFetch,
+          // Without this the in-memory copy stays stale: she edits the
+          // message, sends it, and the OLD text goes out.
+          onSaved: function(saved) {
+            if (!dashMessageTemplates) { dashMessageTemplates = {}; }
+            if (saved && saved.template_key) {
+              dashMessageTemplates[saved.template_key] = saved.template_text;
+            } else {
+              loadDashMessageTemplates();
+            }
+          }
+        });
+      }
+    }
+
+    function buildReminderRows(container, rows, whenWord) {
+      container.innerHTML = "";
+      for (var i = 0; i < rows.length; i++) {
+        container.appendChild(buildReminderRow(rows[i], whenWord));
+      }
+    }
+
+    function buildReminderRow(m, whenWord) {
+      var row = document.createElement("div");
+      row.className = "list-row";
+
+      var body = document.createElement("div");
+      body.className = "list-row-body";
+
+      var main = document.createElement("div");
+      main.className = "list-row-main";
+      if (m.client_id) {
+        var clientA = document.createElement("a");
+        clientA.href = "client.html?id=" + encodeURIComponent(m.client_id);
+        clientA.className = "client-link";
+        clientA.textContent = m.client_name || "--";
+        main.appendChild(clientA);
+      } else {
+        main.textContent = m.client_name || "--";
+      }
+      body.appendChild(main);
+
+      var meta = document.createElement("div");
+      meta.className = "list-row-meta";
+      if (m.time) {
+        var timeSpan = document.createElement("span");
+        timeSpan.className = "list-row-meta-item";
+        var endHHMM = reminderEndHHMM(m);
+        // formatTime() is the page-wide 12-hour AM/PM formatter. Never 24-hour.
+        timeSpan.textContent = endHHMM
+          ? formatTime(m.time) + " - " + formatTime(endHHMM)
+          : formatTime(m.time);
+        meta.appendChild(timeSpan);
+      }
+      body.appendChild(meta);
+      row.appendChild(body);
+
+      // A meeting that would ship a broken message shows the REASON instead
+      // of a live button -- never a button that sends "[PENDING_GOOGLE_API]"
+      // or an empty address to a client.
+      var blocked = reminderBlockedReason(m);
+      if (blocked) {
+        var why = document.createElement("div");
+        why.className = "reminder-blocked";
+        why.innerHTML = '<span class="show-pt">' + blocked.pt + '</span>' +
+                        '<span class="show-en">' + blocked.en + '</span>';
+        row.appendChild(why);
+        return row;
+      }
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn-join-wa";
+      btn.innerHTML = '<span class="show-pt">Enviar Lembrete</span><span class="show-en">Send Reminder</span>';
+      btn.setAttribute("data-tpl-key", reminderTplKey(m));
+      if (reminderIsAlreadySent(m)) { applyReminderSentLook(btn); }
+      // window.open() must run SYNCHRONOUSLY inside this handler -- never
+      // after an await. An async open is a popup-block risk and produced a
+      // real blank-tab bug on iOS (commit afc4ee0). Everything the message
+      // needs is already in memory before the click.
+      btn.onclick = (function(session, when, buttonEl) {
+        return function() {
+          var msg = buildReminderMessage(session, when);
+          if (!msg) { return; }
+          var waTab = window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+          if (!waTab) {
+            window.alert("Popup bloqueado - permita popups e tente novamente. / Popup blocked - allow popups and try again.");
+            return;
+          }
+          markReminderSent(session, buttonEl);
+        };
+      })(m, whenWord, btn);
+      row.appendChild(btn);
+
+      return row;
+    }
+
+    // ── The reminder message ─────────────────────────────────────────────
+    // Two templates, because the content genuinely differs by meeting type:
+    // an online meeting carries the Meet link, an in-person one carries the
+    // street address. Both live in message_templates, both are editable
+    // through the pencil, and neither is built in the worker.
+    var REMINDER_TPL_FALLBACK = {
+      reminder_online:
+        "Ola, {name}! Passando para confirmar nossa reuniao {when} as {time}. O link esta aqui: {meetLink}. Ate breve!",
+      reminder_in_person:
+        "Ola, {name}! Passando para confirmar nossa reuniao {when} as {time}. O endereco e: {location}. Ate breve!"
+    };
+
+    function reminderTplKey(m) {
+      return m.session_type === "in_person" ? "reminder_in_person" : "reminder_online";
+    }
+
+    // Owners, keyed by client_id, so the greeting can name the real people.
+    // /api/sessions/calendar does not carry clients.owners, so it is fetched
+    // once alongside the meetings.
+    var aliceClientOwners = {};
+
+    // PORTED from schedGreetingName() in worker/index.js -- same behavior,
+    // same separators, deliberately not a second greeting rule.
+    //
+    // The company name is the LAST resort, not the default. clients.owners
+    // holds real people ("Marcelo Diniz & Neicy Diniz", "Osmar e Paulinha"),
+    // and greeting the company sent paying clients "Ola, GATOR!" and
+    // "Ola, PERFECT!". Both owners are greeted when there are two -- picking
+    // one risks addressing the wrong partner every single time. First names
+    // only: the field also holds full legal names, and a WhatsApp greeting
+    // addressed to a full legal name reads like a collections letter.
+    function reminderGreetingName(owners, fallbackName) {
+      var raw = owners ? String(owners).trim() : "";
+      if (raw) {
+        var parts = raw.split(/\s*(?:&|;|\se\s|\sE\s)\s*/);
+        var firsts = [];
+        for (var i = 0; i < parts.length; i++) {
+          var first = String(parts[i]).trim().split(/\s+/)[0];
+          if (first) { firsts.push(first); }
+        }
+        // Portuguese joins with "e", not a comma. This text always goes out
+        // in Portuguese.
+        if (firsts.length === 1) { return firsts[0]; }
+        if (firsts.length > 1) {
+          return firsts.slice(0, -1).join(", ") + " e " + firsts[firsts.length - 1];
+        }
+      }
+      return String(fallbackName || "").split(" ")[0].split("-")[0].trim();
+    }
+
+    // Why a row cannot be reminded yet, or null when it can.
+    //
+    // 1. "[PENDING_GOOGLE_API]" is the placeholder stored when Google event
+    //    creation failed. On 2026-07-22 a real client received that literal
+    //    string in a WhatsApp message.
+    // 2. An in-person meeting with no location would ship an empty address.
+    // Either way the row still shows -- with the reason, and no live button.
+    function reminderBlockedReason(m) {
+      if (m.session_type === "in_person") {
+        if (!m.location || !String(m.location).trim()) {
+          return {
+            pt: "Sem endere&#231;o cadastrado",
+            en: "No address on file"
+          };
+        }
+        return null;
+      }
+      var link = m.google_meet_link || "";
+      if (!link || link === "[PENDING_GOOGLE_API]") {
+        return {
+          pt: "Sem link do Meet ainda",
+          en: "No Meet link yet"
+        };
+      }
+      return null;
+    }
+
+    // {when} is the literal word "hoje" / "amanha", never a calendar date.
+    // Deliberate: the message reads the way she would say it. It is computed
+    // HERE, on the page, and not in the worker -- worker/index.js has no
+    // datetime helpers and carries a comment warning that formatting a date
+    // there is exactly how a wrong-format date string gets hand-built and
+    // shipped.
+    function buildReminderMessage(m, whenWord) {
+      var key = reminderTplKey(m);
+      var tpl = (dashMessageTemplates && dashMessageTemplates[key]) || REMINDER_TPL_FALLBACK[key];
+      var name = reminderGreetingName(aliceClientOwners[m.client_id], m.client_name);
+      return tpl
+        .split("{name}").join(name)
+        .split("{when}").join(whenWord)
+        .split("{time}").join(formatTime(m.time))
+        .split("{meetLink}").join(m.google_meet_link || "")
+        .split("{location}").join(m.location || "");
+    }
+
+    // ── Sent state ───────────────────────────────────────────────────────
+    // wa.me hands off to WhatsApp and cannot confirm delivery. This stamp
+    // means the message was STARTED, not that anyone received it -- the label
+    // says so, the same way finance-new.html already states it plainly.
+    //
+    // reminder_sent_at is its OWN column. sessions.whatsapp_sent_at belongs to
+    // the booking-confirmation message; reusing it would make a confirmation
+    // sent three days ago mark today's meeting as already reminded.
+    function reminderIsAlreadySent(m) {
+      if (!m.reminder_sent_at) { return false; }
+      // Compared against the MEETING'S OWN date, so a reminder sent Monday
+      // does not mark Wednesday's meeting as done.
+      return String(m.reminder_sent_at).slice(0, 10) === m.date;
+    }
+
+    function applyReminderSentLook(btn) {
+      btn.classList.add("is-sent");
+      btn.innerHTML = '<span class="show-pt">Enviado</span><span class="show-en">Sent</span>';
+      // Deliberately NOT disabled: she resends -- to a different group, or
+      // when nobody replied.
+    }
+
+    function markReminderSent(m, btn) {
+      applyReminderSentLook(btn);
+      var stampedAt = new Date().toISOString();
+      m.reminder_sent_at = stampedAt;
+      apiFetch("/api/sessions/" + encodeURIComponent(m.id) + "/reminder-sent", { method: "POST" })
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+        })
+        .catch(function(err) {
+          // The message did open in WhatsApp -- only the stamp failed. Say so
+          // rather than pretending either way.
+          console.error("[reminders] could not record the reminder stamp:", err);
+          m.reminder_sent_at = null;
+          btn.classList.remove("is-sent");
+          btn.innerHTML = '<span class="show-pt">Enviar Lembrete</span><span class="show-en">Send Reminder</span>';
+          btn.setAttribute("title", "Enviado, mas nao foi possivel registrar. / Sent, but could not be recorded.");
         });
     }
 
@@ -2276,6 +2747,7 @@
         if (aliceDash) { aliceDash.hidden = false; }
         initHeroBg("heroBgImage", "heroBgScrim");
         renderAliceDashboard();
+        loadAliceReminders();
         loadSchedQueue();
       } else if (role === "rafa") {
         if (rafaDash) { rafaDash.hidden = false; }

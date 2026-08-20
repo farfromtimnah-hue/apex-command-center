@@ -7,11 +7,16 @@
 -- {when} resolves to the literal word "hoje" / "amanha", never a calendar
 -- date, and is computed on the PAGE -- the worker has no datetime helpers and
 -- hand-building a date string there is how a wrong-format date ships.
+--
+-- NO GREETING BY NAME (Nicole, 2026-08-19). The reminder goes to the client's
+-- WhatsApp GROUP and nobody knows which owner is actually attending, so
+-- naming one or naming all of them both guess at something unknown. The group
+-- tells everyone who needs to know.
 INSERT OR IGNORE INTO message_templates (template_key, template_text) VALUES
   ('reminder_online',
-   'Olá, {name}! Passando para confirmar nossa reunião {when} às {time}. O link está aqui: {meetLink}. Até breve!'),
+   'Passando para confirmar nossa reunião {when} às {time}. O link está aqui: {meetLink}. Até breve!'),
   ('reminder_in_person',
-   'Olá, {name}! Passando para confirmar nossa reunião {when} às {time}. O endereço é: {location}. Até breve!');
+   'Passando para confirmar nossa reunião {when} às {time}. O endereço é: {location}. Até breve!');
 
 -- Its OWN column. sessions.whatsapp_sent_at belongs to the booking
 -- CONFIRMATION message; reusing it would make a confirmation sent three days

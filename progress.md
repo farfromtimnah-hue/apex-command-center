@@ -2789,3 +2789,31 @@ still behaves correctly.
 - Stamp confirmed in remote D1; `whatsapp_sent_at` on the same row still holds its
   untouched 2026-08-17 confirmation, which is exactly the collision the separate column
   prevents
+
+## 2026-08-19 — Meeting reminders: greeting removed
+
+Nicole's call: the reminder goes to the client's WhatsApp GROUP, and nobody
+knows which of the owners is actually attending the meeting. Naming one owner
+or naming all of them both guess at something the system does not know. The
+group already tells everyone who needs to be there.
+
+So the message greets no one. Removed:
+- `reminderGreetingName()` and the `aliceClientOwners` map (dashboard.html)
+- the `/api/clients` fetch that existed only to load `clients.owners` — the
+  card now needs the calendar and nothing else, one fewer request per load
+- `{name}` from both fallback templates, both remote D1 rows, the token chips
+  in template-edit.js, and the token hints in settings.html
+
+`{name}` is stripped to "" in buildReminderMessage rather than left unhandled,
+so a template edited to reintroduce it cannot ship the literal "{name}" to a
+client.
+
+Live D1 rows updated directly (2 rows written) — the migration file alone would
+not have changed what actually sends.
+
+NOT changed: `schedGreetingName()` in worker/index.js still greets owners for
+the two SCHEDULING messages, and still lacks the comma separator, so it drops a
+middle owner for the three clients who list three owners with commas. That is a
+different shipped feature and is Nicole's call, recorded rather than changed.
+
+Branches: nothing was written to any branch. All work is on main.

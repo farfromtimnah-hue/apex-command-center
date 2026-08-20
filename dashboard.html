@@ -89,7 +89,7 @@
   <script src="datetime.js"></script>
   <script src="scheduling-queue.js?v=1786597358"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787188910"></script>
+  <script src="template-edit.js?v=1787190694"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1870,23 +1870,12 @@
             return res.json();
           });
       });
-      // Owners come from /api/clients -- the calendar endpoint does not carry
-      // clients.owners, and the greeting must name the people, not the company.
-      fetches.push(
-        apiFetch("/api/clients")
-          .then(function(res) {
-            if (!res.ok) { throw new Error("HTTP " + res.status); }
-            return res.json();
-          })
-      );
-
+      // /api/clients used to be fetched here for clients.owners, to greet the
+      // owners by name. The greeting was removed (see the note by
+      // buildReminderMessage), so this card needs the calendar and nothing
+      // else -- one fewer request on every dashboard load.
       Promise.all(fetches)
         .then(function(results) {
-          var clientsData = results.pop();
-          aliceClientOwners = {};
-          (clientsData.clients || []).forEach(function(c) {
-            aliceClientOwners[c.id] = c.owners || "";
-          });
           var sessions = [];
           for (var i = 0; i < results.length; i++) {
             sessions = sessions.concat(results[i].sessions || []);
@@ -2078,56 +2067,20 @@
     // through the pencil, and neither is built in the worker.
     var REMINDER_TPL_FALLBACK = {
       reminder_online:
-        "Ola, {name}! Passando para confirmar nossa reuniao {when} as {time}. O link esta aqui: {meetLink}. Ate breve!",
+        "Passando para confirmar nossa reuniao {when} as {time}. O link esta aqui: {meetLink}. Ate breve!",
       reminder_in_person:
-        "Ola, {name}! Passando para confirmar nossa reuniao {when} as {time}. O endereco e: {location}. Ate breve!"
+        "Passando para confirmar nossa reuniao {when} as {time}. O endereco e: {location}. Ate breve!"
     };
 
     function reminderTplKey(m) {
       return m.session_type === "in_person" ? "reminder_in_person" : "reminder_online";
     }
 
-    // Owners, keyed by client_id, so the greeting can name the real people.
-    // /api/sessions/calendar does not carry clients.owners, so it is fetched
-    // once alongside the meetings.
-    var aliceClientOwners = {};
-
-    // PORTED from schedGreetingName() in worker/index.js -- same behavior,
-    // same separators, deliberately not a second greeting rule.
-    //
-    // The company name is the LAST resort, not the default. clients.owners
-    // holds real people ("Marcelo Diniz & Neicy Diniz", "Osmar e Paulinha"),
-    // and greeting the company sent paying clients "Ola, GATOR!" and
-    // "Ola, PERFECT!". Both owners are greeted when there are two -- picking
-    // one risks addressing the wrong partner every single time. First names
-    // only: the field also holds full legal names, and a WhatsApp greeting
-    // addressed to a full legal name reads like a collections letter.
-    // COMMA IS A SEPARATOR HERE, and the worker's copy does not have it yet.
-    // Three live clients list three owners as "Ana Carolina, Anthony e
-    // Anderson" / "Marcelo Diniz, Neicy Diniz e Heri" / "Marcelo Diniz, Heri e
-    // Rafael". Without the comma, "Ana Carolina, Anthony" is read as ONE owner
-    // whose first name is "Ana", and the middle owner is silently dropped from
-    // the greeting -- LIRA would have been greeted "Ola, Ana e Anderson!",
-    // leaving Anthony out of a message sent to his own company. Dropping a real
-    // owner is the same class of mistake "Ola, GATOR!" was.
-    function reminderGreetingName(owners, fallbackName) {
-      var raw = owners ? String(owners).trim() : "";
-      if (raw) {
-        var parts = raw.split(/\s*(?:&|;|,|\se\s|\sE\s)\s*/);
-        var firsts = [];
-        for (var i = 0; i < parts.length; i++) {
-          var first = String(parts[i]).trim().split(/\s+/)[0];
-          if (first) { firsts.push(first); }
-        }
-        // Portuguese joins with "e", not a comma. This text always goes out
-        // in Portuguese.
-        if (firsts.length === 1) { return firsts[0]; }
-        if (firsts.length > 1) {
-          return firsts.slice(0, -1).join(", ") + " e " + firsts[firsts.length - 1];
-        }
-      }
-      return String(fallbackName || "").split(" ")[0].split("-")[0].trim();
-    }
+    // NO GREETING BY NAME. Nicole's decision 2026-08-19: the reminder goes to
+    // the client's WhatsApp GROUP, and nobody knows which of the owners is
+    // actually attending the meeting. Naming one or naming all of them both
+    // guess at something the system does not know. The group already tells
+    // everyone who needs to know, so the message opens plainly instead.
 
     // Why a row cannot be reminded yet, or null when it can.
     //
@@ -2165,9 +2118,10 @@
     function buildReminderMessage(m, whenWord) {
       var key = reminderTplKey(m);
       var tpl = (dashMessageTemplates && dashMessageTemplates[key]) || REMINDER_TPL_FALLBACK[key];
-      var name = reminderGreetingName(aliceClientOwners[m.client_id], m.client_name);
+      // No {name}. A template edited to reintroduce it would ship the literal
+      // "{name}" to a client, so it is stripped rather than left to leak.
       return tpl
-        .split("{name}").join(name)
+        .split("{name}").join("")
         .split("{when}").join(whenWord)
         .split("{time}").join(formatTime(m.time))
         .split("{meetLink}").join(m.google_meet_link || "")

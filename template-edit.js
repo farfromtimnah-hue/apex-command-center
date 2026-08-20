@@ -70,8 +70,8 @@
     // NO {date} chip on purpose. {when} is the WORD "hoje"/"amanha" -- that is
     // the whole point of the message, and a date chip would let a calendar
     // date get put back in.
-    reminder_online:        ["{name}", "{when}", "{time}", "{meetLink}"],
-    reminder_in_person:     ["{name}", "{when}", "{time}", "{location}"]
+    reminder_online:        ["{when}", "{time}", "{meetLink}"],
+    reminder_in_person:     ["{when}", "{time}", "{location}"]
   };
 
   function esc(s) {

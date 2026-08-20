@@ -2163,14 +2163,16 @@
       },
       // {when} is the WORD "hoje"/"amanh&#227;", never a calendar date -- that is
       // the point of the message, and there is deliberately no {date} token
-      // to put one back in. {name} is the OWNER name, same rule as above.
+      // to put one back in. There is deliberately NO {name} token either: the
+      // reminder goes to the client's WhatsApp group and nobody knows which
+      // owner is attending, so it greets no one by name.
       reminder_online: {
-        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{meetLink}</code>.',
-        en: 'Available tokens: <code>{name}</code> (owner name), <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{meetLink}</code>.'
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{meetLink}</code>.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{meetLink}</code>.'
       },
       reminder_in_person: {
-        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
-        en: 'Available tokens: <code>{name}</code> (owner name), <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
       }
     };
 

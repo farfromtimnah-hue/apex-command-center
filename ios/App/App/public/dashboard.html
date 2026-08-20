@@ -2,6 +2,79 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1786930000, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1786930000 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1786930000"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -16,7 +89,7 @@
   <script src="datetime.js"></script>
   <script src="scheduling-queue.js?v=1786597358"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787188910"></script>
+  <script src="template-edit.js?v=1787190694"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1873,8 +1946,11 @@
       }
       block.hidden = false;
 
+      // "amanha" carries a tilde in the message the client reads, but a JS
+      // string literal on this page must stay plain ASCII (project rule), so
+      // the accented character is built from its code point rather than typed.
       buildReminderRows(todayListEl, todayRows, "hoje");
-      buildReminderRows(tomListEl,   tomRows,   "amanha");
+      buildReminderRows(tomListEl,   tomRows,   "amanh" + String.fromCharCode(227));
       todayEl.hidden = todayRows.length === 0;
       tomEl.hidden   = tomRows.length === 0;
 
@@ -2026,10 +2102,18 @@
     // one risks addressing the wrong partner every single time. First names
     // only: the field also holds full legal names, and a WhatsApp greeting
     // addressed to a full legal name reads like a collections letter.
+    // COMMA IS A SEPARATOR HERE, and the worker's copy does not have it yet.
+    // Three live clients list three owners as "Ana Carolina, Anthony e
+    // Anderson" / "Marcelo Diniz, Neicy Diniz e Heri" / "Marcelo Diniz, Heri e
+    // Rafael". Without the comma, "Ana Carolina, Anthony" is read as ONE owner
+    // whose first name is "Ana", and the middle owner is silently dropped from
+    // the greeting -- LIRA would have been greeted "Ola, Ana e Anderson!",
+    // leaving Anthony out of a message sent to his own company. Dropping a real
+    // owner is the same class of mistake "Ola, GATOR!" was.
     function reminderGreetingName(owners, fallbackName) {
       var raw = owners ? String(owners).trim() : "";
       if (raw) {
-        var parts = raw.split(/\s*(?:&|;|\se\s|\sE\s)\s*/);
+        var parts = raw.split(/\s*(?:&|;|,|\se\s|\sE\s)\s*/);
         var firsts = [];
         for (var i = 0; i < parts.length; i++) {
           var first = String(parts[i]).trim().split(/\s+/)[0];

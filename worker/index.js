@@ -87,6 +87,49 @@ function jsonErr(message, status) {
 }
 
 // ---------------------------------------------------------------------------
+// Authentication failures
+//
+// A REJECTED CREDENTIAL IS NOT A SERVER ERROR. Before this type existed, every
+// throw in verifyFirebaseToken was caught by the generic try/catch in whichever
+// handler was running and re-thrown as a 500 carrying the internal message --
+// so a malformed token answered `500 {"error":"Error fetching clients:
+// Signature invalid"}`. That leaked internals and, worse, made a real outage
+// indistinguishable from someone typing a bad token.
+//
+// Callers classify with isAuthError(), which tests a typed flag -- NEVER by
+// matching message text. Text matching would silently reclassify the next D1
+// outage or key-loading failure as an auth rejection and hide it from
+// monitoring, which is the exact failure this type exists to prevent. That is
+// why only failures that are genuinely about the CREDENTIAL throw AuthError: an
+// unreachable certs endpoint or a failed DB read is infrastructure and must
+// keep bubbling up as a 500.
+//
+// `message` stays specific and is written to the log; the caller only ever
+// receives the generic "Unauthorized".
+// ---------------------------------------------------------------------------
+
+function AuthError(message) {
+    var err = new Error(message);
+    err.name = "AuthError";
+    err.isAuthError = true;
+    // instanceof across a class/function boundary is brittle in the Workers
+    // runtime once bundled, so the flag above is the contract and this helper
+    // is the only thing that sets it.
+    return err;
+}
+
+function isAuthError(err) {
+    return !!(err && err.isAuthError === true);
+}
+
+// The 401 an AuthError becomes at the top-level boundary: reason to the log,
+// generic message to the caller.
+function authFailureResponse(err) {
+    console.log("Auth rejected: " + (err && err.message ? err.message : "unknown"));
+    return jsonErr("Unauthorized", 401);
+}
+
+// ---------------------------------------------------------------------------
 // Firebase JWT verification (RS256)
 // ---------------------------------------------------------------------------
 
@@ -106,16 +149,24 @@ function decodeJwtPart(part) {
 
 async function verifyFirebaseToken(token, projectId) {
     var parts = token.split(".");
-    if (parts.length !== 3) { throw new Error("Malformed JWT"); }
+    if (parts.length !== 3) { throw AuthError("Malformed JWT"); }
 
-    var header  = decodeJwtPart(parts[0]);
-    var payload = decodeJwtPart(parts[1]);
+    // A token whose segments are not valid base64url JSON is a bad credential,
+    // not a server fault -- JSON.parse throwing a raw SyntaxError here is what
+    // produced `500 ... "i�" is not valid JSON` for `Bearer aaa.bbb.ccc`.
+    var header, payload;
+    try {
+        header  = decodeJwtPart(parts[0]);
+        payload = decodeJwtPart(parts[1]);
+    } catch (e) {
+        throw AuthError("Undecodable JWT segment: " + e.message);
+    }
 
     var now = Math.floor(Date.now() / 1000);
-    if (!payload.exp || payload.exp < now) { throw new Error("Token expired"); }
-    if (payload.iss !== "https://securetoken.google.com/" + projectId) { throw new Error("Invalid issuer"); }
-    if (payload.aud !== projectId) { throw new Error("Invalid audience"); }
-    if (!payload.sub) { throw new Error("Missing subject"); }
+    if (!payload.exp || payload.exp < now) { throw AuthError("Token expired"); }
+    if (payload.iss !== "https://securetoken.google.com/" + projectId) { throw AuthError("Invalid issuer"); }
+    if (payload.aud !== projectId) { throw AuthError("Invalid audience"); }
+    if (!payload.sub) { throw AuthError("Missing subject"); }
 
     var keysRes  = await fetch(FIREBASE_CERTS_URL, { cf: { cacheTtl: 3600 } });
     var keysJson = await keysRes.json();
@@ -124,7 +175,11 @@ async function verifyFirebaseToken(token, projectId) {
     for (var i = 0; i < keysJson.keys.length; i++) {
         if (keysJson.keys[i].kid === header.kid) { jwk = keysJson.keys[i]; break; }
     }
-    if (!jwk) { throw new Error("Signing key not found"); }
+    // The token names a `kid` Google is not currently publishing -- a property
+    // of the presented credential, so 401. (A certs endpoint that is
+    // unreachable or malformed throws above this line and stays a 500: that is
+    // our infrastructure failing, not the caller's token being bad.)
+    if (!jwk) { throw AuthError("Signing key not found for kid " + header.kid); }
 
     var pubKey = await crypto.subtle.importKey(
         "jwk", jwk,
@@ -135,7 +190,7 @@ async function verifyFirebaseToken(token, projectId) {
     var sigBuf  = base64urlToArrayBuffer(parts[2]);
     var dataBuf = new TextEncoder().encode(parts[0] + "." + parts[1]);
     var valid   = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", pubKey, sigBuf, dataBuf);
-    if (!valid) { throw new Error("Signature invalid"); }
+    if (!valid) { throw AuthError("Signature invalid"); }
 
     return payload;
 }
@@ -149,9 +204,32 @@ async function verifyFirebaseToken(token, projectId) {
 // the Firebase signature twice).
 var AUTH_CACHE = new WeakMap();
 
+// Returns the session user, or null when the request carries no usable
+// credential. Callers uniformly answer 401 on null.
+//
+// A REJECTED CREDENTIAL RESOLVES TO null RATHER THAN THROWING. Every one of the
+// ~266 handlers wraps its body in a try/catch that ends in
+// `jsonErr("Error ...: " + e.message, 500)`, so a throw from here was caught by
+// whichever handler happened to be running and re-emitted as a 500 carrying the
+// internal reason -- that is precisely how `Bearer garbage` produced
+// `500 {"error":"Error fetching clients: Malformed JWT"}`. Collapsing to null
+// routes bad credentials down the SAME path as a missing one, which already
+// answers a clean 401 everywhere, without touching a single handler.
+//
+// Only AuthError is absorbed, and it is identified by its typed flag, never by
+// message text: a D1 failure or an unreachable certs endpoint still throws and
+// still surfaces as a 500, so real outages stay loud.
 async function authenticate(request, env) {
     if (AUTH_CACHE.has(request)) { return AUTH_CACHE.get(request); }
-    var user = await authenticateInner(request, env);
+    var user;
+    try {
+        user = await authenticateInner(request, env);
+    } catch (err) {
+        if (!isAuthError(err)) { throw err; }
+        // The specific reason is kept here and never sent to the caller.
+        console.log("Auth rejected: " + err.message);
+        user = null;
+    }
     AUTH_CACHE.set(request, user);
     return user;
 }
@@ -12484,7 +12562,13 @@ async function handlePostClientLinkGoogle(request, env) {
         try {
             payload = await verifyFirebaseToken(idToken, env.FIREBASE_PROJECT_ID);
         } catch (e) {
-            return jsonErr("Invalid Google token: " + e.message, 401);
+            // Already answered 401 correctly; the internal reason now stays in
+            // the log instead of riding out on the response. A non-auth failure
+            // (certs unreachable, D1 down) rethrows to the 500 boundary rather
+            // than being reported to the caller as a bad Google token.
+            if (!isAuthError(e)) { throw e; }
+            console.log("client-link-google rejected: " + e.message);
+            return jsonErr("Invalid Google token", 401);
         }
         if (!payload.email) { return jsonErr("Google account has no email", 400); }
         var emailNorm = payload.email.trim();
@@ -27382,6 +27466,14 @@ export default {
             var response = await handleFetch(request, env, ctx);
             return withCorsOrigin(response, request);
         } catch (err) {
+            // A rejected credential answers 401, never 500. Classified on the
+            // typed flag only -- never on message text, so a D1 outage or a
+            // certs-endpoint failure still surfaces as the 500 it is instead of
+            // being mistaken for a bad token and hidden from monitoring.
+            if (isAuthError(err)) {
+                return withCorsOrigin(authFailureResponse(err), request);
+            }
+            console.log("Unhandled error: " + (err && err.stack ? err.stack : err));
             return withCorsOrigin(jsonErr("Internal error", 500), request);
         }
     },

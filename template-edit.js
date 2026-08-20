@@ -77,7 +77,7 @@
     // many non-Apex meetings exist, so it cannot be a template field -- the
     // template owns the greeting and the closing line around it. No {date} or
     // {time} chip either: those belong to the rows INSIDE the list.
-    rafa_non_apex_reminder: ["{items}"]
+    rafa_non_apex_reminder: ["{greeting}", "{items}"]
   };
 
   function esc(s) {

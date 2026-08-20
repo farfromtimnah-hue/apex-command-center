@@ -2857,3 +2857,41 @@ middle owner for the three clients who list three owners with commas. That is a
 different shipped feature and is Nicole's call, recorded rather than changed.
 
 Branches: nothing was written to any branch. All work is on main.
+
+## 2026-08-19 - Rafa reminder: time-aware greeting, and no name
+
+Three fixes to one message, all in the same pass.
+
+1. GREETING IS NOW TIME-AWARE. It was the fixed string "Bom dia", so a reminder
+   sent at 8 PM said good morning. New {greeting} token computed at SEND time.
+   Boundaries 5/12/18, matching renderGreeting() in dashboard.html so the two
+   can never disagree.
+
+   Researched rather than assumed, because 6 PM felt late for "boa noite" to an
+   English speaker. It is not. Portuguese has THREE day-parts where English
+   effectively has four - there is no Portuguese word for "evening", so most of
+   what English calls evening falls under "tarde". "Boa tarde" at 4 and 5 PM is
+   mid-afternoon. Sources genuinely disagree on the tarde->noite switch: an
+   18:00 clock rule (Brazilian reception/service training) vs a solar rule
+   ("depois que escureceu"). No official rule exists; honest range ~17:00-19:00.
+   18:00 is its centre and roughly tracks Brazilian sunset year-round.
+
+2. NO NAME. It opened "Bom dia, Pr. Rafa!". Alice and Rafa are MARRIED - the
+   vault records her talking through decisions with "husband (Rafael)". A wife
+   texting her husband does not call him Pastor. Nicole's call: no name at all
+   rather than a term of endearment, because the app writing "Amor" in her
+   voice would be worse than the formality it replaced.
+
+3. INFORMAL "voce", not "o senhor". Same mistake in the other direction - "o
+   senhor" is how a parishioner addresses a pastor.
+
+Live text is now: "{greeting}! Isto e o que voce tem:" + the list.
+
+{greeting} gets the same guard {items} already had: a template edited to drop it
+prepends the greeting rather than opening mid-sentence.
+
+Accented copy lives in hidden HTML spans (rafaGreetMorning/Afternoon/Evening),
+never in a JS string literal - same pattern dashboard.html already uses.
+
+Updated in all four places a template key lives: the D1 row (remote), the
+fallback constant, template-edit.js TOKENS, and the settings.html hint.

@@ -91,7 +91,7 @@
   <script src="datetime.js"></script>
   <script src="scheduling-queue.js?v=1786597358"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787192346"></script>
+  <script src="template-edit.js?v=1787193643"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1642,6 +1642,13 @@
 
   </main><!-- /appMain -->
 
+  <!-- Hidden greeting text for the Pr. Rafa reminder, sourced by rafaGreeting()
+       so accented characters stay in HTML and out of JS string literals
+       (project rule) -- same pattern as dashboard.html's renderGreeting(). -->
+  <span id="rafaGreetMorning"   hidden aria-hidden="true">Bom dia</span>
+  <span id="rafaGreetAfternoon" hidden aria-hidden="true">Boa tarde</span>
+  <span id="rafaGreetEvening"   hidden aria-hidden="true">Boa noite</span>
+
     </div><!-- /contentArea -->
   </div><!-- /pageWrapper -->
 
@@ -2907,7 +2914,7 @@
 
     // Fallback only. The live text is the D1 row, which is what the pencil
     // edits. Plain ASCII here by project rule; the accented copy lives in D1.
-    var RAFA_WA_TPL_FALLBACK = "Bom dia, Pr. Rafa! Isto e o que o senhor tem:\n\n{items}";
+    var RAFA_WA_TPL_FALLBACK = "{greeting}! Isto e o que voce tem:\n\n{items}";
 
     var rafaWaTemplate = null;   // in-memory copy, refreshed by the pencil
     var rafaWaRows     = null;   // { today: [], tomorrow: [] }, already filtered
@@ -3089,9 +3096,47 @@
       return out.join("\n");
     }
 
+    // Time-of-day greeting, computed at SEND time -- a nightly reminder sent at
+    // 8 PM must not say "Bom dia".
+    //
+    // BOUNDARIES: 5 / 12 / 18, matching renderGreeting() in dashboard.html so
+    // the two never disagree.
+    //
+    // Researched 2026-08-19 because 6 PM felt late for "boa noite" to an
+    // English speaker. It is not. Portuguese has THREE day-parts (manha /
+    // tarde / noite) where English effectively has four -- there is no
+    // Portuguese word for "evening", so most of what English calls evening
+    // falls under "tarde". "Boa tarde" at 4 and 5 PM is mid-afternoon, not
+    // late. Sources genuinely disagree on the tarde->noite switch: an 18:00
+    // clock rule (taught in Brazilian reception/service training) versus a
+    // solar rule ("depois que escureceu"). No official rule exists; the honest
+    // range is ~17:00-19:00. 18:00 sits at its centre, is the convention for
+    // written messages, and roughly tracks Brazilian sunset year-round.
+    //
+    // NOTE: "boa noite" is both a greeting AND a farewell in Portuguese,
+    // unlike English "good night" -- so it is correct to OPEN with it.
+    function rafaGreeting() {
+      var hour = new Date().getHours();
+      var id = (hour >= 5 && hour < 12) ? "rafaGreetMorning"
+             : (hour >= 12 && hour < 18) ? "rafaGreetAfternoon"
+             : "rafaGreetEvening";
+      var el = document.getElementById(id);
+      if (el) { return el.textContent; }
+      // ASCII fallbacks only -- the accented copy lives in the spans above.
+      return (hour >= 5 && hour < 12) ? "Bom dia"
+           : (hour >= 12 && hour < 18) ? "Boa tarde" : "Boa noite";
+    }
+
     function buildRafaWaMessage() {
       var tpl = rafaWaTemplate || RAFA_WA_TPL_FALLBACK;
       var items = rafaItemsBlock();
+      // Same guard {items} already has: a template edited to drop {greeting}
+      // would open mid-sentence, so it is prepended rather than silently lost.
+      if (tpl.indexOf("{greeting}") === -1) {
+        tpl = rafaGreeting() + "! " + tpl;
+      } else {
+        tpl = tpl.split("{greeting}").join(rafaGreeting());
+      }
       // A template edited to drop {items} would ship a greeting with no list
       // at all, which is the exact thing the empty state exists to prevent --
       // so the list is appended rather than silently lost.

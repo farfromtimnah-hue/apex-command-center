@@ -20163,8 +20163,9 @@ async function plaidFetch(env, endpoint, body) {
     }
 
     // Name the endpoint. "The operation was aborted" on its own says nothing
-    // about which of the two calls died, and they mean different things: a dead
+    // about which call died, and they mean different things: a dead
     // /transactions/sync is missing money, a dead balance call is a stale card.
+    // The Item is added by whoever catches this -- see syncPlaidTransactions.
     var err = new Error(
         "Plaid " + endpoint + " failed after " + maxAttempts +
         (maxAttempts === 1 ? " attempt: " : " attempts: ") +
@@ -20174,21 +20175,6 @@ async function plaidFetch(env, endpoint, body) {
     throw err;
 }
 
-// plaidFetch with the Item named in anything it throws. Two banks are linked
-// and they fail for different reasons and need different answers, so an alert
-// that reports only the endpoint still leaves Nicole guessing which one. The
-// Item id is an identifier, not a credential -- the access_token stays out of
-// every message, the same as everywhere else in this file.
-async function plaidFetchForItem(env, endpoint, body, item) {
-    try {
-        return await plaidFetch(env, endpoint, body);
-    } catch (e) {
-        var label = (item && (item.plaid_item_id || item.id)) || "unknown item";
-        var err = new Error("item " + label + ": " + (e && e.message ? e.message : String(e)));
-        err.cause = e;
-        throw err;
-    }
-}
 
 // Plaid error surfaced to the UI WITHOUT echoing the request payload, which
 // would carry client_id/secret into a log or a browser console.
@@ -20650,148 +20636,158 @@ async function voidRemovedTransaction(env, plaidTransactionId) {
     return succ ? "voided" : "voided_orphan";
 }
 
-async function syncPlaidTransactions(env) {
-    var items = await env.DB.prepare(
-        "SELECT id, plaid_item_id, access_token, cursor FROM plaid_items WHERE status != 'revoked'"
-    ).all();
+// One Item's worth of work: its transaction pages, then its balances.
+//
+// Pulled out of syncPlaidTransactions so the caller can put a try/catch around
+// ONE bank without wrapping the loop that visits both. Everything it learns
+// goes into `summary`, so a failure partway through still leaves the counts it
+// had already earned.
+async function syncPlaidItem(env, item, summary) {
+    var accountRows = await env.DB.prepare(
+        "SELECT id, plaid_account_id FROM accounts WHERE plaid_item_id = ?"
+    ).bind(item.plaid_item_id).all();
+    var acctIdByPlaid = {};
+    var r;
+    for (r = 0; r < accountRows.results.length; r++) {
+        acctIdByPlaid[accountRows.results[r].plaid_account_id] = accountRows.results[r].id;
+    }
 
-    var summary = { items: 0, added: 0, modified: 0, removed: 0, errors: [], orphans: [] };
+    var cursor = item.cursor || null;
+    var hasMore = true;
+    var guard = 0;
+    var pagesErrored = false;
 
-    for (var i = 0; i < items.results.length; i++) {
-        var item = items.results[i];
-        summary.items++;
+    while (hasMore && guard < 30) {
+        guard++;
+        var body = { access_token: item.access_token };
+        if (cursor) { body.cursor = cursor; }
 
-        var accountRows = await env.DB.prepare(
-            "SELECT id, plaid_account_id FROM accounts WHERE plaid_item_id = ?"
-        ).bind(item.plaid_item_id).all();
-        var acctIdByPlaid = {};
-        var r;
-        for (r = 0; r < accountRows.results.length; r++) {
-            acctIdByPlaid[accountRows.results[r].plaid_account_id] = accountRows.results[r].id;
+        var res = await plaidFetch(env, "/transactions/sync", body);
+
+        if (!res.ok) {
+            var code = res.data && res.data.error_code;
+            // ITEM_LOGIN_REQUIRED means the bank revoked consent or the
+            // password changed. Flag it so the page can raise the re-auth
+            // banner instead of quietly serving frozen numbers.
+            if (code === "ITEM_LOGIN_REQUIRED" || code === "ITEM_ERROR") {
+                await env.DB.prepare(
+                    "UPDATE plaid_items SET status = 'reauth_required' WHERE id = ?"
+                ).bind(item.id).run();
+            }
+            // A cursor Plaid no longer recognizes: restart this Item's
+            // history rather than wedging forever on a bad cursor.
+            if (code === "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION" || code === "INVALID_FIELD") {
+                await env.DB.prepare("UPDATE plaid_items SET cursor = NULL WHERE id = ?").bind(item.id).run();
+            }
+            summary.errors.push((item.plaid_item_id || item.id) + ": " + (code || "unknown"));
+            pagesErrored = true;
+            break;
         }
 
-        var cursor = item.cursor || null;
-        var hasMore = true;
-        var guard = 0;
+        var data = res.data;
+        var added    = data.added    || [];
+        var modified = data.modified || [];
+        var removed  = data.removed  || [];
+        var t, txn, acctRowId, amountCents, merchNorm;
 
-        while (hasMore && guard < 30) {
-            guard++;
-            var body = { access_token: item.access_token };
-            if (cursor) { body.cursor = cursor; }
+        // added + modified take the same upsert path: `modified` is how a
+        // pending row becomes posted, which is exactly the case dedup exists for.
+        var upserts = added.concat(modified);
+        for (t = 0; t < upserts.length; t++) {
+            txn = upserts[t];
+            if (String(txn.date) < PLAID_HISTORY_FLOOR) { continue; }
 
-            var res = await plaidFetchForItem(env, "/transactions/sync", body, item);
+            acctRowId = acctIdByPlaid[txn.account_id];
+            if (!acctRowId) { continue; }   // account not tagged/linked here
 
-            if (!res.ok) {
-                var code = res.data && res.data.error_code;
-                // ITEM_LOGIN_REQUIRED means the bank revoked consent or the
-                // password changed. Flag it so the page can raise the re-auth
-                // banner instead of quietly serving frozen numbers.
-                if (code === "ITEM_LOGIN_REQUIRED" || code === "ITEM_ERROR") {
-                    await env.DB.prepare(
-                        "UPDATE plaid_items SET status = 'reauth_required' WHERE id = ?"
-                    ).bind(item.id).run();
-                }
-                // A cursor Plaid no longer recognizes: restart this Item's
-                // history rather than wedging forever on a bad cursor.
-                if (code === "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION" || code === "INVALID_FIELD") {
-                    await env.DB.prepare("UPDATE plaid_items SET cursor = NULL WHERE id = ?").bind(item.id).run();
-                }
-                summary.errors.push((item.plaid_item_id || item.id) + ": " + (code || "unknown"));
-                break;
+            // Plaid sends POSITIVE for money leaving the account. Flip once,
+            // here, so every downstream reader sees the natural sign.
+            amountCents = -toCents(txn.amount);
+            merchNorm   = normalizeMerchant(txn.merchant_name || txn.name);
+            // The memo only ever appears in the raw description Plaid puts
+            // in .name -- merchant_name, when present, is already cleaned.
+            var memoText = extractMemo(txn.name);
+
+            var existing = await findExistingTransaction(env, acctRowId, txn, amountCents, merchNorm);
+
+            if (existing) {
+                await env.DB.prepare(
+                    "UPDATE transactions SET plaid_transaction_id = ?, pending_plaid_transaction_id = ?, " +
+                    "amount_cents = ?, date = ?, posted_date = ?, description = ?, merchant_normalized = ?, " +
+                    "memo = ?, pending = ?, raw_json = ? WHERE id = ?"
+                ).bind(
+                    txn.transaction_id,
+                    txn.pending_transaction_id || null,
+                    amountCents,
+                    txn.date,
+                    txn.pending ? null : (txn.authorized_date || txn.date),
+                    txn.name || null,
+                    merchNorm,
+                    memoText,
+                    txn.pending ? 1 : 0,
+                    JSON.stringify(txn),
+                    existing.id
+                ).run();
+                summary.modified++;
+            } else {
+                await env.DB.prepare(
+                    "INSERT INTO transactions (id, account_id, plaid_transaction_id, pending_plaid_transaction_id, " +
+                    "amount_cents, date, posted_date, description, merchant_normalized, memo, pending, raw_json) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                    "ON CONFLICT(plaid_transaction_id) DO NOTHING"
+                ).bind(
+                    crypto.randomUUID(),
+                    acctRowId,
+                    txn.transaction_id,
+                    txn.pending_transaction_id || null,
+                    amountCents,
+                    txn.date,
+                    txn.pending ? null : (txn.authorized_date || txn.date),
+                    txn.name || null,
+                    merchNorm,
+                    memoText,
+                    txn.pending ? 1 : 0,
+                    JSON.stringify(txn)
+                ).run();
+                summary.added++;
             }
-
-            var data = res.data;
-            var added    = data.added    || [];
-            var modified = data.modified || [];
-            var removed  = data.removed  || [];
-            var t, txn, acctRowId, amountCents, merchNorm;
-
-            // added + modified take the same upsert path: `modified` is how a
-            // pending row becomes posted, which is exactly the case dedup exists for.
-            var upserts = added.concat(modified);
-            for (t = 0; t < upserts.length; t++) {
-                txn = upserts[t];
-                if (String(txn.date) < PLAID_HISTORY_FLOOR) { continue; }
-
-                acctRowId = acctIdByPlaid[txn.account_id];
-                if (!acctRowId) { continue; }   // account not tagged/linked here
-
-                // Plaid sends POSITIVE for money leaving the account. Flip once,
-                // here, so every downstream reader sees the natural sign.
-                amountCents = -toCents(txn.amount);
-                merchNorm   = normalizeMerchant(txn.merchant_name || txn.name);
-                // The memo only ever appears in the raw description Plaid puts
-                // in .name -- merchant_name, when present, is already cleaned.
-                var memoText = extractMemo(txn.name);
-
-                var existing = await findExistingTransaction(env, acctRowId, txn, amountCents, merchNorm);
-
-                if (existing) {
-                    await env.DB.prepare(
-                        "UPDATE transactions SET plaid_transaction_id = ?, pending_plaid_transaction_id = ?, " +
-                        "amount_cents = ?, date = ?, posted_date = ?, description = ?, merchant_normalized = ?, " +
-                        "memo = ?, pending = ?, raw_json = ? WHERE id = ?"
-                    ).bind(
-                        txn.transaction_id,
-                        txn.pending_transaction_id || null,
-                        amountCents,
-                        txn.date,
-                        txn.pending ? null : (txn.authorized_date || txn.date),
-                        txn.name || null,
-                        merchNorm,
-                        memoText,
-                        txn.pending ? 1 : 0,
-                        JSON.stringify(txn),
-                        existing.id
-                    ).run();
-                    summary.modified++;
-                } else {
-                    await env.DB.prepare(
-                        "INSERT INTO transactions (id, account_id, plaid_transaction_id, pending_plaid_transaction_id, " +
-                        "amount_cents, date, posted_date, description, merchant_normalized, memo, pending, raw_json) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                        "ON CONFLICT(plaid_transaction_id) DO NOTHING"
-                    ).bind(
-                        crypto.randomUUID(),
-                        acctRowId,
-                        txn.transaction_id,
-                        txn.pending_transaction_id || null,
-                        amountCents,
-                        txn.date,
-                        txn.pending ? null : (txn.authorized_date || txn.date),
-                        txn.name || null,
-                        merchNorm,
-                        memoText,
-                        txn.pending ? 1 : 0,
-                        JSON.stringify(txn)
-                    ).run();
-                    summary.added++;
-                }
-            }
-
-            for (t = 0; t < removed.length; t++) {
-                var remStat = await voidRemovedTransaction(env, removed[t].transaction_id);
-                if (remStat === "voided") {
-                    summary.removed++;
-                } else if (remStat === "voided_orphan") {
-                    // Voided, but we could not identify the row that replaced
-                    // it. Excluded from the money either way; reported because
-                    // a retirement with no successor may be a real reversal.
-                    summary.removed++;
-                    summary.orphans.push(removed[t].transaction_id);
-                }
-            }
-
-            cursor  = data.next_cursor;
-            hasMore = !!data.has_more;
-
-            await env.DB.prepare(
-                "UPDATE plaid_items SET cursor = ?, last_synced_at = datetime('now'), status = 'good' WHERE id = ?"
-            ).bind(cursor, item.id).run();
         }
 
-        // Refresh balances so the headline cards do not drift from the bank.
-        var balRes = await plaidFetchForItem(env, "/accounts/balance/get", { access_token: item.access_token }, item);
+        for (t = 0; t < removed.length; t++) {
+            var remStat = await voidRemovedTransaction(env, removed[t].transaction_id);
+            if (remStat === "voided") {
+                summary.removed++;
+            } else if (remStat === "voided_orphan") {
+                // Voided, but we could not identify the row that replaced
+                // it. Excluded from the money either way; reported because
+                // a retirement with no successor may be a real reversal.
+                summary.removed++;
+                summary.orphans.push(removed[t].transaction_id);
+            }
+        }
+
+        cursor  = data.next_cursor;
+        hasMore = !!data.has_more;
+
+        await env.DB.prepare(
+            "UPDATE plaid_items SET cursor = ?, last_synced_at = datetime('now'), status = 'good' WHERE id = ?"
+        ).bind(cursor, item.id).run();
+    }
+
+    // Plaid already refused this Item once, on the same credential the balance
+    // call would use. Asking again buys nothing and costs another 40 seconds of
+    // a run that still has the other bank to visit.
+    if (pagesErrored) { return; }
+
+    // Refresh balances so the headline cards do not drift from the bank.
+    //
+    // Isolated from the pages above, because the two carry different weight. The
+    // transactions ARE the books; a balance is a headline number that is four
+    // hours stale at worst anyway. Letting a failed balance call throw away a
+    // transaction sync that already succeeded -- pages written, cursor advanced
+    // -- would be trading the important half for the cosmetic one.
+    try {
+        var balRes = await plaidFetch(env, "/accounts/balance/get", { access_token: item.access_token });
         if (balRes.ok && balRes.data.accounts) {
             for (r = 0; r < balRes.data.accounts.length; r++) {
                 var b = balRes.data.accounts[r];
@@ -20806,6 +20802,48 @@ async function syncPlaidTransactions(env) {
                 ).run();
             }
         }
+    } catch (e) {
+        // Reported, not silent: a balance that stopped refreshing is how a card
+        // quietly goes stale, and stale is indistinguishable from correct.
+        summary.errors.push(
+            (item.plaid_item_id || item.id) + ": balances not refreshed: " +
+            (e && e.message ? e.message : String(e))
+        );
+    }
+}
+
+async function syncPlaidTransactions(env) {
+    var items = await env.DB.prepare(
+        "SELECT id, plaid_item_id, access_token, cursor FROM plaid_items WHERE status != 'revoked'"
+    ).all();
+
+    var summary = { items: 0, failed: 0, added: 0, modified: 0, removed: 0, errors: [], orphans: [] };
+
+    // Each Item is synced in ISOLATION. Two banks are linked and they fail
+    // independently -- one can be timing out or need a re-auth while the other
+    // is answering perfectly. This loop used to let the first failure end the
+    // whole run: on 2026-08-21 a balance call on the business Item aborted and
+    // Alice's personal Item was never contacted at all, though nothing was
+    // wrong with it. A bank Alice cannot see is a bank she assumes has no money
+    // moving in it, so the working one has to finish regardless.
+    //
+    // Nothing is swallowed. Every failure lands in summary.errors, and the cron
+    // reports that list -- see the scheduled handler.
+    for (var i = 0; i < items.results.length; i++) {
+        var item = items.results[i];
+        summary.items++;
+        var errorsBefore = summary.errors.length;
+        try {
+            await syncPlaidItem(env, item, summary);
+        } catch (e) {
+            summary.errors.push(
+                (item.plaid_item_id || item.id) + ": " + (e && e.message ? e.message : String(e))
+            );
+        }
+        // Counted off the error list rather than the catch alone: syncPlaidItem
+        // reports some failures (a refused Item, a dead balance call) by adding
+        // to it instead of throwing, and those are failures too.
+        if (summary.errors.length > errorsBefore) { summary.failed++; }
     }
 
     await detectTransfers(env);
@@ -27776,21 +27814,50 @@ export default {
         // gets billed. Each swallows its own errors for the same reason.
         ctx.waitUntil(checkIntegrationHealth(env));
         ctx.waitUntil(syncPlaidTransactions(env).then(function(sum) {
+            var parts = [];
+
+            // Each Item now syncs in isolation, so ONE bank failing no longer
+            // throws -- which means this list is the only thing standing between
+            // a bank that stopped syncing and nobody noticing. A silent partial
+            // sync is worse than the total failure it replaced: the page still
+            // looks fine, it is just quietly missing a bank's money.
+            if (sum && sum.errors && sum.errors.length) {
+                parts.push(
+                    (sum.failed >= sum.items
+                        ? "Plaid sync failed for every linked bank."
+                        : "Plaid sync finished, but " + sum.failed + " of " + sum.items +
+                          " linked bank(s) did not sync. The rest went through.") +
+                    " Anything that failed is showing its previous numbers and will be retried " +
+                    "on the next run, in under 4 hours. If a bank needs reconnecting, the finance " +
+                    "page shows the re-authorize banner.\n" +
+                    sum.errors.join("\n")
+                );
+            }
+
             // An orphan is a transaction Plaid retired that we deliberately did
             // NOT delete, because a bill match or Apex Club confirmation still
             // points at it. The sync succeeded; a human has to decide what the
             // surviving link should attach to. Silence here would mean a stale
             // bill match sitting in the books with nobody aware of it.
-            if (!sum || !sum.orphans || !sum.orphans.length) { return; }
-            return notifyNicoleTelegram(
-                env,
-                "Plaid sync OK. " + sum.orphans.length + " transaction(s) were retired by the bank " +
-                "with no replacement we could identify, so they are voided and no longer counted. " +
-                "That can mean a real reversal or refund worth a look. " +
-                "Plaid ids: " + sum.orphans.join(", ")
-            ).catch(function() {});
+            if (sum && sum.orphans && sum.orphans.length) {
+                parts.push(
+                    (parts.length ? "" : "Plaid sync OK. ") +
+                    sum.orphans.length + " transaction(s) were retired by the bank " +
+                    "with no replacement we could identify, so they are voided and no longer counted. " +
+                    "That can mean a real reversal or refund worth a look. " +
+                    "Plaid ids: " + sum.orphans.join(", ")
+                );
+            }
+
+            if (!parts.length) { return; }
+            return notifyNicoleTelegram(env, parts.join("\n\n")).catch(function() {});
         }).catch(function(e) {
-            return notifyNicoleTelegram(env, "Plaid sync failed: " + e.message).catch(function() {});
+            // Reached only when the run itself could not proceed -- the Item
+            // list, transfer detection. A single bank failing is handled above
+            // and no longer lands here.
+            return notifyNicoleTelegram(
+                env, "Plaid sync failed: " + (e && e.message ? e.message : String(e))
+            ).catch(function() {});
         }));
         ctx.waitUntil(runRecurringInvoices(env).catch(function(e) {
             return notifyNicoleTelegram(env, "Recurring invoices failed: " + e.message).catch(function() {});

@@ -24,6 +24,22 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 92 - 2026-08-21 - **One bank failing no longer stops the other bank from syncing.** The follow-up Session 91 named and Nicole asked for: "she depends on this feature."
+
+  **The problem the retry did not solve.** Session 91 made a single slow Plaid call survivable, but the run was still all-or-nothing: the first failure that outlived both attempts ended the loop, and every Item after it was never contacted. That is exactly what cost Alice her personal account on 2026-08-21 - nothing was wrong with that bank, it was simply second in the list.
+
+  **Per-Item isolation.** The per-Item body moved out to `syncPlaidItem(env, item, summary)` and the loop wraps each call in a try/catch. A bank that fails is recorded and the loop moves to the next one. Everything it learned before failing is kept - the cursor advances per page, so a bank that dies on page 4 keeps pages 1-3 and resumes there next run.
+
+  **The balance refresh is isolated from the transaction pages** inside the Item, because they carry different weight: the transactions ARE the books, a balance is a headline number that is 4 hours stale at worst. Letting a dead balance call throw away a completed transaction sync trades the important half for the cosmetic one. That was the precise shape of the 20:00 failure.
+
+  **A refused Item skips its balance call** (`pagesErrored`). Plaid already refused the same credential once; asking again buys nothing and costs another 40 seconds of a run that still has the other bank to visit. Measured: the ITEM_LOGIN_REQUIRED path now completes in under 5s instead of burning two 20s timeouts.
+
+  **THE PART THAT MATTERS MORE THAN THE ISOLATION: `summary.errors` is now reported.** It was collected and then silently discarded - the cron only ever alerted on orphans, so an `ITEM_LOGIN_REQUIRED` never reached Nicole from here at all. With per-Item isolation that gap turns dangerous, because failures stop throwing: the page would look fine while quietly missing a bank's money. A silent partial sync is worse than the loud total failure it replaced. The cron now sends `Plaid sync finished, but 1 of 2 linked bank(s) did not sync. The rest went through...` with the failing bank and reason, distinguishes partial from total, and says it retries itself within 4 hours. A clean run is still silent.
+
+  **Verified:** worker `node --check` clean. 48 assertions across two suites, all passing, run against the REAL worker module (appended an export line to a copy and imported it - no re-implementation): 19 on the retry itself, and 29 driving `syncPlaidTransactions` and the actual `scheduled` handler against a stubbed D1 and Plaid. The integration suite replays the 20:00 failure exactly (business balance call hangs through both attempts, ~41s of real waiting) and asserts the personal Item's transactions AND balance are written, the business Item keeps its pages and cursor, and the Telegram text is captured off the stubbed fetch and checked for the bank name, the partial-vs-total wording, and the absence of the access_token.
+
+  **NOT verified:** still not exercised against real Plaid - the next 4-hourly cron is the first live run. The test suites live in the session scratchpad, not the repo; this project has no test harness to put them in.
+
 - [x] Session 91 - 2026-08-21 - **A slow Plaid call is retried instead of killing the whole sync.** Reported by Nicole from the Telegram alert: `Plaid sync failed: The operation was aborted`.
 
   **Root cause: our own timer, not Plaid and not the data.** `plaidFetch()` puts a 20-second `AbortController` on every Plaid call. When it fires, `fetch` rejects with an `AbortError` whose message is exactly `The operation was aborted` - that string IS the alert. Nothing in `syncPlaidTransactions()` catches it (the one try/catch there wraps categorization only), so it propagates to the cron handler and the run ends wherever it had reached.
@@ -36,7 +52,7 @@
 
   **Retry is opt-IN per endpoint (`PLAID_RETRYABLE`), not blanket.** `/item/public_token/exchange` is deliberately excluded: a public_token is single-use, so if the first request reached Plaid and only the reply was lost, a retry cannot succeed and would put a misleading `INVALID_PUBLIC_TOKEN` in front of Alice mid-link. Anything unlisted keeps exactly the old single-attempt behaviour.
 
-  **The alert now says which bank and which call.** `plaidFetchForItem()` wraps the two sync call sites, so the message reads `item jK61eZ...: Plaid /accounts/balance/get failed after 2 attempts: The operation was aborted` instead of five bare words. A dead `/transactions/sync` means missing money; a dead balance call means a stale card - different problems, and the old alert could not tell them apart. The `access_token` stays out of the message, same as everywhere else in the file.
+  **The alert now says which call.** `plaidFetch()` names the endpoint in anything it throws, so the message reads `Plaid /accounts/balance/get failed after 2 attempts: The operation was aborted` instead of five bare words. (It also named the Item, via a `plaidFetchForItem()` wrapper; Session 92 folded that away once the per-Item catch started doing the labelling, to stop the id printing twice.) A dead `/transactions/sync` means missing money; a dead balance call means a stale card - different problems, and the old alert could not tell them apart. The `access_token` stays out of the message, same as everywhere else in the file.
 
   **Also fixed in passing:** `await res.json()` now sits INSIDE the abort timer. It used to run after `clearTimeout`, so a response that stalled halfway through its body had no ceiling at all.
 

@@ -3477,7 +3477,8 @@ async function handleGetVaultFinanceTransactions(request, env) {
         var where = accountId ? " WHERE account_id = ?1" : "";
         var sql =
             "SELECT id, account_id, amount_cents, date, posted_date, description, " +
-            "merchant_normalized, category_id, is_transfer, transfer_status, pending " +
+            "merchant_normalized, category_id, is_transfer, transfer_status, pending, " +
+            "voided_at, voided_reason, superseded_by " +
             "FROM transactions" + where +
             " ORDER BY date DESC LIMIT " + limit;
 
@@ -20502,45 +20503,74 @@ async function findExistingTransaction(env, accountRowId, plaidTxn, amountCents,
 
 // Plaid puts a transaction in `removed` when it retires that id -- most often
 // when a PENDING charge settles and is reissued as a posted transaction under a
-// brand-new transaction_id.
+// brand-new transaction_id. The old row is then a GHOST: the money it describes
+// never left the account a second time.
 //
-// A bare DELETE here is unsafe. Three tables carry a foreign key onto
-// transactions(id): apex_club_event_txns, apex_club_event_dismissed, and
-// fixed_bill_payments.transaction_id. Once Alice has matched a charge to a bill
-// or confirmed it against an Apex Club event, SQLite refuses the delete and the
-// WHOLE sync throws -- no transactions written, balances frozen, and the only
-// symptom a "Plaid sync failed: FOREIGN KEY constraint failed" alert. That is a
-// real failure that happened on a $712.95 Suncoast bill payment.
+// We VOID the ghost rather than deleting it. Two independent reasons:
 //
-// Correct order of operations:
-//   1. If the upsert pass already migrated this row in place (the normal
-//      pending -> posted path rewrites plaid_transaction_id on the SAME row id),
-//      there is nothing left to delete and the links are already correct.
-//   2. If the row still exists and NOTHING references it, delete it.
-//   3. If something DOES reference it, keep the row and report it. Deleting the
-//      links would silently destroy a confirmed bill match -- money work Alice
-//      already did -- so an orphan that shows up in an alert is strictly better
-//      than a link that quietly disappears.
+//   1. DELETE is unsafe. Three tables carry a foreign key onto transactions(id)
+//      -- apex_club_event_txns, apex_club_event_dismissed, and
+//      fixed_bill_payments.transaction_id -- so once Alice has matched a charge
+//      to a bill, the delete fails on a FOREIGN KEY constraint and takes the
+//      WHOLE sync down with it. That happened on a $712.95 car payment.
 //
-// Returns "gone" | "deleted" | "orphan_kept".
-async function deleteRemovedTransaction(env, plaidTransactionId) {
+//   2. Leaving it alone is also unsafe, and was the worse bug. No money query
+//      filtered on `pending`, so a stale pending row was counted in her
+//      spending totals, budgets, bill matching and variable-spend estimates --
+//      the same car payment appearing twice on an account with $76.01 free.
+//
+// Voiding keeps the row exactly as the bank sent it, records why it died, and
+// points at the transaction that replaced it. Every money query filters
+// `voided_at IS NULL`; the transfer exclusions are the precedent, so grepping
+// is_transfer finds the full set of sites.
+//
+// Returns "gone" | "voided" | "already_voided".
+async function voidRemovedTransaction(env, plaidTransactionId) {
     var row = await env.DB.prepare(
-        "SELECT id FROM transactions WHERE plaid_transaction_id = ?"
+        "SELECT id, account_id, amount_cents, merchant_normalized, date, voided_at " +
+        "FROM transactions WHERE plaid_transaction_id = ?"
     ).bind(plaidTransactionId).first();
 
-    // Already migrated in place by the upsert pass, or never stored (pre-floor).
+    // Never stored (below the history floor), or the upsert pass already
+    // migrated this id in place onto the surviving row.
     if (!row) { return "gone"; }
+    if (row.voided_at) { return "already_voided"; }
 
-    var refs = await env.DB.prepare(
-        "SELECT (SELECT COUNT(*) FROM apex_club_event_txns      WHERE transaction_id = ?1) + " +
-        "       (SELECT COUNT(*) FROM apex_club_event_dismissed WHERE transaction_id = ?1) + " +
-        "       (SELECT COUNT(*) FROM fixed_bill_payments       WHERE transaction_id = ?1) AS n"
-    ).bind(row.id).first();
+    // Find the posted row that replaced it, so the audit trail leads somewhere.
+    // Same account, same amount, same merchant, within 3 days -- the same
+    // composite findExistingTransaction uses, minus the row being voided.
+    var succ = await env.DB.prepare(
+        "SELECT id FROM transactions WHERE account_id = ? AND amount_cents = ? " +
+        "AND merchant_normalized IS ? AND id != ? AND voided_at IS NULL " +
+        "AND date >= date(?, '-3 day') AND date <= date(?, '+3 day') " +
+        "ORDER BY pending ASC, date ASC LIMIT 1"
+    ).bind(
+        row.account_id, row.amount_cents, row.merchant_normalized,
+        row.id, row.date, row.date
+    ).first();
 
-    if (refs && refs.n > 0) { return "orphan_kept"; }
+    await env.DB.prepare(
+        "UPDATE transactions SET voided_at = datetime('now'), voided_reason = ?, superseded_by = ? " +
+        "WHERE id = ?"
+    ).bind(succ ? "superseded" : "removed", succ ? succ.id : null, row.id).run();
 
-    await env.DB.prepare("DELETE FROM transactions WHERE id = ?").bind(row.id).run();
-    return "deleted";
+    // Move any links off the ghost and onto the real row, so a bill Alice
+    // already matched stays matched to money that actually left the account.
+    // Without this the match survives but points at a voided row, which reads
+    // as paid while the real charge sits unmatched.
+    if (succ) {
+        await env.DB.prepare(
+            "UPDATE OR IGNORE fixed_bill_payments SET transaction_id = ? WHERE transaction_id = ?"
+        ).bind(succ.id, row.id).run();
+        await env.DB.prepare(
+            "UPDATE OR IGNORE apex_club_event_txns SET transaction_id = ? WHERE transaction_id = ?"
+        ).bind(succ.id, row.id).run();
+        await env.DB.prepare(
+            "UPDATE OR IGNORE apex_club_event_dismissed SET transaction_id = ? WHERE transaction_id = ?"
+        ).bind(succ.id, row.id).run();
+    }
+
+    return succ ? "voided" : "voided_orphan";
 }
 
 async function syncPlaidTransactions(env) {
@@ -20663,10 +20693,14 @@ async function syncPlaidTransactions(env) {
             }
 
             for (t = 0; t < removed.length; t++) {
-                var remStat = await deleteRemovedTransaction(env, removed[t].transaction_id);
-                if (remStat === "deleted") {
+                var remStat = await voidRemovedTransaction(env, removed[t].transaction_id);
+                if (remStat === "voided") {
                     summary.removed++;
-                } else if (remStat === "orphan_kept") {
+                } else if (remStat === "voided_orphan") {
+                    // Voided, but we could not identify the row that replaced
+                    // it. Excluded from the money either way; reported because
+                    // a retirement with no successor may be a real reversal.
+                    summary.removed++;
                     summary.orphans.push(removed[t].transaction_id);
                 }
             }
@@ -20757,7 +20791,7 @@ async function detectTransfers(env) {
     var rows = await env.DB.prepare(
         "SELECT t.id, t.account_id, t.amount_cents, t.date, t.description, t.transfer_status, a.mask " +
         "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
-        "WHERE t.transfer_status = 'none' AND t.date >= date('now', '-120 day')"
+        "WHERE t.transfer_status = 'none' AND t.voided_at IS NULL AND t.date >= date('now', '-120 day')"
     ).all();
 
     var txns = rows.results || [];
@@ -20833,7 +20867,7 @@ async function computeTransferDetectionRate(env, sinceDate) {
     // minus the description test, so the ratio measures how much of the
     // plausible-transfer population the description rule actually caught.
     var rows = await env.DB.prepare(
-        "SELECT id, account_id, amount_cents, date, transfer_status FROM transactions WHERE date >= ?"
+        "SELECT id, account_id, amount_cents, date, transfer_status FROM transactions WHERE voided_at IS NULL AND date >= ?"
     ).bind(sinceDate).all();
 
     var txns = rows.results || [];
@@ -20909,6 +20943,7 @@ async function handleGetFinanceNewSummary(request, env) {
             "COUNT(*) AS n " +
             "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
             "WHERE t.date >= ? AND t.date < date(?, '+1 month') " +
+            "AND t.voided_at IS NULL " +
             "AND t.transfer_status NOT IN ('suspected','confirmed') " +
             "GROUP BY a.purpose"
         ).bind(start, start).all();
@@ -20975,6 +21010,7 @@ async function handleGetFinanceNewTransactions(request, env) {
         var res = await env.DB.prepare(
             "SELECT t.id, t.account_id, t.amount_cents, t.date, t.posted_date, t.description, " +
             "t.merchant_normalized, t.is_transfer, t.transfer_pair_id, t.transfer_status, t.pending, " +
+            "t.voided_at, t.voided_reason, t.superseded_by, " +
             "t.category_id, t.category_source " +
             "FROM transactions t ORDER BY t.date DESC, t.created_at DESC LIMIT ?"
         ).bind(limit).all();
@@ -21207,6 +21243,7 @@ async function handleGetFinanceNewCategoryBreakdown(request, env) {
         }
 
         var EXCLUDE_TRANSFERS =
+            "AND t.voided_at IS NULL " +
             "AND t.is_transfer = 0 AND t.transfer_status NOT IN ('suspected','confirmed') ";
 
         // Spending only: money leaving the account, grouped by purpose and
@@ -21505,8 +21542,9 @@ async function handlePostFinanceNewCategorizationRun(request, env) {
         // are not spending and do not belong to a spending category.
         var pending = await env.DB.prepare(
             "SELECT t.merchant_normalized AS m, COUNT(*) AS n, MAX(t.description) AS sample " +
-            "FROM transactions t WHERE t.category_id IS NULL AND t.merchant_normalized IS NOT NULL " +
+            "FROM transactions t WHERE t.category_id IS NULL AND t.voided_at IS NULL AND t.merchant_normalized IS NOT NULL " +
             "AND t.merchant_normalized != '' AND t.is_transfer = 0 " +
+            "AND t.voided_at IS NULL " +
             "AND t.transfer_status NOT IN ('suspected','confirmed') " +
             "AND NOT EXISTS (SELECT 1 FROM categorization_rules r WHERE r.pattern = t.merchant_normalized) " +
             "GROUP BY t.merchant_normalized ORDER BY n DESC LIMIT 60"
@@ -21860,7 +21898,7 @@ async function lastRealChargeFor(env, bill) {
     if (!bill || !bill.payer_match_pattern) { return null; }
     var row = await env.DB.prepare(
         "SELECT amount_cents, date FROM transactions " +
-        "WHERE amount_cents < 0 AND is_transfer = 0 " +
+        "WHERE amount_cents < 0 AND is_transfer = 0 AND voided_at IS NULL " +
         "AND (merchant_normalized LIKE ? OR description LIKE ?) " +
         "ORDER BY date DESC LIMIT 1"
     ).bind("%" + bill.payer_match_pattern + "%", "%" + bill.payer_match_pattern + "%").first();
@@ -22145,6 +22183,7 @@ async function handleGetFinanceNewCategoryBudgets(request, env) {
             var spentRow = await env.DB.prepare(
                 "SELECT COALESCE(SUM(-amount_cents), 0) AS spent " +
                 "FROM transactions WHERE category_id = ? AND amount_cents < 0 " +
+                "AND voided_at IS NULL " +
                 "AND date >= date('now', 'start of month')"
             ).bind(b.category_id).first();
             var spentCents = spentRow ? spentRow.spent : 0;
@@ -22405,6 +22444,7 @@ async function buildBillMatchCandidates(env) {
         "SELECT t.id, t.amount_cents, t.date, t.description, t.merchant_normalized " +
         "FROM transactions t " +
         "WHERE t.amount_cents < 0 AND t.is_transfer = 0 " +
+        "AND t.voided_at IS NULL " +
         "AND t.transfer_status NOT IN ('suspected','confirmed') " +
         "AND t.id NOT IN (SELECT transaction_id FROM fixed_bill_payments WHERE transaction_id IS NOT NULL) " +
         "AND t.date >= date('now', '-45 day')"
@@ -22677,6 +22717,7 @@ async function handleGetFinanceNewBillSuggestions(request, env) {
             "SELECT t.merchant_normalized AS m, t.amount_cents, t.date, a.purpose " +
             "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
             "WHERE t.amount_cents < 0 AND t.is_transfer = 0 " +
+            "AND t.voided_at IS NULL " +
             "AND t.transfer_status NOT IN ('suspected','confirmed') " +
             "AND t.merchant_normalized IS NOT NULL AND t.merchant_normalized != '' " +
             "AND t.date >= date('now', '-180 day')"
@@ -22772,6 +22813,7 @@ async function estimateVariableSpend(env, purpose) {
         "SELECT t.date, t.amount_cents FROM transactions t " +
         "JOIN accounts a ON a.id = t.account_id " +
         "WHERE a.purpose = ? AND t.amount_cents < 0 AND t.is_transfer = 0 " +
+        "AND t.voided_at IS NULL " +
         "AND t.transfer_status NOT IN ('suspected','confirmed') " +
         "AND t.date >= date('now', '-90 day')"
     ).bind(purpose).all();
@@ -23174,6 +23216,7 @@ async function buildApexClubEventPL(env, event) {
         "SELECT t.id, t.amount_cents, t.date, t.description, t.memo, t.merchant_normalized " +
         "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
         "WHERE a.purpose = 'business' AND t.date >= ? AND t.date <= ? " +
+        "AND t.voided_at IS NULL " +
         "AND t.transfer_status NOT IN ('suspected','confirmed')"
     ).bind(event.window_start, event.window_end).all();
 
@@ -24252,7 +24295,7 @@ async function handleGetFinanceNewAttention(request, env) {
         //    between her own accounts is not a categorization decision.
         var uncatRow = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM transactions " +
-            "WHERE category_id IS NULL AND is_transfer = 0 " +
+            "WHERE category_id IS NULL AND is_transfer = 0 AND voided_at IS NULL " +
             "AND transfer_status NOT IN ('suspected','confirmed')"
         ).first();
 
@@ -25218,6 +25261,7 @@ async function buildMatchCandidates(env) {
         "FROM transactions t " +
         "JOIN accounts a ON a.id = t.account_id " +
         "WHERE t.amount_cents > 0 AND a.purpose = 'business' " +
+        "AND t.voided_at IS NULL " +
         "AND t.transfer_status NOT IN ('suspected','confirmed') " +
         "AND t.id NOT IN (SELECT transaction_id FROM invoice_payments WHERE undone_at IS NULL) " +
         "AND t.date >= date('now', '-120 day')"
@@ -27663,9 +27707,10 @@ export default {
             if (!sum || !sum.orphans || !sum.orphans.length) { return; }
             return notifyNicoleTelegram(
                 env,
-                "Plaid sync OK, but " + sum.orphans.length + " retired transaction(s) were kept " +
-                "because a bill match or Apex Club link still points at them. " +
-                "Review in finance-new. Plaid ids: " + sum.orphans.join(", ")
+                "Plaid sync OK. " + sum.orphans.length + " transaction(s) were retired by the bank " +
+                "with no replacement we could identify, so they are voided and no longer counted. " +
+                "That can mean a real reversal or refund worth a look. " +
+                "Plaid ids: " + sum.orphans.join(", ")
             ).catch(function() {});
         }).catch(function(e) {
             return notifyNicoleTelegram(env, "Plaid sync failed: " + e.message).catch(function() {});

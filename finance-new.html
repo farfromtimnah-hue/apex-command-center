@@ -1168,6 +1168,12 @@
     }
     .pill-pending { background: #fdf4e3; color: #8a6d2f; }
     .pill-transfer { background: #eef1f6; color: #55637a; }
+    /* A voided row is one the bank retired -- it never cleared. It stays
+       visible for the record but must never read as real money, so it is
+       struck through and dimmed as well as pilled. */
+    .pill-voided { background: #f4e6e6; color: #8a3f3f; }
+    tr.txn-voided { opacity: 0.55; }
+    tr.txn-voided .txn-amount { text-decoration: line-through; }
 
     /* ─── Filters ───────────────────────────────────────────────────────── */
     /* `display: flex` beats the browser's default `[hidden] { display: none }`,
@@ -1847,6 +1853,7 @@
           <select id="txnPending" onchange="resetAndRenderTransactions()">
             <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
             <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
+            <option value="voided" data-opt-pt="N&atilde;o compensadas" data-opt-en="Did not clear">N&atilde;o compensadas</option>
             <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
           </select>
           <select id="txnCategoryFilter" onchange="resetAndRenderTransactions()">
@@ -4115,7 +4122,9 @@
       // days, closest-amount-first -- she recognizes the real one by date
       // and description, not by trusting an auto-pick.
       var candidates = (TRANSACTIONS || []).filter(function(txn) {
-        return txn.amount_cents < 0 && !txn.is_transfer;
+        // Never offer a voided row as a bill match. Matching a bill to money
+        // that never left the account is the exact failure this guards.
+        return txn.amount_cents < 0 && !txn.is_transfer && !txn.voided_at;
       }).map(function(txn) {
         return { txn: txn, diff: Math.abs(Math.abs(txn.amount_cents) - amountCents) };
       }).sort(function(a, b) { return a.diff - b.diff; }).slice(0, 15);
@@ -5142,7 +5151,9 @@
     }
 
     function renderTransfers() {
-      var suspected = TRANSACTIONS.filter(function(t) { return t.transfer_status === "suspected"; });
+      var suspected = TRANSACTIONS.filter(function(t) {
+        return t.transfer_status === "suspected" && !t.voided_at;
+      });
       var card = document.getElementById("transferCard");
       if (!suspected.length) { card.hidden = true; return; }
       card.hidden = false;
@@ -5211,6 +5222,15 @@
 
       var rows = TRANSACTIONS.filter(function(t) {
         if (acctId && t.account_id !== acctId) { return false; }
+        // A voided row is money that never left the account. It is hidden from
+        // every ordinary view -- showing it beside real charges is how the same
+        // car payment appeared twice -- but it is never deleted, so the
+        // "Did not clear" filter can always surface it.
+        if (pending === "voided") {
+          if (!t.voided_at) { return false; }
+        } else if (t.voided_at) {
+          return false;
+        }
         if (pending === "pending" && !t.pending) { return false; }
         if (pending === "posted"  &&  t.pending) { return false; }
         if (catFilter === "uncategorized" && t.category_id) { return false; }
@@ -5243,7 +5263,16 @@
 
       document.getElementById("txnBody").innerHTML = visible.map(function(t) {
         var pills = "";
-        if (t.pending) { pills += ' <span class="pill pill-pending">pendente</span>'; }
+        // Voided outranks pending: a retired row is still flagged pending in the
+        // data, and showing "pendente" on it would tell her it is merely waiting
+        // to clear when in fact it never will.
+        if (t.voided_at) {
+          pills += ' <span class="pill pill-voided">' +
+                   (isEn() ? "did not clear" : "n&atilde;o compensou") + '</span>';
+        } else if (t.pending) {
+          pills += ' <span class="pill pill-pending">' +
+                   (isEn() ? "pending" : "pendente") + '</span>';
+        }
         if (t.is_transfer) { pills += ' <span class="pill pill-transfer">transf.</span>'; }
 
         // The category cell is a plain button showing either the category or a
@@ -5256,12 +5285,24 @@
         var catCell = '<button class="btn btn-sm" style="font-weight:500" onclick="openCategoryModal(\'' +
           esc(t.id) + '\')">' + catLabel + "</button>";
 
-        return "<tr>" +
+        // superseded_by points at the transaction that replaced this one, so the
+        // record leads somewhere instead of just saying "this died".
+        var voidNote = "";
+        if (t.voided_at) {
+          voidNote = '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
+            (t.superseded_by
+              ? (isEn() ? "Replaced by the charge that posted." : "Substitu&iacute;da pela cobran&ccedil;a que compensou.")
+              : (isEn() ? "Retired by the bank. No replacement found."
+                        : "Retirada pelo banco. Nenhuma substitui&ccedil;&atilde;o encontrada.")) +
+            "</div>";
+        }
+
+        return '<tr class="' + (t.voided_at ? "txn-voided" : "") + '">' +
           "<td>" + fmtDate(t.date) + "</td>" +
-          "<td>" + esc(t.description || "") + pills + "</td>" +
+          "<td>" + esc(t.description || "") + pills + voidNote + "</td>" +
           "<td>" + esc(nameById[t.account_id] || "") + "</td>" +
           "<td>" + catCell + "</td>" +
-          '<td class="num ' + (t.amount_cents >= 0 ? "is-green" : "") + '">' + fmtCents(t.amount_cents) + "</td>" +
+          '<td class="num txn-amount ' + (t.amount_cents >= 0 ? "is-green" : "") + '">' + fmtCents(t.amount_cents) + "</td>" +
         "</tr>";
       }).join("");
     }
@@ -5370,6 +5411,7 @@
       // Transfers are excluded from flow figures exactly as the summary
       // endpoint excludes them, so the chart and the tiles agree.
       return TRANSACTIONS.filter(function(t) {
+        if (t.voided_at) { return false; }
         return t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
       });
     }
@@ -5961,7 +6003,7 @@
       // Categorias: uncategorized transactions. Zero is silent -- a badge
       // reading 0 is noise, and this layer must never nag.
       var uncat = TRANSACTIONS.filter(function(t) {
-        return !t.category_id && !t.is_transfer &&
+        return !t.category_id && !t.is_transfer && !t.voided_at &&
                t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
       }).length;
       setBadge("finBadgeCategorias", uncat);

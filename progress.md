@@ -24,6 +24,26 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 90 (part 2) - 2026-08-21 - **A proper voided-transaction mechanism, so a charge the bank retired stays on the record but never counts as money.** Nicole's call: not a flag piggybacking on `is_transfer`, and the UI has to tell Alice a row did not clear, because that is information she needs.
+
+  **Why a real mechanism and not a flag.** The first plan was to set `is_transfer=1, transfer_status='rejected'` on the ghost, reusing the exclusion every money query already respects. Nicole rejected it: `is_transfer` means "transfer", a ghost is not one, and the next session would read it as a data error and "fix" it. Correct call. Instead the transfer logic was used as the **map** - grep `is_transfer` / `transfer_status` and you have every site a money exclusion must touch.
+
+  **Schema (`migrations/transactions_voided.sql`, applied to REMOTE D1).** `voided_at` (NULL = live row), `voided_reason` (`'superseded'` | `'removed'`), `superseded_by` (the transactions.id that replaced it). Partial index on the voided set only. A voided row is never deleted and never edited past those three columns - date, amount, description and raw_json stay exactly as the bank sent them, because the record IS the point.
+
+  **14 worker queries + 4 client-side filters now carry `voided_at IS NULL`.** Found by following the transfer exclusions: monthly cashflow, spending-by-category (`EXCLUDE_TRANSFERS`), rule suggestions, `lastRealChargeFor`, budgets, bill-match candidates, 180-day merchant spend, `estimateVariableSpend`, Apex Club candidates, uncategorized count, invoice deposit matching, transfer detection (both scans), categorization targets. Client side: bill-match picker, `countedTransactions()` (feeds the charts AND the flow tiles), uncategorized badge, suspected-transfer list.
+
+  **`voidRemovedTransaction()` replaces the delete.** Voids instead of deleting, finds the successor by the same account+amount+merchant+/-3day composite `findExistingTransaction` uses, and **re-points the FK children onto the successor** (`fixed_bill_payments`, `apex_club_event_txns`, `apex_club_event_dismissed`) with `UPDATE OR IGNORE`. Without that last step the match survives but points at a voided row - reads as paid while the real charge sits unmatched.
+
+  **UI.** New `pill-voided` ("nao compensou" / "did not clear") which **outranks the pending pill** - a retired row is still `pending=1` in the data, and showing "pendente" would tell her it is merely waiting when it never will. Row dimmed to 0.55 with the amount struck through, plus a sub-line saying either "Replaced by the charge that posted" or "Retired by the bank. No replacement found." Voided rows are **hidden from every ordinary view** (showing them beside real charges is how the payment appeared twice) and reachable through a new "Nao compensadas" option on the existing status filter.
+
+  **DATA REPAIR, done in production.** The Sienna bill match (`45ed7783`, period 2026-08) was re-pointed from the ghost `7f807a31` to the real posted charge `6ec427f6` (08/19, $712.95, `pending=0`), THEN the ghost was voided as `superseded_by='6ec427f6'`. Order matters - void first and the match briefly points at nothing.
+
+  **The $6.77 was NOT a ghost and was deliberately left alone.** It looked like a second stale pending row. It is a Walmart charge dated 08/17 on Business Adv Fundamentals with **zero** same-amount lookalikes within 6 days, so it is genuinely still clearing. Sweeping it up with the car payment would have voided a live charge. Nicole was told the count was two before this was checked; only one was real.
+
+  **Verified:** worker and extracted finance-new JS both `node --check` clean; schema confirmed live in remote D1; the repaired bill match re-queried and confirmed joined to the posted, non-voided row.
+
+  **NOT verified:** the voided pill and the "Nao compensadas" filter have not been seen in a real browser - Apex cannot be opened in the sandbox browser. Alice's finance page needs a hard refresh before the pill appears.
+
 - [x] Session 90 - 2026-08-21 - **Plaid sync no longer dies on a FOREIGN KEY constraint when a retired transaction is already matched to a bill.** Reported by Nicole from the Telegram alert: `Plaid sync failed: D1_ERROR: FOREIGN KEY constraint failed`.
 
   **Root cause.** `syncPlaidTransactions()` handled Plaid's `removed` list with a bare `DELETE FROM transactions WHERE plaid_transaction_id = ?` and no guard. Three tables in production hold a foreign key onto `transactions(id)`: `apex_club_event_txns` (11 live rows), `apex_club_event_dismissed` (4), and `fixed_bill_payments.transaction_id` (11). When Plaid retires an id that any of those still point at, SQLite refuses the delete and the **entire sync throws** - no transactions written, balances frozen, and the only symptom the Telegram alert. It fails harder over time, because every bill match Alice confirms adds another row that can wedge a future sync.

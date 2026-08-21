@@ -20091,26 +20091,103 @@ function plaidBaseUrl(env) {
     return "https://" + (env.PLAID_ENV || "production") + ".plaid.com";
 }
 
+// Endpoints that may be sent a second time when the first attempt's connection
+// dies. Reads are free to repeat. `/transactions/sync` is idempotent by design
+// -- the same cursor returns the same page, and the cursor only advances once
+// the page is in hand -- and a `/link/token/create` token that nobody uses just
+// expires. None of them create or move money, so a duplicate cannot double
+// anything.
+//
+// `/item/public_token/exchange` is deliberately ABSENT. A public_token is
+// single-use: if the first request did reach Plaid and only the reply was lost,
+// a retry cannot succeed and would replace an honest timeout with a misleading
+// INVALID_PUBLIC_TOKEN in front of Alice mid-link. Anything not listed here
+// gets one attempt, exactly as before.
+var PLAID_RETRYABLE = {
+    "/transactions/sync":     true,
+    "/accounts/balance/get":  true,
+    "/accounts/get":          true,
+    "/item/get":              true,
+    "/institutions/get_by_id": true,
+    "/link/token/create":     true
+};
+
+// A Plaid call with a 20-second ceiling, RETRIED ONCE when the connection
+// itself fails. Plaid being slow for one moment used to take the whole 4-hourly
+// sync down: the abort throws out of here, nothing in syncPlaidTransactions
+// catches it, and the run ends at whatever line it had reached. On 2026-08-21
+// that cost a full cycle -- the business Item's pages were in, the balance call
+// aborted, and Alice's personal Item was never reached at all. The only symptom
+// was a Telegram alert reading `Plaid sync failed: The operation was aborted`,
+// which named neither the endpoint nor the Item.
+//
+// Only a DEAD CONNECTION is retried -- a timeout or a dropped socket, where no
+// answer ever arrived. An HTTP error is a real answer from Plaid
+// (ITEM_LOGIN_REQUIRED, a stale cursor) and the caller already knows what to do
+// with each one; asking again would only collect the same refusal twice and
+// delay the handling. And only the endpoints in PLAID_RETRYABLE are sent twice.
 async function plaidFetch(env, endpoint, body) {
     var payload = Object.assign({}, body, {
         client_id: env.PLAID_CLIENT_ID,
         secret:    env.PLAID_SECRET
     });
-    var ctrl  = new AbortController();
-    var timer = setTimeout(function() { ctrl.abort(); }, 20000);
-    var res;
-    try {
-        res = await fetch(plaidBaseUrl(env) + endpoint, {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify(payload),
-            signal:  ctrl.signal
-        });
-    } finally {
-        clearTimeout(timer);
+
+    var maxAttempts = PLAID_RETRYABLE[endpoint] ? 2 : 1;
+    var attempt, lastErr;
+    for (attempt = 0; attempt < maxAttempts; attempt++) {
+        // A short pause before the retry. A timeout usually means Plaid is busy
+        // rather than broken, and coming straight back adds to the pile.
+        if (attempt > 0) {
+            await new Promise(function(resolve) { setTimeout(resolve, 1000); });
+        }
+
+        var ctrl  = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, 20000);
+        try {
+            // The body read is INSIDE the timer now. Previously the timeout was
+            // cleared the moment the headers arrived, so a response that stalled
+            // halfway through its JSON had no ceiling at all.
+            var res  = await fetch(plaidBaseUrl(env) + endpoint, {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify(payload),
+                signal:  ctrl.signal
+            });
+            var data = await res.json();
+            return { ok: res.ok, status: res.status, data: data };
+        } catch (e) {
+            lastErr = e;
+        } finally {
+            clearTimeout(timer);
+        }
     }
-    var data = await res.json();
-    return { ok: res.ok, status: res.status, data: data };
+
+    // Name the endpoint. "The operation was aborted" on its own says nothing
+    // about which of the two calls died, and they mean different things: a dead
+    // /transactions/sync is missing money, a dead balance call is a stale card.
+    var err = new Error(
+        "Plaid " + endpoint + " failed after " + maxAttempts +
+        (maxAttempts === 1 ? " attempt: " : " attempts: ") +
+        (lastErr && lastErr.message ? lastErr.message : String(lastErr))
+    );
+    err.cause = lastErr;
+    throw err;
+}
+
+// plaidFetch with the Item named in anything it throws. Two banks are linked
+// and they fail for different reasons and need different answers, so an alert
+// that reports only the endpoint still leaves Nicole guessing which one. The
+// Item id is an identifier, not a credential -- the access_token stays out of
+// every message, the same as everywhere else in this file.
+async function plaidFetchForItem(env, endpoint, body, item) {
+    try {
+        return await plaidFetch(env, endpoint, body);
+    } catch (e) {
+        var label = (item && (item.plaid_item_id || item.id)) || "unknown item";
+        var err = new Error("item " + label + ": " + (e && e.message ? e.message : String(e)));
+        err.cause = e;
+        throw err;
+    }
 }
 
 // Plaid error surfaced to the UI WITHOUT echoing the request payload, which
@@ -20602,7 +20679,7 @@ async function syncPlaidTransactions(env) {
             var body = { access_token: item.access_token };
             if (cursor) { body.cursor = cursor; }
 
-            var res = await plaidFetch(env, "/transactions/sync", body);
+            var res = await plaidFetchForItem(env, "/transactions/sync", body, item);
 
             if (!res.ok) {
                 var code = res.data && res.data.error_code;
@@ -20714,7 +20791,7 @@ async function syncPlaidTransactions(env) {
         }
 
         // Refresh balances so the headline cards do not drift from the bank.
-        var balRes = await plaidFetch(env, "/accounts/balance/get", { access_token: item.access_token });
+        var balRes = await plaidFetchForItem(env, "/accounts/balance/get", { access_token: item.access_token }, item);
         if (balRes.ok && balRes.data.accounts) {
             for (r = 0; r < balRes.data.accounts.length; r++) {
                 var b = balRes.data.accounts[r];

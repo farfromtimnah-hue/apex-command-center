@@ -24,6 +24,26 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 91 - 2026-08-21 - **A slow Plaid call is retried instead of killing the whole sync.** Reported by Nicole from the Telegram alert: `Plaid sync failed: The operation was aborted`.
+
+  **Root cause: our own timer, not Plaid and not the data.** `plaidFetch()` puts a 20-second `AbortController` on every Plaid call. When it fires, `fetch` rejects with an `AbortError` whose message is exactly `The operation was aborted` - that string IS the alert. Nothing in `syncPlaidTransactions()` catches it (the one try/catch there wraps categorization only), so it propagates to the cron handler and the run ends wherever it had reached.
+
+  **The 20:00 UTC run, reconstructed from production D1.** `plaid_items.last_synced_at` for the business Item (`jK61eZ...`) read `20:00:43`; the personal Item (`o3wByQ...`) still read `16:00:55`, and BOTH `accounts` rows still read 16:00. So: the business Item's transaction pages went through and saved their cursor at 20:00:43, the very next call - `/accounts/balance/get` - hung and was aborted ~20s later, and **Alice's personal Item was never reached at all**. `detectTransfers()` and the categorization pass never ran either. Nothing was lost permanently: the cursor is written per page, so the next cron resumed from it. Both Items are still `status='good'` - no re-auth involved.
+
+  **Why it was likely to recur.** That run had the business Item's pages alone taking 43 seconds. A healthy full run takes ~55s. Plaid crossing 20s on any single call is not rare, and one crossing took down both banks.
+
+  **The fix.** One retry on a DEAD CONNECTION only - a timeout or a dropped socket, where no answer ever arrived - with a 1-second pause between attempts. An HTTP error is a real answer (`ITEM_LOGIN_REQUIRED`, a stale cursor) and the existing per-code handling is right; retrying would just collect the same refusal twice.
+
+  **Retry is opt-IN per endpoint (`PLAID_RETRYABLE`), not blanket.** `/item/public_token/exchange` is deliberately excluded: a public_token is single-use, so if the first request reached Plaid and only the reply was lost, a retry cannot succeed and would put a misleading `INVALID_PUBLIC_TOKEN` in front of Alice mid-link. Anything unlisted keeps exactly the old single-attempt behaviour.
+
+  **The alert now says which bank and which call.** `plaidFetchForItem()` wraps the two sync call sites, so the message reads `item jK61eZ...: Plaid /accounts/balance/get failed after 2 attempts: The operation was aborted` instead of five bare words. A dead `/transactions/sync` means missing money; a dead balance call means a stale card - different problems, and the old alert could not tell them apart. The `access_token` stays out of the message, same as everywhere else in the file.
+
+  **Also fixed in passing:** `await res.json()` now sits INSIDE the abort timer. It used to run after `clearTimeout`, so a response that stalled halfway through its body had no ceiling at all.
+
+  **Verified:** worker `node --check` clean; the real `plaidFetch`/`plaidFetchForItem` extracted and driven against a stubbed Plaid - 22 assertions, all passing, covering recovery after one timeout, failure after two, dropped-socket retry, HTTP errors returned rather than retried, exchange capped at one attempt, the token absent from the error, and the success path unchanged at one immediate attempt.
+
+  **NOT verified:** not exercised against real Plaid - the next 4-hourly cron is the first live run. Still NOT fixed (offered, not asked for): the run is still all-or-nothing, so a failure that outlives both attempts still skips every Item after it. Per-Item isolation is the follow-up.
+
 - [x] Session 90 (part 2) - 2026-08-21 - **A proper voided-transaction mechanism, so a charge the bank retired stays on the record but never counts as money.** Nicole's call: not a flag piggybacking on `is_transfer`, and the UI has to tell Alice a row did not clear, because that is information she needs.
 
   **Why a real mechanism and not a flag.** The first plan was to set `is_transfer=1, transfer_status='rejected'` on the ghost, reusing the exclusion every money query already respects. Nicole rejected it: `is_transfer` means "transfer", a ghost is not one, and the next session would read it as a data error and "fix" it. Correct call. Instead the transfer logic was used as the **map** - grep `is_transfer` / `transfer_status` and you have every site a money exclusion must touch.

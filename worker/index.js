@@ -20500,12 +20500,55 @@ async function findExistingTransaction(env, accountRowId, plaidTxn, amountCents,
     return null;
 }
 
+// Plaid puts a transaction in `removed` when it retires that id -- most often
+// when a PENDING charge settles and is reissued as a posted transaction under a
+// brand-new transaction_id.
+//
+// A bare DELETE here is unsafe. Three tables carry a foreign key onto
+// transactions(id): apex_club_event_txns, apex_club_event_dismissed, and
+// fixed_bill_payments.transaction_id. Once Alice has matched a charge to a bill
+// or confirmed it against an Apex Club event, SQLite refuses the delete and the
+// WHOLE sync throws -- no transactions written, balances frozen, and the only
+// symptom a "Plaid sync failed: FOREIGN KEY constraint failed" alert. That is a
+// real failure that happened on a $712.95 Suncoast bill payment.
+//
+// Correct order of operations:
+//   1. If the upsert pass already migrated this row in place (the normal
+//      pending -> posted path rewrites plaid_transaction_id on the SAME row id),
+//      there is nothing left to delete and the links are already correct.
+//   2. If the row still exists and NOTHING references it, delete it.
+//   3. If something DOES reference it, keep the row and report it. Deleting the
+//      links would silently destroy a confirmed bill match -- money work Alice
+//      already did -- so an orphan that shows up in an alert is strictly better
+//      than a link that quietly disappears.
+//
+// Returns "gone" | "deleted" | "orphan_kept".
+async function deleteRemovedTransaction(env, plaidTransactionId) {
+    var row = await env.DB.prepare(
+        "SELECT id FROM transactions WHERE plaid_transaction_id = ?"
+    ).bind(plaidTransactionId).first();
+
+    // Already migrated in place by the upsert pass, or never stored (pre-floor).
+    if (!row) { return "gone"; }
+
+    var refs = await env.DB.prepare(
+        "SELECT (SELECT COUNT(*) FROM apex_club_event_txns      WHERE transaction_id = ?1) + " +
+        "       (SELECT COUNT(*) FROM apex_club_event_dismissed WHERE transaction_id = ?1) + " +
+        "       (SELECT COUNT(*) FROM fixed_bill_payments       WHERE transaction_id = ?1) AS n"
+    ).bind(row.id).first();
+
+    if (refs && refs.n > 0) { return "orphan_kept"; }
+
+    await env.DB.prepare("DELETE FROM transactions WHERE id = ?").bind(row.id).run();
+    return "deleted";
+}
+
 async function syncPlaidTransactions(env) {
     var items = await env.DB.prepare(
         "SELECT id, plaid_item_id, access_token, cursor FROM plaid_items WHERE status != 'revoked'"
     ).all();
 
-    var summary = { items: 0, added: 0, modified: 0, removed: 0, errors: [] };
+    var summary = { items: 0, added: 0, modified: 0, removed: 0, errors: [], orphans: [] };
 
     for (var i = 0; i < items.results.length; i++) {
         var item = items.results[i];
@@ -20620,9 +20663,12 @@ async function syncPlaidTransactions(env) {
             }
 
             for (t = 0; t < removed.length; t++) {
-                await env.DB.prepare("DELETE FROM transactions WHERE plaid_transaction_id = ?")
-                    .bind(removed[t].transaction_id).run();
-                summary.removed++;
+                var remStat = await deleteRemovedTransaction(env, removed[t].transaction_id);
+                if (remStat === "deleted") {
+                    summary.removed++;
+                } else if (remStat === "orphan_kept") {
+                    summary.orphans.push(removed[t].transaction_id);
+                }
             }
 
             cursor  = data.next_cursor;
@@ -27608,7 +27654,20 @@ export default {
         // recurrence is an invoice Alice never sends and revenue that never
         // gets billed. Each swallows its own errors for the same reason.
         ctx.waitUntil(checkIntegrationHealth(env));
-        ctx.waitUntil(syncPlaidTransactions(env).catch(function(e) {
+        ctx.waitUntil(syncPlaidTransactions(env).then(function(sum) {
+            // An orphan is a transaction Plaid retired that we deliberately did
+            // NOT delete, because a bill match or Apex Club confirmation still
+            // points at it. The sync succeeded; a human has to decide what the
+            // surviving link should attach to. Silence here would mean a stale
+            // bill match sitting in the books with nobody aware of it.
+            if (!sum || !sum.orphans || !sum.orphans.length) { return; }
+            return notifyNicoleTelegram(
+                env,
+                "Plaid sync OK, but " + sum.orphans.length + " retired transaction(s) were kept " +
+                "because a bill match or Apex Club link still points at them. " +
+                "Review in finance-new. Plaid ids: " + sum.orphans.join(", ")
+            ).catch(function() {});
+        }).catch(function(e) {
             return notifyNicoleTelegram(env, "Plaid sync failed: " + e.message).catch(function() {});
         }));
         ctx.waitUntil(runRecurringInvoices(env).catch(function(e) {

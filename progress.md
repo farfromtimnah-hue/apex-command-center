@@ -24,6 +24,22 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 90 - 2026-08-21 - **Plaid sync no longer dies on a FOREIGN KEY constraint when a retired transaction is already matched to a bill.** Reported by Nicole from the Telegram alert: `Plaid sync failed: D1_ERROR: FOREIGN KEY constraint failed`.
+
+  **Root cause.** `syncPlaidTransactions()` handled Plaid's `removed` list with a bare `DELETE FROM transactions WHERE plaid_transaction_id = ?` and no guard. Three tables in production hold a foreign key onto `transactions(id)`: `apex_club_event_txns` (11 live rows), `apex_club_event_dismissed` (4), and `fixed_bill_payments.transaction_id` (11). When Plaid retires an id that any of those still point at, SQLite refuses the delete and the **entire sync throws** - no transactions written, balances frozen, and the only symptom the Telegram alert. It fails harder over time, because every bill match Alice confirms adds another row that can wedge a future sync.
+
+  **The row that actually fired it.** `7f807a31-f38f-481d-9c60-f4e63d2ba0a9` - 08/17, **$712.95**, `CHECKCARD SPI*SUNCOAST CU`, still `pending=1` and already linked in `fixed_bill_payments`. Pending is exactly the state Plaid retires.
+
+  **An earlier diagnosis in this session was wrong and the correction matters.** The first read blamed the ordinary pending-to-posted settle. It is not: the upsert pass runs BEFORE the removed loop and UPDATEs the row **in place**, keeping the same row `id`, so links survive a normal settle untouched. The failure needs Plaid to retire an id with **no** successor the matcher recognises - a reissue the amount/merchant/date composite misses, or a genuine bank reversal. Rarer, which is why it took until August to surface.
+
+  **The fix.** New `deleteRemovedTransaction()` returning `"gone" | "deleted" | "orphan_kept"`. Row already migrated in place, or never stored (pre-floor) -> `gone`. Row exists and nothing references it -> deleted, as before. Row exists and something DOES reference it -> **kept and flagged**, never deleted. Dropping the child links instead would silently destroy a confirmed bill match, which is money work Alice already did; an orphan in an alert is strictly better than a link that quietly disappears. Nicole's explicit call when asked.
+
+  **The flag reaches a human.** `summary.orphans[]` was added, and the cron caller now sends a Telegram message naming the count and the Plaid ids when it is non-empty. Without that the kept row would sit in the books with nobody aware - the silent-catch failure mode that hid five separate scheduling bugs. Sync is cron-only; there is no manual sync button in finance-new.html to hang a UI banner on.
+
+  **Verified:** `node --check` clean (as ESM - the CJS `export` warning is expected). The repeated-parameter `?1` form was **run against production D1** rather than assumed, and returns `1` for the Suncoast row, so that transaction now takes the `orphan_kept` path instead of throwing.
+
+  **NOT verified:** no real Plaid sync was driven end to end. The next scheduled cron run is the real test.
+
 - [x] Session 89 (part 2) - 2026-08-19 - **One button, one WhatsApp message: everything non-Apex Pr. Rafa has today and tomorrow, sent straight to his own number.** So Alice can remind him of things like his daughter's first day of kindergarten that the family attended together. ONE button listing everything, not one per row.
 
   **Scope is the two WHITE categories only** - `event` and `personal`. Deliberately NOT `vendor` (pale green, and it is Apex business), NOT `external` (beige, Google's own synced rows), NOT `client` or `prospective`. Everything still UPCOMING today and tomorrow; a passed item drops off exactly like Alice's dashboard card, so by 9 PM the list naturally contains only tomorrow. No separate tomorrow-only mode was built.

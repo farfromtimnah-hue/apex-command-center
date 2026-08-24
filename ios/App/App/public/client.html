@@ -13,7 +13,7 @@
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787240981"></script>
+  <script src="template-edit.js?v=1787608442"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7276,7 +7276,7 @@
               upBtn.onclick = function() { attachFileToPlaceholder(doc); };
               actionsEl.appendChild(upBtn);
 
-              // Pra. Alice chasing the file. Not offered to the client — see
+              // Alice chasing the file. Not offered to the client — see
               // the request-file endpoint for why.
               var myRole = sessionStorage.getItem("apex_role");
               if (!doc.file_requested_at && (myRole === "alice" || myRole === "developer")) {
@@ -7321,7 +7321,7 @@
       input.click();
     }
 
-    // Pra. Alice asking for the file. One click, recorded once.
+    // Alice asking for the file. One click, recorded once.
     function requestDocumentFile(doc, btn) {
       if (btn) { btn.disabled = true; }
       apiFetch("/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/request-file", {

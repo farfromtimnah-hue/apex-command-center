@@ -24,6 +24,30 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 90 - 2026-08-24 - **"Pastor" title removal finished: live D1 verified clean, and the repo turned out NOT to be.** The title does not belong on Apex, which is Rafa's business, not his church. A previous session removed it from the repo but the Cloudflare connector dropped out before the live database was ever checked, so `message_templates` - the one table whose copy is SENT TO CLIENTS - was still unverified.
+
+  **The database was already clean, and that is the headline.** The connector worked this time (wrangler 4.115.0, OAuth, `d1 (write)`). Queried against `--remote`, not the seeds. `message_templates`: **0 of 14 rows** carry the title. All 14 were dumped and read rather than trusting an empty result set - the only Rafa reference is `portal_help_request`'s `"Oi Rafa! Aqui é {clientName}"`, which is the site's own bare-name convention. **No UPDATE was run, because none was needed.**
+
+  Swept `resources` (4), `packages` (7), `clients` (38), `client_field_config` (320), `tasks` (423), `client_documents` (56). The `tasks` and `client_documents` hits were all false positives from the deliberately broad `%Pra%`/`%Pr.%` patterns matching ordinary Portuguese - `prazo`, `Praticar`, `compra`, `Comercial` - including the `líderes e pastores` row, which is a client's own business content and was left alone.
+
+  **`packages.pkg_executivo` contains "Consultoria individual com Rafael Prata" and was deliberately NOT changed.** It is a surname, not a title. It is also not placeholder data: it is the `consultant_name` in four live pages, it is in `migrations/packages.sql`, and progress.md:1403 records a deliberate earlier fix *to* it from the placeholder "Rafael Andrade". The D1 row matches the seed byte for byte.
+
+  **The repo was still dirty in rendered, user-visible copy** - the previous session's "already done" list was wrong. Fixed: `agendar.html` (the PUBLIC booking page, "Reunião de N minutos com o Pastor Rafael" shown to prospective clients), `help/agendamento.html` (5 places), `internet-options.html`, `utility-savings.html`, `finance-new.html`, and `portal.html`'s `SUPPORT_ROUTES.business` - which is not a comment but renders as *"Vai para Pr. Rafa no WhatsApp."* in the client-facing support modal. The non-Apex reminder title was fixed in all **three** places it is registered (`calendar.html`, `settings.html`, `template-edit.js`); they must stay in sync or the pencil and the button disagree.
+
+  **`ios/App/App/public/` still carried the title too.** The earlier grep missed it because the path was filtered out. The iOS copies had **already diverged** from root before this session, so they were NOT overwritten with the root files - the same targeted substitutions were applied in place, preserving the unrelated iOS-side differences.
+
+  **`migrations/rafa_non_apex_reminder.sql` was a latent regression.** It still seeded `'Bom dia, Pr. Rafa! Isto é o que o senhor tem:'` while the live row reads `'{greeting}! Isto é o que você tem:'`. Replaying that migration would have re-introduced the title AND reverted `você` back to the formal `o senhor`. The seed now matches the live row byte for byte (verified by executing it into an in-memory SQLite and comparing), and its "{items} is the ONLY token" comment was corrected to name `{greeting}`.
+
+  **Deliberately NOT changed:** `calendar.html`'s "a meeting Rafa had with the senior pastor" (a different person - the senior pastor of his church). `worker/index.js` (14 hits, server-side, never sent to a browser). `progress.md`'s own history. All phone numbers - Rafa's `12144487559` is one digit from Alice's and both were left untouched.
+
+  **Cache stamping done by hand**, since the pre-commit hook is not installed here and uses macOS-only `sed -i ''`. The live stamp was `1787314853`, not the `1787607259` the prompt stated. New stamp `1787608350` applied to `sw.js` CACHE_NAME and `version.json` in **both** root and `ios/App/App/public/`, plus the `?v=` bump on all 9 `template-edit.js` references (6 root, 3 iOS) - it is a versioned asset served cache-first, so the CACHE_NAME bump alone would not have shipped it.
+
+  **Verified:** `node --check` clean on every changed JS file; the seed SQL executed and its output string compared against the live D1 value; full-repo grep returns zero title hits outside `worker/index.js` and `progress.md`.
+
+  **NOT verified:** nothing was driven in a real browser - no page was loaded and no screenshot taken. The rendered strings were confirmed by reading source, not by seeing them on screen. Per the standing rule, Apex is not opened in a sandbox browser; the PT and EN toggles on the changed pages need Nicole's eyes.
+
+  **Noted, not fixed:** `ios/App/App/public/*.html` reference `template-edit.js`, but that file does not exist in the iOS bundle. Pre-existing and unrelated to this task.
+
 - [x] Session 90 (part 2) - 2026-08-21 - **A proper voided-transaction mechanism, so a charge the bank retired stays on the record but never counts as money.** Nicole's call: not a flag piggybacking on `is_transfer`, and the UI has to tell Alice a row did not clear, because that is information she needs.
 
   **Why a real mechanism and not a flag.** The first plan was to set `is_transfer=1, transfer_status='rejected'` on the ghost, reusing the exclusion every money query already respects. Nicole rejected it: `is_transfer` means "transfer", a ghost is not one, and the next session would read it as a data error and "fix" it. Correct call. Instead the transfer logic was used as the **map** - grep `is_transfer` / `transfer_status` and you have every site a money exclusion must touch.

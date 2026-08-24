@@ -1,4 +1,4 @@
-// Proves that Pr. Rafa's vault Worker CANNOT write to Apex's D1.
+// Proves that Rafa's vault Worker CANNOT write to Apex's D1.
 //
 //   VAULT_SERVICE_TOKEN=... node scripts/test-vault-readonly.mjs
 //

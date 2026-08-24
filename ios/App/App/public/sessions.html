@@ -3377,7 +3377,7 @@
       // the pdfBtn.onclick wiring above). A section-config checkbox change
       // made afterward correctly updates pdf_data on the server (see
       // handlePutSessionSectionConfig), but this stale in-memory copy never
-      // picked it up -- real bug reported by Pra. Alice 2026-07-23: she
+      // picked it up -- real bug reported by Alice 2026-07-23: she
       // unchecked a section right before generating, and the PDF still
       // included it, because this function was still reading the pre-edit
       // snapshot.

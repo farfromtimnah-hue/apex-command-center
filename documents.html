@@ -963,7 +963,7 @@ function escHtml(str) {
              r.category === "Entregaveis sem cliente";
     }
 
-    // Attach flow. Pr. Rafa often finishes a deliverable before the client
+    // Attach flow. Rafa often finishes a deliverable before the client
     // record exists — Alice usually creates those. This moves the file onto the
     // client profile once it does, hidden from the client until he reveals it.
     function openAttachToClient(resourceId) {
@@ -1079,7 +1079,7 @@ function escHtml(str) {
     // The internal section is APEX's, not any client's: the e-books, the
     // valuation calculator, Apex Club art. It can never be assigned to a
     // client, and that is enforced in the worker rather than only hidden here.
-    // When Pr. Rafa has other consultants, this is the section they get.
+    // When Rafa has other consultants, this is the section they get.
     function renderResources() {
       var container = document.getElementById("resourceListContainer");
       if (!container) { return; }

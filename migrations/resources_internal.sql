@@ -1,7 +1,7 @@
 -- Consultant-only resources: APEX's own internal material, filed in the same
 -- library as client-facing resources but never assignable to a client.
 --
--- Pr. Rafa loses his own deliverables inside Claude conversations and asks for
+-- Rafa loses his own deliverables inside Claude conversations and asks for
 -- them again later. The client-facing ones now live on each client's Documentos
 -- tab, but APEX's internal material — the DISC and referral e-books, the
 -- property-valuation calculator, Apex Club event art — belongs to no client and

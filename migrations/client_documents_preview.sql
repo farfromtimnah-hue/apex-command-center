@@ -1,5 +1,5 @@
 -- Placeholder deliverables: a document that EXISTS but whose file is still
--- sitting in Pr. Rafa's Claude history.
+-- sitting in Rafa's Claude history.
 --
 -- The problem this solves is forgetting, not storage. He already has a Google
 -- Drive folder per client; things get lost because in the moment he does not
@@ -24,11 +24,11 @@
 -- file_name stays NOT NULL and carries the name the file WILL have, which is
 -- also what he needs in order to find it in his Claude history.
 
--- The approved HTML, kept as the quick-look version. Also what Pra. Alice and
+-- The approved HTML, kept as the quick-look version. Also what Alice and
 -- (if he shares it) the client can read while the PDF is still missing.
 ALTER TABLE client_documents ADD COLUMN preview_html TEXT;
 
--- Pra. Alice can ask him to upload the real file. Deliberately NOT available
+-- Alice can ask him to upload the real file. Deliberately NOT available
 -- to the client: a client having to ask for the deliverable they were already
 -- promised is a bad look, and the warning shown when he makes a preview-only
 -- document visible is what prevents that situation instead.

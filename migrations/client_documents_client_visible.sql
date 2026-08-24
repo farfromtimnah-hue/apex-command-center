@@ -8,7 +8,7 @@
 --                  sales team). BOTH values are visible to the client.
 --   client_visible whether the client sees the document at all.
 --
--- A draft Pr. Rafa is still working on has to be hidden from the client AND
+-- A draft Rafa is still working on has to be hidden from the client AND
 -- from their sellers. No value of `visibility` can express that — every value
 -- of it is client-visible by definition — so overloading, renaming or
 -- repurposing that column would destroy the section meaning to buy a flag.
@@ -25,7 +25,7 @@
 -- It is enforced at the write path (the receiving endpoint sets the flag
 -- server-side), because it is a property of how the document ARRIVED, not a
 -- property of the column. A UI upload is someone deliberately putting a file on
--- a client's profile, so it lands visible; a document pushed in from Pr. Rafa's
+-- a client's profile, so it lands visible; a document pushed in from Rafa's
 -- Claude is a draft until he says otherwise, so it lands hidden. The safe case
 -- does not depend on anyone remembering to flip a switch.
 ALTER TABLE client_documents ADD COLUMN client_visible INTEGER NOT NULL DEFAULT 1;

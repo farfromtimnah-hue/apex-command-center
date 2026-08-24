@@ -234,7 +234,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- client_missed_days, client_logins, client_auth_tokens) were added via
 -- migrations/client_portal.sql — see that file for shapes and JSON formats.
 
--- Seed: operational account for Pra. Alice
+-- Seed: operational account for Alice
 INSERT OR IGNORE INTO users (email, role) VALUES ('abnerprata@gmail.com', 'alice');
 
 -- NOTE: packages table and message_templates were added via migrations/ files.

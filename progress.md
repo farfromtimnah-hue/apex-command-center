@@ -40,7 +40,9 @@
 
   **Deliberately NOT changed:** `calendar.html`'s "a meeting Rafa had with the senior pastor" (a different person - the senior pastor of his church). `worker/index.js` (14 hits, server-side, never sent to a browser). `progress.md`'s own history. All phone numbers - Rafa's `12144487559` is one digit from Alice's and both were left untouched.
 
-  **Cache stamping done by hand**, since the pre-commit hook is not installed here and uses macOS-only `sed -i ''`. The live stamp was `1787314853`, not the `1787607259` the prompt stated. New stamp `1787608350` applied to `sw.js` CACHE_NAME and `version.json` in **both** root and `ios/App/App/public/`, plus the `?v=` bump on all 9 `template-edit.js` references (6 root, 3 iOS) - it is a versioned asset served cache-first, so the CACHE_NAME bump alone would not have shipped it.
+  **The pre-commit hook IS installed on this machine**, contrary to the prompt, and it re-stamped everything on commit - so the hand-stamping was redundant here. The live stamp was `1787314853`, not the `1787607259` the prompt stated; the hook landed `1787608441` for `sw.js` CACHE_NAME + `version.json` (both copies) and `1787608442` for the `?v=` on `template-edit.js`.
+
+  ⚠️ **The hook does NOT fully cover `ios/App/App/public/`.** It stamps that copy's `sw.js` and `version.json` explicitly, but its `?v=` bump loop walks `git ls-files '*.html'`, and `ios/App/App/public` is in `.gitignore` - the files are tracked from before it was ignored, so they never appear in `ls-files`. Two iOS HTMLs got the new `?v=` only because they were already staged with other edits; `ios/App/App/public/finance-new.html` was left a stamp behind and had to be aligned by hand in a follow-up commit. Any future session touching a versioned asset must check that copy manually.
 
   **Verified:** `node --check` clean on every changed JS file; the seed SQL executed and its output string compared against the live D1 value; full-repo grep returns zero title hits outside `worker/index.js` and `progress.md`.
 

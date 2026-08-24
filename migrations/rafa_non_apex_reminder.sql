@@ -10,7 +10,7 @@
 -- The accented Portuguese lives HERE, in the D1 row, because a JS string
 -- literal in this project must stay plain ASCII.
 INSERT INTO message_templates (template_key, template_text, updated_at, updated_by)
-VALUES ('rafa_non_apex_reminder', 'Bom dia, Pr. Rafa! Isto é o que o senhor tem:
+VALUES ('rafa_non_apex_reminder', 'Bom dia, Rafa! Isto é o que o senhor tem:
 
 {items}
 Qualquer mudança, é só me avisar.', datetime('now'), 'session-89')

@@ -50,7 +50,7 @@
     reminder_in_person:     { pt: "Lembrete Presencial",            en: "In-Person Reminder" },
     reminder_in_person_no_address:
                             { pt: "Lembrete Presencial (sem endereço)", en: "In-Person Reminder (no address)" },
-    rafa_non_apex_reminder: { pt: "Lembrete não-Apex (Pr. Rafa)",    en: "Non-Apex reminder (Pr. Rafa)" }
+    rafa_non_apex_reminder: { pt: "Lembrete não-Apex (Rafa)",    en: "Non-Apex reminder (Rafa)" }
   };
 
   // Only the tokens each key actually substitutes. Shown as chips so a

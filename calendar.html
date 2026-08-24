@@ -89,9 +89,9 @@
   <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="scheduling-queue.js?v=1786597358"></script>
+  <script src="scheduling-queue.js?v=1787607259"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787240981"></script>
+  <script src="template-edit.js?v=1787607259"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -406,7 +406,7 @@
       color: var(--text);
     }
 
-    /* ─── Pr. Rafa's non-Apex reminder ────────────────────────────────────
+    /* ─── Rafa's non-Apex reminder ────────────────────────────────────────
        ONE button sending ONE message listing every non-Apex item still
        upcoming today and tomorrow. It goes straight to his own number, unlike
        every other WhatsApp send on the site, because it has exactly one
@@ -1604,13 +1604,13 @@
         <!-- Rendered by JS -->
       </div>
 
-      <!-- Pr. Rafa's non-Apex reminder. ONE button, not one per row: this
+      <!-- Rafa's non-Apex reminder. ONE button, not one per row: this
            sends a single message listing everything. Kept out of the hero
            toolbar so there is room for the disabled reason and the pencil. -->
       <div class="rafa-wa-block" id="rafaWaBlock">
         <h2 class="rafa-wa-title">
-          <span class="show-pt">Lembrete n&#227;o-Apex (Pr. Rafa)</span>
-          <span class="show-en">Non-Apex reminder (Pr. Rafa)</span>
+          <span class="show-pt">Lembrete n&#227;o-Apex (Rafa)</span>
+          <span class="show-en">Non-Apex reminder (Rafa)</span>
         </h2>
         <p class="rafa-wa-sub">
           <span class="show-pt">Eventos e reuni&#245;es n&#227;o-Apex de hoje e amanh&#227;, em uma s&#243; mensagem.</span>
@@ -1642,7 +1642,7 @@
 
   </main><!-- /appMain -->
 
-  <!-- Hidden greeting text for the Pr. Rafa reminder, sourced by rafaGreeting()
+  <!-- Hidden greeting text for the Rafa reminder, sourced by rafaGreeting()
        so accented characters stay in HTML and out of JS string literals
        (project rule) -- same pattern as dashboard.html's renderGreeting(). -->
   <span id="rafaGreetMorning"   hidden aria-hidden="true">Bom dia</span>
@@ -2890,18 +2890,18 @@
       attachRafaWaEditor();
     }
 
-    // ═══ Pr. Rafa's non-Apex reminder ══════════════════════════════════════
+    // ═══ Rafa's non-Apex reminder ══════════════════════════════════════════
     // ONE button sending ONE WhatsApp message listing every non-Apex item
     // still upcoming today and tomorrow, so Alice can remind him of things
     // like his daughter's first day of kindergarten.
     //
-    // Pr. Rafa, +1 214 448 7559. Digits only, WITH the country code: a bare
+    // Rafa, +1 214 448 7559. Digits only, WITH the country code: a bare
     // 10-digit US number makes WhatsApp report that the number does not
     // exist, even for a real working number. Proven on a sibling project by
     // four real numbers that failed bare and worked the instant "1" was
     // prepended. Never "2144487559", never "+1 (214) 448-7559".
     //
-    // WARNING: this is ONE DIGIT from Pra. Alice's number -- same prefix, his
+    // WARNING: this is ONE DIGIT from Alice's number -- same prefix, his
     // ends 7559, hers ends 5917. A transposition sends his private family
     // schedule to the wrong person.
     var RAFA_WA = "12144487559";
@@ -3070,7 +3070,7 @@
         : (count === 1 ? "1 compromisso" : count + " compromissos");
     }
 
-    // One line per item, 12-hour with AM/PM ALWAYS (Pr. Rafa required the
+    // One line per item, 12-hour with AM/PM ALWAYS (Rafa required the
     // whole site in US standard; datetime.js says the PT/EN toggle must never
     // change how a time renders). A "Hoje:"/"Amanha:" subheading appears ONLY
     // when that day actually has items.

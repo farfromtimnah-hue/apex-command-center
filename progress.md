@@ -24,6 +24,24 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 93 - 2026-08-24 - **The "Pastor" title is off the Apex site.** Nicole: Apex is Rafa's BUSINESS, and the title does not belong on it. Noticed on the scheduling messages.
+
+  **What changed.** `Pastor Rafael` -> `Rafael`, `Pr. Rafa` -> `Rafa`, `Pra. Alice` -> `Alice` (confirmed by Nicole: the title comes off Alice too). Bare `Rafa` was already the site's own convention - `nav.js` role label, `sessions.html` "Follow-ups do Rafa" - so nothing new was invented and no surname was guessed.
+
+  **The one Nicole asked to keep.** `calendar.html` explains the non-Apex meeting category with "a meeting Rafa had with the senior pastor". That is a DIFFERENT person - the senior pastor of his church, not a title on Rafa - so it stays. Same for `scripts/task-unification/migrate.sql`, where "líderes e pastores" is a client's own business content.
+
+  **User-visible copy, 22 lines.** Client-facing: `agendar.html` booking intro ("Reunião de X minutos com o Rafael"), `portal.html` support routing hint ("Vai para Rafa no WhatsApp"). Internal: `calendar.html` + `settings.html` + `template-edit.js` reminder titles, `help/agendamento.html` (5), `internet-options.html` (4), `utility-savings.html` (4), `finance-new.html` (2).
+
+  **Comments count as the site.** Every `.html` and root `.js` file ships to the browser verbatim, so a comment saying "Pastor Rafael" is readable in view-source - and `agendar.html` is a PUBLIC page a client opens to book. 20 more occurrences removed from shipped comments. `worker/index.js` is server-side and never reaches a browser, so its comments were left alone; same for `progress.md` and the applied migrations.
+
+  **`ios/App/App/public/` is a THIRD copy of the frontend**, committed, not build output (see `scripts/pre-commit`). It carried 11 more occurrences, 3 of them user-visible. Fixed by the same targeted replacement rather than a full `npm run sync`, because that copy is otherwise well behind root and a sync would have buried this change in an unrelated diff.
+
+  **Cache stamping done by hand.** `scripts/pre-commit` normally stamps `sw.js` CACHE_NAME + `version.json` and bumps the `?v=` on versioned assets, but it is NOT installed in this container (`.git/hooks/pre-commit` absent) and its `sed -i ''` is macOS-only. Both stamps set to `1787607259` (root + iOS), and `?v=` bumped for the two versioned assets that changed, `template-edit.js` and `scheduling-queue.js`. Without this the service worker serves the old copy forever.
+
+  **Verified:** every changed `.js` is `node --check` clean; a repo-wide grep for `Pastor|Pastora|Pr.|Pra.` across all browser-shipped files returns nothing but the senior-pastor line; the full diff was read line by line and is text-only apart from the stamps.
+
+  **NOT verified:** nothing was opened in a browser. Also NOT checked: **the live D1 `message_templates` table.** Template copy is editable from the UI, so a row may still carry the title, and the Cloudflare connector is not authorized in this session - it needs re-authorizing in claude.ai connector settings before I can look. `migrations/rafa_non_apex_reminder.sql` was corrected in the repo, but that file is already applied and does not touch live data.
+
 - [x] Session 92 - 2026-08-21 - **One bank failing no longer stops the other bank from syncing.** The follow-up Session 91 named and Nicole asked for: "she depends on this feature."
 
   **The problem the retry did not solve.** Session 91 made a single slow Plaid call survivable, but the run was still all-or-nothing: the first failure that outlived both attempts ended the loop, and every Item after it was never contacted. That is exactly what cost Alice her personal account on 2026-08-21 - nothing was wrong with that bank, it was simply second in the list.
@@ -38,7 +56,7 @@
 
   **Verified:** worker `node --check` clean. 48 assertions across two suites, all passing, run against the REAL worker module (appended an export line to a copy and imported it - no re-implementation): 19 on the retry itself, and 29 driving `syncPlaidTransactions` and the actual `scheduled` handler against a stubbed D1 and Plaid. The integration suite replays the 20:00 failure exactly (business balance call hangs through both attempts, ~41s of real waiting) and asserts the personal Item's transactions AND balance are written, the business Item keeps its pages and cursor, and the Telegram text is captured off the stubbed fetch and checked for the bank name, the partial-vs-total wording, and the absence of the access_token.
 
-  **NOT verified:** still not exercised against real Plaid - the next 4-hourly cron is the first live run. The test suites live in the session scratchpad, not the repo; this project has no test harness to put them in.
+  **NOT verified:** still not exercised against real Plaid - the next 4-hourly cron is the first live run. The test suites live in the session scratchpad, not the repo. (Session 92 first recorded that as "this project has no test harness to put them in" - wrong: `scripts/` holds ~30 `test-*.mjs` Playwright harnesses and `scripts/deploy.sh` runs `test-vault-readonly.mjs`. Those drive a REAL browser against live data, which is a different shape from a stubbed-Plaid unit test, so the suites still do not have an obvious home - but the premise was false and is corrected here.)
 
 - [x] Session 91 - 2026-08-21 - **A slow Plaid call is retried instead of killing the whole sync.** Reported by Nicole from the Telegram alert: `Plaid sync failed: The operation was aborted`.
 

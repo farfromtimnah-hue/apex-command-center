@@ -353,7 +353,7 @@
   //
   // Real inputs, not prompts. The two prompts this replaces also asked for the
   // WRONG formats — "YYYY-MM-DD" and "HH:MM, 24h" — while the whole site
-  // displays MM/DD/YYYY and 12-hour AM/PM at Pastor Rafael's request. The
+  // displays MM/DD/YYYY and 12-hour AM/PM at Rafael's request. The
   // inputs submit their native ISO values (which is what the API wants) and the
   // echo line below them renders through formatDate/formatTime, so what she
   // reads back is always in the site's format.

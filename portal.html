@@ -1620,7 +1620,7 @@
         <div id="pilaresBody"></div>
       </div>
 
-      <!-- Lead-only: general container for whatever tools Pr. Rafa assigned to
+      <!-- Lead-only: general container for whatever tools Rafa assigned to
            this record. X-Ray is the only assignable tool today; more get added
            as entries in ASSIGNABLE_TOOLS, not by rebuilding this tab. Opening
            an entry hands off to that tool's existing tab (switchTab('xray')),
@@ -4019,7 +4019,7 @@
     var LEAD_ALLOWED_TABS = ["assigned", "documents", "xray", "lockedpreview"]
       .concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) { return t.key; }));
 
-    // Tools Pr. Rafa can assign to a lead. The Business X-Ray is spelled out
+    // Tools Rafa can assign to a lead. The Business X-Ray is spelled out
     // (it is the only multi-section instrument); every single-page one is
     // derived from SINGLE_PAGE_ASSESSMENTS. `isAssigned` is re-evaluated on
     // each render against the real assignment data, and means "assigned and
@@ -4313,12 +4313,12 @@
     // several people there work with clients. Meeting links and day-to-day
     // messages keep going to the group; these two do not.
     //
-    // WARNING: Rafa's number is one digit from Pra. Alice's (hers ends 5917,
+    // WARNING: Rafa's number is one digit from Alice's (hers ends 5917,
     // his ends 7559 — same area code AND same prefix). Verify the last four
     // before touching either line.
     var SUPPORT_ROUTES = {
       technical: { phone: "14016514117", toPt: "Nicole", toEn: "Nicole" },   // +1 401 651 4117
-      business:  { phone: "12144487559", toPt: "Pr. Rafa", toEn: "Pr. Rafa" } // +1 214 448 7559
+      business:  { phone: "12144487559", toPt: "Rafa", toEn: "Rafa" } // +1 214 448 7559
     };
 
     // These two strings are intentionally NOT in message_templates. That system
@@ -6356,7 +6356,7 @@
       if (doc.kind === "uploaded") {
         // A PLACEHOLDER has no file yet, only the approved preview. Asking for
         // /file would 404 and the client would meet a blank tab and an HTTP
-        // error -- while the confirmation Pr. Rafa saw when he revealed it told
+        // error -- while the confirmation Rafa saw when he revealed it told
         // him they would see the preview. Serve the preview instead.
         // Same blob handoff as the file branch below and as client.html --
         // document.write() into a window.open("") tab is blocked in some

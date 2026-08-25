@@ -24,6 +24,26 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 91 (parte 2) - 2026-08-24 - **Comissão: valor e porcentagem viraram um par ligado - mudar qualquer um dos dois ajusta o outro.** Pedido do Rafa depois de ver a versão de mão única: *"changing either works... like how you can lock proportions when changing the size of a rectangle"*.
+
+  **Só UM dos dois é gravado.** `gm_jobs.comissao` guarda o dólar; a porcentagem é sempre derivada dele. Editar a porcentagem é, portanto, uma **escrita em `comissao`** (`valor * pct / 100`), não uma segunda coluna. É isso que impede os dois de divergirem - com as duas coisas gravadas, qualquer bug de arredondamento deixaria a tela dizendo 5% e o pagamento dizendo outra coisa.
+
+  **Sem deriva.** Testado: 5,5% → $4.565 → 5,5%, estável depois de 5 ida-e-voltas seguidas.
+
+  **`gmParseMoney`, não `parseFloat`.** Aceita `"5,5"` e `"5.5"`. Teclado brasileiro produz a vírgula, e `parseFloat("5,5")` devolve **5** silenciosamente - meio ponto a menos para o vendedor, sem erro nenhum na tela.
+
+  **Limpar a porcentagem limpa a comissão**, em vez de gravar 0. "Não definido" e "foi combinada uma comissão de exatamente zero" são afirmações diferentes; só a primeira deve renderizar em branco.
+
+  **A linha fica inerte, com o motivo escrito, enquanto o projeto não tem `valor`** - não há de que tirar porcentagem, então um editor ali só poderia descartar o que fosse salvo.
+
+  **Corrigir o `valor` do projeto mantém o dólar e move a porcentagem** - de propósito. O dinheiro foi combinado e pago; quem mudou foi a taxa. Ajustar o dólar sozinho re-precificaria uma comissão já acertada, exatamente o que o Rafa pediu para não acontecer. Para isso não ser silencioso, a sub-linha agora nomeia a base: *"5% de $83,000 (valor bruto)"*.
+
+  **Arredondamento honesto:** a taxa é exibida com uma casa, então 7,25% digitado lê de volta 7,3%. Os dólares ($6.017,50 num projeto de $83.000) são exatos - só o rótulo arredonda, e guardar o dinheiro em vez da taxa é o que torna isso inofensivo.
+
+  **Verificado:** `node --check` nas duas cópias; as duas metades da conversão exercitadas em ambas as direções com `5`, `5,5`, `5.5`, `7.25`, `10`, `0` e com $4.150 / $6.225 / $2.000 / $1.234,56; função `gmEditJobComissaoPct()` conferida byte a byte como **idêntica** entre root e iOS.
+
+  **NOT verified:** de novo, nada foi aberto em navegador real. Ninguém tocou na linha e viu o editor abrir. O par ligado é lógica pura e está testado como lógica, mas o gesto - tocar em "Comissão (%)", digitar, salvar, ver o dólar mudar lá em cima em VALORES - **não foi exercitado por ninguém**.
+
 - [x] Session 91 - 2026-08-24 - **Custo administrativo e comissão do vendedor nos projetos do GM, com a porcentagem calculada de volta.** Pedido do Rafa a partir da tela VALORES do projeto (foto no celular, projeto "Johnny Bass", $83,000).
 
   **A direção importa: ele digita o VALOR em dólares e LÊ a porcentagem.** Palavras dele - *"precisamos colocar o valor da comissão e ter como saber quanto está dando a comissão do vendedor em percentual"*. Por isso `gm_jobs.comissao` guarda o **dólar** e `comissao_pct` é derivado, nunca gravado. Guardar a porcentagem re-precificaria sozinha uma comissão já combinada e paga no instante em que alguém corrigisse o `valor` do projeto.

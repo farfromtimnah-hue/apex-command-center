@@ -17870,16 +17870,38 @@ async function handlePutGmFinance(id, rowId, request, env) {
 // ---------------------------------------------------------------------------
 
 function gmJobComputed(row, targetMargin) {
-    var custoTotal = (row.material || 0) + (row.mao_de_obra || 0) + (row.outros || 0);
+    // custo_administrativo and comissao are costs like any other: Rafa asked
+    // for both on 2026-08-24 and both come off the top before lucro. Adding
+    // them here is the whole change — margem_pct and alvo_ok already derive
+    // from lucro, so the target-margin warning starts accounting for them
+    // automatically rather than needing its own edit.
+    var custoTotal = (row.material || 0) + (row.mao_de_obra || 0) + (row.outros || 0) +
+                     (row.custo_administrativo || 0) + (row.comissao || 0);
     var lucro = row.valor === null || row.valor === undefined ? null : row.valor - custoTotal;
     var margemPct = (row.valor && row.valor > 0 && lucro !== null)
         ? Math.round((lucro / row.valor) * 1000) / 10 : null;
     var noPrazo = null;
     if (row.entrega_real && row.prazo_previsto) { noPrazo = row.entrega_real <= row.prazo_previsto; }
+    // COMISSAO % — derived, never stored. Rafa enters the dollar amount he
+    // agreed with the seller and reads the rate back; storing the rate instead
+    // would silently re-price a commission that was already agreed the moment
+    // anyone corrected the job's valor.
+    //
+    // Percentage OF THE GROSS SALE (valor), explicitly not of the profit —
+    // his words: "será um percentual do valor da venda (bruto) e não do lucro".
+    //
+    // null when there is no commission, or when valor is missing/zero: a rate
+    // against no sale value is unanswerable, not 0%. Same three-state rule as
+    // margem_pct/alvo_ok, and the UI must render the blank rather than a
+    // number that looks like a real 0.
+    var comissaoPct = (row.comissao !== null && row.comissao !== undefined &&
+                       row.valor && row.valor > 0)
+        ? Math.round((row.comissao / row.valor) * 1000) / 10 : null;
     return {
         custo_total: custoTotal,
         lucro: lucro,
         margem_pct: margemPct,
+        comissao_pct: comissaoPct,
         // ALVO? — warn when margin is below the client's configured minimum.
         // "No proposal goes out below this number."
         //
@@ -19501,7 +19523,7 @@ function gmJobFields(body, partial) {
         if (GM_JOB_STATUSES.indexOf(body.status) === -1) { return { error: "Status inválido" }; }
         out.status = body.status;
     }
-    var numFields = ["valor", "material", "mao_de_obra", "outros"];
+    var numFields = ["valor", "material", "mao_de_obra", "outros", "custo_administrativo", "comissao"];
     for (var i = 0; i < numFields.length; i++) {
         if (has(numFields[i])) { out[numFields[i]] = gmNum(body[numFields[i]]); }
     }
@@ -19525,14 +19547,16 @@ async function handlePostGmJob(id, request, env) {
         var f = parsed.fields;
         var rowId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO gm_jobs (id, client_id, obra, mes_entrega, valor, material, mao_de_obra, outros, inicio, prazo_previsto, entrega_real, status) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO gm_jobs (id, client_id, obra, mes_entrega, valor, material, mao_de_obra, outros, custo_administrativo, comissao, inicio, prazo_previsto, entrega_real, status) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(rowId, id, f.obra,
             f.mes_entrega !== undefined ? f.mes_entrega : null,
             f.valor !== undefined ? f.valor : null,
             f.material !== undefined ? f.material : null,
             f.mao_de_obra !== undefined ? f.mao_de_obra : null,
             f.outros !== undefined ? f.outros : null,
+            f.custo_administrativo !== undefined ? f.custo_administrativo : null,
+            f.comissao !== undefined ? f.comissao : null,
             f.inicio !== undefined ? f.inicio : null,
             f.prazo_previsto !== undefined ? f.prazo_previsto : null,
             f.entrega_real !== undefined ? f.entrega_real : null,

@@ -1,0 +1,21 @@
+-- Two more cost inputs on a project, asked for by Rafa 2026-08-24 after
+-- reviewing the VALORES section on his phone.
+--
+-- CUSTO ADMINISTRATIVO joins material/mao_de_obra/outros as a plain cost. It
+-- feeds custo_total, so it reduces lucro and margem_pct exactly like the other
+-- three. No new maths — gmJobComputed() just sums one more column.
+--
+-- COMISSAO is stored as the DOLLAR AMOUNT, not the percentage. Rafa's own
+-- words: "a comissão do vendedor será um percentual do valor da venda (bruto)
+-- e não do lucro... precisamos colocar o valor da comissão e ter como saber
+-- quanto está dando a comissão do vendedor em percentual."
+--
+-- So the amount is the input and the percentage is DERIVED (comissao / valor),
+-- shown back to him read-only. Storing the dollar figure is what keeps the
+-- books honest: a stored percentage would silently re-price a commission that
+-- was already agreed and paid the moment anyone corrected the job's valor.
+-- The derived percentage is null when valor is 0 or unset — a commission on
+-- nothing has no meaningful rate, and that must read as "unanswerable" rather
+-- than 0%. Same three-state rule as margem_pct/alvo_ok.
+ALTER TABLE gm_jobs ADD COLUMN custo_administrativo REAL;
+ALTER TABLE gm_jobs ADD COLUMN comissao REAL;

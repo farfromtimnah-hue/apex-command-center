@@ -2814,6 +2814,8 @@ function gmSimpleSpec(kind) {
       { key: "material",       type: "currency", pt: "Material ($)",       en: "Materials ($)" },
       { key: "mao_de_obra",    type: "currency", pt: "Mão de obra ($)",    en: "Labor ($)" },
       { key: "outros",         type: "currency", pt: "Outros ($)",         en: "Other ($)" },
+      { key: "custo_administrativo", type: "currency", pt: "Custo administrativo ($)", en: "Administrative cost ($)" },
+      { key: "comissao",       type: "currency", pt: "Comissão vendedor ($)", en: "Sales commission ($)" },
       { key: "status",         type: "choice",   pt: "Status",             en: "Status", options: gmConfig.method.job_statuses, pills: GM_STATUS_PILLS.job },
       { key: "mes_entrega",    type: "choice",   pt: "Mês entrega",        en: "Delivery month", options: gmConfig.config.cycle_months },
       { key: "inicio",         type: "date",     pt: "Início",             en: "Start" },
@@ -2954,7 +2956,14 @@ function gmJobSheetBody(row, spec) {
     gmSheetRowHtml("dollar", gmT("Valor ($)", "Value ($)"), val("valor"), edit("valor")) +
     gmSheetRowHtml("tag", gmT("Material ($)", "Materials ($)"), val("material"), edit("material")) +
     gmSheetRowHtml("users", gmT("Mão de obra ($)", "Labor ($)"), val("mao_de_obra"), edit("mao_de_obra")) +
-    gmSheetRowHtml("tag", gmT("Outros ($)", "Other ($)"), val("outros"), edit("outros")));
+    gmSheetRowHtml("tag", gmT("Outros ($)", "Other ($)"), val("outros"), edit("outros")) +
+    gmSheetRowHtml("tag", gmT("Custo administrativo ($)", "Administrative cost ($)"),
+      val("custo_administrativo"), edit("custo_administrativo")) +
+    // The commission the seller was actually agreed, in dollars. The RATE it
+    // works out to is shown down in Resultado, derived — Rafa enters the money
+    // and reads the percentage back, not the other way round.
+    gmSheetRowHtml("users", gmT("Comissão vendedor ($)", "Sales commission ($)"),
+      val("comissao"), edit("comissao")));
 
   // ── Schedule ──────────────────────────────────────────────────────────
   body += gmSheetSection(gmT("Prazos", "Schedule"),
@@ -3060,9 +3069,20 @@ function gmRenderSimpleSheet(kind) {
     var onTimeHtml = row.no_prazo === null ? ""
       : (row.no_prazo ? '<span class="gm-ok">✓ ' + gmT("Sim", "Yes") + '</span>'
                       : '<span class="gm-warn">! ' + gmT("Não", "No") + '</span>');
+    // Commission RATE, derived from the dollar amount above. Blank — not 0% —
+    // when there is no commission or no valor to measure it against, matching
+    // the margin rows: an unanswerable question renders empty, never as a
+    // number that reads like a real rate.
+    var comissaoHtml = row.comissao_pct === null || row.comissao_pct === undefined
+      ? "" : escHtml(fmtNum(row.comissao_pct, "percent"));
+    var comissaoSub = (row.comissao_pct === null || row.comissao_pct === undefined)
+      ? "" : gmT("do valor bruto da venda", "of the gross sale value");
+
     body += gmSheetSection(gmT("Resultado", "Result"),
       gmSheetRowHtml("dollar", gmT("Custo total", "Total cost"),
         escHtml(fmtNum(row.custo_total, "currency"))) +
+      gmSheetRowHtml("users", gmT("Comissão (%)", "Commission (%)"),
+        comissaoHtml, null, null, comissaoSub) +
       gmSheetRowHtml("dollar", gmT("Lucro", "Profit"),
         row.lucro === null ? "" : escHtml(fmtNum(row.lucro, "currency"))) +
       gmSheetRowHtml("compass", gmT("Margem", "Margin"), marginHtml, null, null, marginSub) +

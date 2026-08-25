@@ -3069,20 +3069,36 @@ function gmRenderSimpleSheet(kind) {
     var onTimeHtml = row.no_prazo === null ? ""
       : (row.no_prazo ? '<span class="gm-ok">✓ ' + gmT("Sim", "Yes") + '</span>'
                       : '<span class="gm-warn">! ' + gmT("Não", "No") + '</span>');
-    // Commission RATE, derived from the dollar amount above. Blank — not 0% —
-    // when there is no commission or no valor to measure it against, matching
-    // the margin rows: an unanswerable question renders empty, never as a
-    // number that reads like a real rate.
+    // Commission RATE. Editable, and LINKED to the dollar amount up in Valores
+    // the way a rectangle's locked proportions are: type the money and the
+    // rate follows, type the rate and the money follows. Rafa asked for both
+    // directions after seeing the one-way version.
+    //
+    // Only ONE of the pair is stored (comissao, in dollars). The rate is
+    // always recomputed from it, so the two can never drift apart or disagree
+    // — which is the whole reason not to store both. Editing the rate is
+    // therefore a WRITE TO comissao: pct -> valor * pct / 100, in
+    // gmEditJobComissaoPct().
+    //
+    // Blank — not 0% — when there is no commission or no valor to measure it
+    // against, matching the margin rows: an unanswerable question renders
+    // empty, never a number that reads like a real rate.
     var comissaoHtml = row.comissao_pct === null || row.comissao_pct === undefined
       ? "" : escHtml(fmtNum(row.comissao_pct, "percent"));
-    var comissaoSub = (row.comissao_pct === null || row.comissao_pct === undefined)
-      ? "" : gmT("do valor bruto da venda", "of the gross sale value");
+    // Without a valor there is nothing to take a percentage OF, so the rate is
+    // not editable yet and the sub-line says why rather than opening an editor
+    // whose save could only ever be discarded.
+    var comissaoEditable = !!(row.valor && row.valor > 0);
+    var comissaoSub = comissaoEditable
+      ? gmT("de " + fmtNum(row.valor, "currency") + " (valor bruto) — toque para mudar",
+            "of " + fmtNum(row.valor, "currency") + " (gross sale) — tap to change")
+      : gmT("defina o Valor ($) primeiro", "set the Value ($) first");
 
     body += gmSheetSection(gmT("Resultado", "Result"),
       gmSheetRowHtml("dollar", gmT("Custo total", "Total cost"),
         escHtml(fmtNum(row.custo_total, "currency"))) +
       gmSheetRowHtml("users", gmT("Comissão (%)", "Commission (%)"),
-        comissaoHtml, null, null, comissaoSub) +
+        comissaoHtml, comissaoEditable ? "gmEditJobComissaoPct()" : null, null, comissaoSub) +
       gmSheetRowHtml("dollar", gmT("Lucro", "Profit"),
         row.lucro === null ? "" : escHtml(fmtNum(row.lucro, "currency"))) +
       gmSheetRowHtml("compass", gmT("Margem", "Margin"), marginHtml, null, null, marginSub) +
@@ -3210,6 +3226,58 @@ function gmEditSimpleField(defIdx) {
     }
     gmSaveSimpleField(kind, def.key, value);
   }, def.note ? '<div class="gm-derived-note">' + def.note + '</div>' : null);
+}
+
+// Edit the commission by its RATE instead of its dollar amount. The linked
+// half of the pair described in gmJobSheetBody: only `comissao` (dollars) is
+// ever stored, so this converts and writes THAT — the rate is never persisted
+// and so can never disagree with the money.
+//
+// Percentage OF THE GROSS SALE (valor), per Rafa: "sera um percentual do valor
+// da venda (bruto) e nao do lucro".
+//
+// gmParseMoney, not parseFloat: it accepts both "5,5" and "5.5". A Brazilian
+// keyboard produces the comma, and parseFloat("5,5") silently returns 5 —
+// quietly under-paying the seller by half a point with no error shown.
+function gmEditJobComissaoPct() {
+  var row = gmSheetRow;
+  var kind = gmSheetKind;
+  if (!row || !row.valor || row.valor <= 0) { return; }
+  var valor = row.valor;
+  var current = (row.comissao_pct === null || row.comissao_pct === undefined)
+    ? null : row.comissao_pct;
+  gmOpenFieldEditor(gmT("Comissão (%)", "Commission (%)"), "currency", current, [],
+    function(value) {
+      if (value === null) {
+        // Cleared the rate — clear the commission itself. Writing 0 instead
+        // would claim a commission of exactly zero was agreed, which is a
+        // different statement from "not set" and would render as 0% rather
+        // than blank.
+        gmSaveSimpleField(kind, "comissao", null);
+        return;
+      }
+      if (value < 0 || value > 100) {
+        window.alert(gmT("A porcentagem deve estar entre 0 e 100.",
+                         "The percentage must be between 0 and 100."));
+        gmRenderSimpleSheet(kind);
+        return;
+      }
+      // Round to cents. The rate is a means of entry, not the record: the
+      // dollar figure is what gets paid, so it must be a real payable amount.
+      //
+      // The rate is displayed to ONE decimal, so a typed 7.25% reads back as
+      // 7.3%. The dollars ($6,017.50 on an $83,000 job) are exact — only the
+      // label rounds. Storing the money rather than the rate is what makes
+      // that harmless: the payable figure never loses the quarter point.
+      var dollars = Math.round((valor * value / 100) * 100) / 100;
+      gmSaveSimpleField(kind, "comissao", dollars);
+    },
+    '<div class="gm-derived-note">' +
+      gmT("Porcentagem sobre o valor bruto da venda (" + fmtNum(valor, "currency") + "). " +
+          "Salva como valor em dólares; a porcentagem é recalculada a partir dele.",
+          "Percentage of the gross sale value (" + fmtNum(valor, "currency") + "). " +
+          "Saved as a dollar amount; the percentage is recalculated from it.") +
+    '</div>');
 }
 
 function gmSaveSimpleField(kind, key, value) {

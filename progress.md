@@ -24,6 +24,26 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 91 - 2026-08-24 - **Custo administrativo e comissão do vendedor nos projetos do GM, com a porcentagem calculada de volta.** Pedido do Rafa a partir da tela VALORES do projeto (foto no celular, projeto "Johnny Bass", $83,000).
+
+  **A direção importa: ele digita o VALOR em dólares e LÊ a porcentagem.** Palavras dele - *"precisamos colocar o valor da comissão e ter como saber quanto está dando a comissão do vendedor em percentual"*. Por isso `gm_jobs.comissao` guarda o **dólar** e `comissao_pct` é derivado, nunca gravado. Guardar a porcentagem re-precificaria sozinha uma comissão já combinada e paga no instante em que alguém corrigisse o `valor` do projeto.
+
+  **A porcentagem é sobre o VALOR BRUTO da venda, não sobre o lucro** - confirmado por ele antes de construir: *"será um percentual do valor da venda (bruto) e não do lucro"*. Não havia convenção nenhuma no código (zero lógica de comissão em todo o repo), então era regra de negócio dele, não default técnico - foi perguntado em vez de adivinhado. Numa venda de $83,000 a diferença entre as duas leituras é $4,150 contra $1,476.
+
+  **"Margem total" e "Lucro" já existiam** - `gmJobComputed()` calcula em tempo de leitura desde antes. Só não apareciam nesta ficha e não conheciam os custos novos. Como os dois campos novos entram em `custo_total`, `lucro`/`margem_pct`/`alvo_ok` passaram a considerá-los **sem edição própria** - ou seja, o alerta de margem alvo agora dispara sobre a margem verdadeira.
+
+  **No Johnny Bass isso muda o veredito.** Com $5,000 de administrativo e $4,150 de comissão: custo_total $62,633, lucro $20,367, margem **35.6% → 24.5%**, e `alvo_ok` vira **true → false** contra um alvo de 25%. O projeto parecia dentro do alvo e não está.
+
+  **Três estados, não zero.** `comissao_pct` é `null` (renderiza em branco) quando não há comissão ou quando `valor` é 0/ausente - uma taxa sobre venda nenhuma é *impossível de responder*, não 0%. Mesma regra de `margem_pct`/`alvo_ok`, e a UI mostra o branco em vez de um número que parece taxa real.
+
+  **Vendedor não vê nada disso.** `gm/jobs` está ausente de `sellerRequestAllowed` - allowlist estrita, então a sessão de vendedor é recusada antes de chegar no handler. Nada precisou ser adicionado; adicionar seria o erro.
+
+  **Verificado:** migração aplicada no D1 remoto e colunas confirmadas por `PRAGMA`; INSERT com 14 colunas / 14 placeholders e ordem de `bind()` conferida uma a uma; o `gmJobComputed()` **já publicado** foi extraído e executado sobre os números reais do Johnny Bass, devolvendo custo_total 62633 / lucro 20367 / margem 24.5% / comissão 5.0% / alvo_ok false, e devolvendo `null` nos casos sem comissão e com valor zero. Worker deployado (version 266caecd). Linha de teste `zz-test-commission-001` criada e **apagada**; Johnny Bass permanece com os dois campos novos em NULL, intocado.
+
+  **NOT verified:** nada foi aberto em navegador real - nenhuma tela carregada, nenhum screenshot. As duas linhas novas em VALORES e a linha "Comissão (%)" em Resultado foram conferidas por leitura de código e `node --check`, não vistas na tela. O fluxo de digitar um valor pelo celular e ver a porcentagem aparecer **não foi exercitado por ninguém ainda** - é o teste que falta, e é do Rafa ou da Alice.
+
+  **Cópia iOS:** `ios/App/App/public/gm.js` já estava divergente do root, então levou os mesmos patches pontuais em vez de cópia por cima. Desta vez o hook alinhou o `?v=` das duas cópias sozinho (1787625891) porque o `portal.html` do iOS já estava staged - o que **não** é garantido; ver a nota da sessão 90.
+
 - [x] Session 90 - 2026-08-24 - **"Pastor" title removal finished: live D1 verified clean, and the repo turned out NOT to be.** The title does not belong on Apex, which is Rafa's business, not his church. A previous session removed it from the repo but the Cloudflare connector dropped out before the live database was ever checked, so `message_templates` - the one table whose copy is SENT TO CLIENTS - was still unverified.
 
   **The database was already clean, and that is the headline.** The connector worked this time (wrangler 4.115.0, OAuth, `d1 (write)`). Queried against `--remote`, not the seeds. `message_templates`: **0 of 14 rows** carry the title. All 14 were dumped and read rather than trusting an empty result set - the only Rafa reference is `portal_help_request`'s `"Oi Rafa! Aqui é {clientName}"`, which is the site's own bare-name convention. **No UPDATE was run, because none was needed.**

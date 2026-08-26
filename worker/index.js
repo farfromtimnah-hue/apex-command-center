@@ -20888,9 +20888,26 @@ async function applyTransferRules(env) {
         "SELECT pattern FROM categorization_rules WHERE source = 'auto' AND category_id = 'transfer'"
     ).all();
     for (var i = 0; i < rules.results.length; i++) {
+        // 'suspected' OR 'none' -- NOT just 'suspected'.
+        //
+        // This clause used to read `transfer_status = 'suspected'`, which meant
+        // the rule could only ever CONFIRM something the pair-detector had
+        // already flagged. A row the detector never saw stayed at 'none'
+        // forever and kept counting as income, no matter how many times Alice
+        // said "always treat this as a transfer".
+        //
+        // That is exactly what happened in August 2026: the business account
+        // stopped syncing on the 23rd, so the OUTGOING side of three
+        // owner's-draw payments never arrived, the detector had nothing to
+        // pair, and $1,515 of Rafa's own pay was reported as August income.
+        // She had set the rule. The rule was correct. It simply could not
+        // reach those rows.
+        //
+        // 'rejected' is deliberately NOT included: that is a human saying "this
+        // is not a transfer", and a rule must never overturn that.
         await env.DB.prepare(
             "UPDATE transactions SET transfer_status = 'confirmed', is_transfer = 1 " +
-            "WHERE transfer_status = 'suspected' AND merchant_normalized = ?"
+            "WHERE transfer_status IN ('suspected', 'none') AND merchant_normalized = ?"
         ).bind(rules.results[i].pattern).run();
     }
 }

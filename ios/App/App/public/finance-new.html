@@ -1412,6 +1412,7 @@
       <span>
         <span class="show-pt">Uma conex&atilde;o banc&aacute;ria precisa ser reconectada. Os dados abaixo podem estar desatualizados.</span>
         <span class="show-en">A bank connection needs to be reconnected. The data below may be out of date.</span>
+        <b id="reauthWhich" style="display:block;margin-top:4px;"></b>
       </span>
       <button class="btn btn-sm btn-gold" onclick="reconnectFirstBrokenItem()">
         <span class="show-pt">Reconectar</span>
@@ -5767,6 +5768,22 @@
     function renderBanners() {
       var reauth = document.getElementById("reauthBanner");
       reauth.hidden = REAUTH_ITEMS.length === 0;
+
+      // Say WHICH account the reconnect will fix, with its last four digits,
+      // so she can confirm the bank is showing her the same one.
+      var whichEl = document.getElementById("reauthWhich");
+      if (whichEl) {
+        var brokenIds = REAUTH_ITEMS.map(function(x) { return x.id; });
+        var brokenAccts = ACCOUNTS.filter(function(a) {
+          return brokenIds.indexOf(a.item_row_id) !== -1;
+        });
+        whichEl.textContent = brokenAccts.length
+          ? brokenAccts.map(function(a) {
+              return (a.name || "") + (a.mask ? " ****" + a.mask : "") +
+                     " (" + (a.purpose === "business"
+                        ? t("Conta Empresarial", "Business Account")
+                        : t("Conta Pessoal", "Personal Account")) + ")";
+        
 
       // Staleness: show WHEN the data is from, always. A number with no
       // timestamp invites her to trust a figure that may be days old.

@@ -1438,6 +1438,17 @@
         <span class="show-pt">Reconectar</span>
         <span class="show-en">Reconnect</span>
       </button>
+      <!-- Fallback when update mode will not work. BofA has been offering the
+           WRONG account inside its own OAuth screen, so the update-mode token
+           (issued for the business item) can never be satisfied. Linking fresh
+           sidesteps that entirely.
+           THIS IS SAFE: /exchange matches on plaid_account_id and UPDATES the
+           existing accounts row, so the account id never changes and every
+           transaction stays attached. Verified against the handler. -->
+      <button class="btn btn-sm btn-outline" onclick="relinkBrokenItem()" style="margin-left:6px;">
+        <span class="show-pt">Conectar de novo</span>
+        <span class="show-en">Link again</span>
+      </button>
     </div>
 
     <!-- Staleness banner: never silently show old numbers. -->
@@ -3121,8 +3132,12 @@
           });
           handler.open();
         })
-        .catch(function() {
-          toast(isEn() ? "Could not start the bank connection." : "N&atilde;o foi poss&iacute;vel iniciar a conex&atilde;o.");
+        .catch(function(e) {
+          // Same lesson as the reconnect button: show the REAL reason and hold
+          // it long enough to read and repeat over the phone.
+          toast((e && e.message) ? String(e.message)
+                : (isEn() ? "Could not start the bank connection." : "N&atilde;o foi poss&iacute;vel iniciar a conex&atilde;o."),
+                null, null, 15000);
         });
     }
 
@@ -3217,6 +3232,34 @@
           toast((e && e.message) ? String(e.message) : t("Erro ao reconectar", "Reconnect error"),
                 null, null, 15000);
         });
+    }
+
+    // Re-link the broken account from scratch, keeping its history.
+    //
+    // Update mode asks the bank to repair an existing grant. When the bank
+    // offers the wrong account -- which is what BofA is doing here -- that
+    // repair can never complete. A fresh link creates a NEW grant, and the
+    // exchange handler recognises the account by plaid_account_id and updates
+    // the row in place rather than inserting a duplicate. Her transactions,
+    // categories and matches all survive because they hang off accounts.id,
+    // which does not change.
+    function relinkBrokenItem() {
+      if (!REAUTH_ITEMS.length) { return; }
+      var brokenIds = REAUTH_ITEMS.map(function(x) { return x.id; });
+      var broken = ACCOUNTS.filter(function(a) { return brokenIds.indexOf(a.item_row_id) !== -1; });
+      var purpose = (broken[0] && broken[0].purpose) || "business";
+      var label = broken.length
+        ? (broken[0].name || "") + (broken[0].mask ? " ****" + broken[0].mask : "")
+        : "";
+
+      var msg = isEn()
+        ? "Link " + label + " again from scratch?\n\nUse this when Reconnect keeps failing or the bank shows you the wrong account.\n\nYour transaction history is kept."
+        : "Conectar " + label + " de novo, do zero?\n\nUse quando Reconectar continua falhando ou o banco mostra a conta errada.\n\nSeu historico de transacoes e mantido.";
+      if (!window.confirm(msg)) { return; }
+
+      // IMPORTANT: pick the account whose purpose matches the BROKEN one, so
+      // the re-link is tagged the same way it was before.
+      startLink(purpose);
     }
 
     function retagAccount(accountId, purpose) {
@@ -5945,19 +5988,52 @@
       // Staleness: show WHEN the data is from, always. A number with no
       // timestamp invites her to trust a figure that may be days old.
       var stale = document.getElementById("staleBanner");
+
+      // PER ACCOUNT, not newest-across-all. Taking the newest meant one
+      // healthy account masked a dead one: on 2026-08-26 the personal account
+      // synced daily while the BUSINESS account had been frozen since Aug 23,
+      // and the banner cheerfully reported today's date over three-day-old
+      // business numbers. An account that is behind must say so by name.
+      function syncLabel(iso) {
+        var d = new Date(String(iso).replace(" ", "T") + "Z");
+        // en-US pinned, not tied to the PT/EN toggle -- same rule as fmtCents:
+        // US date/time convention regardless of display language.
+        return isNaN(d.getTime()) ? String(iso) : d.toLocaleString("en-US");
+      }
+
+      var synced = ACCOUNTS.filter(function(a) { return !!a.last_synced_at; });
+      if (!synced.length) { stale.hidden = true; return; }
+
       var newest = null;
-      ACCOUNTS.forEach(function(a) {
-        if (a.last_synced_at && (!newest || a.last_synced_at > newest)) { newest = a.last_synced_at; }
+      synced.forEach(function(a) {
+        if (!newest || a.last_synced_at > newest) { newest = a.last_synced_at; }
       });
-      if (!newest) { stale.hidden = true; return; }
+
+      // Anything more than 24h behind the freshest account is called out by
+      // name. The threshold is relative rather than absolute because a normal
+      // sync runs several times a day, so a full day behind is already wrong.
+      var newestMs = new Date(String(newest).replace(" ", "T") + "Z").getTime();
+      var behind = synced.filter(function(a) {
+        var ms = new Date(String(a.last_synced_at).replace(" ", "T") + "Z").getTime();
+        return isFinite(ms) && isFinite(newestMs) && (newestMs - ms) > 24 * 60 * 60 * 1000;
+      });
+
       stale.hidden = false;
-      var d = new Date(newest.replace(" ", "T") + "Z");
-      // en-US pinned, not tied to the PT/EN toggle -- same rule as fmtCents
-      // above: US date/time convention (M/D/YYYY, h:mm AM/PM) regardless of
-      // display language, matching datetime.js's own stated policy.
-      var when = isNaN(d.getTime()) ? newest : d.toLocaleString("en-US");
-      document.getElementById("staleText").textContent =
-        (isEn() ? "Data from " : "Dados de ") + when;
+      var el = document.getElementById("staleText");
+      if (behind.length) {
+        stale.className = "banner banner-warn";
+        el.textContent = (isEn() ? "OUT OF DATE: " : "DESATUALIZADO: ") +
+          behind.map(function(a) {
+            return (a.name || "") + (a.mask ? " ****" + a.mask : "") + " " +
+                   (isEn() ? "last updated " : "atualizado em ") + syncLabel(a.last_synced_at);
+          }).join(" | ") +
+          (isEn()
+            ? ". These figures will not change until the connection is restored."
+            : ". Esses valores nao vao mudar ate a conexao ser restaurada.");
+      } else {
+        stale.className = "banner banner-info";
+        el.textContent = (isEn() ? "Data from " : "Dados de ") + syncLabel(newest);
+      }
     }
 
     function populateAccountFilter() {

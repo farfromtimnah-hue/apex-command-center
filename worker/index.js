@@ -20111,6 +20111,25 @@ async function handlePostFinanceNewMigrateInvoices(request, env) {
 // logged or serialized into any response.
 // ---------------------------------------------------------------------------
 
+// Plaid's client_user_id must NOT contain PII. It was "apex-" + user.email
+// until 2026-08-26, when Plaid began rejecting it outright with
+// INVALID_FIELD ("should not contain sensitive information like an email"),
+// which broke BOTH initial linking and update-mode reconnect. Alice saw only
+// an unreadable "Erro" flash because the UI discarded the message.
+//
+// Plaid requires this value to be STABLE for the same end user across link
+// sessions, so it cannot be random per request. A SHA-256 of the role, hex
+// truncated, is stable, non-reversible, and carries no PII. Role rather than
+// email because the Plaid items belong to the business, not to a person --
+// alice and rafa both administer the same two BofA items.
+async function plaidUserId(user) {
+    var basis = "apex-user-v1:" + ((user && user.role) || "admin");
+    var bytes = new TextEncoder().encode(basis);
+    var digest = await crypto.subtle.digest("SHA-256", bytes);
+    var arr = Array.from(new Uint8Array(digest)).slice(0, 12);
+    return "apex-" + arr.map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+}
+
 function plaidBaseUrl(env) {
     return "https://" + (env.PLAID_ENV || "production") + ".plaid.com";
 }
@@ -20172,7 +20191,7 @@ async function handlePostFinanceNewLinkToken(request, env) {
         }
 
         var result = await plaidFetch(env, "/link/token/create", {
-            user:          { client_user_id: "apex-" + (user.email || "admin") },
+            user:          { client_user_id: await plaidUserId(user) },
             client_name:   "Apex Command Center",
             products:      ["transactions"],
             country_codes: ["US"],
@@ -20184,7 +20203,7 @@ async function handlePostFinanceNewLinkToken(request, env) {
         // English rather than leaving Alice with a dead button.
         if (!result.ok && result.data && result.data.error_code === "INVALID_FIELD") {
             result = await plaidFetch(env, "/link/token/create", {
-                user:          { client_user_id: "apex-" + (user.email || "admin") },
+                user:          { client_user_id: await plaidUserId(user) },
                 client_name:   "Apex Command Center",
                 products:      ["transactions"],
                 country_codes: ["US"],
@@ -20223,7 +20242,7 @@ async function handlePostFinanceNewLinkTokenUpdate(request, env) {
         if (!item) { return jsonErr("Item not found", 404); }
 
         var result = await plaidFetch(env, "/link/token/create", {
-            user:          { client_user_id: "apex-" + (user.email || "admin") },
+            user:          { client_user_id: await plaidUserId(user) },
             client_name:   "Apex Command Center",
             products:      [],
             country_codes: ["US"],

@@ -182,11 +182,22 @@
       display: block;
     }
 
-    .client-logo-tile .logo-placeholder {
-      font-size: 11px;
-      color: rgba(255,255,255,0.6);
-      font-style: italic;
+    /* The name stands in for the logo. Sized and weighted to read as a
+       deliberate wordmark, NOT as a missing-image apology: solid white,
+       no italics, letter-spaced like a mark. Long names wrap to two lines
+       rather than overflowing the tile. */
+    .client-logo-tile .client-name-mark {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.25;
+      color: #fff;
+      letter-spacing: 0.3px;
+      text-align: center;
+      max-width: 190px;
+      display: inline-block;
+      word-break: break-word;
     }
+    .client-logo-tile .client-name-mark.is-long { font-size: 12px; }
 
     /* Client tile wrapper — stacks logo tile + draft badge vertically */
     .client-tile-wrapper {
@@ -697,7 +708,11 @@
       <div class="client-tile-wrapper">
         <div class="client-logo-tile">
           <img id="client-logo" src="" alt="" style="display:none;" />
-          <span id="client-logo-fallback" class="logo-placeholder">Logo do Cliente</span>
+          <!-- No logo? Show the client's NAME, not a placeholder. Alice was
+               holding invoices back waiting for a logo file because "Logo do
+               Cliente" made a finished invoice look unfinished. A name is a
+               complete, professional answer -- the invoice can go today. -->
+          <span id="client-logo-fallback" class="client-name-mark"></span>
         </div>
       </div>
       <span class="gold-bar-label" id="gold-bar-client-name"></span>
@@ -1075,15 +1090,31 @@
       // In production this URL is generated dynamically per client_id
       var clientLogo = document.getElementById('client-logo');
       var clientLogoFallback = document.getElementById('client-logo-fallback');
-      if (clientLogo && cliente.logo_url) {
+      // The name is ALWAYS loaded into the fallback first, so every path that
+      // hides the image -- no logo_url, a broken URL, or logo suppressed on
+      // this invoice -- lands on the client's name rather than empty space.
+      if (clientLogoFallback) {
+        var fbName = cliente.nome || '';
+        clientLogoFallback.textContent = fbName;
+        if (fbName.length > 22) { clientLogoFallback.classList.add('is-long'); }
+      }
+
+      // hide_logo lets Alice turn the logo off for one invoice without
+      // deleting the client's stored logo.
+      var suppressLogo = cliente.hide_logo === true || cliente.hide_logo === 1;
+
+      if (clientLogo && cliente.logo_url && !suppressLogo) {
         clientLogo.src = cliente.logo_url;
         clientLogo.alt = cliente.nome || 'Logo Cliente';
         clientLogo.style.display = 'block';
         clientLogo.onerror = function() {
           clientLogo.style.display = 'none';
-          if (clientLogoFallback) { clientLogoFallback.style.display = 'inline'; }
+          if (clientLogoFallback) { clientLogoFallback.style.display = 'inline-block'; }
         };
         if (clientLogoFallback) { clientLogoFallback.style.display = 'none'; }
+      } else {
+        if (clientLogo) { clientLogo.style.display = 'none'; }
+        if (clientLogoFallback) { clientLogoFallback.style.display = 'inline-block'; }
       }
 
       // Gold bar client name label

@@ -2113,7 +2113,7 @@ async function handleGetClient(id, request, env) {
         // record, so a renamed partner renames everywhere at once and a deleted
         // one leaves the name NULL instead of a stale string.
         var client = await env.DB.prepare(
-            "SELECT c.id, c.name, c.owners, c.industry, c.location, c.logo_url, c.profile_pt, c.profile_en, " +
+            "SELECT c.id, c.name, c.owners, c.industry, c.location, c.logo_url, c.hide_logo, c.profile_pt, c.profile_en, " +
             "c.package, c.status, c.phone, c.email, c.whatsapp, c.payment_method, c.contacts, c.consolidated, c.lead_stage, " +
             "c.stage_changed_at, c.stage_changed_by, c.stage_change_source, " +
             "c.next_step, c.next_step_set_by, c.next_step_set_at, " +
@@ -4028,6 +4028,14 @@ async function handlePatchClient(id, request, env) {
         if (body.hasOwnProperty("consolidated")) {
             await env.DB.prepare("UPDATE clients SET consolidated = ? WHERE id = ?")
                 .bind(body.consolidated ? 1 : 0, id).run();
+            updated = true;
+        }
+        // Invoice logo switch. Off means the invoice prints the client's NAME
+        // as a wordmark instead of the logo. The stored logo is NOT deleted --
+        // it is still used on the client page and everywhere else.
+        if (body.hasOwnProperty("hide_logo")) {
+            await env.DB.prepare("UPDATE clients SET hide_logo = ? WHERE id = ?")
+                .bind(body.hide_logo ? 1 : 0, id).run();
             updated = true;
         }
 
@@ -25115,7 +25123,8 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var inv = await env.DB.prepare(
-            "SELECT i.*, c.name AS client_name, c.email AS client_email, c.payment_method, c.package " +
+            "SELECT i.*, c.name AS client_name, c.email AS client_email, c.payment_method, c.package, " +
+            "c.logo_url AS client_logo_url, c.hide_logo AS client_hide_logo " +
             "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ? OR i.number = ?"
         ).bind(invoiceId, invoiceId).first();
         if (!inv) { return jsonErr("Invoice not found", 404); }
@@ -25129,7 +25138,15 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
         }
 
         var amountDollars = centsToDollars(inv.amount_cents);
-        var clientLogoUrl = inv.client_id
+        // Only point at the logo endpoint when a logo REALLY exists and is not
+        // switched off for this client. Building the URL blindly meant the
+        // template requested an image that 404s, flashed, then fell back --
+        // which is how the "Logo do Cliente" placeholder kept appearing.
+        // 27 of 38 active clients have no logo, so this is the common path,
+        // not an edge case.
+        var hideLogo = inv.client_hide_logo === 1 || inv.client_hide_logo === true;
+        var hasLogo  = !!(inv.client_logo_url && String(inv.client_logo_url).trim());
+        var clientLogoUrl = (inv.client_id && hasLogo && !hideLogo)
             ? (APEX_API_BASE + "/api/clients/" + inv.client_id + "/logo-image")
             : "";
 
@@ -25154,7 +25171,8 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
                 nome:       inv.client_name || "",
                 endereco:   "",
                 email:      inv.client_email || "",
-                logo_url:   clientLogoUrl
+                logo_url:   clientLogoUrl,
+                hide_logo:  hideLogo ? 1 : 0
             },
             itens: [{
                 descricao:      assunto || "Servicos de consultoria",

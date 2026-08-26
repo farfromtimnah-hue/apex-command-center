@@ -1,0 +1,13 @@
+-- Per-client switch for the invoice logo, added 2026-08-26.
+--
+-- Alice was holding invoices back waiting for a client to send a logo file,
+-- because the template printed the italic placeholder "Logo do Cliente" and a
+-- finished invoice looked unfinished. Two changes remove that block:
+--   1. No logo now falls back to the client's NAME as a wordmark, which is a
+--      complete answer rather than a gap.
+--   2. This flag lets her turn the logo off deliberately for a client whose
+--      logo is wrong, low-resolution, or simply not wanted on an invoice --
+--      WITHOUT deleting the stored logo, which is still used elsewhere.
+--
+-- Default 0: every existing client keeps showing its logo exactly as today.
+ALTER TABLE clients ADD COLUMN hide_logo INTEGER NOT NULL DEFAULT 0;

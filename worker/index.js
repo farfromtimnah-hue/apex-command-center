@@ -22102,7 +22102,7 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
             "SELECT ir.id, ir.client_id, ir.amount_cents, ir.interval_unit, ir.next_due_at, " +
             "ir.end_after_n, ir.generated_count, ir.last_satisfied_period, c.name AS client_name " +
             "FROM invoice_recurrence ir LEFT JOIN clients c ON c.id = ir.client_id " +
-            "WHERE ir.active = 1"
+            "WHERE ir.active = 1 AND c.status = 'active' AND c.archived = 0"
         ).all();
         for (var r = 0; r < (recRes.results || []).length; r++) {
             var rec = recRes.results[r];
@@ -27541,10 +27541,23 @@ async function getActiveVendorAddonsForClient(clientId, env) {
 }
 
 async function runRecurringInvoices(env) {
+    // A PAUSED CLIENT IS NOT BILLED. Nicole/Alice 2026-08-26: "when they are
+    // paused so are payments." The recurrence row is deliberately left
+    // active = 1 so that un-pausing resumes billing without rebuilding the
+    // plan -- the client's STATUS is the switch, not the recurrence.
+    //
+    // Joined rather than filtered in code because runRecurringInvoices is a
+    // cron with no UI in front of it; a row that reaches the loop gets an
+    // invoice, so the exclusion has to happen in the query.
+    //
+    // Live case this fixes: DFN FLOORING sat paused with an active $1,397
+    // recurrence due 2026-09-25.
     var due = await env.DB.prepare(
-        "SELECT id, client_id, amount_cents, interval_n, interval_unit, next_due_at, " +
-        "end_after_n, generated_count, last_satisfied_period " +
-        "FROM invoice_recurrence WHERE active = 1 AND next_due_at <= date('now')"
+        "SELECT ir.id, ir.client_id, ir.amount_cents, ir.interval_n, ir.interval_unit, ir.next_due_at, " +
+        "ir.end_after_n, ir.generated_count, ir.last_satisfied_period " +
+        "FROM invoice_recurrence ir JOIN clients c ON c.id = ir.client_id " +
+        "WHERE ir.active = 1 AND ir.next_due_at <= date('now') " +
+        "AND c.status = 'active' AND c.archived = 0"
     ).all();
 
     var generated = [];

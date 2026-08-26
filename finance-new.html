@@ -431,6 +431,17 @@
     .glass-tile-value.is-gold  { color: var(--gold); }
     .glass-tile-value.is-green { color: #4ade80; }
     .glass-tile-value.is-red   { color: #f87171; }
+
+    /* Bank balance under the hero available figure. Deliberately quiet: the
+       usable number is the headline, and this is the reconciliation line she
+       checks against the bank app, not a second answer competing with it. */
+    .glass-tile-sub {
+      margin-top: 4px;
+      font-size: 11px;
+      line-height: 1.3;
+      color: rgba(255,255,255,0.55);
+    }
+    .glass-tile-sub b { color: rgba(255,255,255,0.75); font-weight: 600; }
     .glass-tile-note {
       font-size: 10px;
       color: rgba(255,255,255,0.5);
@@ -1315,10 +1326,11 @@
         <div class="glass-tile-row">
           <div class="glass-tile">
             <div class="glass-tile-label">
-              <span class="show-pt">Saldo total</span>
-              <span class="show-en">Total balance</span>
+              <span class="show-pt">D&aacute; pra usar</span>
+              <span class="show-en">Available to use</span>
             </div>
             <div class="glass-tile-value is-gold" id="heroBalance">--</div>
+            <div class="glass-tile-sub" id="heroBalanceSub"></div>
           </div>
           <div class="glass-tile">
             <div class="glass-tile-label">
@@ -5325,8 +5337,42 @@
     // between 50 and 80.
 
     function renderHero() {
+      // HEADLINE IS AVAILABLE, NOT BALANCE. Alice's report 2026-08-26: paying
+      // something left the money still showing as hers until it cleared. The
+      // per-account tiles already led with available_cents; this hero tile did
+      // not, so the biggest number on the page was the optimistic one -- it
+      // read $2,687.23 against $1,144.48 actually available, overstating by
+      // $1,542.75.
+      //
+      // Same missing-data rule as the account tiles: Plaid does not return an
+      // available balance for every account type, and a missing value is NEVER
+      // defaulted to the balance, which would silently reinstate the exact
+      // overstatement being fixed. If any account is missing it, fall back to
+      // the bank balance and SAY SO rather than printing a confident total
+      // built from mixed sources.
       var totalBalance = ACCOUNTS.reduce(function(s, a) { return s + (a.balance_cents || 0); }, 0);
-      document.getElementById("heroBalance").textContent = fmtCents(totalBalance);
+      var heroAvailKnown = ACCOUNTS.length > 0 && ACCOUNTS.every(function(a) {
+        return a.available_cents !== null && a.available_cents !== undefined;
+      });
+      var heroAvail = heroAvailKnown
+        ? ACCOUNTS.reduce(function(s, a) { return s + (a.available_cents || 0); }, 0)
+        : null;
+      var heroSub = document.getElementById("heroBalanceSub");
+      if (heroAvail !== null) {
+        document.getElementById("heroBalance").textContent = fmtCents(heroAvail);
+        if (heroSub) {
+          heroSub.innerHTML =
+            '<span class="show-pt">Saldo no banco: <b>' + fmtCents(totalBalance) + '</b></span>' +
+            '<span class="show-en">Bank balance: <b>' + fmtCents(totalBalance) + '</b></span>';
+        }
+      } else {
+        document.getElementById("heroBalance").textContent = fmtCents(totalBalance);
+        if (heroSub) {
+          heroSub.innerHTML =
+            '<span class="show-pt">Saldo no banco. O banco n&atilde;o informou quanto est&aacute; dispon&iacute;vel.</span>' +
+            '<span class="show-en">Bank balance. The bank did not report an available amount.</span>';
+        }
+      }
 
       var b = SUMMARY && SUMMARY.business ? SUMMARY.business : null;
       var p = SUMMARY && SUMMARY.personal ? SUMMARY.personal : null;

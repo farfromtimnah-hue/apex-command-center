@@ -1459,6 +1459,15 @@
     <!-- Staleness banner: never silently show old numbers. -->
     <div id="staleBanner" class="banner banner-info" hidden>
       <span id="staleText"></span>
+      <!-- Sync runs on a 4-hourly cron. After a reconnect the page therefore
+           keeps showing the OLD numbers until the cron next fires, which looks
+           exactly like the reconnect failed -- it sent us chasing a bug that
+           did not exist, twice, on 2026-08-26. This button runs the same code
+           path the cron runs, on demand. -->
+      <button class="btn btn-sm btn-outline" id="btnSyncNow" onclick="syncNow()">
+        <span class="show-pt">Atualizar agora</span>
+        <span class="show-en">Sync now</span>
+      </button>
     </div>
 
     <!-- ── Connect (shown when nothing is linked) ── -->
@@ -5209,6 +5218,51 @@
     function resetAndRenderTransactions() {
       txnVisibleCount = TXN_BATCH_SIZE;
       renderTransactions();
+    }
+
+    // Pull fresh balances and transactions from the bank on demand.
+    //
+    // Disabled while running: a second click mid-sync would start a second
+    // pass over the same cursor. The label reports what actually changed --
+    // "nothing new" is a real, useful answer, and silence is not.
+    function syncNow() {
+      var btn = document.getElementById("btnSyncNow");
+      if (btn && btn.disabled) { return; }
+      var restore = btn ? btn.innerHTML : "";
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = isEn() ? "Syncing..." : "Atualizando...";
+      }
+      apiFetch("/api/finance-new/sync", { method: "POST", body: {} })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (btn) { btn.disabled = false; btn.innerHTML = restore; }
+          if (data && data.error) {
+            toast(data.error, null, null, 15000);
+            return;
+          }
+          var added = (data && data.added) || 0;
+          var modified = (data && data.modified) || 0;
+          // A bank that refuses one account still syncs the other, so errors
+          // are surfaced rather than swallowed by an overall success.
+          if (data && data.errors && data.errors.length) {
+            toast((isEn() ? "Synced with errors: " : "Atualizado com erros: ") +
+                  data.errors.join(" | "), null, null, 15000);
+          } else if (added || modified) {
+            toast(isEn()
+              ? "Updated. " + added + " new, " + modified + " changed."
+              : "Atualizado. " + added + " nova(s), " + modified + " alterada(s).");
+          } else {
+            toast(isEn() ? "Up to date. Nothing new." : "Tudo em dia. Nada novo.");
+          }
+          loadAll();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; btn.innerHTML = restore; }
+          toast((e && e.message) ? String(e.message)
+                : (isEn() ? "Could not sync." : "N&atilde;o foi poss&iacute;vel atualizar."),
+                null, null, 15000);
+        });
     }
 
     function renderTransactions() {

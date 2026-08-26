@@ -3117,7 +3117,15 @@
       apiFetch("/api/finance-new/link-token/update", { method: "POST", body: { item_id: itemId } })
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          if (!data.link_token) { toast(data.error || t("Erro", "Error")); return; }
+          // Show the REAL reason, and hold it long enough to read and repeat
+          // on the phone. This line used to fall through to a bare "Erro",
+          // which is how a Plaid INVALID_FIELD rejection reached Alice as an
+          // unreadable flash on 2026-08-26. An error she cannot read is an
+          // error she cannot report.
+          if (!data.link_token) {
+            toast(data.error || t("Erro ao reconectar", "Reconnect error"), null, null, 15000);
+            return;
+          }
           var handler = Plaid.create({
             token: data.link_token,
             onSuccess: function() {
@@ -3128,7 +3136,10 @@
           });
           handler.open();
         })
-        .catch(function() { toast(t("Erro", "Error")); });
+        .catch(function(e) {
+          toast((e && e.message) ? String(e.message) : t("Erro ao reconectar", "Reconnect error"),
+                null, null, 15000);
+        });
     }
 
     function retagAccount(accountId, purpose) {

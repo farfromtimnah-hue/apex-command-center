@@ -1190,6 +1190,31 @@
     /* `display: flex` beats the browser's default `[hidden] { display: none }`,
        so an explicit override is required or a hidden filter row still paints
        -- which is what put "mostrar anulados" on the Rascunho tab. */
+    /* Totals for whatever the filters currently match. Sits directly above
+       the table so the number and the rows that produce it read as one thing. */
+    .txn-totals {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 22px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+    }
+    .txn-total-item { display: flex; flex-direction: column; gap: 2px; }
+    .txn-total-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.7px;
+      text-transform: uppercase; color: rgba(255,255,255,0.55);
+    }
+    .txn-total-value {
+      font-size: 19px; font-weight: 700; color: #fff;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .txn-total-value.is-green { color: #4ade80; }
+    .txn-total-value.is-red   { color: #f87171; }
+    .txn-total-value.is-muted { color: rgba(255,255,255,0.65); font-size: 16px; }
+
     .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
     .filter-row[hidden] { display: none !important; }
     .filter-row input, .filter-row select {
@@ -1891,6 +1916,37 @@
           </select>
           <input type="date" id="txnFrom" onchange="resetAndRenderTransactions()">
           <input type="date" id="txnTo" onchange="resetAndRenderTransactions()">
+          <select id="txnDirection" onchange="resetAndRenderTransactions()">
+            <option value="" data-opt-pt="Entradas e sa&iacute;das" data-opt-en="In and out">Entradas e sa&iacute;das</option>
+            <option value="in" data-opt-pt="S&oacute; entradas" data-opt-en="Money in only">S&oacute; entradas</option>
+            <option value="out" data-opt-pt="S&oacute; sa&iacute;das" data-opt-en="Money out only">S&oacute; sa&iacute;das</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;cursor:pointer;">
+            <input type="checkbox" id="txnIncludeTransfers" onchange="resetAndRenderTransactions()" style="margin:0;cursor:pointer;">
+            <span class="show-pt">Incluir transfer&ecirc;ncias</span>
+            <span class="show-en">Include transfers</span>
+          </label>
+        </div>
+        <!-- Totals for exactly what is filtered above. Every matching
+             transaction is counted, not just the visible page -- "show more"
+             pages the LIST, never the MATH. -->
+        <div id="txnTotals" class="txn-totals" hidden>
+          <div class="txn-total-item">
+            <span class="txn-total-label"><span class="show-pt">Entrou</span><span class="show-en">Money in</span></span>
+            <span class="txn-total-value is-green" id="txnTotalIn">--</span>
+          </div>
+          <div class="txn-total-item">
+            <span class="txn-total-label"><span class="show-pt">Saiu</span><span class="show-en">Money out</span></span>
+            <span class="txn-total-value is-red" id="txnTotalOut">--</span>
+          </div>
+          <div class="txn-total-item">
+            <span class="txn-total-label"><span class="show-pt">Diferen&ccedil;a</span><span class="show-en">Difference</span></span>
+            <span class="txn-total-value" id="txnTotalNet">--</span>
+          </div>
+          <div class="txn-total-item">
+            <span class="txn-total-label"><span class="show-pt">Transa&ccedil;&otilde;es</span><span class="show-en">Transactions</span></span>
+            <span class="txn-total-value is-muted" id="txnTotalCount">--</span>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -5291,6 +5347,10 @@
       var to      = document.getElementById("txnTo").value;
       var catFilterEl = document.getElementById("txnCategoryFilter");
       var catFilter   = (catFilterEl && catFilterEl.value) || "";
+      var dirEl       = document.getElementById("txnDirection");
+      var direction   = (dirEl && dirEl.value) || "";
+      var inclEl      = document.getElementById("txnIncludeTransfers");
+      var inclTransfers = !!(inclEl && inclEl.checked);
 
       var rows = TRANSACTIONS.filter(function(t) {
         if (acctId && t.account_id !== acctId) { return false; }
@@ -5309,6 +5369,12 @@
         if (catFilter && catFilter !== "uncategorized" && t.category_id !== catFilter) { return false; }
         if (from && String(t.date) < from) { return false; }
         if (to   && String(t.date) > to)   { return false; }
+        // Transfers are money moving between her OWN accounts -- counting them
+        // as income is what made August read $1,515 too high. Hidden by
+        // default, one checkbox away when she wants to see the movement.
+        if (!inclTransfers && (t.transfer_status === "confirmed" || t.transfer_status === "suspected")) { return false; }
+        if (direction === "in"  && !(t.amount_cents > 0)) { return false; }
+        if (direction === "out" && !(t.amount_cents < 0)) { return false; }
         if (q) {
           var hay = ((t.description || "") + " " + (t.merchant_normalized || "")).toLowerCase();
           if (hay.indexOf(q) === -1) { return false; }
@@ -5318,6 +5384,24 @@
 
       var nameById = {};
       ACCOUNTS.forEach(function(a) { nameById[a.id] = a.name; });
+
+      // Totals over EVERY matching row, not the visible page.
+      var totIn = 0, totOut = 0;
+      rows.forEach(function(t) {
+        if (t.amount_cents > 0) { totIn += t.amount_cents; }
+        else { totOut += -t.amount_cents; }
+      });
+      var totalsEl = document.getElementById("txnTotals");
+      if (totalsEl) {
+        totalsEl.hidden = rows.length === 0;
+        document.getElementById("txnTotalIn").textContent    = fmtCents(totIn);
+        document.getElementById("txnTotalOut").textContent   = fmtCents(totOut);
+        var net = totIn - totOut;
+        var netEl = document.getElementById("txnTotalNet");
+        netEl.textContent = fmtCents(net);
+        netEl.className = "txn-total-value " + (net >= 0 ? "is-green" : "is-red");
+        document.getElementById("txnTotalCount").textContent = String(rows.length);
+      }
 
       document.getElementById("txnEmpty").hidden = rows.length > 0;
 

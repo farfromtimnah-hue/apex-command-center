@@ -21276,7 +21276,14 @@ async function handleGetFinanceNewTransactions(request, env) {
             "SELECT t.id, t.account_id, t.amount_cents, t.date, t.posted_date, t.description, " +
             "t.merchant_normalized, t.is_transfer, t.transfer_pair_id, t.transfer_status, t.pending, " +
             "t.voided_at, t.voided_reason, t.superseded_by, " +
-            "t.category_id, t.category_source " +
+            "t.category_id, t.category_source, " +
+            // Plaid's OWN classification, which the categorizer has never
+            // used. It is on every transaction and is how a gas stop can be
+            // recognised without anyone having named that station: every fuel
+            // purchase comes through as TRANSPORTATION_GAS. 7-Eleven arrived
+            // as CONVENIENCE_STORES and landed in Extra Spending purely
+            // because Alice had not listed 7-Eleven among her gas stations.
+            "json_extract(t.raw_json, '$.personal_finance_category.detailed') AS plaid_category " +
             "FROM transactions t ORDER BY t.date DESC, t.created_at DESC LIMIT ?"
         ).bind(limit).all();
 

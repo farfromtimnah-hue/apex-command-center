@@ -1464,6 +1464,25 @@
       background: rgba(212,175,110,0.75);
     }
     .ledger-cat-amt { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+
+    /* ── "Was this fuel?" under the fuel budget ─────────────────────────── */
+    .budget-wrap { margin-bottom: 10px; }
+    .budget-maybe {
+      border: 1px solid rgba(201,162,39,0.30);
+      background: rgba(201,162,39,0.06);
+      border-radius: 0 0 10px 10px; border-top: none;
+      padding: 10px 12px; margin-top: -6px;
+    }
+    .budget-maybe-title { color: #C9A227; font-size: 13px; font-weight: 700; }
+    .budget-maybe-sub   { color: #8B837B; font-size: 11.5px; margin: 2px 0 8px; }
+    .budget-maybe-row {
+      display: grid; grid-template-columns: minmax(0,1fr) auto auto;
+      gap: 10px; align-items: center; padding: 6px 0; font-size: 13.5px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .budget-maybe-name { color: #E8E0D6; overflow-wrap: anywhere; }
+    .budget-maybe-date { display: block; color: #8B837B; font-size: 11px; margin-top: 1px; }
+    .budget-maybe-amt  { font-variant-numeric: tabular-nums; white-space: nowrap; color: #C4BAB0; }
     /* tabular-nums so the column of figures lines up digit for digit -- the
        whole point is that she can add them with her eye. */
     .ledger-amt   { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
@@ -4389,6 +4408,79 @@
       if (current) { sel.value = current; }
     }
 
+    // Plaid tags every fuel purchase TRANSPORTATION_GAS. CONVENIENCE_STORES is
+    // the ambiguous one -- a 7-Eleven sells both a tank of gas and a coffee --
+    // and it is what put $36.15 of fuel into Extra Spending, because Alice had
+    // named Exxon, Circle K, Sunoco, Wawa and RaceTrac as her gas stations but
+    // not 7-Eleven. ASKED, never auto-applied, for exactly that reason.
+    var FUEL_HINT_CATEGORIES = {
+      "TRANSPORTATION_GAS": 1,
+      "GENERAL_MERCHANDISE_CONVENIENCE_STORES": 1
+    };
+
+    // Charges this month that look like fuel but are not filed as fuel.
+    function maybeFuelTxns() {
+      var month = new Date().toISOString().slice(0, 7);
+      return (TRANSACTIONS || []).filter(function(x) {
+        if (!x || x.voided_at) { return false; }
+        if (!(x.amount_cents < 0)) { return false; }
+        if (x.category_id === "cat_gasolina") { return false; }
+        if (x.is_transfer) { return false; }
+        if (String(x.date || "").slice(0, 7) !== month) { return false; }
+        return !!FUEL_HINT_CATEGORIES[x.plaid_category];
+      });
+    }
+
+    // Rendered ONLY under the fuel budget. Everywhere else it would be noise.
+    function budgetMaybeFuelHtml(b) {
+      if (!b || b.category_id !== "cat_gasolina") { return ""; }
+      var list = maybeFuelTxns();
+      if (!list.length) { return ""; }
+      return '<div class="budget-maybe">' +
+        '<div class="budget-maybe-title">&#9981; ' +
+          tt("Isto foi gasolina?", "Was this fuel?") +
+        '</div>' +
+        '<div class="budget-maybe-sub">' +
+          tt("N&atilde;o est&aacute; contado acima. Se foi gasolina, toque para incluir.",
+             "Not counted above. If it was fuel, tap to include it.") +
+        '</div>' +
+        list.map(function(x) {
+          return '<div class="budget-maybe-row">' +
+            '<span class="budget-maybe-name">' + esc(ledgerCleanDesc(x.description || "")) +
+              '<span class="budget-maybe-date">' + esc(fmtDate(x.date)) + '</span>' +
+            '</span>' +
+            '<span class="budget-maybe-amt">' + fmtCents(Math.abs(x.amount_cents)) + '</span>' +
+            '<button class="btn btn-sm" onclick="event.stopPropagation();markAsFuel(\'' + esc(x.id) + '\')">' +
+              tt("Sim", "Yes") + '</button>' +
+          '</div>';
+        }).join("") +
+      '</div>';
+    }
+
+    // Same as t(), named apart so it cannot shadow a loop variable called `t`.
+    function tt(pt, en) { return isEn() ? en : pt; }
+
+    function markAsFuel(txnId) {
+      // scope "all" -- not "one". Answering once should teach the system that
+      // this merchant is fuel, so she is never asked about it again. Asking
+      // the same question every month is how the old queue became noise.
+      apiFetch("/api/finance-new/transactions/" + encodeURIComponent(txnId) + "/category",
+               { method: "POST", body: { category_id: "cat_gasolina", scope: "all" } })
+        .then(function(r) {
+          if (!r.ok) { return r.json().then(function(b) { throw new Error(b.error || ("HTTP " + r.status)); }); }
+          return r.json();
+        })
+        .then(function() {
+          (TRANSACTIONS || []).forEach(function(x) {
+            if (x.id === txnId) { x.category_id = "cat_gasolina"; x.category_source = "manual"; }
+          });
+          // Reload budgets so the spent figure moves with the answer -- the
+          // whole point is that she sees the number correct itself.
+          return loadBudgets();
+        })
+        .catch(function(e) { window.alert(e.message); });
+    }
+
     function renderBudgets() {
       var card = document.getElementById("budgetsCard");
       var wrap = document.getElementById("budgetsList");
@@ -4435,7 +4527,21 @@
           }
         }
 
-        return '<div class="budget-row" onclick="startEditBudget(\'' + esc(b.id) + '\')" style="cursor:pointer;">' +
+        // ⛽ MAYBE-FUEL PROMPT, on the budget row for the category itself.
+        //
+        // NOT in the transactions list -- Nicole: "she's not really gonna
+        // scroll through that". And NOT in the "Precisa de voce" queue, which
+        // was correct, worked, and went unused for months because anything
+        // that accumulates on her plate just sits there.
+        //
+        // Here it reaches her at the moment she already cares: she is looking
+        // at what she spent on fuel, and the question is whether these charges
+        // belong in that number. One tap each, and answering makes them
+        // disappear for good.
+        var maybeHtml = budgetMaybeFuelHtml(b);
+
+        return '<div class="budget-wrap">' +
+          '<div class="budget-row" onclick="startEditBudget(\'' + esc(b.id) + '\')" style="cursor:pointer;">' +
           '<div class="budget-row-head">' +
             '<span class="budget-name">' + esc(b.category_name || b.category_id) + '</span>' +
             '<span class="budget-name">' + fmtCents(b.spent_cents) + ' / ' + fmtCents(b.monthly_amount_cents) + '</span>' +
@@ -4446,6 +4552,8 @@
           '</div>' +
           '<div class="budget-progress"><div class="budget-progress-fill' + (overBudget ? ' is-over' : '') + '" style="width:' + pct + '%"></div></div>' +
           projectionHtml +
+          '</div>' +
+          maybeHtml +
         '</div>';
       }).join("");
       if (isCollapsed("budgets")) { renderSectionSummary("budgets"); }
@@ -6081,6 +6189,7 @@
           : '<span style="color:var(--muted)">&mdash;</span>';
         var catCell = '<button class="btn btn-sm" style="font-weight:500" onclick="openCategoryModal(\'' +
           esc(t.id) + '\')">' + catLabel + "</button>";
+
 
         // superseded_by points at the transaction that replaced this one, so the
         // record leads somewhere instead of just saying "this died".

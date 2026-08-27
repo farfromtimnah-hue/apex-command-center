@@ -1467,10 +1467,18 @@
       display: block; height: 100%; border-radius: 3px;
       background: rgba(212,175,110,0.75);
     }
+    /* An explicit colour is REQUIRED here. .is-in / .is-out are defined only
+       against .ledger-amt, so on .ledger-cat-amt they contribute nothing --
+       the amount inherited the default text colour and rendered near-black on
+       a near-black sheet. Invisible, not missing: the figures were there the
+       whole time. Same trap as a new dark page with no body colour rule. */
     .ledger-cat-amt {
       font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700;
       justify-self: end; font-size: 14px;
+      color: #F3EDE4;
     }
+    .ledger-cat-amt.is-in  { color: #6FBF8B; }
+    .ledger-cat-amt.is-out { color: #D98A8A; }
     /* Bar spans the full width on its own row underneath, so it can never
        compete with the number for space. */
     .ledger-cat-bar { grid-column: 1 / -1; }
@@ -1500,8 +1508,14 @@
     /* tabular-nums so the column of figures lines up digit for digit -- the
        whole point is that she can add them with her eye. */
     .ledger-amt   { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
-    .ledger-amt.is-in  { color: #6FBF8B; }
-    .ledger-amt.is-out { color: #D98A8A; }
+    /* Scoped to the sheet, not to one element. is-in/is-out are applied to
+       three different spans in here (row amount, category total, grand
+       total); defining them against .ledger-amt alone meant the other two
+       inherited whatever the container gave them -- near-black on a
+       near-black sheet for the category totals. One rule covers every
+       current and future use inside the ledger. */
+    .ledger-sheet .is-in  { color: #6FBF8B; }
+    .ledger-sheet .is-out { color: #D98A8A; }
     .ledger-pending { color: #C9A227; font-size: 11px; margin-left: 6px; }
 
     /* The arithmetic, pinned so it is never scrolled away from the lines. */

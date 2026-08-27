@@ -7192,15 +7192,52 @@
         .catch(function() {});
     }
 
-    function markMistake(invoiceId) {
+    // Voiding is one click and it silently withdraws any matched payment.
+    // The worker refuses with 409 when a confirmed payment exists; this shows
+    // that refusal as a real question naming the amount, and only then retries
+    // with force. The check lives in the DATA, so it cannot be clicked past by
+    // accident -- see the worker comment on mark-mistake for the Gator case
+    // that cost three weeks of a $1,500 deposit looking unpaid.
+    function markMistake(invoiceId, force) {
+      // EVERY void asks first. Nicole, 2026-08-26: "even if it's not matched
+      // there should be a warning. Voiding an invoice shouldn't be silent.
+      // It's a big deal." Naming the client and the amount is what makes the
+      // question answerable -- a bare "are you sure?" trains people to click
+      // yes. The PAID case is a second, louder stop enforced by the worker.
+      if (force !== true) {
+        var inv = null;
+        for (var i = 0; i < (INVOICES || []).length; i++) {
+          if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; break; }
+        }
+        var who = inv ? (inv.client_name || "") : "";
+        var howMuch = inv ? fmtCents(inv.amount_cents) : "";
+        var num = inv ? (inv.number || "") : "";
+        var ask = isEn()
+          ? "Void " + num + " for " + who + " (" + howMuch + ")?\n\n" +
+            "It stops counting as money owed and disappears from the invoice list.\n" +
+            "Use this only for a duplicate or an invoice created by mistake."
+          : "Anular " + num + " de " + who + " (" + howMuch + ")?\n\n" +
+            "Ela deixa de contar como valor a receber e some da lista de faturas.\n" +
+            "Use so para fatura duplicada ou criada por engano.";
+        if (!window.confirm(ask)) { return; }
+      }
       apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-mistake", {
-        method: "POST", body: { reason: "marcado como erro na tela de faturas" }
+        method: "POST",
+        body: { reason: "marcado como erro na tela de faturas", force: force === true }
       })
-        .then(function() {
+        .then(function(res) { return res.json().then(function(d) { return { s: res.status, d: d }; }); })
+        .then(function(r) {
+          if (r.s === 409 && r.d && r.d.error) {
+            if (window.confirm(r.d.error)) { markMistake(invoiceId, true); }
+            return;
+          }
+          if (r.d && r.d.error) { toast(r.d.error, null, null, 15000); return; }
           toast(isEn() ? "Marked as a mistake." : "Marcada como erro.");
           loadInvoices();
         })
-        .catch(function() { toast(t("Erro", "Error")); });
+        .catch(function(e) {
+          toast((e && e.message) ? String(e.message) : t("Erro", "Error"), null, null, 15000);
+        });
     }
 
     // ── Mark paid (tag only, not an accounting event) ───────────────────────

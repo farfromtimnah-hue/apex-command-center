@@ -24897,6 +24897,42 @@ async function handlePostFinanceNewInvoiceMarkMistake(invoiceId, request, env) {
         var inv = await env.DB.prepare("SELECT id, status FROM invoices WHERE id = ?").bind(invoiceId).first();
         if (!inv) { return jsonErr("Invoice not found", 404); }
 
+        // VOIDING A PAID INVOICE NEEDS AN EXPLICIT SECOND YES.
+        //
+        // Nicole, 2026-08-26: "if you go to void an invoice that has already
+        // been paid does the system pop up a warning? I feel like this could
+        // have been avoided." It did not, and she was right.
+        //
+        // What happened: Gator's INV-000015 had a real $1,500 deposit matched
+        // to it. Voiding silently ran the UPDATE below, which withdraws every
+        // match -- so a confirmed payment quietly stopped counting and the
+        // invoice looked unpaid for three weeks. The money was in the bank the
+        // whole time.
+        //
+        // The guard is on the DATA, not on a dialog: a per-invoice check that a
+        // click-through cannot skip. force:true is how the UI passes the second
+        // confirmation, and the error names what is at stake so the person
+        // deciding sees the amount and the date.
+        var paid = await env.DB.prepare(
+            "SELECT p.amount_cents, t.date FROM invoice_payments p " +
+            "LEFT JOIN transactions t ON t.id = p.transaction_id " +
+            "WHERE p.invoice_id = ? AND p.undone_at IS NULL"
+        ).all();
+        var paidRows = paid.results || [];
+        if (paidRows.length && body.force !== true) {
+            var totalPaid = 0;
+            paidRows.forEach(function(r) { totalPaid += (r.amount_cents || 0); });
+            var when = paidRows[0].date ? (" em " + paidRows[0].date) : "";
+            return jsonErr(
+                "PAGAMENTO CONFIRMADO NESTA FATURA: $" + (totalPaid / 100).toFixed(2) + when +
+                ". Anular vai desfazer esse pagamento e o dinheiro deixa de contar. " +
+                "Se e mesmo uma fatura duplicada, confirme de novo. / " +
+                "THIS INVOICE HAS A CONFIRMED PAYMENT: $" + (totalPaid / 100).toFixed(2) + when +
+                ". Voiding will undo it and the money stops counting. " +
+                "If this really is a duplicate, confirm again.",
+                409);
+        }
+
         await env.DB.prepare(
             "UPDATE invoices SET status = 'voided_mistake', voided_reason = ?, voided_by = ?, " +
             "voided_at = datetime('now') WHERE id = ?"

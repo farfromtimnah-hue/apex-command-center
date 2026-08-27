@@ -1482,6 +1482,39 @@
     /* Bar spans the full width on its own row underneath, so it can never
        compete with the number for space. */
     .ledger-cat-bar { grid-column: 1 / -1; }
+    /* ── Every-category list under the spending donut ───────────────────── */
+    .catlist { margin-top: 12px; }
+    .catlist-title {
+      font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .catlist-count {
+      display: inline-block; background: rgba(201,162,39,0.16); color: #C9A227;
+      border-radius: 9px; padding: 1px 6px; font-size: 10.5px; margin-left: 3px;
+    }
+    .catlist-row {
+      display: grid; grid-template-columns: minmax(0,1fr) auto;
+      gap: 3px 10px; align-items: baseline;
+      padding: 6px 0; border-bottom: 1px solid rgba(128,128,128,0.14);
+      font-size: 13px;
+    }
+    .catlist-name { overflow-wrap: anywhere; }
+    /* Explicit colour: this list is rendered on both the light chart card and
+       the dark sheet, and inheriting left it unreadable on one of them. */
+    .catlist-amt {
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+      font-weight: 700; justify-self: end; color: var(--text);
+    }
+    .catlist-pct { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted); text-align: right; }
+    .catlist-bar {
+      grid-column: 1 / -1; height: 5px; border-radius: 3px;
+      background: rgba(128,128,128,0.16); overflow: hidden;
+    }
+    .catlist-bar > span { display: block; height: 100%; border-radius: 3px; background: #C9A43A; }
+    .catlist-row.is-uncat .catlist-name,
+    .catlist-row.is-uncat .catlist-amt { color: var(--muted); }
+    .catlist-row.is-uncat .catlist-bar > span { background: #cfc7b8; }
+
     .ledger-cat-pct {
       display: block; font-size: 11px; font-weight: 500;
       color: #8B837B; text-align: right; margin-top: 1px;
@@ -2124,6 +2157,9 @@
             </div>
             <div class="chart-box"><canvas id="catChart"></canvas></div>
             <div id="catCaveat" class="chart-caveat" hidden></div>
+            <!-- The donut is a top-6 summary by necessity. This is the rest of
+                 the truth: every category, in order, with dollars. -->
+            <div id="catFullList" class="catlist"></div>
           </div>
           <div>
             <div class="flow-label" style="margin-bottom:8px">
@@ -6692,6 +6728,39 @@
     // Capped at six slices plus "Outros". Alice hid 21 of 27 categories in the
     // old tool -- six is her demonstrated working limit, and a donut past that
     // is a legend she has to decode rather than a picture she can read.
+    // Every category that had spending, largest first. Uncategorized is kept
+    // last and neutral, exactly as the donut treats it: it is an absence of
+    // information, not a category competing for her attention.
+    function renderCategoryFullList(rows, uncat) {
+      var host = document.getElementById("catFullList");
+      if (!host) { return; }
+      var all = rows.slice();
+      if (uncat) { all = all.concat([uncat]); }
+      if (!all.length) { host.innerHTML = ""; return; }
+
+      var total = all.reduce(function(sum, r) { return sum + r.cents; }, 0);
+
+      host.innerHTML =
+        '<div class="catlist-title">' +
+          t("Todas as categorias", "Every category") +
+          ' <span class="catlist-count">' + all.length + '</span>' +
+        '</div>' +
+        all.map(function(r) {
+          var isUncat = r.key === "__uncat";
+          var cat = CATEGORIES.filter(function(c) { return c.id === r.key; })[0];
+          var name = isUncat ? t("Sem categoria", "Uncategorized")
+                             : (cat ? categoryName(cat) : t("Outros", "Other"));
+          var pct = total > 0 ? Math.round((r.cents / total) * 100) : 0;
+          return '<div class="catlist-row' + (isUncat ? " is-uncat" : "") + '">' +
+            '<span class="catlist-name">' + esc(name) + '</span>' +
+            '<span class="catlist-amt">' + fmtCents(r.cents) +
+              '<span class="catlist-pct">' + pct + '%</span>' +
+            '</span>' +
+            '<span class="catlist-bar"><span style="width:' + pct + '%"></span></span>' +
+          '</div>';
+        }).join("");
+    }
+
     function renderCategoryChart() {
       destroyChart("cat");
       var txns = countedTransactions().filter(function(t) { return t.amount_cents < 0; });
@@ -6734,7 +6803,12 @@
       var colors = top.map(function(_, i) { return palette[i % palette.length]; });
 
       if (restTotal > 0) {
-        labels.push(isEn() ? "Other" : "Outros");
+        // NAME THE COUNT. A bare "Outros" wedge was the third biggest slice on
+        // the chart and said nothing -- 22 categories worth $2,232 collapsed
+        // into one grey arc, which is what made the donut read as incomplete.
+        // The full list below now shows every one of them; this label at least
+        // says how much is being folded up.
+        labels.push(rest.length + (isEn() ? " more categories" : " outras categorias"));
         data.push(centsToNum(restTotal));
         colors.push("#cfc7b8");
       }
@@ -6759,6 +6833,16 @@
           }
         }
       };
+
+      // THE COMPLETE LIST, under the donut.
+      //
+      // A donut cannot hold 28 wedges, so it will always be a top-N summary.
+      // That is fine as a shape -- it shows proportion at a glance, which is
+      // why Alice reads it -- but on its own it hides most of the spending and
+      // reads as incomplete. The list makes it whole: every category, in
+      // order, with the dollar figure, same visual language as the totals in
+      // the line-by-line report.
+      renderCategoryFullList(rows, uncat);
 
       CHARTS.cat = new Chart(document.getElementById("catChart"), {
         type: "doughnut",

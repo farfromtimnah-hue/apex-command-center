@@ -1505,6 +1505,23 @@
       font-variant-numeric: tabular-nums; white-space: nowrap;
       font-weight: 700; justify-self: end; color: var(--text);
     }
+    /* Group heading rows carry a colour dot matching their donut slice, so the
+       chart and the list are read as one thing rather than two rankings. */
+    .catlist-group { margin-bottom: 10px; }
+    .catlist-dot {
+      display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+      margin-right: 7px; vertical-align: baseline;
+    }
+    .catlist-row .catlist-name { font-weight: 600; }
+    /* Categories sit indented under their group: visibly the evidence for the
+       line above, not a competing row. */
+    .catlist-sub {
+      display: flex; justify-content: space-between; gap: 10px;
+      padding: 3px 0 3px 16px; font-size: 12px; color: var(--muted);
+    }
+    .catlist-sub-name { overflow-wrap: anywhere; }
+    .catlist-sub-amt  { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
     .catlist-pct { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted); text-align: right; }
     .catlist-bar {
       grid-column: 1 / -1; height: 5px; border-radius: 3px;
@@ -6728,37 +6745,148 @@
     // Capped at six slices plus "Outros". Alice hid 21 of 27 categories in the
     // old tool -- six is her demonstrated working limit, and a donut past that
     // is a legend she has to decode rather than a picture she can read.
+    // ══════════════════════════════════════════════════════════════════
+    // SPENDING GROUPS — the layer above categories.
+    //
+    // 46 expense categories is too many to reason about, and 28 of them had
+    // spending in August alone. Nicole's framing: "lights, water, mortgage,
+    // electric bill, things like that are household... groceries and the
+    // miscellaneous things like the Dollar Tree and whatnot, those are all
+    // food and family expenses... insurance, car payments, and fuel kinda all
+    // grouped together."
+    //
+    // So this answers "where does our money actually go" in six lines, with
+    // the full category list still underneath for detail. The groups are the
+    // headline; the categories are the evidence.
+    //
+    // TITHING IS ITS OWN GROUP, deliberately. It is not household spending and
+    // folding it into Family would hide it. Nicole confirmed keeping it apart.
+    //
+    // OWNER DRAW IS EXCLUDED ENTIRELY -- Nicole: "that's just money moving
+    // from one place to another. So it doesn't make sense to have the owner
+    // draw even included." All 26 existing draws are already transfer_status
+    // 'confirmed' and therefore already excluded upstream by
+    // countedTransactions(); listing it here as well is belt and braces, so a
+    // draw that ever arrives unpaired cannot silently inflate a group.
+    var SPEND_GROUP_EXCLUDE = { cat_retirada: 1 };
+
+    var SPEND_GROUPS = [
+      { id: "casa", pt: "Casa", en: "Home", color: "#C9A43A", cats: [
+        "cat_moradia_mortgage", "cat_moradia", "cat_luz", "cat_agua", "cat_internet",
+        "cat_lixo", "cat_celular", "cat_financiamento_agua"
+      ]},
+      { id: "familia", pt: "Fam\u00edlia", en: "Family", color: "#B08D3C", cats: [
+        "cat_mercado", "cat_alimentacao", "cat_refeicoes", "cat_farmacia", "cat_medico",
+        "cat_saude", "cat_escola", "cat_educacao", "cat_seguro_vida", "cat_roupas_alice",
+        "cat_cabelo_rafael", "cat_presentes", "cat_lazer", "cat_pessoal",
+        "cat_gastos_extras", "cat_amazon"
+      ]},
+      { id: "carro", pt: "Carro", en: "Vehicles", color: "#95763D", cats: [
+        "cat_financiamento_carro", "cat_seguro_carro", "cat_gasolina",
+        "cat_taxas_carro", "cat_lava_jato", "cat_viagem"
+      ]},
+      { id: "negocio", pt: "Neg\u00f3cio", en: "Business", color: "#7A5C2E", cats: [
+        "cat_fornecedor_apex", "cat_marketing", "cat_escritorio", "cat_software",
+        "cat_subcontratados", "cat_materiais", "cat_almoco_negocios",
+        "cat_seguro_agente", "cat_apex_club_despesa", "cat_devolucao_cliente",
+        "cat_seguros"
+      ]},
+      { id: "impostos", pt: "Impostos e Taxas", en: "Taxes & Fees", color: "#A8935F", cats: [
+        "cat_impostos", "cat_taxas"
+      ]},
+      { id: "dizimo", pt: "D\u00edzimo e Ofertas", en: "Tithes & Offerings", color: "#C4B590", cats: [
+        "cat_dizimo"
+      ]}
+    ];
+
+    // categoryId -> group, built once.
+    var SPEND_GROUP_BY_CAT = (function() {
+      var m = {};
+      SPEND_GROUPS.forEach(function(g) {
+        g.cats.forEach(function(c) { m[c] = g; });
+      });
+      return m;
+    })();
+
+    // A category with no group yet lands here rather than vanishing. New
+    // categories get added by Alice over time and must never silently drop out
+    // of a total that claims to be everything she spent.
+    var SPEND_GROUP_OTHER = { id: "outros", pt: "Outros", en: "Other", color: "#cfc7b8" };
+
+    function spendGroupFor(categoryId) {
+      if (!categoryId) { return null; }              // uncategorized handled apart
+      if (SPEND_GROUP_EXCLUDE[categoryId]) { return null; }
+      return SPEND_GROUP_BY_CAT[categoryId] || SPEND_GROUP_OTHER;
+    }
+
     // Every category that had spending, largest first. Uncategorized is kept
     // last and neutral, exactly as the donut treats it: it is an absence of
     // information, not a category competing for her attention.
     function renderCategoryFullList(rows, uncat) {
       var host = document.getElementById("catFullList");
       if (!host) { return; }
-      var all = rows.slice();
-      if (uncat) { all = all.concat([uncat]); }
-      if (!all.length) { host.innerHTML = ""; return; }
 
-      var total = all.reduce(function(sum, r) { return sum + r.cents; }, 0);
+      // Categories nested UNDER their group, so the list reads as the evidence
+      // for the donut above it rather than a second, differently-ordered
+      // ranking of the same money. Group order follows spend, and categories
+      // within a group follow spend too.
+      var byGroup = {};
+      var uncatRow = uncat || null;
+      rows.forEach(function(r) {
+        if (r.key === "__uncat") { uncatRow = r; return; }
+        var g = spendGroupFor(r.key);
+        if (!g) { return; }                       // owner draw: excluded on purpose
+        if (!byGroup[g.id]) { byGroup[g.id] = { group: g, cents: 0, cats: [] }; }
+        byGroup[g.id].cents += r.cents;
+        byGroup[g.id].cats.push(r);
+      });
+
+      var groups = Object.keys(byGroup).map(function(k) { return byGroup[k]; });
+      groups.sort(function(a, b) { return b.cents - a.cents; });
+      if (!groups.length && !uncatRow) { host.innerHTML = ""; return; }
+
+      var total = groups.reduce(function(sum, g) { return sum + g.cents; }, 0) +
+                  (uncatRow ? uncatRow.cents : 0);
+
+      function catLineHtml(r, muted) {
+        var cat = CATEGORIES.filter(function(c) { return c.id === r.key; })[0];
+        var name = cat ? categoryName(cat) : t("Outros", "Other");
+        return '<div class="catlist-sub' + (muted ? " is-uncat" : "") + '">' +
+          '<span class="catlist-sub-name">' + esc(name) + '</span>' +
+          '<span class="catlist-sub-amt">' + fmtCents(r.cents) + '</span>' +
+        '</div>';
+      }
 
       host.innerHTML =
         '<div class="catlist-title">' +
-          t("Todas as categorias", "Every category") +
-          ' <span class="catlist-count">' + all.length + '</span>' +
+          t("Para onde foi, por grupo", "Where it went, by group") +
         '</div>' +
-        all.map(function(r) {
-          var isUncat = r.key === "__uncat";
-          var cat = CATEGORIES.filter(function(c) { return c.id === r.key; })[0];
-          var name = isUncat ? t("Sem categoria", "Uncategorized")
-                             : (cat ? categoryName(cat) : t("Outros", "Other"));
-          var pct = total > 0 ? Math.round((r.cents / total) * 100) : 0;
-          return '<div class="catlist-row' + (isUncat ? " is-uncat" : "") + '">' +
-            '<span class="catlist-name">' + esc(name) + '</span>' +
-            '<span class="catlist-amt">' + fmtCents(r.cents) +
-              '<span class="catlist-pct">' + pct + '%</span>' +
-            '</span>' +
-            '<span class="catlist-bar"><span style="width:' + pct + '%"></span></span>' +
+        groups.map(function(g) {
+          var pct = total > 0 ? Math.round((g.cents / total) * 100) : 0;
+          g.cats.sort(function(a, b) { return b.cents - a.cents; });
+          return '<div class="catlist-group">' +
+            '<div class="catlist-row">' +
+              '<span class="catlist-name">' +
+                '<span class="catlist-dot" style="background:' + g.group.color + '"></span>' +
+                esc(t(g.group.pt, g.group.en)) +
+              '</span>' +
+              '<span class="catlist-amt">' + fmtCents(g.cents) +
+                '<span class="catlist-pct">' + pct + '%</span>' +
+              '</span>' +
+              '<span class="catlist-bar"><span style="width:' + pct + '%;background:' +
+                g.group.color + '"></span></span>' +
+            '</div>' +
+            g.cats.map(function(r) { return catLineHtml(r, false); }).join("") +
           '</div>';
-        }).join("");
+        }).join("") +
+        (uncatRow ? '<div class="catlist-group">' +
+          '<div class="catlist-row is-uncat">' +
+            '<span class="catlist-name">' + t("Sem categoria", "Uncategorized") + '</span>' +
+            '<span class="catlist-amt">' + fmtCents(uncatRow.cents) +
+              '<span class="catlist-pct">' +
+              (total > 0 ? Math.round((uncatRow.cents / total) * 100) : 0) + '%</span>' +
+            '</span>' +
+          '</div></div>' : "");
     }
 
     function renderCategoryChart() {
@@ -6773,9 +6901,19 @@
       }
 
       var totals = {};
+      var groupTotals = {};
       txns.forEach(function(t) {
         var key = t.category_id || "__uncat";
         totals[key] = (totals[key] || 0) + Math.abs(t.amount_cents);
+        // Group roll-up. spendGroupFor returns null for an excluded category
+        // (owner draw) and for uncategorized, both of which are counted
+        // separately below rather than folded into a spending group.
+        var g = spendGroupFor(t.category_id);
+        if (g) {
+          if (!groupTotals[g.id]) { groupTotals[g.id] = { group: g, cents: 0, n: 0 }; }
+          groupTotals[g.id].cents += Math.abs(t.amount_cents);
+          groupTotals[g.id].n += 1;
+        }
       });
 
       var rows = Object.keys(totals).map(function(k) { return { key: k, cents: totals[k] }; });
@@ -6787,34 +6925,25 @@
       var uncat = rows.filter(function(r) { return r.key === "__uncat"; })[0];
       rows = rows.filter(function(r) { return r.key !== "__uncat"; });
 
-      var top = rows.slice(0, 6);
-      var rest = rows.slice(6);
-      var restTotal = rest.reduce(function(s, r) { return s + r.cents; }, 0);
+      // THE DONUT NOW DRAWS GROUPS, NOT CATEGORIES.
+      //
+      // Six slices that mean something -- Casa, Familia, Carro, Negocio,
+      // Impostos, Dizimo -- instead of the top 6 of 28 categories with the
+      // other 22 crushed into an unlabelled grey wedge. The categories are
+      // still all there, in the list underneath.
+      var groupRows = Object.keys(groupTotals).map(function(k) { return groupTotals[k]; });
+      groupRows.sort(function(a, b) { return b.cents - a.cents; });
 
-      var labels = top.map(function(r) {
-        var cat = CATEGORIES.filter(function(c) { return c.id === r.key; })[0];
-        return cat ? categoryName(cat) : (isEn() ? "Other" : "Outros");
-      });
-      var data = top.map(function(r) { return centsToNum(r.cents); });
+      var labels = groupRows.map(function(r) { return t(r.group.pt, r.group.en); });
+      var data   = groupRows.map(function(r) { return centsToNum(r.cents); });
+      var colors = groupRows.map(function(r) { return r.group.color; });
 
-      // Gold-anchored ramp: the biggest slice is brand gold and the rest step
-      // down in warmth, so the eye lands on the largest first.
-      var palette = ["#C9A43A", "#B08D3C", "#95763D", "#7A5C2E", "#A8935F", "#C4B590"];
-      var colors = top.map(function(_, i) { return palette[i % palette.length]; });
-
-      if (restTotal > 0) {
-        // NAME THE COUNT. A bare "Outros" wedge was the third biggest slice on
-        // the chart and said nothing -- 22 categories worth $2,232 collapsed
-        // into one grey arc, which is what made the donut read as incomplete.
-        // The full list below now shows every one of them; this label at least
-        // says how much is being folded up.
-        labels.push(rest.length + (isEn() ? " more categories" : " outras categorias"));
-        data.push(centsToNum(restTotal));
-        colors.push("#cfc7b8");
-      }
-      if (uncat) {
-        labels.push(isEn() ? "Uncategorized" : "Sem categoria");
-        data.push(centsToNum(uncat.cents));
+      // Uncategorized still rides along last, in neutral grey: it is an
+      // absence of information, not a group competing for attention.
+      var uncatCents = uncat ? uncat.cents : 0;
+      if (uncatCents > 0) {
+        labels.push(t("Sem categoria", "Uncategorized"));
+        data.push(centsToNum(uncatCents));
         colors.push("#d8d4cc");
       }
 

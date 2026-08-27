@@ -65,7 +65,13 @@ fi
 # is only safe because every JS/CSS URL carries a ?v= stamp. They shipped
 # referenced with no ?v= at all, so the cached copy could outlive its own
 # CACHE_NAME bump. A changed file must mean a changed URL.
-VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css"
+# native-bridge.js added 2026-08-26: it is referenced WITH a ?v= but was never
+# in this list, so its stamp was only ever set by hand. Three different values
+# were live across pages at once (1786930000/40000/50000), all stale since
+# 1968d5f changed the file. It is not in sw.js PRECACHE_URLS, so this is
+# browser cache rather than service-worker cache-first -- lower severity, same
+# class of bug. A changed file must mean a changed URL.
+VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css native-bridge.js"
 
 # The test below was once `grep -qx "$ASSET"` — an EXACT whole-line match. That
 # meant staging ios/App/App/public/gm.js matched nothing, the entire block was

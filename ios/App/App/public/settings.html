@@ -2,6 +2,79 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1786930000, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1786930000 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1787796089"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -2040,7 +2113,13 @@
       // Meeting reminders. Two keys, because an online meeting carries the
       // Meet link and an in-person one carries the street address.
       reminder_online: { pt: "Lembrete Online", en: "Online Reminder" },
-      reminder_in_person: { pt: "Lembrete Presencial", en: "In-Person Reminder" }
+      reminder_in_person: { pt: "Lembrete Presencial", en: "In-Person Reminder" },
+      // The same message minus the address sentence, for an in-person meeting
+      // with no address on file. The card offers it as the "send anyway" path.
+      reminder_in_person_no_address: { pt: "Lembrete Presencial (sem endere&#231;o)", en: "In-Person Reminder (no address)" },
+      // ONE message listing everything non-Apex Rafa has today and
+      // tomorrow, sent from calendar.html straight to his own number.
+      rafa_non_apex_reminder: { pt: "Lembrete n&#227;o-Apex (Rafa)", en: "Non-Apex reminder (Rafa)" }
     };
 
     // Per-key token hint — only the tokens that key actually substitutes.
@@ -2090,14 +2169,30 @@
       },
       // {when} is the WORD "hoje"/"amanh&#227;", never a calendar date -- that is
       // the point of the message, and there is deliberately no {date} token
-      // to put one back in. {name} is the OWNER name, same rule as above.
+      // to put one back in. There is deliberately NO {name} token either: the
+      // reminder goes to the client's WhatsApp group and nobody knows which
+      // owner is attending, so it greets no one by name.
       reminder_online: {
-        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{meetLink}</code>.',
-        en: 'Available tokens: <code>{name}</code> (owner name), <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{meetLink}</code>.'
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{meetLink}</code>.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{meetLink}</code>.'
       },
       reminder_in_person: {
-        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
-        en: 'Available tokens: <code>{name}</code> (owner name), <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
+      },
+      // Deliberately no <code>{location}</code> here. This is the version sent
+      // when there is no address to give, so that token would have nothing to
+      // fill it and would go out to the client as literal text.
+      reminder_in_person_no_address: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>. Esta &#233; a vers&#227;o enviada quando a reuni&#227;o presencial n&#227;o tem endere&#231;o cadastrado — por isso n&#227;o existe <code>{location}</code> aqui.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>. This is the version sent when an in-person meeting has no address on file, which is why there is no <code>{location}</code> token.'
+      },
+      // {items} is the generated list (one line per meeting, with the Hoje:/
+      // Amanh&#227;: subheadings). There is deliberately no {date} or {time}
+      // token -- those belong to the individual rows inside that list.
+      rafa_non_apex_reminder: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{greeting}</code> (Bom dia / Boa tarde / Boa noite, conforme a hora do envio) e <code>{items}</code> (a lista de compromissos, uma linha por reuni&#227;o). O texto ao redor &#233; seu.',
+        en: 'Available tokens: <code>{greeting}</code> (Bom dia / Boa tarde / Boa noite, by the hour it is sent) and <code>{items}</code> (the list of items, one line per meeting). The wording around it is yours.'
       }
     };
 

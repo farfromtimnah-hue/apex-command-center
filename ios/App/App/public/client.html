@@ -2,6 +2,79 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1786950000, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1786950000 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1787796089"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -12,8 +85,8 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787608442"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1787796000">
+  <script src="template-edit.js?v=1787796000"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2283,6 +2356,36 @@
           </div>
         </div>
 
+        <!-- Vendors: third-party vendors (marketing, accounting, etc.)
+             servicing THIS client as a paid add-on riding on the client's
+             regular invoice -- never a separate invoice. Separate card from
+             Payment Plan per apex-vendors-spec.md, so Alice can attach a
+             vendor from a client's own profile, not only from the Vendors
+             admin page on the finance page. Same UNIQUE(client_id,
+             vendor_id, active) constraint applies as the finance-page
+             Vendors tab; both surfaces write through the same
+             /api/clients/:id/vendor-terms routes. -->
+        <div class="content-card" id="sec-vendors" data-section-id="vendors">
+          <div class="content-card-header">
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Fornecedores</span>
+              <span class="show-en">Vendors</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-add" onclick="openAddClientVendorModal()">
+                + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('vendors')" id="collapseVendors" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="vendorsBody">
+            <div id="clientVendorsSection" style="padding:14px 20px;">
+              <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Documents section (reorderable) -->
         <div class="content-card" id="sec-docs" data-section-id="docs">
           <div class="content-card-header">
@@ -2752,6 +2855,98 @@
           <span class="show-en">Save</span>
         </button>
         <div class="pull-status" id="ptStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: Fornecedor do Cliente (add/edit vendor terms) ═══
+       Same shape as the Payment Terms modal (amount + cadence + label),
+       not a new UI idiom -- picks a vendor from the vendors table, then
+       amount (vendor_amount_cents, may be left blank -- "amount pending"
+       is a real, expected state), optional markup, label, cadence.
+       Server always recomputes the total shown back to Alice, same
+       pattern as adjusted_total in handlePutClientPackageTerms. -->
+  <div id="modalClientVendor" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="cvTitle">
+          <span class="show-pt">Fornecedor</span>
+          <span class="show-en">Vendor</span>
+        </h3>
+        <button class="modal-close" onclick="closeClientVendorModal()">×</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="field-group" id="cvVendorPickBlock">
+          <label>
+            <span class="show-pt">Fornecedor</span>
+            <span class="show-en">Vendor</span>
+          </label>
+          <select id="cvVendorSelect"></select>
+        </div>
+
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Rótulo (aparece na fatura)</span>
+            <span class="show-en">Label (shown on the invoice)</span>
+          </label>
+          <input type="text" id="cvLabel" data-ph-pt="ex: Marketing add-on" data-ph-en="e.g. Marketing add-on" placeholder="ex: Marketing add-on">
+        </div>
+
+        <div class="field-group">
+          <label>
+            <span class="show-pt">O que o fornecedor faz por este cliente (opcional)</span>
+            <span class="show-en">What the vendor does for this client (optional)</span>
+          </label>
+          <input type="text" id="cvServiceNote" data-ph-pt="ex: gestão de redes sociais" data-ph-en="e.g. social media management" placeholder="ex: gest&atilde;o de redes sociais">
+        </div>
+
+        <div style="display:flex;gap:10px;">
+          <div class="field-group" style="flex:1;">
+            <label>
+              <span class="show-pt">Valor do fornecedor</span>
+              <span class="show-en">Vendor amount</span>
+            </label>
+            <input type="number" id="cvVendorAmount" min="0" step="0.01" data-ph-pt="deixe em branco se ainda não sabe" data-ph-en="leave blank if not known yet" placeholder="deixe em branco se ainda n&atilde;o sabe" oninput="recalcClientVendorTotal()">
+          </div>
+          <div class="field-group" style="flex:1;">
+            <label>
+              <span class="show-pt">Marcação (opcional)</span>
+              <span class="show-en">Markup (optional)</span>
+            </label>
+            <input type="number" id="cvMarkup" min="0" step="0.01" value="0" oninput="recalcClientVendorTotal()">
+          </div>
+        </div>
+
+        <div style="font-size:13px;font-weight:700;margin:6px 0 16px;">
+          <span class="show-pt">Total cobrado do cliente: </span>
+          <span class="show-en">Client total: </span>
+          <span id="cvClientTotal">&mdash;</span>
+        </div>
+
+        <div class="field-group">
+          <label>
+            <span class="show-pt">Frequência</span>
+            <span class="show-en">Cadence</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="show-pt">Repetir a cada</span>
+            <span class="show-en">Repeat every</span>
+            <input type="number" id="cvRecurringInterval" style="width:70px;" min="1" step="1" value="1">
+            <select id="cvRecurringUnit" style="width:auto;">
+              <option value="day">dias / days</option>
+              <option value="week">semanas / weeks</option>
+              <option value="month" selected>meses / months</option>
+              <option value="year">anos / years</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="btnSaveClientVendor" onclick="handleSaveClientVendor()" style="margin-top:8px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div class="pull-status" id="cvStatus"></div>
       </div>
     </div>
   </div>
@@ -4628,6 +4823,7 @@
           // list, so load that first rather than racing it.
           loadLivePackageList().then(loadPaymentPlan);
           loadPayerAliases();
+          loadClientVendorTerms();
         })
         .catch(function(e) {
           document.getElementById("clientName").textContent = t("Cliente não encontrado", "Client not found");
@@ -5329,18 +5525,30 @@
     // is built from already-loaded clientData with no await in front of it.
     // Reaching window.open after an await is what got the popup blocked in the
     // "Pedir ajuda" white-screen incident (see the sendLoginViaWhatsapp note).
+    // Inside the iOS wrapper this hands the OpenPhone scheme to the OS instead
+    // of tel:. In a normal browser apexCallHref() returns the same tel: URL as
+    // before, so the live PWA is unchanged.
     function startLeadCall() {
       var tel = leadContactPhone();
       if (!tel) { return; }
-      window.location.href = "tel:" + tel.replace(/[^\d+]/g, "");
+      window.location.href = window.apexCallHref
+        ? apexCallHref(tel)
+        : "tel:" + tel.replace(/[^\d+]/g, "");
       openContactLogModal("Phone call");
     }
 
+    // window.open is blocked more aggressively in WKWebView than in Safari, so
+    // inside Capacitor apexOpenExternal() hands the URL to the OS directly.
+    // In a browser it still calls window.open and still reports a blocked
+    // popup, so the existing fallback alert is preserved.
     function startLeadWhatsapp() {
       var digits = leadWaDigits(leadContactPhone());
       if (!digits) { return; }
-      var waTab = window.open("https://wa.me/" + digits, "_blank");
-      if (!waTab) {
+      var waUrl = "https://wa.me/" + digits;
+      var opened = window.apexOpenExternal
+        ? apexOpenExternal(waUrl)
+        : !!window.open(waUrl, "_blank");
+      if (!opened) {
         window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
       openContactLogModal("WhatsApp");
@@ -7702,7 +7910,11 @@
       data.report_code     = reportCode;
       data.client_logo     = null;
 
-      var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html";
+      // ?v= is a cache-buster, not part of the origin: the template now checks
+      // event.origin, and a stale cached copy without that check would still
+      // work -- but a stale copy is served for up to 10 minutes on GitHub Pages
+      // (max-age=600), so bump this stamp whenever the template changes.
+      var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html?v=1786504801";
       var newTab = window.open(TEMPLATE_URL, "_blank");
 
       if (!newTab) {
@@ -7997,7 +8209,6 @@
           });
         }
       }
-    }
 
       // The switch only appears when there IS a logo to switch off. With no
       // logo the invoice already falls back to the client's name, so offering
@@ -8252,6 +8463,221 @@
       body.innerHTML = html;
     }
 
+    // ── Vendors (client-side attachment) ─────────────────────────────────
+    // Third-party vendors servicing this specific client as a paid add-on.
+    // Same data as the Vendors admin page on finance-new.html (both write
+    // through /api/clients/:id/vendor-terms), just reachable from the
+    // client's own profile too. See apex-vendors-spec.md.
+
+    var CLIENT_VENDOR_TERMS = [];   // this client's active attachments
+    var ALL_VENDORS_LIVE = null;    // full vendors table, fetched lazily for the picker
+
+    function loadClientVendorTerms() {
+      return apiFetch("/api/clients/" + CLIENT_ID + "/vendor-terms")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          CLIENT_VENDOR_TERMS = (data && data.terms) ? data.terms : [];
+          renderClientVendors();
+        })
+        .catch(function() {
+          var wrap = document.getElementById("clientVendorsSection");
+          if (wrap) {
+            wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
+              '<span class="show-pt">Nao foi possivel carregar os fornecedores.</span>' +
+              '<span class="show-en">Could not load vendors.</span></div>';
+          }
+        });
+    }
+
+    function renderClientVendors() {
+      var wrap = document.getElementById("clientVendorsSection");
+      if (!wrap) { return; }
+
+      if (!CLIENT_VENDOR_TERMS.length) {
+        wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
+          '<span class="show-pt">Nenhum fornecedor vinculado a este cliente.</span>' +
+          '<span class="show-en">No vendors attached to this client.</span></div>';
+        return;
+      }
+
+      var html = "";
+      for (var i = 0; i < CLIENT_VENDOR_TERMS.length; i++) {
+        var v = CLIENT_VENDOR_TERMS[i];
+        html += '<div class="pay-plan" style="margin-bottom:10px;">' +
+          '<div class="pay-plan-head">' +
+            '<span class="pay-plan-label">' + escHtml(v.vendor_name) +
+              (v.vendor_type ? ' <span style="font-weight:400;color:var(--muted);">&mdash; ' + escHtml(v.vendor_type) + '</span>' : '') +
+            '</span>' +
+            '<span style="display:flex;gap:6px;">' +
+              '<button class="btn-sm" onclick="openEditClientVendorModal(\'' + v.id + '\')">' +
+                '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button>' +
+              '<button class="btn-sm" onclick="handleEndClientVendorTerm(\'' + v.id + '\')">' +
+                '<span class="show-pt">Encerrar</span><span class="show-en">End</span></button>' +
+            '</span>' +
+          '</div>' +
+          '<div class="pay-plan-terms">' + escHtml(v.label || "") + '</div>' +
+          (v.service_note ? '<div class="pay-plan-row"><span>' + escHtml(v.service_note) + '</span><span></span></div>' : '') +
+          '<div class="pay-plan-row is-sum"><span>' +
+            '<span class="show-pt">Total ao cliente</span><span class="show-en">Client total</span></span><span>' +
+            (v.client_total_cents === null
+              ? '<span style="color:var(--muted);font-weight:400;">' + t("valor pendente", "amount pending") + '</span>'
+              : ptFmtCurrency(v.client_total_cents / 100)) +
+          '</span></div>' +
+        '</div>';
+      }
+      wrap.innerHTML = html;
+    }
+
+    function loadAllVendorsForPicker() {
+      if (ALL_VENDORS_LIVE) { return Promise.resolve(ALL_VENDORS_LIVE); }
+      return apiFetch("/api/finance-new/vendors")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          ALL_VENDORS_LIVE = (data && data.vendors) ? data.vendors : [];
+          return ALL_VENDORS_LIVE;
+        })
+        .catch(function() { ALL_VENDORS_LIVE = []; return ALL_VENDORS_LIVE; });
+    }
+
+    // null editTermsId = adding a new attachment; a real id = editing one.
+    var cvEditTermsId = null;
+
+    function openAddClientVendorModal() {
+      cvEditTermsId = null;
+      loadAllVendorsForPicker().then(function(vendors) {
+        document.getElementById("cvTitle").innerHTML =
+          '<span class="show-pt">Adicionar Fornecedor</span><span class="show-en">Add Vendor</span>';
+        document.getElementById("cvVendorPickBlock").hidden = false;
+
+        var alreadyAttached = {};
+        for (var i = 0; i < CLIENT_VENDOR_TERMS.length; i++) { alreadyAttached[CLIENT_VENDOR_TERMS[i].vendor_id] = true; }
+
+        var sel = document.getElementById("cvVendorSelect");
+        var opts = "";
+        for (var j = 0; j < vendors.length; j++) {
+          if (alreadyAttached[vendors[j].id]) { continue; }   // one active pairing per client/vendor
+          opts += '<option value="' + vendors[j].id + '">' + escHtml(vendors[j].name) +
+                  (vendors[j].vendor_type ? " — " + escHtml(vendors[j].vendor_type) : "") + '</option>';
+        }
+        sel.innerHTML = opts || '<option value="">' + t("nenhum fornecedor disponivel", "no vendors available") + '</option>';
+
+        document.getElementById("cvLabel").value = "";
+        document.getElementById("cvServiceNote").value = "";
+        document.getElementById("cvVendorAmount").value = "";
+        document.getElementById("cvMarkup").value = "0";
+        document.getElementById("cvRecurringInterval").value = "1";
+        document.getElementById("cvRecurringUnit").value = "month";
+        document.getElementById("cvStatus").textContent = "";
+        recalcClientVendorTotal();
+        document.getElementById("modalClientVendor").hidden = false;
+      });
+    }
+
+    function openEditClientVendorModal(termsId) {
+      var v = null;
+      for (var i = 0; i < CLIENT_VENDOR_TERMS.length; i++) {
+        if (CLIENT_VENDOR_TERMS[i].id === termsId) { v = CLIENT_VENDOR_TERMS[i]; break; }
+      }
+      if (!v) { return; }
+      cvEditTermsId = termsId;
+
+      document.getElementById("cvTitle").innerHTML =
+        '<span class="show-pt">Editar Fornecedor</span><span class="show-en">Edit Vendor</span>';
+      document.getElementById("cvVendorPickBlock").hidden = true;   // vendor identity doesn't change on edit
+
+      document.getElementById("cvLabel").value = v.label || "";
+      document.getElementById("cvServiceNote").value = v.service_note || "";
+      document.getElementById("cvVendorAmount").value = (v.vendor_amount_cents === null || v.vendor_amount_cents === undefined) ? "" : (v.vendor_amount_cents / 100);
+      document.getElementById("cvMarkup").value = (v.markup_cents || 0) / 100;
+      document.getElementById("cvRecurringInterval").value = v.recurrence_interval || 1;
+      document.getElementById("cvRecurringUnit").value = v.recurrence_unit || "month";
+      document.getElementById("cvStatus").textContent = "";
+      recalcClientVendorTotal();
+      document.getElementById("modalClientVendor").hidden = false;
+    }
+
+    function closeClientVendorModal() {
+      var ov = document.getElementById("modalClientVendor");
+      if (ov) { ov.hidden = true; }
+      cvEditTermsId = null;
+    }
+
+    // Client-side preview only -- the server recomputes and returns the
+    // authoritative total on save, same as adjusted_total in
+    // handlePutClientPackageTerms. This is just so Alice sees the math as
+    // she types.
+    function recalcClientVendorTotal() {
+      var amountEl = document.getElementById("cvVendorAmount");
+      var markupEl = document.getElementById("cvMarkup");
+      var totalEl = document.getElementById("cvClientTotal");
+      var amount = amountEl.value === "" ? null : parseFloat(amountEl.value);
+      var markup = parseFloat(markupEl.value) || 0;
+      if (amount === null || isNaN(amount)) {
+        totalEl.innerHTML = '<span style="color:var(--muted);font-weight:400;">' + t("valor pendente", "amount pending") + '</span>';
+        return;
+      }
+      totalEl.textContent = ptFmtCurrency(amount + markup);
+    }
+
+    function handleSaveClientVendor() {
+      var statusEl = document.getElementById("cvStatus");
+      var btn = document.getElementById("btnSaveClientVendor");
+
+      var amountEl = document.getElementById("cvVendorAmount");
+      var vendorAmountCents = amountEl.value === "" ? null : Math.round(parseFloat(amountEl.value) * 100);
+      if (amountEl.value !== "" && (isNaN(vendorAmountCents) || vendorAmountCents < 0)) {
+        statusEl.textContent = t("Valor do fornecedor invalido.", "Invalid vendor amount.");
+        return;
+      }
+      var markupCents = Math.round((parseFloat(document.getElementById("cvMarkup").value) || 0) * 100);
+
+      var body = {
+        vendor_amount_cents: vendorAmountCents,
+        markup_cents: markupCents,
+        label: document.getElementById("cvLabel").value.trim() || null,
+        service_note: document.getElementById("cvServiceNote").value.trim() || null,
+        recurrence_unit: document.getElementById("cvRecurringUnit").value,
+        recurrence_interval: parseInt(document.getElementById("cvRecurringInterval").value, 10) || 1
+      };
+
+      var isNew = !cvEditTermsId;
+      var url = "/api/clients/" + CLIENT_ID + "/vendor-terms" + (isNew ? "" : ("/" + cvEditTermsId));
+      if (isNew) {
+        var vendorId = document.getElementById("cvVendorSelect").value;
+        if (!vendorId) { statusEl.textContent = t("Selecione um fornecedor.", "Select a vendor."); return; }
+        body.vendor_id = vendorId;
+      }
+
+      btn.disabled = true;
+      statusEl.textContent = t("Salvando...", "Saving...");
+
+      apiFetch(url, { method: isNew ? "POST" : "PUT", body: body })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          return loadClientVendorTerms();
+        })
+        .then(function() {
+          btn.disabled = false;
+          closeClientVendorModal();
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          statusEl.textContent = t("Erro: ", "Error: ") + e.message;
+        });
+    }
+
+    function handleEndClientVendorTerm(termsId) {
+      if (!confirm(t("Encerrar este fornecedor para este cliente?", "End this vendor for this client?"))) { return; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/vendor-terms/" + termsId, { method: "DELETE" })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          return loadClientVendorTerms();
+        })
+        .catch(function(e) { alert(t("Erro: ", "Error: ") + e.message); });
+    }
+
     function handlePaymentMethodChange(value) {
       var statusEl = document.getElementById("paymentStatus");
       statusEl.textContent = "Salvando...";
@@ -8402,6 +8828,7 @@
       { key: "resources",      bodyId: "resourcesBody",      btnId: "collapseResources"      },
       { key: "growth",         bodyId: "growthBody",         btnId: "collapseGrowth"         },
       { key: "payment",        bodyId: "paymentBody",        btnId: "collapsePayment"        },
+      { key: "vendors",        bodyId: "vendorsBody",        btnId: "collapseVendors"        },
       { key: "contacts",       bodyId: "contactsBody",       btnId: "collapseContacts"       },
       { key: "docs",           bodyId: "docsBody",           btnId: "collapseDocs"           },
       { key: "activity",       bodyId: "activityBody",       btnId: "collapseActivity"       }
@@ -8448,7 +8875,7 @@
 
     var DEFAULT_SECTION_ORDER = [
       "overview", "sessions", "dp", "clientTasks", "consultantTasks",
-      "contacts", "notes", "resources", "growth", "payment", "docs"
+      "contacts", "notes", "resources", "growth", "payment", "vendors", "docs"
     ];
 
     var dragSrcEl = null;
@@ -8752,13 +9179,20 @@
       return dpAiHas(obj[key]) ? obj[key] : "";
     }
 
-    // "2026-08-09" → "09/08/2026" (PT) / "08/09/2026" (EN), parsed as a plain
-    // calendar date so it never shifts a day by timezone.
+    // "2026-08-09" -> "08/09/2026", parsed as a plain calendar date so it
+    // never shifts a day by timezone.
+    //
+    // ALWAYS MM/DD/YYYY, not tied to isEn(). Found 2026-08-16: this was
+    // swapping to DD/MM whenever the display language was Portuguese, which
+    // is exactly the bug Rafa's sitewide MM/DD directive exists to
+    // prevent (see datetime.js's header: "the PT/EN toggle must never change
+    // how a date or time renders"). This function predates that fix and had
+    // drifted from it.
     function dpAiFmtDate(iso) {
       if (!dpAiHas(iso)) { return ""; }
       var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
       if (!m) { return String(iso); }
-      return isEn() ? (m[2] + "/" + m[3] + "/" + m[1]) : (m[3] + "/" + m[2] + "/" + m[1]);
+      return m[2] + "/" + m[3] + "/" + m[1];
     }
 
     function dpAiDaysBetween(isoA, isoB) {

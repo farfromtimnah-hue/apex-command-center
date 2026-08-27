@@ -4,15 +4,45 @@
    HARD RULES (learned from a prior desktop-breaking regression):
    - The #mobile-tab-bar and #mobile-more-menu containers exist as static
      HTML in every page. They are NEVER created or appended by JavaScript.
-   - position: fixed is declared here, in the stylesheet, ONLY inside the
-     max-width media query. JavaScript never sets positioning inline.
+   - position: fixed is declared here, in the stylesheet, at ALL widths —
+     NOT inside the media query. It used to be inside, which made that one
+     block carry both "show it" and "take it out of flow"; see the comment
+     on #mobile-tab-bar below. JavaScript never sets positioning inline.
    - Visibility of the mobile nav is controlled purely by the media query
      below. Above 768px everything in this file's media block is inert.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Defaults at ALL widths: mobile chrome hidden, desktop untouched ───── */
-#mobile-tab-bar { display: none; }
-#mobile-more-menu { display: none; }
+
+/* position: fixed is declared HERE, outside the media query, deliberately.
+   It used to live only inside @media (max-width: 768px), which made that one
+   block carry BOTH "show it" and "take it out of flow". <body> is
+   `display: flex; flex-direction: column` on the app pages, and these two
+   containers are direct children of it — so they are flex ITEMS, and the only
+   thing keeping them out of body's column is the fixed positioning. Any
+   condition that applies `display` without `position` therefore lays the dock
+   out in the middle of the page, on top of the content.
+
+   Declaring position here removes that single point of failure: the media
+   query below now controls visibility ONLY, which is what the hard rules at
+   the top of this file always intended. This is inert on desktop — both
+   elements are display:none there, and a hidden element's position is not
+   rendered — so the desktop layout that a prior regression broke cannot be
+   affected by it. */
+#mobile-tab-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+/* The menu is only ever fixed when open (.mm-open supplies inset: 0 below).
+   Positioning it here too keeps it out of body's flex column for the same
+   reason as the bar, without making a closed menu occupy the viewport. */
+#mobile-more-menu {
+  display: none;
+  position: fixed;
+}
 .mc-ico { display: none; }
 
 @keyframes apexSheetUp {
@@ -39,12 +69,10 @@
   #appMain { padding-bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
 
   /* ── Bottom tab bar ─────────────────────────────────────────────────── */
+  /* Visibility only — position/bottom/left/right now live outside this query
+     (see the top of this file). */
   #mobile-tab-bar {
     display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
     z-index: 950;
     background: #1a1a1d;
     border-top: 1px solid #2a2a2e;
@@ -95,7 +123,8 @@
   #mobile-more-menu.mm-open {
     display: flex;
     flex-direction: column;
-    position: fixed;
+    /* position: fixed is declared outside this query; inset is what turns the
+       open menu into a full-viewport sheet. */
     inset: 0;
     z-index: 960;
     background: rgba(20, 18, 16, 0.97);

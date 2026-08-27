@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1786930000"></script>
+  <script src="native-bridge.js?v=1787796089"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -84,12 +84,12 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <!-- Shared scheduling queue — the SAME module calendar.html renders. -->
-  <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
+  <link rel="stylesheet" href="scheduling-queue.css?v=1787796000">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="scheduling-queue.js?v=1787608441"></script>
-  <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787608442"></script>
+  <script src="scheduling-queue.js?v=1787796000"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1787796000">
+  <script src="template-edit.js?v=1787796000"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1870,23 +1870,12 @@
             return res.json();
           });
       });
-      // Owners come from /api/clients -- the calendar endpoint does not carry
-      // clients.owners, and the greeting must name the people, not the company.
-      fetches.push(
-        apiFetch("/api/clients")
-          .then(function(res) {
-            if (!res.ok) { throw new Error("HTTP " + res.status); }
-            return res.json();
-          })
-      );
-
+      // /api/clients used to be fetched here for clients.owners, to greet the
+      // owners by name. The greeting was removed (see the note by
+      // buildReminderMessage), so this card needs the calendar and nothing
+      // else -- one fewer request on every dashboard load.
       Promise.all(fetches)
         .then(function(results) {
-          var clientsData = results.pop();
-          aliceClientOwners = {};
-          (clientsData.clients || []).forEach(function(c) {
-            aliceClientOwners[c.id] = c.owners || "";
-          });
           var sessions = [];
           for (var i = 0; i < results.length; i++) {
             sessions = sessions.concat(results[i].sessions || []);
@@ -2033,7 +2022,8 @@
 
       // A meeting that would ship a broken message shows the REASON instead
       // of a live button -- never a button that sends "[PENDING_GOOGLE_API]"
-      // or an empty address to a client.
+      // to a client. A missing ADDRESS is no longer one of those reasons: it
+      // is asked for on click instead (see reminderNeedsAddress below).
       var blocked = reminderBlockedReason(m);
       if (blocked) {
         var why = document.createElement("div");
@@ -2054,8 +2044,18 @@
       // after an await. An async open is a popup-block risk and produced a
       // real blank-tab bug on iOS (commit afc4ee0). Everything the message
       // needs is already in memory before the click.
+      //
+      // window.prompt() below does NOT break that rule and a custom modal
+      // would: prompt() blocks the thread, so the window.open() after it is
+      // still the same synchronous task the tap started, and the browser
+      // still counts it as user-activated. An HTML modal would have to
+      // resolve a callback on a later task, which is exactly the async open
+      // that shipped the blank-tab bug.
       btn.onclick = (function(session, when, buttonEl) {
         return function() {
+          if (reminderNeedsAddress(session) && !askReminderAddress(session, buttonEl)) {
+            return;   // she cancelled -- nothing sent, nothing stamped
+          }
           var msg = buildReminderMessage(session, when);
           if (!msg) { return; }
           var waTab = window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
@@ -2078,74 +2078,59 @@
     // through the pencil, and neither is built in the worker.
     var REMINDER_TPL_FALLBACK = {
       reminder_online:
-        "Ola, {name}! Passando para confirmar nossa reuniao {when} as {time}. O link esta aqui: {meetLink}. Ate breve!",
+        "Passando para confirmar nossa reuniao {when} as {time}. O link esta aqui: {meetLink}. Ate breve!",
       reminder_in_person:
-        "Ola, {name}! Passando para confirmar nossa reuniao {when} as {time}. O endereco e: {location}. Ate breve!"
+        "Passando para confirmar nossa reuniao {when} as {time}. O endereco e: {location}. Ate breve!",
+      // Same message minus the sentence that has nothing to fill it. Used
+      // when she sends an in-person reminder without giving an address.
+      reminder_in_person_no_address:
+        "Passando para confirmar nossa reuniao {when} as {time}. Ate breve!"
     };
 
+    // THREE keys, not two, and the third is chosen by DATA rather than by
+    // meeting type: an in-person meeting with no address cannot use the
+    // template that embeds one. Read m.location live rather than caching the
+    // key at render time -- askReminderAddress() fills it in mid-click, and
+    // the message built immediately afterwards must be the one WITH the
+    // address she just typed.
     function reminderTplKey(m) {
-      return m.session_type === "in_person" ? "reminder_in_person" : "reminder_online";
+      if (m.session_type !== "in_person") { return "reminder_online"; }
+      return reminderHasAddress(m) ? "reminder_in_person" : "reminder_in_person_no_address";
     }
 
-    // Owners, keyed by client_id, so the greeting can name the real people.
-    // /api/sessions/calendar does not carry clients.owners, so it is fetched
-    // once alongside the meetings.
-    var aliceClientOwners = {};
-
-    // PORTED from schedGreetingName() in worker/index.js -- same behavior,
-    // same separators, deliberately not a second greeting rule.
-    //
-    // The company name is the LAST resort, not the default. clients.owners
-    // holds real people ("Marcelo Diniz & Neicy Diniz", "Osmar e Paulinha"),
-    // and greeting the company sent paying clients "Ola, GATOR!" and
-    // "Ola, PERFECT!". Both owners are greeted when there are two -- picking
-    // one risks addressing the wrong partner every single time. First names
-    // only: the field also holds full legal names, and a WhatsApp greeting
-    // addressed to a full legal name reads like a collections letter.
-    // COMMA IS A SEPARATOR HERE, and the worker's copy does not have it yet.
-    // Three live clients list three owners as "Ana Carolina, Anthony e
-    // Anderson" / "Marcelo Diniz, Neicy Diniz e Heri" / "Marcelo Diniz, Heri e
-    // Rafael". Without the comma, "Ana Carolina, Anthony" is read as ONE owner
-    // whose first name is "Ana", and the middle owner is silently dropped from
-    // the greeting -- LIRA would have been greeted "Ola, Ana e Anderson!",
-    // leaving Anthony out of a message sent to his own company. Dropping a real
-    // owner is the same class of mistake "Ola, GATOR!" was.
-    function reminderGreetingName(owners, fallbackName) {
-      var raw = owners ? String(owners).trim() : "";
-      if (raw) {
-        var parts = raw.split(/\s*(?:&|;|,|\se\s|\sE\s)\s*/);
-        var firsts = [];
-        for (var i = 0; i < parts.length; i++) {
-          var first = String(parts[i]).trim().split(/\s+/)[0];
-          if (first) { firsts.push(first); }
-        }
-        // Portuguese joins with "e", not a comma. This text always goes out
-        // in Portuguese.
-        if (firsts.length === 1) { return firsts[0]; }
-        if (firsts.length > 1) {
-          return firsts.slice(0, -1).join(", ") + " e " + firsts[firsts.length - 1];
-        }
-      }
-      return String(fallbackName || "").split(" ")[0].split("-")[0].trim();
+    function reminderHasAddress(m) {
+      return !!(m.location && String(m.location).trim());
     }
+
+    function reminderNeedsAddress(m) {
+      return m.session_type === "in_person" && !reminderHasAddress(m);
+    }
+
+    // NO GREETING BY NAME. Nicole's decision 2026-08-19: the reminder goes to
+    // the client's WhatsApp GROUP, and nobody knows which of the owners is
+    // actually attending the meeting. Naming one or naming all of them both
+    // guess at something the system does not know. The group already tells
+    // everyone who needs to know, so the message opens plainly instead.
 
     // Why a row cannot be reminded yet, or null when it can.
     //
-    // 1. "[PENDING_GOOGLE_API]" is the placeholder stored when Google event
-    //    creation failed. On 2026-07-22 a real client received that literal
-    //    string in a WhatsApp message.
-    // 2. An in-person meeting with no location would ship an empty address.
-    // Either way the row still shows -- with the reason, and no live button.
+    // "[PENDING_GOOGLE_API]" is the placeholder stored when Google event
+    // creation failed. On 2026-07-22 a real client received that literal
+    // string in a WhatsApp message. The row still shows -- with the reason,
+    // and no live button -- because nothing Alice can type fixes it: the Meet
+    // link has to come back from Google.
+    //
+    // A MISSING ADDRESS USED TO BLOCK HERE TOO, AND THAT WAS WRONG. The guard
+    // was correct in isolation (an empty {location} ships "O endereço é: .")
+    // but it guarded a column nothing fills: on 2026-08-20 all 132 in-person
+    // client meetings booked since June had location NULL, so the in-person
+    // reminder could never be sent by anyone, on any device -- which is how
+    // it came to look like a phone-vs-desktop bug. An address is something
+    // she knows and can type, so it is now ASKED FOR on click
+    // (askReminderAddress) with a send-anyway path, instead of being a dead
+    // end. Only the unfixable case still blocks.
     function reminderBlockedReason(m) {
-      if (m.session_type === "in_person") {
-        if (!m.location || !String(m.location).trim()) {
-          return {
-            pt: "Sem endere&#231;o cadastrado",
-            en: "No address on file"
-          };
-        }
-        return null;
-      }
+      if (m.session_type === "in_person") { return null; }
       var link = m.google_meet_link || "";
       if (!link || link === "[PENDING_GOOGLE_API]") {
         return {
@@ -2154,6 +2139,76 @@
         };
       }
       return null;
+    }
+
+    // ── Asking for the address ───────────────────────────────────────────
+    // Returns true to carry on with the send, false if she cancelled.
+    //
+    // THREE OUTCOMES, and the difference between the last two is the whole
+    // point of the design:
+    //   Cancel        -> false. Nothing opens, nothing is stamped sent.
+    //   Left blank    -> true, and the message goes out on the no-address
+    //                    template. This is the BYPASS: some meetings are at a
+    //                    place the group already knows, and being nagged for
+    //                    an address she does not have is how a feature stops
+    //                    getting used.
+    //   Address typed -> true, used in this message AND written back to
+    //                    sessions.location so she is never asked twice.
+    //
+    // window.prompt(), not a styled modal, and not by preference: see the
+    // note on the click handler. The synchronous window.open() after this
+    // returns is the only thing standing between the WhatsApp tab and iOS's
+    // popup blocker.
+    function askReminderAddress(m, btn) {
+      var en = document.body.classList.contains("lang-en");
+      var answer = window.prompt(
+        en
+          ? "Address for this meeting.\nLeave blank to send the reminder without an address."
+          : "Endereço desta reunião.\nDeixe em branco para enviar o lembrete sem endereço.",
+        ""
+      );
+      if (answer === null) { return false; }
+
+      var addr = String(answer).trim();
+      if (!addr) { return true; }   // bypass: no-address template
+
+      // In memory FIRST, so reminderTplKey() and buildReminderMessage() -- both
+      // called moments from now, still inside this same click -- see the
+      // address. The save is what happens afterwards; the message she is
+      // sending right now must not wait on the network.
+      m.location = addr;
+      // Keep the pencil pointing at the template that will actually be sent.
+      if (btn) { btn.setAttribute("data-tpl-key", reminderTplKey(m)); }
+
+      // The NARROW route, not the calendar's full PATCH /api/sessions/:id.
+      // That one refuses every row it does not consider Apex-owned, and most
+      // of the meetings on this card are not: in August 2026, 91 of the 142
+      // in-person sessions were calendar_provider 'google_external' and 34
+      // were 'manual'. Routing this through it would have shown Alice an
+      // error on roughly seven rows in eight, after she had already typed the
+      // address and sent the message. See the route's own note.
+      apiFetch("/api/sessions/" + encodeURIComponent(m.id) + "/location", {
+        method: "PATCH",
+        body: { location: addr }
+      })
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+        })
+        .catch(function(err) {
+          // The MESSAGE was correct -- it carried the address she typed. Only
+          // the save failed. Roll the in-memory value back so the next send
+          // asks again instead of quietly assuming a stored address that is
+          // not there, and say so: a silently-dropped address is how she ends
+          // up believing she entered it once and never has to again.
+          console.error("[reminders] could not save the address:", err);
+          m.location = null;
+          if (btn) { btn.setAttribute("data-tpl-key", reminderTplKey(m)); }
+          window.alert(en
+            ? "The reminder was sent, but the address could not be saved - it will ask again next time."
+            : "O lembrete foi enviado, mas o endereço não pôde ser salvo - ele será pedido de novo na próxima vez.");
+        });
+
+      return true;
     }
 
     // {when} is the literal word "hoje" / "amanha", never a calendar date.
@@ -2165,9 +2220,10 @@
     function buildReminderMessage(m, whenWord) {
       var key = reminderTplKey(m);
       var tpl = (dashMessageTemplates && dashMessageTemplates[key]) || REMINDER_TPL_FALLBACK[key];
-      var name = reminderGreetingName(aliceClientOwners[m.client_id], m.client_name);
+      // No {name}. A template edited to reintroduce it would ship the literal
+      // "{name}" to a client, so it is stripped rather than left to leak.
       return tpl
-        .split("{name}").join(name)
+        .split("{name}").join("")
         .split("{when}").join(whenWord)
         .split("{time}").join(formatTime(m.time))
         .split("{meetLink}").join(m.google_meet_link || "")
@@ -2182,11 +2238,26 @@
     // reminder_sent_at is its OWN column. sessions.whatsapp_sent_at belongs to
     // the booking-confirmation message; reusing it would make a confirmation
     // sent three days ago mark today's meeting as already reminded.
+    // reminder_sent_at is stored as a UTC ISO instant. Slicing its first ten
+    // characters yields a UTC CALENDAR DATE, which after 8 PM Eastern is
+    // already tomorrow -- the same UTC-vs-Eastern disagreement that shipped
+    // four times in two days in July. Send a reminder at 9 PM for tonight's
+    // meeting and the naive slice compares "2026-08-20" against a meeting
+    // dated "2026-08-19", finds no match, and quietly drops the button back
+    // to "Enviar Lembrete" as though nothing had been sent.
+    // Converting the instant to LOCAL wall-clock first is what makes the
+    // comparison mean what it reads like it means.
+    function reminderSentLocalDate(iso) {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) { return String(iso).slice(0, 10); }
+      return d.getFullYear() + "-" + padZ(d.getMonth() + 1) + "-" + padZ(d.getDate());
+    }
+
     function reminderIsAlreadySent(m) {
       if (!m.reminder_sent_at) { return false; }
       // Compared against the MEETING'S OWN date, so a reminder sent Monday
       // does not mark Wednesday's meeting as done.
-      return String(m.reminder_sent_at).slice(0, 10) === m.date;
+      return reminderSentLocalDate(m.reminder_sent_at) === m.date;
     }
 
     function applyReminderSentLook(btn) {

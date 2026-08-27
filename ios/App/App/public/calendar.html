@@ -3,7 +3,79 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <script src="native-bridge.js"></script>
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1786930000, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1786930000 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1787796089"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -12,8 +84,14 @@
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
+  <!-- Shared scheduling queue — the SAME module dashboard.html renders. One
+       component, two pages, so a fix here cannot miss the other. -->
+  <link rel="stylesheet" href="scheduling-queue.css?v=1787796000">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <script src="scheduling-queue.js?v=1787796000"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1787796000">
+  <script src="template-edit.js?v=1787796000"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -292,6 +370,19 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    /* Quiet on purpose -- a link, not a button. It must not read as a third
+       call to action beside "Enviar horarios" and "Nova Sessao"; it is the
+       way back to the rules those buttons obey. */
+    .cal-settings-link {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .cal-settings-link:hover { border-bottom-color: var(--gold); }
+    .cal-settings-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
     .btn-sync-now {
       background: transparent;
       color: var(--gold);
@@ -306,6 +397,57 @@
     }
     .btn-sync-now:hover:not(:disabled) { background: var(--gold-dim); }
     .btn-sync-now:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Scheduling queue block. The rows themselves are styled by the shared
+       scheduling-queue.css — only this page's framing lives here. */
+    .sched-queue-block { margin: 0 0 26px; }
+    .sched-queue-title {
+      font-size: 15px; font-weight: 600; margin: 0 0 12px;
+      color: var(--text);
+    }
+
+    /* ─── Rafa's non-Apex reminder ───────────────────────────────────────
+       ONE button sending ONE message listing every non-Apex item still
+       upcoming today and tomorrow. It goes straight to his own number, unlike
+       every other WhatsApp send on the site, because it has exactly one
+       recipient forever. */
+    .rafa-wa-block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+      margin-top: 18px;
+    }
+    .rafa-wa-title {
+      font-size: 15px; font-weight: 600; margin: 0 0 4px;
+      color: var(--text);
+    }
+    .rafa-wa-sub {
+      font-size: 12px; color: var(--muted); margin: 0 0 12px;
+    }
+    .rafa-wa-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn-rafa-wa {
+      background: #25d366;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0b3d20;
+      cursor: pointer;
+    }
+    .btn-rafa-wa:hover { opacity: 0.9; }
+    /* Nothing non-Apex today or tomorrow: the button says WHY rather than
+       sending a greeting followed by an empty list. */
+    .btn-rafa-wa[disabled] {
+      background: var(--border);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .rafa-wa-note { font-size: 12px; color: var(--muted); }
+    .rafa-wa-note.is-error { color: #b42318; font-weight: 600; }
 
     /* ─── Calendar toolbar ────────────────────────────────────────────────── */
     .cal-toolbar {
@@ -432,14 +574,17 @@
     .cal-cell:nth-child(7n) { border-right: none; }
     .cal-cell.other-month { background: #fafaf9; }
     .cal-cell:hover { background: #f6f4f0; }
+    .cal-cell.today {
+      background: color-mix(in srgb, var(--gold) 10%, white);
+      box-shadow: inset 0 0 0 2px var(--gold);
+    }
     .cal-cell.today .cal-day-num {
       color: var(--gold);
-      border-bottom: 2px solid var(--gold);
       font-weight: 700;
     }
 
     .cal-day-num {
-      font-size: 12px;
+      font-size: 16px;
       font-weight: 500;
       color: var(--muted);
       line-height: 1.6;
@@ -467,6 +612,7 @@
     .cal-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-chip.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-chip:hover { opacity: 0.88; }
     /* Online session missing its real Meet link (still the internal
        placeholder) -- warn so it isn't mistaken for a healthy meeting. */
@@ -609,6 +755,7 @@
     .cal-block.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-block.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-block.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-block.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-block:hover { opacity: 0.88; }
     .cal-block.cancelled { opacity: 0.55; text-decoration: line-through; }
 
@@ -650,6 +797,7 @@
     .cal-week-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-week-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-week-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-week-chip.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-week-chip:hover { opacity: 0.88; }
 
     /* ─── Day view ───────────────────────────────────────────────────────── */
@@ -716,6 +864,7 @@
     .cal-day-chip.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .cal-day-chip.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-day-chip.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 2px solid var(--cal-vendor-border); }
+    .cal-day-chip.personal   { background: var(--cal-event);       color: var(--cal-event-text);       border: 2px solid var(--cal-event-border); }
     .cal-day-chip:hover { opacity: 0.88; }
 
     /* ─── Empty state ────────────────────────────────────────────────────── */
@@ -761,6 +910,7 @@
     .type-pill.prospective { background: var(--cal-prospective); color: var(--cal-prospective-text); border: 1px solid var(--cal-prospective-border); }
     .type-pill.event       { background: var(--cal-event);       color: var(--cal-event-text);       border: 1px solid var(--cal-event-border); }
     .type-pill.vendor{ background: var(--cal-vendor);      color: var(--cal-vendor-text);      border: 1px solid var(--cal-vendor-border); }
+    .type-pill.personal    { background: var(--cal-event);       color: var(--cal-event-text);       border: 1px solid var(--cal-event-border); }
 
     /* ─── Toast ──────────────────────────────────────────────────────────── */
     #calToast {
@@ -1372,6 +1522,38 @@
               + <span class="show-pt">Nova Sessao</span>
               <span class="show-en">New Session</span>
             </button>
+            <!-- The whole point of the feature: instead of negotiating times
+                 one client at a time over WhatsApp, she sends a link. -->
+            <button class="btn-new-session" onclick="openSchedRequestModal()">
+              <span class="show-pt">Enviar horarios</span>
+              <span class="show-en">Send times</span>
+            </button>
+            <!-- Shortcut to the rules the link above runs on, because THIS is
+                 where she is standing when she notices a rule is wrong.
+                 Deliberately a quiet text link, not a third gold button
+                 competing with "Enviar horarios" and "Nova Sessao".
+                 A first-run modal was considered and rejected: a modal teaches
+                 nothing about where the setting LIVES, so the next time she
+                 wants to change something she is hunting again. One home
+                 (Settings), one shortcut to it -- the same reasoning that
+                 keeps the WhatsApp templates on Settings.
+                 Deep-links to the section anchor, so it lands ON Availability
+                 rather than at the top of a long page. -->
+            <a class="cal-settings-link" href="settings.html#availabilitySection">
+              <span class="show-pt">Disponibilidade</span>
+              <span class="show-en">Availability</span>
+            </a>
+            <!-- The walkthrough. Opens in its own NAMED window sized narrow, so
+                 Alice can put it beside Apex and follow along rather than
+                 tabbing back and forth. The name is what stops a second click
+                 stacking duplicate windows -- it refocuses the one already
+                 open. Falls back to a normal navigation if a popup blocker
+                 refuses, which is why it stays a real href. -->
+            <a class="cal-settings-link" href="help/agendamento.html"
+               onclick="var w=window.open(this.href,'apexHelpAgendamento','width=560,height=900,left=0,top=0'); if(w){w.focus();return false;} return true;">
+              <span class="show-pt">Como usar</span>
+              <span class="show-en">How to use</span>
+            </a>
           </div>
         </div>
 
@@ -1421,15 +1603,149 @@
       <div id="calendarContent">
         <!-- Rendered by JS -->
       </div>
+
+      <!-- Rafa's non-Apex reminder. ONE button, not one per row: this
+           sends a single message listing everything. Kept out of the hero
+           toolbar so there is room for the disabled reason and the pencil. -->
+      <div class="rafa-wa-block" id="rafaWaBlock">
+        <h2 class="rafa-wa-title">
+          <span class="show-pt">Lembrete n&#227;o-Apex (Rafa)</span>
+          <span class="show-en">Non-Apex reminder (Rafa)</span>
+        </h2>
+        <p class="rafa-wa-sub">
+          <span class="show-pt">Eventos e reuni&#245;es n&#227;o-Apex de hoje e amanh&#227;, em uma s&#243; mensagem.</span>
+          <span class="show-en">Non-Apex events and meetings for today and tomorrow, in one message.</span>
+        </p>
+        <div class="rafa-wa-row">
+          <button type="button" class="btn-rafa-wa" id="btnRafaWa" disabled>
+            <span class="show-pt">Enviar lembrete</span>
+            <span class="show-en">Send reminder</span>
+          </button>
+          <span class="rafa-wa-note" id="rafaWaNote"></span>
+        </div>
+      </div>
+
+      <!-- Alice's queue. Rendered by scheduling-queue.js, which dashboard.html
+           loads too — neither page owns a copy.
+           BELOW the grid on purpose: in the hero it pushed the month off
+           screen, and on a Friday with ten waiting clients the calendar was
+           unreachable. Hidden entirely while empty — a heading standing over
+           blank space reads as something failing to load. -->
+      <div class="sched-queue-block" id="schedQueueBlock" hidden>
+        <h2 class="sched-queue-title">
+          <span class="show-pt">Aguardando horario</span>
+          <span class="show-en">Waiting on a time</span>
+        </h2>
+        <div id="schedQueue"></div>
+      </div>
     </div><!-- /below-hero-section -->
 
   </main><!-- /appMain -->
+
+  <!-- Hidden greeting text for the Rafa reminder, sourced by rafaGreeting()
+       so accented characters stay in HTML and out of JS string literals
+       (project rule) -- same pattern as dashboard.html's renderGreeting(). -->
+  <span id="rafaGreetMorning"   hidden aria-hidden="true">Bom dia</span>
+  <span id="rafaGreetAfternoon" hidden aria-hidden="true">Boa tarde</span>
+  <span id="rafaGreetEvening"   hidden aria-hidden="true">Boa noite</span>
 
     </div><!-- /contentArea -->
   </div><!-- /pageWrapper -->
 
   <!-- ─── Toast ─────────────────────────────────────────────────────────── -->
   <div id="calToast"></div>
+
+  <!-- ═══════════════ MODAL: Enviar horários ═══════════════════════════════
+       She fills in everything EXCEPT the times. The times are the client's to
+       pick — that is what removes the two hours from her Friday. -->
+  <div id="modalSchedRequest" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Enviar horários</span>
+          <span class="show-en">Send times</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalSchedRequest')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
+          </div>
+          <select id="srClient"></select>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Tipo de reunião</span>
+            <span class="show-en">Meeting type</span>
+          </div>
+          <div class="type-toggle">
+            <button type="button" class="type-toggle-btn active" id="srTypeMeet"
+                    onclick="setSrType('online_meet')">Google Meet</button>
+            <button type="button" class="type-toggle-btn" id="srTypeInPerson"
+                    onclick="setSrType('in_person')">
+              <span class="show-pt">Presencial</span>
+              <span class="show-en">In person</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- In-person only: travel time blocks this many minutes BEFORE AND
+             AFTER the meeting, so a site visit does not collide with the next
+             call. -->
+        <div class="field-group" id="srTravelGroup" hidden>
+          <div class="field-label">
+            <span class="show-pt">Tempo de deslocamento (min)</span>
+            <span class="show-en">Travel time (min)</span>
+          </div>
+          <input type="number" id="srTravel" value="30" min="0" max="180" step="5">
+        </div>
+
+        <div class="field-group" id="srLocationGroup" hidden>
+          <div class="field-label">
+            <span class="show-pt">Endereço</span>
+            <span class="show-en">Address</span>
+          </div>
+          <input type="text" id="srLocation" placeholder="Rua, numero, cidade">
+        </div>
+
+        <!-- Online only, OFF by default. For the client who notoriously runs
+             over, not as a standing tax on every call. -->
+        <div class="field-group" id="srBufferGroup">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="srBuffer" style="width:auto;min-height:auto;">
+            <span>
+              <span class="show-pt">Reservar 15 min extras depois</span>
+              <span class="show-en">Hold 15 extra minutes after</span>
+            </span>
+          </label>
+        </div>
+
+        <!-- Duration sits behind a deliberate click so it cannot be changed by
+             accident. One hour is right almost every time. -->
+        <div class="field-group">
+          <button type="button" class="btn-cancel-link" id="srCustomizeBtn"
+                  onclick="toggleSrCustomize()" style="padding:0;">
+            <span class="show-pt">Personalizar duração (1 hora)</span>
+            <span class="show-en">Customize duration (1 hour)</span>
+          </button>
+          <div id="srDurationWrap" hidden style="margin-top:10px;">
+            <input type="number" id="srDuration" value="60" min="15" max="240" step="15">
+          </div>
+        </div>
+      </div>
+      <button class="btn-submit" id="btnSrSubmit" onclick="handleSchedRequest()">
+        <span class="show-pt">Criar link</span>
+        <span class="show-en">Create link</span>
+      </button>
+      <button class="btn-cancel-link" onclick="closeModal('modalSchedRequest')">
+        <span class="show-pt">Cancelar</span>
+        <span class="show-en">Cancel</span>
+      </button>
+    </div>
+  </div>
 
   <!-- ═══════════════ MODAL: Nova Sessão ═══════════════════════════════════ -->
   <div id="modalNewSession" class="modal-overlay" hidden>
@@ -1469,7 +1785,71 @@
             <span class="show-pt">Fornecedor / parceiro</span>
             <span class="show-en">Vendor / partner</span>
           </div>
+          <!-- Third meaning: a non-Apex meeting. "Event name" is precisely the
+               wording that sent Alice looking for a category that did not
+               exist, so it must not be what she reads here. -->
+          <div class="field-label" id="nsPersonalNameLabel" hidden>
+            <span class="show-pt">Nome da reuni&#227;o</span>
+            <span class="show-en">Meeting name</span>
+          </div>
           <input type="text" id="nsEventName">
+        </div>
+
+        <!-- ══ Apex Club extras ═══════════════════════════════════════════
+             Shown ONLY when "+ Apex Club" is picked. Everything here belongs
+             to the apex_club_events row, not to the calendar session: the
+             calendar already collects name, date, time and location, so
+             nothing is asked twice. Saving creates BOTH records and links
+             them, which is what makes the registration link exist the moment
+             the calendar entry does.
+             Nothing in this block is required -- price defaults to the usual
+             $50/$75 and everything else can be filled in later from the
+             finance tab. -->
+        <div id="nsClubGroup" hidden>
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Convidados / palestrantes</span>
+              <span class="show-en">Speakers</span>
+            </div>
+            <input type="text" id="nsClubSpeakers" placeholder="Rafael Prata, Irclebson Ramos">
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div class="field-group" style="flex:1 1 140px;">
+              <div class="field-label">
+                <span class="show-pt">Valor por pessoa</span>
+                <span class="show-en">Price per person</span>
+              </div>
+              <input type="text" id="nsClubPriceSingle" inputmode="decimal" placeholder="50.00">
+            </div>
+            <div class="field-group" style="flex:1 1 140px;">
+              <div class="field-label">
+                <span class="show-pt">Valor por casal</span>
+                <span class="show-en">Price per couple</span>
+              </div>
+              <input type="text" id="nsClubPriceCouple" inputmode="decimal" placeholder="75.00">
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Observações <span style="font-weight:400;color:var(--muted);">— aparece na inscrição</span></span>
+              <span class="show-en">Notes <span style="font-weight:400;color:var(--muted);">— shown on the registration page</span></span>
+            </div>
+            <textarea id="nsClubNotes" rows="2" placeholder="Estacionamento gratuito nos fundos."></textarea>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Flyer</span>
+              <span class="show-en">Flyer</span>
+            </div>
+            <input type="file" id="nsClubFlyer" accept="image/jpeg,image/png,image/gif,image/webp">
+            <div style="font-size:12px;color:var(--muted);margin-top:5px;">
+              <span class="show-pt">Aparece na página de inscrição e no card do evento. Pode adicionar depois.</span>
+              <span class="show-en">Shows on the registration page and the event card. Can be added later.</span>
+            </div>
+          </div>
         </div>
         <!-- Meeting category toggle: client (real, paying) vs prospective
              (a lead who hasn't signed yet). Defaults to Client; auto-flips
@@ -1869,6 +2249,27 @@
           <div class="detail-notes-text" id="detailNotes"></div>
         </div>
 
+        <!-- ══ Apex Club panel ═══════════════════════════════════════════
+             Appears only when this calendar entry is linked to an
+             apex_club_events row. Deliberately carries NO money: no P&L, no
+             transaction suggestions, no totals. Rafa runs the event and
+             Alice runs the finances, and the P&L does not exist until after
+             the night anyway -- so the guest list must be reachable without
+             going through the finance page. Same event row, second view. -->
+        <div id="clubPanel" hidden style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border);">
+          <div class="field-label" style="margin-bottom:8px;">
+            <span class="show-pt">Apex Club &mdash; inscri&ccedil;&otilde;es</span>
+            <span class="show-en">Apex Club &mdash; registrations</span>
+          </div>
+          <!-- No feather here, unlike the finance card: the hard crop reads
+               better against the modal's white background (Nicole, 2026-08-11). -->
+          <img id="clubPanelFlyer" hidden style="display:block;width:100%;aspect-ratio:4.17/1;max-height:150px;object-fit:cover;object-position:50% 5.5%;border-radius:8px;margin-bottom:10px;background:#111;">
+          <div id="clubPanelCount" style="font-size:15px;font-weight:700;margin-bottom:2px;"></div>
+          <div id="clubPanelSub" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+          <div id="clubPanelGuests"></div>
+          <div id="clubPanelLink" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;"></div>
+        </div>
+
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
           <button class="btn-whatsapp" id="btnWhatsApp" onclick="handleWhatsApp()">
             <span class="show-pt">Enviar WhatsApp</span>
@@ -2204,6 +2605,10 @@
 
   <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
   <script src="nav.js"></script>
+  <!-- Shared month-grid mechanics. calendar.html was the ORIGINAL home of this
+       code; it now consumes the extracted module so the client portal and this
+       page cannot drift. See calendar-grid.js. -->
+  <script src="calendar-grid.js?v=1787796000"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -2271,6 +2676,19 @@
           fetchOpts.body = JSON.stringify(opts.body);
         }
         return fetch(WORKER_URL + path, fetchOpts);
+      });
+    }
+
+    // Multipart sibling of apiFetch. Separate rather than a branch inside
+    // apiFetch, which JSON-stringifies its body and sets a JSON content type;
+    // a file upload needs the browser to set the multipart boundary itself.
+    function apiFetchForm(path, formData) {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + path, {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
       });
     }
 
@@ -2434,6 +2852,20 @@
       populateHeaderUser(email, displayName, avatarUrl);
       document.getElementById("headerRole").textContent = role;
 
+      // Alice's default landing view is week, not month -- her own request.
+      // Set BEFORE loadCalendar() below so its first renderCalendar() call
+      // already draws the week grid; calling setCalView() here would be
+      // premature since it renders immediately and calSessions is still
+      // empty at this point. The toggle buttons still need the active class
+      // set by hand since setCalView() is skipped.
+      if (role === "alice") {
+        calView = "week";
+        var viewBtnWeek = document.getElementById("viewBtnWeek");
+        var viewBtnMonth = document.getElementById("viewBtnMonth");
+        if (viewBtnWeek)  { viewBtnWeek.className  = "view-toggle-btn active"; }
+        if (viewBtnMonth) { viewBtnMonth.className = "view-toggle-btn"; }
+      }
+
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
 
@@ -2442,6 +2874,308 @@
       loadClients();
       loadEngagementDates();
       loadCalendar();
+      // MUST be here, not in window.onload. apiFetch -> getToken() rejects
+      // outright while currentUser is null, and onload fires long before
+      // onAuthStateChanged restores the session. Called from there the queue
+      // request was rejected before it was ever sent, and the module's
+      // .catch swallowed it: no row, no console error, no network entry.
+      // dashboard.html always called it from its own post-auth setup, which
+      // is why the same shared module worked there and not here.
+      loadSchedQueue();
+      loadRafaWaTemplate();
+      loadRafaNonApex();
+      // The button exists in the markup from the start (disabled), so the
+      // click handler and the pencil are wired once here rather than on every
+      // re-render. TemplateEdit.attach is idempotent regardless.
+      attachRafaWaEditor();
+    }
+
+    // ═══ Rafa's non-Apex reminder ═════════════════════════════════════════
+    // ONE button sending ONE WhatsApp message listing every non-Apex item
+    // still upcoming today and tomorrow, so Alice can remind him of things
+    // like his daughter's first day of kindergarten.
+    //
+    // Rafa, +1 214 448 7559. Digits only, WITH the country code: a bare
+    // 10-digit US number makes WhatsApp report that the number does not
+    // exist, even for a real working number. Proven on a sibling project by
+    // four real numbers that failed bare and worked the instant "1" was
+    // prepended. Never "2144487559", never "+1 (214) 448-7559".
+    //
+    // WARNING: this is ONE DIGIT from Alice's number -- same prefix, his
+    // ends 7559, hers ends 5917. A transposition sends his private family
+    // schedule to the wrong person.
+    var RAFA_WA = "12144487559";
+
+    // A DELIBERATE exception to the app's usual bare wa.me pattern. Every
+    // other send uses wa.me/?text= with no number, because the recipient is a
+    // client group the sender must pick. This one has exactly one recipient
+    // forever, so it addresses him directly.
+    var RAFA_WA_TPL_KEY = "rafa_non_apex_reminder";
+
+    // Fallback only. The live text is the D1 row, which is what the pencil
+    // edits. Plain ASCII here by project rule; the accented copy lives in D1.
+    var RAFA_WA_TPL_FALLBACK = "{greeting}! Isto e o que voce tem:\n\n{items}";
+
+    var rafaWaTemplate = null;   // in-memory copy, refreshed by the pencil
+    var rafaWaRows     = null;   // { today: [], tomorrow: [] }, already filtered
+
+    function loadRafaWaTemplate() {
+      apiFetch("/api/settings/templates")
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          var list = data.templates || [];
+          for (var i = 0; i < list.length; i++) {
+            if (list[i].template_key === RAFA_WA_TPL_KEY) {
+              rafaWaTemplate = list[i].template_text;
+              return;
+            }
+          }
+          // The row is missing from D1 -- say so rather than quietly shipping
+          // the fallback and letting an edit through the pencil look saved.
+          console.error("[rafa-wa] template row '" + RAFA_WA_TPL_KEY + "' not found in message_templates");
+        })
+        .catch(function(err) {
+          console.error("[rafa-wa] could not load the message template:", err);
+        });
+    }
+
+    // "YYYY-MM-DD" + n days, on the LOCAL calendar. Built from a noon Date so
+    // a DST shift cannot roll the result into the neighbouring day.
+    function rafaAddDays(dateStr, n) {
+      var d = new Date(dateStr + "T12:00:00");
+      d.setDate(d.getDate() + n);
+      return localDateStr(d);
+    }
+
+    // end_time arrives in TWO shapes: a plain "HH:MM" on Apex rows, a full ISO
+    // datetime on Google-synced ones. Same parse dashboard.html already uses.
+    function rafaEndHHMM(s) {
+      var endRaw = s.end_time;
+      if (endRaw) {
+        return String(endRaw).indexOf("T") !== -1 ? String(endRaw).slice(11, 16) : String(endRaw).slice(0, 5);
+      }
+      return null;
+    }
+
+    // Already finished? Uses end_time when present so a meeting currently in
+    // progress does not vanish out from under her while it is still running.
+    function rafaIsPast(s, todayDate, nowMinutes) {
+      if (s.date !== todayDate) { return false; }
+      var hhmm = rafaEndHHMM(s) || s.time;
+      if (!hhmm) { return false; }
+      var p = String(hhmm).split(":");
+      var mins = (parseInt(p[0], 10) * 60) + parseInt(p[1] || "0", 10);
+      if (isNaN(mins)) { return false; }
+      return mins < nowMinutes;
+    }
+
+    // The two WHITE categories, and only those. NOT 'vendor' (pale green, and
+    // it is Apex business), NOT 'external' (beige, Google's own synced rows),
+    // NOT 'client' or 'prospective'.
+    function rafaIsNonApex(s) {
+      if (isExternalSession(s)) { return false; }
+      return s.meeting_category === "event" || s.meeting_category === "personal";
+    }
+
+    function rafaSortByTime(list) {
+      return list.slice().sort(function(a, b) {
+        return String(a.time || "").localeCompare(String(b.time || ""));
+      });
+    }
+
+    function loadRafaNonApex() {
+      var block = document.getElementById("rafaWaBlock");
+      if (!block) { return; }
+
+      // NEVER toISOString() -- that is UTC and disagrees with Eastern every
+      // evening. This exact bug shipped four times in two days in July.
+      var today    = localDateStr();
+      var tomorrow = rafaAddDays(today, 1);
+
+      // Tomorrow can fall in the NEXT month (the 31st). A single month-scoped
+      // fetch would silently drop every one of tomorrow's items on that day.
+      var months = [today.slice(0, 7)];
+      var tomorrowMonth = tomorrow.slice(0, 7);
+      if (tomorrowMonth !== months[0]) { months.push(tomorrowMonth); }
+
+      var fetches = months.map(function(mo) {
+        return apiFetch("/api/sessions/calendar?month=" + mo)
+          .then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          });
+      });
+
+      Promise.all(fetches)
+        .then(function(results) {
+          var sessions = [];
+          for (var i = 0; i < results.length; i++) {
+            sessions = sessions.concat(results[i].sessions || []);
+          }
+          var now = new Date();
+          var nowMinutes = (now.getHours() * 60) + now.getMinutes();
+          var kept = sessions.filter(function(s) {
+            if (s.date !== today && s.date !== tomorrow) { return false; }
+            if (s.status === "cancelled") { return false; }
+            if (!rafaIsNonApex(s)) { return false; }
+            return !rafaIsPast(s, today, nowMinutes);
+          });
+          rafaWaRows = {
+            today:    rafaSortByTime(kept.filter(function(s) { return s.date === today; })),
+            tomorrow: rafaSortByTime(kept.filter(function(s) { return s.date === tomorrow; }))
+          };
+          renderRafaWa();
+        })
+        .catch(function(err) {
+          // NEVER swallow this into an empty list. A button that silently
+          // says "nothing today" is indistinguishable from a quiet day, and
+          // she would trust it and send nothing.
+          console.error("[rafa-wa] could not load the calendar:", err);
+          rafaWaRows = null;
+          var btn  = document.getElementById("btnRafaWa");
+          var note = document.getElementById("rafaWaNote");
+          if (btn) { btn.disabled = true; }
+          if (note) {
+            note.className = "rafa-wa-note is-error";
+            note.textContent = isEn()
+              ? "Could not load the calendar - reload the page."
+              : "Nao foi possivel carregar a agenda - recarregue a pagina.";
+          }
+        });
+    }
+
+    function renderRafaWa() {
+      var btn  = document.getElementById("btnRafaWa");
+      var note = document.getElementById("rafaWaNote");
+      if (!btn || !note) { return; }
+      var en = isEn();
+      var count = rafaWaRows ? (rafaWaRows.today.length + rafaWaRows.tomorrow.length) : 0;
+
+      note.className = "rafa-wa-note";
+      if (count === 0) {
+        // Empty state: disabled WITH the reason, never a live button that
+        // would send a greeting followed by nothing.
+        btn.disabled = true;
+        note.textContent = en
+          ? "Nothing non-Apex today or tomorrow."
+          : "Nada nao-Apex hoje ou amanha.";
+        return;
+      }
+      btn.disabled = false;
+      note.textContent = en
+        ? (count === 1 ? "1 item" : count + " items")
+        : (count === 1 ? "1 compromisso" : count + " compromissos");
+    }
+
+    // One line per item, 12-hour with AM/PM ALWAYS (Rafa required the
+    // whole site in US standard; datetime.js says the PT/EN toggle must never
+    // change how a time renders). A "Hoje:"/"Amanha:" subheading appears ONLY
+    // when that day actually has items.
+    function rafaItemsBlock() {
+      if (!rafaWaRows) { return ""; }
+      // "Amanha" carries a tilde in the message Rafa reads, but a JS string
+      // literal on this page must stay plain ASCII (project rule), so the
+      // accented character is built from its code point rather than typed.
+      var amanha = "Amanh" + String.fromCharCode(227);
+      var out = [];
+
+      function addDay(heading, rows) {
+        if (!rows.length) { return; }
+        out.push(heading + ":");
+        for (var i = 0; i < rows.length; i++) {
+          out.push("- " + formatTime(rows[i].time) + " - " + (rows[i].client_name || ""));
+        }
+        out.push("");
+      }
+
+      addDay("Hoje", rafaWaRows.today);
+      addDay(amanha, rafaWaRows.tomorrow);
+      return out.join("\n");
+    }
+
+    // Time-of-day greeting, computed at SEND time -- a nightly reminder sent at
+    // 8 PM must not say "Bom dia".
+    //
+    // BOUNDARIES: 5 / 12 / 18, matching renderGreeting() in dashboard.html so
+    // the two never disagree.
+    //
+    // Researched 2026-08-19 because 6 PM felt late for "boa noite" to an
+    // English speaker. It is not. Portuguese has THREE day-parts (manha /
+    // tarde / noite) where English effectively has four -- there is no
+    // Portuguese word for "evening", so most of what English calls evening
+    // falls under "tarde". "Boa tarde" at 4 and 5 PM is mid-afternoon, not
+    // late. Sources genuinely disagree on the tarde->noite switch: an 18:00
+    // clock rule (taught in Brazilian reception/service training) versus a
+    // solar rule ("depois que escureceu"). No official rule exists; the honest
+    // range is ~17:00-19:00. 18:00 sits at its centre, is the convention for
+    // written messages, and roughly tracks Brazilian sunset year-round.
+    //
+    // NOTE: "boa noite" is both a greeting AND a farewell in Portuguese,
+    // unlike English "good night" -- so it is correct to OPEN with it.
+    function rafaGreeting() {
+      var hour = new Date().getHours();
+      var id = (hour >= 5 && hour < 12) ? "rafaGreetMorning"
+             : (hour >= 12 && hour < 18) ? "rafaGreetAfternoon"
+             : "rafaGreetEvening";
+      var el = document.getElementById(id);
+      if (el) { return el.textContent; }
+      // ASCII fallbacks only -- the accented copy lives in the spans above.
+      return (hour >= 5 && hour < 12) ? "Bom dia"
+           : (hour >= 12 && hour < 18) ? "Boa tarde" : "Boa noite";
+    }
+
+    function buildRafaWaMessage() {
+      var tpl = rafaWaTemplate || RAFA_WA_TPL_FALLBACK;
+      var items = rafaItemsBlock();
+      // Same guard {items} already has: a template edited to drop {greeting}
+      // would open mid-sentence, so it is prepended rather than silently lost.
+      if (tpl.indexOf("{greeting}") === -1) {
+        tpl = rafaGreeting() + "! " + tpl;
+      } else {
+        tpl = tpl.split("{greeting}").join(rafaGreeting());
+      }
+      // A template edited to drop {items} would ship a greeting with no list
+      // at all, which is the exact thing the empty state exists to prevent --
+      // so the list is appended rather than silently lost.
+      if (tpl.indexOf("{items}") === -1) { return tpl + "\n\n" + items; }
+      return tpl.split("{items}").join(items);
+    }
+
+    // window.open MUST be called SYNCHRONOUSLY here, never after an await:
+    // an async open is a popup-block risk and caused a real iOS blank-tab bug
+    // (commit afc4ee0). Everything it needs is already in memory.
+    function sendRafaWa() {
+      if (!rafaWaRows) { return; }
+      if (rafaWaRows.today.length + rafaWaRows.tomorrow.length === 0) { return; }
+      var msg = buildRafaWaMessage();
+      window.open("https://wa.me/" + RAFA_WA + "?text=" + encodeURIComponent(msg), "_blank");
+    }
+
+    function attachRafaWaEditor() {
+      var btn = document.getElementById("btnRafaWa");
+      if (!btn) { return; }
+      btn.addEventListener("click", sendRafaWa);
+      if (!window.TemplateEdit) {
+        console.error("[rafa-wa] template-edit.js did not load - the pencil cannot render");
+        return;
+      }
+      window.TemplateEdit.attach({
+        button: btn,
+        key: RAFA_WA_TPL_KEY,
+        apiFetch: apiFetch,
+        // Without this the in-memory copy stays stale: she edits the message,
+        // sends it, and the OLD text goes out.
+        onSaved: function(saved) {
+          if (saved && saved.template_text) {
+            rafaWaTemplate = saved.template_text;
+          } else {
+            loadRafaWaTemplate();
+          }
+        }
+      });
     }
 
     function init() {
@@ -2528,6 +3262,15 @@
       vendorOpt.textContent = (en ? "+ Vendor / Partner" : "+ Fornecedor / Parceiro");
       sel.appendChild(vendorOpt);
 
+      // A NON-APEX meeting: church, school, family. Behaves exactly like
+      // "+ Event" and looks identical on the calendar -- it exists because
+      // "Event" was the wrong word in Alice's head for a meeting Rafa had
+      // with the senior pastor.
+      var personalOpt = document.createElement("option");
+      personalOpt.value = "__personal__";
+      personalOpt.textContent = (en ? "+ Non-Apex meeting" : "+ Reuniao nao-Apex");
+      sel.appendChild(personalOpt);
+
       var sep = document.createElement("option");
       sep.disabled = true;
       sep.textContent = "──────────────";
@@ -2598,7 +3341,7 @@
       }
       // Event / Apex Club: not a client session at all. The dropdown keeps
       // showing the chosen option (unlike "__add_new__").
-      if (sel.value === "__event__" || sel.value === "__apex_club__") {
+      if (sel.value === "__event__" || sel.value === "__apex_club__" || sel.value === "__personal__") {
         setNsEventMode(true, sel.value === "__apex_club__");
         return;
       }
@@ -2622,7 +3365,14 @@
 
     function nsIsEvent() {
       var v = document.getElementById("nsClient").value;
-      return v === "__event__" || v === "__apex_club__";
+      return v === "__event__" || v === "__apex_club__" || v === "__personal__";
+    }
+
+    // True only for the non-Apex sentinel. Everything about the modal is the
+    // event path; this decides the one thing that differs -- the category the
+    // row is saved with.
+    function nsIsPersonal() {
+      return document.getElementById("nsClient").value === "__personal__";
     }
 
     // Switches the New Session modal between event mode (category/type/
@@ -2635,15 +3385,85 @@
       document.getElementById("nsTypeGroup").hidden     = isEvent;
       document.getElementById("nsRecurGroup").hidden    = isEvent;
       nameGroup.hidden = !isEvent;
+      var isPersonal     = nsIsPersonal();
+      var eventLabelE     = document.getElementById("nsEventNameLabel");
+      var personalLabelE  = document.getElementById("nsPersonalNameLabel");
+      var vendorLabelE    = document.getElementById("nsVendorNameLabel");
       if (isEvent) {
         nameEl.value = isApexClub ? "Apex Club" : "";
-        document.getElementById("nsCategoryVal").value = "event";
+        nameEl.placeholder = "";
+        document.getElementById("nsCategoryVal").value = isPersonal ? "personal" : "event";
         setNewSessionType("in_person");
+        if (vendorLabelE)   { vendorLabelE.hidden   = true; }
+        if (eventLabelE)    { eventLabelE.hidden    = isPersonal; }
+        if (personalLabelE) { personalLabelE.hidden = !isPersonal; }
       } else {
         nameEl.value = "";
+        if (eventLabelE)    { eventLabelE.hidden    = false; }
+        if (personalLabelE) { personalLabelE.hidden = true; }
       }
+      // Apex Club carries a price, a flyer and a registration page; a plain
+      // event does not. Purely additive -- the scheduling path above is
+      // untouched, this only reveals extra fields.
+      var clubGroup = document.getElementById("nsClubGroup");
+      if (clubGroup) { clubGroup.hidden = !(isEvent && isApexClub); }
+      NS_IS_APEX_CLUB = !!(isEvent && isApexClub);
+
       updateNsLocationVisibility();
       updateNsEndTimeVisibility();
+    }
+
+    // Set by setNsEventMode; read after the session saves, to decide whether
+    // an apex_club_events row should be created and linked.
+    var NS_IS_APEX_CLUB = false;
+
+    // Creates the apex_club_events row for a freshly scheduled Apex Club and
+    // links it to the calendar session, then uploads the flyer if one was
+    // chosen. Resolves either way: a failure here must never make a
+    // successfully scheduled calendar entry look like it failed, because the
+    // event can always be created from the finance tab instead.
+    function createLinkedClubEvent(scheduleData, eventName, date, time, location) {
+      if (!NS_IS_APEX_CLUB) { return Promise.resolve(); }
+
+      var session = scheduleData && scheduleData.session;
+      var sessionId = session && session.id;
+      if (!sessionId) { return Promise.resolve(); }
+
+      function dollars(id) {
+        var raw = (document.getElementById(id).value || "").trim().replace(/[^0-9.,]/g, "").replace(",", ".");
+        if (!raw) { return null; }
+        var n = parseFloat(raw);
+        return isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+      }
+
+      var body = {
+        name: eventName || "Apex Club",
+        event_date: date,
+        // The calendar already collected these -- never ask twice.
+        start_time: time ? formatTime(time) : null,
+        venue: location || null,
+        speakers: (document.getElementById("nsClubSpeakers").value || "").trim() || null,
+        notes: (document.getElementById("nsClubNotes").value || "").trim() || null,
+        session_id: sessionId
+      };
+      var ps = dollars("nsClubPriceSingle");
+      var pc = dollars("nsClubPriceCouple");
+      if (ps !== null) { body.price_single_cents = ps; }
+      if (pc !== null) { body.price_couple_cents = pc; }
+
+      return apiFetch("/api/finance-new/club/events", { method: "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || d.error || !d.event) { return; }
+          var fileEl = document.getElementById("nsClubFlyer");
+          var file = fileEl && fileEl.files && fileEl.files[0];
+          if (!file) { return; }
+
+          var fd = new FormData();
+          fd.append("flyer", file);
+          return apiFetchForm("/api/finance-new/club/events/" + d.event.id + "/flyer", fd);
+        })
+        .catch(function() { /* the calendar entry stands regardless */ });
     }
 
     // Vendor/partner mode. Deliberately NOT a variant of event mode: an event
@@ -2657,8 +3477,10 @@
       var eventLabel  = document.getElementById("nsEventNameLabel");
       var vendorLabel = document.getElementById("nsVendorNameLabel");
       var en = isEn();
+      var personalLabelV = document.getElementById("nsPersonalNameLabel");
       if (eventLabel)  { eventLabel.hidden  = !!isVendor; }
       if (vendorLabel) { vendorLabel.hidden = !isVendor; }
+      if (personalLabelV && isVendor) { personalLabelV.hidden = true; }
       if (isVendor) {
         document.getElementById("nsCategoryGroup").hidden = true;
         document.getElementById("nsRecurGroup").hidden    = true;
@@ -2980,63 +3802,48 @@
 
     // ── Month view ─────────────────────────────────────────────────────────
 
+    // MIGRATED ONTO THE SHARED MODULE (calendar-grid.js).
+    //
+    // The six-week grid, the leading/trailing days, the "stop after a complete
+    // row" rule and the day cells now live in ONE place shared with the client
+    // portal, so a grid fix no longer has to be made twice — the standing
+    // problem dashboard.html already has.
+    //
+    // classPrefix "cal" keeps every existing .cal-* rule in this file's own
+    // <style> block working untouched, including the two fixes that exist
+    // nowhere else: chips WRAP rather than ellipsis (min-width: 0 on cell and
+    // chip), and mobile is a different layout rather than a narrower grid.
+    //
+    // WHAT DELIBERATELY DID NOT MOVE: makeMonthChip stays here and is passed
+    // in as the renderer. It is entirely session-specific — Meet-link repair
+    // warnings, EXT badges for google_external rows, meeting_category colours
+    // — and none of that belongs in a module the client portal also loads.
     function renderMonth() {
       var content = document.getElementById("calendarContent");
-      var today   = new Date();
-      today.setHours(0,0,0,0);
       var map = buildSessionMap();
-      var en  = isEn();
-      var days = en ? DAYS_EN : DAYS_PT;
 
-      var firstOfMonth = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
-      var lastOfMonth  = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0);
+      // The module groups by an `date` field; sessions already carry one.
+      var events = [];
+      Object.keys(map).forEach(function (k) {
+        map[k].forEach(function (sess) { events.push(sess); });
+      });
 
-      // Grid starts on Sunday of the week containing day 1
-      var gridStart = new Date(firstOfMonth);
-      gridStart.setDate(gridStart.getDate() - gridStart.getDay());
-
-      var html = '<div class="cal-grid-wrap">';
-      // Day headers
-      html += '<div class="cal-day-headers">';
-      for (var d = 0; d < 7; d++) {
-        html += '<div class="cal-day-header">' + days[d] + '</div>';
-      }
-      html += '</div>';
-      html += '<div class="cal-grid" id="monthGrid">';
-      html += '</div></div>';
-
-      content.innerHTML = html;
-
-      var grid = document.getElementById("monthGrid");
-      var cur  = new Date(gridStart);
-
-      // Render up to 6 weeks
-      for (var w = 0; w < 6; w++) {
-        for (var dw = 0; dw < 7; dw++) {
-          var isCurrentMonth = cur.getMonth() === curDate.getMonth();
-          var isToday = cur.getTime() === today.getTime();
-          var key = dateKey(cur);
-          var sessions = map[key] || [];
-
-          var cell = document.createElement("div");
-          cell.className = "cal-cell" + (isCurrentMonth ? "" : " other-month") + (isToday ? " today" : "");
-
-          var dayNum = document.createElement("div");
-          dayNum.className = "cal-day-num";
-          dayNum.textContent = cur.getDate();
-          cell.appendChild(dayNum);
-
-          // Session chips
-          for (var si = 0; si < sessions.length; si++) {
-            cell.appendChild(makeMonthChip(sessions[si]));
-          }
-
-          grid.appendChild(cell);
-          cur = new Date(cur.getTime() + 86400000);
-        }
-        // Stop if we've passed the month and it's a complete row
-        if (cur.getMonth() !== curDate.getMonth() && cur.getDay() === 0) { break; }
-      }
+      CalendarGrid.renderMonthGrid(content, {
+        anchor: curDate,
+        events: events,
+        en: isEn(),
+        // The existing class names, exactly as this file's <style> block
+        // already defines them.
+        classes: {
+          wrap:    "cal-grid-wrap",
+          headers: "cal-day-headers",
+          header:  "cal-day-header",
+          grid:    "cal-grid",
+          cell:    "cal-cell",
+          dayNum:  "cal-day-num"
+        },
+        renderChip: function (sess) { return makeMonthChip(sess); }
+      });
     }
 
     // calendar_provider is the real external/Apex signal. Live D1 holds FOUR
@@ -3057,6 +3864,9 @@
     function sessionTypeCls(session) {
       if (isExternalSession(session)) { return "external"; }
       if (session.meeting_category === "event") { return "event"; }
+      // Same colours as an event by design, but its own class so the two stay
+      // separately restylable if that ever changes.
+      if (session.meeting_category === "personal") { return "personal"; }
       if (session.meeting_category === "vendor") { return "vendor"; }
       if (session.meeting_category === "prospective") { return "prospective"; }
       return (session.session_type === "in_person") ? "inperson" : "online";
@@ -3070,6 +3880,9 @@
     function needsMeetLink(session) {
       if (!isApexSession(session)) { return false; }
       if (session.meeting_category === "event") { return false; }
+      // A non-Apex meeting never has a Meet link and must never be flagged as
+      // a broken session for that.
+      if (session.meeting_category === "personal") { return false; }
       if (session.session_type !== "online_meet") { return false; }
       return !session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]";
     }
@@ -4493,7 +5306,8 @@
       // A vendor meeting keeps its chosen type -- that is what earns it a Meet
       // link -- unlike an event, which is forced in_person.
       var type      = isEvent ? "in_person" : (document.getElementById("nsTypeVal").value || "online_meet");
-      var category  = isEvent ? "event" : (isVendor ? "vendor" : (document.getElementById("nsCategoryVal").value || "client"));
+      var category  = isEvent ? (nsIsPersonal() ? "personal" : "event")
+                              : (isVendor ? "vendor" : (document.getElementById("nsCategoryVal").value || "client"));
       var notes     = document.getElementById("nsNotes").value;
       var location  = (document.getElementById("nsLocation").value || "").trim();
       var eventName = (document.getElementById("nsEventName").value || "").trim();
@@ -4598,6 +5412,14 @@
         statusEl.textContent = en ? "Scheduling session..." : "Agendando sessao...";
         statusEl.className = "pull-status";
         postSchedule(baseBody(date, meetLink, googleEventId, htmlLink))
+          .then(function(data) {
+            // Apex Club also needs its own event row, or there is no price,
+            // no flyer and no registration link. Chained AFTER the session
+            // succeeds and deliberately outside the scheduling path -- if
+            // this fails the calendar entry still stands, and the event can
+            // be created from the finance tab.
+            return createLinkedClubEvent(data, eventName, date, time, location);
+          })
           .then(function() { finishOk(en ? "Session scheduled!" : "Sessao agendada!"); })
           .catch(function(e) {
             btn.disabled = false;
@@ -4788,11 +5610,131 @@
       return start + " – " + formatTime(endHHMM);
     }
 
+    // ── Apex Club panel on a calendar entry ─────────────────────────────
+    //
+    // Money-free by design. See the panel markup and the worker's
+    // handleGetClubBySession for why the P&L is not here.
+    var CLUB_PANEL = null;
+
+    function loadClubPanel(sessionId) {
+      var panel = document.getElementById("clubPanel");
+      panel.hidden = true;
+      CLUB_PANEL = null;
+      if (!sessionId) { return; }
+
+      apiFetch("/api/finance-new/club/by-session/" + sessionId)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          // A 404 just means this entry is not an Apex Club night. Normal.
+          if (!d || d.error || !d.event) { return; }
+          CLUB_PANEL = d;
+          renderClubPanel();
+          panel.hidden = false;
+
+          // See openDetail: removing the session would orphan this guest
+          // list, so the destructive action goes away once one exists.
+          var stale = document.getElementById("btnDetailRemoveStale");
+          if (stale) { stale.hidden = true; }
+        })
+        .catch(function() {});
+    }
+
+    function renderClubPanel() {
+      if (!CLUB_PANEL) { return; }
+      var en = isEn();
+      var ev = CLUB_PANEL.event;
+      var r = CLUB_PANEL.rsvp || {};
+      var regs = CLUB_PANEL.registrations || [];
+
+      var flyer = document.getElementById("clubPanelFlyer");
+      if (ev.flyer_r2_key) {
+        flyer.src = WORKER_URL + "/api/club/flyer/" + ev.id;
+        flyer.hidden = false;
+      } else {
+        flyer.hidden = true;
+      }
+
+      // The headline is SEATS -- a plus one is two people at the table.
+      // This is the number the food is ordered from.
+      document.getElementById("clubPanelCount").innerHTML =
+        '<span style="color:var(--gold);font-size:19px;">' + (r.going || 0) + "</span> " +
+        (en ? (r.going === 1 ? "person coming" : "people coming")
+            : (r.going === 1 ? "pessoa confirmada" : "pessoas confirmadas"));
+
+      document.getElementById("clubPanelSub").textContent =
+        (en
+          ? (r.going_rows || 0) + " registration(s)" +
+            (r.next_time ? " · " + r.next_time + " coming next time" : "") +
+            (r.attended ? " · " + r.attended + " came" : "")
+          : (r.going_rows || 0) + " inscrição(ões)" +
+            (r.next_time ? " · " + r.next_time + " na próxima" : "") +
+            (r.attended ? " · " + r.attended + " vieram" : ""));
+
+      document.getElementById("clubPanelGuests").innerHTML = regs.length
+        ? regs.map(function(g) {
+            var isNext = g.rsvp_state === "next_time";
+            return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;' +
+              (isNext ? "opacity:.6;" : "") + '">' +
+              '<span style="flex:1;">' + escHtml(g.name) +
+                (g.plus_one ? ' <span style="color:var(--gold);font-weight:600;font-size:12px;">+1</span>' : "") +
+                (isNext ? ' <span style="color:var(--muted);font-size:12px;">(' + (en ? "next time" : "próxima") + ")</span>" : "") +
+              "</span>" +
+              '<a href="https://wa.me/' + escHtml(g.phone) + '" target="_blank" rel="noopener" ' +
+                'style="font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:6px;border:1.5px solid #25d366;color:#128c3e;text-decoration:none;">WhatsApp</a>' +
+              "</div>";
+          }).join("")
+        : '<div style="font-size:12px;color:var(--muted);">' +
+            (en ? "Nobody has signed up yet. Share the link."
+                : "Ninguém se inscreveu ainda. Compartilhe o link.") +
+          "</div>";
+
+      // Share is the point of this panel for Rafa: the link is what grows
+      // the room, and it has to be reachable without the finance page.
+      var url = clubPublicBase() + "/club.html?e=" + ev.id;
+      document.getElementById("clubPanelLink").innerHTML =
+        '<code style="flex:1 1 180px;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+          escHtml(url) + "</code>" +
+        '<button class="btn-fix-meet" onclick="copyClubPanelLink()">' + (en ? "Copy" : "Copiar") + "</button>" +
+        '<button class="btn-whatsapp" onclick="shareClubPanelLink()">' + (en ? "Share" : "Compartilhar") + "</button>";
+    }
+
+    function clubPublicBase() {
+      return (location.protocol === "http:" || location.protocol === "https:")
+        ? location.origin + location.pathname.replace(/\/[^\/]*$/, "")
+        : "https://apex.resonateai.online";
+    }
+
+    function clubPanelUrl() {
+      return CLUB_PANEL ? clubPublicBase() + "/club.html?e=" + CLUB_PANEL.event.id : "";
+    }
+
+    function copyClubPanelLink() {
+      var url = clubPanelUrl();
+      if (!url) { return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).catch(function() { window.prompt("Link:", url); });
+      } else {
+        window.prompt("Link:", url);
+      }
+    }
+
+    function shareClubPanelLink() {
+      var url = clubPanelUrl();
+      if (!url) { return; }
+      if (navigator.share) {
+        navigator.share({ title: "Apex Club", url: url }).catch(function() {});
+      } else {
+        window.open("https://wa.me/?text=" + encodeURIComponent(url), "_blank");
+      }
+    }
+
     function openDetail(session) {
       activeDetailSession = session;
       var en = isEn();
+      loadClubPanel(session.id);
       var isExternal = isExternalSession(session);
-      var isEventCat = session.meeting_category === "event";
+      var isPersonalCat = session.meeting_category === "personal";
+      var isEventCat = session.meeting_category === "event" || isPersonalCat;
 
       document.getElementById("detailTitle").textContent     = session.client_name || "—";
       document.getElementById("detailClientName").textContent = session.client_name || "—";
@@ -4805,7 +5747,12 @@
       var typePillEl = document.getElementById("detailTypePill");
       var typeCls;
       var typeLabel;
-      if (isEventCat) {
+      if (isPersonalCat) {
+        // Same colour as an event (deliberate), but the LABEL is the whole
+        // reason this category exists -- "Event" was the wrong word.
+        typeCls = "personal";
+        typeLabel = en ? "Non-Apex meeting" : "Reuniao nao-Apex";
+      } else if (isEventCat) {
         typeCls = "event";
         typeLabel = en ? "Event" : "Evento";
       } else if (session.meeting_category === "vendor") {
@@ -4942,6 +5889,12 @@
       document.getElementById("btnDetailReschedule").hidden = true;
       document.getElementById("btnDetailEdit").hidden       = !canModify;
       document.getElementById("btnDetailCancel").hidden     = isExternal;
+      // Hidden while an Apex Club event is attached, even on an external row.
+      // The worker already refuses to remove a mirror whose Google event still
+      // exists, so this cannot hide a live meeting -- but removing the session
+      // WOULD orphan the club event's guest list behind a dangling session_id,
+      // and the registrations are the one thing here that exists nowhere else.
+      // Re-shown by loadClubPanel when no club event is linked.
       document.getElementById("btnDetailRemoveStale").hidden = !isExternal;
 
       var st2 = document.getElementById("detailStatus2");
@@ -4983,7 +5936,7 @@
 
       // Event entries (conferences, Apex Club) are not client sessions --
       // never offer the transcript/PDF record flow for them.
-      if (session.meeting_category === "event") {
+      if (session.meeting_category === "event" || session.meeting_category === "personal") {
         section.hidden = true;
         return;
       }
@@ -5169,6 +6122,7 @@
       // "RDE" marks a real client session. Events, prospects and vendor/partner
       // meetings are none of those, so they keep their plain name.
       var title = (session.meeting_category === "event" ||
+                   session.meeting_category === "personal" ||
                    session.meeting_category === "vendor" ||
                    session.meeting_category === "prospective")
         ? name : name + " - RDE";
@@ -5194,7 +6148,9 @@
       if (session.location) { addBody.location = session.location; }
       // Events and vendor meetings have no client_id, so there is no client
       // email to invite -- looking one up would be meaningless.
-      var addAttendee = (session.meeting_category === "event" || session.meeting_category === "vendor")
+      var addAttendee = (session.meeting_category === "event" ||
+                         session.meeting_category === "personal" ||
+                         session.meeting_category === "vendor")
         ? null : clientEmailById(session.client_id);
       if (addAttendee) { addBody.attendee_email = addAttendee; }
 
@@ -5592,7 +6548,8 @@
       var sel = document.getElementById("edClient");
       var opt = sel.options[sel.selectedIndex];
       var status = opt ? opt.dataset.status : "";
-      if (document.getElementById("edCategoryVal").value !== "event") {
+      var edCatNow = document.getElementById("edCategoryVal").value;
+      if (edCatNow !== "event" && edCatNow !== "personal") {
         setEditCategory(status === "lead" ? "prospective" : "client");
       }
     }
@@ -5621,7 +6578,7 @@
     function updateEditFieldVisibility() {
       var cat  = document.getElementById("edCategoryVal").value;
       var type = document.getElementById("edTypeVal").value;
-      var isEvent = cat === "event";
+      var isEvent = cat === "event" || cat === "personal";
 
       document.getElementById("edClientGroup").hidden    = isEvent;
       document.getElementById("edCategoryGroup").hidden  = isEvent;
@@ -5651,7 +6608,8 @@
       populateHHMMSelect(document.getElementById("edTime"), false);
       populateHHMMSelect(document.getElementById("edEndTime"), true);
 
-      var isEventCat = session.meeting_category === "event";
+      var isEventCat = session.meeting_category === "event" ||
+                       session.meeting_category === "personal";
       document.getElementById("edClient").value    = session.client_id || "";
       document.getElementById("edEventName").value = isEventCat ? (session.client_name || "") : "";
       document.getElementById("edDate").value      = session.date || "";
@@ -5670,7 +6628,13 @@
       document.getElementById("edTypeVal").value     = session.session_type || "online_meet";
       setEditCategory(session.meeting_category || "client");
       setEditType(session.session_type || "online_meet");
-      if (isEventCat) { document.getElementById("edCategoryVal").value = "event"; }
+      // Keep the row's OWN category. Forcing "event" here would silently
+      // convert Rafa's non-Apex meeting into an event the moment Alice saved
+      // an unrelated edit like the time.
+      if (isEventCat) {
+        document.getElementById("edCategoryVal").value =
+          (session.meeting_category === "personal") ? "personal" : "event";
+      }
       updateEditFieldVisibility();
 
       // Notes live in raw_transcript and are only editable while the session
@@ -5696,7 +6660,7 @@
       }
 
       var cat     = document.getElementById("edCategoryVal").value;
-      var isEvent = cat === "event";
+      var isEvent = cat === "event" || cat === "personal";
       var type    = isEvent ? "in_person" : document.getElementById("edTypeVal").value;
       var date    = document.getElementById("edDate").value;
       var time    = document.getElementById("edTime").value;
@@ -5728,7 +6692,11 @@
       if (cat !== origCat)                               { body.meeting_category = cat; }
       if (!isEvent && type !== session.session_type)     { body.session_type = type; }
       if (isEvent) {
-        if (eventName !== (session.client_name || "") || origCat !== "event") { body.event_name = eventName; }
+        // Send the name whenever it changed, OR whenever the row is arriving
+        // from a shape that had no event_name of its own (a client/prospective
+        // /vendor row) -- "event" and "personal" both already carry one.
+        var origHadEventName = (origCat === "event" || origCat === "personal");
+        if (eventName !== (session.client_name || "") || !origHadEventName) { body.event_name = eventName; }
       } else if (clientId !== (session.client_id || "")) {
         body.client_id = clientId;
       }
@@ -5938,7 +6906,188 @@
       }
     });
 
-    window.onload = function() { applyCalBilingualAttrs(); init(); };
+    // ── "Enviar horários" ────────────────────────────────────────────────
+    // The modal collects everything EXCEPT the times. The queue below the
+    // calendar is the SHARED module (scheduling-queue.js) that dashboard.html
+    // also renders — this page holds no private copy of it.
+
+    var SR_TYPE = "online_meet";
+    var SR_EDIT_ID = null;
+
+    function schedCtx() {
+      return {
+        containerId: "schedQueue",
+        blockId: "schedQueueBlock",
+        apiFetch: apiFetch,
+        isEn: isEn,
+        onEdit: openSchedRequestModal
+      };
+    }
+
+    // A SILENT BAIL IS WHY THE BROKEN QUEUE SHIPPED UNDETECTED. The module is
+    // a plain <script> in <head>, so a missing global means the file failed to
+    // load — a real fault that must be visible, never a quiet return.
+    function loadSchedQueue() {
+      if (!window.SchedulingQueue) {
+        console.error("[sched] scheduling-queue.js did not load — queue cannot render");
+        return;
+      }
+      window.SchedulingQueue.init(schedCtx());
+    }
+
+    function setSrType(type) {
+      SR_TYPE = type;
+      var meetBtn = document.getElementById("srTypeMeet");
+      var personBtn = document.getElementById("srTypeInPerson");
+      if (meetBtn)   { meetBtn.classList.toggle("active", type === "online_meet"); }
+      if (personBtn) { personBtn.classList.toggle("active", type === "in_person"); }
+
+      // Travel time is an in-person concept; the buffer toggle is an online
+      // one. Showing both at once invites the wrong one being set.
+      var travel = document.getElementById("srTravelGroup");
+      var loc    = document.getElementById("srLocationGroup");
+      var buffer = document.getElementById("srBufferGroup");
+      if (travel) { travel.hidden = (type !== "in_person"); }
+      if (loc)    { loc.hidden    = (type !== "in_person"); }
+      if (buffer) { buffer.hidden = (type !== "online_meet"); }
+    }
+
+    function toggleSrCustomize() {
+      var wrap = document.getElementById("srDurationWrap");
+      if (!wrap) { return; }
+      wrap.hidden = !wrap.hidden;
+    }
+
+    // The "Enviar horários" client picker, GROUPED.
+    //
+    // It used to be one flat alphabetical list of all 33 clients with statuses
+    // interleaved, so the browser pre-selected the first row — ADRIANA GOURMET
+    // CUISINE, a LEAD, not someone Rafa meets with. One distracted click sent a
+    // scheduling link to a prospect. This was a repeat complaint.
+    //
+    // Order: active clients, then leads, then archived/past. 'paused' sits in
+    // the last group because a paused client is not active; when they resume
+    // they go back to 'active' and rise into the first group on their own.
+    //
+    // The default selection is a PLACEHOLDER, never a real client, so sending
+    // requires a deliberate choice. Each option is labelled with its status,
+    // matching the "Preview portal as client" picker's precedent.
+    function populateSchedClientSelect(sel) {
+      var en = isEn();
+      sel.innerHTML = "";
+
+      var placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = en ? "— select client —" : "— selecione o cliente —";
+      sel.appendChild(placeholder);
+
+      var groups = [
+        { key: "active",   pt: "Clientes ativos",   en: "Active clients", rows: [] },
+        { key: "lead",     pt: "Leads",             en: "Leads",          rows: [] },
+        { key: "archived", pt: "Arquivados / antigos", en: "Archived / past", rows: [] }
+      ];
+
+      for (var i = 0; i < clients.length; i++) {
+        var c = clients[i];
+        var status = String(c.status || "").toLowerCase();
+        var bucket;
+        if (c.archived || status === "closed" || status === "paused") {
+          bucket = groups[2];
+        } else if (status === "lead") {
+          bucket = groups[1];
+        } else {
+          bucket = groups[0];
+        }
+        bucket.rows.push(c);
+      }
+
+      for (var g = 0; g < groups.length; g++) {
+        if (!groups[g].rows.length) { continue; }
+        var og = document.createElement("optgroup");
+        og.label = en ? groups[g].en : groups[g].pt;
+        for (var r = 0; r < groups[g].rows.length; r++) {
+          var cli = groups[g].rows[r];
+          var opt = document.createElement("option");
+          opt.value = cli.id;
+          // The status rides along on the label so a row is never ambiguous
+          // once it is out of its group heading's line of sight.
+          var st = String(cli.status || "").toLowerCase();
+          opt.textContent = cli.name + (st ? "  (" + st + ")" : "");
+          og.appendChild(opt);
+        }
+        sel.appendChild(og);
+      }
+    }
+
+    function openSchedRequestModal(row) {
+      SR_EDIT_ID = (row && row.id) ? row.id : null;
+
+      var sel = document.getElementById("srClient");
+      if (sel) {
+        populateSchedClientSelect(sel);
+        if (row && row.client_id) { sel.value = row.client_id; }
+        // Editar changes the meeting details of an EXISTING request; moving it
+        // to another client would silently orphan the link already sent.
+        sel.disabled = !!SR_EDIT_ID;
+      }
+
+      setSrType(row && row.meeting_type ? row.meeting_type : "online_meet");
+
+      var dur = document.getElementById("srDuration");
+      if (dur) { dur.value = (row && row.duration_min) ? row.duration_min : 60; }
+      var wrap = document.getElementById("srDurationWrap");
+      if (wrap) { wrap.hidden = true; }
+      var travel = document.getElementById("srTravel");
+      if (travel) { travel.value = (row && row.travel_min) ? row.travel_min : 30; }
+      var loc = document.getElementById("srLocation");
+      if (loc) { loc.value = (row && row.location) ? row.location : ""; }
+      var buf = document.getElementById("srBuffer");
+      if (buf) { buf.checked = !!(row && row.buffer_min); }
+
+      var modal = document.getElementById("modalSchedRequest");
+      if (modal) { modal.hidden = false; }
+    }
+
+    function handleSchedRequest() {
+      var sel = document.getElementById("srClient");
+      var dur = document.getElementById("srDuration");
+      var travel = document.getElementById("srTravel");
+      var loc = document.getElementById("srLocation");
+      var buf = document.getElementById("srBuffer");
+      // The picker now opens on a placeholder, so "no client" is a state a
+      // real person reaches. Say so instead of failing silently.
+      if (!sel || !sel.value) {
+        showToast(isEn() ? "Select a client first." : "Selecione um cliente primeiro.");
+        return;
+      }
+
+      var body = {
+        client_id: sel.value,
+        meeting_type: SR_TYPE,
+        duration_min: dur ? parseInt(dur.value, 10) : 60,
+        travel_min: travel ? parseInt(travel.value, 10) : 30,
+        buffer_on: buf ? buf.checked : false,
+        location: loc ? loc.value : null
+      };
+
+      var btn = document.getElementById("btnSrSubmit");
+      if (btn) { btn.disabled = true; }
+
+      var path = SR_EDIT_ID ? ("/api/scheduling/requests/" + SR_EDIT_ID) : "/api/scheduling/requests";
+      apiFetch(path, { method: SR_EDIT_ID ? "PUT" : "POST", body: body })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          if (btn) { btn.disabled = false; }
+          closeModal("modalSchedRequest");
+          loadSchedQueue();
+        })
+        .catch(function() { if (btn) { btn.disabled = false; } });
+    }
+
+    window.onload = function() {
+      applyCalBilingualAttrs();
+      init();
+    };
   </script>
 
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-

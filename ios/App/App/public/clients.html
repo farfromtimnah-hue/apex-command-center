@@ -2,7 +2,79 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <script src="native-bridge.js"></script>
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1786930000, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1786930000 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1787796089"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -218,6 +290,7 @@
       padding: 8px 0;
       border-top: 1px solid rgba(255,255,255,0.1);
     }
+
     /* Review strip: active clients with no sign of activity. Reuses the
        pending-strip shell; only the evidence chips are specific to it. */
     .review-strip-note {
@@ -254,7 +327,6 @@
       white-space: nowrap;
     }
     .review-row-link:hover { text-decoration: underline; }
-
 
     .pending-row-info { flex: 1; min-width: 0; }
     .pending-row-client { font-size: 13px; font-weight: 600; color: #fff; }
@@ -640,6 +712,47 @@
     }
 
     /* ── Add client button ───────────────────────────────────────────────── */
+    .btn-show-archived {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 14px;
+      min-height: 44px;
+      cursor: pointer;
+    }
+    .btn-show-archived.is-on { border-color: var(--gold); color: var(--gold); }
+    .btn-archive {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 10px;
+      min-height: 36px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-archive:hover { color: var(--text); border-color: var(--gold); }
+    .archived-tag {
+      display: inline-block;
+      margin-left: 8px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(107,102,96,0.15);
+      color: #575249;
+      white-space: nowrap;
+    }
+
     .btn-add-client {
       background: var(--gold);
       color: #fff;
@@ -837,7 +950,6 @@
 
         <!-- Below hero: Add button + client table -->
         <div class="below-section">
-          <!-- Pending resource sends (Resource Hub) — hidden when queue is empty -->
           <!-- Active clients showing no sign of being active. alice/rafa/developer
                only; revealed by showPortal(). This is a LIST, never an action —
                which record is genuinely wrong is Alice's call, made through the
@@ -854,6 +966,7 @@
             <div id="reviewStripRows"></div>
           </div>
 
+          <!-- Pending resource sends (Resource Hub) — hidden when queue is empty -->
           <div class="pending-strip" id="pendingStrip" hidden>
             <div class="pending-strip-title">
               <span class="show-pt">Recursos Pendentes de Envio</span>
@@ -865,6 +978,13 @@
             <button class="btn-add-client" id="btnAddClient" onclick="openNewClientModal()">
               <span class="show-pt">+ Novo Cliente</span>
               <span class="show-en">+ Add New Client</span>
+            </button>
+            <!-- alice/developer only; shown by showPortal(). Archived clients
+                 are excluded at the worker, so this is the one opt-in. -->
+            <button class="btn-show-archived" id="btnShowArchived" hidden
+                    onclick="toggleShowArchived()">
+              <span class="show-pt">Ver arquivados</span>
+              <span class="show-en">Show archived</span>
             </button>
           </div>
           <div class="content-card">
@@ -1061,6 +1181,8 @@
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
     integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
     crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1787796000">
+  <script src="template-edit.js?v=1787796000"></script>
   <script src="nav.js"></script>
 
   <script>
@@ -1164,6 +1286,8 @@
       var canCreate = (role === "alice" || role === "developer" || role === "rafa");
       var addBtn = document.getElementById("btnAddClient");
       if (addBtn) { addBtn.style.display = canCreate ? "" : "none"; }
+      var arcBtn = document.getElementById("btnShowArchived");
+      if (arcBtn) { arcBtn.hidden = !canArchive(); }
 
       window.initNav && window.initNav();
       initHeroBg("heroBgImage", "heroBgScrim");
@@ -1207,8 +1331,6 @@
         if (found) { openApexPartnerModal(partnerId); }
       }).catch(function () { /* roster failed to load; tab stays open */ });
     }
-
-    // ── Pending resource sends strip (Resource Hub) ────────────────────────
 
     // ── Clients to review strip ────────────────────────────────────────────
     //
@@ -1326,6 +1448,26 @@
       }
       rows.innerHTML = html;
       strip.hidden   = false;
+
+      // Pencil + right-click on each "Enviar via WhatsApp". Re-run on every
+      // render because this list rebuilds its innerHTML; attach() is
+      // idempotent so surviving rows do not collect a second pencil.
+      // onSaved refreshes the page cache so the next send uses the new text
+      // without a reload, and without adding an await before window.open().
+      if (window.TemplateEdit) {
+        var sendBtns = rows.querySelectorAll(".btn-whatsapp-send");
+        for (var b = 0; b < sendBtns.length; b++) {
+          window.TemplateEdit.attach({
+            button: sendBtns[b],
+            key: "resource_send",
+            apiFetch: apiFetch,
+            onSaved: function(saved) {
+              if (!messageTemplates) { messageTemplates = {}; }
+              messageTemplates[saved.template_key] = saved.template_text;
+            }
+          });
+        }
+      }
     }
 
     // Pre-fetched at page load (see setupPage) so handleSendResource() can
@@ -1404,9 +1546,60 @@
 
     var allClients = [];
     var currentClientsTab = "active";
+    // Archived clients are hidden by default and only fetched when the admin
+    // explicitly asks. The exclusion itself lives in the WORKER — this flag
+    // only decides whether to pass the opt-in — so no page can forget it.
+    var showArchived = false;
+
+    // alice/developer only, matching the worker's own gate. Rafa is
+    // deliberately excluded: archiving is administrative cleanup, and he is in
+    // these lists all day.
+    function canArchive() {
+      var r = sessionStorage.getItem("apex_role") || "";
+      return r === "alice" || r === "developer";
+    }
+
+    function toggleShowArchived() {
+      showArchived = !showArchived;
+      var b = document.getElementById("btnShowArchived");
+      if (b) { b.classList.toggle("is-on", showArchived); }
+      loadClients();
+    }
+
+    function toggleArchive(c) {
+      var archiving = !c.archived;
+      var body = { archived: archiving };
+      apiFetch("/api/clients/" + encodeURIComponent(c.id) + "/archive", {
+        method: "PUT", body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          // The worker asks before hiding a client that still has live data.
+          // Hiding a dead row is the point; hiding a working one by accident
+          // is the failure mode worth a confirmation step.
+          if (d && d.needs_confirm) {
+            var en = document.body.classList.contains("lang-en");
+            var msg = en
+              ? ("\"" + d.name + "\" still has " + d.leads + " lead(s), " + d.jobs +
+                 " project(s) and " + d.logins + " login(s).\n\nArchive it anyway? " +
+                 "It will disappear from every list. This is reversible.")
+              : ("\"" + d.name + "\" ainda tem " + d.leads + " lead(s), " + d.jobs +
+                 " projeto(s) e " + d.logins + " login(s).\n\nArquivar mesmo assim? " +
+                 "Vai sumir de todas as listas. Isso é reversível.");
+            if (!window.confirm(msg)) { return null; }
+            body.confirm = true;
+            return apiFetch("/api/clients/" + encodeURIComponent(c.id) + "/archive", {
+              method: "PUT", body: JSON.stringify(body)
+            }).then(function (r2) { return r2.json(); });
+          }
+          return d;
+        })
+        .then(function (d) { if (d) { loadClients(); } })
+        .catch(function (e) { window.alert(e.message); });
+    }
 
     function loadClients() {
-      apiFetch("/api/clients")
+      apiFetch("/api/clients" + (showArchived ? "?include_archived=1" : ""))
         .then(function (res) { return res.json(); })
         .then(function (data) {
           allClients = data.clients || [];
@@ -1919,6 +2112,7 @@
           '<th><span class="show-pt">Nome</span><span class="show-en">Name</span></th>' +
           '<th><span class="show-pt">Pacote</span><span class="show-en">Package</span></th>' +
           '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>' +
+          (canArchive() ? '<th><span class="show-pt">Arquivo</span><span class="show-en">Archive</span></th>' : "") +
         "</tr>";
       table.appendChild(thead);
 
@@ -1972,7 +2166,34 @@
           statusEl.className = "status-lozenge";
           statusEl.setAttribute("data-status", (c.status || "active").toLowerCase());
           tdStatus.appendChild(statusEl);
+          // An archived row is still shown when "show archived" is on, but it
+          // has to be obvious which rows are hidden from everywhere else.
+          if (c.archived) {
+            var arcTag = document.createElement("span");
+            arcTag.className = "archived-tag";
+            arcTag.innerHTML = '<span class="show-pt">Arquivado</span><span class="show-en">Archived</span>';
+            tdStatus.appendChild(arcTag);
+          }
           tr.appendChild(tdStatus);
+
+          // Archive / unarchive — alice and developer only. Deliberately no
+          // delete: the two rows this exists for are named "DO NOT USE" and
+          // "DO NOT CLOSE", and archiving is reversible where a delete is not.
+          if (canArchive()) {
+            var tdArc = document.createElement("td");
+            tdArc.className = "mc-field";
+            tdArc.setAttribute("data-label-pt", "Arquivo");
+            tdArc.setAttribute("data-label-en", "Archive");
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn-archive";
+            btn.innerHTML = c.archived
+              ? '<span class="show-pt">Restaurar</span><span class="show-en">Restore</span>'
+              : '<span class="show-pt">Arquivar</span><span class="show-en">Archive</span>';
+            btn.onclick = function (ev) { ev.stopPropagation(); toggleArchive(c); };
+            tdArc.appendChild(btn);
+            tr.appendChild(tdArc);
+          }
 
           tbody.appendChild(tr);
         })(clients[i]);

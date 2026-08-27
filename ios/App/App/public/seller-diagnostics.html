@@ -2,7 +2,79 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <script src="native-bridge.js"></script>
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1786940000, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1786940000 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1787796089"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -285,6 +357,8 @@
     integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
     crossorigin="anonymous"></script>
   <script src="nav.js"></script>
+  <!-- Shared stage/event-type label tables: stored keys -> displayed labels. -->
+  <script src="gm-labels.js?v=1787796000"></script>
 
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
@@ -396,19 +470,14 @@
     // keys (GM_STAGE_PILL in gm.js is keyed on them), so they are never
     // rewritten — this map is consulted at render time and nowhere else. An
     // unknown stage falls through to its stored value rather than disappearing.
-    var STAGE_LABEL_EN = {
-      "Novo Lead":        "New Lead",
-      "Contato Feito":    "Contacted",
-      "Visita Agendada":  "Visit Scheduled",
-      "Estimate Enviado": "Estimate Sent",
-      "Follow-up":        "Follow-up",
-      "Negociação":       "Negotiation",
-      "Fechado":          "Closed",
-      "Perdido":          "Lost"
-    };
+    // The label table used to be duplicated here. It now lives in
+    // gm-labels.js, shared with the portal, so a stage is named in exactly one
+    // place. Values arrive as KEYS ('negociacao'); GmLabels.stageKey also
+    // accepts a legacy Portuguese label, so a row written before the migration
+    // still renders.
     function stageLabel(stage) {
       if (!stage) { return ""; }
-      return isEn() ? (STAGE_LABEL_EN[stage] || stage) : stage;
+      return GmLabels.stageLabel(GmLabels.stageKey(stage) || stage, isEn());
     }
 
     // Every tile prints its own sample size, always, next to the number rather
@@ -427,9 +496,12 @@
         '</div>';
     }
 
+    // ALWAYS en-US, not tied to the PT/EN toggle -- the amount is genuinely
+    // USD regardless of display language; pt-BR grouping/decimal convention
+    // on a dollar figure is wrong, not stylistic. Found 2026-08-16.
     function fmtMoney(n) {
       if (n === null || n === undefined) { return "--"; }
-      return "$" + Number(n).toLocaleString(isEn() ? "en-US" : "pt-BR",
+      return "$" + Number(n).toLocaleString("en-US",
         { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
@@ -437,7 +509,7 @@
     // pool jobs and cost a line-wrap on a phone.
     function fmtMoney0(n) {
       if (n === null || n === undefined) { return "--"; }
-      return "$" + Number(n).toLocaleString(isEn() ? "en-US" : "pt-BR",
+      return "$" + Number(n).toLocaleString("en-US",
         { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 

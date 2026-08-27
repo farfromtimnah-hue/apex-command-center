@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
-       native-bridge.js, so it is installed before anything that can throw.
+       native-bridge.js?v=1786950000, so it is installed before anything that can throw.
 
        WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
        with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
@@ -13,7 +13,7 @@
 
        Buffers into a cookie as well as the console, because the native log is
        only reachable once the Capacitor plugin exists -- which is exactly what
-       may not have happened yet when the error fires. native-bridge.js replays
+       may not have happened yet when the error fires. native-bridge.js?v=1786950000 replays
        this buffer into the native log once the plugin appears. -->
   <script>
   (function () {
@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1786542767"></script>
+  <script src="native-bridge.js?v=1787796089"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -85,8 +85,8 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787608442"></script>
+  <link rel="stylesheet" href="template-edit.css?v=1787796000">
+  <script src="template-edit.js?v=1787796000"></script>
   <title data-title-pt="Apex &#8212; Financeiro (Novo)" data-title-en="Apex &#8212; Financial (New)">Apex &#8212; Financeiro (Novo)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -842,6 +842,25 @@
     .overdue-row .bill-coverage.is-covered { color: var(--green); }
     .overdue-row .bill-coverage.is-uncovered { color: var(--red); }
     .overdue-row .bill-amount { font-weight: 700; font-size: 14px; white-space: nowrap; }
+    /* Marks a bill the bank feed structurally cannot see, so its silence in the
+       overdue list reads as expected rather than as something gone wrong. */
+    .bill-oncard { color: var(--gold); font-weight: 600; }
+    .bill-compare-link { color: var(--brown); font-weight: 600; text-decoration: underline; }
+    /* An estimated amount is italic so the number itself reads as soft. The
+       parenthesised word is lighter still: the figure is the point, the label
+       only confirms it. */
+    .bill-amt-est { font-style: italic; font-weight: 600; }
+    /* The estimate label sits under the amount and reads quieter than it: it is
+       context for the number, not a second number competing with it. */
+    .bill-est-note {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-top: 2px;
+      text-align: right;
+    }
     .overdue-row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
     /* Priority controls: a visible drag handle (long-press/touch friendly on
@@ -894,23 +913,6 @@
     }
     .budget-projection.is-over { color: var(--red); }
     .budget-projection.is-watch { color: var(--brown); }
-
-    /* ── Charges on a card the system cannot see ──
-       Deliberately NOT red and NOT in the overdue list: these are not late
-       and not owed from the bank, they are a heads-up to go look at the
-       card statement. Neutral bordered block, quieter than an overdue row. */
-    .card-charges {
-      margin-top: 10px; padding: 10px 12px;
-      border: 1px dashed var(--border); border-radius: 8px;
-    }
-    .card-charges-head {
-      font-size: 12px; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
-    }
-    .card-charge-row {
-      display: flex; justify-content: space-between; gap: 10px;
-      font-size: 13px; padding: 3px 0;
-    }
 
     /* ── Apex Club event P&L ──
        The verdict sentence carries the whole answer. A small loss on an event
@@ -1177,6 +1179,12 @@
     }
     .pill-pending { background: #fdf4e3; color: #8a6d2f; }
     .pill-transfer { background: #eef1f6; color: #55637a; }
+    /* A voided row is one the bank retired -- it never cleared. It stays
+       visible for the record but must never read as real money, so it is
+       struck through and dimmed as well as pilled. */
+    .pill-voided { background: #f4e6e6; color: #8a3f3f; }
+    tr.txn-voided { opacity: 0.55; }
+    tr.txn-voided .txn-amount { text-decoration: line-through; }
 
     /* ─── Filters ───────────────────────────────────────────────────────── */
     /* `display: flex` beats the browser's default `[hidden] { display: none }`,
@@ -1418,6 +1426,13 @@
             <span class="show-pt">Conclu&iacute;do</span>
             <span class="show-en">Done</span>
           </button>
+          <!-- Only inside edit mode: this is a recovery control, not something
+               to offer beside the everyday buttons where it could be hit by
+               accident. It discards her arrangement, so it asks first. -->
+          <button class="btn-edit-sections" id="btnResetSections" onclick="confirmResetSections()" style="display:none;">
+            <span class="show-pt">Voltar ao padr&atilde;o</span>
+            <span class="show-en">Reset to default</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1437,6 +1452,11 @@
       <span>
         <span class="show-pt">Uma conex&atilde;o banc&aacute;ria precisa ser reconectada. Os dados abaixo podem estar desatualizados.</span>
         <span class="show-en">A bank connection needs to be reconnected. The data below may be out of date.</span>
+        <!-- NAME THE ACCOUNT. Both items are "Bank of America", so the banner
+             gave Alice no way to know which one she was fixing. On 2026-08-26
+             she reported the bank's own screen asking for the PERSONAL account
+             while the broken item is the BUSINESS one -- and there was nothing
+             on screen to check that against. -->
         <b id="reauthWhich" style="display:block;margin-top:4px;"></b>
       </span>
       <button class="btn btn-sm btn-gold" onclick="reconnectFirstBrokenItem()">
@@ -1609,12 +1629,6 @@
         <!-- One signal per sitting, after doing as much as she had time for.
              Never one per client: six clicks is the demand that killed the
              original queue. -->
-        <div class="btn-row" id="attnDoneRow" style="margin-top:14px" hidden>
-          <button class="btn btn-sm" onclick="markInterviewDone()">
-            <span class="show-pt">Entrevista conclu&iacute;da</span>
-            <span class="show-en">Interview done</span>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -1811,8 +1825,8 @@
       <div class="sec-head">
         <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
         <div class="card-title">
-          <span class="show-pt">Vis&atilde;o geral</span>
-          <span class="show-en">Overview</span>
+          <span class="show-pt">Gr&aacute;ficos</span>
+          <span class="show-en">Charts</span>
         </div>
         <span class="sec-move-btns">
           <button class="rank-btn" onclick="moveSection('charts',-1)" aria-label="Mover para cima">&#9650;</button>
@@ -1902,6 +1916,7 @@
           <select id="txnPending" onchange="resetAndRenderTransactions()">
             <option value="" data-opt-pt="Todos" data-opt-en="All">Todos</option>
             <option value="posted" data-opt-pt="Confirmadas" data-opt-en="Posted">Confirmadas</option>
+            <option value="voided" data-opt-pt="N&atilde;o compensadas" data-opt-en="Did not clear">N&atilde;o compensadas</option>
             <option value="pending" data-opt-pt="Pendentes" data-opt-en="Pending">Pendentes</option>
           </select>
           <select id="txnCategoryFilter" onchange="resetAndRenderTransactions()">
@@ -2318,6 +2333,27 @@
          every finPanel*, because display:none is inherited: a modal parked
          inside a hidden tab panel renders invisible with no console error
          while its click handler runs perfectly. -->
+    <!-- Naming the children's policies. Deliberately NOT an interview: this is
+         three names picked from a list, and a conversational prompt would be
+         more work than the task it replaces. The bank sends a stable policy
+         code on every debit (after "PMT INFO:"), and the same policy carries
+         the same code month to month -- it is the ONLY thing that separates
+         three $50 bills at one merchant. All that is missing is whose is whose. -->
+    <div id="policyNamesOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closePolicyNames()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closePolicyNames()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title">
+          <span class="show-pt">De quem &eacute; cada ap&oacute;lice?</span>
+          <span class="show-en">Whose policy is which?</span>
+        </h3>
+        <div id="policyNamesRows"></div>
+        <button type="button" class="btn btn-gold" onclick="savePolicyNames()" style="width:100%;margin-top:16px;">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+
     <div id="promptCopiedOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closePromptCopied()">
       <div class="nc-box" role="dialog" aria-modal="true">
         <button type="button" class="nc-close" onclick="closePromptCopied()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
@@ -3065,17 +3101,45 @@
 
     // ── Formatting ─────────────────────────────────────────────────────────
     // Money arrives as INTEGER CENTS and is divided exactly once, here.
+    //
+    // ALWAYS en-US, regardless of the PT/EN display-language toggle. Apex
+    // operates in USD in the US -- the amount is genuinely USD either way,
+    // and pt-BR grouping/decimal conventions (period thousands, comma
+    // decimal) on a dollar figure is wrong, not just a stylistic choice, the
+    // same rule datetime.js already applies to dates ("the PT/EN toggle must
+    // never change how a date or time renders" -- the same holds for money).
+    // Found 2026-08-16: this was rendering Brazilian-notation dollar amounts
+    // whenever the toggle was set to PT.
     function fmtCents(cents) {
       var v = (Number(cents) || 0) / 100;
-      return v.toLocaleString(isEn() ? "en-US" : "pt-BR",
-        { style: "currency", currency: "USD" });
+      return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
     }
 
+    // ALWAYS MM/DD/YYYY, not tied to isEn() -- see fmtCents above for why the
+    // PT/EN toggle must never change a date's field order. Found 2026-08-16:
+    // this local duplicate had drifted from datetime.js's own formatDate(),
+    // which already gets this right.
     function fmtDate(iso) {
       if (!iso) { return ""; }
       var p = String(iso).slice(0, 10).split("-");
       if (p.length !== 3) { return iso; }
-      return isEn() ? (p[1] + "/" + p[2] + "/" + p[0]) : (p[2] + "/" + p[1] + "/" + p[0]);
+      return p[1] + "/" + p[2] + "/" + p[0];
+    }
+
+    // "last $193.89" reads as a dangling word -- last what? The month name is
+    // unambiguous and is already carried on the charge, so the row says
+    // "julho $193.89" instead of making her infer the period.
+    var MONTHS_PT = ["janeiro","fevereiro","mar\u00e7o","abril","maio","junho",
+                     "julho","agosto","setembro","outubro","novembro","dezembro"];
+    var MONTHS_EN = ["January","February","March","April","May","June",
+                     "July","August","September","October","November","December"];
+    function fmtMonthName(iso) {
+      if (!iso) { return ""; }
+      var p = String(iso).slice(0, 10).split("-");
+      if (p.length !== 3) { return ""; }
+      var i = parseInt(p[1], 10) - 1;
+      if (i < 0 || i > 11) { return ""; }
+      return isEn() ? MONTHS_EN[i] : MONTHS_PT[i];
     }
 
     function esc(s) {
@@ -3133,8 +3197,12 @@
           });
           handler.open();
         })
-        .catch(function() {
-          toast(isEn() ? "Could not start the bank connection." : "N&atilde;o foi poss&iacute;vel iniciar a conex&atilde;o.");
+        .catch(function(e) {
+          // Same lesson as the reconnect button: show the REAL reason and hold
+          // it long enough to read and repeat over the phone.
+          toast((e && e.message) ? String(e.message)
+                : (isEn() ? "Could not start the bank connection." : "N&atilde;o foi poss&iacute;vel iniciar a conex&atilde;o."),
+                null, null, 15000);
         });
     }
 
@@ -3312,6 +3380,19 @@
         });
       }
 
+      // No interview for this one: it is three names typed into three boxes.
+      // Handing it to a conversational prompt would be more work than the task.
+      if (ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.count > 0) {
+        rows.push({
+          n: ATTENTION.unnamed_policies.count,
+          action: "openPolicyNames()",
+          pt: "ap&oacute;lice" + (ATTENTION.unnamed_policies.count > 1 ? "s" : "") + " sem nome",
+          en: "polic" + (ATTENTION.unnamed_policies.count > 1 ? "ies" : "y") + " not named",
+          subPt: "S&oacute; voc&ecirc; sabe de quem &eacute; cada uma.",
+          subEn: "Only you know whose each one is."
+        });
+      }
+
       if (ATTENTION.uncategorized && ATTENTION.uncategorized.count > 0) {
         rows.push({
           n: ATTENTION.uncategorized.count,
@@ -3325,9 +3406,11 @@
       }
 
       document.getElementById("attnRows").innerHTML = rows.map(function(r) {
-        var click = r.href
-          ? 'location.href=\'' + r.href + '\''
-          : 'switchFinanceTab(\'' + r.go + '\')';
+        var click = r.action
+          ? r.action
+          : (r.href
+              ? 'location.href=\'' + r.href + '\''
+              : (r.go ? 'switchFinanceTab(\'' + r.go + '\')' : ''));
         return '<div class="attn-row" role="button" tabindex="0" style="cursor:pointer" ' +
                  'onclick="' + click + '" ' +
                  'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + click + ';}">' +
@@ -3347,14 +3430,18 @@
                        'onclick="event.stopPropagation();copyQueuePrompt(\'' + r.copy + '\')">' +
                        '<span class="show-pt">Copiar prompt</span>' +
                        '<span class="show-en">Copy prompt</span>' +
+                     '</button>' +
+                     '<button class="btn btn-sm attn-copy-btn" ' +
+                       'onclick="event.stopPropagation();markInterviewDone(\'' + r.copy + '\')">' +
+                       '<span class="show-pt">Entrevista conclu&iacute;da</span>' +
+                       '<span class="show-en">Interview done</span>' +
                      '</button>'
                    : '') +
                '</div>';
       }).join("");
 
       document.getElementById("attnClear").hidden = rows.length > 0;
-      var doneRow = document.getElementById("attnDoneRow");
-      if (doneRow) { doneRow.hidden = rows.length === 0; }
+
 
       // The work shrinking, stated as a fact about the rules rather than a
       // score about her. Only shown once the rules have actually done
@@ -3509,6 +3596,31 @@
       return sameMonth ? d : d + " de " + monthsPt[mi];
     }
 
+    // A usage bill's stored amount is an estimate, not an obligation. Showing it
+    // the same way as the mortgage implies a precision it does not have, so it
+    // is labelled -- and paired with the amount that really left the account
+    // last time, which is the number that actually tells her what is coming.
+    function variableAmountHtml(b, cls) {
+      if (!b.is_variable) {
+        return '<span class="' + cls + '">' + fmtCents(b.amount_cents) + "</span>";
+      }
+      // The NUMBER carries the uncertainty, not just a label beside it. Set in
+      // the same size and position as a real amount, an estimate reads as
+      // exactly as solid as the mortgage -- which is $2,560.10 to the cent
+      // every month. Italic plus the parenthesised word makes the difference
+      // visible before the label is read.
+      var main = '<span class="' + cls + ' bill-amt-est">' +
+        fmtCents(b.amount_cents) + " " + t("(estimado)", "(estimate)") + "</span>";
+      if (b.last_charge && b.last_charge.amount_cents) {
+        var when = fmtMonthName(b.last_charge.date);
+        return main + '<span class="bill-est-note">' +
+          (when ? when + " " : t("&uacute;ltimo m&ecirc;s ", "last month ")) +
+          fmtCents(b.last_charge.amount_cents) +
+          "</span>";
+      }
+      return main;
+    }
+
     function renderBills() {
       var list = document.getElementById("billsList");
       if (!list) { return; }
@@ -3527,13 +3639,33 @@
           (b.purpose === "business" ? (isEn() ? "business" : "comercial")
                                     : (isEn() ? "personal" : "pessoal")) +
           " &middot; " + methodLabel +
+          // A card-funded bill is already in this list; it just has to say so.
+          // The bank feed cannot see the charge, so it will never show as paid
+          // here -- and without the label that reads as an oversight rather
+          // than as the known limitation it is.
+          (b.funding_source && b.funding_source !== "bank"
+            ? ' &middot; <span class="bill-oncard">' + t("no cart&atilde;o", "on the card") + "</span>"
+            : "") +
+          // Only on the internet bill: a side-by-side of what else is available
+          // at their address. Alice makes the billing decisions, so the compare
+          // sheet lives where the bill is, not in a document she has to find.
+          (/spectrum|internet/i.test(b.name || "")
+            ? ' &middot; <a class="bill-compare-link" href="internet-options.html" target="_blank" rel="noopener">' +
+              t("ver outras op&ccedil;&otilde;es", "see other options") + "</a>"
+            : "") +
+          // The usage bills get the savings sheet instead: there is no competitor
+          // to switch to for power or county water, so the only lever is using less.
+          (b.is_variable
+            ? ' &middot; <a class="bill-compare-link" href="utility-savings.html" target="_blank" rel="noopener">' +
+              t("como baixar", "how to lower it") + "</a>"
+            : "") +
           (b.pay_url ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) +
             '" target="_blank" rel="noopener">' + t("pagar", "pay") + "</a>" : "") +
           (b.payee_notes ? " &middot; " + esc(b.payee_notes) : "") +
         "</span>";
         return '<div class="fwd-bill-row">' +
           '<span class="grow">' + esc(b.name) + extra + "</span>" +
-          "<b>" + fmtCents(b.amount_cents) + "</b>" +
+          "<b>" + variableAmountHtml(b, "bill-amt-inline") + "</b>" +
           '<button class="btn btn-sm" onclick="startEditBill(\'' + b.id + '\')">' +
             '<span class="show-pt">Editar</span><span class="show-en">Edit</span></button>' +
           '<button class="btn btn-sm" onclick="removeFixedBill(\'' + b.id + '\')">' +
@@ -3934,24 +4066,6 @@
     // see them coming so she remembers to check the card. Nicole 2026-08-19:
     // "still show them... but she has to look at the credit card to make
     // sure that they get charged there."
-    function cardChargesHtml() {
-      var rows = (OVERDUE && OVERDUE.upcoming_card_charges) || [];
-      if (!rows.length) { return ""; }
-      var total = rows.reduce(function(s, r) { return s + (r.amount_cents || 0); }, 0);
-      return '<div class="card-charges">' +
-        '<div class="card-charges-head">' +
-          t("No cart&atilde;o &mdash; " + fmtCents(total) + "/m&ecirc;s",
-             "On the card &mdash; " + fmtCents(total) + "/mo") +
-        "</div>" +
-        rows.map(function(r) {
-          return '<div class="card-charge-row">' +
-            "<span>" + esc(r.name) + ' <span class="tag-meta">' +
-              t("dia " + r.day_of_month, "day " + r.day_of_month) + "</span></span>" +
-            "<b>" + fmtCents(r.amount_cents) + "</b>" +
-          "</div>";
-        }).join("") +
-      "</div>";
-    }
 
     // A separate, plainly-stated total -- NOT folded into the coverage
     // forecast or the sentence above. Nicole 2026-08-19: "add it as a tag
@@ -3978,8 +4092,14 @@
       }
       card.hidden = false;
 
+      // Card charges are NOT rendered here. They belong in the bills list --
+      // see renderBills(). A credit-card charge the bank feed cannot see can
+      // never be marked paid from here, so in a section whose whole job is to
+      // reach zero it is a line that never clears: permanent noise telling her
+      // to go check something manually. Same failure as any nag that cannot be
+      // resolved where it appears.
       document.getElementById("overdueSentence").innerHTML =
-        overdueSentenceHtml() + overdueInvoicesTagHtml() + cardChargesHtml();
+        overdueSentenceHtml() + overdueInvoicesTagHtml();
 
       // Before the early return below: a pending match is exactly what
       // empties the overdue list, so it must render even when the list is
@@ -4037,7 +4157,7 @@
             "</div>" +
             coverageHtml +
           "</span>" +
-          '<span class="bill-amount">' + fmtCents(b.amount_cents) + "</span>" +
+          variableAmountHtml(b, "bill-amount") +
           '<div class="overdue-row-actions">' +
             '<button class="btn btn-sm" onclick="openBillMatch(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\',' + b.amount_cents + ')">' +
               '<span class="show-pt">Vincular transa&ccedil;&atilde;o</span><span class="show-en">Link transaction</span></button> ' +
@@ -4139,7 +4259,9 @@
       // days, closest-amount-first -- she recognizes the real one by date
       // and description, not by trusting an auto-pick.
       var candidates = (TRANSACTIONS || []).filter(function(txn) {
-        return txn.amount_cents < 0 && !txn.is_transfer;
+        // Never offer a voided row as a bill match. Matching a bill to money
+        // that never left the account is the exact failure this guards.
+        return txn.amount_cents < 0 && !txn.is_transfer && !txn.voided_at;
       }).map(function(txn) {
         return { txn: txn, diff: Math.abs(Math.abs(txn.amount_cents) - amountCents) };
       }).sort(function(a, b) { return a.diff - b.diff; }).slice(0, 15);
@@ -5187,7 +5309,9 @@
     }
 
     function renderTransfers() {
-      var suspected = TRANSACTIONS.filter(function(t) { return t.transfer_status === "suspected"; });
+      var suspected = TRANSACTIONS.filter(function(t) {
+        return t.transfer_status === "suspected" && !t.voided_at;
+      });
       var card = document.getElementById("transferCard");
       if (!suspected.length) { card.hidden = true; return; }
       card.hidden = false;
@@ -5305,6 +5429,15 @@
 
       var rows = TRANSACTIONS.filter(function(t) {
         if (acctId && t.account_id !== acctId) { return false; }
+        // A voided row is money that never left the account. It is hidden from
+        // every ordinary view -- showing it beside real charges is how the same
+        // car payment appeared twice -- but it is never deleted, so the
+        // "Did not clear" filter can always surface it.
+        if (pending === "voided") {
+          if (!t.voided_at) { return false; }
+        } else if (t.voided_at) {
+          return false;
+        }
         if (pending === "pending" && !t.pending) { return false; }
         if (pending === "posted"  &&  t.pending) { return false; }
         if (catFilter === "uncategorized" && t.category_id) { return false; }
@@ -5361,7 +5494,16 @@
 
       document.getElementById("txnBody").innerHTML = visible.map(function(t) {
         var pills = "";
-        if (t.pending) { pills += ' <span class="pill pill-pending">pendente</span>'; }
+        // Voided outranks pending: a retired row is still flagged pending in the
+        // data, and showing "pendente" on it would tell her it is merely waiting
+        // to clear when in fact it never will.
+        if (t.voided_at) {
+          pills += ' <span class="pill pill-voided">' +
+                   (isEn() ? "did not clear" : "n&atilde;o compensou") + '</span>';
+        } else if (t.pending) {
+          pills += ' <span class="pill pill-pending">' +
+                   (isEn() ? "pending" : "pendente") + '</span>';
+        }
         if (t.is_transfer) { pills += ' <span class="pill pill-transfer">transf.</span>'; }
 
         // The category cell is a plain button showing either the category or a
@@ -5374,12 +5516,24 @@
         var catCell = '<button class="btn btn-sm" style="font-weight:500" onclick="openCategoryModal(\'' +
           esc(t.id) + '\')">' + catLabel + "</button>";
 
-        return "<tr>" +
+        // superseded_by points at the transaction that replaced this one, so the
+        // record leads somewhere instead of just saying "this died".
+        var voidNote = "";
+        if (t.voided_at) {
+          voidNote = '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
+            (t.superseded_by
+              ? (isEn() ? "Replaced by the charge that posted." : "Substitu&iacute;da pela cobran&ccedil;a que compensou.")
+              : (isEn() ? "Retired by the bank. No replacement found."
+                        : "Retirada pelo banco. Nenhuma substitui&ccedil;&atilde;o encontrada.")) +
+            "</div>";
+        }
+
+        return '<tr class="' + (t.voided_at ? "txn-voided" : "") + '">' +
           "<td>" + fmtDate(t.date) + "</td>" +
-          "<td>" + esc(t.description || "") + pills + "</td>" +
+          "<td>" + esc(t.description || "") + pills + voidNote + "</td>" +
           "<td>" + esc(nameById[t.account_id] || "") + "</td>" +
           "<td>" + catCell + "</td>" +
-          '<td class="num ' + (t.amount_cents >= 0 ? "is-green" : "") + '">' + fmtCents(t.amount_cents) + "</td>" +
+          '<td class="num txn-amount ' + (t.amount_cents >= 0 ? "is-green" : "") + '">' + fmtCents(t.amount_cents) + "</td>" +
         "</tr>";
       }).join("");
     }
@@ -5427,7 +5581,6 @@
             '<span class="show-en">Bank balance. The bank did not report an available amount.</span>';
         }
       }
-
 
       var b = SUMMARY && SUMMARY.business ? SUMMARY.business : null;
       var p = SUMMARY && SUMMARY.personal ? SUMMARY.personal : null;
@@ -5523,6 +5676,7 @@
       // Transfers are excluded from flow figures exactly as the summary
       // endpoint excludes them, so the chart and the tiles agree.
       return TRANSACTIONS.filter(function(t) {
+        if (t.voided_at) { return false; }
         return t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
       });
     }
@@ -5574,7 +5728,8 @@
             beginAtZero: true,
             ticks: {
               font: { family: "Inter", size: 10 },
-              callback: function(v) { return "$" + Number(v).toLocaleString(); }
+              // en-US pinned, not device-default -- see fmtCents above for why.
+              callback: function(v) { return "$" + Number(v).toLocaleString("en-US"); }
             },
             grid: { color: "#f0ece4" }
           },
@@ -5695,8 +5850,9 @@
     function prettyLabel(useWeekly) {
       return function(k) {
         if (useWeekly) {
+          // ALWAYS M/D, not tied to isEn() -- same rule as fmtDate above.
           var p = String(k).split("-");
-          return isEn() ? (p[1] + "/" + p[2]) : (p[2] + "/" + p[1]);
+          return p[1] + "/" + p[2];
         }
         var mp = String(k).split("-");
         var names = isEn()
@@ -5790,7 +5946,8 @@
         x: {
           ticks: {
             font: { family: "Inter", size: 10 },
-            callback: function(v) { return "$" + Number(v).toLocaleString(); }
+            // en-US pinned, not device-default -- see fmtCents above for why.
+            callback: function(v) { return "$" + Number(v).toLocaleString("en-US"); }
           },
           grid: { color: "#f0ece4" }
         },
@@ -5890,7 +6047,8 @@
           label: function(ctx) {
             var total = data.reduce(function(s, v) { return s + v; }, 0);
             var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
-            return ctx.label + ": $" + Number(ctx.parsed).toLocaleString() + " (" + pct + "%)";
+            // en-US pinned, not device-default -- see fmtCents above for why.
+            return ctx.label + ": $" + Number(ctx.parsed).toLocaleString("en-US") + " (" + pct + "%)";
           }
         }
       };
@@ -5932,7 +6090,8 @@
           beginAtZero: true,
           ticks: {
             font: { family: "Inter", size: 10 },
-            callback: function(v) { return "$" + Number(v).toLocaleString(); }
+            // en-US pinned, not device-default -- see fmtCents above for why.
+            callback: function(v) { return "$" + Number(v).toLocaleString("en-US"); }
           },
           grid: { color: "#f0ece4" }
         },
@@ -5981,7 +6140,9 @@
                      " (" + (a.purpose === "business"
                         ? t("Conta Empresarial", "Business Account")
                         : t("Conta Pessoal", "Personal Account")) + ")";
-        
+            }).join(", ")
+          : "";
+      }
 
       // Staleness: show WHEN the data is from, always. A number with no
       // timestamp invites her to trust a figure that may be days old.
@@ -6158,7 +6319,7 @@
       // Categorias: uncategorized transactions. Zero is silent -- a badge
       // reading 0 is noise, and this layer must never nag.
       var uncat = TRANSACTIONS.filter(function(t) {
-        return !t.category_id && !t.is_transfer &&
+        return !t.category_id && !t.is_transfer && !t.voided_at &&
                t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
       }).length;
       setBadge("finBadgeCategorias", uncat);
@@ -7828,6 +7989,80 @@ names,
       ].join("\n");
     }
 
+    // Naming the children's policies. NOT an interview: it is three names
+    // picked from a list, and a conversational prompt would be more work than
+    // the task. The bank sends a stable code per policy (after "PMT INFO:"),
+    // which is the only thing separating three $50 bills at one insurer.
+    function openPolicyNames() {
+      var codes = (ATTENTION && ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.codes) || [];
+      if (!codes.length) {
+        toast(t("Nenhuma ap&oacute;lice pendente.", "No policies pending."));
+        return;
+      }
+      var cands = (BILLS || []).filter(function(b) {
+        return b.active !== 0 && !b.payer_match_pattern &&
+          /previd|seguro de vida/i.test(b.name || "");
+      });
+      if (!cands.length) {
+        toast(t("Nenhuma conta candidata.", "No candidate bills."));
+        return;
+      }
+      // Pre-selected from the due date: each debit posts a day or two after its
+      // bill's due day, and the days are far enough apart (10, 21, 25) to be
+      // unambiguous. It stays a guess she confirms, never written for her.
+      var guess = (ATTENTION.unnamed_policies && ATTENTION.unnamed_policies.guess) || {};
+      var html = "";
+      codes.forEach(function(code, i) {
+        var g = guess[code];
+        html += '<div class="filter-row" style="margin-bottom:10px;align-items:center;">' +
+          '<code style="flex:0 0 118px;font-size:13px;">' + esc(code) + '</code>' +
+          '<select id="polSel' + i + '" data-code="' + esc(code) + '" style="flex:1 1 160px;">' +
+          '<option value="">' + t("&mdash; escolher &mdash;", "&mdash; choose &mdash;") + '</option>' +
+          cands.map(function(b) {
+            var sel = (g && g.bill_id === b.id) ? ' selected' : '';
+            return '<option value="' + esc(b.id) + '"' + sel + '>' + esc(b.name) + '</option>';
+          }).join("") +
+          '</select></div>';
+      });
+      document.getElementById("policyNamesRows").innerHTML = html;
+      var el = document.getElementById("policyNamesOverlay");
+      if (el) { el.hidden = false; }
+    }
+
+    function closePolicyNames() {
+      var el = document.getElementById("policyNamesOverlay");
+      if (el) { el.hidden = true; }
+    }
+
+    // Writing the code onto the bill is what makes future months match exactly
+    // instead of guessing between three identical amounts. One call per answered
+    // row; blanks are skipped, so she can name one now and the rest later.
+    function savePolicyNames() {
+      var sels = document.querySelectorAll("#policyNamesRows select");
+      var jobs = [];
+      var chosen = {};
+      for (var i = 0; i < sels.length; i++) {
+        var billId = sels[i].value;
+        var code = sels[i].getAttribute("data-code");
+        if (!billId) { continue; }
+        if (chosen[billId]) {
+          toast(t("Duas ap&oacute;lices na mesma conta.", "Two policies on the same bill."));
+          return;
+        }
+        chosen[billId] = true;
+        jobs.push({ bill_id: billId, policy_code: code });
+      }
+      if (!jobs.length) { closePolicyNames(); return; }
+      Promise.all(jobs.map(function(j) {
+        return apiFetch("/api/finance-new/bills/name-policy", { method: "POST", body: j });
+      })).then(function() {
+        closePolicyNames();
+        toast(t("Salvo.", "Saved."));
+        loadOverdue();
+        return loadForward();
+      }).catch(function() { toast(t("Erro ao salvar.", "Error saving.")); });
+    }
+
     function copyTermsInterviewPrompt() {
       fetchClientsMissingTerms().then(function(clients) {
         if (!clients.length) {
@@ -7844,8 +8079,13 @@ names,
     // Records that a sitting happened. It does NOT clear the queue: what is
     // left stays computed live from the terms table, so the count shrinks only
     // as answers actually land in Apex.
-    function markInterviewDone() {
-      apiFetch("/api/interview-sittings", { method: "POST", body: { kind: "terms" } })
+    // Kind travels from the row that was actually finished. A single shared
+    // button could only ever report one kind, so a transactions sitting was
+    // being logged as a terms sitting -- and a developer would go looking for
+    // answers that were never given. Terms, transactions and policies are
+    // separate interviews with separate prompts, often on separate days.
+    function markInterviewDone(kind) {
+      apiFetch("/api/interview-sittings", { method: "POST", body: { kind: kind || "terms" } })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (!d || d.error) { toast(t("Erro", "Error")); return; }
@@ -7880,26 +8120,62 @@ names,
     // The hero tiles and #acctGrid are deliberately OUTSIDE #sectionsList.
     // Balances are the one number that must never cost a click.
 
+    // The charts are NOT decoration and must not be filed at the bottom behind
+    // a collapse: they are the visual read of the month, and hiding them means
+    // they simply never get looked at. Same for transactions -- the list is
+    // already capped at 25 with "show more", so collapsing it hides work that
+    // was already made small enough to sit open.
     var SECTIONS = [
       { key: "overdue",      def: "open"      },
       { key: "budgets",      def: "open"      },
+      { key: "charts",       def: "open"      },
       { key: "attention",    def: "collapsed" },
       { key: "forward",      def: "open"      },
       { key: "bills",        def: "collapsed" },
+      { key: "transactions", def: "open"      },
       { key: "ownerpay",     def: "collapsed" },
-      { key: "linked",       def: "collapsed" },
       { key: "transfers",    def: "collapsed" },
-      { key: "charts",       def: "collapsed" },
-      { key: "transactions", def: "collapsed" }
+      { key: "linked",       def: "collapsed" }
     ];
 
+    // Linked accounts is last on purpose: it is setup, not something she reads.
     var DEFAULT_SECTION_ORDER = [
-      "overdue", "budgets", "attention", "forward", "bills",
-      "ownerpay", "linked", "transfers", "charts", "transactions"
+      "overdue", "budgets", "charts", "attention", "forward",
+      "bills", "transactions", "ownerpay", "transfers", "linked"
     ];
 
-    function collapseKey(sectionKey) { return "apex_fin_collapse_" + sectionKey; }
-    function sectionOrderKey()       { return "apex_fin_section_order"; }
+    // The suffix is bumped when the SHIPPED defaults change in a way that must
+    // reach someone who has already opened the page. A stored order/collapse
+    // state always wins over the defaults -- correct, since it is her choice --
+    // but that also means a corrected default would never arrive for anyone who
+    // had loaded the old one. Bumping the key retires the old value once. Do
+    // not bump it for cosmetic edits: it discards any arrangement she made.
+    function collapseKey(sectionKey) { return "apex_fin_collapse_v3_" + sectionKey; }
+    function sectionOrderKey()       { return "apex_fin_section_order_v3"; }
+
+    // Put the page back the way it ships. A saved order and saved collapse
+    // states always win over the defaults -- correct, since they are her
+    // arrangement -- but that also means there was no way to GET BACK to the
+    // shipped layout without editing localStorage by hand. Clears both key
+    // families, including older versioned ones, then reloads.
+    function confirmResetSections() {
+      var msg = t("Isso descarta a ordem e o que voc\u00ea abriu ou fechou, e volta a p\u00e1gina como ela vem de f\u00e1brica. Continuar?",
+                  "This discards your order and which sections you opened or closed, and puts the page back the way it ships. Continue?");
+      if (window.confirm(msg.replace(/&[a-z]+;/g, ""))) { resetSectionLayout(); }
+    }
+
+    function resetSectionLayout() {
+      try {
+        var kill = [];
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("apex_fin_collapse") === 0) { kill.push(k); }
+          if (k && k.indexOf("apex_fin_section_order") === 0) { kill.push(k); }
+        }
+        for (var j = 0; j < kill.length; j++) { localStorage.removeItem(kill[j]); }
+      } catch (e) {}
+      location.reload();
+    }
 
     function sectionByKey(key) {
       for (var i = 0; i < SECTIONS.length; i++) {
@@ -8029,6 +8305,14 @@ names,
 
       } else if (key === "transactions") {
         html = (TRANSACTIONS || []).length + t(" transa&ccedil;&otilde;es", " transactions");
+
+      } else if (key === "charts") {
+        // Name what is inside. Collapsed, this section used to render an empty
+        // summary under the title "Visao geral", so it said nothing at all
+        // about its contents -- and the vendor-share chart Alice specifically
+        // asked for was invisible behind a label that never mentioned it.
+        html = t("Entrou e saiu &middot; por categoria &middot; saldo por conta &middot; fornecedores vs Apex",
+                 "Money in and out &middot; by category &middot; balance per account &middot; vendors vs Apex");
       }
 
       el.innerHTML = html;
@@ -8116,8 +8400,10 @@ names,
       document.body.classList.add("is-edit-sections");
       var btnEdit = document.getElementById("btnEditSections");
       var btnDone = document.getElementById("btnDoneSections");
+      var btnReset = document.getElementById("btnResetSections");
       if (btnEdit) { btnEdit.style.display = "none"; }
       if (btnDone) { btnDone.style.display = ""; }
+      if (btnReset) { btnReset.style.display = ""; }
       var cards = list.querySelectorAll("[data-section-id]");
       for (var i = 0; i < cards.length; i++) { enableDrag(cards[i]); }
     }
@@ -8128,6 +8414,8 @@ names,
       document.body.classList.remove("is-edit-sections");
       var btnEdit = document.getElementById("btnEditSections");
       var btnDone = document.getElementById("btnDoneSections");
+      var btnReset = document.getElementById("btnResetSections");
+      if (btnReset) { btnReset.style.display = "none"; }
       if (btnEdit) { btnEdit.style.display = ""; }
       if (btnDone) { btnDone.style.display = "none"; }
       var cards = list.querySelectorAll("[data-section-id]");

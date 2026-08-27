@@ -1300,6 +1300,119 @@
       .glass-tile-value { font-size: 22px; }
       .chart-box { height: 220px; }
     }
+
+    /* ── Tappable hero tiles ──────────────────────────────────────────────
+       Entrou / Saiu are buttons now. They must look IDENTICAL to the static
+       tiles beside them (a button element resets font, colour and alignment)
+       and only gain an affordance line, so the row still reads as one set of
+       figures rather than two competing styles. */
+    .glass-tile-btn {
+      font: inherit;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .15s ease, transform .15s ease;
+    }
+    .glass-tile-btn:hover,
+    .glass-tile-btn:focus-visible { border-color: rgba(212,175,110,0.55); }
+    .glass-tile-btn:active { transform: scale(0.985); }
+    .glass-tile-cta {
+      margin-top: 6px;
+      font-size: 11px;
+      letter-spacing: .02em;
+      color: rgba(212,175,110,0.92);
+      white-space: nowrap;
+    }
+    /* Touch devices get no hover, so the affordance must be permanent. */
+    @media (hover: none) { .glass-tile-cta { color: rgba(212,175,110,1); } }
+
+    /* ── Line-by-line ledger overlay ─────────────────────────────────────── */
+    .ledger-overlay {
+      position: fixed; inset: 0; z-index: 900;
+      background: rgba(10,8,6,0.72);
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    @media (min-width: 720px) { .ledger-overlay { align-items: center; } }
+    .ledger-sheet {
+      background: #171310;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px 16px 0 0;
+      width: 100%; max-width: 760px;
+      max-height: 92vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+    }
+    @media (min-width: 720px) { .ledger-sheet { border-radius: 16px; max-height: 86vh; } }
+    .ledger-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 12px; padding: 18px 20px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      flex: 0 0 auto;
+    }
+    .ledger-title { font-size: 18px; font-weight: 700; color: #F3EDE4; }
+    .ledger-sub   { font-size: 12px; color: #9C9188; margin-top: 3px; }
+    .ledger-close {
+      background: none; border: none; color: #9C9188;
+      font-size: 30px; line-height: 1; cursor: pointer; padding: 0 4px;
+    }
+    .ledger-close:hover { color: #F3EDE4; }
+    /* The list scrolls, the header and the total do not: the figure being
+       explained must stay on screen while she reads the lines under it. */
+    .ledger-body { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1 1 auto; padding: 0 20px 20px; }
+    .ledger-loading { padding: 28px 0; text-align: center; color: #9C9188; font-size: 14px; }
+
+    .ledger-group-title {
+      position: sticky; top: 0; z-index: 2;
+      background: #171310;
+      padding: 14px 0 8px;
+      font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+      color: #9C9188;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .ledger-row {
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      gap: 10px; align-items: baseline;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 14px;
+    }
+    .ledger-date { color: #9C9188; font-size: 12px; font-variant-numeric: tabular-nums; }
+    .ledger-name { color: #E8E0D6; overflow-wrap: anywhere; }
+    .ledger-acct { display: block; color: #7E756D; font-size: 11px; margin-top: 2px; }
+    /* tabular-nums so the column of figures lines up digit for digit -- the
+       whole point is that she can add them with her eye. */
+    .ledger-amt   { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+    .ledger-amt.is-in  { color: #6FBF8B; }
+    .ledger-amt.is-out { color: #D98A8A; }
+    .ledger-pending { color: #C9A227; font-size: 11px; margin-left: 6px; }
+
+    /* The arithmetic, pinned so it is never scrolled away from the lines. */
+    .ledger-total {
+      flex: 0 0 auto;
+      border-top: 2px solid rgba(212,175,110,0.35);
+      background: #1E1813;
+      padding: 14px 20px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .ledger-total-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 14px; color: #C4BAB0;
+    }
+    .ledger-total-row.is-final {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      margin-top: 4px; padding-top: 10px;
+      font-size: 16px; font-weight: 700; color: #F3EDE4;
+    }
+    .ledger-total-val { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .ledger-note {
+      font-size: 12px; color: #9C9188; line-height: 1.5;
+      padding: 10px 0 0;
+    }
+    .ledger-xfer .ledger-name,
+    .ledger-xfer .ledger-amt { color: #7E756D; }
+    .ledger-empty { padding: 20px 0; color: #9C9188; font-size: 14px; }
   </style>
 </head>
 <body class="lang-pt">
@@ -1357,20 +1470,37 @@
             <div class="glass-tile-value is-gold" id="heroBalance">--</div>
             <div class="glass-tile-sub" id="heroBalanceSub"></div>
           </div>
-          <div class="glass-tile">
+          <!-- Entrou / Saiu are BUTTONS. Alice and Rafa read these two figures
+               and could not tell what made them up, so the numbers read as
+               assertions rather than arithmetic. The answer belongs where the
+               question is asked: tap the number, see every line behind it.
+               The same report was previously a totals strip at the very
+               bottom of the page, above the transactions table, where nobody
+               could find it. -->
+          <button type="button" class="glass-tile glass-tile-btn" onclick="openLedger('in')"
+                  aria-label="Ver linha por linha o que entrou">
             <div class="glass-tile-label">
               <span class="show-pt">Entrou (m&ecirc;s)</span>
               <span class="show-en">In (month)</span>
             </div>
             <div class="glass-tile-value is-green" id="heroIn">--</div>
-          </div>
-          <div class="glass-tile">
+            <div class="glass-tile-cta">
+              <span class="show-pt">Ver linha por linha</span>
+              <span class="show-en">See line by line</span>
+            </div>
+          </button>
+          <button type="button" class="glass-tile glass-tile-btn" onclick="openLedger('out')"
+                  aria-label="Ver linha por linha o que saiu">
             <div class="glass-tile-label">
               <span class="show-pt">Saiu (m&ecirc;s)</span>
               <span class="show-en">Out (month)</span>
             </div>
             <div class="glass-tile-value is-red" id="heroOut">--</div>
-          </div>
+            <div class="glass-tile-cta">
+              <span class="show-pt">Ver linha por linha</span>
+              <span class="show-en">See line by line</span>
+            </div>
+          </button>
           <!-- Hidden entirely when transfer detection is below 50%: a net
                figure she cannot audit is worse than no figure. -->
           <div class="glass-tile" id="heroNetTile">
@@ -1890,6 +2020,29 @@
       </div>
     </div>
 
+
+    <!-- ── Line-by-line ledger (opened from the Entrou / Saiu tiles) ──
+         A full-screen overlay rather than a card in the page flow: it is the
+         ANSWER to a specific tile, not another section to scroll past. The
+         previous version of this was a card at the bottom of the page and was
+         never found. -->
+    <div id="ledgerOverlay" class="ledger-overlay" hidden>
+      <div class="ledger-sheet" role="dialog" aria-modal="true" aria-labelledby="ledgerTitle">
+        <div class="ledger-head">
+          <div>
+            <div class="ledger-title" id="ledgerTitle">--</div>
+            <div class="ledger-sub" id="ledgerSub"></div>
+          </div>
+          <button type="button" class="ledger-close" onclick="closeLedger()" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="ledger-body" id="ledgerBody">
+          <div class="ledger-loading">
+            <span class="show-pt">Carregando&hellip;</span>
+            <span class="show-en">Loading&hellip;</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Transactions (Stage 4) ── -->
     <div id="txnCard" data-section-id="transactions" class="card" hidden>
@@ -3110,6 +3263,175 @@
     // never change how a date or time renders" -- the same holds for money).
     // Found 2026-08-16: this was rendering Brazilian-notation dollar amounts
     // whenever the toggle was set to PT.
+    // ══════════════════════════════════════════════════════════════════
+    // LINE-BY-LINE LEDGER — the answer to "what makes up this number?"
+    //
+    // Opened from the Entrou / Saiu hero tiles. Alice and Rafa read those two
+    // figures and could not tell what composed them, so they read as
+    // assertions instead of arithmetic. Nicole's brief: a full line-by-line of
+    // money in and money out, NOT by category, with the math shown.
+    //
+    // THE CONTRACT: the total at the bottom is computed from the SAME array
+    // that is rendered above it, and the endpoint uses the SAME WHERE clause
+    // as the hero tile. If the report ever disagreed with the tile it
+    // explains, it would turn one confusing number into two contradictory
+    // ones -- strictly worse than showing nothing.
+    //
+    // Not paged. A paged total is a lie when the entire purpose is that the
+    // lines add up.
+    // ══════════════════════════════════════════════════════════════════
+    var LEDGER_SIDE = "in";
+
+    function ledgerMonth() {
+      // The tiles are always "this month", so the report is too. Read from the
+      // same clock the summary call uses rather than a filter the user may
+      // have changed elsewhere on the page.
+      return new Date().toISOString().slice(0, 7);
+    }
+
+    function openLedger(side) {
+      LEDGER_SIDE = (side === "out") ? "out" : "in";
+      var ov = document.getElementById("ledgerOverlay");
+      ov.hidden = false;
+      // Stop the page behind from scrolling under the sheet on iOS.
+      document.body.style.overflow = "hidden";
+      document.getElementById("ledgerBody").innerHTML =
+        '<div class="ledger-loading">' +
+        (isEn() ? "Loading&hellip;" : "Carregando&hellip;") + '</div>';
+      var t = document.getElementById("ledgerTitle");
+      t.textContent = LEDGER_SIDE === "in"
+        ? (isEn() ? "Money in, line by line" : "Entrou, linha por linha")
+        : (isEn() ? "Money out, line by line" : "Saiu, linha por linha");
+      document.getElementById("ledgerSub").textContent = "";
+
+      apiFetch("/api/finance-new/ledger?month=" + encodeURIComponent(ledgerMonth()))
+        .then(function(r) { return r.json(); })
+        .then(function(d) { renderLedger(d); })
+        .catch(function(e) {
+          // Show the real reason. A swallowed error here reads as an empty
+          // month, which would look like their money vanished.
+          document.getElementById("ledgerBody").innerHTML =
+            '<div class="ledger-empty">' +
+            (isEn() ? "Could not load: " : "N&atilde;o foi poss&iacute;vel carregar: ") +
+            esc(String(e && e.message ? e.message : e)) + '</div>';
+        });
+    }
+
+    function closeLedger() {
+      document.getElementById("ledgerOverlay").hidden = true;
+      document.body.style.overflow = "";
+    }
+
+    function ledgerRowHtml(r, side) {
+      var amt = Math.abs(Number(r.amount_cents) || 0);
+      var who = r.merchant_name || r.name || "--";
+      var pend = r.pending
+        ? '<span class="ledger-pending">' + (isEn() ? "pending" : "pendente") + '</span>'
+        : "";
+      return '<div class="ledger-row">' +
+        '<span class="ledger-date">' + esc(fmtDate(r.date)) + '</span>' +
+        '<span class="ledger-name">' + esc(who) + pend +
+          '<span class="ledger-acct">' + esc(r.account_name || "") + '</span>' +
+        '</span>' +
+        '<span class="ledger-amt ' + (side === "in" ? "is-in" : "is-out") + '">' +
+          (side === "in" ? "+" : "\u2212") + fmtCents(amt) +
+        '</span>' +
+      '</div>';
+    }
+
+    function renderLedger(d) {
+      var side  = LEDGER_SIDE;
+      var lines = side === "in" ? (d.money_in || []) : (d.money_out || []);
+      var total = side === "in" ? (d.in_cents || 0)  : (d.out_cents || 0);
+
+      // Recompute from the rendered array rather than trusting the field.
+      // These two must agree; if they ever do not, the discrepancy is shown
+      // instead of being hidden, because a silently wrong total is the one
+      // outcome this whole feature exists to prevent.
+      var summed = 0;
+      lines.forEach(function(r) { summed += Math.abs(Number(r.amount_cents) || 0); });
+
+      var html = "";
+      html += '<div class="ledger-group-title">' +
+        (side === "in"
+          ? (isEn() ? "Every deposit this month" : "Tudo que entrou este m&ecirc;s")
+          : (isEn() ? "Every payment this month" : "Tudo que saiu este m&ecirc;s")) +
+        ' &middot; ' + lines.length + '</div>';
+
+      if (!lines.length) {
+        html += '<div class="ledger-empty">' +
+          (isEn() ? "No transactions this month." : "Nenhuma transa&ccedil;&atilde;o este m&ecirc;s.") +
+          '</div>';
+      } else {
+        lines.forEach(function(r) { html += ledgerRowHtml(r, side); });
+      }
+
+      // Transfers between their own accounts: shown, never counted. Without
+      // this a line she can see on her bank statement would simply be absent
+      // from the report, and a report with holes is one she stops trusting.
+      var xf = d.transfers || [];
+      if (xf.length) {
+        html += '<div class="ledger-group-title">' +
+          (isEn() ? "Not counted &middot; moved between your own accounts"
+                  : "N&atilde;o contado &middot; movido entre as suas contas") +
+          ' &middot; ' + xf.length + '</div>';
+        xf.forEach(function(r) {
+          html += '<div class="ledger-xfer">' +
+            ledgerRowHtml(r, r.amount_cents > 0 ? "in" : "out") + '</div>';
+        });
+        html += '<div class="ledger-note">' +
+          (isEn()
+            ? "Money moving between your own accounts is not income and not an expense, so it is left out of the totals above. It is listed here so nothing on your bank statement is missing."
+            : "Dinheiro movido entre as suas pr&oacute;prias contas n&atilde;o &eacute; entrada nem sa&iacute;da, por isso fica fora dos totais acima. Est&aacute; listado aqui para que nada do seu extrato falte.") +
+          '</div>';
+      }
+
+      document.getElementById("ledgerBody").innerHTML = html;
+
+      // The arithmetic, pinned below the scrolling list.
+      var old = document.querySelector(".ledger-total");
+      if (old) { old.remove(); }
+      var tot = document.createElement("div");
+      tot.className = "ledger-total";
+      var label = side === "in"
+        ? (isEn() ? "Total in" : "Total que entrou")
+        : (isEn() ? "Total out" : "Total que saiu");
+      var rows = '<div class="ledger-total-row">' +
+          '<span>' + (isEn() ? "Lines" : "Linhas") + '</span>' +
+          '<span class="ledger-total-val">' + lines.length + '</span>' +
+        '</div>';
+      if (summed !== total) {
+        rows += '<div class="ledger-total-row" style="color:#D98A8A">' +
+          '<span>' + (isEn() ? "Totals disagree - report this" : "Totais divergem - avise") + '</span>' +
+          '<span class="ledger-total-val">' + fmtCents(total) + '</span></div>';
+      }
+      rows += '<div class="ledger-total-row is-final">' +
+          '<span>' + label + '</span>' +
+          '<span class="ledger-total-val ' + (side === "in" ? "is-in" : "is-out") + '">' +
+          fmtCents(summed) + '</span>' +
+        '</div>';
+      tot.innerHTML = rows;
+      document.querySelector(".ledger-sheet").appendChild(tot);
+
+      // textContent, so real accented characters go in directly. HTML
+      // entities would render literally as "s&atilde;o" here.
+      document.getElementById("ledgerSub").textContent = isEn()
+        ? "This is every line behind the tile you tapped."
+        : "Estas s\u00e3o todas as linhas por tr\u00e1s do n\u00famero que voc\u00ea tocou.";
+    }
+
+    // Escape and Enter-on-backdrop both close, same as every other overlay.
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") {
+        var ov = document.getElementById("ledgerOverlay");
+        if (ov && !ov.hidden) { closeLedger(); }
+      }
+    });
+    document.addEventListener("click", function(e) {
+      var ov = document.getElementById("ledgerOverlay");
+      if (ov && !ov.hidden && e.target === ov) { closeLedger(); }
+    });
+
     function fmtCents(cents) {
       var v = (Number(cents) || 0) / 100;
       return v.toLocaleString("en-US", { style: "currency", currency: "USD" });

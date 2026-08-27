@@ -21021,6 +21021,100 @@ async function computeTransferDetectionRate(env, sinceDate) {
     return { candidates: candidates, detected: detected, rate: rate };
 }
 
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/ledger?month=YYYY-MM  — alice/rafa/developer.
+//
+// EVERY line behind the "Entrou (mes)" and "Saiu (mes)" tiles, in date order,
+// with no grouping and no paging.
+//
+// WHY THIS EXISTS. Alice and Rafa read the hero tiles and could not tell what
+// made them up, so the figures felt like assertions rather than arithmetic.
+// Her ask, via Nicole: a full line-by-line of money in and money out -- NOT
+// by category -- with the math shown, so the tile can be checked by reading.
+//
+// THE ONE RULE THAT MATTERS: this MUST use the same WHERE clause as
+// handleGetFinanceNewSummary above -- same month bounds, same voided_at IS
+// NULL, same transfer_status exclusion. A report that disagrees with the tile
+// it explains is worse than no report, because it turns one confusing number
+// into two contradictory ones. The predicate is deliberately duplicated
+// verbatim rather than "improved" here; if it ever changes, change both.
+//
+// Transfers between their own accounts are EXCLUDED from the totals, exactly
+// as the tile excludes them -- but they are returned separately as
+// `transfers`, uncounted, so a line she can see on her bank statement is
+// never simply missing from the report. Missing lines are what make someone
+// distrust a total.
+//
+// No LIMIT anywhere. A paged total is a lie: the whole point is that the
+// lines add up to the tile.
+// ---------------------------------------------------------------------------
+async function handleGetFinanceNewLedger(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        var start;
+        if (month && /^\d{4}-\d{2}$/.test(month)) {
+            start = month + "-01";
+        } else {
+            var now = new Date();
+            start = now.toISOString().slice(0, 7) + "-01";
+        }
+
+        // Counted lines: identical predicate to the summary tile.
+        var rows = await env.DB.prepare(
+            "SELECT t.id, t.date, t.name, t.merchant_name, t.amount_cents, t.pending, " +
+            "       t.category_id, a.name AS account_name, a.purpose " +
+            "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+            "WHERE t.date >= ? AND t.date < date(?, '+1 month') " +
+            "AND t.voided_at IS NULL " +
+            "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+            "ORDER BY t.date ASC, t.id ASC"
+        ).bind(start, start).all();
+
+        // Excluded transfer legs, shown but never counted.
+        var xfer = await env.DB.prepare(
+            "SELECT t.id, t.date, t.name, t.merchant_name, t.amount_cents, t.pending, " +
+            "       a.name AS account_name, a.purpose, t.transfer_status " +
+            "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+            "WHERE t.date >= ? AND t.date < date(?, '+1 month') " +
+            "AND t.voided_at IS NULL " +
+            "AND t.transfer_status IN ('suspected','confirmed') " +
+            "ORDER BY t.date ASC, t.id ASC"
+        ).bind(start, start).all();
+
+        var moneyIn = [], moneyOut = [], inC = 0, outC = 0;
+        (rows.results || []).forEach(function(r) {
+            if (r.amount_cents > 0) { inC += r.amount_cents; moneyIn.push(r); }
+            else if (r.amount_cents < 0) { outC += -r.amount_cents; moneyOut.push(r); }
+            // A zero-amount row belongs to neither side and is dropped from
+            // both lists rather than shown as a line worth nothing.
+        });
+
+        var xferC = 0;
+        (xfer.results || []).forEach(function(r) { xferC += Math.abs(r.amount_cents); });
+
+        return jsonOk({
+            month: start.slice(0, 7),
+            money_in: moneyIn,
+            money_out: moneyOut,
+            // Totals computed from the SAME arrays that are rendered, so the
+            // figure at the bottom is arithmetic on the visible lines rather
+            // than a second query that could quietly disagree with them.
+            in_cents: inC,
+            out_cents: outC,
+            net_cents: inC - outC,
+            transfers: (xfer.results || []),
+            transfers_cents: xferC
+        });
+    } catch (e) {
+        return jsonErr("Error building ledger: " + e.message, 500);
+    }
+}
+
 async function handleGetFinanceNewSummary(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -28649,6 +28743,7 @@ async function handleFetch(request, env, ctx) {
             return handlePatchFinanceNewAccount(segs[3], request, env);
         }
         if (path === "/api/finance-new/summary"           && method === "GET")  { return handleGetFinanceNewSummary(request, env); }
+        if (path === "/api/finance-new/ledger"            && method === "GET")  { return handleGetFinanceNewLedger(request, env); }
         if (path === "/api/finance-new/transactions"      && method === "GET")  { return handleGetFinanceNewTransactions(request, env); }
 
         // --- categorization ------------------------------------------------

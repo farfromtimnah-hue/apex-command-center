@@ -1333,6 +1333,21 @@
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
       display: flex; align-items: flex-end; justify-content: center;
     }
+    /* MUST come after the display:flex above. The `hidden` attribute only
+       sets display:none through the UA stylesheet, which a class rule of
+       equal specificity declared later overrides -- so without this the
+       overlay is NEVER hidden and sits over the page from first paint,
+       showing the markup's placeholder title and "Carregando...". That is
+       exactly how it shipped, and it looked like a failed fetch rather than
+       a CSS problem. */
+    .ledger-overlay[hidden] { display: none; }
+
+    /* Same trap, three pre-existing cases. Each of these classes sets a
+       display value and is used on an element that carries `hidden`, so the
+       attribute was being overridden and the element showed when it should
+       not. Found by scanning for the pattern after .ledger-overlay shipped
+       with it. One guard covers every element that has the attribute. */
+    [hidden] { display: none !important; }
     @media (min-width: 720px) { .ledger-overlay { align-items: center; } }
     .ledger-sheet {
       background: #171310;

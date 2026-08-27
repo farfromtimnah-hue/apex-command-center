@@ -21036,6 +21036,27 @@ async function handleGetFinanceNewSummary(request, env) {
         var netShown   = rateKnown && detection.rate >= 0.5;
         var netLabeled = rateKnown && detection.rate < 0.8;
 
+        // TRANSFER MOVEMENT, reported separately rather than hidden.
+        //
+        // Excluding transfers from in/out is right -- moving money between her
+        // own accounts is not income and not spending. But the money DID leave
+        // the business account, so a tile that hides it cannot reconcile
+        // against the balance, and it looks broken. Alice, 2026-08-26: "$9k in,
+        // $3.6k out, net $5.6k -- on an account with 61 cents?"
+        //
+        // The missing piece was $7,650 of owner's draws. Now it gets its own
+        // line instead of vanishing.
+        var movRes = await env.DB.prepare(
+            "SELECT a.purpose, " +
+            "SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END) AS moved_in_cents, " +
+            "SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END) AS moved_out_cents " +
+            "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+            "WHERE t.date >= ? AND t.date < date(?, '+1 month') " +
+            "AND t.voided_at IS NULL " +
+            "AND t.transfer_status IN ('suspected','confirmed') " +
+            "GROUP BY a.purpose"
+        ).bind(start, start).all();
+
         var purposes = ["business", "personal"];
         for (var p = 0; p < purposes.length; p++) {
             var row = null;
@@ -21044,10 +21065,18 @@ async function handleGetFinanceNewSummary(request, env) {
             }
             var inC  = row ? (row.in_cents  || 0) : 0;
             var outC = row ? (row.out_cents || 0) : 0;
+            var mov = null;
+            for (var m = 0; m < (movRes.results || []).length; m++) {
+                if (movRes.results[m].purpose === purposes[p]) { mov = movRes.results[m]; }
+            }
+            var movedIn  = mov ? (mov.moved_in_cents  || 0) : 0;
+            var movedOut = mov ? (mov.moved_out_cents || 0) : 0;
             out[purposes[p]] = {
                 in_cents:      inC,
                 out_cents:     outC,
                 net_cents:     inC - outC,
+                moved_in_cents:  movedIn,
+                moved_out_cents: movedOut,
                 pending_cents: row ? (row.pending_cents || 0) : 0,
                 net_shown:     netShown,
                 net_labeled:   netShown && netLabeled

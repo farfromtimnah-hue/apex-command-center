@@ -5169,16 +5169,40 @@
           // The honesty threshold decides whether a net figure appears at all.
           // A wrong headline on a hands-off dashboard is worse than no
           // headline, because she cannot tell it is wrong and will act on it.
-          var netBlock = "";
-          if (flow.net_shown) {
-            netBlock =
+          // NET IS THE REAL CHANGE IN THE ACCOUNT, transfers included.
+          //
+          // It used to be in minus out with transfers stripped from BOTH sides.
+          // On the business account that produced "$9,223 in, $3,600 out, net
+          // $5,623" while the account held 61 cents, because $7,650 of owner's
+          // draws had been filtered out of the outgoing side. Nicole's call,
+          // 2026-08-26: a positive figure produced by money that left and got
+          // spent elsewhere is "confusing noise", not information.
+          //
+          // So: In and Out stay clean (real income, real spending -- transfers
+          // are not either). Net counts EVERYTHING that moved, so it matches
+          // what the balance actually did. Money moved out to her own accounts
+          // gets its own line, because it is neither income nor an expense but
+          // it is certainly gone.
+          var movedOut = flow.moved_out_cents || 0;
+          var movedIn  = flow.moved_in_cents  || 0;
+          var realNet  = (flow.in_cents + movedIn) - (flow.out_cents + movedOut);
+
+          var movedBlock = "";
+          if (movedOut || movedIn) {
+            var movedNet = movedOut - movedIn;
+            movedBlock =
               '<div class="flow-item"><div class="flow-label">' +
-                (flow.net_labeled
-                  ? '<span class="show-pt">L&iacute;quido ap&oacute;s transfer&ecirc;ncias detectadas</span><span class="show-en">Net after detected transfers</span>'
-                  : '<span class="show-pt">L&iacute;quido</span><span class="show-en">Net</span>') +
-              '</div><div class="flow-value ' + (flow.net_cents >= 0 ? "is-green" : "is-red") + '">' +
-              fmtCents(flow.net_cents) + '</div></div>';
+                '<span class="show-pt">Sa&iacute;u para suas contas</span>' +
+                '<span class="show-en">Moved to your accounts</span>' +
+              '</div><div class="flow-value is-amber">' + fmtCents(movedNet) + '</div></div>';
           }
+
+          var netBlock =
+            '<div class="flow-item"><div class="flow-label">' +
+              '<span class="show-pt">Mudan&ccedil;a na conta</span>' +
+              '<span class="show-en">Change in account</span>' +
+            '</div><div class="flow-value ' + (realNet >= 0 ? "is-green" : "is-red") + '">' +
+            fmtCents(realNet) + '</div></div>';
 
           flowHtml =
             '<div class="flow-row">' +
@@ -5186,23 +5210,20 @@
                 '<div class="flow-value is-green">' + fmtCents(flow.in_cents) + '</div></div>' +
               '<div class="flow-item"><div class="flow-label"><span class="show-pt">Saiu</span><span class="show-en">Out</span></div>' +
                 '<div class="flow-value is-red">' + fmtCents(flow.out_cents) + '</div></div>' +
+              movedBlock +
               netBlock +
             '</div>';
 
-          if (!flow.net_shown) {
-            // Same two reasons as the hero tile: measured badly, or too little
-            // to measure. Only the first is a statement about detection.
-            var rateKnown = !!(SUMMARY && SUMMARY.detection && SUMMARY.detection.known);
-            flowHtml += '<div class="net-note">' + (rateKnown
-              ? '<span class="show-pt">O l&iacute;quido n&atilde;o &eacute; exibido: n&atilde;o foi poss&iacute;vel identificar transfer&ecirc;ncias entre as suas contas com confian&ccedil;a suficiente, e um n&uacute;mero errado seria pior que nenhum.</span>' +
-                '<span class="show-en">Net is hidden: transfers between your own accounts could not be identified with enough confidence, and a wrong number would be worse than none.</span>'
-              : '<span class="show-pt">O l&iacute;quido n&atilde;o &eacute; exibido: ainda n&atilde;o h&aacute; transa&ccedil;&otilde;es suficientes para separar transfer&ecirc;ncias de receita real.</span>' +
-                '<span class="show-en">Net is hidden: there are not enough transactions yet to tell transfers apart from real income.</span>'
-            ) + '</div>';
-          } else if (flow.net_labeled) {
+          // The old "net is hidden" branch is gone. It existed because net
+          // subtracted transfers from both sides, so poor detection made it
+          // meaningless. Net now counts every movement, so it always matches
+          // the account and is always safe to show. Poor detection can still
+          // misplace money between the In/Out lines and the moved line, which
+          // is what this note says -- it no longer suppresses a number.
+          if (!flow.net_shown || flow.net_labeled) {
             flowHtml += '<div class="net-note">' +
-              '<span class="show-pt">Algumas transfer&ecirc;ncias podem n&atilde;o ter sido detectadas. Entrou e saiu acima s&atilde;o os valores brutos.</span>' +
-              '<span class="show-en">Some transfers may not have been detected. In and out above are the raw figures.</span>' +
+              '<span class="show-pt">Algumas transfer&ecirc;ncias entre as suas contas podem n&atilde;o ter sido identificadas, ent&atilde;o parte do que aparece em Entrou/Saiu pode ser movimenta&ccedil;&atilde;o interna. A mudan&ccedil;a na conta est&aacute; correta de qualquer forma.</span>' +
+              '<span class="show-en">Some transfers between your own accounts may not have been identified, so part of what appears in In/Out may be internal movement. The change in account is correct either way.</span>' +
               '</div>';
           }
 

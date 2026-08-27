@@ -1443,11 +1443,15 @@
     }
 
     /* ── Totals by category ─────────────────────────────────────────────── */
+    /* The amount column is the POINT of this table, so it is sized first and
+       never allowed to shrink -- the bar gives way instead. The previous
+       three-column grid let the bar hold 70px while the amount was clipped
+       to "$6,050.0", losing the last digit of the very figure being read. */
     .ledger-cat-row {
       display: grid;
-      grid-template-columns: minmax(0,1fr) 70px auto;
-      gap: 10px; align-items: center;
-      padding: 7px 0; font-size: 13.5px;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 4px 10px; align-items: center;
+      padding: 8px 0; font-size: 13.5px;
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
     .ledger-cat-name { color: #E8E0D6; overflow-wrap: anywhere; }
@@ -1463,7 +1467,17 @@
       display: block; height: 100%; border-radius: 3px;
       background: rgba(212,175,110,0.75);
     }
-    .ledger-cat-amt { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+    .ledger-cat-amt {
+      font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700;
+      justify-self: end; font-size: 14px;
+    }
+    /* Bar spans the full width on its own row underneath, so it can never
+       compete with the number for space. */
+    .ledger-cat-bar { grid-column: 1 / -1; }
+    .ledger-cat-pct {
+      display: block; font-size: 11px; font-weight: 500;
+      color: #8B837B; text-align: right; margin-top: 1px;
+    }
 
     /* ── "Was this fuel?" under the fuel budget ─────────────────────────── */
     .budget-wrap { margin-bottom: 10px; }
@@ -3544,14 +3558,18 @@
         '</div>' +
         order.map(function(k) {
           var pct = total > 0 ? Math.round((byCat[k].cents / total) * 100) : 0;
+          // Order matters: name and amount share row one, the bar spans row
+          // two beneath them. Emitting the bar between the two would push the
+          // amount onto a row of its own.
           return '<div class="ledger-cat-row">' +
             '<span class="ledger-cat-name">' + esc(k) +
               '<span class="ledger-cat-n">' + byCat[k].n + '</span>' +
             '</span>' +
-            '<span class="ledger-cat-bar"><span style="width:' + pct + '%"></span></span>' +
             '<span class="ledger-cat-amt ' + (side === "in" ? "is-in" : "is-out") + '">' +
               fmtCents(byCat[k].cents) +
+              '<span class="ledger-cat-pct">' + pct + '%</span>' +
             '</span>' +
+            '<span class="ledger-cat-bar"><span style="width:' + pct + '%"></span></span>' +
           '</div>';
         }).join("");
     }

@@ -75,7 +75,10 @@ jobs:
               continue
             fi
 
-            if git log -1 --format='%B' "$C" | grep -qi '\[web-only\]'; then
+            # SUBJECT line only. Matching the whole message meant a commit
+            # that merely DOCUMENTS the marker skipped itself -- f47bd65, the
+            # commit that introduced this workflow, did exactly that.
+            if printf '%s' "$SUBJECT" | grep -qi '\[web-only\]'; then
               echo "· ${C:0:8} [web-only] -- deliberately not in the app: $SUBJECT"
               continue
             fi
@@ -87,7 +90,16 @@ jobs:
               # Only files that exist in BOTH copies at this commit. A root-only
               # file is not drift -- it simply is not part of the bundle.
               git cat-file -e "$C:$IOS_DIR/$F" 2>/dev/null || continue
-              echo "$CHANGED" | grep -qx "$IOS_DIR/$F" || MISSING="$MISSING $F"
+              # Changed together -- the normal, correct case.
+              echo "$CHANGED" | grep -qx "$IOS_DIR/$F" && continue
+              # Not changed together, but the two copies are IDENTICAL as of
+              # this commit, so nothing is behind. This is real: when a hook
+              # rewrites both copies, one can land a commit earlier, leaving
+              # root to catch up TO iOS. Comparing the committed blobs is the
+              # precise question -- "are they in sync at this commit" -- and it
+              # cannot be fooled by what happened to be staged.
+              if git show "$C:$F" | cmp -s - <(git show "$C:$IOS_DIR/$F"); then continue; fi
+              MISSING="$MISSING $F"
             done
 
             if [ -n "$MISSING" ]; then

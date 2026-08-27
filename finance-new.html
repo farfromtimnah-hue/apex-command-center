@@ -2729,6 +2729,19 @@
           <span class="show-pt">Cole no seu Claude &mdash; n&atilde;o no do Rafael.</span>
           <span class="show-en">Paste into your own Claude &mdash; not Rafael's.</span>
         </div>
+        <!-- Shown ONLY when the clipboard write failed. Refreshing the queue
+             before building the prompt costs the user-gesture permission some
+             browsers require for clipboard access, and a toast saying "could
+             not copy" would leave her with nothing at the exact moment she is
+             sitting down with Alice. -->
+        <div id="promptFallbackWrap" hidden style="margin-bottom:16px;">
+          <div class="net-note" style="margin-bottom:8px;">
+            <span class="show-pt">N&atilde;o consegui copiar sozinho. Selecione e copie abaixo.</span>
+            <span class="show-en">Could not copy automatically. Select and copy below.</span>
+          </div>
+          <textarea id="promptFallbackText" readonly rows="8"
+            style="width:100%;font-family:ui-monospace,monospace;font-size:12px;"></textarea>
+        </div>
         <button type="button" class="btn btn-gold" onclick="closePromptCopied()" style="width:100%;">
           <span class="show-pt">Entendi</span>
           <span class="show-en">Got it</span>
@@ -8932,15 +8945,45 @@ names,
     function copyQueuePrompt(kind) {
       if (kind === "terms") { copyTermsInterviewPrompt(); return; }
 
-      var text;
-      if (kind === "matches") {
-        text = buildMatchesPrompt();
-      } else {
-        text = buildUncategorizedPrompt();
-      }
-      copyTextToClipboard(text)
-        .then(function() { openPromptCopied(); })
-        .catch(function() { toast(t("N&atilde;o consegui copiar.", "Could not copy.")); });
+      // REFRESH BEFORE BUILDING. The prompt embeds the actual deposit list, and
+      // the risk is not the clipboard -- Nicole: "Something copied to the
+      // clipboard does not last two hours... the probability of it sitting on a
+      // clipboard for any length of time is slim to none." She is right. The
+      // stale thing is the PAGE: a finance tab left open for hours would bake a
+      // hours-old list into a prompt copied one second ago.
+      //
+      // So the queue data is re-fetched first. If that fetch fails we still
+      // build from what we have rather than blocking her -- a slightly old list
+      // beats no interview, and the prompt names the endpoint as a check.
+      apiFetch("/api/finance-new/attention")
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .catch(function() { return null; })
+        .then(function(fresh) {
+          if (fresh && !fresh.error) { ATTENTION = fresh; }
+          var text = (kind === "matches") ? buildMatchesPrompt() : buildUncategorizedPrompt();
+          return copyTextToClipboard(text)
+            .then(function() { resetPromptFallback(); openPromptCopied(); })
+            .catch(function() {
+              // Never lose the prompt to a failed clipboard write. The async
+              // refresh above can cost the user-gesture permission some
+              // browsers require, so show the text to copy by hand instead of
+              // a toast that leaves her with nothing.
+              showPromptFallback(text);
+            });
+        });
+    }
+
+    // Last resort: put the prompt on screen, selected, so it can be copied by
+    // hand. Reuses the same overlay the success path opens.
+    function showPromptFallback(text) {
+      var host = document.getElementById("promptFallbackWrap");
+      var ta   = document.getElementById("promptFallbackText");
+      if (!host || !ta) { toast(t("N&atilde;o consegui copiar.", "Could not copy.")); return; }
+      ta.value = text;
+      host.hidden = false;
+      openPromptCopied();
+      ta.focus();
+      ta.select();
     }
 
     // THE PROMPT CARRIES THE LIST **AND** NAMES THE ENDPOINT. Both, on purpose.
@@ -9164,6 +9207,11 @@ names,
     function openPromptCopied() {
       var el = document.getElementById("promptCopiedOverlay");
       if (el) { el.hidden = false; }
+    }
+
+    function resetPromptFallback() {
+      var host = document.getElementById("promptFallbackWrap");
+      if (host) { host.hidden = true; }
     }
 
     function closePromptCopied() {

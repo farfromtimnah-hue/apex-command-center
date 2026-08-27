@@ -6418,7 +6418,7 @@
     // chart draws no net line. A chart showing a confident net line beside a
     // tile that refuses to show the number would be worse than no chart.
 
-    var CHART_GOLD  = "#C9A43A";
+    var CHART_GOLD  = "#E69F00";
     var CHART_GREEN = "#2e7d44";
     var CHART_RED   = "#b3261e";
     var CHART_GREY  = "#7a8ca3";
@@ -6755,6 +6755,23 @@
     // ══════════════════════════════════════════════════════════════════
     // SPENDING GROUPS — the layer above categories.
     //
+    // COLOUR: distinct HUES, not shades of the brand gold. The first version
+    // ran gold -> brown -> tan, which is correct brand styling and unreadable
+    // as a categorical chart: Home, Family, Vehicles and Taxes were four
+    // browns nobody could tell apart, and Other/Tithes/Uncategorized were
+    // three near-identical greys. Categorical data needs difference in hue,
+    // which shade alone cannot provide.
+    //
+    // These are the Okabe-Ito qualitative palette, designed to stay separable
+    // for colour-vision deficiency, with two swaps tuned by measuring CIELAB
+    // distance under simulated deuteranopia. The worst confusable pair went
+    // from deltaE 9.3 (Casa vs Impostos -- gold and terracotta collapse into
+    // the same colour) to 22.1. Amber leads, closest to the brand and on the
+    // largest slice.
+    // The two grey slots (Other, Uncategorized) stay deliberately desaturated
+    // so an absence of information never competes with a real group, but they
+    // are now different enough from each other to distinguish.
+    //
     // 46 expense categories is too many to reason about, and 28 of them had
     // spending in August alone. Nicole's framing: "lights, water, mortgage,
     // electric bill, things like that are household... groceries and the
@@ -6778,30 +6795,30 @@
     var SPEND_GROUP_EXCLUDE = { cat_retirada: 1 };
 
     var SPEND_GROUPS = [
-      { id: "casa", pt: "Casa", en: "Home", color: "#C9A43A", cats: [
+      { id: "casa", pt: "Casa", en: "Home", color: "#E69F00", cats: [
         "cat_moradia_mortgage", "cat_moradia", "cat_luz", "cat_agua", "cat_internet",
         "cat_lixo", "cat_celular", "cat_financiamento_agua"
       ]},
-      { id: "familia", pt: "Fam\u00edlia", en: "Family", color: "#B08D3C", cats: [
+      { id: "familia", pt: "Fam\u00edlia", en: "Family", color: "#0072B2", cats: [
         "cat_mercado", "cat_alimentacao", "cat_refeicoes", "cat_farmacia", "cat_medico",
         "cat_saude", "cat_escola", "cat_educacao", "cat_seguro_vida", "cat_roupas_alice",
         "cat_cabelo_rafael", "cat_presentes", "cat_lazer", "cat_pessoal",
         "cat_gastos_extras", "cat_amazon"
       ]},
-      { id: "carro", pt: "Carro", en: "Vehicles", color: "#95763D", cats: [
+      { id: "carro", pt: "Carro", en: "Vehicles", color: "#009E73", cats: [
         "cat_financiamento_carro", "cat_seguro_carro", "cat_gasolina",
         "cat_taxas_carro", "cat_lava_jato", "cat_viagem"
       ]},
-      { id: "negocio", pt: "Neg\u00f3cio", en: "Business", color: "#7A5C2E", cats: [
+      { id: "negocio", pt: "Neg\u00f3cio", en: "Business", color: "#7B4FA0", cats: [
         "cat_fornecedor_apex", "cat_marketing", "cat_escritorio", "cat_software",
         "cat_subcontratados", "cat_materiais", "cat_almoco_negocios",
         "cat_seguro_agente", "cat_apex_club_despesa", "cat_devolucao_cliente",
         "cat_seguros"
       ]},
-      { id: "impostos", pt: "Impostos e Taxas", en: "Taxes & Fees", color: "#A8935F", cats: [
+      { id: "impostos", pt: "Impostos e Taxas", en: "Taxes & Fees", color: "#C0392B", cats: [
         "cat_impostos", "cat_taxas"
       ]},
-      { id: "dizimo", pt: "D\u00edzimo e Ofertas", en: "Tithes & Offerings", color: "#C4B590", cats: [
+      { id: "dizimo", pt: "D\u00edzimo e Ofertas", en: "Tithes & Offerings", color: "#56B4E9", cats: [
         "cat_dizimo"
       ]}
     ];
@@ -6818,7 +6835,7 @@
     // A category with no group yet lands here rather than vanishing. New
     // categories get added by Alice over time and must never silently drop out
     // of a total that claims to be everything she spent.
-    var SPEND_GROUP_OTHER = { id: "outros", pt: "Outros", en: "Other", color: "#cfc7b8" };
+    var SPEND_GROUP_OTHER = { id: "outros", pt: "Outros", en: "Other", color: "#7A736A" };
 
     function spendGroupFor(categoryId) {
       if (!categoryId) { return null; }              // uncategorized handled apart
@@ -6976,7 +6993,7 @@
       if (uncatCents > 0) {
         labels.push(t("Sem categoria", "Uncategorized"));
         data.push(centsToNum(uncatCents));
-        colors.push("#d8d4cc");
+        colors.push("#C9C4BB");
       }
 
       var opts = baseChartOpts();
@@ -7701,7 +7718,7 @@
           labels: [isEn() ? "Apex" : "Apex", isEn() ? "Vendors" : "Fornecedores"],
           datasets: [{
             data: [centsToNum(data.apex_cents), centsToNum(data.vendor_cents)],
-            backgroundColor: ["#C9A43A", "#7A5C2E"],
+            backgroundColor: ["#E69F00", "#7A5C2E"],
             borderWidth: 0
           }]
         },

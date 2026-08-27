@@ -1507,12 +1507,19 @@
     }
     /* Group heading rows carry a colour dot matching their donut slice, so the
        chart and the list are read as one thing rather than two rankings. */
+    /* A real button, not a text link. It was a bare gold line under a tinted
+       caveat banner and Nicole only found it because she knew it existed. */
     .catlist-toggle {
-      background: none; border: none; padding: 8px 0; cursor: pointer;
-      color: var(--gold, #C9A227); font-size: 12.5px; font-weight: 600;
-      letter-spacing: .02em;
+      display: block; width: 100%;
+      background: none; cursor: pointer;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px; margin-top: 10px;
+      color: var(--text); font-size: 13px; font-weight: 600;
+      text-align: left; letter-spacing: .01em;
     }
-    .catlist-toggle:hover { text-decoration: underline; }
+    .catlist-toggle:hover { border-color: #C9A227; }
+    #catBreakdownChev { color: #C9A227; display: inline-block; width: 12px; }
     .catlist-body { margin-top: 4px; }
     .catlist-group { margin-bottom: 10px; }
     .catlist-dot {
@@ -2180,10 +2187,15 @@
               <span class="show-en">Where the money went</span>
             </div>
             <div class="chart-box"><canvas id="catChart"></canvas></div>
-            <div id="catCaveat" class="chart-caveat" hidden></div>
-            <!-- The donut is a top-6 summary by necessity. This is the rest of
-                 the truth: every category, in order, with dollars. -->
+            <!-- The breakdown toggle sits ABOVE the caveat, not below it.
+                 Nicole: "I almost missed the see breakdown... the highlighted
+                 thing that 'spending only, income is never mixed into this'
+                 totally distracts the see breakdown and makes it feel like
+                 it's a part of the next chart and not this one." A tinted
+                 banner between a chart and its own control reads as the end of
+                 the section. -->
             <div id="catFullList" class="catlist"></div>
+            <div id="catCaveat" class="chart-caveat" hidden></div>
           </div>
           <div>
             <div class="flow-label" style="margin-bottom:8px">
@@ -6418,7 +6430,7 @@
     // chart draws no net line. A chart showing a confident net line beside a
     // tile that refuses to show the number would be worse than no chart.
 
-    var CHART_GOLD  = "#E69F00";
+    var CHART_GOLD  = "#EFC98C";
     var CHART_GREEN = "#2e7d44";
     var CHART_RED   = "#b3261e";
     var CHART_GREY  = "#7a8ca3";
@@ -6762,12 +6774,23 @@
     // three near-identical greys. Categorical data needs difference in hue,
     // which shade alone cannot provide.
     //
-    // These are the Okabe-Ito qualitative palette, designed to stay separable
-    // for colour-vision deficiency, with two swaps tuned by measuring CIELAB
-    // distance under simulated deuteranopia. The worst confusable pair went
-    // from deltaE 9.3 (Casa vs Impostos -- gold and terracotta collapse into
-    // the same colour) to 22.1. Amber leads, closest to the brand and on the
-    // largest slice.
+    // PASTEL, not saturated. Three passes to get here, and the middle one is
+    // worth recording. First came browns and tans, which Nicole read as
+    // "random patchwork" -- they sat at similar lightness so nothing
+    // separated. Then a fully saturated qualitative palette, which separated
+    // well and was wrong for the page: "Alice is not a big fan of color...
+    // She likes neutral shades." Her own fix was the right one -- keep the
+    // distinct hues, drop the intensity: "somebody who likes neutral might
+    // like more of, like, a pastel palette."
+    //
+    // So these are the same six hue directions, softened: raised lightness,
+    // chroma cut by well over half. Soft gold leads, closest to the brand and
+    // on the largest slice. Pastels inherently sit closer together than
+    // saturated colours, so the separation was measured rather than eyeballed
+    // and the hues were spread to hold it up.
+    //
+    // Grey is reserved and never appears as a group: it means "not a real
+    // group" (Other, Uncategorized) and must not compete with one.
     // The two grey slots (Other, Uncategorized) stay deliberately desaturated
     // so an absence of information never competes with a real group, but they
     // are now different enough from each other to distinguish.
@@ -6795,30 +6818,30 @@
     var SPEND_GROUP_EXCLUDE = { cat_retirada: 1 };
 
     var SPEND_GROUPS = [
-      { id: "casa", pt: "Casa", en: "Home", color: "#E69F00", cats: [
+      { id: "casa", pt: "Casa", en: "Home", color: "#EFC98C", cats: [
         "cat_moradia_mortgage", "cat_moradia", "cat_luz", "cat_agua", "cat_internet",
         "cat_lixo", "cat_celular", "cat_financiamento_agua"
       ]},
-      { id: "familia", pt: "Fam\u00edlia", en: "Family", color: "#0072B2", cats: [
+      { id: "familia", pt: "Fam\u00edlia", en: "Family", color: "#9BBBDE", cats: [
         "cat_mercado", "cat_alimentacao", "cat_refeicoes", "cat_farmacia", "cat_medico",
         "cat_saude", "cat_escola", "cat_educacao", "cat_seguro_vida", "cat_roupas_alice",
         "cat_cabelo_rafael", "cat_presentes", "cat_lazer", "cat_pessoal",
         "cat_gastos_extras", "cat_amazon"
       ]},
-      { id: "carro", pt: "Carro", en: "Vehicles", color: "#009E73", cats: [
+      { id: "carro", pt: "Carro", en: "Vehicles", color: "#8FBF9B", cats: [
         "cat_financiamento_carro", "cat_seguro_carro", "cat_gasolina",
         "cat_taxas_carro", "cat_lava_jato", "cat_viagem"
       ]},
-      { id: "negocio", pt: "Neg\u00f3cio", en: "Business", color: "#7B4FA0", cats: [
+      { id: "negocio", pt: "Neg\u00f3cio", en: "Business", color: "#C0A2D4", cats: [
         "cat_fornecedor_apex", "cat_marketing", "cat_escritorio", "cat_software",
         "cat_subcontratados", "cat_materiais", "cat_almoco_negocios",
         "cat_seguro_agente", "cat_apex_club_despesa", "cat_devolucao_cliente",
         "cat_seguros"
       ]},
-      { id: "impostos", pt: "Impostos e Taxas", en: "Taxes & Fees", color: "#C0392B", cats: [
+      { id: "impostos", pt: "Impostos e Taxas", en: "Taxes & Fees", color: "#DFA095", cats: [
         "cat_impostos", "cat_taxas"
       ]},
-      { id: "dizimo", pt: "D\u00edzimo e Ofertas", en: "Tithes & Offerings", color: "#56B4E9", cats: [
+      { id: "dizimo", pt: "D\u00edzimo e Ofertas", en: "Tithes & Offerings", color: "#BFD4DC", cats: [
         "cat_dizimo"
       ]}
     ];
@@ -6835,7 +6858,7 @@
     // A category with no group yet lands here rather than vanishing. New
     // categories get added by Alice over time and must never silently drop out
     // of a total that claims to be everything she spent.
-    var SPEND_GROUP_OTHER = { id: "outros", pt: "Outros", en: "Other", color: "#7A736A" };
+    var SPEND_GROUP_OTHER = { id: "outros", pt: "Outros", en: "Other", color: "#B4AEA5" };
 
     function spendGroupFor(categoryId) {
       if (!categoryId) { return null; }              // uncategorized handled apart
@@ -6993,7 +7016,7 @@
       if (uncatCents > 0) {
         labels.push(t("Sem categoria", "Uncategorized"));
         data.push(centsToNum(uncatCents));
-        colors.push("#C9C4BB");
+        colors.push("#DCD8D0");
       }
 
       var opts = baseChartOpts();
@@ -7718,7 +7741,7 @@
           labels: [isEn() ? "Apex" : "Apex", isEn() ? "Vendors" : "Fornecedores"],
           datasets: [{
             data: [centsToNum(data.apex_cents), centsToNum(data.vendor_cents)],
-            backgroundColor: ["#E69F00", "#7A5C2E"],
+            backgroundColor: ["#EFC98C", "#7A5C2E"],
             borderWidth: 0
           }]
         },

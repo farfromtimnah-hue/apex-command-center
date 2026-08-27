@@ -3467,6 +3467,57 @@ async function handleGetVaultFinanceAccounts(request, env) {
 // account_id rather than pulling the entire feed into one tool result.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Route: GET /api/vault/finance/pending-matches  — Alice-only.
+//
+// THE DEPOSITS AWAITING HER DECISION, computed by the SAME engine the app
+// uses (buildMatchCandidates), handed over as a finished list.
+//
+// WHY THIS EXISTS. The interview prompt used to give her Claude a COUNT and
+// let it work out the matching itself from raw transactions and invoices. On
+// 2026-08-26 it derived two of three. Alice answered both, Nicole was sitting
+// beside her and saw two items on screen, and the third -- a $500 deposit
+// five days old -- was never shown to anyone. Nothing caught it, because two
+// different implementations of "which deposits look like invoice payments"
+// were being asked the same question and only one of them was right.
+//
+// Baking the list into the prompt instead would go stale between copying it
+// and using it. Nicole: "The prompt is gonna be stale by the time she uses
+// it... We have to tell her Claude where to look for it."
+//
+// So: one engine, fetched live at the moment she sits down. The prompt names
+// this endpoint and nothing else.
+//
+// Read-only, like every other vault route. Her connector cannot confirm a
+// match -- it reports what she decided, and a developer session does the
+// writes. That separation is deliberate and stays.
+// ---------------------------------------------------------------------------
+async function handleGetVaultFinancePendingMatches(request, env) {
+    return vaultReadRoute(request, env, async function () {
+        var candidates = await buildMatchCandidates(env);
+        var actionable = candidates.filter(function (c) {
+            return c.tier === "auto" || c.tier === "suggest";
+        });
+        return {
+            count: actionable.length,
+            deposits: actionable.map(function (c, idx) {
+                return {
+                    n: idx + 1,
+                    transaction_id: c.transaction.id,
+                    date: c.transaction.date,
+                    amount_cents: c.transaction.amount_cents,
+                    payer: c.transaction.description || c.transaction.merchant_normalized || "",
+                    invoice_number: c.invoice ? c.invoice.number : null,
+                    client_name: c.invoice ? c.invoice.client_name : null,
+                    invoice_cents: c.invoice ? c.invoice.amount_cents : null,
+                    exact_amount: !!c.exact,
+                    partial_payment: !!c.partial
+                };
+            })
+        };
+    }, "vault-finance");
+}
+
 async function handleGetVaultFinanceTransactions(request, env) {
     return vaultReadRoute(request, env, async function () {
         var url = new URL(request.url);
@@ -24745,7 +24796,36 @@ async function handleGetFinanceNewAttention(request, env) {
         return jsonOk({
             matches: {
                 count: actionable.length,
-                auto: actionable.filter(function(c) { return c.tier === "auto"; }).length
+                auto: actionable.filter(function(c) { return c.tier === "auto"; }).length,
+                // THE ACTUAL LIST, not just how many.
+                //
+                // The interview prompt used to say only "Sao N no momento" and
+                // left her Claude to go find them. On 2026-08-26 it surfaced
+                // two of three, Alice answered both, and the third -- a $500
+                // deposit that had been sitting there for five days -- was
+                // never put in front of her. Nothing noticed, because nothing
+                // knew what the list was supposed to contain.
+                //
+                // Nicole: "I only get a small window to get her to do things
+                // when we're sitting together. So if we're not prepared and
+                // there's three things and we only ask about two, then we drop
+                // the ball."
+                //
+                // Naming them in the prompt is what makes that window count,
+                // and what lets the result be reconciled afterwards.
+                items: actionable.map(function(c) {
+                    return {
+                        transaction_id: c.transaction.id,
+                        date: c.transaction.date,
+                        amount_cents: c.transaction.amount_cents,
+                        payer: c.transaction.description || c.transaction.merchant_normalized || "",
+                        invoice_number: c.invoice ? c.invoice.number : null,
+                        client_name: c.invoice ? c.invoice.client_name : null,
+                        invoice_cents: c.invoice ? c.invoice.amount_cents : null,
+                        exact: !!c.exact,
+                        partial: !!c.partial
+                    };
+                })
             },
             uncategorized: { count: uncategorized },
             missing_terms: { count: missingTerms },
@@ -28385,6 +28465,7 @@ async function handleFetch(request, env, ctx) {
         // vaultReadRoute, before any SQL runs. See serviceCaller() above.
         if (path === "/api/vault/finance/accounts"     && method === "GET")  { return handleGetVaultFinanceAccounts(request, env); }
         if (path === "/api/vault/finance/transactions" && method === "GET")  { return handleGetVaultFinanceTransactions(request, env); }
+        if (path === "/api/vault/finance/pending-matches" && method === "GET")  { return handleGetVaultFinancePendingMatches(request, env); }
         if (path === "/api/vault/finance/invoices"     && method === "GET")  { return handleGetVaultFinanceInvoices(request, env); }
         if (path === "/api/vault/selftest"            && method === "POST") { return handlePostVaultSelftest(request, env); }
         if (path === "/api/resources"                 && method === "GET")  { return handleGetResources(request, env); }

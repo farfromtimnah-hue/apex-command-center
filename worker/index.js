@@ -3481,12 +3481,24 @@ async function handleGetVaultFinanceAccounts(request, env) {
 // different implementations of "which deposits look like invoice payments"
 // were being asked the same question and only one of them was right.
 //
-// Baking the list into the prompt instead would go stale between copying it
-// and using it. Nicole: "The prompt is gonna be stale by the time she uses
-// it... We have to tell her Claude where to look for it."
+// THIS IS THE BACKSTOP, NOT THE SOURCE. An earlier version of this comment
+// argued the opposite -- that the prompt should name this endpoint and
+// nothing else -- and the next two commits reversed it. Recording the
+// correction here rather than leaving the old rationale in place:
 //
-// So: one engine, fetched live at the moment she sits down. The prompt names
-// this endpoint and nothing else.
+// The prompt EMBEDS the deposit list, built when she clicks copy, and the
+// page refreshes its queue data first so that list is current. Nicole:
+// "Something copied to the clipboard does not last two hours... the
+// probability of it sitting on a clipboard for any length of time is slim to
+// none." The clipboard was never the stale thing; the PAGE was, and
+// refreshing at click time fixes that at the source.
+//
+// The prompt still names this endpoint, as a check for anything that landed
+// between the copy and the conversation -- and says explicitly that failing
+// to reach it is fine. That matters because this route has NEVER been
+// exercised with Alice's real token. An interview that DEPENDS on an unproven
+// call can break for the first time while Alice is sitting there, which costs
+// the whole window.
 //
 // Read-only, like every other vault route. Her connector cannot confirm a
 // match -- it reports what she decided, and a developer session does the

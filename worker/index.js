@@ -16533,8 +16533,25 @@ async function handleGetGmLeads(id, request, env) {
             ).bind(id, id, id).first();
             sellerCount = (scRow && scRow.n) || 0;
         }
+        // CUSTO TOTAL / LUCRO / MARGEM % / ALVO? / COMISSAO % — the SAME
+        // function the projects screen uses, run against a lead row. Reused
+        // rather than reimplemented so the two screens can never disagree
+        // about what a margin is; the five cost columns were named to match
+        // gm_jobs precisely so this would be possible (see the migration).
+        //
+        // Computed at read time and never stored, exactly as on a job: a
+        // stored margin would go stale the moment any cost was corrected.
+        //
+        // no_prazo comes back null for every lead — a lead has no
+        // prazo_previsto/entrega_real — and the sheet does not render that row.
+        var leadCfg = await gmGetConfig(env, id);
+        var leadRows = (rows.results || []).map(function(r) {
+            var computed = gmJobComputed(r, leadCfg.target_margin);
+            return Object.assign({}, r, computed);
+        });
         return jsonOk({
-            leads: (rows.results || []),
+            leads: leadRows,
+            target_margin: leadCfg.target_margin,
             seller_count: sellerCount,
             summary: {
                 leads_totais: leadsTotais,
@@ -16551,6 +16568,14 @@ async function handleGetGmLeads(id, request, env) {
         return jsonErr("Error fetching leads: " + e.message, 500);
     }
 }
+
+// The cost columns a lead carries, in the order they render on the sheet.
+// Same five names as gm_jobs, deliberately — see
+// migrations/gm_leads_costs_commission.sql. Used by gmLeadFields (writes),
+// gmInsertLead (create) and GM_LEAD_LOGGED_FIELDS (audit trail), so adding a
+// sixth cost means touching this list only.
+var GM_LEAD_COST_FIELDS = ["material", "mao_de_obra", "outros",
+                           "custo_administrativo", "comissao"];
 
 // Shared field extraction for lead create/update. Returns { fields, error }.
 // partial=true (PUT) only touches keys present in the body.
@@ -16601,6 +16626,13 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         if (has(k)) { out[k] = body[k] === null ? null : gmStr(body[k], strFields[i][1]); }
     }
     if (has("valor")) { out.valor = gmNum(body.valor); }
+    // The five cost inputs, identical in name and meaning to gm_jobs so
+    // gmJobComputed() can be reused verbatim against a lead row. gmNum returns
+    // null for an empty string, which is what CLEARS a cost — "not costed yet"
+    // and "costs zero" are different answers and must stay different.
+    GM_LEAD_COST_FIELDS.forEach(function(k) {
+        if (has(k)) { out[k] = gmNum(body[k]); }
+    });
     if (has("followups")) {
         var f = gmNum(body.followups);
         out.followups = f === null ? null : Math.max(0, Math.round(f));
@@ -16636,7 +16668,7 @@ var GM_LEAD_LOGGED_FIELDS = [
     "observacao", "vendedor", "valor", "proxima_acao", "data_contato",
     "data_estimate", "mes_lead", "mes_fechamento", "address", "city",
     "servico_desc", "status_financiamento", "followups"
-];
+].concat(GM_LEAD_COST_FIELDS);
 
 // Append one or more events. Accepts an array so a multi-field edit is a
 // single batched call. Never throws.
@@ -16674,11 +16706,19 @@ async function gmLogLeadEvents(env, clientId, leadId, actor, events) {
 // one.
 async function gmInsertLead(env, clientId, f, actor) {
     var leadId = crypto.randomUUID();
+    // The cost columns are appended from GM_LEAD_COST_FIELDS rather than
+    // spelled out, so the column list and the bind list below are generated
+    // from ONE source and cannot drift apart when a sixth cost is added.
+    var costCols = GM_LEAD_COST_FIELDS.join(", ");
+    var costMarks = GM_LEAD_COST_FIELDS.map(function() { return "?"; }).join(", ");
+    var costBinds = GM_LEAD_COST_FIELDS.map(function(k) {
+        return f[k] !== undefined ? f[k] : null;
+    });
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
-        "address, city, created_by, updated_by) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "address, city, created_by, updated_by, " + costCols + ") " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -16701,7 +16741,8 @@ async function gmInsertLead(env, clientId, f, actor) {
         f.address !== undefined ? f.address : null,
         f.city !== undefined ? f.city : null,
         actor || null,
-        actor || null
+        actor || null,
+        ...costBinds
     ).run();
     await gmLogLeadEvents(env, clientId, leadId, actor, [
         { action: "created", field: "estagio", old_value: null, new_value: f.estagio }

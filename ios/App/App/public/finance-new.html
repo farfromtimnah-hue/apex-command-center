@@ -3353,7 +3353,17 @@
       document.getElementById("ledgerSub").textContent = "";
 
       apiFetch("/api/finance-new/ledger?month=" + encodeURIComponent(ledgerMonth()))
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+          // CHECK THE STATUS. Without this a 500 still parses as valid JSON
+          // ({"error": "..."}), reaches renderLedger with no money_in, and
+          // renders "No transactions this month" -- a broken query presented
+          // as a true and empty answer, next to a tile reading $10,998.65.
+          // That is exactly how the first version of this shipped.
+          return r.json().then(function(body) {
+            if (!r.ok) { throw new Error(body && body.error ? body.error : ("HTTP " + r.status)); }
+            return body;
+          });
+        })
         .then(function(d) { renderLedger(d); })
         .catch(function(e) {
           // Show the real reason. A swallowed error here reads as an empty
@@ -3372,7 +3382,10 @@
 
     function ledgerRowHtml(r, side) {
       var amt = Math.abs(Number(r.amount_cents) || 0);
-      var who = r.merchant_name || r.name || "--";
+      // Same field the transactions table renders, so a line reads identically
+      // in both places. merchant_normalized is uppercased with digits stripped
+      // and is only a fallback.
+      var who = r.description || r.merchant_normalized || "--";
       var pend = r.pending
         ? '<span class="ledger-pending">' + (isEn() ? "pending" : "pendente") + '</span>'
         : "";

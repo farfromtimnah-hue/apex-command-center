@@ -21066,7 +21066,12 @@ async function handleGetFinanceNewLedger(request, env) {
 
         // Counted lines: identical predicate to the summary tile.
         var rows = await env.DB.prepare(
-            "SELECT t.id, t.date, t.name, t.merchant_name, t.amount_cents, t.pending, " +
+            // description / merchant_normalized are the REAL column names on
+            // transactions. An earlier version of this selected t.name and
+            // t.merchant_name, which do not exist -- the query threw, the
+            // catch returned 500, and the report rendered as an empty month
+            // next to a tile reading $10,998.65.
+            "SELECT t.id, t.date, t.description, t.merchant_normalized, t.amount_cents, t.pending, " +
             "       t.category_id, a.name AS account_name, a.purpose " +
             "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
             "WHERE t.date >= ? AND t.date < date(?, '+1 month') " +
@@ -21077,7 +21082,7 @@ async function handleGetFinanceNewLedger(request, env) {
 
         // Excluded transfer legs, shown but never counted.
         var xfer = await env.DB.prepare(
-            "SELECT t.id, t.date, t.name, t.merchant_name, t.amount_cents, t.pending, " +
+            "SELECT t.id, t.date, t.description, t.merchant_normalized, t.amount_cents, t.pending, " +
             "       a.name AS account_name, a.purpose, t.transfer_status " +
             "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
             "WHERE t.date >= ? AND t.date < date(?, '+1 month') " +

@@ -24917,7 +24917,7 @@ async function handlePostFinanceNewInvoiceMarkMistake(invoiceId, request, env) {
             "SELECT p.amount_cents, t.date FROM invoice_payments p " +
             "LEFT JOIN transactions t ON t.id = p.transaction_id " +
             "WHERE p.invoice_id = ? AND p.undone_at IS NULL"
-        ).all();
+        ).bind(invoiceId).all();
         var paidRows = paid.results || [];
         if (paidRows.length && body.force !== true) {
             var totalPaid = 0;

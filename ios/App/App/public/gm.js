@@ -1233,6 +1233,16 @@ function gmLeadFieldDefs() {
   var cfg = gmConfig.config, method = gmConfig.method;
   return [
     { key: "valor",          type: "currency", pt: "Valor estimate ($)",      en: "Estimate value ($)" },
+    // The five cost inputs, same names/labels/order as the project sheet.
+    // JM's owner asked for these on the pipeline because pricing happens on a
+    // LEAD — by the time a project row exists the price is already agreed.
+    // They are rendered in their own "Valores" section (gmRenderLeadSheet),
+    // not in "Outros campos", so they are excluded from the flat list there.
+    { key: "material",             type: "currency", pt: "Material ($)",             en: "Materials ($)" },
+    { key: "mao_de_obra",          type: "currency", pt: "Mão de obra ($)",          en: "Labor ($)" },
+    { key: "outros",               type: "currency", pt: "Outros ($)",               en: "Other ($)" },
+    { key: "custo_administrativo", type: "currency", pt: "Custo administrativo ($)", en: "Administrative cost ($)" },
+    { key: "comissao",             type: "currency", pt: "Comissão vendedor ($)",    en: "Sales commission ($)" },
     { key: "proxima_acao",   type: "text",     pt: "Próxima ação",            en: "Next action" },
     // followups and data_contato are NOT here: both are derived from the
     // gm_lead_contacts log (contatos_count / primeiro_contato) and rendered
@@ -1359,6 +1369,78 @@ function gmRenderLeadSheet() {
     gmSheetRowHtml("check", gmT("Próxima ação", "Next action"),
       val("proxima_acao"), edit("proxima_acao")));
 
+  // ── Valores — the cost side of the price ──────────────────────────────
+  // The same six rows as the project sheet, in the same order, because JM's
+  // owner asked for exactly that: "aqueles espaços pra inserir os custos".
+  // Valor itself lives up in the hero and is not repeated here; the five
+  // costs below it are what feed custo_total.
+  //
+  // A seller sees AND edits all of these on their own leads. That is the
+  // point of the feature, not an oversight: the seller sets the price, so
+  // they need the cost side to price at a margin the company can live with.
+  // Row-level scope is server-side (gmSellerLeadGuard + the vendedor filter
+  // in handleGetGmLeads) — never hidden rows.
+  body += gmSheetSection(gmT("Valores", "Costs"),
+    gmSheetRowHtml("tag", gmT("Material ($)", "Materials ($)"),
+      val("material"), edit("material")) +
+    gmSheetRowHtml("users", gmT("Mão de obra ($)", "Labor ($)"),
+      val("mao_de_obra"), edit("mao_de_obra")) +
+    gmSheetRowHtml("tag", gmT("Outros ($)", "Other ($)"),
+      val("outros"), edit("outros")) +
+    gmSheetRowHtml("tag", gmT("Custo administrativo ($)", "Administrative cost ($)"),
+      val("custo_administrativo"), edit("custo_administrativo")) +
+    // Dollars in, rate read back down in Resultado — same direction Rafa
+    // asked for on the project screen.
+    gmSheetRowHtml("users", gmT("Comissão vendedor ($)", "Sales commission ($)"),
+      val("comissao"), edit("comissao")));
+
+  // ── Resultado — derived, never typed ──────────────────────────────────
+  // Identical presentation and identical maths to the project sheet: the
+  // server runs gmJobComputed against the lead row, and gmLeadComputed
+  // mirrors it in the browser between saves.
+  //
+  // Three-state throughout. A blank is an unanswerable question (no valor, no
+  // costs, no target margin set) and must never render as 0 or as a green
+  // check — a lead with no costs entered would otherwise show a 100% margin
+  // and tell the seller the price is fine.
+  var leadTarget = (gmLeadsData && gmLeadsData.target_margin !== undefined)
+    ? gmLeadsData.target_margin : null;
+  var leadMarginHtml = "";
+  var leadMarginSub = "";
+  if (lead.margem_pct !== null && lead.margem_pct !== undefined) {
+    if (lead.alvo_ok === null || lead.alvo_ok === undefined) {
+      leadMarginHtml = '<span class="muted">' + fmtNum(lead.margem_pct, "percent") + '</span>';
+      leadMarginSub = gmT("sem margem alvo definida — não dá para dizer se está no alvo",
+                          "no target margin set — cannot say whether this is on target");
+    } else if (lead.alvo_ok) {
+      leadMarginHtml = '<span class="gm-ok">✓ ' + fmtNum(lead.margem_pct, "percent") + '</span>';
+    } else {
+      leadMarginHtml = '<span class="gm-warn">⚠ ' + fmtNum(lead.margem_pct, "percent") + '</span>';
+      leadMarginSub = gmT("abaixo do alvo de ", "below the target of ") + fmtNum(leadTarget, "percent");
+    }
+  }
+  var leadComissaoHtml = (lead.comissao_pct === null || lead.comissao_pct === undefined)
+    ? "" : escHtml(fmtNum(lead.comissao_pct, "percent"));
+  // Nothing to take a percentage OF without a valor, so the rate row is inert
+  // and says why rather than opening an editor whose save could only be
+  // discarded.
+  var leadComissaoEditable = !!(lead.valor && lead.valor > 0);
+  var leadComissaoSub = leadComissaoEditable
+    ? gmT("de " + fmtNum(lead.valor, "currency") + " (valor bruto) — toque para mudar",
+          "of " + fmtNum(lead.valor, "currency") + " (gross sale) — tap to change")
+    : gmT("defina o Valor estimate ($) primeiro", "set the Estimate value ($) first");
+
+  body += gmSheetSection(gmT("Resultado", "Result"),
+    gmSheetRowHtml("dollar", gmT("Custo total", "Total cost"),
+      escHtml(fmtNum(lead.custo_total, "currency"))) +
+    gmSheetRowHtml("users", gmT("Comissão (%)", "Commission (%)"),
+      leadComissaoHtml, leadComissaoEditable ? "gmEditLeadComissaoPct()" : null,
+      null, leadComissaoSub) +
+    gmSheetRowHtml("dollar", gmT("Lucro", "Profit"),
+      (lead.lucro === null || lead.lucro === undefined) ? "" : escHtml(fmtNum(lead.lucro, "currency"))) +
+    gmSheetRowHtml("compass", gmT("Margem", "Margin"), leadMarginHtml, null, null, leadMarginSub),
+    gmT("calculado automaticamente", "calculated automatically"));
+
   // ── Contact activity — derived, never typed ───────────────────────────
   // Both values come from the gm_lead_contacts log (COUNT and MIN(logged_at),
   // computed server-side in handleGetGmLeads). Neither is tap-to-edit: the
@@ -1406,7 +1488,10 @@ function gmRenderLeadSheet() {
   // and promoting all fifteen would defeat the grouping.
   var shown = { valor: 1, proxima_acao: 1,
                 servico: 1, vendedor: 1, origem: 1, parceiro_id: 1, telefone: 1, email: 1,
-                address: 1, city: 1 };
+                address: 1, city: 1,
+                // Rendered in the Valores section above, not in the flat list.
+                material: 1, mao_de_obra: 1, outros: 1,
+                custo_administrativo: 1, comissao: 1 };
   var noCycle = gmListEmpty(gmConfig.config.cycle_months);
   var rest = "";
   gmLeadFieldDefs().forEach(function(def, i) {
@@ -1440,6 +1525,89 @@ function gmOpenStagePicker() {
 
 function gmSetStage(stage) {
   gmSaveLeadField("estagio", stage, function() { gmRenderLeadSheet(); });
+}
+
+// ── Derived money on a lead, recomputed in the browser ──────────────────
+//
+// The server computes custo_total / lucro / margem_pct / alvo_ok /
+// comissao_pct on every GET (gmJobComputed, the SAME function the projects
+// screen uses). But the PUT response returns the RAW row, and
+// gmSaveLeadField swaps that raw row straight into gmLeadsData — so without
+// this, editing any cost would blank the whole Resultado section until the
+// next full refetch. Recomputing here keeps the sheet honest between saves.
+//
+// This MUST stay identical to gmJobComputed() in worker/index.js. If the two
+// ever disagree, the number on screen stops meaning what the server thinks it
+// means — which is the specific failure the shared column names were chosen to
+// prevent. Three-state nulls are load-bearing: an unanswerable question
+// renders blank, never 0 and never a green check.
+function gmLeadComputed(row) {
+  var target = (gmLeadsData && gmLeadsData.target_margin !== undefined)
+    ? gmLeadsData.target_margin : null;
+  var custoTotal = (row.material || 0) + (row.mao_de_obra || 0) + (row.outros || 0) +
+                   (row.custo_administrativo || 0) + (row.comissao || 0);
+  var lucro = (row.valor === null || row.valor === undefined) ? null : row.valor - custoTotal;
+  var margemPct = (row.valor && row.valor > 0 && lucro !== null)
+    ? Math.round((lucro / row.valor) * 1000) / 10 : null;
+  var comissaoPct = (row.comissao !== null && row.comissao !== undefined &&
+                     row.valor && row.valor > 0)
+    ? Math.round((row.comissao / row.valor) * 1000) / 10 : null;
+  row.custo_total  = custoTotal;
+  row.lucro        = lucro;
+  row.margem_pct   = margemPct;
+  row.comissao_pct = comissaoPct;
+  // The targetMargin check is load-bearing: `margemPct >= null` coerces to
+  // `>= 0` in JS and would mark EVERY lead on-target the moment a client's
+  // floor is unset. Unmeasured is not the same as passing.
+  row.alvo_ok = (margemPct === null || target === null || target === undefined)
+    ? null : margemPct >= target;
+  return row;
+}
+
+// The commission RATE editor for a LEAD. Same locked-proportions contract as
+// gmEditJobComissaoPct on the project sheet: only `comissao` (dollars) is ever
+// stored, so typing a rate WRITES DOLLARS and the rate is re-derived from
+// them. The two can never drift apart because only one of them is real.
+//
+// Percentage OF THE GROSS SALE (valor), not of the profit — Rafa's rule.
+//
+// gmParseMoney (inside gmOpenFieldEditor's "currency" type), not parseFloat:
+// a Brazilian keyboard produces "5,5" and parseFloat("5,5") returns 5,
+// silently paying the seller half a point less with no error shown.
+function gmEditLeadComissaoPct() {
+  var lead = gmDetailLead;
+  if (!lead || !lead.valor || lead.valor <= 0) { return; }
+  var valor = lead.valor;
+  var current = (lead.comissao_pct === null || lead.comissao_pct === undefined)
+    ? null : lead.comissao_pct;
+  gmOpenFieldEditor(gmT("Comissão (%)", "Commission (%)"), "currency", current, [],
+    function(value) {
+      if (value === null) {
+        // Clearing the rate CLEARS the commission. Writing 0 would claim a
+        // commission of exactly zero was agreed — a different statement from
+        // "not set", and it would render as 0% instead of blank.
+        gmSaveLeadField("comissao", null, function() { gmRenderLeadSheet(); });
+        return;
+      }
+      if (value < 0 || value > 100) {
+        window.alert(gmT("A porcentagem deve estar entre 0 e 100.",
+                         "The percentage must be between 0 and 100."));
+        gmRenderLeadSheet();
+        return;
+      }
+      // Round to cents: the rate is a means of entry, the dollars are the
+      // record. The rate displays to one decimal, so a typed 7.25% reads back
+      // as 7.3% while the money stays exact — which is precisely why the
+      // money is what gets stored.
+      var dollars = Math.round((valor * value / 100) * 100) / 100;
+      gmSaveLeadField("comissao", dollars, function() { gmRenderLeadSheet(); });
+    },
+    '<div class="gm-derived-note">' +
+      gmT("Porcentagem sobre o valor bruto da venda (" + fmtNum(valor, "currency") + "). " +
+          "Salva como valor em dólares; a porcentagem é recalculada a partir dele.",
+          "Percentage of the gross sale value (" + fmtNum(valor, "currency") + "). " +
+          "Saved as a dollar amount; the percentage is recalculated from it.") +
+    '</div>');
 }
 
 function gmEditLeadField(defIdx) {
@@ -1485,6 +1653,11 @@ function gmSaveLeadField(key, value, after) {
         } else {
           d.lead.parceiro_name = lead.parceiro_name;
         }
+        // The PUT response is the RAW row — no custo_total / lucro /
+        // margem_pct / alvo_ok / comissao_pct, because those are computed on
+        // GET only. Without this the Resultado section would blank out after
+        // every cost edit until the next full refetch.
+        gmLeadComputed(d.lead);
         gmLeadsData.leads[idx] = d.lead;
         gmDetailLead = d.lead;
       }

@@ -52,9 +52,15 @@ for F in $STAGED; do
   # drift -- it is simply not part of the wrapper bundle yet, and deciding
   # whether it should be is a human call, not a hook's.
   [ -f "$COUNTERPART" ] || continue
-  if ! echo "$STAGED" | grep -qx "$COUNTERPART"; then
-    MISSING="$MISSING $F"
-  fi
+  # Already staged alongside -- the normal, correct case.
+  echo "$STAGED" | grep -qx "$COUNTERPART" && continue
+  # Not staged, but the iOS copy ALREADY matches what is being committed.
+  # This is root catching up TO iOS, not iOS falling behind, and it is a real
+  # case: a hook that rewrites both copies can land one of them a commit
+  # earlier. Comparing against the STAGED content (git show :FILE), not the
+  # working tree, so an unstaged edit cannot make this look clean.
+  if git show ":$F" 2>/dev/null | cmp -s - "$COUNTERPART"; then continue; fi
+  MISSING="$MISSING $F"
 done
 
 [ -n "$MISSING" ] || exit 0

@@ -88,9 +88,18 @@ for ASSET in $VERSIONED_ASSETS; do
 
   # Rewrite every reference across all tracked HTML, whether it already
   # carries a ?v= or not, so a newly added unversioned reference self-heals.
+  # Collect first, stage ONCE. A `git add` per file inside this loop raced
+  # against itself on .git/index.lock and silently lost 8 rewrites in one
+  # commit -- the files were rewritten on disk but never staged, so the commit
+  # shipped old ?v= values while the working tree showed new ones. One batched
+  # add cannot race, and `xargs -0` survives any filename.
+  TOUCHED=""
   for HTML in $(git ls-files '*.html'); do
     if ! grep -q "$ESCAPED" "$HTML"; then continue; fi
     sed -i '' -E 's|(["/])'"$ESCAPED"'(\?v=[0-9]+)?(["#])|\1'"$ASSET"'?v='"$ASTAMP"'\3|g' "$HTML"
-    git add "$HTML"
+    TOUCHED="$TOUCHED$HTML\n"
   done
+  if [ -n "$TOUCHED" ]; then
+    printf "$TOUCHED" | tr '\n' '\0' | xargs -0 git add --
+  fi
 done

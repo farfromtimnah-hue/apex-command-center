@@ -22158,8 +22158,17 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
         // Only the "auto" tier self-applies. "suggest" still waits for her, and
         // an ambiguous candidate (two bills sharing merchant, amount and day)
         // is never auto-applied at all -- see buildBillMatchCandidates.
+        // Bills covered by a PENDING bank hold. These come off overdue without
+        // any payment record being written -- see pendingCoveredBillIds below.
+        var pendingCovered = {};
         try {
-            var autoMatches = (await buildBillMatchCandidates(env)).filter(function(c) {
+            var allCandidates = await buildBillMatchCandidates(env);
+            allCandidates.forEach(function(c) {
+                if (c.tier === "pending" && !c.ambiguous) {
+                    pendingCovered[c.bill_id] = c.transaction;
+                }
+            });
+            var autoMatches = allCandidates.filter(function(c) {
                 return c.tier === "auto" && !c.ambiguous;
             });
             for (var ai = 0; ai < autoMatches.length; ai++) {
@@ -22201,6 +22210,7 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
         // they get charged there."
         var overdue = [];
         var cardCharges = [];
+        var clearingSoon = [];
         bills.forEach(function(b) {
             var od = daysOverdueFor(b.day_of_month, today);
             var row = {
@@ -22214,8 +22224,24 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
                 is_variable: b.is_variable === 1
             };
             if (row.funding_source !== "bank") { cardCharges.push(row); return; }
-            if (od.days_overdue > 0 && !paidBillIds[b.id]) { overdue.push(row); }
+            if (od.days_overdue <= 0 || paidBillIds[b.id]) { return; }
+            // PAID BUT NOT YET CLEARED. The money has left; the bank just has
+            // not settled the hold. Nicole: "you need to know what is actually
+            // due, not something that you paid and hasn't cleared yet."
+            //
+            // Deliberately NOT written to fixed_bill_payments. Nothing is
+            // recorded, so if the hold never settles the candidate stops being
+            // produced and the bill returns to overdue by itself on the next
+            // read -- no record to detect as stale and undo.
+            if (pendingCovered[b.id]) {
+                row.pending_txn_date = pendingCovered[b.id].date;
+                row.pending_amount_cents = Math.abs(pendingCovered[b.id].amount_cents);
+                clearingSoon.push(row);
+                return;
+            }
+            overdue.push(row);
         });
+        clearingSoon.sort(function(a, b) { return a.day_of_month - b.day_of_month; });
         cardCharges.sort(function(a, b) { return a.day_of_month - b.day_of_month; });
 
         // For variable bills, attach the last amount that actually left the
@@ -22359,6 +22385,10 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
         return jsonOk({
             period_key: periodKey,
             upcoming_card_charges: cardCharges,
+            // Paid, waiting on the bank to settle. Off the overdue list but
+            // still shown, so the money is not invisible between the hold and
+            // the posting.
+            clearing_soon: clearingSoon,
             overdue_invoices_total_cents: overdueInvoiceTotal,
             today: today,
             overdue_bills: overdue,
@@ -22673,7 +22703,7 @@ async function buildBillMatchCandidates(env) {
     // Outgoing, non-transfer transactions in the last 45 days, not already
     // matched to a bill this period.
     var txnRes = await env.DB.prepare(
-        "SELECT t.id, t.amount_cents, t.date, t.description, t.merchant_normalized " +
+        "SELECT t.id, t.amount_cents, t.date, t.description, t.merchant_normalized, t.pending " +
         "FROM transactions t " +
         "WHERE t.amount_cents < 0 AND t.is_transfer = 0 " +
         "AND t.voided_at IS NULL " +
@@ -22728,7 +22758,39 @@ async function buildBillMatchCandidates(env) {
                 normalizeMerchant(bill.name).length > 0 &&
                 txn.merchant_normalized.indexOf(normalizeMerchant(bill.name).split(" ")[0]) !== -1;
 
-            if (!patternMatch && !fuzzyMatch) { return; }
+            // A PENDING ACH HOLD CARRIES NO REFERENCE.
+            //
+            // The bank posts a hold as "ACH HOLD LIFE INS OF SW XXXXXXXXXX ON
+            // 08/26" and only attaches "PMT INFO:LS1586026" once it settles a
+            // day or two later. So a bill whose pattern IS that policy code
+            // can never match its own hold, and the bill sits in overdue for
+            // two days after the money has already left.
+            //
+            // Nicole's rule: "we don't want something pending to still be
+            // showing as overdue... when you're trying to keep on top of
+            // bills, you need to know what is actually due, not something that
+            // you paid and hasn't cleared yet."
+            //
+            // For a PENDING row only, the merchant key standing in for the
+            // pattern is enough. This is deliberately narrower than it looks:
+            // amount equality and date proximity already gate every candidate,
+            // and a pending match is never auto-applied -- it is provisional
+            // (see below), so it suppresses the overdue row without writing a
+            // payment record that would outlive a hold that never settles.
+            var pendingMerchantMatch = false;
+            if (!patternMatch && !fuzzyMatch && txn.pending) {
+                var billKey = normalizeMerchant(bill.name).split(" ")[0] || "";
+                // Match on the bill's own first word OR on the merchant the
+                // bill's pattern points at, whichever exists. The policy-code
+                // patterns are not merchant text, so fall back to the shared
+                // merchant key the siblings all carry.
+                pendingMerchantMatch = !!txn.merchant_normalized && (
+                    (billKey.length > 2 && txn.merchant_normalized.indexOf(billKey) !== -1) ||
+                    (!!bill.payer_match_pattern && /^LS\d+$/.test(bill.payer_match_pattern) &&
+                     txn.merchant_normalized.indexOf("LIFE INS") !== -1)
+                );
+            }
+            if (!patternMatch && !fuzzyMatch && !pendingMerchantMatch) { return; }
 
             // IDENTITY IS (merchant + amount + due day), NOT merchant alone.
             //
@@ -22790,7 +22852,16 @@ async function buildBillMatchCandidates(env) {
             out.push({
                 bill_id: bill.id, bill_name: bill.name, amount_cents: bill.amount_cents,
                 transaction: txn,
-                tier: (patternMatch && !ambiguous) ? "auto" : "suggest",
+                // A pending match is PROVISIONAL: it takes the bill off
+                // overdue but is never written as a settled payment. If the
+                // hold vanishes the candidate simply stops being produced and
+                // the bill returns to overdue on its own -- which is exactly
+                // the "if for some reason the pending fails, then it can go
+                // back" behaviour asked for, achieved by never recording
+                // anything rather than by having to undo a record.
+                tier: txn.pending ? "pending"
+                      : ((patternMatch && !ambiguous) ? "auto" : "suggest"),
+                pending: !!txn.pending,
                 via_pattern: !!patternMatch, days: dayDiff,
                 ambiguous: ambiguous,
                 ambiguous_with: siblings.map(function(s) { return s.name; })

@@ -1348,6 +1348,35 @@
        not. Found by scanning for the pattern after .ledger-overlay shipped
        with it. One guard covers every element that has the attribute. */
     [hidden] { display: none !important; }
+
+    /* ── Paid, waiting to clear ──────────────────────────────────────────
+       Deliberately quiet: this is reassurance, not a task. It must not
+       compete with the overdue rows underneath, which are the things she
+       still has to act on. */
+    .clearing-wrap {
+      border: 1px solid rgba(111,191,139,0.28);
+      background: rgba(111,191,139,0.06);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .clearing-title {
+      font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+      color: #6FBF8B; margin-bottom: 8px;
+    }
+    .clearing-count {
+      display: inline-block; min-width: 18px; text-align: center;
+      background: rgba(111,191,139,0.18); border-radius: 9px;
+      padding: 1px 6px; margin-left: 4px; font-size: 11px;
+    }
+    .clearing-row {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 5px 0; font-size: 14px;
+    }
+    .clearing-name { color: #E8E0D6; flex: 1 1 auto; }
+    .clearing-meta { color: #8B837B; font-size: 12px; white-space: nowrap; }
+    .clearing-amt  { color: #C4BAB0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .clearing-note { color: #8B837B; font-size: 11px; line-height: 1.5; margin-top: 8px; }
     @media (min-width: 720px) { .ledger-overlay { align-items: center; } }
     .ledger-sheet {
       background: #171310;
@@ -1687,6 +1716,10 @@
              almost certainly already paid, so confirming it is the fastest
              way to shrink the list below. -->
         <div id="billMatchSuggest" class="club-suggest" hidden></div>
+        <!-- Paid but not yet settled. Sits ABOVE the overdue rows on purpose:
+             it answers "did that go through?" before she starts reading the
+             list of what still needs paying. -->
+        <div id="clearingSoonWrap" class="clearing-wrap" hidden></div>
         <div id="overdueRows" class="overdue-rows"></div>
         <div id="overdueEmpty" class="tag-meta" hidden>
           <span class="show-pt">Nenhuma conta atrasada. Tudo em dia.</span>
@@ -4418,6 +4451,45 @@
         "</div>";
     }
 
+    // PAID, WAITING TO CLEAR.
+    //
+    // A bill covered by a pending bank hold is NOT overdue -- the money has
+    // already left. Nicole: "you need to know what is actually due, not
+    // something that you paid and hasn't cleared yet."
+    //
+    // It is still shown, quietly, because the alternative is that a payment
+    // vanishes from the screen for the day or two the bank takes to settle,
+    // which reads as "did that go through?". Off the list she acts on, still
+    // on the page she reads.
+    //
+    // Nothing here is recorded as paid. If the hold never settles the bill
+    // reappears in overdue on the next read by itself.
+    function renderClearingSoon() {
+      var host = document.getElementById("clearingSoonWrap");
+      if (!host) { return; }
+      var items = (OVERDUE && OVERDUE.clearing_soon) || [];
+      if (!items.length) { host.hidden = true; host.innerHTML = ""; return; }
+      host.hidden = false;
+      host.innerHTML =
+        '<div class="clearing-title">' +
+          t("Pago &mdash; aguardando compensar", "Paid &mdash; waiting to clear") +
+          ' <span class="clearing-count">' + items.length + '</span>' +
+        '</div>' +
+        items.map(function(b) {
+          return '<div class="clearing-row">' +
+            '<span class="clearing-name">' + esc(b.name) + '</span>' +
+            '<span class="clearing-meta">' +
+              t("debitado ", "charged ") + fmtDate(b.pending_txn_date) +
+            '</span>' +
+            '<span class="clearing-amt">' + fmtCents(b.pending_amount_cents || b.amount_cents) + '</span>' +
+          '</div>';
+        }).join("") +
+        '<div class="clearing-note">' +
+          t("O banco ainda n&atilde;o finalizou. Se n&atilde;o compensar, a conta volta para vencidas sozinha.",
+            "The bank has not settled yet. If it does not clear, the bill returns to overdue on its own.") +
+        '</div>';
+    }
+
     function renderOverdue() {
       var card = document.getElementById("overdueCard");
       if (!card) { return; }
@@ -4442,6 +4514,7 @@
       // empties the overdue list, so it must render even when the list is
       // currently empty.
       renderBillMatchSuggestions();
+      renderClearingSoon();
 
       var rows = document.getElementById("overdueRows");
       var empty = document.getElementById("overdueEmpty");

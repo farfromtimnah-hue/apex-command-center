@@ -8943,55 +8943,69 @@ names,
         .catch(function() { toast(t("N&atilde;o consegui copiar.", "Could not copy.")); });
     }
 
-    // THE PROMPT POINTS AT AN ENDPOINT. It carries no list and no count.
+    // THE PROMPT CARRIES THE LIST **AND** NAMES THE ENDPOINT. Both, on purpose.
     //
-    // Three versions to get here, and each failure is worth keeping.
+    // What went wrong on 2026-08-26: the prompt said only "Sao N no momento"
+    // and left her Claude to work out WHICH deposits those were from raw
+    // transactions and invoices. It derived two of three. Alice answered both,
+    // Nicole was sitting beside her and saw two items on screen, and the third
+    // -- a $500 deposit five days old -- was never shown to anyone. Nothing
+    // caught it, because nothing knew what the list should contain.
     //
-    // 1. It said only "Sao N no momento" and left her Claude to work out the
-    //    matching itself from raw transactions and invoices. On 2026-08-26 it
-    //    derived TWO of three. Alice answered both, Nicole was sitting beside
-    //    her and saw two items on screen, and the third -- a $500 deposit five
-    //    days old -- was never shown to anyone. Two different implementations
-    //    of "which deposits look like invoice payments" were answering the
-    //    same question and only one was right.
+    // The list is built HERE, at the moment she clicks copy, from data already
+    // loaded in the page. Nicole: "The queue used to be there, and she would
+    // click it and manually go through. So if the information is right there,
+    // can't the prompt insert the information at the time it's copied?" Yes --
+    // and an earlier objection of mine that it would go stale was overweighted:
+    // she copies and uses it in the same sitting, and deposits only land on a
+    // 4-hourly sync.
     //
-    // 2. Baking the list into the prompt fixed that and broke something else.
-    //    Nicole: "The prompt is gonna be stale by the time she uses it. We
-    //    can't put the information in the prompt. We have to tell her Claude
-    //    where to look for it."
-    //
-    // 3. Handing over raw SQL looked right and was not: her connector cannot
-    //    run arbitrary SQL. It calls FIXED endpoints. Checked rather than
-    //    assumed, after Nicole asked "can you double check if her Claude can
-    //    actually do that?" -- the only query route returns a row COUNT, not
-    //    rows.
-    //
-    // So GET /api/vault/finance/pending-matches returns the list from the SAME
-    // engine the app uses, fetched at the moment she sits down. One source of
-    // truth, nothing to go stale, nothing re-derived.
-    //
-    // Why the roll-call at the end is not optional: "I only get a small window
-    // to get her to do things when we're sitting together. So if we're not
-    // prepared and there's three things and we only ask about two, then we
-    // drop the ball."
+    // The endpoint is named as a BACKSTOP, not as the source. It returns the
+    // same list from the same engine, so if anything arrived since the copy,
+    // her Claude sees it. Critically, the interview still runs if that call
+    // fails -- and it has never been exercised with her real token, so it must
+    // not be the thing the session depends on. A tool that breaks for the first
+    // time while Alice is sitting there costs the whole window.
     function buildMatchesPrompt() {
-      return [
+      var m = (ATTENTION && ATTENTION.matches) || {};
+      var items = m.items || [];
+      var n = items.length || m.count || 0;
+
+      var lines = [
 "Me ajude a conferir depositos que parecem ser pagamentos de faturas da Apex.",
 "",
-"PRIMEIRO, busque a lista voce mesmo. Nao confie em nenhum numero que eu",
-"tenha colado aqui - pode ter mudado desde entao. Chame:",
+"Sao " + n + ", e a lista esta abaixo (copiada agora do painel).",
 "",
+"LISTA (" + n + "):"
+      ];
+
+      if (items.length) {
+        items.forEach(function(it, idx) {
+          var quem = ledgerCleanDesc(it.payer || "");
+          var alvo = it.invoice_number
+            ? (it.invoice_number + (it.client_name ? " (" + it.client_name + ")" : ""))
+            : "(fatura nao identificada)";
+          lines.push((idx + 1) + ". " + fmtCents(Math.abs(it.amount_cents)) +
+                     " em " + fmtDate(it.date) + " de " + quem + " -> " + alvo +
+                     (it.partial ? " [pagamento parcial]" : "") +
+                     (it.exact ? "" : " [valor nao bate exatamente]"));
+        });
+      } else {
+        // Never print a bare count with no list -- that IS the original bug.
+        lines.push("(a lista nao carregou - peca a lista pelo endpoint abaixo antes de comecar)");
+      }
+
+      lines = lines.concat([
+"",
+"ANTES de comecar, confirme se algo entrou depois desta copia:",
 "    GET /api/vault/finance/pending-matches",
+"Se a chamada funcionar, use a lista dela. Se nao funcionar, tudo bem -",
+"siga com a lista acima e me avise que nao deu.",
 "",
-"Ela devolve { count, deposits: [...] }, ja numerados, com valor, data,",
-"quem pagou e qual fatura parece ser.",
-"",
-"Me diga quantos apareceram ANTES de comecarmos.",
-"",
-"Depois fale comigo em portugues, de forma conversacional, um deposito por",
-"vez, na ordem da lista. Para cada um, me diga o valor, a data e de quem",
-"parece ser, e me pergunte se pode dar a fatura como paga. Me deixe",
-"responder com minhas palavras.",
+"Fale comigo em portugues, de forma conversacional, um deposito por vez,",
+"na ordem da lista. Para cada um, me diga o valor, a data e de quem parece",
+"ser, e me pergunte se pode dar a fatura como paga. Me deixe responder com",
+"minhas palavras.",
 "",
 "Precisamos passar por TODOS. Se faltar tempo, tudo bem parar - mas me diga",
 "quais ficaram sem resposta.",
@@ -9005,9 +9019,10 @@ names,
 "decisao: <confirmar | nao e esta fatura | nao sei>",
 "```",
 "",
-"E TERMINE com esta linha, contada sobre a lista que VOCE buscou:",
+"E TERMINE com esta linha:",
 "respondidos: <n> de <total> | pendentes: <numeros que ficaram>"
-      ].join("\n");
+      ]);
+      return lines.join("\n");
     }
 
     function buildUncategorizedPrompt() {

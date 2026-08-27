@@ -27829,6 +27829,41 @@ async function handleGetFinanceNewVendorShare(request, env) {
         var vendorCents = (vendorRow && vendorRow.vendor_total) || 0;
         if (vendorCents < 0) { vendorCents = 0; }   // defensive floor -- markup should never exceed the line amount
 
+        // FALLBACK TO CASH ACTUALLY PAID.
+        //
+        // The billed basis above needs client_vendor_terms.vendor_amount_cents,
+        // and every one of those is still NULL pending Alice's spreadsheet --
+        // so there have been ZERO vendor_addon line items ever written, and
+        // this donut has read 0% vendors since the day it shipped. It was
+        // waiting on data that never arrived.
+        //
+        // But the money genuinely left the account and is categorized: the
+        // Sendwave payments to Raquel, the marketing partner in Brazil
+        // (cat_fornecedor_apex). That is a DIFFERENT measurement -- what Apex
+        // PAID a vendor, rather than what it BILLED clients for vendor work --
+        // and for the question this donut asks ("of our income, how much goes
+        // to vendors?") the cash figure is the more direct answer.
+        //
+        // Used only when the billed basis is empty, so the moment Alice's
+        // amounts land and real vendor_addon lines exist, the billed basis
+        // takes over and nothing is ever double counted. `basis` says which
+        // one produced the number, and the UI must show it -- two different
+        // measurements must never look like one.
+        var basis = "billed";
+        if (vendorCents === 0) {
+            var paidRow = await env.DB.prepare(
+                "SELECT COALESCE(SUM(-t.amount_cents), 0) AS paid_total " +
+                "FROM transactions t " +
+                "WHERE t.category_id = 'cat_fornecedor_apex' " +
+                "AND t.amount_cents < 0 " +
+                "AND t.voided_at IS NULL " +
+                "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+                "AND substr(t.date, 1, 7) = ?"
+            ).bind(month).first();
+            var paidCents = (paidRow && paidRow.paid_total) || 0;
+            if (paidCents > 0) { vendorCents = paidCents; basis = "paid"; }
+        }
+
         var apexCents = totalCents - vendorCents;
         if (apexCents < 0) { apexCents = 0; }
 
@@ -27836,7 +27871,8 @@ async function handleGetFinanceNewVendorShare(request, env) {
             month: month,
             total_cents: totalCents,
             vendor_cents: vendorCents,
-            apex_cents: apexCents
+            apex_cents: apexCents,
+            basis: basis
         });
     } catch (e) {
         return jsonErr("Error computing vendor share: " + e.message, 500);

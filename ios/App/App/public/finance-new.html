@@ -7278,9 +7278,19 @@
           : "Ainda sem receita paga neste m&ecirc;s.");
         return;
       }
+      // SAY WHICH BASIS PRODUCED THE NUMBER. "billed" is what clients were
+      // charged for vendor work; "paid" is cash that actually left the account
+      // to a vendor. They are different measurements and must never be allowed
+      // to look like one -- especially since the basis will switch by itself
+      // the moment Alice's per-client amounts land.
+      var basisNote = "";
+      if (data.basis === "paid") {
+        basisNote = " &middot; " + t("valor realmente pago aos fornecedores (as divis&otilde;es por cliente ainda n&atilde;o foram definidas)",
+                                     "actual cash paid to vendors (per-client splits not set yet)");
+      }
       showCaveat("vendorShareCaveat",
-        fmtCents(data.apex_cents) + " " + (isEn() ? "Apex" : "Apex") + " &middot; " +
-        fmtCents(data.vendor_cents) + " " + (isEn() ? "vendors" : "fornecedores"));
+        fmtCents(data.apex_cents) + " Apex &middot; " +
+        fmtCents(data.vendor_cents) + " " + t("fornecedores", "vendors") + basisNote);
 
       if (typeof Chart === "undefined") { return; }
 

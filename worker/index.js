@@ -25653,6 +25653,24 @@ async function buildMatchCandidates(env) {
         "AND t.voided_at IS NULL " +
         "AND t.transfer_status NOT IN ('suspected','confirmed') " +
         "AND t.id NOT IN (SELECT transaction_id FROM invoice_payments WHERE undone_at IS NULL) " +
+        // A CATEGORY IS AN ANSWER. Honour it.
+        //
+        // This matcher looked only at amount, payer and date, and ignored the
+        // category entirely -- so a deposit somebody had ALREADY identified as
+        // something else kept coming back as "is this an invoice payment?".
+        //
+        // The live case: Prime Group's $75 on 2026-07-20 is a couple's ticket
+        // to the Apex Club dinner, categorized `Apex Club - Receita` by a
+        // human. Six other deposits that same day are the same dinner. Nicole
+        // had to say so more than once, because answering it in the only place
+        // the app offered changed nothing here.
+        //
+        // Uncategorized deposits still match -- that is the normal path for
+        // money that has just landed. So does anything filed as client
+        // revenue. Verified against live data before writing this: every
+        // invoice payment ever matched is either 'cat_receita_clientes' or
+        // uncategorized, so nothing legitimate is excluded by this.
+        "AND (t.category_id IS NULL OR t.category_id = 'cat_receita_clientes') " +
         "AND t.date >= date('now', '-120 day')"
     ).all();
     var deposits = depRes.results || [];

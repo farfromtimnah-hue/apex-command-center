@@ -1507,6 +1507,13 @@
     }
     /* Group heading rows carry a colour dot matching their donut slice, so the
        chart and the list are read as one thing rather than two rankings. */
+    .catlist-toggle {
+      background: none; border: none; padding: 8px 0; cursor: pointer;
+      color: var(--gold, #C9A227); font-size: 12.5px; font-weight: 600;
+      letter-spacing: .02em;
+    }
+    .catlist-toggle:hover { text-decoration: underline; }
+    .catlist-body { margin-top: 4px; }
     .catlist-group { margin-bottom: 10px; }
     .catlist-dot {
       display: inline-block; width: 9px; height: 9px; border-radius: 50%;
@@ -6857,10 +6864,19 @@
         '</div>';
       }
 
+      // COLLAPSED BY DEFAULT. Nicole: "that should be collapsed by default
+      // with the ability to expand... we had to put expanding collapse stuff
+      // in here because it was just getting too cluttered."
+      //
+      // The groups ARE the answer; the categories are the evidence you go
+      // looking for. Showing 37 rows under a chart that exists to summarise
+      // them recreates the clutter the chart was meant to solve.
       host.innerHTML =
-        '<div class="catlist-title">' +
-          t("Para onde foi, por grupo", "Where it went, by group") +
-        '</div>' +
+        '<button type="button" class="catlist-toggle" onclick="toggleCatBreakdown()">' +
+          '<span id="catBreakdownChev">&#9656;</span> ' +
+          t("Ver detalhamento", "See breakdown") +
+        '</button>' +
+        '<div id="catBreakdownBody" class="catlist-body" hidden>' +
         groups.map(function(g) {
           var pct = total > 0 ? Math.round((g.cents / total) * 100) : 0;
           g.cats.sort(function(a, b) { return b.cents - a.cents; });
@@ -6886,7 +6902,23 @@
               '<span class="catlist-pct">' +
               (total > 0 ? Math.round((uncatRow.cents / total) * 100) : 0) + '%</span>' +
             '</span>' +
-          '</div></div>' : "");
+          '</div></div>' : "") +
+        '</div>';
+    }
+
+    // Remembered for the session so she is not re-collapsing it every time the
+    // charts re-render (which happens on every sync and every filter change).
+    var CAT_BREAKDOWN_OPEN = false;
+    function toggleCatBreakdown() {
+      CAT_BREAKDOWN_OPEN = !CAT_BREAKDOWN_OPEN;
+      applyCatBreakdownState();
+    }
+    function applyCatBreakdownState() {
+      var body = document.getElementById("catBreakdownBody");
+      var chev = document.getElementById("catBreakdownChev");
+      if (!body) { return; }
+      body.hidden = !CAT_BREAKDOWN_OPEN;
+      if (chev) { chev.innerHTML = CAT_BREAKDOWN_OPEN ? "&#9662;" : "&#9656;"; }
     }
 
     function renderCategoryChart() {
@@ -6972,6 +7004,7 @@
       // order, with the dollar figure, same visual language as the totals in
       // the line-by-line report.
       renderCategoryFullList(rows, uncat);
+      applyCatBreakdownState();
 
       CHARTS.cat = new Chart(document.getElementById("catChart"), {
         type: "doughnut",

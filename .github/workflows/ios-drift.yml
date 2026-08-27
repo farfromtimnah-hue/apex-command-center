@@ -1,0 +1,121 @@
+# ---------------------------------------------------------------------------
+# iOS drift guard — the version that cannot be forgotten.
+#
+# There is a local pre-commit hook doing the same check, but a hook lives in
+# .git/hooks/, which no clone ever carries. Anything that depends on somebody
+# remembering to install it is not a safeguard. This runs on GitHub, on every
+# push, with nothing to set up on any machine.
+#
+# WHAT IT CATCHES
+# ios/App/App/public/ is a real third copy of the frontend and it is genuinely
+# diverged -- it carries gmCallHref(), the OpenPhone deep link, which the root
+# copy does not have. So it can never be repaired by copying root over it;
+# every change has to be hand-ported. That makes the failure mode "nobody
+# remembered", and a skipped port is invisible until the app is weeks behind
+# the web while looking perfectly fine.
+#
+# So: if a commit changes a file that exists in BOTH copies and does not touch
+# the iOS one, this fails loudly and names it.
+#
+# INTENTIONALLY WEB-ONLY?
+# Put [web-only] in the commit message. That records the decision in the
+# history itself, where it can be read later -- unlike a local env var, which
+# leaves no trace of what was skipped or why.
+# ---------------------------------------------------------------------------
+name: iOS drift
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need history to walk the pushed commits
+
+      - name: Every commit must consider the iOS copy
+        shell: bash
+        run: |
+          set -uo pipefail
+          IOS_DIR="ios/App/App/public"
+
+          # Which commits are in this push / PR.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+
+          # A new branch, or a force-push, reports an all-zero or unreachable
+          # base. Checking only the tip is the honest fallback -- inventing a
+          # range would either miss commits or flag unrelated history.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            RANGE="$HEAD -1"
+            echo "No usable base ($BASE) -- checking the tip commit only."
+          else
+            RANGE="$BASE..$HEAD"
+          fi
+
+          COMMITS=$(git rev-list $RANGE)
+          [ -n "$COMMITS" ] || { echo "No commits to check."; exit 0; }
+
+          FAILED=0
+          for C in $COMMITS; do
+            SUBJECT=$(git log -1 --format=%s "$C")
+
+            # Merge commits introduce no edits of their own.
+            if [ "$(git rev-list --parents -n1 "$C" | wc -w)" -gt 2 ]; then
+              echo "· ${C:0:8} merge, skipped"
+              continue
+            fi
+
+            if git log -1 --format='%B' "$C" | grep -qi '\[web-only\]'; then
+              echo "· ${C:0:8} [web-only] -- deliberately not in the app: $SUBJECT"
+              continue
+            fi
+
+            CHANGED=$(git show --pretty="" --name-only "$C")
+            MISSING=""
+            for F in $CHANGED; do
+              case "$F" in ios/*) continue ;; esac
+              # Only files that exist in BOTH copies at this commit. A root-only
+              # file is not drift -- it simply is not part of the bundle.
+              git cat-file -e "$C:$IOS_DIR/$F" 2>/dev/null || continue
+              echo "$CHANGED" | grep -qx "$IOS_DIR/$F" || MISSING="$MISSING $F"
+            done
+
+            if [ -n "$MISSING" ]; then
+              FAILED=1
+              echo "::error title=iOS copy left behind::${C:0:8} changed$MISSING at root but not in $IOS_DIR"
+              echo "✗ ${C:0:8} $SUBJECT"
+              for F in $MISSING; do echo "    missing: $IOS_DIR/$F"; done
+            else
+              echo "✓ ${C:0:8} $SUBJECT"
+            fi
+          done
+
+          if [ "$FAILED" = "1" ]; then
+            echo ""
+            echo "════════════════════════════════════════════════════════════"
+            echo " The iOS app would be left behind by this push."
+            echo "════════════════════════════════════════════════════════════"
+            echo ""
+            echo " $IOS_DIR is a DIVERGED copy -- it holds the OpenPhone deep"
+            echo " link that root does not. Do NOT copy root over it."
+            echo " Hand-port the same edits, then stage the iOS file:"
+            echo ""
+            echo "     git add -u $IOS_DIR/<file>"
+            echo ""
+            echo " If a change genuinely should not reach the app, put"
+            echo " [web-only] in its commit message."
+            echo ""
+            exit 1
+          fi
+          echo ""
+          echo "All commits accounted for on iOS."

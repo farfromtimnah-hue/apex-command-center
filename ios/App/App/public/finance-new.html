@@ -1414,17 +1414,56 @@
       color: #9C9188;
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
+    /* Two columns, not three. The old 52px date column could not fit
+       "08/03/2026" at 12px, so the date overflowed across the description --
+       which is why the list read as bare amounts with no way to identify
+       them. The date now lives in the meta line under the description, where
+       it cannot collide with anything. */
     .ledger-row {
       display: grid;
-      grid-template-columns: 52px 1fr auto;
-      gap: 10px; align-items: baseline;
-      padding: 9px 0;
+      grid-template-columns: 1fr auto;
+      gap: 12px; align-items: baseline;
+      padding: 10px 0;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       font-size: 14px;
     }
-    .ledger-date { color: #9C9188; font-size: 12px; font-variant-numeric: tabular-nums; }
-    .ledger-name { color: #E8E0D6; overflow-wrap: anywhere; }
-    .ledger-acct { display: block; color: #7E756D; font-size: 11px; margin-top: 2px; }
+    .ledger-main { min-width: 0; }   /* lets long descriptions wrap, not overflow */
+    .ledger-name {
+      display: block; color: #E8E0D6; overflow-wrap: anywhere; line-height: 1.35;
+    }
+    .ledger-noname { color: #7E756D; font-style: italic; }
+    .ledger-meta {
+      display: block; color: #8B837B; font-size: 11.5px; margin-top: 3px;
+      overflow-wrap: anywhere;
+    }
+    .ledger-cat { color: #C9A227; }
+    .ledger-link {
+      display: block; margin-top: 3px; font-size: 11.5px;
+      color: #6FBF8B; overflow-wrap: anywhere;
+    }
+
+    /* ── Totals by category ─────────────────────────────────────────────── */
+    .ledger-cat-row {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) 70px auto;
+      gap: 10px; align-items: center;
+      padding: 7px 0; font-size: 13.5px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .ledger-cat-name { color: #E8E0D6; overflow-wrap: anywhere; }
+    .ledger-cat-n {
+      color: #7E756D; font-size: 11px; margin-left: 6px;
+    }
+    /* A bar, not a pie: length is comparable at a glance and needs no legend. */
+    .ledger-cat-bar {
+      height: 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.07); overflow: hidden;
+    }
+    .ledger-cat-bar > span {
+      display: block; height: 100%; border-radius: 3px;
+      background: rgba(212,175,110,0.75);
+    }
+    .ledger-cat-amt { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
     /* tabular-nums so the column of figures lines up digit for digit -- the
        whole point is that she can add them with her eye. */
     .ledger-amt   { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
@@ -3380,24 +3419,122 @@
       document.body.style.overflow = "";
     }
 
+    // Bank descriptions are references, not language. "CHECKCARD 0731 BAYCARE
+    // MEDICAL G FL XXXXX8662XXXXXXXXXX0415" tells a person nothing, and a
+    // column of those is what made the first version unreadable. This strips
+    // the parts the bank adds for its own bookkeeping -- card-network date
+    // stamps, masked numbers, ACH field tags, Zelle confirmation codes, and
+    // the INDN payer name that makes every ACH line look like a new vendor --
+    // then un-SHOUTS what is left.
+    //
+    // DISPLAY ONLY. Nothing here is stored, and the raw text still drives all
+    // matching, so a cleaner that mangles something can never affect the data.
+    // It also never returns empty: if every rule strips everything, the raw
+    // string comes back instead of a blank line.
+    function ledgerCleanDesc(raw) {
+      var s = String(raw || "");
+      if (!s) { return ""; }
+      s = s.replace(/\bINDN\s*:\s*.*?(?=\b(?:CO\s*ID|DES|ID|PPD|WEB|PMT)\b|$)/gi, " ");
+      s = s.replace(/\bCONF#?\s*[A-Za-z0-9]+;?/gi, " ");
+      s = s.replace(/\bfor\s+"[^"]*"/gi, " ");
+      s = s.replace(/\b(?:DES|ID|CO\s*ID|PMT\s*INFO)\s*:\s*\S+/gi, " ");
+      s = s.replace(/\bX{3,}[0-9A-Z]*/gi, " ");
+      s = s.replace(/\b(?:CHECKCARD|PURCHASE|POS|DEBIT|CREDIT|RECURRING|PPD|WEB\s*PAY|WEB)\b/gi, " ");
+      s = s.replace(/\b\d{4}\b(?=\s)/g, " ");
+      s = s.replace(/\s+/g, " ").trim().replace(/[;,]+$/, "").trim();
+      if (!s) { return String(raw).slice(0, 60); }
+      s = s.replace(/[A-Z][A-Z'’*&.\-]{2,}/g, function(w) {
+        return w.charAt(0) + w.slice(1).toLowerCase();
+      });
+      s = s.replace(/\b(OF|ON|TO|FROM|AND|THE|FOR|AT)\b/gi, function(w) { return w.toLowerCase(); });
+      s = s.charAt(0).toUpperCase() + s.slice(1);
+      return s.length > 70 ? s.slice(0, 69) + "…" : s;
+    }
+
+    function ledgerCatName(r) {
+      try {
+        var cat = categoryById(r.category_id);
+        return cat ? categoryName(cat) : "";
+      } catch (e) { return ""; }
+    }
+
     function ledgerRowHtml(r, side) {
       var amt = Math.abs(Number(r.amount_cents) || 0);
-      // Same field the transactions table renders, so a line reads identically
-      // in both places. merchant_normalized is uppercased with digits stripped
-      // and is only a fallback.
-      var who = r.description || r.merchant_normalized || "--";
+      var who = ledgerCleanDesc(r.description || r.merchant_normalized || "");
+
+      // Meta line, in the order she reads it: when, what kind, which account.
+      var meta = [];
+      meta.push(esc(fmtDate(r.date)));
+      var catName = ledgerCatName(r);
+      if (catName) { meta.push('<span class="ledger-cat">' + esc(catName) + '</span>'); }
+      if (r.account_name) { meta.push(esc(r.account_name)); }
+
+      // What this line is ATTACHED to. This is the answer to "what IS that?"
+      // for anything already reconciled -- a bill it paid, or an invoice it
+      // settled -- and it is the difference between a bank reference and a
+      // fact she recognises.
+      var link = "";
+      if (r.matched_bill) {
+        link = '<span class="ledger-link">' + t("conta: ", "bill: ") + esc(r.matched_bill) + '</span>';
+      } else if (r.matched_invoice) {
+        link = '<span class="ledger-link">' + t("fatura: ", "invoice: ") + esc(r.matched_invoice) + '</span>';
+      }
+
       var pend = r.pending
-        ? '<span class="ledger-pending">' + (isEn() ? "pending" : "pendente") + '</span>'
+        ? '<span class="ledger-pending">' + t("pendente", "pending") + '</span>'
         : "";
+
       return '<div class="ledger-row">' +
-        '<span class="ledger-date">' + esc(fmtDate(r.date)) + '</span>' +
-        '<span class="ledger-name">' + esc(who) + pend +
-          '<span class="ledger-acct">' + esc(r.account_name || "") + '</span>' +
+        '<span class="ledger-main">' +
+          '<span class="ledger-name">' +
+            (who ? esc(who) : '<span class="ledger-noname">' +
+              t("(sem descrição do banco)", "(no description from the bank)") + '</span>') +
+            pend +
+          '</span>' +
+          '<span class="ledger-meta">' + meta.join(' &middot; ') + '</span>' +
+          link +
         '</span>' +
         '<span class="ledger-amt ' + (side === "in" ? "is-in" : "is-out") + '">' +
-          (side === "in" ? "+" : "\u2212") + fmtCents(amt) +
+          (side === "in" ? "+" : "−") + fmtCents(amt) +
         '</span>' +
       '</div>';
+    }
+
+    // Totals by category, largest first. Asked for so the breakdown is
+    // visible without reading 84 lines: the list answers "what exactly", this
+    // answers "where did it go".
+    //
+    // Summed from the SAME array the lines are drawn from, so the category
+    // totals always add to the figure at the bottom of the report.
+    function ledgerCategoryTotalsHtml(lines, side) {
+      if (!lines.length) { return ""; }
+      var byCat = {}, order = [];
+      lines.forEach(function(r) {
+        var name = ledgerCatName(r) || t("Sem categoria", "Uncategorized");
+        if (!byCat[name]) { byCat[name] = { cents: 0, n: 0 }; order.push(name); }
+        byCat[name].cents += Math.abs(Number(r.amount_cents) || 0);
+        byCat[name].n += 1;
+      });
+      order.sort(function(a, b) { return byCat[b].cents - byCat[a].cents; });
+      var total = 0;
+      order.forEach(function(k) { total += byCat[k].cents; });
+
+      return '<div class="ledger-group-title">' +
+          t("Total por categoria", "Totals by category") +
+          ' &middot; ' + order.length +
+        '</div>' +
+        order.map(function(k) {
+          var pct = total > 0 ? Math.round((byCat[k].cents / total) * 100) : 0;
+          return '<div class="ledger-cat-row">' +
+            '<span class="ledger-cat-name">' + esc(k) +
+              '<span class="ledger-cat-n">' + byCat[k].n + '</span>' +
+            '</span>' +
+            '<span class="ledger-cat-bar"><span style="width:' + pct + '%"></span></span>' +
+            '<span class="ledger-cat-amt ' + (side === "in" ? "is-in" : "is-out") + '">' +
+              fmtCents(byCat[k].cents) +
+            '</span>' +
+          '</div>';
+        }).join("");
     }
 
     function renderLedger(d) {
@@ -3446,6 +3583,12 @@
             : "Dinheiro movido entre as suas pr&oacute;prias contas n&atilde;o &eacute; entrada nem sa&iacute;da, por isso fica fora dos totais acima. Est&aacute; listado aqui para que nada do seu extrato falte.") +
           '</div>';
       }
+
+      // Totals by category last, so the lines come first and the breakdown
+      // sits under them as the summary. Built from `lines` -- the counted
+      // rows only -- so it always adds to the report total, never to the
+      // transfers that are deliberately excluded.
+      html += ledgerCategoryTotalsHtml(lines, side);
 
       document.getElementById("ledgerBody").innerHTML = html;
 

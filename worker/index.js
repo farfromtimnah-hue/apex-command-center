@@ -21091,8 +21091,36 @@ async function handleGetFinanceNewLedger(request, env) {
             "ORDER BY t.date ASC, t.id ASC"
         ).bind(start, start).all();
 
+        // What each line is ATTACHED to, so a line can say "this was the Tesla
+        // payment" rather than only showing a bank reference. Two sources:
+        // a fixed bill it satisfied, or a client invoice it paid.
+        var billByTxn = {}, invByTxn = {};
+        try {
+            var bp = await env.DB.prepare(
+                "SELECT p.transaction_id, b.name FROM fixed_bill_payments p " +
+                "JOIN fixed_bills b ON b.id = p.bill_id " +
+                "WHERE p.transaction_id IS NOT NULL"
+            ).all();
+            (bp.results || []).forEach(function(r) { billByTxn[r.transaction_id] = r.name; });
+            var ip = await env.DB.prepare(
+                // `number`, not `invoice_number`. And undone_at must be
+                // honoured: a match somebody reversed should not still be
+                // labelling the line as paying that invoice.
+                "SELECT p.transaction_id, i.number AS invoice_number, c.name AS client_name " +
+                "FROM invoice_payments p JOIN invoices i ON i.id = p.invoice_id " +
+                "LEFT JOIN clients c ON c.id = i.client_id " +
+                "WHERE p.transaction_id IS NOT NULL AND p.undone_at IS NULL"
+            ).all();
+            (ip.results || []).forEach(function(r) {
+                invByTxn[r.transaction_id] = (r.client_name || "") +
+                    (r.invoice_number ? " " + r.invoice_number : "");
+            });
+        } catch (e) { /* a missing link is a missing label, never a failed report */ }
+
         var moneyIn = [], moneyOut = [], inC = 0, outC = 0;
         (rows.results || []).forEach(function(r) {
+            r.matched_bill    = billByTxn[r.id] || null;
+            r.matched_invoice = invByTxn[r.id] || null;
             if (r.amount_cents > 0) { inC += r.amount_cents; moneyIn.push(r); }
             else if (r.amount_cents < 0) { outC += -r.amount_cents; moneyOut.push(r); }
             // A zero-amount row belongs to neither side and is dropped from

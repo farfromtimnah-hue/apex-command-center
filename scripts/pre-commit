@@ -15,6 +15,15 @@
 # Tracked copy: scripts/pre-commit (installed via scripts/install-hooks.sh)
 # — this file lives only in .git/hooks/ and does NOT survive a fresh clone.
 
+# ---------------------------------------------------------------------------
+# iOS drift guard — runs FIRST, before any stamping, so a blocked commit
+# leaves nothing half-rewritten behind it. See scripts/check-ios-drift.sh for
+# why the iOS copy cannot simply be overwritten from root.
+# ---------------------------------------------------------------------------
+if [ -x scripts/check-ios-drift.sh ]; then
+  sh scripts/check-ios-drift.sh || exit 1
+fi
+
 STAGED=$(git diff --cached --name-only)
 
 TRIGGER=0
@@ -58,8 +67,15 @@ fi
 # CACHE_NAME bump. A changed file must mean a changed URL.
 VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css"
 
+# The test below was once `grep -qx "$ASSET"` — an EXACT whole-line match. That
+# meant staging ios/App/App/public/gm.js matched nothing, the entire block was
+# skipped, and the iOS bundle shipped new code behind an UNCHANGED ?v=, which
+# a cache-first service worker will happily serve stale forever. Match either
+# the root path or the iOS copy of the same asset.
 for ASSET in $VERSIONED_ASSETS; do
-  if ! echo "$STAGED" | grep -qx "$ASSET"; then continue; fi
+  # Dots escaped: in an -E pattern "gm.js" would also match "gmxjs".
+  ARX=$(echo "$ASSET" | sed 's/\./\\./g')
+  if ! echo "$STAGED" | grep -qxE "($ARX|ios/App/App/public/$ARX)"; then continue; fi
 
   ASTAMP=$(date +%s)
   ESCAPED=$(echo "$ASSET" | sed 's/\./\\./g')

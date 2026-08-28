@@ -714,6 +714,46 @@ function gmToggleViewMode() {
 // inside a stage never silently jumps you to another one.
 var gmLeadSearch = "";
 
+// MONTH FILTER — Rafa, 2026-08-27: "a bottom to search by month the jobs and
+// pipelines". Stored as "field|value" because a lead carries TWO months and
+// they answer different questions: mes_lead is when it arrived, mes_fechamento
+// is when it is expected to close. Nicole: "give a drop down to choose between
+// the different months" -- so both are offered in one control rather than the
+// screen picking for her.
+//
+// Empty string means no filter. The value is a cycle-month NAME from the
+// client's own configured list, never a date, so it is compared as a string.
+var gmLeadMonth = "";
+var gmJobMonth  = "";
+
+function gmLeadMatchesMonth(lead) {
+  if (!gmLeadMonth) { return true; }
+  var parts = gmLeadMonth.split("|");
+  var field = parts[0], want = parts.slice(1).join("|");
+  return String(lead[field] || "") === want;
+}
+
+function gmJobMatchesMonth(job) {
+  if (!gmJobMonth) { return true; }
+  return String(job.mes_entrega || "") === gmJobMonth;
+}
+
+// The month lists a client actually uses, in configured order. Built from the
+// ROWS, not from cycle_months alone: a lead whose month was typed before the
+// list was trimmed would otherwise be unreachable by any filter option.
+function gmMonthOptions(rows, fields) {
+  var cfg = (gmConfig && gmConfig.config && gmConfig.config.cycle_months) || [];
+  var seen = {}, out = [];
+  cfg.forEach(function(m) { if (m && !seen[m]) { seen[m] = 1; out.push(m); } });
+  (rows || []).forEach(function(r) {
+    fields.forEach(function(f) {
+      var v = String(r[f] || "").trim();
+      if (v && !seen[v]) { seen[v] = 1; out.push(v); }
+    });
+  });
+  return out;
+}
+
 // Accent- and case-insensitive: the names are Brazilian and nobody types
 // "Conceição" with the cedilla when they are hunting for a row. NFD splits a
 // letter from its diacritic so the combining marks can be dropped.
@@ -743,7 +783,7 @@ function gmSearchHasNoMatches() {
 function gmLeadsInStage(stage) {
   var out = [];
   ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) {
-    if (l.estagio === stage && gmLeadMatchesSearch(l)) { out.push(l); }
+    if (l.estagio === stage && gmLeadMatchesSearch(l) && gmLeadMatchesMonth(l)) { out.push(l); }
   });
   return out;
 }
@@ -837,7 +877,49 @@ function gmLeadSearchHtml() {
     '<button type="button" class="gm-lead-search-clear" id="gmLeadSearchClear"' +
     (gmLeadSearch ? "" : " hidden") + ' aria-label="' +
     escHtml(gmT("Limpar busca", "Clear search")) + '" onclick="gmLeadSearchClear()">×</button>' +
-    '</div>';
+    '</div>' + gmLeadMonthFilterHtml();
+}
+
+// One <select> carrying BOTH month fields, grouped. A lead has a month it
+// arrived (mes_lead) and a month it should close (mes_fechamento), and they
+// answer different questions -- so the control names which one rather than the
+// screen deciding. Hidden entirely when the client has no months configured
+// and no lead carries one: an empty filter is furniture.
+function gmLeadMonthFilterHtml() {
+  var leads = (gmLeadsData && gmLeadsData.leads) || [];
+  var months = gmMonthOptions(leads, ["mes_lead", "mes_fechamento"]);
+  if (!months.length) { return ""; }
+
+  function group(label, field) {
+    var opts = "";
+    months.forEach(function(m) {
+      var v = field + "|" + m;
+      opts += '<option value="' + escHtml(v) + '"' +
+        (gmLeadMonth === v ? " selected" : "") + '>' + escHtml(m) + '</option>';
+    });
+    return '<optgroup label="' + escHtml(label) + '">' + opts + '</optgroup>';
+  }
+
+  return '<div class="gm-month-filter">' +
+    '<select id="gmLeadMonth" aria-label="' +
+      escHtml(gmT("Filtrar por mês", "Filter by month")) + '" ' +
+      'onchange="gmLeadMonthChange(this.value)">' +
+      '<option value="">' + escHtml(gmT("Todos os meses", "All months")) + '</option>' +
+      group(gmT("Mês do lead", "Lead month"), "mes_lead") +
+      group(gmT("Mês de fechamento", "Closing month"), "mes_fechamento") +
+    '</select>' +
+    (gmLeadMonth
+      ? '<button type="button" class="gm-month-clear" onclick="gmLeadMonthChange(\'\')" aria-label="' +
+        escHtml(gmT("Limpar filtro de mês", "Clear month filter")) + '">×</button>'
+      : "") +
+  '</div>';
+}
+
+function gmLeadMonthChange(v) {
+  gmLeadMonth = v || "";
+  // Full re-render, not gmRenderCrmList(): the stage chips carry counts that
+  // move with the filter, and repainting only the rows would leave them lying.
+  gmRenderCrm();
 }
 
 function gmLeadSearchInput(v) {
@@ -2632,6 +2714,37 @@ function gmLoadJobs() {
     });
 }
 
+// Jobs carry ONE month (mes_entrega), so this is a plain list -- no grouping
+// needed, unlike the lead filter which has to name which of two months it
+// means. Hidden when there is nothing to filter by.
+function gmJobMonthFilterHtml() {
+  var jobs = (gmJobsData && gmJobsData.jobs) || [];
+  var months = gmMonthOptions(jobs, ["mes_entrega"]);
+  if (!months.length) { return ""; }
+  var opts = "";
+  months.forEach(function(m) {
+    opts += '<option value="' + escHtml(m) + '"' +
+      (gmJobMonth === m ? " selected" : "") + '>' + escHtml(m) + '</option>';
+  });
+  return '<div class="gm-month-filter">' +
+    '<select id="gmJobMonth" aria-label="' +
+      escHtml(gmT("Filtrar por mês de entrega", "Filter by delivery month")) + '" ' +
+      'onchange="gmJobMonthChange(this.value)">' +
+      '<option value="">' + escHtml(gmT("Todos os meses", "All months")) + '</option>' +
+      opts +
+    '</select>' +
+    (gmJobMonth
+      ? '<button type="button" class="gm-month-clear" onclick="gmJobMonthChange(\'\')" aria-label="' +
+        escHtml(gmT("Limpar filtro de mês", "Clear month filter")) + '">×</button>'
+      : "") +
+  '</div>';
+}
+
+function gmJobMonthChange(v) {
+  gmJobMonth = v || "";
+  gmRenderJobs();
+}
+
 function gmRenderJobs() {
   var body = document.getElementById("gmJobsBody");
   var jobs = gmJobsData.jobs;
@@ -2649,10 +2762,20 @@ function gmRenderJobs() {
       : '<p class="muted" style="margin-bottom:8px;">' +
         gmT("Margem alvo mínima: ", "Minimum target margin: ") + fmtNum(target, "percent") +
         gmT(" — nenhuma proposta sai abaixo desse número.", " — no proposal goes out below this number.") + '</p>');
+  html += gmJobMonthFilterHtml();
+
+  // Filter AFTER the header so the control stays on screen with nothing
+  // matching -- otherwise picking a month with no projects would hide the very
+  // dropdown needed to pick a different one.
+  var shown = jobs.filter(gmJobMatchesMonth);
+
   if (!jobs.length) {
     html += '<p class="muted">' + gmT("Nenhum projeto cadastrado ainda.", "No projects yet.") + '</p>';
+  } else if (!shown.length) {
+    html += '<p class="muted">' +
+      gmT("Nenhum projeto neste mês.", "No projects in this month.") + '</p>';
   } else {
-    jobs.forEach(function(j, i) {
+    shown.forEach(function(j, i) {
       // alvo_ok is THREE-state: true (met), false (below), null (unanswerable
       // — no margin yet, or no target set). A null must not fall into the
       // "below target" branch and must not show a green check either: the

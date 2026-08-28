@@ -59,6 +59,38 @@
    Filters the loaded list by name as you type; composes with the stage chips
    (see gmLeadsInStage in gm.js). Sits above the list in both view modes. */
 .gm-lead-search { position: relative; margin: 0 0 10px; }
+
+/* Month filter — same visual weight and touch target as the search box above
+   it, so the two read as one row of controls rather than a control and a
+   stray form element. Used on both the pipeline and the projects list. */
+.gm-month-filter { position: relative; margin: 0 0 10px; }
+.gm-month-filter select {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 12px 40px 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  /* Chevron drawn inline so there is no image request and no dependency on a
+     sprite that a client page may not load. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%239C9188' stroke-width='2' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+.gm-month-filter select:focus { border-color: var(--gold); outline: none; }
+.gm-month-clear {
+  position: absolute;
+  right: 36px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 6px;
+}
+.gm-month-clear:hover { color: var(--text); }
 .gm-lead-search-input {
   width: 100%;
   min-height: 48px;                 /* same touch target as the lead rows */

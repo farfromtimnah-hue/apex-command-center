@@ -715,52 +715,70 @@ function gmToggleViewMode() {
 var gmLeadSearch = "";
 
 // MONTH FILTER — Rafa, 2026-08-27: "a bottom to search by month the jobs and
-// pipelines". Stored as "field|value" because a lead carries TWO months and
-// they answer different questions: mes_lead is when it arrived, mes_fechamento
-// is when it is expected to close. Nicole: "give a drop down to choose between
-// the different months" -- so both are offered in one control rather than the
-// screen picking for her.
+// pipelines".
 //
-// Empty string means no filter. The value is a cycle-month NAME from the
-// client's own configured list, never a date, so it is compared as a string.
+// FILTERS ON THE REAL DATE, NOT ON mes_lead / mes_entrega. Those are
+// cycle-month NAME fields, and checked against live data before building this:
+// **no client has cycle_months configured at all** (every row is "[]"), and the
+// name fields are mostly empty -- JM has 118 leads and ZERO with a month.
+// A filter on them would have found almost nothing and looked broken.
+//
+// The real dates ARE there: data_lead on 110 of 190 leads, created_at on all
+// 190. So the month is derived, with created_at as the fallback so a row can
+// never be unreachable by every option.
+//
+// Value is "YYYY-MM"; empty means no filter.
 var gmLeadMonth = "";
 var gmJobMonth  = "";
 
+// The month a row belongs to. Leads: when the lead arrived. Jobs: when the work
+// starts, falling back to the deadline, then to when the row was created.
+function gmLeadMonthKey(lead) {
+  var d = lead.data_lead || lead.created_at || "";
+  return String(d).slice(0, 7);
+}
+function gmJobMonthKey(job) {
+  var d = job.inicio || job.prazo_previsto || job.created_at || "";
+  return String(d).slice(0, 7);
+}
+
 function gmLeadMatchesMonth(lead) {
   if (!gmLeadMonth) { return true; }
-  var parts = gmLeadMonth.split("|");
-  var field = parts[0], want = parts.slice(1).join("|");
-  return String(lead[field] || "") === want;
+  return gmLeadMonthKey(lead) === gmLeadMonth;
 }
-
 function gmJobMatchesMonth(job) {
   if (!gmJobMonth) { return true; }
-  return String(job.mes_entrega || "") === gmJobMonth;
+  return gmJobMonthKey(job) === gmJobMonth;
 }
 
-// The month lists a client actually uses, in configured order. Built from the
-// ROWS, not from cycle_months alone: a lead whose month was typed before the
-// list was trimmed would otherwise be unreachable by any filter option.
-function gmMonthOptions(rows, fields) {
-  var cfg = (gmConfig && gmConfig.config && gmConfig.config.cycle_months) || [];
+var GM_MONTH_NAMES_PT = ["janeiro","fevereiro","março","abril","maio","junho",
+                         "julho","agosto","setembro","outubro","novembro","dezembro"];
+var GM_MONTH_NAMES_EN = ["January","February","March","April","May","June",
+                         "July","August","September","October","November","December"];
+
+// "2026-08" -> "Agosto 2026". Built from the key rather than a Date object:
+// new Date("2026-08") is parsed as UTC and can render as the previous month in
+// a western timezone, which would label rows with a month they are not in.
+function gmMonthLabel(key) {
+  var parts = String(key).split("-");
+  if (parts.length < 2) { return key; }
+  var idx = parseInt(parts[1], 10) - 1;
+  if (!(idx >= 0 && idx < 12)) { return key; }
+  var name = isEn() ? GM_MONTH_NAMES_EN[idx] : GM_MONTH_NAMES_PT[idx];
+  if (!isEn()) { name = name.charAt(0).toUpperCase() + name.slice(1); }
+  return name + " " + parts[0];
+}
+
+// Distinct months present in the rows, newest first -- the month somebody is
+// looking for is far more often recent than a year back.
+function gmMonthKeys(rows, keyFn) {
   var seen = {}, out = [];
-  cfg.forEach(function(m) { if (m && !seen[m]) { seen[m] = 1; out.push(m); } });
   (rows || []).forEach(function(r) {
-    fields.forEach(function(f) {
-      var v = String(r[f] || "").trim();
-      if (v && !seen[v]) { seen[v] = 1; out.push(v); }
-    });
+    var k = keyFn(r);
+    if (k && !seen[k]) { seen[k] = 1; out.push(k); }
   });
+  out.sort(function(a, b) { return a < b ? 1 : (a > b ? -1 : 0); });
   return out;
-}
-
-// Accent- and case-insensitive: the names are Brazilian and nobody types
-// "Conceição" with the cedilla when they are hunting for a row. NFD splits a
-// letter from its diacritic so the combining marks can be dropped.
-function gmSearchNorm(s) {
-  var out = String(s == null ? "" : s).toLowerCase();
-  if (out.normalize) { out = out.normalize("NFD").replace(/[̀-ͯ]/g, ""); }
-  return out.trim();
 }
 
 function gmLeadMatchesSearch(lead) {
@@ -880,33 +898,30 @@ function gmLeadSearchHtml() {
     '</div>' + gmLeadMonthFilterHtml();
 }
 
-// One <select> carrying BOTH month fields, grouped. A lead has a month it
-// arrived (mes_lead) and a month it should close (mes_fechamento), and they
-// answer different questions -- so the control names which one rather than the
-// screen deciding. Hidden entirely when the client has no months configured
-// and no lead carries one: an empty filter is furniture.
+// One month list, from the real lead dates. No grouping needed now that this
+// filters on data_lead rather than the two cycle-month NAME fields -- see the
+// note above gmLeadMonth for why those turned out to be unusable.
 function gmLeadMonthFilterHtml() {
   var leads = (gmLeadsData && gmLeadsData.leads) || [];
-  var months = gmMonthOptions(leads, ["mes_lead", "mes_fechamento"]);
-  if (!months.length) { return ""; }
+  var keys = gmMonthKeys(leads, gmLeadMonthKey);
+  if (keys.length < 2) { return ""; }   // one month is not a filter
 
-  function group(label, field) {
-    var opts = "";
-    months.forEach(function(m) {
-      var v = field + "|" + m;
-      opts += '<option value="' + escHtml(v) + '"' +
-        (gmLeadMonth === v ? " selected" : "") + '>' + escHtml(m) + '</option>';
-    });
-    return '<optgroup label="' + escHtml(label) + '">' + opts + '</optgroup>';
-  }
+  var opts = "";
+  keys.forEach(function(k) {
+    var n = 0;
+    leads.forEach(function(l) { if (gmLeadMonthKey(l) === k) { n++; } });
+    opts += '<option value="' + escHtml(k) + '"' +
+      (gmLeadMonth === k ? " selected" : "") + '>' +
+      escHtml(gmMonthLabel(k)) + ' (' + n + ')</option>';
+  });
 
   return '<div class="gm-month-filter">' +
     '<select id="gmLeadMonth" aria-label="' +
       escHtml(gmT("Filtrar por mês", "Filter by month")) + '" ' +
       'onchange="gmLeadMonthChange(this.value)">' +
-      '<option value="">' + escHtml(gmT("Todos os meses", "All months")) + '</option>' +
-      group(gmT("Mês do lead", "Lead month"), "mes_lead") +
-      group(gmT("Mês de fechamento", "Closing month"), "mes_fechamento") +
+      '<option value="">' +
+      escHtml(gmT("Todos os meses", "All months")) + ' (' + leads.length + ')</option>' +
+      opts +
     '</select>' +
     (gmLeadMonth
       ? '<button type="button" class="gm-month-clear" onclick="gmLeadMonthChange(\'\')" aria-label="' +
@@ -2714,23 +2729,27 @@ function gmLoadJobs() {
     });
 }
 
-// Jobs carry ONE month (mes_entrega), so this is a plain list -- no grouping
-// needed, unlike the lead filter which has to name which of two months it
-// means. Hidden when there is nothing to filter by.
+// Same shape as the lead filter, off the job's real dates.
 function gmJobMonthFilterHtml() {
   var jobs = (gmJobsData && gmJobsData.jobs) || [];
-  var months = gmMonthOptions(jobs, ["mes_entrega"]);
-  if (!months.length) { return ""; }
+  var keys = gmMonthKeys(jobs, gmJobMonthKey);
+  if (keys.length < 2) { return ""; }
+
   var opts = "";
-  months.forEach(function(m) {
-    opts += '<option value="' + escHtml(m) + '"' +
-      (gmJobMonth === m ? " selected" : "") + '>' + escHtml(m) + '</option>';
+  keys.forEach(function(k) {
+    var n = 0;
+    jobs.forEach(function(j) { if (gmJobMonthKey(j) === k) { n++; } });
+    opts += '<option value="' + escHtml(k) + '"' +
+      (gmJobMonth === k ? " selected" : "") + '>' +
+      escHtml(gmMonthLabel(k)) + ' (' + n + ')</option>';
   });
+
   return '<div class="gm-month-filter">' +
     '<select id="gmJobMonth" aria-label="' +
-      escHtml(gmT("Filtrar por mês de entrega", "Filter by delivery month")) + '" ' +
+      escHtml(gmT("Filtrar por mês", "Filter by month")) + '" ' +
       'onchange="gmJobMonthChange(this.value)">' +
-      '<option value="">' + escHtml(gmT("Todos os meses", "All months")) + '</option>' +
+      '<option value="">' +
+      escHtml(gmT("Todos os meses", "All months")) + ' (' + jobs.length + ')</option>' +
       opts +
     '</select>' +
     (gmJobMonth

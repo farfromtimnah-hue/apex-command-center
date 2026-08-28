@@ -8518,12 +8518,75 @@
 
     // ── New invoice + collision guard ──────────────────────────────────────
 
+    // CLIENT LIST for the new-invoice picker. ACTIVE FIRST, then one group
+    // each for the rest, all below.
+    //
+    // Alice, via Nicole, 2026-08-27: "it's supposed to show only active clients
+    // at the top... it has to be active clients at the top, and it has to be
+    // obvious. They're all just one jumbled list again."
+    //
+    // It was a flat CLIENTS.map() here. The grouping HAD been built -- but in
+    // calendar.html, and this picker never got it, which is why it reads as a
+    // regression rather than a gap: the fix existed and did not reach here.
+    //
+    // Active clients are PLAIN OPTIONS at the top, with no group label above
+    // them, so the first thing in the list is the thing she almost always
+    // wants. Leads, paused and closed each get their own labelled group
+    // underneath -- none of the three should normally be invoiced (a lead has
+    // not signed; paused and closed are not owed anything), and separating
+    // them says which is which without her having to remember.
+    //
+    // They stay REACHABLE on purpose. A final invoice to a closed client is
+    // legitimate, and hiding them would just send her elsewhere to do it.
+    // Out of the way is the goal, not out of reach.
+    //
+    // Real <optgroup>s, not spacer rows: the browser's own type-to-filter
+    // searches across them, so typing a name still beats scrolling. Same
+    // reasoning as the calendar picker this now mirrors.
+    //
+    // Paused is the one with teeth: DFN was paused and still auto-generated a
+    // $1,397 draft for money that was never coming. Seeing the group before
+    // clicking is the cheap version of that guard.
+    function invoiceClientOptionsHtml() {
+      var active = [];
+      var buckets = {
+        lead:   { pt: "Leads",      en: "Leads",  rows: [] },
+        paused: { pt: "Pausados",   en: "Paused", rows: [] },
+        closed: { pt: "Encerrados", en: "Closed", rows: [] }
+      };
+
+      (CLIENTS || []).forEach(function(c) {
+        var st = String(c.status || "active").toLowerCase();
+        // Anything unrecognised counts as active rather than being buried in a
+        // group she may not open: a client she cannot find is worse than one
+        // filed in the wrong place.
+        if (buckets[st]) { buckets[st].rows.push(c); }
+        else { active.push(c); }
+      });
+
+      var html = '<option value="">--</option>';
+      active.forEach(function(c) {
+        html += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+      });
+
+      // Fixed order, least-wrong to most-wrong to invoice.
+      ["lead", "paused", "closed"].forEach(function(key) {
+        var b = buckets[key];
+        if (!b.rows.length) { return; }
+        html += '<optgroup label="' +
+          esc(t(b.pt, b.en) + " (" + b.rows.length + ")") + '">';
+        b.rows.forEach(function(c) {
+          html += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+        });
+        html += '</optgroup>';
+      });
+      return html;
+    }
+
     function openNewInvoice() {
       PENDING_RECURRENCE = null;
       var sel = document.getElementById("invClient");
-      sel.innerHTML = '<option value="">--</option>' + CLIENTS.map(function(c) {
-        return '<option value="' + c.id + '">' + esc(c.name) + "</option>";
-      }).join("");
+      sel.innerHTML = invoiceClientOptionsHtml();
       document.getElementById("invAmount").value = "";
       document.getElementById("invDue").value = "";
       document.getElementById("invOverlay").hidden = false;

@@ -1401,6 +1401,7 @@ function gmLeadFieldDefs() {
     { key: "outros",               type: "currency", pt: "Outros ($)",               en: "Other ($)" },
     { key: "custo_administrativo", type: "currency", pt: "Custo administrativo ($)", en: "Administrative cost ($)" },
     { key: "comissao",             type: "currency", pt: "Comissão vendedor ($)",    en: "Sales commission ($)" },
+    { key: "imposto",              type: "currency", pt: "Imposto ($)",               en: "Tax ($)" },
     { key: "proxima_acao",   type: "text",     pt: "Próxima ação",            en: "Next action" },
     // followups and data_contato are NOT here: both are derived from the
     // gm_lead_contacts log (contatos_count / primeiro_contato) and rendered
@@ -1553,7 +1554,13 @@ function gmRenderLeadSheet() {
     // Dollars in, rate read back down in Resultado — same direction Rafa
     // asked for on the project screen.
     gmSheetRowHtml("users", gmT("Comissão vendedor ($)", "Sales commission ($)"),
-      val("comissao"), edit("comissao")));
+      val("comissao"), edit("comissao")) +
+    // Tax, added 2026-08-27 at Rafa's request: "could you add another little
+    // box to TAX?". An ordinary cost like the rest -- it comes off the top
+    // before lucro, so margem_pct and alvo_ok account for it with no further
+    // edit, and the target-margin warning starts including tax automatically.
+    gmSheetRowHtml("tag", gmT("Imposto ($)", "Tax ($)"),
+      val("imposto"), edit("imposto")));
 
   // ── Resultado — derived, never typed ──────────────────────────────────
   // Identical presentation and identical maths to the project sheet: the
@@ -1652,7 +1659,7 @@ function gmRenderLeadSheet() {
                 address: 1, city: 1,
                 // Rendered in the Valores section above, not in the flat list.
                 material: 1, mao_de_obra: 1, outros: 1,
-                custo_administrativo: 1, comissao: 1 };
+                custo_administrativo: 1, comissao: 1, imposto: 1 };
   var noCycle = gmListEmpty(gmConfig.config.cycle_months);
   var rest = "";
   gmLeadFieldDefs().forEach(function(def, i) {
@@ -2086,7 +2093,8 @@ function gmLeadComputed(row) {
   var target = (gmLeadsData && gmLeadsData.target_margin !== undefined)
     ? gmLeadsData.target_margin : null;
   var custoTotal = (row.material || 0) + (row.mao_de_obra || 0) + (row.outros || 0) +
-                   (row.custo_administrativo || 0) + (row.comissao || 0);
+                   (row.custo_administrativo || 0) + (row.comissao || 0) +
+                   (row.imposto || 0);
   var lucro = (row.valor === null || row.valor === undefined) ? null : row.valor - custoTotal;
   var margemPct = (row.valor && row.valor > 0 && lucro !== null)
     ? Math.round((lucro / row.valor) * 1000) / 10 : null;
@@ -2989,6 +2997,7 @@ function gmSimpleSpec(kind) {
       { key: "outros",         type: "currency", pt: "Outros ($)",         en: "Other ($)" },
       { key: "custo_administrativo", type: "currency", pt: "Custo administrativo ($)", en: "Administrative cost ($)" },
       { key: "comissao",       type: "currency", pt: "Comissão vendedor ($)", en: "Sales commission ($)" },
+      { key: "imposto",        type: "currency", pt: "Imposto ($)",            en: "Tax ($)" },
       { key: "status",         type: "choice",   pt: "Status",             en: "Status", options: gmConfig.method.job_statuses, pills: GM_STATUS_PILLS.job },
       { key: "mes_entrega",    type: "choice",   pt: "Mês entrega",        en: "Delivery month", options: gmConfig.config.cycle_months },
       { key: "inicio",         type: "date",     pt: "Início",             en: "Start" },
@@ -3136,7 +3145,13 @@ function gmJobSheetBody(row, spec) {
     // works out to is shown down in Resultado, derived — Rafa enters the money
     // and reads the percentage back, not the other way round.
     gmSheetRowHtml("users", gmT("Comissão vendedor ($)", "Sales commission ($)"),
-      val("comissao"), edit("comissao")));
+      val("comissao"), edit("comissao")) +
+    // Tax, added 2026-08-27 at Rafa's request: "could you add another little
+    // box to TAX?". An ordinary cost like the rest -- it comes off the top
+    // before lucro, so margem_pct and alvo_ok account for it with no further
+    // edit, and the target-margin warning starts including tax automatically.
+    gmSheetRowHtml("tag", gmT("Imposto ($)", "Tax ($)"),
+      val("imposto"), edit("imposto")));
 
   // ── Schedule ──────────────────────────────────────────────────────────
   body += gmSheetSection(gmT("Prazos", "Schedule"),

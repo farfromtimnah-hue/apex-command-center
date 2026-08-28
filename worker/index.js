@@ -16638,7 +16638,7 @@ async function handleGetGmLeads(id, request, env) {
 // gmInsertLead (create) and GM_LEAD_LOGGED_FIELDS (audit trail), so adding a
 // sixth cost means touching this list only.
 var GM_LEAD_COST_FIELDS = ["material", "mao_de_obra", "outros",
-                           "custo_administrativo", "comissao"];
+                           "custo_administrativo", "comissao", "imposto"];
 
 // Shared field extraction for lead create/update. Returns { fields, error }.
 // partial=true (PUT) only touches keys present in the body.
@@ -17987,8 +17987,14 @@ function gmJobComputed(row, targetMargin) {
     // them here is the whole change — margem_pct and alvo_ok already derive
     // from lucro, so the target-margin warning starts accounting for them
     // automatically rather than needing its own edit.
+    // imposto added 2026-08-27 at Rafa's request, as one more ordinary cost
+    // in the same VALORES section: "could you add another little box to TAX?"
+    // Like the other five it comes off the top before lucro, so margem_pct and
+    // alvo_ok pick it up with no further edit -- the target-margin warning
+    // starts accounting for tax automatically.
     var custoTotal = (row.material || 0) + (row.mao_de_obra || 0) + (row.outros || 0) +
-                     (row.custo_administrativo || 0) + (row.comissao || 0);
+                     (row.custo_administrativo || 0) + (row.comissao || 0) +
+                     (row.imposto || 0);
     var lucro = row.valor === null || row.valor === undefined ? null : row.valor - custoTotal;
     var margemPct = (row.valor && row.valor > 0 && lucro !== null)
         ? Math.round((lucro / row.valor) * 1000) / 10 : null;
@@ -19635,7 +19641,7 @@ function gmJobFields(body, partial) {
         if (GM_JOB_STATUSES.indexOf(body.status) === -1) { return { error: "Status inválido" }; }
         out.status = body.status;
     }
-    var numFields = ["valor", "material", "mao_de_obra", "outros", "custo_administrativo", "comissao"];
+    var numFields = ["valor", "material", "mao_de_obra", "outros", "custo_administrativo", "comissao", "imposto"];
     for (var i = 0; i < numFields.length; i++) {
         if (has(numFields[i])) { out[numFields[i]] = gmNum(body[numFields[i]]); }
     }
@@ -19659,8 +19665,8 @@ async function handlePostGmJob(id, request, env) {
         var f = parsed.fields;
         var rowId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO gm_jobs (id, client_id, obra, mes_entrega, valor, material, mao_de_obra, outros, custo_administrativo, comissao, inicio, prazo_previsto, entrega_real, status) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO gm_jobs (id, client_id, obra, mes_entrega, valor, material, mao_de_obra, outros, custo_administrativo, comissao, imposto, inicio, prazo_previsto, entrega_real, status) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(rowId, id, f.obra,
             f.mes_entrega !== undefined ? f.mes_entrega : null,
             f.valor !== undefined ? f.valor : null,
@@ -19669,6 +19675,7 @@ async function handlePostGmJob(id, request, env) {
             f.outros !== undefined ? f.outros : null,
             f.custo_administrativo !== undefined ? f.custo_administrativo : null,
             f.comissao !== undefined ? f.comissao : null,
+            f.imposto !== undefined ? f.imposto : null,
             f.inicio !== undefined ? f.inicio : null,
             f.prazo_previsto !== undefined ? f.prazo_previsto : null,
             f.entrega_real !== undefined ? f.entrega_real : null,

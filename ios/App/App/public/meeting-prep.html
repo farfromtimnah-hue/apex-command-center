@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-pt="Preparacao da Reuniao" data-en="Meeting Prep">Preparacao da Reuniao</title>
+<script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1787796089"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <script src="datetime.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --surface: #f9f7f4;
+      --header: #1a1a1d;
+      --gold: #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --text: #1a1a1d;
+      --muted: #6b6660;
+      --border: #e8e2d9;
+      --card: #ffffff;
+      --radius: 10px;
+      --shadow: 0 2px 16px rgba(26,26,29,0.08);
+      --navy: #14243D;
+      --good: #2d6a4f;
+      --warn: #8a6d1d;
+      --crit: #b44040;
+    }
+
+    * { box-sizing: border-box; }
+
+    /* Without this the page renders black text on a dark ground. */
+    body {
+      margin: 0;
+      background: var(--surface);
+      color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: var(--header);
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .header-logo { height: 26px; width: auto; display: block; }
+    .header-title {
+      font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #fff; white-space: nowrap;
+    }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .hdr-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.28);
+      color: #fff; font-family: inherit; font-size: 12px; font-weight: 500;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    .hdr-btn:hover { background: rgba(255,255,255,0.1); }
+
+    main { max-width: 940px; margin: 0 auto; padding: 24px 20px 80px; }
+
+    #stateMsg { padding: 40px 0; text-align: center; color: var(--muted); font-size: 14px; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px; margin-bottom: 16px;
+    }
+
+    .sec-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted); margin: 0 0 14px;
+    }
+
+    /* 1 Header block */
+    .prep-name { font-size: 26px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.02em; }
+    .prep-meta { font-size: 14px; color: var(--muted); margin: 0 0 10px; }
+    .prep-confid {
+      font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
+      padding-top: 10px; margin-top: 12px;
+    }
+    /* example=1 label: one quiet line, muted, no banner and no colour block. */
+    .example-line { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+
+    .kv { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+    .kv-item { min-width: 130px; }
+    .kv-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+    }
+    .kv-value { font-size: 15px; font-weight: 600; }
+
+    .constraint {
+      border-left: 3px solid var(--warn); padding: 8px 0 8px 12px;
+      margin-bottom: 10px; font-size: 14px;
+    }
+    .constraint:last-child { margin-bottom: 0; }
+    .constraint-src { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    textarea.bottleneck {
+      width: 100%; min-height: 110px; resize: vertical;
+      font-family: inherit; font-size: 15px; line-height: 1.55; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px;
+    }
+    textarea.bottleneck:focus { outline: none; border-color: var(--gold); background: #fff; }
+    .ask-line {
+      font-size: 15px; font-weight: 500; color: var(--text);
+      background: var(--gold-dim); border-radius: 8px;
+      padding: 10px 12px; margin: 0 0 10px;
+    }
+    .save-state { font-size: 11px; color: var(--muted); margin-top: 6px; min-height: 14px; }
+
+    /* Owner load */
+    .load-line { font-size: 17px; font-weight: 600; line-height: 1.45; margin: 0 0 10px; }
+    .load-line .num { color: var(--navy); font-weight: 800; }
+    .load-sub { font-size: 12px; color: var(--muted); margin: 0; }
+    .load-bar { height: 10px; background: var(--surface); border-radius: 5px; overflow: hidden; margin: 12px 0 8px; }
+    .load-bar span { display: block; height: 100%; background: var(--navy); border-radius: 5px; }
+
+    /* Scores */
+    details.block { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); margin-bottom: 16px; }
+    details.block > summary {
+      list-style: none; cursor: pointer; padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    details.block > summary::-webkit-details-marker { display: none; }
+    .sum-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .sum-hint { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .block-body { padding: 0 20px 20px; }
+
+    .area { padding: 14px 0; border-top: 1px solid var(--border); }
+    .area:first-child { border-top: none; padding-top: 0; }
+    .area-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .area-name { font-size: 15px; font-weight: 700; }
+    .area-score { font-size: 14px; font-weight: 700; white-space: nowrap; }
+    .bar { height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden; }
+    .bar span { display: block; height: 100%; border-radius: 4px; }
+    .area-ev { font-size: 13px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
+    .s-good { color: var(--good); } .fill-good { background: var(--good); }
+    .s-warn { color: var(--warn); } .fill-warn { background: var(--warn); }
+    .s-crit { color: var(--crit); } .fill-crit { background: var(--crit); }
+    .positive {
+      margin-top: 16px; padding: 14px; background: var(--gold-dim);
+      border-radius: 8px; font-size: 14px; line-height: 1.6;
+    }
+    .positive-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 4px;
+    }
+
+    /* 62 questions */
+    .q-area-name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--navy); margin: 16px 0 6px; }
+    .q-row { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid var(--border); font-size: 13px; }
+    .q-mark { flex: 0 0 22px; font-weight: 700; }
+    .q-yes { color: var(--good); } .q-no { color: var(--crit); }
+    .q-text { color: var(--text); }
+
+    /* Stories */
+    .story { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--card); }
+    .story > summary { list-style: none; cursor: pointer; padding: 12px 14px; }
+    .story > summary::-webkit-details-marker { display: none; }
+    .story-line { font-size: 14px; font-weight: 600; line-height: 1.45; }
+    .story-why { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .tag {
+      display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+      background: var(--gold-dim); color: var(--warn);
+      padding: 2px 7px; border-radius: 20px; margin-right: 5px;
+    }
+    .story-body { padding: 0 14px 14px; }
+    .story-narr { font-size: 14px; line-height: 1.65; white-space: pre-wrap; margin-bottom: 12px; }
+    .story-note {
+      font-size: 12px; line-height: 1.55; color: var(--text);
+      border-left: 3px solid var(--crit); background: var(--surface);
+      padding: 9px 12px; border-radius: 0 6px 6px 0;
+    }
+    .story-note b { color: var(--crit); }
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin: 18px 0 10px;
+    }
+    .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    /* Assets */
+    .asset-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+    .asset-row:first-child { border-top: none; }
+    .asset-label { flex: 0 0 150px; font-size: 12px; font-weight: 600; color: var(--muted); }
+    .asset-gap { color: var(--crit); font-size: 12px; font-weight: 600; }
+
+    /* Checklist */
+    .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
+    .check-row:first-child { border-top: none; }
+    .check-row input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); flex: 0 0 auto; }
+    .check-row label { font-size: 14px; line-height: 1.45; }
+
+    @media (max-width: 620px) {
+      main { padding: 16px 12px 60px; }
+      .card, .block-body { padding: 16px; }
+      .asset-label { flex-basis: 110px; }
+      .prep-name { font-size: 21px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+  <header>
+    <div class="header-left">
+      <img src="assets/apex-logo.png" alt="APEX" class="header-logo">
+      <div class="header-title"><span class="show-pt">Preparacao da Reuniao</span><span class="show-en">Meeting Prep</span></div>
+    </div>
+    <div class="header-right">
+      <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
+      <button class="hdr-btn" onclick="toggleLang()">PT / EN</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="stateMsg">Carregando...</div>
+    <div id="prepBody" hidden></div>
+  </main>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var params       = new URLSearchParams(window.location.search);
+    var CLIENT_ID    = params.get("client");
+    var MEETING_TYPE = params.get("type") || "xray_results";
+    var IS_EXAMPLE   = params.get("example") === "1";
+
+    var currentUser = null;
+    var auth        = null;
+    var prepData    = null;
+    var saveTimer   = null;
+    var lastSaved   = null;
+
+    // Every string in this file is plain ASCII. Portuguese accented text lives
+    // in the HTML the renderers emit, never in a JS string literal.
+    var PATTERN_LABELS = {
+      medo_de_prospectar:     "medo de prospectar",
+      espera_o_cliente_vir:   "espera o cliente vir",
+      sem_clareza_financeira: "sem clareza financeira",
+      dependencia_do_dono:    "dependencia do dono",
+      tudo_na_cabeca:         "tudo na cabeca",
+      zona_de_conforto:       "zona de conforto",
+      recomeco_apos_fracasso: "recomeco apos fracasso",
+      risco_sem_conselho:     "risco sem conselho"
+    };
+
+    var AFTER_MEETING = [
+      { id: "chk_xray",     pt: "Enviar o Raio-X",                  en: "Send the X-Ray" },
+      { id: "chk_pricing",  pt: "Enviar o comparativo de precos",   en: "Send the pricing comparison" },
+      { id: "chk_access",   pt: "Enviar o acesso ao sistema",       en: "Send system access" },
+      { id: "chk_whatsapp", pt: "Criar o grupo de WhatsApp",        en: "Create the WhatsApp group" },
+      { id: "chk_payment",  pt: "Definir a data de pagamento",      en: "Set the payment date" }
+    ];
+
+    function escHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function isEn() { return document.body.classList.contains("lang-en"); }
+
+    function ptEn(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+
+    function toggleLang() {
+      var b = document.body;
+      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
+      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
+      if (window.apexApplyTitle) { window.apexApplyTitle(); }
+      if (prepData) { render(prepData); }
+    }
+
+    function goBack() {
+      if (window.history.length > 1) { window.history.back(); }
+      else { window.location.href = "dashboard.html"; }
+    }
+
+    function firebaseUser() {
+      if (currentUser) { return Promise.resolve(currentUser); }
+      return new Promise(function(resolve, reject) {
+        if (!auth) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+          auth = firebase.auth();
+        }
+        auth.onAuthStateChanged(function(user) {
+          if (user) { currentUser = user; resolve(user); }
+          else { reject(new Error("Not authenticated")); }
+        });
+      });
+    }
+
+    function getToken() {
+      if (currentUser) { return currentUser.getIdToken(); }
+      return Promise.reject(new Error("Not authenticated"));
+    }
+
+    function apiFetch(path, opts) {
+      return getToken().then(function(token) {
+        var o = opts || {};
+        var headers = { "Authorization": "Bearer " + token };
+        if (o.body) { headers["Content-Type"] = "application/json"; }
+        return fetch(WORKER_URL + path, {
+          method:  o.method || "GET",
+          headers: headers,
+          body:    o.body || undefined
+        });
+      });
+    }
+
+    function showMsg(pt, en) {
+      var el = document.getElementById("stateMsg");
+      if (!el) { return; }
+      el.hidden = false;
+      el.innerHTML = ptEn(escHtml(pt), escHtml(en));
+      var body = document.getElementById("prepBody");
+      if (body) { body.hidden = true; }
+    }
+
+    // Status -> semantic colour. Accented and unaccented spellings both appear
+    // in score_json depending on which instrument wrote the row, so both are
+    // handled. Anything unrecognised falls through to the neutral warn tone
+    // rather than being asserted as good or critical.
+    function statusClass(status) {
+      var s = String(status || "");
+      if (s === "Bom") { return "good"; }
+      if (s === "Moderado") { return "warn"; }
+      if (s === "Critico" || s === "Cr\u00edtico") { return "crit"; }
+      return "warn";
+    }
+
+    // ---- 1 Header ---------------------------------------------------------
+    function renderHead(d) {
+      var c = d.client || {};
+      var bits = [];
+      if (c.owners)   { bits.push(escHtml(c.owners)); }
+      if (c.location) { bits.push(escHtml(c.location)); }
+      if (c.industry) { bits.push(escHtml(c.industry)); }
+
+      var typeLabel = d.meeting_type === "xray_results"
+        ? ptEn("Reuniao de resultados do Raio-X", "X-Ray results meeting")
+        : escHtml(d.meeting_type || "");
+
+      var h = '<div class="card">';
+      if (IS_EXAMPLE) {
+        h += '<p class="example-line">' +
+             ptEn("Exemplo, com dados reais da Brax Facilities.",
+                  "Example, with real Brax Facilities data.") + '</p>';
+      }
+      h += '<h1 class="prep-name">' + escHtml(c.name || "") + '</h1>';
+      if (bits.length) { h += '<p class="prep-meta">' + bits.join(" &middot; ") + '</p>'; }
+      h += '<p class="prep-meta">' + typeLabel + '</p>';
+      h += '<p class="prep-confid">' +
+           ptEn("Esta pagina e apenas para o consultor. Qualquer material mostrado ao cliente abre em separado.",
+                "This page is consultant-only. Anything shown on screen opens separately.") +
+           '</p>';
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 2 Before you start ----------------------------------------------
+    // Money or timing constraints surfaced at the TOP. In the real Brax meeting
+    // the cash objection did not appear until minute 55 and the deal did not
+    // close. Renders nothing at all when there is nothing true to show.
+    function renderBefore(d) {
+      var c = d.client || {};
+      var rows = [];
+
+      var sc = d.assessment && d.assessment.score;
+      var areas = (sc && sc.areas) || [];
+      for (var i = 0; i < areas.length; i++) {
+        var a = areas[i];
+        if (!a.evidencePt) { continue; }
+        var cls = statusClass(a.status);
+        if (cls !== "crit" && cls !== "warn") { continue; }
+        var ev = String(a.evidencePt);
+        // Only the money-and-timing evidence belongs at the top of the page.
+        if (!/margem|preco|preço|custo|receita|financ|DRE|caixa|pagamento|dinheiro/i.test(ev)) { continue; }
+        rows.push(
+          '<div class="constraint">' + escHtml(ev) +
+          '<span class="constraint-src">' + escHtml(a.namePt || a.key || "") + '</span></div>'
+        );
+      }
+
+      var side = [];
+      if (c.owners) {
+        side.push('<div class="kv-item"><div class="kv-label">' +
+          ptEn("Quem participa", "Attending") + '</div><div class="kv-value">' +
+          escHtml(c.owners) + '</div></div>');
+      }
+      if (c.package) {
+        side.push('<div class="kv-item"><div class="kv-label">' +
+          ptEn("Multiplicador do pipeline", "Pipeline multiplier") + '</div><div class="kv-value">' +
+          escHtml(c.package) + '</div></div>');
+      }
+
+      if (!rows.length && !side.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Antes de comecar", "Before you start") + '</p>';
+      h += rows.join("");
+      if (side.length) {
+        h += '<div class="kv" style="margin-top:' + (rows.length ? "14px" : "0") + ';">' + side.join("") + '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 3 What he says the bottleneck is --------------------------------
+    function renderBottleneck(d) {
+      var txt = (d.bottleneck && d.bottleneck.text) || "";
+      lastSaved = txt;
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O gargalo, na palavra dele", "What he says the bottleneck is") + '</p>';
+      h += '<p class="ask-line">' +
+           ptEn("Me fala um pouquinho, o que voce mais percebe aqui, na sua empresa, de gargalo?",
+                "Tell me a little: what do you notice most here in your company as a bottleneck?") +
+           '</p>';
+      h += '<textarea id="bottleneckBox" class="bottleneck">' + escHtml(txt) + '</textarea>';
+      h += '<div class="save-state" id="saveState"></div>';
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 4 Owner dependency, precomputed ---------------------------------
+    // The arithmetic the X-Ray can actually prove. Renders nothing when no
+    // practice activity was answered: "0 activities" and "never filled in"
+    // are not the same claim, and only one of them is true here.
+    function renderOwnerLoad(d) {
+      var o = d.ownerLoad;
+      if (!o || !o.answered) { return ""; }
+
+      var pct = o.answered ? Math.round((o.owner_count / o.answered) * 100) : 0;
+      var lowTxt  = String(o.hours_low);
+      var highTxt = String(o.hours_high);
+
+      var linePt = 'O dono faz <span class="num">' + o.owner_count + '</span> das ' +
+                   o.total_activities + ' atividades, cerca de <span class="num">' +
+                   lowTxt + ' a ' + highTxt + '</span> horas por semana antes de tocar no trabalho em si.';
+      var lineEn = 'The owner personally does <span class="num">' + o.owner_count + '</span> of ' +
+                   o.total_activities + ' activities, about <span class="num">' +
+                   lowTxt + ' to ' + highTxt + '</span> hours a week before touching the work itself.';
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("A dependencia do dono", "Owner dependency") + '</p>';
+      h += '<p class="load-line">' + ptEn(linePt, lineEn) + '</p>';
+      h += '<div class="load-bar"><span style="width:' + pct + '%;"></span></div>';
+      h += '<p class="load-sub">' +
+           ptEn(escHtml(o.answered + " de " + o.total_activities + " atividades foram respondidas."),
+                escHtml(o.answered + " of " + o.total_activities + " activities were answered.")) +
+           '</p>';
+      if (o.allOwner) {
+        h += '<p class="load-sub" style="margin-top:6px;">' +
+             ptEn("Todas as atividades respondidas sao feitas pelo dono.",
+                  "Every answered activity is done by the owner.") + '</p>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 5 X-Ray scores, expandable, open by default ---------------------
+    // Never assumes six areas: BRAX carries the legacy four. Ends on the
+    // genuine positive, which is how he always closes that block.
+    function renderScores(d) {
+      var sc = d.assessment && d.assessment.score;
+      if (!sc) { return ""; }
+      var areas = sc.areas || [];
+      if (!areas.length) { return ""; }
+
+      var h = '<details class="block" open><summary><span class="sum-title">' +
+              ptEn("As notas do Raio-X", "The X-Ray scores") + '</span>';
+      if (typeof sc.pct === "number") {
+        h += '<span class="sum-hint">' + sc.pct + '%';
+        if (typeof sc.score === "number" && typeof sc.max_score === "number") {
+          h += ' &middot; ' + sc.score + '/' + sc.max_score;
+        }
+        h += '</span>';
+      }
+      h += '</summary><div class="block-body">';
+
+      for (var i = 0; i < areas.length; i++) {
+        var a = areas[i];
+        var cls = statusClass(a.status);
+        // Score out of 10, as the section specifies, derived from the area's
+        // own percentage so a 4-area and a 6-area instrument read alike.
+        var outOf10 = typeof a.pct === "number" ? Math.round(a.pct / 10) : null;
+        var name = isEn() ? (a.nameEn || a.namePt || a.key) : (a.namePt || a.nameEn || a.key);
+        h += '<div class="area"><div class="area-head">';
+        h += '<span class="area-name">' + escHtml(name) + '</span>';
+        if (outOf10 !== null) {
+          h += '<span class="area-score s-' + cls + '">' + outOf10 + '/10</span>';
+        }
+        h += '</div>';
+        if (typeof a.pct === "number") {
+          h += '<div class="bar"><span class="fill-' + cls + '" style="width:' + a.pct + '%;"></span></div>';
+        }
+        if (a.evidencePt) {
+          h += '<p class="area-ev">' + escHtml(a.evidencePt) + '</p>';
+        }
+        h += '</div>';
+      }
+
+      if (sc.positivoPt) {
+        h += '<div class="positive"><span class="positive-label">' +
+             ptEn("O ponto positivo", "The genuine positive") + '</span>' +
+             escHtml(sc.positivoPt) + '</div>';
+      }
+      h += '</div></details>';
+      return h;
+    }
+
+    // ---- 6 The 62 questionnaire answers, collapsed -----------------------
+    function renderQuestions(d) {
+      if (!d.answeredCount) { return ""; }
+      var groups = d.areaQuestions || [];
+      var h = '<details class="block"><summary><span class="sum-title">' +
+              ptEn("As 62 respostas do questionario", "The 62 questionnaire answers") +
+              '</span><span class="sum-hint">' + d.answeredCount + '</span></summary>' +
+              '<div class="block-body">';
+      for (var i = 0; i < groups.length; i++) {
+        var g = groups[i];
+        var qs = g.questions || [];
+        var shown = [];
+        for (var j = 0; j < qs.length; j++) {
+          if (qs[j].answer === 0 || qs[j].answer === 1) { shown.push(qs[j]); }
+        }
+        if (!shown.length) { continue; }
+        h += '<p class="q-area-name">' + escHtml(isEn() ? (g.nameEn || g.namePt) : (g.namePt || g.nameEn)) + '</p>';
+        for (var k = 0; k < shown.length; k++) {
+          var q = shown[k];
+          var yes = q.answer === 1;
+          h += '<div class="q-row"><span class="q-mark ' + (yes ? "q-yes" : "q-no") + '">' +
+               (yes ? "Sim" : "Nao") + '</span><span class="q-text">' +
+               escHtml(isEn() ? (q.labelEn || q.labelPt) : (q.labelPt || q.labelEn)) +
+               '</span></div>';
+        }
+      }
+      h += '</div></details>';
+      return h;
+    }
+
+    // ---- 7 Stories, ranked -----------------------------------------------
+    // The system ranks. He picks. Never auto-select, never hide the rest:
+    // a meeting turns and he needs the others in his back pocket.
+    function storyCard(s) {
+      var why = [];
+      var mb = s.matched_bottleneck || [];
+      var mp = s.matched_patterns || [];
+      for (var i = 0; i < mb.length; i++) {
+        why.push('<span class="tag">' + escHtml(PATTERN_LABELS[mb[i]] || mb[i]) + '</span>');
+      }
+      for (var j = 0; j < mp.length; j++) {
+        if (mb.indexOf(mp[j]) > -1) { continue; }
+        why.push('<span class="tag">' + escHtml(PATTERN_LABELS[mp[j]] || mp[j]) + '</span>');
+      }
+
+      var reason = "";
+      if (mb.length) {
+        reason = isEn() ? "Matches what he just said" : "Casa com o que ele acabou de dizer";
+      } else if (mp.length) {
+        reason = isEn() ? "Matches a pattern in the X-Ray" : "Casa com um padrao do Raio-X";
+      }
+
+      var h = '<details class="story"><summary>';
+      h += '<div class="story-line">' + escHtml(s.one_liner || "") + '</div>';
+      if (why.length || reason) {
+        h += '<div class="story-why">' + why.join("") +
+             (reason ? '<span>' + escHtml(reason) + '</span>' : "") + '</div>';
+      }
+      h += '</summary><div class="story-body">';
+      if (s.narrative) {
+        h += '<div class="story-narr">' + escHtml(s.narrative) + '</div>';
+      }
+      // telling_note is ALWAYS rendered: it says what must not be claimed.
+      if (s.telling_note) {
+        h += '<div class="story-note"><b>' +
+             ptEn("Ao contar:", "When telling it:") + '</b> ' +
+             escHtml(s.telling_note) + '</div>';
+      }
+      h += '</div></details>';
+      return h;
+    }
+
+    function renderStories(d) {
+      var list = d.stories || [];
+      if (!list.length) { return ""; }
+      var matched = [];
+      var rest    = [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].matched) { matched.push(list[i]); } else { rest.push(list[i]); }
+      }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Historias", "Stories") + '</p>';
+      for (var m = 0; m < matched.length; m++) { h += storyCard(matched[m]); }
+      if (matched.length && rest.length) {
+        h += '<div class="divider">' + ptEn("As demais", "The rest") + '</div>';
+      }
+      for (var r = 0; r < rest.length; r++) { h += storyCard(rest[r]); }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 8 What he already has -------------------------------------------
+    function renderAssets(d) {
+      var c = d.client || {};
+      var dp = {};
+      if (c.digital_presence) {
+        try { dp = JSON.parse(c.digital_presence) || {}; } catch (e) { dp = {}; }
+      }
+
+      var items = [
+        { pt: "Site",       en: "Website",                 val: dp.website || dp.site || null },
+        { pt: "Google",     en: "Google Business Profile", val: dp.google || dp.google_business || null },
+        { pt: "Instagram",  en: "Instagram",               val: c.instagram_handle || dp.instagram || null },
+        { pt: "E-mail",     en: "Email",                   val: c.email || null },
+        { pt: "Equipe",     en: "Team size",               val: dp.team_size || dp.equipe || null }
+      ];
+
+      var rows = [];
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var has = it.val !== null && it.val !== undefined && String(it.val).trim() !== "";
+        rows.push(
+          '<div class="asset-row"><span class="asset-label">' + ptEn(it.pt, it.en) + '</span>' +
+          (has
+            ? '<span>' + escHtml(String(it.val)) + '</span>'
+            : '<span class="asset-gap">' + ptEn("nao consta", "not on record") + '</span>') +
+          '</div>'
+        );
+      }
+
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que ele ja tem", "What he already has") + '</p>' +
+             rows.join("") + '</div>';
+    }
+
+    // ---- 9 After the meeting ---------------------------------------------
+    function renderChecklist() {
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Depois da reuniao", "After the meeting") + '</p>';
+      for (var i = 0; i < AFTER_MEETING.length; i++) {
+        var it = AFTER_MEETING[i];
+        h += '<div class="check-row"><input type="checkbox" id="' + it.id + '">' +
+             '<label for="' + it.id + '">' + ptEn(it.pt, it.en) + '</label></div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    function render(d) {
+      var body = document.getElementById("prepBody");
+      if (!body) { return; }
+      var h = "";
+      h += renderHead(d);
+      h += renderBefore(d);
+      h += renderBottleneck(d);
+      h += renderOwnerLoad(d);
+      h += renderScores(d);
+      h += renderQuestions(d);
+      h += renderStories(d);
+      h += renderAssets(d);
+      h += renderChecklist();
+      body.innerHTML = h;
+      body.hidden = false;
+      var msg = document.getElementById("stateMsg");
+      if (msg) { msg.hidden = true; }
+      wireBottleneck();
+    }
+
+    // Autosave on blur, debounced. A save that changes the text re-ranks the
+    // stories, so the page reloads its data rather than leaving stale order.
+    function wireBottleneck() {
+      var box = document.getElementById("bottleneckBox");
+      if (!box) { return; }
+      box.addEventListener("blur", function() {
+        if (saveTimer) { clearTimeout(saveTimer); }
+        saveTimer = setTimeout(saveBottleneck, 400);
+      });
+    }
+
+    function setSaveState(pt, en) {
+      var el = document.getElementById("saveState");
+      if (!el) { return; }
+      el.innerHTML = ptEn(escHtml(pt), escHtml(en));
+    }
+
+    function saveBottleneck() {
+      var box = document.getElementById("bottleneckBox");
+      if (!box) { return; }
+      var txt = box.value;
+      if (txt === lastSaved) { return; }
+      setSaveState("Salvando...", "Saving...");
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/meeting-prep/bottleneck", {
+        method: "PUT",
+        body: JSON.stringify({ bottleneck: txt, meeting_type: MEETING_TYPE })
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function() {
+        lastSaved = txt;
+        setSaveState("Salvo. As historias foram reordenadas.", "Saved. Stories reordered.");
+        return loadPrep(true);
+      }).catch(function() {
+        setSaveState("Nao foi possivel salvar.", "Could not save.");
+      });
+    }
+
+    function loadPrep(quiet) {
+      return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) +
+                      "/meeting-prep?type=" + encodeURIComponent(MEETING_TYPE))
+        .then(function(res) {
+          if (res.status === 403) { throw new Error("forbidden"); }
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          prepData = data;
+          // Preserve what he is typing: a background reload after a save must
+          // never overwrite the textarea under his cursor.
+          var box = document.getElementById("bottleneckBox");
+          var live = box ? box.value : null;
+          render(data);
+          if (quiet && live !== null) {
+            var nb = document.getElementById("bottleneckBox");
+            if (nb) { nb.value = live; }
+          }
+        })
+        .catch(function(err) {
+          if (quiet) { return; }
+          if (err && err.message === "forbidden") {
+            showMsg("Esta pagina e apenas para a equipe.", "This page is staff only.");
+          } else {
+            showMsg("Nao foi possivel carregar a preparacao.", "Could not load the meeting prep.");
+          }
+        });
+    }
+
+    function init() {
+      if (!CLIENT_ID) {
+        showMsg("Cliente nao informado.", "No client specified.");
+        return;
+      }
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        loadPrep(false);
+      });
+    }
+
+    window.onload = function() {
+      init();
+    };
+  </script>
+</body>
+</html>

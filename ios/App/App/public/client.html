@@ -4336,8 +4336,43 @@
 
     // ── Weekly entry summary ───────────────────────────────────────────────
 
+    // ── Entry week ────────────────────────────────────────────────────────
+    //
+    // Rebuilt 2026-08-30. Nicole: "you can't scroll. You can't look at past
+    // states. You can't look at future dates... It's not even showing a full
+    // week, but it's saying that it is. You can't click it and see the
+    // history. So how is he supposed to see the daily logs?"
+    //
+    // All three were true and all three are fixed here. Nothing new was needed
+    // on the server: /weekly-summary already accepted ?start= and was simply
+    // never given one, and /entries?month= already returns the filled sections.
+    //
+    // WEEK_START is the Monday being viewed. Null means "this week", so the
+    // card opens on the current week rather than wherever it was left.
+    var WEEK_START = null;
+
+    function mondayOf(d) {
+      var t = new Date(d.getTime());
+      // getUTCDay: 0=Sun. Shift so Monday is the start, and Sunday counts as
+      // the END of the week it closes, not the start of the next one.
+      var dow = (t.getUTCDay() + 6) % 7;
+      t.setUTCDate(t.getUTCDate() - dow);
+      return t.toISOString().slice(0, 10);
+    }
+
+    function shiftWeek(days) {
+      var base = WEEK_START || mondayOf(new Date());
+      var d = new Date(base + "T12:00:00Z");
+      d.setUTCDate(d.getUTCDate() + days);
+      WEEK_START = mondayOf(d);
+      loadWeeklySummary();
+    }
+
+    function thisWeek() { WEEK_START = null; loadWeeklySummary(); }
+
     function loadWeeklySummary() {
-      apiFetch("/api/clients/" + CLIENT_ID + "/weekly-summary")
+      var qs = WEEK_START ? "?start=" + encodeURIComponent(WEEK_START) : "";
+      apiFetch("/api/clients/" + CLIENT_ID + "/weekly-summary" + qs)
         .then(function(res) { return res.json(); })
         .then(function(data) {
           var el = document.getElementById("weeklySummaryBody");
@@ -4356,19 +4391,63 @@
             future:      { color: "#b8b2a8", bg: "transparent",           pt: "—",             en: "—" },
             not_tracked: { color: "#b8b2a8", bg: "transparent",           pt: "—",             en: "—" }
           };
-          var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">';
-          (data.days || []).forEach(function(d, i) {
+
+          var days = data.days || [];
+          var first = days.length ? days[0].date : (WEEK_START || mondayOf(new Date()));
+          var last  = days.length ? days[days.length - 1].date : first;
+          var todayStr = new Date().toISOString().slice(0, 10);
+          var isCurrentWeek = todayStr >= first && todayStr <= last;
+
+          // Header: which week, and how to move. "Esta semana" only appears
+          // when she is NOT on it -- an button that does nothing is noise.
+          var html =
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<button type="button" class="btn btn-sm" onclick="shiftWeek(-7)" aria-label="' +
+                  (isEnLang ? "Previous week" : "Semana anterior") + '">&#8249;</button>' +
+                '<button type="button" class="btn btn-sm" onclick="shiftWeek(7)" aria-label="' +
+                  (isEnLang ? "Next week" : "Próxima semana") + '">&#8250;</button>' +
+                (isCurrentWeek ? "" :
+                  '<button type="button" class="btn btn-sm" onclick="thisWeek()">' +
+                  (isEnLang ? "This week" : "Esta semana") + '</button>') +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);font-weight:600;">' +
+                escHtml(formatDate(first)) + ' – ' + escHtml(formatDate(last)) +
+              '</div>' +
+            '</div>';
+
+          // The grid scrolls horizontally instead of clipping. The old one was
+          // a fixed repeat(7,1fr) whose cells could not shrink below their
+          // text, so on a narrow card three of the seven days were simply cut
+          // off -- while the heading still called it a week.
+          html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
+                  '<div style="display:grid;grid-template-columns:repeat(7,minmax(64px,1fr));gap:6px;min-width:480px;">';
+
+          days.forEach(function(d, i) {
             var m = statusMeta[d.status] || statusMeta.missing;
             var dayNum = d.date.split("-")[2];
-            html += '<div style="text-align:center;border:1px solid var(--border);border-radius:8px;padding:8px 2px;background:' + m.bg + ';"' +
+            var isToday = d.date === todayStr;
+            // Only days that could have an entry are clickable. A future date
+            // or a day they do not work has nothing to show, and a button that
+            // opens an empty panel teaches her not to press them.
+            var clickable = d.status !== "future" && d.status !== "not_tracked" &&
+                            d.status !== "not_scheduled";
+            html += '<' + (clickable ? "button type=\"button\"" : "div") +
+              ' style="text-align:center;border:1px solid ' +
+                (isToday ? "var(--gold,#C9A227)" : "var(--border)") + ';' +
+                'border-radius:8px;padding:8px 2px;background:' + m.bg + ';' +
+                'font-family:inherit;' + (clickable ? "cursor:pointer;" : "") + '"' +
+              (clickable ? ' onclick="openDayEntry(\'' + d.date + '\')"' : '') +
               (d.reason ? ' title="' + escHtml(d.reason) + '"' : '') + '>' +
               '<div style="font-size:10px;color:var(--muted);font-weight:700;">' + dayNames[i] + '</div>' +
               '<div style="font-size:14px;font-weight:700;margin:2px 0;">' + dayNum + '</div>' +
-              '<div style="font-size:9px;font-weight:700;color:' + m.color + ';line-height:1.2;">' + (isEnLang ? m.en : m.pt) + '</div>' +
-              '</div>';
+              '<div style="font-size:9px;font-weight:700;color:' + m.color + ';line-height:1.2;">' +
+                (isEnLang ? m.en : m.pt) + '</div>' +
+              '</' + (clickable ? "button" : "div") + '>';
           });
-          html += '</div>';
-          var reasons = (data.days || []).filter(function(d) { return d.reason; });
+          html += '</div></div>';
+
+          var reasons = days.filter(function(d) { return d.reason; });
           if (reasons.length) {
             html += '<div style="margin-top:10px;font-size:12px;color:var(--muted);">';
             reasons.forEach(function(d) {
@@ -4376,11 +4455,70 @@
             });
             html += '</div>';
           }
+          html += '<div id="dayEntryPanel" style="margin-top:12px;"></div>';
           el.innerHTML = html;
         })
         .catch(function() {
           var el = document.getElementById("weeklySummaryBody");
           if (el) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">--</div>'; }
+        });
+    }
+
+    // Open one day's actual entry, inline under the week rather than in a
+    // modal: the point is to compare it against the week it came from.
+    function openDayEntry(dateStr) {
+      var panel = document.getElementById("dayEntryPanel");
+      if (!panel) { return; }
+      var isEnLang = document.body.classList.contains("lang-en");
+      panel.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
+        (isEnLang ? "Loading..." : "Carregando...") + '</div>';
+
+      apiFetch("/api/clients/" + CLIENT_ID + "/entries?month=" + dateStr.slice(0, 7))
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var entry = (d.entries || []).filter(function(e) {
+            return e.entry_date === dateStr;
+          })[0];
+          var head = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+              '<strong style="font-size:13px;">' + escHtml(formatDate(dateStr)) + '</strong>' +
+              '<button type="button" class="btn btn-sm" onclick="document.getElementById(\'dayEntryPanel\').innerHTML=\'\'">&times;</button>' +
+            '</div>';
+          if (!entry) {
+            panel.innerHTML = '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+              head + '<div style="color:var(--muted);font-size:13px;margin-top:6px;">' +
+              (isEnLang ? "Nothing was filled in for this day."
+                        : "Nada foi preenchido neste dia.") + '</div></div>';
+            return;
+          }
+          var sections = {};
+          try { sections = JSON.parse(entry.sections_json || "{}"); } catch (e) { sections = {}; }
+          var keys = Object.keys(sections);
+          var body = "";
+          if (!keys.length) {
+            body = '<div style="color:var(--muted);font-size:13px;">' +
+              (isEnLang ? "Opened, but left empty." : "Aberto, mas sem conteúdo.") + '</div>';
+          } else {
+            keys.forEach(function(k) {
+              var v = sections[k];
+              if (v === null || v === undefined || v === "") { return; }
+              if (typeof v === "object") { v = JSON.stringify(v); }
+              body += '<div style="margin-top:8px;">' +
+                '<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">' +
+                  escHtml(k) + '</div>' +
+                '<div style="font-size:13px;white-space:pre-wrap;">' + escHtml(String(v)) + '</div>' +
+              '</div>';
+            });
+            if (!body) {
+              body = '<div style="color:var(--muted);font-size:13px;">' +
+                (isEnLang ? "Opened, but left empty." : "Aberto, mas sem conteúdo.") + '</div>';
+            }
+          }
+          panel.innerHTML = '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+            head + body + '</div>';
+        })
+        .catch(function() {
+          panel.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
+            (isEnLang ? "Could not load that day." : "Não foi possível carregar esse dia.") + '</div>';
         });
     }
 

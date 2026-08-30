@@ -666,8 +666,9 @@ async function handlePostSessionDiscard(sessionId, request, env) {
             .bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
 
-        await env.DB.prepare("UPDATE sessions SET status = 'discarded' WHERE id = ?")
-            .bind(sessionId).run();
+        await env.DB.prepare(
+            "UPDATE sessions SET status = 'discarded', discarded_by = ?, discarded_at = ? WHERE id = ?"
+        ).bind(user.display_name || user.role, new Date().toISOString(), sessionId).run();
 
         return jsonOk({ ok: true, session_id: sessionId, status: "discarded" });
     } catch (e) {
@@ -1111,12 +1112,20 @@ async function handleGetSessions(request, env) {
             // views and active lists still exclude them.
             stmt = env.DB.prepare(
                 "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at, " +
+                // Actor attribution: summarize DRAFTS the summary, approve is the
+                // human sign-off. Selected explicitly -- this list does not use
+                // SELECT *, so a new column is invisible to the UI until named here.
+                "summarized_by, summarized_at, approved_by, " +
                 "raw_transcript IS NOT NULL as has_transcript " +
                 "FROM sessions WHERE status != 'archived' AND meeting_category != 'event' AND client_id = ? ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
                 "SELECT id, client_name, client_id, date, status, summary_json, pdf_data, task_completions, approved_at, created_at, " +
+                // Actor attribution: summarize DRAFTS the summary, approve is the
+                // human sign-off. Selected explicitly -- this list does not use
+                // SELECT *, so a new column is invisible to the UI until named here.
+                "summarized_by, summarized_at, approved_by, " +
                 "raw_transcript IS NOT NULL as has_transcript " +
                 // Event entries (conferences, Apex Club) are not client
                 // sessions -- keep them out of the summarize/transcript list.
@@ -1762,8 +1771,12 @@ async function handlePostSummarize(request, env) {
 
         // Update sessions: keep full summary_json for dashboard compat, write pdf_data to its own column
         await env.DB.prepare(
-            "UPDATE sessions SET summary_json = ?, pdf_data = ?, status = 'summarized' WHERE id = ?"
-        ).bind(JSON.stringify(summaryJson), pdfData ? JSON.stringify(pdfData) : null, body.session_id).run();
+            "UPDATE sessions SET summary_json = ?, pdf_data = ?, status = 'summarized', " +
+            "summarized_by = ?, summarized_at = ? WHERE id = ?"
+        ).bind(
+            JSON.stringify(summaryJson), pdfData ? JSON.stringify(pdfData) : null,
+            user.display_name || user.role, new Date().toISOString(), body.session_id
+        ).run();
 
         // Write 6 text keys + 3 structured sections to session_summaries
         var ss = summaryJson;
@@ -1849,6 +1862,10 @@ async function handlePostApprove(request, env) {
             ? JSON.stringify(body.edited_summary)
             : session.summary_json;
         var approvedAt = new Date().toISOString();
+        // Who signed off. Approve is a human judgment step -- summarize only
+        // drafts the summary, a person reads and edits it before approving --
+        // so the two actors are recorded separately.
+        var approvedBy = user.display_name || user.role;
 
         // Rebuild the template-facing pdf_data from the approved summary so review edits
         // (including business_diagnosis, swot_synthesis, thirty_day_goals) reach the PDF.
@@ -1878,8 +1895,9 @@ async function handlePostApprove(request, env) {
 
         if (approvedPdfData) {
             await env.DB.prepare(
-                "UPDATE sessions SET status = 'approved', approved_at = ?, summary_json = ?, pdf_data = ? WHERE id = ?"
-            ).bind(approvedAt, summaryToStore, JSON.stringify(approvedPdfData), body.session_id).run();
+                "UPDATE sessions SET status = 'approved', approved_at = ?, approved_by = ?, " +
+                "summary_json = ?, pdf_data = ? WHERE id = ?"
+            ).bind(approvedAt, approvedBy, summaryToStore, JSON.stringify(approvedPdfData), body.session_id).run();
 
             var approvedDocId = crypto.randomUUID();
             await env.DB.prepare(
@@ -1888,8 +1906,9 @@ async function handlePostApprove(request, env) {
             ).bind(approvedDocId, body.session_id, JSON.stringify(approvedPdfData)).run();
         } else {
             await env.DB.prepare(
-                "UPDATE sessions SET status = 'approved', approved_at = ?, summary_json = ? WHERE id = ?"
-            ).bind(approvedAt, summaryToStore, body.session_id).run();
+                "UPDATE sessions SET status = 'approved', approved_at = ?, approved_by = ?, " +
+                "summary_json = ? WHERE id = ?"
+            ).bind(approvedAt, approvedBy, summaryToStore, body.session_id).run();
         }
 
         // TODO: generate branded PDF from summary_json and deliver to client

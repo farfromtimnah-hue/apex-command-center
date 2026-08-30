@@ -2772,10 +2772,23 @@
       var statusEl = document.getElementById("detailStatus");
       statusEl.setAttribute("data-status", session.status);
 
+      // Who did what, not just when. Summarize only DRAFTS the summary (Claude
+      // reads the transcript); approve is the human sign-off after reading and
+      // editing it. Showing only the approval date made a bulk backlog cleanup
+      // read identically to Rafa's normal weekly review -- so both actors are
+      // surfaced, and a summarized-not-yet-approved session says so plainly.
+      // Rows from before 2026-08-30 carry no actor and simply omit the "by".
       var approvedEl = document.getElementById("detailApproved");
       if (session.approved_at) {
         approvedEl.hidden = false;
-        approvedEl.textContent = "Approved " + formatDate(session.approved_at.split("T")[0]);
+        approvedEl.textContent = "Approved " + formatDate(session.approved_at.split("T")[0]) +
+          (session.approved_by ? " by " + session.approved_by : "");
+      } else if (session.summarized_at || session.summarized_by) {
+        approvedEl.hidden = false;
+        approvedEl.textContent = t("Resumo gerado", "Summary drafted") +
+          (session.summarized_at ? " " + formatDate(session.summarized_at.split("T")[0]) : "") +
+          (session.summarized_by ? " by " + session.summarized_by : "") +
+          " \u00b7 " + t("aguardando aprova\u00e7\u00e3o", "awaiting approval");
       } else {
         approvedEl.hidden = true;
       }

@@ -480,8 +480,26 @@ var CLIENT_SOURCE_TYPES = [
 ];
 
 // Contact-log vocabularies. Both lists are FINAL — do not extend either.
-var LEAD_CONTACT_METHODS = ["WhatsApp", "Phone call", "Email", "In person", "Text message"];
-var LEAD_CONTACT_RESULTS = ["No response", "Answered", "Left voicemail", "Rescheduled", "Not interested"];
+// "Unknown" is last on purpose: it exists for entries reconstructed after the
+// fact, where somebody knows a contact happened but not how. Elite Pro
+// Solutions is the case -- Alice reached out on 2026-08-28 before click-time
+// logging existed, and Nicole's honest position was "if I were to guess, I
+// would say WhatsApp, but I can't be a hundred percent certain." Recording her
+// guess as fact would put an invented method in the audit trail; recording
+// Unknown and letting Alice correct it keeps the record true.
+var LEAD_CONTACT_METHODS = ["WhatsApp", "Phone call", "Email", "In person", "Text message", "Unknown"];
+// "Awaiting reply" is the state a contact is in the MOMENT it is made, before
+// anyone knows how it went. Added 2026-08-29 so the click itself can be
+// recorded: tapping WhatsApp switches apps, and by the time she comes back the
+// page has often reloaded and the follow-up form is gone unfilled. Under the
+// old set the only way to log anything was to already know the outcome, so a
+// contact that got no instant reply was recorded as nothing at all.
+//
+// It is deliberately not a real outcome. The lead sheet asks about any entry
+// still sitting on it the next time that lead is opened -- which is also the
+// realistic moment to answer, since a WhatsApp reply can be hours or a day
+// later.
+var LEAD_CONTACT_RESULTS = ["Awaiting reply", "No response", "Answered", "Left voicemail", "Rescheduled", "Not interested"];
 
 // ---------------------------------------------------------------------------
 // OBJECTIONS — what came back when the customer said no.
@@ -2229,6 +2247,51 @@ async function handleGetLeadContactLog(id, request, env) {
         return jsonOk({ entries: res.results });
     } catch (e) {
         return jsonErr("Error fetching contact log: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/contact-log/:entryId
+//
+// Resolve an attempt that was logged at click time with result "Awaiting
+// reply". Updates in place rather than inserting a second row: the contact
+// happened ONCE, and a log that shows it twice -- once as attempted, once as
+// answered -- would misreport how often this lead was actually approached.
+//
+// Method is editable here too, because an entry can be reconstructed after the
+// fact with method "Unknown" (see LEAD_CONTACT_METHODS).
+// ---------------------------------------------------------------------------
+async function handlePutLeadContactLog(id, entryId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var method = (body.method || "").trim();
+        var result = (body.result || "").trim();
+        if (LEAD_CONTACT_METHODS.indexOf(method) < 0) { return jsonErr("Invalid method", 400); }
+        if (LEAD_CONTACT_RESULTS.indexOf(result) < 0) { return jsonErr("Invalid result", 400); }
+
+        // Scoped to the client in the path, so an entry id from another lead
+        // cannot be edited through this route.
+        var existing = await env.DB.prepare(
+            "SELECT id FROM lead_contact_log WHERE id = ? AND client_id = ?"
+        ).bind(entryId, id).first();
+        if (!existing) { return jsonErr("Entry not found", 404); }
+
+        var notes = body.notes === undefined || body.notes === null ? null : String(body.notes).slice(0, 2000);
+        await env.DB.prepare(
+            "UPDATE lead_contact_log SET method = ?, result = ?, notes = COALESCE(?, notes) WHERE id = ?"
+        ).bind(method, result, notes, entryId).run();
+
+        var entry = await env.DB.prepare(
+            "SELECT id, client_id, method, result, notes, logged_by, logged_at FROM lead_contact_log WHERE id = ?"
+        ).bind(entryId).first();
+        return jsonOk({ entry: entry });
+    } catch (e) {
+        return jsonErr("Error updating contact log: " + e.message, 500);
     }
 }
 
@@ -28750,6 +28813,9 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "contact-log") {
                 if (method === "GET")  { return handleGetLeadContactLog(cid, request, env); }
                 if (method === "POST") { return handlePostLeadContactLog(cid, request, env); }
+            }
+            if (segs.length === 5 && segs[3] === "contact-log" && method === "PUT") {
+                return handlePutLeadContactLog(cid, segs[4], request, env);
             }
             if (segs.length === 4 && segs[3] === "lead-pipeline" && method === "GET") {
                 return handleGetLeadPipeline(cid, request, env);

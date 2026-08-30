@@ -3291,7 +3291,8 @@
         <button class="modal-close" onclick="closeModalById('modalContactLog')">&times;</button>
       </div>
       <div class="modal-body">
-        <div style="margin-bottom:12px;">
+        <p id="clResolveHint" hidden style="margin:0 0 12px;font-size:13px;color:var(--text);"></p>
+        <div id="clMethodField" style="margin-bottom:12px;">
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">
             <span class="show-pt">Meio</span><span class="show-en">Method</span>
           </label>
@@ -3305,6 +3306,7 @@
             <option value="Email"></option>
             <option value="In person"></option>
             <option value="Text message"></option>
+            <option value="Unknown"></option>
           </select>
         </div>
         <div style="margin-bottom:12px;">
@@ -5297,6 +5299,7 @@
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
           renderContactLog(data.entries || []);
+          maybePromptContactResolution(data.entries || []);
         })
         .catch(function(e) {
           document.getElementById("leadContactLog").textContent = "Erro: " + e.message;
@@ -5310,6 +5313,33 @@
     function contactLabel(labels, value, en) {
       var lbl = labels[value];
       return lbl ? (en ? lbl.en : lbl.pt) : (value || "");
+    }
+
+    // ASK ABOUT UNRESOLVED ATTEMPTS THE NEXT TIME THIS LEAD IS OPENED.
+    //
+    // Nicole: "if you send a WhatsApp message, you don't often get an instant
+    // response. So it may be hours or the next day by the time you get a
+    // response. So it would make sense to ask what happened the next time it's
+    // opened." That is the whole design: the click records THAT it happened,
+    // and the outcome is asked for when she is back and actually knows it.
+    //
+    // Fires once per page load, not per render, so re-rendering the log after
+    // saving cannot reopen the modal on top of itself.
+    var contactResolvePrompted = false;
+
+    function maybePromptContactResolution(entries) {
+      if (contactResolvePrompted) { return; }
+      var pending = (entries || []).filter(function(e) {
+        return e && e.result === "Awaiting reply";
+      });
+      if (!pending.length) { return; }
+      contactResolvePrompted = true;
+      // Oldest first: if several are waiting, resolve them in the order they
+      // happened rather than newest-first, which would read backwards.
+      pending.sort(function(a, b) {
+        return String(a.logged_at || "").localeCompare(String(b.logged_at || ""));
+      });
+      openContactResolveModal(pending[0]);
     }
 
     function renderContactLog(entries) {
@@ -5359,14 +5389,18 @@
       "Phone call":   { pt: "Ligação",            en: "Phone call" },
       "Email":        { pt: "Email",              en: "Email" },
       "In person":    { pt: "Pessoalmente",       en: "In person" },
-      "Text message": { pt: "Mensagem de texto",  en: "Text message" }
+      "Text message": { pt: "Mensagem de texto",  en: "Text message" },
+      "Unknown":      { pt: "Não sei",            en: "Not sure" }
     };
     var CONTACT_RESULT_LABELS = {
       "No response":    { pt: "Sem resposta",   en: "No response" },
       "Answered":       { pt: "Atendeu",        en: "Answered" },
       "Left voicemail": { pt: "Deixou recado",  en: "Left voicemail" },
       "Rescheduled":    { pt: "Remarcado",      en: "Rescheduled" },
-      "Not interested": { pt: "Sem interesse",  en: "Not interested" }
+      "Not interested": { pt: "Sem interesse",  en: "Not interested" },
+      // Shown only in the LOG list, never as a choosable outcome -- it is the
+      // unresolved state, which is the question the modal is asking.
+      "Awaiting reply": { pt: "Aguardando resposta", en: "Awaiting reply" }
     };
 
     function renderContactLogOptions() {
@@ -5534,7 +5568,7 @@
       window.location.href = window.apexCallHref
         ? apexCallHref(tel)
         : "tel:" + tel.replace(/[^\d+]/g, "");
-      openContactLogModal("Phone call");
+      logContactAttempt("Phone call");
     }
 
     // window.open is blocked more aggressively in WKWebView than in Safari, so
@@ -5551,7 +5585,7 @@
       if (!opened) {
         window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
-      openContactLogModal("WhatsApp");
+      logContactAttempt("WhatsApp");
     }
 
     // sms: and mailto: are same-tab navigations handed to the OS, so they use
@@ -5562,20 +5596,57 @@
       var tel = leadContactPhone();
       if (!tel) { return; }
       window.location.href = "sms:" + tel.replace(/[^\d+]/g, "");
-      openContactLogModal("Text message");
+      logContactAttempt("Text message");
     }
 
     function startLeadEmail() {
       var email = leadContactEmail();
       if (!email) { return; }
       window.location.href = "mailto:" + email;
-      openContactLogModal("Email");
+      logContactAttempt("Email");
     }
 
     // `method` is optional: the Call/WhatsApp buttons pass the method just
     // used so only Result is left to pick; the manual button passes nothing
     // and the dropdown keeps whatever it defaults to.
+    // RECORD THE ATTEMPT AT THE MOMENT OF THE CLICK.
+    //
+    // The buttons used to just open a form asking how it went, and ONLY that
+    // form wrote anything. Tapping WhatsApp switches apps; by the time she
+    // comes back the page has often reloaded and the form is gone, unfilled.
+    // SMS and Email were worse -- they navigate the page away with
+    // location.href before the form even opens. Result: the whole
+    // lead_contact_log held ONE entry, and Alice's outreach to Elite Pro
+    // Solutions left no trace at all.
+    //
+    // Now the attempt is written first, with result "Awaiting reply". A tap
+    // always leaves a record. The outcome is a separate, later question --
+    // which is also the honest shape of it, since a WhatsApp reply can be
+    // hours or a day away.
+    //
+    // Fire-and-forget on purpose: this runs in the same click that is about to
+    // hand the browser to another app, so it must not block or await anything.
+    // A failure is silent by design -- an alert she cannot read because
+    // WhatsApp is already foreground would help nobody.
+    function logContactAttempt(method) {
+      try {
+        apiFetch("/api/clients/" + CLIENT_ID + "/contact-log", {
+          method: "POST",
+          body: { method: method, result: "Awaiting reply", notes: "" }
+        }).then(function() {
+          if (typeof loadContactLog === "function") { loadContactLog(); }
+        }).catch(function() {});
+      } catch (e) {}
+    }
+
     function openContactLogModal(method) {
+      resolvingEntryId = null;
+      var hint = document.getElementById("clResolveHint");
+      if (hint) { hint.hidden = true; }
+      // A manually added entry always asks for the method -- nothing captured
+      // it, because there was no click to capture.
+      var mf = document.getElementById("clMethodField");
+      if (mf) { mf.hidden = false; }
       document.getElementById("clNotes").value = "";
       document.getElementById("clStatus2").textContent = "";
       renderContactLogOptions();
@@ -5583,11 +5654,52 @@
       document.getElementById("modalContactLog").hidden = false;
     }
 
+    // Which entry we are RESOLVING, or null when adding a fresh one. The same
+    // modal serves both: resolving updates that row in place, adding posts a
+    // new one. Logging the contact twice -- once attempted, once answered --
+    // would misreport how many times this lead was actually approached.
+    var resolvingEntryId = null;
+
+    function openContactResolveModal(entry) {
+      resolvingEntryId = entry.id;
+      document.getElementById("clNotes").value = entry.notes || "";
+      document.getElementById("clStatus2").textContent = "";
+      renderContactLogOptions();
+      document.getElementById("clMethod").value = entry.method || "Unknown";
+
+      // METHOD IS ONLY ASKED WHEN IT IS GENUINELY UNKNOWN.
+      //
+      // From now on the method is captured at the moment the button is
+      // tapped, so re-asking it would be busywork on a screen whose whole
+      // point is one quick answer. The field shows only for entries
+      // reconstructed after the fact -- Elite Pro Solutions is the one such
+      // case, logged before click-time capture existed.
+      var mWrap = document.getElementById("clMethodField");
+      if (mWrap) { mWrap.hidden = (entry.method && entry.method !== "Unknown"); }
+      // Never leave "Awaiting reply" selectable as an answer: it is the
+      // question, not an outcome.
+      var res = document.getElementById("clResult");
+      if (res.value === "Awaiting reply") { res.selectedIndex = 0; }
+
+      var when = entry.logged_at ? String(entry.logged_at).slice(0, 16).replace("T", " ") : "";
+      var hdr = document.getElementById("clResolveHint");
+      if (hdr) {
+        hdr.hidden = false;
+        hdr.textContent = (document.body.classList.contains("lang-en")
+          ? "You contacted this lead on " + when + ". How did it go?"
+          : "Você entrou em contato em " + when + ". Como foi?");
+      }
+      document.getElementById("modalContactLog").hidden = false;
+    }
+
     function saveContactLogEntry() {
       var statusEl = document.getElementById("clStatus2");
       statusEl.textContent = "Salvando... / Saving...";
-      apiFetch("/api/clients/" + CLIENT_ID + "/contact-log", {
-        method: "POST",
+      var resolving = resolvingEntryId;
+      resolvingEntryId = null;
+      apiFetch("/api/clients/" + CLIENT_ID + "/contact-log" +
+               (resolving ? "/" + encodeURIComponent(resolving) : ""), {
+        method: resolving ? "PUT" : "POST",
         body: {
           method: document.getElementById("clMethod").value,
           result: document.getElementById("clResult").value,

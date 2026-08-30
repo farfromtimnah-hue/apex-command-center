@@ -652,6 +652,50 @@ async function handleGetSessionsInbox(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Append one row to a session's history.
+//
+// The summarized_by / approved_by columns hold only the LATEST actor for each
+// stage -- a session summarized twice, or approved after a re-edit, overwrites
+// the earlier one. This table keeps every transition instead, so who did what
+// and in what order stays readable. Append-only: never updated, never deleted.
+//
+// Deliberately non-fatal. An audit write must not be able to fail the action
+// it is recording, so a broken insert is swallowed rather than 500-ing a
+// summarize the user has already paid Claude tokens for.
+async function logSessionEvent(env, sessionId, event, actor, detail) {
+    try {
+        await env.DB.prepare(
+            "INSERT INTO session_events (id, session_id, event, actor, detail) VALUES (?, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), sessionId, event, actor || null, detail || null).run();
+    } catch (e) { /* history is best-effort; the action itself already succeeded */ }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/sessions/:id/events
+// The session's history, oldest first. Staff only -- this names who did what,
+// which is internal working detail, not something a client or seller sees.
+// ---------------------------------------------------------------------------
+
+async function handleGetSessionEvents(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
+            return jsonErr("Forbidden", 403);
+        }
+
+        var rows = await env.DB.prepare(
+            "SELECT id, event, actor, detail, created_at FROM session_events " +
+            "WHERE session_id = ? ORDER BY created_at ASC, rowid ASC"
+        ).bind(sessionId).all();
+
+        return jsonOk({ events: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error loading session history: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/sessions/:id/discard
 // Soft-deletes an inbox session by setting status to 'discarded'.
 // ---------------------------------------------------------------------------
@@ -669,6 +713,8 @@ async function handlePostSessionDiscard(sessionId, request, env) {
         await env.DB.prepare(
             "UPDATE sessions SET status = 'discarded', discarded_by = ?, discarded_at = ? WHERE id = ?"
         ).bind(user.display_name || user.role, new Date().toISOString(), sessionId).run();
+
+        await logSessionEvent(env, sessionId, "discarded", user.display_name || user.role, null);
 
         return jsonOk({ ok: true, session_id: sessionId, status: "discarded" });
     } catch (e) {
@@ -698,6 +744,9 @@ async function handlePostSessionAssignClient(sessionId, request, env) {
         await env.DB.prepare(
             "UPDATE sessions SET client_id = ?, client_name = ?, status = 'pending' WHERE id = ? AND status = 'inbox'"
         ).bind(body.client_id, client.name, sessionId).run();
+
+        await logSessionEvent(env, sessionId, "assigned_client",
+            user.display_name || user.role, client.name);
 
         return jsonOk({ ok: true, client_id: body.client_id, client_name: client.name });
     } catch (e) {
@@ -1778,6 +1827,9 @@ async function handlePostSummarize(request, env) {
             user.display_name || user.role, new Date().toISOString(), body.session_id
         ).run();
 
+        await logSessionEvent(env, body.session_id, "summarized",
+            user.display_name || user.role, null);
+
         // Write 6 text keys + 3 structured sections to session_summaries
         var ss = summaryJson;
         // Structured sections are stored as JSON strings per language
@@ -1910,6 +1962,8 @@ async function handlePostApprove(request, env) {
                 "summary_json = ? WHERE id = ?"
             ).bind(approvedAt, approvedBy, summaryToStore, body.session_id).run();
         }
+
+        await logSessionEvent(env, body.session_id, "approved", approvedBy, null);
 
         // TODO: generate branded PDF from summary_json and deliver to client
         // Integration point: call a PDF-generation service or email provider here.
@@ -28720,6 +28774,9 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "transcript" && method === "GET") {
             return handleGetSessionTranscript(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "events" && method === "GET") {
+            return handleGetSessionEvents(segs[2], request, env);
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "assign-client" && method === "POST") {
             return handlePostSessionAssignClient(segs[2], request, env);

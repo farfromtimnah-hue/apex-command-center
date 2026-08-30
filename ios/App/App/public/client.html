@@ -4482,8 +4482,13 @@
       apiFetch("/api/clients/" + CLIENT_ID + "/entries?month=" + dateStr.slice(0, 7))
         .then(function(r) { return r.json(); })
         .then(function(d) {
+          // The API returns `date` and an already-parsed `sections` object --
+          // NOT the raw column names entry_date / sections_json. Coding
+          // against the table instead of the endpoint made every day report
+          // "nothing was filled in", including days the week card was
+          // simultaneously calling Completo.
           var entry = (d.entries || []).filter(function(e) {
-            return e.entry_date === dateStr;
+            return e.date === dateStr;
           })[0];
           var head = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
               '<strong style="font-size:13px;">' + escHtml(formatDate(dateStr)) + '</strong>' +
@@ -4496,8 +4501,7 @@
                         : "Nada foi preenchido neste dia.") + '</div></div>';
             return;
           }
-          var sections = {};
-          try { sections = JSON.parse(entry.sections_json || "{}"); } catch (e) { sections = {}; }
+          var sections = entry.sections || {};
           var keys = Object.keys(sections);
           var body = "";
           if (!keys.length) {
@@ -4505,13 +4509,30 @@
               (isEnLang ? "Opened, but left empty." : "Aberto, mas sem conteúdo.") + '</div>';
           } else {
             keys.forEach(function(k) {
-              var v = sections[k];
-              if (v === null || v === undefined || v === "") { return; }
-              if (typeof v === "object") { v = JSON.stringify(v); }
-              body += '<div style="margin-top:8px;">' +
+              var sec = sections[k];
+              if (!sec || typeof sec !== "object") { return; }
+              // A section holds `values` once submitted and `draft_values`
+              // while still being filled in. Show whichever exists, and say
+              // which -- a draft is not the same claim as a finished day.
+              var vals = sec.values || sec.draft_values;
+              var isDraft = !sec.values && !!sec.draft_values;
+              if (!vals || typeof vals !== "object") { return; }
+              var rows = "";
+              Object.keys(vals).forEach(function(f) {
+                var v = vals[f];
+                if (v === null || v === undefined || v === "") { return; }
+                rows += '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:2px 0;">' +
+                  '<span style="color:var(--muted);">' + escHtml(f.replace(/_/g, " ")) + '</span>' +
+                  '<span style="font-variant-numeric:tabular-nums;">' + escHtml(String(v)) + '</span>' +
+                '</div>';
+              });
+              if (!rows) { return; }
+              body += '<div style="margin-top:10px;">' +
                 '<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">' +
-                  escHtml(k) + '</div>' +
-                '<div style="font-size:13px;white-space:pre-wrap;">' + escHtml(String(v)) + '</div>' +
+                  escHtml(k.replace(/_/g, " ")) +
+                  (isDraft ? ' <span style="color:#8a6d1d;">(' +
+                    (isEnLang ? "draft" : "rascunho") + ')</span>' : "") +
+                '</div>' + rows +
               '</div>';
             });
             if (!body) {

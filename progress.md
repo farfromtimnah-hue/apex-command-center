@@ -24,6 +24,32 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 92 - 2026-08-30 - **Preparacao da Reuniao: a pagina que o Rafa abre antes da reuniao de resultados do Raio-X.** Pagina nova (`meeting-prep.html`), endpoint novo (`GET /api/clients/:id/meeting-prep`) e os links nas duas telas de entrada.
+
+  **Tudo numa resposta so.** Um segundo round trip no meio da reuniao e uma pausa que ele nao consegue explicar para um prospect, entao cliente, notas, as 62 perguntas, a carga do dono, o gargalo e as 16 historias chegam juntos.
+
+  **O Raio-X nao tem numero financeiro nenhum.** Verificado no D1 remoto: `answers_json` do `business_xray` tem exatamente 62 chaves, todas 0 ou 1. Nao existe faturamento, meta, ticket medio nem conversao em lugar nenhum do instrumento. A secao 4 pedida originalmente ("N contas por mes fecham a lacuna") era transcrita do PDF que o Rafa escreveu a mao, nao de dado do sistema. Foi substituida pela **aritmetica da dependencia do dono**, que o Raio-X prova de verdade: quantas das 12 atividades o dono faz, de quantas respondidas, e quantas horas por semana isso da.
+
+  **A carga do dono e sempre uma FAIXA, nunca um numero.** As bandas (`ate_2h`, `de_2_5h`, `de_5_10h`, `mais_10h`) ja sao intervalos; somar os pontos medios e apresentar "14,5 horas" convida uma contestacao que ele nao tem como responder. Sai como mais ou menos 25%.
+
+  **`{}` nao e zero.** Perfil vazio devolve `null` e a secao inteira desaparece. "O dono faz 0 de 12" e "ninguem respondeu isso" sao afirmacoes diferentes e so a segunda e verdade.
+
+  **O gargalo digitado manda em tudo na ordenacao das historias**, porque foi o que o prospect disse em voz alta minutos antes. O casamento e por SIGNIFICADO, nao por palavra: *"fico nervoso cobrando"* resolve para `medo_de_prospectar` sem compartilhar nenhuma palavra com a descricao do padrao. Uma chamada ao Claude, no PUT, com o resultado **cacheado na linha e chaveado ao texto exato** - o load da pagina nunca chama o modelo.
+
+  **A industria e criterio de desempate, nunca filtro.** A historia do Diego e sobre medo, nao sobre piso. Uma historia de outro setor que casa com o padrao passa na frente de uma do mesmo setor que nao casa com nada.
+
+  **Devolve as 16 historias, sempre.** As que casaram vem primeiro, o resto fica abaixo de um divisor. O sistema ordena, ele escolhe: uma reuniao vira e ele precisa das outras no bolso. O `telling_note` (o que NAO pode ser afirmado sobre aquela historia) e renderizado sempre, em toda historia.
+
+  **Tudo em terceira pessoa, sobre o cliente.** Nenhuma frase para o Rafa ler em voz alta. A pagina diz o que e VERDADE; ele decide o que DIZER. Isso tambem resolve o voce/voces, que ele conjuga conforme quem esta na sala.
+
+  **BRAX FACILITIES ganhou linha em `client_assessments`** (`xray-brax-001`), transcrita do `RAIO-X APEX - Brax Facilities.pdf`. E o instrumento **antigo, de quatro areas**, entao `answers_json` e `profile_json` ficam `{}` de proposito: nao existiam 62 perguntas nem perfil de pratica naquela epoca. Consequencia correta e verificada em producao: as notas renderizam pelas quatro areas com a evidencia escrita pelo Rafa, e o questionario e a dependencia do dono **nao renderizam nada**. Nada no codigo assume seis areas.
+
+  **"Ver exemplo"** aparece so enquanto o cliente daquela linha **nao tem** `business_xray` com `status='completed'` - e some quando passa a ter. Nunca os dois links para quem ja tem dado. `status`, nao existencia da linha: um Raio-X ativado e nao terminado nao tem nota e renderizaria a mesma pagina vazia. Se a consulta falhar, o link do exemplo fica escondido, porque mostra-lo seria um palpite sobre o dado do cliente.
+
+  **A posicao do link no `client.html` depende do papel.** Rafa conduz as reunioes, entao o dele fica no topo; Alice agenda mas nao conduz, entao o dela fica mais abaixo.
+
+  **Verificado em producao, com sessao real de staff:** endpoint 200, BRAX com `legacy-4area` 43%, quatro areas, `answeredCount: 0`, `ownerLoad: null`, quatro padroes detectados, 16 historias ordenadas com a do Diego em primeiro. `scripts/test-meeting-prep.mjs` cobre a matematica e a ordenacao (34 asserts).
+
 - [x] Session 91 (parte 2) - 2026-08-24 - **Comissão: valor e porcentagem viraram um par ligado - mudar qualquer um dos dois ajusta o outro.** Pedido do Rafa depois de ver a versão de mão única: *"changing either works... like how you can lock proportions when changing the size of a rectangle"*.
 
   **Só UM dos dois é gravado.** `gm_jobs.comissao` guarda o dólar; a porcentagem é sempre derivada dele. Editar a porcentagem é, portanto, uma **escrita em `comissao`** (`valor * pct / 100`), não uma segunda coluna. É isso que impede os dois de divergirem - com as duas coisas gravadas, qualquer bug de arredondamento deixaria a tela dizendo 5% e o pagamento dizendo outra coisa.

@@ -20,3 +20,10 @@ CREATE TABLE IF NOT EXISTS stories (
   created_by   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_stories_approved ON stories (approved);
+
+-- Bottleneck pattern-match cache. The typed bottleneck is matched to the eight
+-- patterns by one Claude call; the result is cached here keyed to the exact
+-- text that produced it (matched_for), so page load never calls the model.
+-- Applied to remote D1 2026-08-30.
+ALTER TABLE meeting_prep_notes ADD COLUMN matched_patterns TEXT;
+ALTER TABLE meeting_prep_notes ADD COLUMN matched_for TEXT;

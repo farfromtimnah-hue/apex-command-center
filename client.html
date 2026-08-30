@@ -312,6 +312,19 @@
       font-size: 13px;
     }
 
+    /* Meeting Prep links. Position is decided by role in setupPage. */
+    .prep-links-card {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+      background: var(--card, #fff); border: 1px solid var(--border, #e8e2d9);
+      border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
+    }
+    .prep-link {
+      font-size: 13px; font-weight: 600; color: #C9A43A;
+      text-decoration: none; border-bottom: 1px solid transparent;
+    }
+    .prep-link:hover { border-bottom-color: currentColor; }
+    .prep-link-example { color: var(--muted, #6b6660); font-weight: 500; }
+
     .role-badge {
       background: var(--gold-dim);
       border: 1px solid rgba(201,164,58,0.4);
@@ -1961,6 +1974,12 @@
           </div>
         </div>
 
+        <!-- Meeting Prep links. Two mount points exist; setupPage fills exactly
+             one, by role. Rafa runs the meetings, so his sits at the top where
+             it cannot be missed; Alice schedules but does not run them, so hers
+             sits lower down. -->
+        <div id="prepLinksTop" hidden></div>
+
         <!-- Sessions section -->
         <div class="content-card" id="sec-sessions" data-section-id="sessions">
           <div class="content-card-header">
@@ -1977,6 +1996,8 @@
             </div>
           </div>
         </div>
+
+        <div id="prepLinksLower" hidden></div>
 
         <!-- Digital Presence section -->
         <div class="content-card" id="sec-dp" data-section-id="dp">
@@ -3703,7 +3724,56 @@
       document.getElementById("appMain").hidden = false;
 
       window.initNav && window.initNav();
+      renderPrepLinks(role);
       loadClientPage();
+    }
+
+    // Fill exactly ONE of the two mount points, by role. Rafa runs the X-Ray
+    // results meetings, so his link goes at the top of the page; Alice
+    // schedules them but does not run them, so hers goes lower down.
+    // The "Ver exemplo" link appears only while THIS client has no completed
+    // X-Ray of its own, and disappears once it has one.
+    function renderPrepLinks(role) {
+      if (!CLIENT_ID) { return; }
+      var mount = null;
+      if (role === "rafa") {
+        mount = document.getElementById("prepLinksTop");
+      } else if (role === "alice") {
+        mount = document.getElementById("prepLinksLower");
+      } else {
+        mount = document.getElementById("prepLinksLower");
+      }
+      if (!mount) { return; }
+
+      apiFetch("/api/xray-completed-clients")
+        .then(function(res) { return res.json(); })
+        .then(function(data) { return data.client_ids || []; })
+        .catch(function() { return null; })
+        .then(function(ids) {
+          var hasXray = false;
+          if (ids) {
+            for (var i = 0; i < ids.length; i++) {
+              if (ids[i] === CLIENT_ID) { hasXray = true; break; }
+            }
+          }
+          var h = '<div class="prep-links-card">';
+          h += '<a class="prep-link" href="meeting-prep.html?client=' +
+               encodeURIComponent(CLIENT_ID) + '&type=xray_results">' +
+               '<span class="show-pt">Preparacao da reuniao</span>' +
+               '<span class="show-en">Meeting prep</span></a>';
+          // ids === null means the lookup failed; showing an example link then
+          // would be a guess about this client's data, so it stays hidden.
+          if (ids && !hasXray) {
+            h += '<a class="prep-link prep-link-example" ' +
+                 'href="meeting-prep.html?client=abc9f8b4-8408-4284-95f7-776ace15ad18' +
+                 '&type=xray_results&example=1">' +
+                 '<span class="show-pt">Ver exemplo</span>' +
+                 '<span class="show-en">See example</span></a>';
+          }
+          h += '</div>';
+          mount.innerHTML = h;
+          mount.hidden = false;
+        });
     }
 
     function init() {

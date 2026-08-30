@@ -28800,6 +28800,12 @@ async function handleFetch(request, env, ctx) {
             return handleGetLeadStages(request, env);
         }
 
+        // /api/xray-completed-clients  GET — drives the "Ver exemplo" link.
+        // Top-level, so the /api/clients/:id matcher cannot swallow it.
+        if (segs[0] === "api" && segs[1] === "xray-completed-clients" && segs.length === 2 && method === "GET") {
+            return handleGetXrayCompletedClients(request, env);
+        }
+
         // /api/clients-needing-review  GET — active clients with no sign of activity
         if (segs[0] === "api" && segs[1] === "clients-needing-review" && segs.length === 2 && method === "GET") {
             return handleGetClientsNeedingReview(request, env);
@@ -28842,6 +28848,14 @@ async function handleFetch(request, env, ctx) {
         // Parameterized routes: /api/clients/:id[/notes | /logo | /logo-image | /documents/latest]
         if (segs[0] === "api" && segs[1] === "clients" && segs[2]) {
             var cid = segs[2];
+            // Meeting Prep — must precede nothing in particular, but is kept
+            // with the other :id subroutes. Length-guarded like its siblings.
+            if (segs.length === 4 && segs[3] === "meeting-prep" && method === "GET") {
+                return handleGetMeetingPrep(cid, request, env);
+            }
+            if (segs.length === 5 && segs[3] === "meeting-prep" && segs[4] === "bottleneck" && method === "PUT") {
+                return handlePutMeetingPrepBottleneck(cid, request, env);
+            }
             if (segs.length === 3 && method === "GET")   { return handleGetClient(cid, request, env); }
             if (segs.length === 3 && method === "PATCH") { return handlePatchClient(cid, request, env); }
             if (segs.length === 4 && segs[3] === "notes") {
@@ -29411,5 +29425,432 @@ async function notifyNicoleTelegram(env, message) {
         });
     } catch (e) {
         // Nothing else to do -- no second alert channel exists.
+    }
+}
+
+// ===========================================================================
+// MEETING PREP — the consultant-side page Rafa opens before an X-Ray results
+// meeting. Staff only. Everything the page needs arrives in ONE response:
+// a second round trip mid-meeting is a stall he cannot explain to a prospect.
+// ===========================================================================
+
+// The eight patterns. LOCKED — a ninth is never invented, not by the ranking
+// code and not by the model (validateBottleneckPatterns filters to this list).
+var MEETING_PATTERNS = [
+    { key: "medo_de_prospectar",     descEn: "afraid to chase work, been burned before" },
+    { key: "espera_o_cliente_vir",   descEn: "waits to be found instead of going out" },
+    { key: "sem_clareza_financeira", descEn: "does not know what a job actually earns" },
+    { key: "dependencia_do_dono",    descEn: "nothing happens unless the owner does it" },
+    { key: "tudo_na_cabeca",         descEn: "the business runs from the owner's memory" },
+    { key: "zona_de_conforto",       descEn: "billing fine, growth stalled, quietly at risk" },
+    { key: "recomeco_apos_fracasso", descEn: "already failed once, afraid to try again" },
+    { key: "risco_sem_conselho",     descEn: "big vision, nobody grounding it" }
+];
+
+function isMeetingPattern(k) {
+    for (var i = 0; i < MEETING_PATTERNS.length; i++) {
+        if (MEETING_PATTERNS[i].key === k) { return true; }
+    }
+    return false;
+}
+
+// Weekly-hours band midpoints. The bands ARE ranges, so the total is only ever
+// reported as a range (see ownerLoad below) — a precise figure invites a
+// challenge Rafa cannot answer.
+var OWNER_LOAD_MIDPOINTS = { ate_2h: 1, de_2_5h: 3.5, de_5_10h: 7.5, mais_10h: 12 };
+
+// Owner load from profile_json. 12 practice activities, each with quem/tempo.
+// Returns null when NOTHING was answered — the page renders nothing rather
+// than a zero, because "0 activities" and "never filled in" are not the same
+// claim. BRAX is exactly this case: a legacy 4-area X-Ray with profile_json
+// '{}', so the owner-dependency section correctly disappears.
+function computeOwnerLoad(profile) {
+    profile = profile || {};
+    var answered = 0;
+    var ownerCount = 0;
+    var hours = 0;
+    for (var i = 0; i < XRAY_PROFILE_ACTIVITIES.length; i++) {
+        var act = profile[XRAY_PROFILE_ACTIVITIES[i].key];
+        if (!act || typeof act !== "object") { continue; }
+        var quem = act.quem;
+        if (!quem) { continue; }
+        answered += 1;
+        if (quem === "dono") {
+            ownerCount += 1;
+            var mid = OWNER_LOAD_MIDPOINTS[act.tempo];
+            if (mid) { hours += mid; }
+        }
+    }
+    if (answered === 0) { return null; }
+    return {
+        total_activities: XRAY_PROFILE_ACTIVITIES.length,
+        answered:         answered,
+        owner_count:      ownerCount,
+        hours_low:        Math.round(hours * 0.75 * 10) / 10,
+        hours_high:       Math.round(hours * 1.25 * 10) / 10,
+        allOwner:         ownerCount > 0 && ownerCount === answered
+    };
+}
+
+// Detect the prospect's own patterns from the X-Ray: weak areas + owner load.
+// Deliberately conservative — a pattern claimed here reorders the stories Rafa
+// is offered, so a wrong one costs him the story that actually fits.
+function detectClientPatterns(score, ownerLoad) {
+    var found = {};
+    var areas = (score && score.areas) || [];
+    for (var i = 0; i < areas.length; i++) {
+        var a = areas[i];
+        // Never assume six areas or a fixed key set: BRAX carries the legacy
+        // four (financeiro/comercial/gestao/marketing).
+        var weak = a.status === "Critico" || a.status === "Crítico" || a.status === "Atenção" || a.status === "Atencao";
+        if (!weak) { continue; }
+        var k = a.key;
+        if (k === "resultados" || k === "financeiro") { found.sem_clareza_financeira = true; }
+        if (k === "comercial_marketing" || k === "comercial" || k === "marketing") {
+            found.espera_o_cliente_vir = true;
+            found.medo_de_prospectar   = true;
+        }
+        if (k === "processos" || k === "gestao") { found.tudo_na_cabeca = true; }
+        if (k === "pessoas" || k === "gestao")   { found.dependencia_do_dono = true; }
+        if (k === "estrategia") { found.risco_sem_conselho = true; }
+    }
+    if (ownerLoad && ownerLoad.owner_count >= 6) { found.dependencia_do_dono = true; }
+    if (ownerLoad && ownerLoad.allOwner)         { found.tudo_na_cabeca = true; }
+    var out = [];
+    for (var key in found) {
+        if (Object.prototype.hasOwnProperty.call(found, key) && isMeetingPattern(key)) { out.push(key); }
+    }
+    return out;
+}
+
+function parseStoryPatterns(raw) {
+    var arr = [];
+    try { arr = JSON.parse(raw || "[]"); } catch (e) { arr = []; }
+    if (!Array.isArray(arr)) { return []; }
+    return arr.filter(function(p) { return typeof p === "string"; });
+}
+
+// Match the typed bottleneck to the eight patterns. ONE Claude call, and only
+// when the text has actually changed — the result is cached on the notes row
+// keyed to the exact text that produced it, so page load never calls the model.
+// Matching is on MEANING: "I hate calling people back" and "fico nervoso
+// cobrando" are the same pattern and share no words, so keyword matching is
+// not an acceptable fallback. When the call fails we return null and ranking
+// simply falls through to the detected-pattern tier.
+async function matchBottleneckPatterns(env, text) {
+    if (!text || !text.trim()) { return []; }
+    if (!env.CLAUDE_API_KEY) { return null; }
+
+    var list = MEETING_PATTERNS.map(function(p) {
+        return p.key + " = " + p.descEn;
+    }).join("\n");
+
+    var prompt =
+        "A business consultant just asked a prospect what the bottleneck in their business is. " +
+        "The prospect answered, in their own words (Portuguese or English):\n\n" +
+        "\"" + String(text).slice(0, 1200) + "\"\n\n" +
+        "Here are eight known owner patterns:\n" + list + "\n\n" +
+        "Which of these patterns does the prospect's answer express? Match on MEANING, not on shared words: " +
+        "\"I hate calling people back\" and \"fico nervoso cobrando\" both express medo_de_prospectar " +
+        "even though they share no vocabulary.\n\n" +
+        "Return ONLY a JSON array of pattern keys, no markdown and no explanation, e.g. " +
+        '["medo_de_prospectar","tudo_na_cabeca"]. ' +
+        "Use ONLY keys from the list above. If the answer genuinely expresses none of them, return [].";
+
+    try {
+        var res = await fetch(CLAUDE_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type":      "application/json",
+                "x-api-key":         env.CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01"
+            },
+            body: JSON.stringify({
+                model:      CLAUDE_MODEL,
+                max_tokens: 256,
+                messages:   [{ role: "user", content: prompt }]
+            })
+        });
+        if (!res.ok) { return null; }
+        var data = await res.json();
+        var raw = ((data.content && data.content[0] && data.content[0].text) || "").trim();
+        var start = raw.indexOf("[");
+        var end   = raw.lastIndexOf("]");
+        if (start === -1 || end === -1) { return null; }
+        var parsed = JSON.parse(raw.slice(start, end + 1));
+        if (!Array.isArray(parsed)) { return null; }
+        // The model never gets to invent a ninth pattern.
+        return parsed.filter(function(p) { return isMeetingPattern(p); });
+    } catch (e) {
+        return null;
+    }
+}
+
+// Rank ALL stories. Never one, never none — a meeting turns, and the ones that
+// did not match stay in his back pocket. Order:
+//   1 matches the typed bottleneck (outranks everything: the prospect said it
+//     out loud minutes ago)
+//   2 how many of the detected patterns the story matches
+//   3 source='client' above source='public'
+//   4 industry proximity — TIEBREAKER ONLY, never a filter. Diego's story is
+//     about fear, not flooring.
+function rankStories(rows, bottleneckPatterns, clientPatterns, clientIndustry) {
+    var bset = {};
+    (bottleneckPatterns || []).forEach(function(p) { bset[p] = true; });
+    var cset = {};
+    (clientPatterns || []).forEach(function(p) { cset[p] = true; });
+    var ind = String(clientIndustry || "").trim().toLowerCase();
+
+    var scored = (rows || []).map(function(row, idx) {
+        var pats = parseStoryPatterns(row.patterns);
+        var bHits = [];
+        var cHits = [];
+        pats.forEach(function(p) {
+            if (bset[p]) { bHits.push(p); }
+            if (cset[p]) { cHits.push(p); }
+        });
+        var sameIndustry = !!ind && String(row.industry || "").trim().toLowerCase() === ind;
+        return {
+            row:            row,
+            patterns:       pats,
+            bottleneckHits: bHits,
+            patternHits:    cHits,
+            isClient:       row.source === "client",
+            sameIndustry:   sameIndustry,
+            idx:            idx
+        };
+    });
+
+    scored.sort(function(a, b) {
+        if (a.bottleneckHits.length !== b.bottleneckHits.length) {
+            return b.bottleneckHits.length - a.bottleneckHits.length;
+        }
+        if (a.patternHits.length !== b.patternHits.length) {
+            return b.patternHits.length - a.patternHits.length;
+        }
+        if (a.isClient !== b.isClient) { return a.isClient ? -1 : 1; }
+        if (a.sameIndustry !== b.sameIndustry) { return a.sameIndustry ? -1 : 1; }
+        return a.idx - b.idx;
+    });
+
+    return scored.map(function(s) {
+        return {
+            id:           s.row.id,
+            person:       s.row.person,
+            business:     s.row.business,
+            country:      s.row.country,
+            industry:     s.row.industry,
+            source:       s.row.source,
+            source_url:   s.row.source_url,
+            patterns:     s.patterns,
+            one_liner:    s.row.one_liner,
+            signals:      s.row.signals,
+            narrative:    s.row.narrative,
+            telling_note: s.row.telling_note,
+            matched:      s.bottleneckHits.length > 0 || s.patternHits.length > 0,
+            matched_bottleneck: s.bottleneckHits,
+            matched_patterns:   s.patternHits,
+            same_industry:      s.sameIndustry
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/meeting-prep?type=xray_results
+// Staff only. One response, everything the prep page needs.
+// ---------------------------------------------------------------------------
+async function handleGetMeetingPrep(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url  = new URL(request.url);
+        var type = url.searchParams.get("type") || "xray_results";
+
+        var client = await env.DB.prepare(
+            "SELECT id, name, owners, industry, location, package, status, lead_stage, " +
+            "phone, email, whatsapp, instagram_handle, digital_presence, language " +
+            "FROM clients WHERE id = ?"
+        ).bind(clientId).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        var assessment = await env.DB.prepare(
+            "SELECT status, answers_json, profile_json, score_json, completed_at " +
+            "FROM client_assessments WHERE client_id = ? AND assessment_type = 'business_xray'"
+        ).bind(clientId).first();
+
+        var answers = {};
+        var profile = {};
+        var score   = null;
+        if (assessment) {
+            try { answers = JSON.parse(assessment.answers_json || "{}"); } catch (e) { answers = {}; }
+            try { profile = JSON.parse(assessment.profile_json || "{}"); } catch (e) { profile = {}; }
+            if (assessment.score_json) {
+                try { score = JSON.parse(assessment.score_json); } catch (e) { score = null; }
+            }
+        }
+
+        // The 62 questions with each answer folded in, grouped by area. A
+        // legacy X-Ray has answers_json '{}' — every question then carries
+        // answer null and the page renders the section as nothing at all.
+        var answeredCount = 0;
+        var areaQuestions = XRAY_AREAS.map(function(area) {
+            var qs = [];
+            XRAY_QUESTIONS.forEach(function(q) {
+                if (q.area !== area.key) { return; }
+                var val = Object.prototype.hasOwnProperty.call(answers, q.key) ? answers[q.key] : null;
+                if (val === 0 || val === 1) { answeredCount += 1; }
+                qs.push({
+                    key: q.key, labelPt: q.labelPt, labelEn: q.labelEn, answer: val
+                });
+            });
+            return { key: area.key, namePt: area.namePt, nameEn: area.nameEn, questions: qs };
+        });
+
+        var ownerLoad = computeOwnerLoad(profile);
+
+        var note = await env.DB.prepare(
+            "SELECT bottleneck, updated_at, updated_by, matched_patterns, matched_for " +
+            "FROM meeting_prep_notes WHERE client_id = ? AND meeting_type = ?"
+        ).bind(clientId, type).first();
+
+        var bottleneckText = (note && note.bottleneck) || "";
+
+        // Cached match, and ONLY the cached match: the model is never called on
+        // page load. The cache is keyed to the exact text that produced it, so
+        // an edited bottleneck falls back to [] here until the PUT re-matches.
+        var bottleneckPatterns = [];
+        if (note && note.matched_patterns && note.matched_for === bottleneckText) {
+            try { bottleneckPatterns = JSON.parse(note.matched_patterns) || []; } catch (e) { bottleneckPatterns = []; }
+            bottleneckPatterns = bottleneckPatterns.filter(function(p) { return isMeetingPattern(p); });
+        }
+
+        var clientPatterns = detectClientPatterns(score, ownerLoad);
+
+        var storyRows = await env.DB.prepare(
+            "SELECT id, client_id, person, business, country, industry, source, source_url, " +
+            "patterns, one_liner, signals, narrative, telling_note " +
+            "FROM stories WHERE approved = 1 ORDER BY created_at"
+        ).all();
+
+        var stories = rankStories(
+            storyRows.results || [], bottleneckPatterns, clientPatterns, client.industry
+        );
+
+        return jsonOk({
+            client:        client,
+            meeting_type:  type,
+            assessment:    assessment ? {
+                status:       assessment.status,
+                completed_at: assessment.completed_at,
+                score:        score
+            } : null,
+            areaQuestions:   areaQuestions,
+            answeredCount:   answeredCount,
+            ownerLoad:       ownerLoad,
+            bottleneck:      note ? {
+                text:       note.bottleneck || "",
+                updated_at: note.updated_at,
+                updated_by: note.updated_by
+            } : null,
+            detectedPatterns:   clientPatterns,
+            bottleneckPatterns: bottleneckPatterns,
+            stories:            stories
+        });
+    } catch (e) {
+        if (isAuthError(e)) { return jsonErr("Unauthorized", 401); }
+        return jsonErr("Error loading meeting prep: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/clients/:id/meeting-prep/bottleneck
+// Body: { bottleneck, meeting_type }. Upserts on UNIQUE (client_id,
+// meeting_type). The Claude match runs HERE, on save, and is cached on the row
+// keyed to the text — never on page load.
+// ---------------------------------------------------------------------------
+async function handlePutMeetingPrepBottleneck(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var text = typeof body.bottleneck === "string" ? body.bottleneck : "";
+        var type = body.meeting_type || "xray_results";
+
+        var existing = await env.DB.prepare(
+            "SELECT id, matched_patterns, matched_for FROM meeting_prep_notes WHERE client_id = ? AND meeting_type = ?"
+        ).bind(clientId, type).first();
+
+        // Only re-match when the text actually changed. Re-saving the same
+        // bottleneck (autosave on blur fires on every blur) must not spend a
+        // model call.
+        var matched = null;
+        var matchedFor = null;
+        if (existing && existing.matched_for === text && existing.matched_patterns) {
+            matched    = existing.matched_patterns;
+            matchedFor = existing.matched_for;
+        } else if (text && text.trim()) {
+            var pats = await matchBottleneckPatterns(env, text);
+            if (pats) {
+                matched    = JSON.stringify(pats);
+                matchedFor = text;
+            }
+        }
+
+        var who = user.display_name || user.role;
+        var now = new Date().toISOString();
+
+        await env.DB.prepare(
+            "INSERT INTO meeting_prep_notes (id, client_id, meeting_type, bottleneck, updated_at, updated_by, matched_patterns, matched_for) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT (client_id, meeting_type) DO UPDATE SET " +
+            "bottleneck = excluded.bottleneck, updated_at = excluded.updated_at, " +
+            "updated_by = excluded.updated_by, matched_patterns = excluded.matched_patterns, " +
+            "matched_for = excluded.matched_for"
+        ).bind(
+            (existing && existing.id) || crypto.randomUUID(),
+            clientId, type, text, now, who, matched, matchedFor
+        ).run();
+
+        var outPats = [];
+        if (matched) {
+            try { outPats = JSON.parse(matched) || []; } catch (e) { outPats = []; }
+        }
+
+        return jsonOk({ ok: true, bottleneck: text, updated_at: now, updated_by: who, matched_patterns: outPats });
+    } catch (e) {
+        if (isAuthError(e)) { return jsonErr("Unauthorized", 401); }
+        return jsonErr("Error saving bottleneck: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/xray-completed-clients
+// The set of client ids with a COMPLETED business_xray. Drives the "Ver
+// exemplo" link: dashboard and client pages show it only for a client that
+// has no completed X-Ray of its own. Status matters, not row existence — an
+// activated-but-unfinished X-Ray has no scores and would render the same
+// empty page, so it must still count as "no data".
+// ---------------------------------------------------------------------------
+async function handleGetXrayCompletedClients(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var res = await env.DB.prepare(
+            "SELECT client_id FROM client_assessments " +
+            "WHERE assessment_type = 'business_xray' AND status = 'completed'"
+        ).all();
+
+        return jsonOk({
+            client_ids: (res.results || []).map(function(r) { return r.client_id; })
+        });
+    } catch (e) {
+        if (isAuthError(e)) { return jsonErr("Unauthorized", 401); }
+        return jsonErr("Error loading xray status: " + e.message, 500);
     }
 }

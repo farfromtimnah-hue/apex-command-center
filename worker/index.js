@@ -20701,6 +20701,18 @@ async function voidRemovedTransaction(env, plaidTransactionId) {
     // Find the posted row that replaced it, so the audit trail leads somewhere.
     // Same account, same amount, same merchant, within 3 days -- the same
     // composite findExistingTransaction uses, minus the row being voided.
+    // Exact merchant_normalized was too strict and produced FALSE ORPHANS.
+    // The bank re-issues the same charge with a differently formatted
+    // description, so normalizeMerchant lands somewhere else: the Bubble Down
+    // car wash on 2026-08-27 went out as "BUBBLE DOWN CAR WASH" and came back
+    // as "BUBBLE DOWN CAR", same account, same day, same $63.13. No match, so
+    // it was called an orphan -- and the Car Wash bill was left matched to a
+    // voided row, reading as paid against money the books no longer held.
+    //
+    // Two passes now. Exact first, so the previous behaviour still wins when
+    // it can. Then a prefix fallback on the same account, same amount, same
+    // 3-day window -- amount and account already make this narrow, and the
+    // 3-day window is unchanged; only the merchant test is loosened.
     var succ = await env.DB.prepare(
         "SELECT id FROM transactions WHERE account_id = ? AND amount_cents = ? " +
         "AND merchant_normalized IS ? AND id != ? AND voided_at IS NULL " +
@@ -20710,6 +20722,27 @@ async function voidRemovedTransaction(env, plaidTransactionId) {
         row.account_id, row.amount_cents, row.merchant_normalized,
         row.id, row.date, row.date
     ).first();
+
+    if (!succ && row.merchant_normalized) {
+        // Compare on the leading words, which is the part the bank keeps
+        // stable. Requires a real prefix (8+ chars) so a short or empty key
+        // cannot match half the feed.
+        var key = String(row.merchant_normalized).slice(0, 12);
+        if (key.length >= 8) {
+            succ = await env.DB.prepare(
+                "SELECT id FROM transactions WHERE account_id = ? AND amount_cents = ? " +
+                "AND id != ? AND voided_at IS NULL " +
+                "AND merchant_normalized IS NOT NULL " +
+                "AND (merchant_normalized LIKE ? OR ? LIKE merchant_normalized || '%') " +
+                "AND date >= date(?, '-3 day') AND date <= date(?, '+3 day') " +
+                "ORDER BY pending ASC, date ASC LIMIT 1"
+            ).bind(
+                row.account_id, row.amount_cents, row.id,
+                key + "%", row.merchant_normalized,
+                row.date, row.date
+            ).first();
+        }
+    }
 
     await env.DB.prepare(
         "UPDATE transactions SET voided_at = datetime('now'), voided_reason = ?, superseded_by = ? " +
@@ -20732,7 +20765,27 @@ async function voidRemovedTransaction(env, plaidTransactionId) {
         ).bind(succ.id, row.id).run();
     }
 
-    return succ ? "voided" : "voided_orphan";
+    if (succ) { return "voided"; }
+    // Carry the row id back so the caller can ask whether anything still
+    // points at it. A bare status string cannot answer that, and the alert
+    // built on it fired for every routine pending-to-posted turnover.
+    return { status: "voided_orphan", orphan_row_id: row.id };
+}
+
+// Which of these voided rows still have something attached. A retirement
+// nothing points at is ordinary bank turnover and must not page anybody.
+async function orphansWithLinks(env, rowIds) {
+    if (!rowIds || !rowIds.length) { return []; }
+    var out = [];
+    for (var i = 0; i < rowIds.length; i++) {
+        var r = await env.DB.prepare(
+            "SELECT (SELECT COUNT(*) FROM fixed_bill_payments WHERE transaction_id = ?1) + " +
+            "       (SELECT COUNT(*) FROM apex_club_event_txns WHERE transaction_id = ?1) + " +
+            "       (SELECT COUNT(*) FROM invoice_payments WHERE transaction_id = ?1 AND undone_at IS NULL) AS n"
+        ).bind(rowIds[i]).first();
+        if (r && r.n > 0) { out.push(rowIds[i]); }
+    }
+    return out;
 }
 
 async function syncPlaidTransactions(env) {
@@ -20740,7 +20793,7 @@ async function syncPlaidTransactions(env) {
         "SELECT id, plaid_item_id, access_token, cursor FROM plaid_items WHERE status != 'revoked'"
     ).all();
 
-    var summary = { items: 0, added: 0, modified: 0, removed: 0, errors: [], orphans: [] };
+    var summary = { items: 0, added: 0, modified: 0, removed: 0, errors: [], orphans: [], orphanRowIds: [] };
 
     for (var i = 0; i < items.results.length; i++) {
         var item = items.results[i];
@@ -20856,14 +20909,16 @@ async function syncPlaidTransactions(env) {
 
             for (t = 0; t < removed.length; t++) {
                 var remStat = await voidRemovedTransaction(env, removed[t].transaction_id);
-                if (remStat === "voided") {
+                var remCode = (remStat && remStat.status) ? remStat.status : remStat;
+                if (remCode === "voided") {
                     summary.removed++;
-                } else if (remStat === "voided_orphan") {
+                } else if (remCode === "voided_orphan") {
                     // Voided, but we could not identify the row that replaced
                     // it. Excluded from the money either way; reported because
                     // a retirement with no successor may be a real reversal.
                     summary.removed++;
                     summary.orphans.push(removed[t].transaction_id);
+                    if (remStat.orphan_row_id) { summary.orphanRowIds.push(remStat.orphan_row_id); }
                 }
             }
 
@@ -28259,14 +28314,29 @@ export default {
             // points at it. The sync succeeded; a human has to decide what the
             // surviving link should attach to. Silence here would mean a stale
             // bill match sitting in the books with nobody aware of it.
-            if (!sum || !sum.orphans || !sum.orphans.length) { return; }
-            return notifyNicoleTelegram(
-                env,
-                "Plaid sync OK. " + sum.orphans.length + " transaction(s) were retired by the bank " +
-                "with no replacement we could identify, so they are voided and no longer counted. " +
-                "That can mean a real reversal or refund worth a look. " +
-                "Plaid ids: " + sum.orphans.join(", ")
-            ).catch(function() {});
+            if (!sum || !sum.orphanRowIds || !sum.orphanRowIds.length) { return; }
+            // ONLY ALERT WHEN SOMETHING STILL POINTS AT IT.
+            //
+            // This message fired on every routine pending-to-posted turnover
+            // and became noise -- Nicole, 2026-08-29: "it sent the same message
+            // a couple days ago, it's becoming pretty regular." Of the five it
+            // sent, four were Walmart holds being replaced and nothing pointed
+            // at any of them.
+            //
+            // The comment above this alert always said its purpose was a bill
+            // match or club confirmation left pointing at a retired row. It
+            // just never checked. Now it does, so the alert means what it says
+            // -- and the one that DID matter (a Car Wash bill reading as paid
+            // against a voided row) is no longer buried among four that did not.
+            return orphansWithLinks(env, sum.orphanRowIds).then(function(live) {
+                if (!live.length) { return; }
+                return notifyNicoleTelegram(
+                    env,
+                    "Plaid: " + live.length + " retired transaction(s) still have a bill or " +
+                    "event matched to them, so something reads as paid against money the books " +
+                    "no longer hold. Needs a look. Ids: " + live.join(", ")
+                );
+            }).catch(function() {});
         }).catch(function(e) {
             return notifyNicoleTelegram(env, "Plaid sync failed: " + e.message).catch(function() {});
         }));

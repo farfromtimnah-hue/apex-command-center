@@ -4416,12 +4416,18 @@
               '</div>' +
             '</div>';
 
-          // The grid scrolls horizontally instead of clipping. The old one was
-          // a fixed repeat(7,1fr) whose cells could not shrink below their
-          // text, so on a narrow card three of the seven days were simply cut
-          // off -- while the heading still called it a week.
-          html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
-                  '<div style="display:grid;grid-template-columns:repeat(7,minmax(64px,1fr));gap:6px;min-width:480px;">';
+          // WRAPS, does not scroll. The old grid was a fixed repeat(7,1fr)
+          // whose cells could not shrink below their own text, so on this
+          // narrow sidebar card three of the seven days were silently clipped
+          // -- under a heading that still called it a week.
+          //
+          // Horizontal scrolling was the first fix and was still wrong here:
+          // this card lives in a ~270px column, so four days would sit
+          // off-screen behind a scrollbar nobody looks for. auto-fit wraps
+          // them onto a second row instead, so all seven are visible at once
+          // in a narrow column AND it stays a single row when there is width.
+          html += '<div>' +
+                  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:6px;">';
 
           days.forEach(function(d, i) {
             var m = statusMeta[d.status] || statusMeta.missing;

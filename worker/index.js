@@ -659,6 +659,10 @@ async function handleGetSessionsInbox(request, env) {
 // the earlier one. This table keeps every transition instead, so who did what
 // and in what order stays readable. Append-only: never updated, never deleted.
 //
+// D1-ONLY BY DESIGN. There is deliberately no read endpoint and nothing in the
+// UI renders an actor name: the audit trail may name people, the interface may
+// not. Read it with wrangler when the question is actually asked.
+//
 // Deliberately non-fatal. An audit write must not be able to fail the action
 // it is recording, so a broken insert is swallowed rather than 500-ing a
 // summarize the user has already paid Claude tokens for.
@@ -668,31 +672,6 @@ async function logSessionEvent(env, sessionId, event, actor, detail) {
             "INSERT INTO session_events (id, session_id, event, actor, detail) VALUES (?, ?, ?, ?, ?)"
         ).bind(crypto.randomUUID(), sessionId, event, actor || null, detail || null).run();
     } catch (e) { /* history is best-effort; the action itself already succeeded */ }
-}
-
-// ---------------------------------------------------------------------------
-// Route: GET /api/sessions/:id/events
-// The session's history, oldest first. Staff only -- this names who did what,
-// which is internal working detail, not something a client or seller sees.
-// ---------------------------------------------------------------------------
-
-async function handleGetSessionEvents(sessionId, request, env) {
-    try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
-            return jsonErr("Forbidden", 403);
-        }
-
-        var rows = await env.DB.prepare(
-            "SELECT id, event, actor, detail, created_at FROM session_events " +
-            "WHERE session_id = ? ORDER BY created_at ASC, rowid ASC"
-        ).bind(sessionId).all();
-
-        return jsonOk({ events: rows.results || [] });
-    } catch (e) {
-        return jsonErr("Error loading session history: " + e.message, 500);
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -28774,9 +28753,6 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "transcript" && method === "GET") {
             return handleGetSessionTranscript(segs[2], request, env);
-        }
-        if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "events" && method === "GET") {
-            return handleGetSessionEvents(segs[2], request, env);
         }
         if (segs[0] === "api" && segs[1] === "sessions" && segs[2] && segs[3] === "assign-client" && method === "POST") {
             return handlePostSessionAssignClient(segs[2], request, env);

@@ -1369,18 +1369,6 @@
               <div class="detail-actions" id="detailActions">
                 <!-- Populated by renderDetail() -->
               </div>
-              <!-- Per-stage history. The summarized_by/approved_by columns hold
-                   only the latest actor for each stage; this list is every
-                   transition in order, so re-summarizing or re-approving stays
-                   visible instead of overwriting what came before. Staff-only,
-                   like the endpoint behind it. -->
-              <div class="summary-card" id="sessionHistoryCard" hidden>
-                <h3 class="section-config-title">
-                  <span class="show-pt">Hist&oacute;rico</span>
-                  <span class="show-en">History</span>
-                </h3>
-                <div id="sessionHistoryList"></div>
-              </div>
               <div class="summary-card" id="sectionConfigPanel" hidden>
                 <h3 class="section-config-title">
                   <span class="show-pt">Se&ccedil;&otilde;es do Relat&oacute;rio</span>
@@ -2784,76 +2772,35 @@
       var statusEl = document.getElementById("detailStatus");
       statusEl.setAttribute("data-status", session.status);
 
-      // Who did what, not just when. Summarize only DRAFTS the summary (Claude
-      // reads the transcript); approve is the human sign-off after reading and
-      // editing it. Showing only the approval date made a bulk backlog cleanup
-      // read identically to Rafa's normal weekly review -- so both actors are
-      // surfaced, and a summarized-not-yet-approved session says so plainly.
-      // Rows from before 2026-08-30 carry no actor and simply omit the "by".
+      // Dates and state only -- WHO did each step is recorded in D1
+      // (sessions.summarized_by/approved_by and the session_events history)
+      // and deliberately never rendered. Naming the actor on screen crosses a
+      // line Apex holds elsewhere too: the audit trail may name people, the
+      // interface may not.
+      //
+      // Distinguishing "drafted, awaiting approval" from "approved" is still
+      // worth showing: summarize only DRAFTS the summary, approve is the human
+      // sign-off after reading and editing it.
       var approvedEl = document.getElementById("detailApproved");
       if (session.approved_at) {
         approvedEl.hidden = false;
-        approvedEl.textContent = "Approved " + formatDate(session.approved_at.split("T")[0]) +
-          (session.approved_by ? " by " + session.approved_by : "");
-      } else if (session.summarized_at || session.summarized_by) {
+        approvedEl.textContent = "Approved " + formatDate(session.approved_at.split("T")[0]);
+      } else if (session.summarized_at) {
         approvedEl.hidden = false;
-        approvedEl.textContent = t("Resumo gerado", "Summary drafted") +
-          (session.summarized_at ? " " + formatDate(session.summarized_at.split("T")[0]) : "") +
-          (session.summarized_by ? " by " + session.summarized_by : "") +
+        approvedEl.textContent = t("Resumo gerado", "Summary drafted") + " " +
+          formatDate(session.summarized_at.split("T")[0]) +
           " \u00b7 " + t("aguardando aprova\u00e7\u00e3o", "awaiting approval");
       } else {
         approvedEl.hidden = true;
       }
 
       renderAliceActions(session);
-      loadSessionHistory(session.id);
       loadSectionConfigPanel(session.id, session.status);
       renderSummaryCards(
         document.getElementById("summaryCards"),
         session.summary_json ? JSON.parse(session.summary_json) : null,
         session.status === "summarized"
       );
-    }
-
-    // Session history -- who did what, in order.
-    //
-    // Only sessions acted on from 2026-08-30 onward have events: the actor was
-    // never recorded before that, so an empty list means "no history captured",
-    // not "nothing happened". The card hides itself rather than claiming a
-    // session was untouched.
-    var HISTORY_LABELS = {
-      summarized:      ["Resumo gerado", "Summary drafted"],
-      approved:        ["Aprovado", "Approved"],
-      discarded:       ["Descartado", "Discarded"],
-      assigned_client: ["Cliente atribu\u00eddo", "Client assigned"]
-    };
-
-    function loadSessionHistory(sessionId) {
-      var card = document.getElementById("sessionHistoryCard");
-      var list = document.getElementById("sessionHistoryList");
-      if (!card || !list) { return; }
-      card.hidden = true;
-      list.innerHTML = "";
-
-      apiFetch("/api/sessions/" + sessionId + "/events")
-        .then(function(res) { return res.ok ? res.json() : null; })
-        .then(function(data) {
-          var events = (data && data.events) || [];
-          if (!events.length) { return; }
-          list.innerHTML = events.map(function(ev) {
-            var pair  = HISTORY_LABELS[ev.event];
-            var label = pair ? t(pair[0], pair[1]) : ev.event;
-            var when  = ev.created_at ? formatDate(ev.created_at.split(" ")[0].split("T")[0]) : "";
-            var who   = ev.actor ? " \u00b7 " + escHtml(ev.actor) : "";
-            var extra = ev.detail ? " \u00b7 " + escHtml(ev.detail) : "";
-            return '<div style="font-size:13px;padding:4px 0;">' +
-                   escHtml(label) + extra +
-                   '<span style="color:var(--muted);">' + (when ? " \u00b7 " + when : "") + who + '</span>' +
-                   '</div>';
-          }).join("");
-          card.hidden = false;
-        })
-        .catch(function() { /* history is supplementary; never block the panel */ });
     }
 
     function renderAliceActions(session) {

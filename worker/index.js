@@ -20766,6 +20766,65 @@ async function voidRemovedTransaction(env, plaidTransactionId) {
     }
 
     if (succ) { return "voided"; }
+
+    // NO SUCCESSOR FOUND, BUT A BILL STILL POINTS HERE.
+    //
+    // Ask the BILL to find its own charge. This is the durable fix, because
+    // the transaction side is guesswork -- Plaid reports a re-issued
+    // authorization as delete-one/add-another with NO field linking them, so
+    // there is nothing to follow. The bill, by contrast, already knows what
+    // its charge looks like: it carries payer_match_pattern and an amount.
+    //
+    // The live case: Bank of America replaced a pending car wash charge with
+    // an identical pending charge under the merchant's registered name
+    // ("BUBBLE DOWN CAR WASH" -> "BUBBLE DOWN CAR W"), one day apart, same
+    // card, same $63.13. The auto-matcher had already attached the bill to the
+    // first, so when the bank retired it the bill read as paid against money
+    // the books no longer held. The bill's own pattern matches BOTH spellings.
+    //
+    // Only ever repoints to a row matching the bill's pattern AND its exact
+    // amount within a few days -- the same evidence the auto-matcher required
+    // to make the link in the first place. If nothing qualifies the payment
+    // record is DELETED, not left dangling: the bill returns to overdue and
+    // re-matches naturally on the next read, which is the honest state and is
+    // exactly what the overdue list is for.
+    try {
+        var links = await env.DB.prepare(
+            "SELECT p.id, p.bill_id, b.payer_match_pattern, b.amount_cents " +
+            "FROM fixed_bill_payments p JOIN fixed_bills b ON b.id = p.bill_id " +
+            "WHERE p.transaction_id = ?"
+        ).bind(row.id).all();
+
+        for (var li = 0; li < (links.results || []).length; li++) {
+            var link = links.results[li];
+            var repl = null;
+            if (link.payer_match_pattern) {
+                repl = await env.DB.prepare(
+                    "SELECT id FROM transactions " +
+                    "WHERE account_id = ? AND amount_cents = ? AND id != ? " +
+                    "AND voided_at IS NULL AND transfer_status NOT IN ('suspected','confirmed') " +
+                    "AND (description LIKE ? OR merchant_normalized LIKE ?) " +
+                    "AND date >= date(?, '-5 day') AND date <= date(?, '+5 day') " +
+                    "ORDER BY pending ASC, date ASC LIMIT 1"
+                ).bind(
+                    row.account_id, row.amount_cents, row.id,
+                    "%" + link.payer_match_pattern + "%",
+                    "%" + link.payer_match_pattern + "%",
+                    row.date, row.date
+                ).first();
+            }
+            if (repl) {
+                await env.DB.prepare(
+                    "UPDATE OR IGNORE fixed_bill_payments SET transaction_id = ? WHERE id = ?"
+                ).bind(repl.id, link.id).run();
+            } else {
+                await env.DB.prepare(
+                    "DELETE FROM fixed_bill_payments WHERE id = ?"
+                ).bind(link.id).run();
+            }
+        }
+    } catch (e) { /* never let repair break the sync it runs inside */ }
+
     // Carry the row id back so the caller can ask whether anything still
     // points at it. A bare status string cannot answer that, and the alert
     // built on it fired for every routine pending-to-posted turnover.

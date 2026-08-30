@@ -1417,9 +1417,28 @@
         if (!user) {
           var hadCachedRole = sessionStorage.getItem("apex_role");
           if (hadCachedRole) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the
+            // bad outcome: if the user came back within the second it did
+            // NOTHING, and because this branch returns, setupDashboard() had
+            // already been skipped. The page sat on "Carregando..." with no
+            // navigation, forever, and a refresh replayed the same race --
+            // only retyping the URL and logging in again cleared it.
+            //
+            // Seen live 2026-08-30, on every page at once, right after a
+            // worker deploy forced exactly that token refresh.
             setTimeout(function() {
               if (!auth.currentUser) {
                 window.location.href = "index.html";
+                return;
+              }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              try { setupDashboard(hadCachedRole); } catch (e) {}
+              if (typeof fetchAndApplyRole === "function") {
+                fetchAndApplyRole().catch(function() {});
               }
             }, 1000);
             return;

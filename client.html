@@ -1871,15 +1871,6 @@
               </span>
             </button>
             <div class="pull-status" id="logoStatus" style="color:rgba(255,255,255,0.7);font-size:11px;min-height:0;"></div>
-            <!-- Invoice logo switch. When off (or when there is simply no logo)
-                 the invoice prints the CLIENT'S NAME as a wordmark instead of a
-                 placeholder, so an invoice is never held back waiting for a
-                 logo file to arrive. -->
-            <label id="hideLogoWrap" style="display:none;align-items:center;gap:6px;cursor:pointer;color:rgba(255,255,255,0.75);font-family:'Inter',sans-serif;font-size:11px;white-space:nowrap;">
-              <input type="checkbox" id="chkHideLogo" onchange="toggleHideLogo(this)" style="cursor:pointer;margin:0;">
-              <span class="show-pt">N&atilde;o usar logo na fatura</span>
-              <span class="show-en">Don't use logo on invoice</span>
-            </label>
           </div>
           <div class="profile-header-meta">
             <div class="client-nav-row">
@@ -8486,45 +8477,6 @@
           });
         }
       }
-
-      // The switch only appears when there IS a logo to switch off. With no
-      // logo the invoice already falls back to the client's name, so offering
-      // a toggle would be a control with nothing to control.
-      var hideWrap = document.getElementById("hideLogoWrap");
-      var hideChk  = document.getElementById("chkHideLogo");
-      if (hideWrap && hideChk) {
-        var showToggle = canUpload && !!(client && client.logo_url);
-        hideWrap.style.display = showToggle ? "flex" : "none";
-        hideChk.checked = !!(client && (client.hide_logo === 1 || client.hide_logo === true));
-      }
-    }
-
-    // Turn the invoice logo off for THIS client without deleting the logo --
-    // it is still shown everywhere else. Off means the invoice prints the
-    // client's name as a wordmark.
-    function toggleHideLogo(el) {
-      var want = el.checked ? 1 : 0;
-      apiFetch("/api/clients/" + CLIENT_ID, { method: "PUT", body: { hide_logo: want } })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data && data.error) {
-            el.checked = !el.checked;
-            window.alert(data.error);
-            return;
-          }
-          if (clientData) { clientData.hide_logo = want; }
-          var st = document.getElementById("logoStatus");
-          if (st) {
-            st.textContent = want
-              ? t("A fatura vai mostrar o nome do cliente.", "The invoice will show the client name.")
-              : t("A fatura vai mostrar o logo.", "The invoice will show the logo.");
-            setTimeout(function() { st.textContent = ""; }, 4000);
-          }
-        })
-        .catch(function(e) {
-          el.checked = !el.checked;
-          window.alert((e && e.message) ? e.message : t("Erro", "Error"));
-        });
     }
 
     function handleLogoFileSelected(input) {

@@ -1099,11 +1099,7 @@
         if (fbName.length > 22) { clientLogoFallback.classList.add('is-long'); }
       }
 
-      // hide_logo lets Alice turn the logo off for one invoice without
-      // deleting the client's stored logo.
-      var suppressLogo = cliente.hide_logo === true || cliente.hide_logo === 1;
-
-      if (clientLogo && cliente.logo_url && !suppressLogo) {
+      if (clientLogo && cliente.logo_url) {
         clientLogo.src = cliente.logo_url;
         clientLogo.alt = cliente.nome || 'Logo Cliente';
         clientLogo.style.display = 'block';

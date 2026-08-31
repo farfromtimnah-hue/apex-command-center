@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-pt="Preparacao da Reuniao" data-en="Meeting Prep">Preparacao da Reuniao</title>
+  <title data-pt="Prepara&#231;&#227;o da Reuni&#227;o" data-en="Meeting Prep">Prepara&#231;&#227;o da Reuni&#227;o</title>
 <script>
   (function () {
     var P = String(window.location.protocol || "").toLowerCase();
@@ -154,6 +154,13 @@
       font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
       padding-top: 10px; margin-top: 12px;
     }
+    .pkg-open {
+      display: inline-block; font-size: 13px; font-weight: 600; color: var(--gold);
+      text-decoration: none; border-bottom: 1px solid transparent;
+    }
+    .pkg-open:hover { border-bottom-color: currentColor; }
+    .pkg-note { font-size: 11px; color: var(--muted); margin-left: 8px; }
+
     /* example=1 label: one quiet line, muted, no banner and no colour block. */
     .example-line { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
 
@@ -224,6 +231,37 @@
       text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 4px;
     }
 
+    /* Area drill-down, from score_json.action_plan */
+    details.area-d { border: none; }
+    details.area-d > summary { list-style: none; cursor: pointer; }
+    details.area-d > summary::-webkit-details-marker { display: none; }
+    .area-more {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      margin-top: 8px; display: inline-block;
+    }
+    details.area-d[open] > summary .area-more-shut { display: none; }
+    details.area-d:not([open]) > summary .area-more-open { display: none; }
+    .plan { margin-top: 12px; padding: 14px; background: var(--surface); border-radius: 8px; }
+    .plan-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .plan-tag {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 20px; color: #fff; background: var(--crit);
+    }
+    .plan-tag.t-warn { background: var(--warn); }
+    .plan-tag.t-good { background: var(--good); }
+    .plan-frac { font-size: 12px; font-weight: 700; color: var(--text); }
+    .plan-when { font-size: 12px; color: var(--muted); }
+    .plan-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); margin: 0 0 5px;
+    }
+    .plan ul { margin: 0 0 12px; padding-left: 18px; }
+    .plan li { font-size: 13px; line-height: 1.6; margin-bottom: 4px; }
+    .plan-succ {
+      font-size: 13px; line-height: 1.55; border-left: 3px solid var(--good);
+      padding-left: 10px; color: var(--text);
+    }
+
     /* 62 questions */
     .q-area-name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--navy); margin: 16px 0 6px; }
     .q-row { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid var(--border); font-size: 13px; }
@@ -243,7 +281,12 @@
       padding: 2px 7px; border-radius: 20px; margin-right: 5px;
     }
     .story-body { padding: 0 14px 14px; }
-    .story-narr { font-size: 14px; line-height: 1.65; white-space: pre-wrap; margin-bottom: 12px; }
+    .story-narr { font-size: 14px; line-height: 1.65; margin-bottom: 12px; }
+    .story-narr p { margin: 0 0 10px; }
+    .story-narr p:last-child { margin-bottom: 0; }
+    .story-more { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 6px; display: inline-block; }
+    details.story[open] > summary .story-more-shut { display: none; }
+    details.story:not([open]) > summary .story-more-open { display: none; }
     .story-note {
       font-size: 12px; line-height: 1.55; color: var(--text);
       border-left: 3px solid var(--crit); background: var(--surface);
@@ -287,6 +330,29 @@
     .pick-example { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: underline; }
     .pick-example:hover { color: var(--text); }
 
+    /* Resultado: the lead outcome, the last thing on the page. */
+    .out-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+    .out-btn {
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      padding: 11px 18px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+    }
+    .out-btn:hover { border-color: var(--gold); }
+    .out-btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .out-btn.primary:hover { opacity: 0.9; }
+    .out-sub { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+    .out-pick { margin-top: 12px; }
+    .out-pick select {
+      font-family: inherit; font-size: 14px; padding: 9px 12px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+      color: var(--text); min-width: 200px;
+    }
+    .out-state { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 15px; }
+    .out-done {
+      font-size: 14px; line-height: 1.55; padding: 12px 14px;
+      background: var(--gold-dim); border-radius: 8px;
+    }
+
     /* Checklist */
     .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
     .check-row:first-child { border-top: none; }
@@ -305,7 +371,7 @@
   <header>
     <div class="header-left">
       <img src="assets/apex-logo.png" alt="APEX" class="header-logo">
-      <div class="header-title"><span class="show-pt">Preparacao da Reuniao</span><span class="show-en">Meeting Prep</span></div>
+      <div class="header-title"><span class="show-pt">Prepara&#231;&#227;o da Reuni&#227;o</span><span class="show-en">Meeting Prep</span></div>
     </div>
     <div class="header-right">
       <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
@@ -360,17 +426,16 @@
       medo_de_prospectar:     "medo de prospectar",
       espera_o_cliente_vir:   "espera o cliente vir",
       sem_clareza_financeira: "sem clareza financeira",
-      dependencia_do_dono:    "dependencia do dono",
-      tudo_na_cabeca:         "tudo na cabeca",
+      dependencia_do_dono:    "depend&#234;ncia do dono",
+      tudo_na_cabeca:         "tudo na cabe&#231;a",
       zona_de_conforto:       "zona de conforto",
-      recomeco_apos_fracasso: "recomeco apos fracasso",
+      recomeco_apos_fracasso: "recome&#231;o ap&#243;s fracasso",
       risco_sem_conselho:     "risco sem conselho"
     };
 
     var AFTER_MEETING = [
       { id: "chk_xray",     pt: "Enviar o Raio-X",                  en: "Send the X-Ray" },
-      { id: "chk_pricing",  pt: "Enviar o comparativo de precos",   en: "Send the pricing comparison" },
-      { id: "chk_access",   pt: "Enviar o acesso ao sistema",       en: "Send system access" },
+      { id: "chk_pricing",  pt: "Enviar o comparativo de pre&#231;os",   en: "Send the pricing comparison" },
       { id: "chk_whatsapp", pt: "Criar o grupo de WhatsApp",        en: "Create the WhatsApp group" },
       { id: "chk_payment",  pt: "Definir a data de pagamento",      en: "Set the payment date" }
     ];
@@ -462,7 +527,7 @@
       if (c.industry) { bits.push(escHtml(c.industry)); }
 
       var typeLabel = d.meeting_type === "xray_results"
-        ? ptEn("Reuniao de resultados do Raio-X", "X-Ray results meeting")
+        ? ptEn("Reuni&#227;o de resultados do Raio-X", "X-Ray results meeting")
         : escHtml(d.meeting_type || "");
 
       var h = '<div class="card">';
@@ -474,8 +539,13 @@
       h += '<h1 class="prep-name">' + escHtml(c.name || "") + '</h1>';
       if (bits.length) { h += '<p class="prep-meta">' + bits.join(" &middot; ") + '</p>'; }
       h += '<p class="prep-meta">' + typeLabel + '</p>';
+      h += '<p style="margin:0 0 4px;"><a class="pkg-open" href="packages.html" target="_blank" rel="noopener">' +
+           ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>' +
+           '<span class="pkg-note">' +
+           ptEn("abre em outra aba, para mostrar ao cliente",
+                "opens in a new tab, to show the client") + '</span></p>';
       h += '<p class="prep-confid">' +
-           ptEn("Esta pagina e apenas para o consultor. Qualquer material mostrado ao cliente abre em separado.",
+           ptEn("Esta p&#225;gina &#233; apenas para o consultor. Qualquer material mostrado ao cliente abre em separado.",
                 "This page is consultant-only. Anything shown on screen opens separately.") +
            '</p>';
       h += '</div>';
@@ -521,7 +591,7 @@
       if (!rows.length && !side.length) { return ""; }
 
       var h = '<div class="card"><p class="sec-title">' +
-              ptEn("Antes de comecar", "Before you start") + '</p>';
+              ptEn("Antes de come&#231;ar", "Before you start") + '</p>';
       h += rows.join("");
       if (side.length) {
         h += '<div class="kv" style="margin-top:' + (rows.length ? "14px" : "0") + ';">' + side.join("") + '</div>';
@@ -537,7 +607,7 @@
       var h = '<div class="card"><p class="sec-title">' +
               ptEn("O gargalo, na palavra dele", "What he says the bottleneck is") + '</p>';
       h += '<p class="ask-line">' +
-           ptEn("Me fala um pouquinho, o que voce mais percebe aqui, na sua empresa, de gargalo?",
+           ptEn("Me fala um pouquinho, o que voc&#234; mais percebe aqui, na sua empresa, de gargalo?",
                 "Tell me a little: what do you notice most here in your company as a bottleneck?") +
            '</p>';
       h += '<textarea id="bottleneckBox" class="bottleneck">' + escHtml(txt) + '</textarea>';
@@ -566,7 +636,7 @@
                    lowTxt + ' to ' + highTxt + '</span> hours a week before touching the work itself.';
 
       var h = '<div class="card"><p class="sec-title">' +
-              ptEn("A dependencia do dono", "Owner dependency") + '</p>';
+              ptEn("A depend&#234;ncia do dono", "Owner dependency") + '</p>';
       h += '<p class="load-line">' + ptEn(linePt, lineEn) + '</p>';
       h += '<div class="load-bar"><span style="width:' + pct + '%;"></span></div>';
       h += '<p class="load-sub">' +
@@ -575,8 +645,43 @@
            '</p>';
       if (o.allOwner) {
         h += '<p class="load-sub" style="margin-top:6px;">' +
-             ptEn("Todas as atividades respondidas sao feitas pelo dono.",
+             ptEn("Todas as atividades respondidas s&#227;o feitas pelo dono.",
                   "Every answered activity is done by the owner.") + '</p>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // One area's entry from score_json.action_plan. Every field is optional:
+    // a plan missing its timeframe or success criterion renders without them
+    // rather than showing an empty row.
+    function renderPlan(p) {
+      var tagCls = "";
+      var st = String(p.status || "");
+      if (st === "Moderado" || st === "Aten\u00e7\u00e3o") { tagCls = " t-warn"; }
+      else if (st === "Bom") { tagCls = " t-good"; }
+
+      var h = '<div class="plan"><div class="plan-head">';
+      if (p.tag)      { h += '<span class="plan-tag' + tagCls + '">' + escHtml(p.tag) + '</span>'; }
+      if (p.fraction) { h += '<span class="plan-frac">' + escHtml(p.fraction) + '</span>'; }
+      var when = isEn() ? (p.timeframeEn || p.timeframePt) : (p.timeframePt || p.timeframeEn);
+      if (when)       { h += '<span class="plan-when">' + escHtml(when) + '</span>'; }
+      h += '</div>';
+
+      var acts = (isEn() ? (p.actionsEn || p.actionsPt) : (p.actionsPt || p.actionsEn)) || [];
+      if (acts.length) {
+        h += '<p class="plan-label">' + ptEn("O que fazer", "What to do") + '</p><ul>';
+        for (var i = 0; i < acts.length; i++) {
+          h += '<li>' + escHtml(acts[i]) + '</li>';
+        }
+        h += '</ul>';
+      }
+
+      var succ = isEn() ? (p.criterioSucessoEn || p.criterioSucessoPt)
+                        : (p.criterioSucessoPt || p.criterioSucessoEn);
+      if (succ) {
+        h += '<p class="plan-label">' + ptEn("Crit&#233;rio de sucesso", "Success criterion") + '</p>';
+        h += '<p class="plan-succ">' + escHtml(succ) + '</p>';
       }
       h += '</div>';
       return h;
@@ -602,24 +707,54 @@
       }
       h += '</summary><div class="block-body">';
 
-      for (var i = 0; i < areas.length; i++) {
-        var a = areas[i];
+      // action_plan is keyed by areaKey. A client whose score_json predates the
+      // plan simply has none, and those areas render flat rather than opening
+      // onto an empty drawer.
+      var planBy = {};
+      var plans = sc.action_plan || [];
+      for (var pi = 0; pi < plans.length; pi++) {
+        if (plans[pi] && plans[pi].areaKey) { planBy[plans[pi].areaKey] = plans[pi]; }
+      }
+
+      // Worst first: that is the order he reads them in. Sorted on a copy so
+      // the stored order is left alone.
+      var ordered = areas.slice().sort(function(x, y) {
+        var xp = typeof x.pct === "number" ? x.pct : 101;
+        var yp = typeof y.pct === "number" ? y.pct : 101;
+        return xp - yp;
+      });
+
+      for (var i = 0; i < ordered.length; i++) {
+        var a = ordered[i];
         var cls = statusClass(a.status);
         // Score out of 10, as the section specifies, derived from the area's
         // own percentage so a 4-area and a 6-area instrument read alike.
         var outOf10 = typeof a.pct === "number" ? Math.round(a.pct / 10) : null;
         var name = isEn() ? (a.nameEn || a.namePt || a.key) : (a.namePt || a.nameEn || a.key);
-        h += '<div class="area"><div class="area-head">';
-        h += '<span class="area-name">' + escHtml(name) + '</span>';
+        var plan = planBy[a.key];
+
+        var head = '<div class="area-head">';
+        head += '<span class="area-name">' + escHtml(name) + '</span>';
         if (outOf10 !== null) {
-          h += '<span class="area-score s-' + cls + '">' + outOf10 + '/10</span>';
+          head += '<span class="area-score s-' + cls + '">' + outOf10 + '/10</span>';
         }
-        h += '</div>';
+        head += '</div>';
         if (typeof a.pct === "number") {
-          h += '<div class="bar"><span class="fill-' + cls + '" style="width:' + a.pct + '%;"></span></div>';
+          head += '<div class="bar"><span class="fill-' + cls + '" style="width:' + a.pct + '%;"></span></div>';
         }
         if (a.evidencePt) {
-          h += '<p class="area-ev">' + escHtml(a.evidencePt) + '</p>';
+          head += '<p class="area-ev">' + escHtml(a.evidencePt) + '</p>';
+        }
+
+        h += '<div class="area">';
+        if (plan) {
+          h += '<details class="area-d"><summary>' + head +
+               '<span class="area-more">' +
+               '<span class="area-more-shut">' + ptEn("Ver o plano", "See the plan") + '</span>' +
+               '<span class="area-more-open">' + ptEn("Fechar", "Close") + '</span>' +
+               '</span></summary>' + renderPlan(plan) + '</details>';
+        } else {
+          h += head;
         }
         h += '</div>';
       }
@@ -638,7 +773,7 @@
       if (!d.answeredCount) { return ""; }
       var groups = d.areaQuestions || [];
       var h = '<details class="block"><summary><span class="sum-title">' +
-              ptEn("As 62 respostas do questionario", "The 62 questionnaire answers") +
+              ptEn("As 62 respostas do question&#225;rio", "The 62 questionnaire answers") +
               '</span><span class="sum-hint">' + d.answeredCount + '</span></summary>' +
               '<div class="block-body">';
       for (var i = 0; i < groups.length; i++) {
@@ -654,7 +789,7 @@
           var q = shown[k];
           var yes = q.answer === 1;
           h += '<div class="q-row"><span class="q-mark ' + (yes ? "q-yes" : "q-no") + '">' +
-               (yes ? ptEn("Sim", "Yes") : ptEn("Nao", "No")) + '</span><span class="q-text">' +
+               (yes ? ptEn("Sim", "Yes") : ptEn("N&#227;o", "No")) + '</span><span class="q-text">' +
                escHtml(isEn() ? (q.labelEn || q.labelPt) : (q.labelPt || q.labelEn)) +
                '</span></div>';
         }
@@ -666,6 +801,56 @@
     // ---- 7 Stories, ranked -----------------------------------------------
     // The system ranks. He picks. Never auto-select, never hide the rest:
     // a meeting turns and he needs the others in his back pocket.
+    // Names the patterns, in the page's own words, as a readable list:
+    // "medo de prospectar e zona de conforto" / "a and b" -- never a bare id.
+    // Takes the joiner rather than calling ptEn() itself: the result is built
+    // into one side of a ptEn() pair, and a nested pair would leak the
+    // Portuguese joiner into the English sentence.
+    function patternList(keys, joiner) {
+      var out = [];
+      for (var i = 0; i < keys.length; i++) {
+        out.push(escHtml(PATTERN_LABELS[keys[i]] || keys[i]));
+      }
+      if (out.length === 1) { return out[0]; }
+      var last = out.pop();
+      return out.join(", ") + joiner + last;
+    }
+
+    // The real reason THIS story ranked where it did. A story that matched
+    // nothing gets no line at all: the same generic sentence on all sixteen
+    // rows tells him nothing and is worse than silence.
+    function storyReason(mb, mp) {
+      if (mb.length) {
+        // The bottleneck he just typed is the stronger signal, so that is the
+        // source named when a story hits both.
+        return ptEn(
+          "Casa com o gargalo que ele descreveu: " + patternList(mb, " e "),
+          "Matches the bottleneck he described: " + patternList(mb, " and ")
+        );
+      }
+      if (mp.length) {
+        return ptEn(
+          "Casa com o Raio-X: " + patternList(mp, " e "),
+          "Matches the X-Ray: " + patternList(mp, " and ")
+        );
+      }
+      return "";
+    }
+
+    // A narrative is now full prose, several paragraphs long. Blank lines are
+    // paragraph breaks and render as such; one undivided block is unreadable
+    // mid-meeting.
+    function narrativeHtml(text) {
+      var paras = String(text).split(/\n\s*\n/);
+      var out = "";
+      for (var i = 0; i < paras.length; i++) {
+        var t = paras[i].replace(/^\s+|\s+$/g, "");
+        if (!t) { continue; }
+        out += '<p>' + escHtml(t) + '</p>';
+      }
+      return out;
+    }
+
     function storyCard(s) {
       var why = [];
       var mb = s.matched_bottleneck || [];
@@ -678,12 +863,7 @@
         why.push('<span class="tag">' + escHtml(PATTERN_LABELS[mp[j]] || mp[j]) + '</span>');
       }
 
-      var reason = "";
-      if (mb.length) {
-        reason = ptEn("Casa com o que ele acabou de dizer", "Matches what he just said");
-      } else if (mp.length) {
-        reason = ptEn("Casa com um padrao do Raio-X", "Matches a pattern in the X-Ray");
-      }
+      var reason = storyReason(mb, mp);
 
       var h = '<details class="story"><summary>';
       h += '<div class="story-line">' + escHtml(s.one_liner || "") + '</div>';
@@ -691,9 +871,16 @@
         h += '<div class="story-why">' + why.join("") +
              (reason ? '<span>' + reason + '</span>' : "") + '</div>';
       }
+      h += '<span class="story-more">' +
+           '<span class="story-more-shut">' + ptEn("Ver a hist&#243;ria", "See the story") + '</span>' +
+           '<span class="story-more-open">' + ptEn("Fechar", "Close") + '</span>' +
+           '</span>';
       h += '</summary><div class="story-body">';
-      if (s.narrative) {
-        h += '<div class="story-narr">' + escHtml(s.narrative) + '</div>';
+      // narrative_en is filled in row by row; falling back to the Portuguese
+      // keeps the body from rendering blank while that work is in flight.
+      var narr = isEn() ? (s.narrative_en || s.narrative) : s.narrative;
+      if (narr) {
+        h += '<div class="story-narr">' + narrativeHtml(narr) + '</div>';
       }
       // telling_note is ALWAYS rendered: it says what must not be claimed.
       if (s.telling_note) {
@@ -715,7 +902,7 @@
       }
 
       var h = '<div class="card"><p class="sec-title">' +
-              ptEn("Historias", "Stories") + '</p>';
+              ptEn("Hist&#243;rias", "Stories") + '</p>';
       for (var m = 0; m < matched.length; m++) { h += storyCard(matched[m]); }
       if (matched.length && rest.length) {
         h += '<div class="divider">' + ptEn("As demais", "The rest") + '</div>';
@@ -749,20 +936,20 @@
           '<div class="asset-row"><span class="asset-label">' + ptEn(it.pt, it.en) + '</span>' +
           (has
             ? '<span>' + escHtml(String(it.val)) + '</span>'
-            : '<span class="asset-gap">' + ptEn("nao consta", "not on record") + '</span>') +
+            : '<span class="asset-gap">' + ptEn("n&#227;o consta", "not on record") + '</span>') +
           '</div>'
         );
       }
 
       return '<div class="card"><p class="sec-title">' +
-             ptEn("O que ele ja tem", "What he already has") + '</p>' +
+             ptEn("O que ele j&#225; tem", "What he already has") + '</p>' +
              rows.join("") + '</div>';
     }
 
     // ---- 9 After the meeting ---------------------------------------------
     function renderChecklist() {
       var h = '<div class="card"><p class="sec-title">' +
-              ptEn("Depois da reuniao", "After the meeting") + '</p>';
+              ptEn("Depois da reuni&#227;o", "After the meeting") + '</p>';
       for (var i = 0; i < AFTER_MEETING.length; i++) {
         var it = AFTER_MEETING[i];
         h += '<div class="check-row"><input type="checkbox" id="' + it.id + '">' +
@@ -793,7 +980,7 @@
       var h = '<div class="card">';
       h += '<h1 class="pick-name">' + escHtml(c.name || "") + '</h1>';
       h += '<p class="pick-ask">' +
-           ptEn("Qual e esta reuniao?", "Which meeting is this?") + '</p>';
+           ptEn("Qual &#233; esta reuni&#227;o?", "Which meeting is this?") + '</p>';
 
       for (var i = 0; i < MEETING_TYPES.length; i++) {
         var t = MEETING_TYPES[i];
@@ -816,6 +1003,137 @@
       return h;
     }
 
+    // ---- 10 Resultado ----------------------------------------------------
+    // The moment he actually resolves the lead, so the decision belongs here
+    // as well as on the client page. Reuses POST /api/clients/:id/lead-outcome
+    // -- the same single handler the client page posts to, not a second path.
+    // Shown only while status is 'lead': on an active client it makes no sense.
+    function renderOutcome(d) {
+      var c = d.client || {};
+      if (String(c.status || "") !== "lead") { return ""; }
+
+      var h = '<div class="card" id="outcomeCard"><p class="sec-title">' +
+              ptEn("Resultado", "Outcome") + '</p>';
+      h += '<p class="out-sub">' +
+           ptEn("Como esta reuni&#227;o terminou?", "How did this meeting end?") + '</p>';
+      h += '<div class="out-actions">';
+      h += '<button type="button" class="out-btn primary" onclick="openConvert()">' +
+           ptEn("Virou cliente", "Became a client") + '</button>';
+      // NOT "lost": Rafa works this list to revive them, so it is worded as a
+      // return-to later, not as a rejection.
+      h += '<button type="button" class="out-btn" onclick="markDormant()">' +
+           ptEn("Ainda n&#227;o, retomar depois", "Not yet, come back to them") + '</button>';
+      h += '</div>';
+
+      // The package picker, hidden until "became a client" is chosen: a
+      // package is required for the converted outcome.
+      h += '<div class="out-pick" id="outPick" hidden>';
+      h += '<p class="out-sub" style="margin-bottom:6px;">' +
+           ptEn("Qual pacote?", "Which package?") + '</p>';
+      h += '<select id="outPackage"><option value="">' +
+           ptEn("-- Pacote --", "-- Package --") + '</option></select> ';
+      h += '<button type="button" class="out-btn primary" onclick="confirmConvert()">' +
+           ptEn("Confirmar", "Confirm") + '</button>';
+      h += '</div>';
+
+      h += '<div class="out-state" id="outState"></div>';
+      h += '</div>';
+      return h;
+    }
+
+    var outPackagesLoaded = false;
+
+    function openConvert() {
+      var pick = document.getElementById("outPick");
+      if (pick) { pick.hidden = false; }
+      setOutState("", "");
+      if (outPackagesLoaded) { return; }
+      // Same live package source the client page's convert modal uses.
+      apiFetch("/api/settings/packages")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var pkgs = data.packages || [];
+          if (!pkgs.length) { return; }
+          outPackagesLoaded = true;
+          var newPkgs    = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
+          var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
+          var html = '<option value="">' + ptEn("-- Pacote --", "-- Package --") + '</option>';
+          for (var i = 0; i < newPkgs.length; i++) {
+            html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' +
+                    escHtml(newPkgs[i].short_name) + '</option>';
+          }
+          if (newPkgs.length && legacyPkgs.length) {
+            html += '<option value="" disabled>----- Legacy / Legado -----</option>';
+          }
+          for (var j = 0; j < legacyPkgs.length; j++) {
+            html += '<option value="' + escHtml(legacyPkgs[j].short_name) + '">' +
+                    escHtml(legacyPkgs[j].short_name) + '</option>';
+          }
+          var sel = document.getElementById("outPackage");
+          if (sel) { sel.innerHTML = html; }
+        })
+        .catch(function() { /* the static placeholder option stays in the DOM */ });
+    }
+
+    function setOutState(pt, en) {
+      var el = document.getElementById("outState");
+      if (!el) { return; }
+      el.innerHTML = (pt || en) ? ptEn(pt, en) : "";
+    }
+
+    function confirmConvert() {
+      var sel = document.getElementById("outPackage");
+      var pkg = sel ? sel.value : "";
+      if (!pkg) {
+        setOutState("Escolha um pacote.", "Choose a package.");
+        return;
+      }
+      postOutcome({ outcome: "converted", "package": pkg });
+    }
+
+    function markDormant() {
+      postOutcome({ outcome: "dormant" });
+    }
+
+    // Reports what happened and leaves the page usable. Deliberately no
+    // redirect: he is mid-meeting and moving him elsewhere would lose the prep.
+    function postOutcome(payload) {
+      setOutState("Salvando...", "Saving...");
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/lead-outcome", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var card = document.getElementById("outcomeCard");
+          if (!card) { return; }
+          var msg;
+          if (payload.outcome === "converted") {
+            msg = ptEn(
+              "Virou cliente, no pacote " + escHtml(payload["package"]) + ".",
+              "Now a client, on the " + escHtml(payload["package"]) + " package."
+            );
+          } else {
+            msg = ptEn(
+              "Marcado para retomar depois. Fica em Consolidados, em Leads para reativar.",
+              "Marked to come back to. It sits under Consolidados, in leads to reactivate."
+            );
+          }
+          card.innerHTML = '<p class="sec-title">' + ptEn("Resultado", "Outcome") +
+                           '</p><div class="out-done">' + msg + '</div>';
+          // Keep the cached copy honest so a language toggle re-render, which
+          // rebuilds from prepData, does not resurrect the buttons.
+          if (prepData && prepData.client) {
+            prepData.client.status = (payload.outcome === "converted") ? "active" : "lead_dormant";
+          }
+        })
+        .catch(function(e) {
+          setOutState("N&#227;o foi poss&#237;vel salvar: " + escHtml(e.message),
+                      "Could not save: " + escHtml(e.message));
+        });
+    }
+
     function render(d) {
       var body = document.getElementById("prepBody");
       if (!body) { return; }
@@ -836,6 +1154,7 @@
       h += renderStories(d);
       h += renderAssets(d);
       h += renderChecklist();
+      h += renderOutcome(d);
       body.innerHTML = h;
       body.hidden = false;
       var msg = document.getElementById("stateMsg");
@@ -874,10 +1193,10 @@
         return res.json();
       }).then(function() {
         lastSaved = txt;
-        setSaveState("Salvo. As historias foram reordenadas.", "Saved. Stories reordered.");
+        setSaveState("Salvo. As hist&#243;rias foram reordenadas.", "Saved. Stories reordered.");
         return loadPrep(true);
       }).catch(function() {
-        setSaveState("Nao foi possivel salvar.", "Could not save.");
+        setSaveState("N&#227;o foi poss&#237;vel salvar.", "Could not save.");
       });
     }
 
@@ -904,16 +1223,16 @@
         .catch(function(err) {
           if (quiet) { return; }
           if (err && err.message === "forbidden") {
-            showMsg("Esta pagina e apenas para a equipe.", "This page is staff only.");
+            showMsg("Esta p&#225;gina &#233; apenas para a equipe.", "This page is staff only.");
           } else {
-            showMsg("Nao foi possivel carregar a preparacao.", "Could not load the meeting prep.");
+            showMsg("N&#227;o foi poss&#237;vel carregar a prepara&#231;&#227;o.", "Could not load the meeting prep.");
           }
         });
     }
 
     function init() {
       if (!CLIENT_ID) {
-        showMsg("Cliente nao informado.", "No client specified.");
+        showMsg("Cliente n&#227;o informado.", "No client specified.");
         return;
       }
       firebase.initializeApp(FIREBASE_CONFIG);

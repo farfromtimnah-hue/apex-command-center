@@ -29646,6 +29646,7 @@ function rankStories(rows, bottleneckPatterns, clientPatterns, clientIndustry) {
             one_liner:    s.row.one_liner,
             signals:      s.row.signals,
             narrative:    s.row.narrative,
+            narrative_en: s.row.narrative_en,
             telling_note: s.row.telling_note,
             matched:      s.bottleneckHits.length > 0 || s.patternHits.length > 0,
             matched_bottleneck: s.bottleneckHits,
@@ -29730,7 +29731,7 @@ async function handleGetMeetingPrep(clientId, request, env) {
 
         var storyRows = await env.DB.prepare(
             "SELECT id, client_id, person, business, country, industry, source, source_url, " +
-            "patterns, one_liner, signals, narrative, telling_note " +
+            "patterns, one_liner, signals, narrative, narrative_en, telling_note " +
             "FROM stories WHERE approved = 1 ORDER BY created_at"
         ).all();
 

@@ -814,3 +814,62 @@
 .gm-hist:first-child { border-top: none; }
 .gm-hist-line { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 .gm-hist-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ── Tabela de precos e custos ────────────────────────────────────────── */
+/* Same input treatment as .gm-editor-input, applied to a class the pricing
+   sheet can put directly on a field: that sheet edits a growing LIST of cost
+   lines rather than one field at a time, so it has no wrapper div to hang the
+   existing selector off. */
+.gm-input {
+  width: 100%;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  font-family: 'Inter', sans-serif; font-size: 16px;
+  padding: 13px 12px; background: #fff; color: var(--text);
+  min-height: 48px; margin-bottom: 10px;
+}
+.gm-input:focus { outline: none; border-color: var(--gold); }
+textarea.gm-input { min-height: 90px; resize: vertical; }
+
+/* One cost line: label, amount, remove. The amount is narrow and the label
+   takes the rest, because "Farinha" is longer than "0.61". */
+.gm-cost-line { display: flex; gap: 8px; align-items: flex-start; }
+.gm-cost-line .gm-cost-label  { flex: 1 1 auto; }
+.gm-cost-line .gm-cost-amount { flex: 0 0 110px; }
+.gm-cost-del {
+  flex: 0 0 auto; min-width: 48px; min-height: 48px;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--muted);
+  font-size: 18px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Cost total, margin ($) and margin (%). A negative margin renders in the
+   ordinary text colour: the number is the message, and colouring it would
+   editorialise a fact that speaks for itself. */
+.gm-pricing-totals {
+  display: flex; flex-wrap: wrap; gap: 10px 24px;
+  padding: 12px 0 2px; border-top: 1px solid var(--border); margin-top: 4px;
+}
+.gm-pricing-total { min-width: 110px; }
+.gm-pricing-total-label {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+}
+.gm-pricing-total-value { display: block; font-size: 17px; font-weight: 700; }
+
+/* Import preview row — what WOULD be written, before anything is. */
+.gm-import-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.gm-import-name { font-size: 14px; font-weight: 600; }
+
+/* Sheet action buttons. Primary is the navy fill; secondary is bordered. */
+.gm-btn-primary, .gm-btn-secondary {
+  display: block; width: 100%; min-height: 48px;
+  border-radius: 10px; margin-top: 10px;
+  font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;
+  padding: 13px 16px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The portal palette has no --navy of its own; the fallback is the same
+   #14243D the rest of the app uses, so the fill matches meeting-prep. */
+.gm-btn-primary   { background: var(--navy, #14243D); border: 1.5px solid var(--navy, #14243D); color: #fff; }
+.gm-btn-secondary { background: var(--card); border: 1.5px solid var(--border); color: var(--text); }

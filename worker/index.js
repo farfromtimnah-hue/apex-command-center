@@ -12451,7 +12451,7 @@ function clientRequestAllowed(path, method, clientId) {
             if (method === "GET") {
                 if (gmRest === "config" || gmRest === "leads" || gmRest === "roadmap" ||
                     gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
-                    gmRest === "jobs") { return true; }
+                    gmRest === "jobs" || gmRest === "pricing") { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Attachments on their own lead, and the file itself. Same
                 // reasoning as the project photos below: the client's own
@@ -12475,7 +12475,8 @@ function clientRequestAllowed(path, method, clientId) {
             }
             if (method === "POST") {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
-                    gmRest === "partners" || gmRest === "finance" || gmRest === "jobs") { return true; }
+                    gmRest === "partners" || gmRest === "finance" || gmRest === "jobs" ||
+                    gmRest === "pricing" || gmRest === "pricing/import") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
@@ -12489,13 +12490,13 @@ function clientRequestAllowed(path, method, clientId) {
                 // requireClientAccess in the handler enforces it, and the handler
                 // ignores the admin-only keys.
                 if (gmRest === "config") { return true; }
-                if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^(leads|roadmap|base-ouro|partners|finance|jobs|pricing)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Their own note; the handler refuses anyone else's.
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^events\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
             }
             if (method === "DELETE") {
-                if (/^(leads|roadmap|base-ouro|partners|finance|jobs)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^(leads|roadmap|base-ouro|partners|finance|jobs|pricing)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Their own project's photo. Consistent with being able to
                 // delete the project itself; the handler removes the R2 object
                 // as well as the row, so nothing is orphaned.
@@ -20528,7 +20529,8 @@ var GM_DELETE_TABLES = {
     "base-ouro": "gm_base_ouro",
     "partners":  "gm_partners",
     "finance":   "gm_finance",
-    "jobs":      "gm_jobs"
+    "jobs":      "gm_jobs",
+    "pricing":   "gm_pricing"
 };
 
 async function handleDeleteGmRow(id, collection, rowId, request, env) {
@@ -29524,6 +29526,7 @@ async function handleFetch(request, env, ctx) {
                     if (gmCol === "partners")  { return handleGetGmPartners(cid, request, env); }
                     if (gmCol === "finance")   { return handleGetGmFinance(cid, request, env); }
                     if (gmCol === "jobs")      { return handleGetGmJobs(cid, request, env); }
+                    if (gmCol === "pricing")   { return handleGetGmPricing(cid, request, env); }
                     // ADMIN ONLY (isAdminRole inside the handler), and
                     // deliberately absent from BOTH clientRequestAllowed and
                     // sellerRequestAllowed above — a client or seller session
@@ -29539,6 +29542,15 @@ async function handleFetch(request, env, ctx) {
                     if (gmCol === "partners")  { return handlePostGmPartner(cid, request, env); }
                     if (gmCol === "finance")   { return handlePostGmFinance(cid, request, env); }
                     if (gmCol === "jobs")      { return handlePostGmJob(cid, request, env); }
+                    if (gmCol === "pricing")   { return handlePostGmPricing(cid, request, env); }
+                }
+                // /gm/pricing/import -- preview then commit; never writes
+                // on upload. See handlePostGmPricingImport.
+                if (segs.length === 6 && gmCol === "pricing" && segs[5] === "import" && method === "POST") {
+                    return handlePostGmPricingImport(cid, request, env);
+                }
+                if (segs.length === 6 && gmCol === "pricing" && method === "PUT") {
+                    return handlePutGmPricing(cid, segs[5], request, env);
                 }
                 if (segs.length === 5 && gmCol === "config" && method === "PUT") {
                     return handlePutGmConfig(cid, request, env);   // admin only
@@ -30757,6 +30769,27 @@ async function loadSettlement(env, clientId, client) {
 // Route: GET /api/clients/:id/meeting-prep?type=xray_results
 // Staff only. One response, everything the prep page needs.
 // ---------------------------------------------------------------------------
+// How many items are on the client's price table, and how many carry costs.
+// with_costs counts rows whose cost_breakdown holds at least one line -- a
+// row that exists but has no cost lines is on the list without yet answering
+// what the item costs to make.
+async function loadPricingCounts(env, clientId) {
+    var rows = await env.DB.prepare(
+        "SELECT cost_breakdown FROM gm_pricing WHERE client_id = ?"
+    ).bind(clientId).all();
+    var total = 0, withCosts = 0;
+    (rows.results || []).forEach(function(r) {
+        total++;
+        var lines = gmPricingParseBreakdown(r.cost_breakdown);
+        var any = false;
+        lines.forEach(function(l) {
+            if (l.amount !== null && l.amount !== undefined) { any = true; }
+        });
+        if (any) { withCosts++; }
+    });
+    return { total: total, with_costs: withCosts };
+}
+
 async function handleGetMeetingPrep(clientId, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -30875,7 +30908,13 @@ async function handleGetMeetingPrep(clientId, request, env) {
                 pillars:      KICKOFF_PILLARS,
                 sequence:     buildKickoffSequence(kConfig),
                 walkthrough:  dailyWalkthrough(kConfig),
-                snapshot:     await loadKickoffToday(env, clientId, today)
+                snapshot:     await loadKickoffToday(env, clientId, today),
+                // Step 3's counts. Read straight from gm_pricing rather than
+                // from a seeded default: how many items are on the table, and
+                // how many of them have their costs filled in. An item with no
+                // cost lines is on the list but not yet answering the question
+                // the table exists to answer.
+                pricing:      await loadPricingCounts(env, clientId)
             };
         }
 

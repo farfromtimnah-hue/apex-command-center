@@ -3316,3 +3316,78 @@ through all three states:
 Never NEITHER, which was the bug. Also confirmed a client-token session on a
 report page BOOTs through the race, and that portal.html with no session
 still redirects to index.html rather than hanging.
+
+## 2026-08-31 — Tabela de precos, buttons, and never announcing a shortcoming
+
+**1. The page stopped editorialising about what Apex cannot do.**
+
+meeting-prep.html is read with a client in the room, so it must never say
+what the system does not hold. Four instances were removed, not two: the unit
+costs line on kickoff step 3, the "does not know / does not exist anywhere"
+paragraph under the X-Ray facts, plus two more the audit turned up — the
+Google review count ("The system does not store...") and the settlement
+("The system has no terms for this engagement"). Each now states the fact and
+stops: "Tabela de precos — nao registrada", "App na tela inicial — nao
+registrado", "Avaliacoes do Google: nao registrado", "Termos do contrato —
+nao registrados". The .step-gap style lost its red left rule and surface
+block; an unrecorded value is a fact about the client's records, not a
+warning. packages.html had no instances.
+
+**2. Every action is a button.**
+
+He is talking and reading with a client in front of him, so "open",
+"calendar" and "Open the packages screen" as 13px gold text were the wrong
+target. .step-link is now a bordered button with a real hit area (11px/18px
+padding); .step-link.primary is the navy fill at full card width, used for
+the packages action. The lead outcome buttons went from side-by-side to
+stacked full-width. The meeting type picker's .pick-go and .pick-example
+became buttons. The checklist needed a structural change: the action was
+INSIDE the <label>, so clicking it toggled the checkbox as well as following
+the link — the label now wraps the text only and the button sits after it in
+a .check-main column. Dead .pkg-open/.pkg-note CSS removed.
+
+**3. gm_pricing — the price table now exists.**
+
+gm_jobs holds what ONE PROJECT cost. Nothing held what a client sells, what
+it costs to make, and what they charge — the thing Rafa rebuilds by hand
+(Delicie's cake: flour $0.61, sugar $0.97, nine eggs $1.22, $120 to make,
+sold at $100; Produwall's tabela de precos still a pending task from July).
+
+migrations/gm_pricing.sql, applied to remote D1 and verified with a real
+SELECT. cost_breakdown is JSON [{label, amount}] — the itemisation IS the
+point, the insight comes from seeing the lines rather than the total.
+cost_total and margin are COMPUTED in gmPricingComputed() and never trusted
+from the request; the cost_total column is a write-time sort cache only.
+margin_pct is three-state like gm_jobs.margem_pct: null, never 0, when price
+is missing or zero.
+
+A Precos tab sits beside Projetos and Pipeline (portal.html tab strip,
+PORTAL_TABS, locked preview, switchTab loader; gm.js TAB 7). It has its own
+sheet rather than gmRenderSimpleSheet because it edits a growing LIST of cost
+lines, not a fixed set of fields — totals repaint on every keystroke while
+the inputs do not, so the caret stays put. Rows seed once from
+gm_config.servicos (names only, no pricing) so nobody retypes their own
+services list; the seed is skipped the moment any row exists, so deleting a
+seeded row does not resurrect it. A negative margin renders plainly — the
+number is the message.
+
+CSV import is two calls, always: mode:"preview" parses and reports what WOULD
+happen, mode:"commit" writes. Anything other than an explicit commit is a
+preview, so a misspelled mode cannot fall through to a write. Item/unit/price
+match by header name with caller override when the guess is wrong; EVERY
+other column becomes a cost line labelled with its header, which is how a
+cake arrives as flour/sugar/eggs. Idempotent on item name within a client via
+a NOCASE unique index — verified live that "bolo (VERIFICACAO)" is rejected
+against "Bolo (verificacao)". The CSV parser is written out rather than
+split(",") because a notes column containing a comma would shift every column
+after it; money parses "$1,234.56" and "1.234,56" alike.
+
+Kickoff step 3 is now an ordinary step: title Tabela de precos e custos, one
+line on what costs against charges does for margin, the counts (how many
+items recorded, how many with costs filled in — loadPricingCounts() on the
+kickoff payload), and two buttons — open the tab, and open CSV import via
+?tab=gmpricing&import=1, which portal.html consumes once per page load.
+
+Sellers cannot reach any of it: a price list is the business's own asset, not
+the salesperson's pipeline, so it is absent from sellerRequestAllowed by
+construction.

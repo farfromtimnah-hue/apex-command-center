@@ -2845,6 +2845,457 @@ function gmOpenJob(idx) {
   }
 }
 
+
+// ═════════════════════════════════════════════════════════════════════════
+// TAB 7 — TABELA DE PRECOS E CUSTOS (gm_pricing)
+// ═════════════════════════════════════════════════════════════════════════
+//
+// Projetos answers what ONE project cost. This answers what an ITEM costs and
+// what it sells for -- the standing price list, which nothing held before.
+//
+// The cost breakdown is the point. A cake is flour + sugar + eggs, not one
+// number called "cost", and the insight comes from seeing the lines. So the
+// sheet edits a LIST of cost lines, not a fixed set of cost fields the way
+// Projetos does, which is why this tab has its own sheet rather than reusing
+// gmRenderSimpleSheet.
+//
+// Margin is computed on the server and recomputed locally as they type, from
+// the same rule: price - sum(lines). A negative margin renders plainly. It is
+// the number Rafa is looking for -- with Delicie the cake cost $120 and sold
+// at $100 -- and dressing it in a warning icon would editorialise a fact that
+// speaks for itself.
+
+var gmPricingData  = null;
+var gmPricingDraft = null;   // the row being edited, including unsaved cost lines
+var gmPricingImport = null;  // last import preview payload
+
+function gmLoadPricing() {
+  gmCurrentTab = "gmpricing";
+  var body = document.getElementById("gmPricingBody");
+  if (!body) { return; }
+  body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
+  gmApi("pricing")
+    .then(function(d) { gmPricingData = d; gmRenderPricing(); })
+    .catch(function(e) {
+      body.innerHTML = '<div class="content-card"><p class="muted">' + escHtml(e.message) + '</p></div>';
+    });
+}
+
+// Local mirror of the Worker's gmPricingComputed. Same three-state rule:
+// null, not 0, when the question cannot be answered.
+function gmPricingCompute(lines, price) {
+  var total = 0, any = false;
+  (lines || []).forEach(function(l) {
+    if (l && l.amount !== null && l.amount !== undefined && l.amount !== "") {
+      var n = Number(l.amount);
+      if (isFinite(n)) { total += n; any = true; }
+    }
+  });
+  var costTotal = any ? Math.round(total * 100) / 100 : null;
+  var p = (price === null || price === undefined || price === "") ? null : Number(price);
+  if (p !== null && !isFinite(p)) { p = null; }
+  var margin = (p === null || costTotal === null) ? null : Math.round((p - costTotal) * 100) / 100;
+  var marginPct = (p !== null && p > 0 && margin !== null)
+    ? Math.round((margin / p) * 1000) / 10 : null;
+  return { cost_total: costTotal, margin: margin, margin_pct: marginPct };
+}
+
+// Margin in dollars and percent, side by side. Blank when unanswerable --
+// never a 0 that reads like a real margin.
+function gmPricingMarginHtml(margin, marginPct) {
+  if (margin === null) { return '<span class="muted">—</span>'; }
+  var txt = fmtNum(margin, "currency");
+  if (marginPct !== null) { txt += " · " + fmtNum(marginPct, "percent"); }
+  return '<span>' + escHtml(txt) + '</span>';
+}
+
+function gmRenderPricing() {
+  var body = document.getElementById("gmPricingBody");
+  if (!body) { return; }
+  var items = (gmPricingData && gmPricingData.items) || [];
+  var withCosts = (gmPricingData && gmPricingData.with_costs_count) || 0;
+
+  var html = '<div class="content-card">' +
+    '<div class="card-title">' + gmT("Tabela de preços e custos", "Pricing & costs") + '</div>' +
+    '<p class="muted" style="margin-bottom:8px;">' +
+    gmT("O que cada item custa contra o que você cobra.",
+        "What each item costs against what you charge.") + '</p>' +
+    '<p class="muted" style="margin-bottom:12px;">' +
+    escHtml(String(items.length)) + " " + gmT("itens", "items") + " · " +
+    escHtml(String(withCosts)) + " " + gmT("com custos preenchidos", "with costs filled in") +
+    '</p>';
+
+  if (!items.length) {
+    html += '<p class="muted">' + gmT("Nenhum item ainda.", "No items yet.") + '</p>';
+  } else {
+    items.forEach(function(it, i) {
+      var lines = it.cost_breakdown || [];
+      var lineSummary = lines.map(function(l) {
+        return (l.label || "") + " " + (l.amount === null || l.amount === undefined ? "" : fmtNum(l.amount, "currency"));
+      }).join(" · ");
+      html += '<button type="button" class="gm-row" onclick="gmOpenPricing(' + i + ')">' +
+        '<span class="gm-lead-main">' +
+        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(it.item) + '</span>' +
+        '<div class="gm-lead-sub">' +
+        [it.unit, it.cost_total !== null ? gmT("custo ", "cost ") + fmtNum(it.cost_total, "currency") : null,
+         it.price !== null && it.price !== undefined ? gmT("venda ", "price ") + fmtNum(it.price, "currency") : null]
+          .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
+        (lineSummary ? '<div class="gm-lead-sub">' + escHtml(lineSummary) + '</div>' : "") +
+        '</span>' +
+        '<span class="gm-lead-side">' + gmPricingMarginHtml(it.margin, it.margin_pct) +
+        '<div class="gm-lead-sub">' + gmT("margem", "margin") + '</div></span>' +
+        '</button>';
+    });
+  }
+
+  html += '<button type="button" class="btn-gold gm-add-btn" onclick="gmOpenPricing(-1)">' +
+    gmT("+ Novo item", "+ New item") + '</button>' +
+    '<button type="button" class="btn-gold gm-add-btn" onclick="gmPricingImportOpen()">' +
+    gmT("Importar CSV", "Import CSV") + '</button>' +
+    '</div>';
+  body.innerHTML = html;
+}
+
+// ── The item sheet ───────────────────────────────────────────────────────
+// Everything edits into gmPricingDraft and saves on one explicit action. The
+// cost lines are a list that grows, so a per-field autosave (what the simple
+// tabs do) would have to write on every keystroke of every line.
+
+function gmOpenPricing(idx) {
+  var src = idx === -1 ? null : gmPricingData.items[idx];
+  gmPricingDraft = src ? {
+    id:    src.id,
+    item:  src.item || "",
+    unit:  src.unit || "",
+    price: (src.price === null || src.price === undefined) ? "" : String(src.price),
+    notes: src.notes || "",
+    lines: (src.cost_breakdown || []).map(function(l) {
+      return { label: l.label || "", amount: (l.amount === null || l.amount === undefined) ? "" : String(l.amount) };
+    })
+  } : { id: null, item: "", unit: "", price: "", notes: "", lines: [] };
+  gmRenderPricingSheet();
+}
+
+function gmRenderPricingSheet() {
+  var d = gmPricingDraft;
+  if (!d) { return; }
+  var title = d.id ? escHtml(d.item || gmT("Item", "Item")) : gmT("Novo item", "New item");
+
+  var body = '<div class="gm-sheet-section">' +
+    '<label class="gm-field-label" for="gmPricingItem">' + gmT("Item", "Item") + '</label>' +
+    '<input type="text" id="gmPricingItem" class="gm-input" value="' + escHtml(d.item) + '" ' +
+      'oninput="gmPricingDraftSet(\'item\', this.value)">' +
+    '<label class="gm-field-label" for="gmPricingUnit">' + gmT("Unidade", "Unit") + '</label>' +
+    '<input type="text" id="gmPricingUnit" class="gm-input" value="' + escHtml(d.unit) + '" ' +
+      'placeholder="' + gmT("un, kg, m2, hora", "un, kg, m2, hour") + '" ' +
+      'oninput="gmPricingDraftSet(\'unit\', this.value)">' +
+    '</div>';
+
+  body += '<div class="gm-sheet-section">' +
+    '<div class="gm-field-label">' + gmT("Custos", "Costs") + '</div>' +
+    '<div id="gmPricingLines">' + gmPricingLinesHtml() + '</div>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmPricingAddLine()">' +
+    gmT("+ Adicionar custo", "+ Add cost") + '</button>' +
+    '</div>';
+
+  body += '<div class="gm-sheet-section">' +
+    '<label class="gm-field-label" for="gmPricingPrice">' + gmT("Preço de venda ($)", "Sale price ($)") + '</label>' +
+    '<input type="text" inputmode="decimal" id="gmPricingPrice" class="gm-input" value="' + escHtml(d.price) + '" ' +
+      'oninput="gmPricingDraftSet(\'price\', this.value)">' +
+    '<div id="gmPricingTotals">' + gmPricingTotalsHtml() + '</div>' +
+    '</div>';
+
+  body += '<div class="gm-sheet-section">' +
+    '<label class="gm-field-label" for="gmPricingNotes">' + gmT("Observações", "Notes") + '</label>' +
+    '<textarea id="gmPricingNotes" class="gm-input" rows="3" ' +
+      'oninput="gmPricingDraftSet(\'notes\', this.value)">' + escHtml(d.notes) + '</textarea>' +
+    '</div>';
+
+  body += '<button type="button" class="gm-btn-primary" onclick="gmPricingSave()">' +
+    gmT("Salvar", "Save") + '</button>';
+  if (d.id) {
+    body += '<button type="button" class="gm-btn-secondary" onclick="gmPricingDelete()">' +
+      gmT("Excluir item", "Delete item") + '</button>';
+  }
+
+  gmSheetOpen(title, body);
+}
+
+function gmPricingLinesHtml() {
+  var d = gmPricingDraft;
+  if (!d.lines.length) {
+    return '<p class="muted" style="padding:4px 0;">' +
+      gmT("Nenhum custo lançado.", "No costs entered.") + '</p>';
+  }
+  var h = "";
+  d.lines.forEach(function(l, i) {
+    h += '<div class="gm-cost-line">' +
+      '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(l.label) + '" ' +
+        'aria-label="' + gmT("Custo", "Cost") + '" ' +
+        'placeholder="' + gmT("Farinha", "Flour") + '" ' +
+        'oninput="gmPricingLineSet(' + i + ', \'label\', this.value)">' +
+      '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml(l.amount) + '" ' +
+        'aria-label="' + gmT("Valor", "Amount") + '" placeholder="0.00" ' +
+        'oninput="gmPricingLineSet(' + i + ', \'amount\', this.value)">' +
+      '<button type="button" class="gm-cost-del" aria-label="' +
+        gmT("Remover custo", "Remove cost") + '" onclick="gmPricingRemoveLine(' + i + ')">&times;</button>' +
+      '</div>';
+  });
+  return h;
+}
+
+// Cost total, margin in dollars, margin in percent. Recomputed on every
+// keystroke -- this is the number they are typing towards.
+function gmPricingTotalsHtml() {
+  var d = gmPricingDraft;
+  var c = gmPricingCompute(d.lines, d.price);
+  return '<div class="gm-pricing-totals">' +
+    '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
+      gmT("Custo total", "Total cost") + '</span><span class="gm-pricing-total-value">' +
+      (c.cost_total === null ? "—" : escHtml(fmtNum(c.cost_total, "currency"))) + '</span></div>' +
+    '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
+      gmT("Margem", "Margin") + '</span><span class="gm-pricing-total-value">' +
+      (c.margin === null ? "—" : escHtml(fmtNum(c.margin, "currency"))) + '</span></div>' +
+    '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
+      gmT("Margem (%)", "Margin (%)") + '</span><span class="gm-pricing-total-value">' +
+      (c.margin_pct === null ? "—" : escHtml(fmtNum(c.margin_pct, "percent"))) + '</span></div>' +
+    '</div>';
+}
+
+// Only the totals repaint as they type: re-rendering the inputs would move
+// the caret to the end of whichever field they are in.
+function gmPricingRepaintTotals() {
+  var el = document.getElementById("gmPricingTotals");
+  if (el) { el.innerHTML = gmPricingTotalsHtml(); }
+}
+
+function gmPricingDraftSet(key, value) {
+  if (!gmPricingDraft) { return; }
+  gmPricingDraft[key] = value;
+  if (key === "price") { gmPricingRepaintTotals(); }
+}
+
+function gmPricingLineSet(i, key, value) {
+  if (!gmPricingDraft || !gmPricingDraft.lines[i]) { return; }
+  gmPricingDraft.lines[i][key] = value;
+  gmPricingRepaintTotals();
+}
+
+function gmPricingAddLine() {
+  if (!gmPricingDraft) { return; }
+  gmPricingDraft.lines.push({ label: "", amount: "" });
+  var box = document.getElementById("gmPricingLines");
+  if (box) { box.innerHTML = gmPricingLinesHtml(); }
+  gmPricingRepaintTotals();
+}
+
+function gmPricingRemoveLine(i) {
+  if (!gmPricingDraft) { return; }
+  gmPricingDraft.lines.splice(i, 1);
+  var box = document.getElementById("gmPricingLines");
+  if (box) { box.innerHTML = gmPricingLinesHtml(); }
+  gmPricingRepaintTotals();
+}
+
+function gmPricingSave() {
+  var d = gmPricingDraft;
+  if (!d) { return; }
+  if (!d.item || !d.item.trim()) {
+    window.alert(gmT("O item precisa de um nome.", "The item needs a name."));
+    return;
+  }
+  var lines = [];
+  d.lines.forEach(function(l) {
+    var label = (l.label || "").trim();
+    var amount = (l.amount === "" || l.amount === null || l.amount === undefined) ? null : Number(l.amount);
+    if (amount !== null && !isFinite(amount)) { amount = null; }
+    if (!label && amount === null) { return; }
+    lines.push({ label: label || null, amount: amount });
+  });
+  var payload = {
+    item:  d.item.trim(),
+    unit:  d.unit && d.unit.trim() ? d.unit.trim() : null,
+    price: (d.price === "" || d.price === null || d.price === undefined) ? null : Number(d.price),
+    notes: d.notes && d.notes.trim() ? d.notes.trim() : null,
+    cost_breakdown: lines
+  };
+  if (payload.price !== null && !isFinite(payload.price)) { payload.price = null; }
+
+  var req = d.id
+    ? gmApi("pricing/" + d.id, { method: "PUT", body: payload })
+    : gmApi("pricing", { method: "POST", body: payload });
+  req.then(function() { gmSheetClose(); gmLoadPricing(); })
+     .catch(function(e) { window.alert(e.message); });
+}
+
+function gmPricingDelete() {
+  var d = gmPricingDraft;
+  if (!d || !d.id) { return; }
+  if (!window.confirm(gmT("Excluir \"" + (d.item || "") + "\"? Essa ação não pode ser desfeita.",
+                          "Delete \"" + (d.item || "") + "\"? This cannot be undone."))) { return; }
+  gmApi("pricing/" + d.id, { method: "DELETE" })
+    .then(function() { gmSheetClose(); gmLoadPricing(); })
+    .catch(function(e) { window.alert(e.message); });
+}
+
+// ── CSV import ───────────────────────────────────────────────────────────
+// Upload never writes. The file is parsed by the Worker into a PREVIEW of
+// what would be created and updated, and only an explicit confirm commits it.
+// Re-importing a corrected spreadsheet updates matching items by name rather
+// than duplicating them, which is the normal case for a price list.
+
+var gmPricingCsvText = null;
+var gmPricingColumnMap = null;
+
+function gmPricingImportOpen() {
+  gmPricingCsvText = null;
+  gmPricingImport = null;
+  gmPricingColumnMap = null;
+  var body = '<div class="gm-sheet-section">' +
+    '<p class="muted">' +
+    gmT("Escolha um arquivo CSV. Colunas de item, unidade e preço são reconhecidas pelo nome; qualquer outra coluna vira uma linha de custo com o nome do cabeçalho.",
+        "Pick a CSV file. Item, unit and price columns are matched by name; every other column becomes a cost line labelled with its header.") +
+    '</p>' +
+    '<input type="file" id="gmPricingCsvInput" accept=".csv,text/csv" hidden ' +
+      'onchange="gmPricingCsvChosen(this)">' +
+    '<button type="button" class="gm-btn-primary" ' +
+      'onclick="document.getElementById(\'gmPricingCsvInput\').click()">' +
+    gmT("Escolher arquivo", "Choose file") + '</button>' +
+    '<div id="gmPricingImportBody"></div>' +
+    '</div>';
+  gmSheetOpen(gmT("Importar tabela de preços", "Import pricing table"), body);
+}
+
+function gmPricingCsvChosen(input) {
+  if (!input || !input.files || !input.files[0]) { return; }
+  var reader = new FileReader();
+  reader.onload = function() {
+    gmPricingCsvText = String(reader.result || "");
+    gmPricingPreview();
+  };
+  reader.readAsText(input.files[0]);
+}
+
+function gmPricingPreview() {
+  var box = document.getElementById("gmPricingImportBody");
+  if (box) {
+    box.innerHTML = '<p class="muted">' + gmT("Lendo…", "Reading…") + '</p>';
+  }
+  var payload = { csv: gmPricingCsvText, mode: "preview" };
+  if (gmPricingColumnMap) { payload.column_map = gmPricingColumnMap; }
+  gmApi("pricing/import", { method: "POST", body: payload })
+    .then(function(d) { gmPricingImport = d; gmRenderPricingPreview(); })
+    .catch(function(e) {
+      var b = document.getElementById("gmPricingImportBody");
+      if (b) { b.innerHTML = '<p class="muted">' + escHtml(e.message) + '</p>'; }
+    });
+}
+
+function gmRenderPricingPreview() {
+  var box = document.getElementById("gmPricingImportBody");
+  if (!box) { return; }
+  var d = gmPricingImport;
+
+  // The Worker could not tell which column holds the item. Ask, rather than
+  // guessing and importing a column of prices as item names.
+  if (d.needs_mapping) {
+    var opts = '<option value="">—</option>';
+    (d.headers || []).forEach(function(h) {
+      opts += '<option value="' + escHtml(h) + '">' + escHtml(h) + '</option>';
+    });
+    box.innerHTML = '<p class="muted">' +
+      gmT("Não deu para identificar as colunas. Escolha qual é qual.",
+          "The columns could not be identified. Pick which is which.") + '</p>' +
+      '<label class="gm-field-label" for="gmMapItem">' + gmT("Item", "Item") + '</label>' +
+      '<select id="gmMapItem" class="gm-input">' + opts + '</select>' +
+      '<label class="gm-field-label" for="gmMapUnit">' + gmT("Unidade", "Unit") + '</label>' +
+      '<select id="gmMapUnit" class="gm-input">' + opts + '</select>' +
+      '<label class="gm-field-label" for="gmMapPrice">' + gmT("Preço", "Price") + '</label>' +
+      '<select id="gmMapPrice" class="gm-input">' + opts + '</select>' +
+      '<button type="button" class="gm-btn-primary" onclick="gmPricingApplyMap()">' +
+      gmT("Ver o que será importado", "Preview the import") + '</button>';
+    return;
+  }
+
+  var rows = d.rows || [];
+  var h = '<p class="muted" style="margin-top:12px;">' +
+    escHtml(String(d.create_count || 0)) + " " + gmT("a criar", "to create") + " · " +
+    escHtml(String(d.update_count || 0)) + " " + gmT("a atualizar", "to update") +
+    ((d.skipped && d.skipped.length)
+      ? " · " + escHtml(String(d.skipped.length)) + " " + gmT("ignoradas", "skipped")
+      : "") + '</p>';
+
+  if (d.cost_columns && d.cost_columns.length) {
+    h += '<p class="muted">' + gmT("Colunas de custo: ", "Cost columns: ") +
+      escHtml(d.cost_columns.join(", ")) + '</p>';
+  }
+
+  if (!rows.length) {
+    h += '<p class="muted">' + gmT("Nenhuma linha utilizável.", "No usable rows.") + '</p>';
+  } else {
+    rows.forEach(function(r) {
+      h += '<div class="gm-import-row">' +
+        '<div class="gm-import-name">' + escHtml(r.item) +
+        ' <span class="muted">' + (r.action === "update"
+          ? gmT("atualiza", "updates") : gmT("cria", "creates")) + '</span></div>' +
+        '<div class="gm-lead-sub">' +
+        [r.unit, r.cost_total !== null ? gmT("custo ", "cost ") + fmtNum(r.cost_total, "currency") : null,
+         r.price !== null ? gmT("venda ", "price ") + fmtNum(r.price, "currency") : null,
+         r.margin !== null ? gmT("margem ", "margin ") + fmtNum(r.margin, "currency") : null]
+          .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
+        ((r.cost_breakdown && r.cost_breakdown.length)
+          ? '<div class="gm-lead-sub">' + escHtml(r.cost_breakdown.map(function(l) {
+              return l.label + " " + fmtNum(l.amount, "currency");
+            }).join(" · ")) + '</div>'
+          : "") +
+        '</div>';
+    });
+    h += '<button type="button" class="gm-btn-primary" onclick="gmPricingCommit()">' +
+      gmT("Importar", "Import") + '</button>';
+  }
+  h += '<button type="button" class="gm-btn-secondary" onclick="gmPricingRemap()">' +
+    gmT("Escolher colunas", "Choose columns") + '</button>';
+  box.innerHTML = h;
+}
+
+// Re-open the mapping controls on a preview that parsed fine but mapped the
+// wrong column -- a header called "valor" can mean cost or price.
+function gmPricingRemap() {
+  if (!gmPricingImport) { return; }
+  var headers = gmPricingImport.headers || [];
+  gmPricingImport = { needs_mapping: true, headers: headers };
+  gmRenderPricingPreview();
+}
+
+function gmPricingApplyMap() {
+  var item  = document.getElementById("gmMapItem");
+  var unit  = document.getElementById("gmMapUnit");
+  var price = document.getElementById("gmMapPrice");
+  gmPricingColumnMap = {
+    item:  item  ? item.value  : "",
+    unit:  unit  ? unit.value  : "",
+    price: price ? price.value : ""
+  };
+  if (!gmPricingColumnMap.item) {
+    window.alert(gmT("Escolha a coluna do item.", "Pick the item column."));
+    return;
+  }
+  gmPricingPreview();
+}
+
+function gmPricingCommit() {
+  var payload = { csv: gmPricingCsvText, mode: "commit" };
+  if (gmPricingColumnMap) { payload.column_map = gmPricingColumnMap; }
+  var box = document.getElementById("gmPricingImportBody");
+  if (box) { box.innerHTML = '<p class="muted">' + gmT("Importando…", "Importing…") + '</p>'; }
+  gmApi("pricing/import", { method: "POST", body: payload })
+    .then(function() { gmSheetClose(); gmLoadPricing(); })
+    .catch(function(e) {
+      var b = document.getElementById("gmPricingImportBody");
+      if (b) { b.innerHTML = '<p class="muted">' + escHtml(e.message) + '</p>'; }
+    });
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // Project photos
 // ═════════════════════════════════════════════════════════════════════════
@@ -4050,6 +4501,7 @@ function gmOnLangChange() {
   if (gmCurrentTab === "gmroadmap" && gmRoadmapData) { gmRenderRoadmap(); }
   if (gmCurrentTab === "gmfinance" && gmFinanceData) { gmRenderFinance(); }
   if (gmCurrentTab === "gmjobs" && gmJobsData) { gmRenderJobs(); }
+  if (gmCurrentTab === "gmpricing" && gmPricingData) { gmRenderPricing(); }
   // The calendar carries THREE kinds of translated text — event-type labels,
   // titles recomposed per language, and the derived "Início / Prazo / Entrega"
   // job labels — so it has to repaint like every other tab. It was missing

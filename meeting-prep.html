@@ -154,12 +154,6 @@
       font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
       padding-top: 10px; margin-top: 12px;
     }
-    .pkg-open {
-      display: inline-block; font-size: 13px; font-weight: 600; color: var(--gold);
-      text-decoration: none; border-bottom: 1px solid transparent;
-    }
-    .pkg-open:hover { border-bottom-color: currentColor; }
-    .pkg-note { font-size: 11px; color: var(--muted); margin-left: 8px; }
 
     /* example=1 label: one quiet line, muted, no banner and no colour block. */
     .example-line { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
@@ -311,14 +305,19 @@
     .pick-ask { font-size: 14px; color: var(--muted); margin: 0 0 18px; }
     .pick-row {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; padding: 14px 0; border-top: 1px solid var(--border);
+      gap: 10px; padding: 14px 0; border-top: 1px solid var(--border);
+      flex-wrap: wrap;
     }
     .pick-row:first-of-type { border-top: none; }
+    /* The picker is the first thing he touches in the meeting, so each type
+       is a button rather than a word to aim at. */
     .pick-go {
-      display: inline-block; font-size: 15px; font-weight: 700; color: var(--text);
-      text-decoration: none; border-bottom: 1px solid transparent;
+      display: inline-block; font-family: inherit; font-size: 15px; font-weight: 700;
+      color: var(--text); text-decoration: none; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 13px 18px;
     }
-    .pick-go:hover { border-bottom-color: var(--gold); }
+    .pick-go:hover { border-color: var(--gold); }
     /* Unbuilt types stay visible so he can see the shape of what is coming,
        but must not read as live buttons that lead nowhere. */
     .pick-soon { font-size: 15px; font-weight: 600; color: var(--muted); opacity: 0.65; }
@@ -327,14 +326,23 @@
       color: var(--muted); border: 1px solid var(--border); border-radius: 20px;
       padding: 3px 9px; white-space: nowrap;
     }
-    .pick-example { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: underline; }
-    .pick-example:hover { color: var(--text); }
+    .pick-example {
+      display: inline-block; font-family: inherit; font-size: 13px; font-weight: 600;
+      color: var(--muted); text-decoration: none; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 11px 16px;
+    }
+    .pick-example:hover { color: var(--text); border-color: var(--gold); }
 
     /* Resultado: the lead outcome, the last thing on the page. */
-    .out-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+    /* Stacked, each the full width of the card: the lead outcome is decided
+       out loud with the client there, and these are the primary actions on
+       the page. Side-by-side they were two small targets. */
+    .out-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
     .out-btn {
-      font-family: inherit; font-size: 14px; font-weight: 600;
-      padding: 11px 18px; border-radius: 8px; cursor: pointer;
+      display: block; width: 100%; text-align: center;
+      font-family: inherit; font-size: 15px; font-weight: 600;
+      padding: 13px 18px; border-radius: 8px; cursor: pointer;
       border: 1px solid var(--border); background: var(--card); color: var(--text);
     }
     .out-btn:hover { border-color: var(--gold); }
@@ -367,18 +375,36 @@
     .step-main { min-width: 0; flex: 1; }
     .step-title { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
     .step-ctx { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 8px; }
+    /* Every action on this page is a real button with a real hit area. He is
+       talking and reading with a client in front of him, and a 13px gold text
+       link is the wrong target for that. Secondary actions -- the links out to
+       other screens and the checklist items -- are bordered; the primary ones
+       (packages, lead outcome) carry the navy fill. */
     .step-link {
-      display: inline-block; font-size: 13px; font-weight: 600; color: var(--gold);
-      text-decoration: none; border-bottom: 1px solid transparent; margin-right: 14px;
+      display: inline-block; font-family: inherit; font-size: 14px; font-weight: 600;
+      color: var(--text); text-decoration: none; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 11px 18px; margin: 0 10px 8px 0;
     }
-    .step-link:hover { border-bottom-color: currentColor; }
+    .step-link:hover { border-color: var(--gold); }
+    /* Full width of its card, for the one action a step exists to launch. */
+    .step-link.primary {
+      display: block; width: 100%; text-align: center;
+      background: var(--navy); border-color: var(--navy); color: #fff;
+    }
+    .step-link.primary:hover { opacity: 0.9; border-color: var(--navy); }
     .step-note { font-size: 11px; color: var(--muted); display: block; margin-top: 5px; }
-    /* Step 3 has nowhere to link: the system does not hold unit costs at all.
-       Saying so is the point, so it reads as a stated gap, not a dead link. */
+    /* An unrecorded value, stated as data and nothing more. No colour block,
+       no rule down the side: it is a fact about the client's records, not a
+       warning, and this page is read with the client in the room. */
     .step-gap {
-      font-size: 13px; line-height: 1.55; border-left: 3px solid var(--crit);
-      background: var(--surface); padding: 9px 12px; border-radius: 0 6px 6px 0;
+      font-size: 13px; line-height: 1.55; color: var(--muted);
+      padding: 2px 0;
     }
+    /* Item / value pair for an absence stated plainly. */
+    .step-fact { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; padding: 3px 0; }
+    .step-fact-label { font-weight: 600; }
+    .step-fact-value { color: var(--muted); }
     .step-done { font-size: 13px; color: var(--good); font-weight: 600; }
 
     /* Indicator lines, in his own sentence shape. */
@@ -493,7 +519,11 @@
     .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
     .check-row:first-child { border-top: none; }
     .check-row input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); flex: 0 0 auto; }
-    .check-row label { font-size: 14px; line-height: 1.45; }
+    .check-row label { font-size: 14px; line-height: 1.45; display: block; }
+    /* Label above, action button below at full size -- the row is read and
+       tapped mid-meeting, so the target is a button and not a word. */
+    .check-main { min-width: 0; flex: 1; }
+    .check-main .step-link { margin-top: 8px; }
 
     @media (max-width: 620px) {
       main { padding: 16px 12px 60px; }
@@ -1247,13 +1277,26 @@
            '</span>';
       h += '</div></div>';
 
-      // --- 3 unit costs, which the system does not hold ---------------------
+      // --- 3 the price table -----------------------------------------------
+      // An ordinary step now that gm_pricing exists: a line of context, the
+      // counts, and the two screens the work happens on.
+      var kp = k.pricing || { total: 0, with_costs: 0 };
       h += '<div class="step"><div class="step-n">3</div><div class="step-main">';
-      h += '<p class="step-title">' + ptEn("Custos por unidade", "Unit costs") + '</p>';
+      h += '<p class="step-title">' +
+           ptEn("Tabela de pre&#231;os e custos", "Pricing & costs table") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("O que cada item custa contra o que ele cobra &#233; o que transforma faturamento em margem de verdade.",
+                "What each item costs against what they charge is what turns revenue into real margin.") + '</p>';
       h += '<div class="step-gap">' +
-           ptEn("O sistema n&#227;o registra custo por unidade em lugar nenhum. N&#227;o h&#225; tela para abrir: &#233; a maior lacuna que este kickoff deixa aberta, e ela precisa ser levantada na conversa.",
-                "The system records unit costs nowhere. There is no screen to open: it is the largest gap this kickoff leaves open, and it has to be raised in the conversation.") +
+           ptEn(kp.total + " itens registrados &#183; " + kp.with_costs + " com custos preenchidos",
+                kp.total + " items recorded &#183; " + kp.with_costs + " with costs filled in") +
            '</div>';
+      h += '<a class="step-link" href="' + portalHref("gmpricing") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir a tabela de pre&#231;os", "Open the pricing table") + '</a>';
+      h += '<a class="step-link" href="' + portalHref("gmpricing") +
+           '&import=1" target="_blank" rel="noopener">' +
+           ptEn("Importar CSV", "Import CSV") + '</a>';
       h += '</div></div>';
 
       // --- 4 digital presence ----------------------------------------------
@@ -1824,8 +1867,8 @@
              escHtml(isEn() ? (f.lookup_en || f.lookup_pt) : (f.lookup_pt || f.lookup_en)) +
              '</p>';
         h += '<p class="seq-pending">' +
-             ptEn("O sistema n&#227;o guarda a contagem de avalia&#231;&#245;es do Google. Esse n&#250;mero vem de fora.",
-                  "The system does not store the Google review count. That number comes from outside.") +
+             ptEn("Avalia&#231;&#245;es do Google: n&#227;o registrado.",
+                  "Google reviews: not recorded.") +
              '</p>';
       } else {
         h += '<p class="seq-std">' +
@@ -1930,15 +1973,18 @@
         ? ptEn("conclu&#237;do", "completed")
         : ptEn("sem Raio-X conclu&#237;do", "none completed")));
 
+      // Two more facts, in the same list and the same shape as the rest. An
+      // unrecorded value is stated as unrecorded and nothing more -- this page
+      // is read with the client in the room, and a line about what the system
+      // cannot do would be about us rather than about them.
+      rows.push(kvItem(ptEn("Tabela de pre&#231;os", "Price table"),
+        ptEn("n&#227;o registrada", "not recorded")));
+      rows.push(kvItem(ptEn("App na tela inicial", "App on home screen"),
+        ptEn("n&#227;o registrado", "not recorded")));
+
       var h = '<div class="card"><p class="sec-title">' +
               ptEn("O que o sistema j&#225; responde", "What the system already answers") + '</p>';
       h += '<div class="kv">' + rows.join("") + '</div>';
-      // Two things he asks that the system genuinely cannot answer. Named,
-      // rather than left as a blank he discovers mid-meeting.
-      h += '<p class="step-gap" style="margin-top:14px;">' +
-           ptEn("O sistema n&#227;o sabe se o app est&#225; instalado na tela inicial, e n&#227;o guarda tabela de pre&#231;os do cliente &#8212; ela n&#227;o existe em lugar nenhum. As duas coisas precisam ser perguntadas.",
-                "The system does not know whether the app is installed on the home screen, and holds no client price table &#8212; it does not exist anywhere. Both have to be asked.") +
-           '</p>';
       h += '</div>';
       return h;
     }
@@ -2057,10 +2103,10 @@
       var h = '<div class="card"><p class="sec-title">' +
               ptEn("O acerto financeiro", "The financial settlement") + '</p>';
       if (!st.known) {
-        h += '<p class="step-gap">' +
-             ptEn("O sistema n&#227;o tem os termos deste contrato. Confirmar valor, data e forma antes de ler.",
-                  "The system has no terms for this engagement. Confirm amount, date and method before reading it out.") +
-             '</p></div>';
+        h += '<div class="step-fact">' +
+             '<span class="step-fact-label">' + ptEn("Termos do contrato", "Engagement terms") + '</span>' +
+             '<span class="step-fact-value">' + ptEn("n&#227;o registrados", "not recorded") + '</span>' +
+             '</div></div>';
         return h;
       }
       var rows = [];
@@ -2130,7 +2176,7 @@
              : ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;.",
                     "The three packages, on the screen the client sees.")) +
            '</p>';
-      h += '<a class="step-link" href="packages.html" target="_blank" rel="noopener">' +
+      h += '<a class="step-link primary" href="packages.html" target="_blank" rel="noopener">' +
            ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>';
       h += '<span class="step-note">' +
            ptEn("Abre em outra aba, para mostrar ao cliente.",
@@ -2148,8 +2194,12 @@
               ptEn("Depois da reuni&#227;o", "After the meeting") + '</p>';
       for (var i = 0; i < list.length; i++) {
         var it = list[i];
+        // The <label> wraps the TEXT ONLY. A button inside a label toggles
+        // the checkbox as well as following the link, so the action sits
+        // after the label, on its own line, at full button size.
         h += '<div class="check-row"><input type="checkbox" id="' + it.id + '">' +
-             '<label for="' + it.id + '">' + ptEn(it.pt, it.en);
+             '<div class="check-main">' +
+             '<label for="' + it.id + '">' + ptEn(it.pt, it.en) + '</label>';
 
         if (it.kind === "summary") {
           // sessions.html is staff-side and fully writable: generate, edit and
@@ -2157,22 +2207,22 @@
           var href = ls && ls.session_id
             ? "sessions.html?open=" + encodeURIComponent(ls.session_id)
             : "sessions.html";
-          h += ' <a class="step-link" style="margin-left:6px;" href="' + href +
+          h += '<a class="step-link" href="' + href +
                '" target="_blank" rel="noopener">' +
-               ptEn("abrir", "open") + '</a>';
+               ptEn("Abrir a sess&#227;o", "Open the session") + '</a>';
           h += '<span class="step-note">' +
                ptEn("Aprovado, o relat&#243;rio fica arquivado na sess&#227;o. Ele diz ao cliente que chega em 24 horas.",
                     "Once approved the report is filed against the session. He tells the client it arrives within 24 hours.") +
                '</span>';
         } else if (it.kind === "calendar") {
-          h += ' <a class="step-link" style="margin-left:6px;" href="calendar.html"' +
-               ' target="_blank" rel="noopener">' + ptEn("agenda", "calendar") + '</a>';
+          h += '<a class="step-link" href="calendar.html"' +
+               ' target="_blank" rel="noopener">' + ptEn("Abrir a agenda", "Open the calendar") + '</a>';
         } else if (it.kind === "goals") {
-          h += ' <a class="step-link" style="margin-left:6px;" href="' +
+          h += '<a class="step-link" href="' +
                clientHref("&modal=fieldconfig") + '" target="_blank" rel="noopener">' +
-               ptEn("conferir", "check") + '</a>';
+               ptEn("Conferir as metas", "Check the goals") + '</a>';
         }
-        h += '</label></div>';
+        h += '</div></div>';
       }
       h += '</div>';
       return h;

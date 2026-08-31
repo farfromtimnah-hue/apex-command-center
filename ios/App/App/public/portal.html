@@ -97,7 +97,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1787892090">
+  <link rel="stylesheet" href="gm.css?v=1788150382">
   <link rel="stylesheet" href="calendar-grid.css?v=1787796089">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1294,6 +1294,9 @@
         <button class="portal-tab" data-tab="gmjobs" onclick="switchTab('gmjobs')">
           <span class="show-pt">Projetos</span><span class="show-en">Projects</span>
         </button>
+        <button class="portal-tab" data-tab="gmpricing" onclick="switchTab('gmpricing')">
+          <span class="show-pt">Pre&ccedil;os</span><span class="show-en">Pricing</span>
+        </button>
         <button class="portal-tab" data-tab="gmcalendar" onclick="switchTab('gmcalendar')">
           <span class="show-pt">Agenda</span><span class="show-en">Calendar</span>
         </button>
@@ -1524,6 +1527,7 @@
       <div id="tabGmroadmap" hidden><div id="gmRoadmapBody"></div></div>
       <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
       <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
+      <div id="tabGmpricing" hidden><div id="gmPricingBody"></div></div>
       <div id="tabGmcalendar" hidden><div id="gmCalendarBody"></div></div>
 
       <!-- Ajustes. The support card is STATIC markup outside #workschedBody on
@@ -1843,6 +1847,13 @@
     function PORTAL_DEEP_TAB() {
       var m = window.location.search.match(/[?&]tab=([^&]+)/);
       return m ? decodeURIComponent(m[1]) : null;
+    }
+
+    // ?import=1 alongside ?tab=gmpricing, read once at bootstrap for the same
+    // reason as PORTAL_DEEP_TAB: it opens the CSV import sheet straight away,
+    // which is what the kickoff step's second button is for.
+    function PORTAL_DEEP_IMPORT() {
+      return /[?&]import=1(&|$)/.test(window.location.search);
     }
 
     // Which salesperson the admin is previewing AS, from ?previewSeller=<name>.
@@ -4106,6 +4117,7 @@
       { key: "gmpartners", icon: "users",     labelPt: "Parceiros",              labelEn: "Partners" },
       { key: "gmfinance",  icon: "finance",   labelPt: "Financeiro",             labelEn: "Finances" },
       { key: "gmjobs",     icon: "briefcase", labelPt: "Projetos",               labelEn: "Projects" },
+      { key: "gmpricing",  icon: "finance",   labelPt: "Pre&ccedil;os",              labelEn: "Pricing" },
       { key: "worksched",  icon: "settings",  labelPt: "Ajustes",                labelEn: "Settings" }
     ];
 
@@ -4222,6 +4234,11 @@
           lpRow("Constru&ccedil;&atilde;o Exemplo &mdash; Lote 7", "Sample Build &mdash; Lot 7", "Planejamento", "Planning") +
           lpRow("Manuten&ccedil;&atilde;o Exemplo", "Sample Maintenance", "Conclu&iacute;da", "Completed"));
       }
+      if (key === "gmpricing") {
+        return lpCard("Pre&ccedil;os (exemplo)", "Pricing (sample)",
+          lpRow("Item Exemplo &mdash; bolo", "Sample Item &mdash; cake", "Custo $120 &middot; venda $100", "Cost $120 &middot; price $100") +
+          lpRow("Item Exemplo &mdash; torta", "Sample Item &mdash; pie", "Custo $18 &middot; venda $45", "Cost $18 &middot; price $45"));
+      }
       if (key === "worksched") {
         return lpCard("Dias de trabalho (exemplo)", "Working days (sample)",
           lpRow("Segunda a sexta", "Monday to Friday", "S&aacute;bado e domingo folga", "Saturday and Sunday off") +
@@ -4265,6 +4282,7 @@
       // Pipeline (see #tabGmcrm). They remain valid tab ids for deep links.
       { tab: "gmcrm",      icon: "trend",        labelPt: "Pipeline",               labelEn: "Pipeline" },
       { tab: "gmjobs",     icon: "briefcase",    labelPt: "Projetos",               labelEn: "Projects" },
+      { tab: "gmpricing",  icon: "finance",      labelPt: "Pre\u00e7os",              labelEn: "Pricing" },
       { tab: "gmcalendar", icon: "calendar",     labelPt: "Agenda",                 labelEn: "Calendar" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
@@ -4711,6 +4729,15 @@
         if (tab === "gmroadmap") { gmLoadRoadmap(); }
         if (tab === "gmfinance") { gmLoadFinance(); }
         if (tab === "gmjobs") { gmLoadJobs(); }
+        if (tab === "gmpricing") {
+          gmLoadPricing();
+          // Once only: consuming it here means a later return to the tab does
+          // not re-open the sheet on top of the list.
+          if (PORTAL_DEEP_IMPORT() && !gmPricingImportOpened) {
+            gmPricingImportOpened = true;
+            setTimeout(function() { gmPricingImportOpen(); }, 400);
+          }
+        }
         if (tab === "gmcalendar") { gmLoadCalendar(); }
       }
     }
@@ -4720,6 +4747,9 @@
     // activated the assessment for this client (client_assessments row).
     // Question bank + scoring live in the Worker; this only renders and
     // autosaves answers (server-side drafts, same idea as the daily entry).
+    // Guards the ?import=1 deep link so it fires once per page load.
+    var gmPricingImportOpened = false;
+
     var xrayAssigned  = false;
     var xrayStatus    = null;   // 'not_started' | 'in_progress' | 'completed'
     var assessmentsCache = [];  // last GET /assessments payload (status + labels)
@@ -6613,7 +6643,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1787892334"></script>
+  <script src="gm.js?v=1788150382"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

@@ -3568,9 +3568,40 @@
         });
     }
 
+    // The dates the page can actually PUT ON SCREEN for the current anchor --
+    // which is not the anchor's month.
+    //
+    // The month grid is six whole weeks starting on the Sunday of the week
+    // containing the 1st, so its first and last rows show days from the
+    // neighbouring months; the week view straddles a boundary outright. Those
+    // days were rendered from a month fetch that never contained them, so they
+    // were on screen and permanently blank. On Mon 2026-08-31 that hid Sep 1
+    // and Sep 2 sessions in the bottom row of the August grid -- immediately
+    // beside today's cell -- and blanked Sep 1-5 in the current week.
+    //
+    // Six weeks from that Sunday covers the month grid, and therefore also any
+    // week or day anchored inside the month, so ONE range serves all three
+    // views and switching views needs no refetch.
+    function visibleRange() {
+      var first = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
+      var start = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
+      var end   = new Date(start.getTime() + 41 * 86400000);   // 6 weeks inclusive
+      return { from: dateKey(start), to: dateKey(end) };
+    }
+
+    // Sessions in the anchor MONTH only. The hero tiles are labelled for the
+    // month, so they must keep counting the month even though the fetch above
+    // deliberately reaches past it.
+    function anchorMonthSessions() {
+      var prefix = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1) + "-";
+      return calSessions.filter(function(s) {
+        return s.date && s.date.indexOf(prefix) === 0;
+      });
+    }
+
     function loadCalendar() {
-      var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
-      apiFetch("/api/sessions/calendar?month=" + monthStr)
+      var range = visibleRange();
+      apiFetch("/api/sessions/calendar?from=" + range.from + "&to=" + range.to)
         .then(function(res) { return res.json(); })
         .then(function(data) {
           calSessions = data.sessions || [];
@@ -3607,8 +3638,8 @@
           });
         })
         .then(function(data) {
-          var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
-          return apiFetch("/api/sessions/calendar?month=" + monthStr)
+          var range = visibleRange();
+          return apiFetch("/api/sessions/calendar?from=" + range.from + "&to=" + range.to)
             .then(function(res) { return res.json(); })
             .then(function(calData) {
               calSessions = calData.sessions || [];
@@ -3643,8 +3674,8 @@
           return res.json();
         })
         .then(function() {
-          var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
-          return apiFetch("/api/sessions/calendar?month=" + monthStr)
+          var range = visibleRange();
+          return apiFetch("/api/sessions/calendar?from=" + range.from + "&to=" + range.to)
             .then(function(res) { return res.json(); })
             .then(function(calData) {
               calSessions = calData.sessions || [];
@@ -3671,14 +3702,20 @@
       var weekStart = getWeekStart(today);
       var weekEnd   = new Date(weekStart.getTime() + 7 * 86400000);
 
+      // The month, not the fetched range. calSessions now reaches up to a week
+      // past each end of the month so the grid's leading and trailing days are
+      // populated; counting it whole would quietly make "TOTAL SESSIONS" mean
+      // something other than what the tile says.
+      var monthSessions = anchorMonthSessions();
+
       var countTotal     = 0;
       var countWeek      = 0;
       var countOnline    = 0;
       var countInPerson  = 0;
       var countAwaitLink = 0;
 
-      for (var i = 0; i < calSessions.length; i++) {
-        var s = calSessions[i];
+      for (var i = 0; i < monthSessions.length; i++) {
+        var s = monthSessions[i];
         countTotal++;
 
         if (s.date) {

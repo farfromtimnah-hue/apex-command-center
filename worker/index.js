@@ -4634,9 +4634,29 @@ async function handlePostSessionsSchedule(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: GET /api/sessions/calendar
-// Query: month (YYYY-MM)
-// Returns all sessions for the given month.
+// Query: month (YYYY-MM)  --  OR  --  from + to (both YYYY-MM-DD, inclusive)
+//
+// WHY A RANGE EXISTS ALONGSIDE month. A month grid does not show a month: it
+// shows six whole weeks, so the first and last rows carry days belonging to
+// the neighbouring months, and a week view can straddle a month boundary
+// outright. calendar.html asked for a MONTH and then rendered those extra
+// days from it -- they were on screen and permanently empty, because nothing
+// had ever fetched them. On 2026-08-31 (a Monday, last day of the month) that
+// left Sep 1 - Sep 5 blank in the bottom row of the August grid and in five of
+// the seven columns of the current week, while the sessions booked on those
+// days sat in D1 the whole time. Alice re-entered two of them, reasonably
+// concluding the first attempt had not saved.
+//
+// `month` is kept and unchanged -- dashboard.html asks in months and means it.
+// The month path is expressed as a range below purely so there is one query:
+// every `date` in the table is a 10-character YYYY-MM-DD (verified 2026-08-31,
+// 310/310 rows), so BETWEEN 'YYYY-MM-01' AND 'YYYY-MM-31' selects exactly what
+// LIKE 'YYYY-MM-%' did.
 // ---------------------------------------------------------------------------
+
+// A range wide enough for any six-week grid, and no wider. The cap is what
+// stops a hand-built ?from=&to= from turning this into "SELECT * FROM sessions".
+var CALENDAR_RANGE_MAX_DAYS = 62;
 
 async function handleGetSessionsCalendar(request, env) {
     try {
@@ -4645,15 +4665,34 @@ async function handleGetSessionsCalendar(request, env) {
 
         var url   = new URL(request.url);
         var month = url.searchParams.get("month");
-        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-            return jsonErr("month query param required (format: YYYY-MM)", 400);
+        var from  = url.searchParams.get("from");
+        var to    = url.searchParams.get("to");
+
+        var startDate, endDate;
+        if (from || to) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "")) {
+                return jsonErr("from and to must both be YYYY-MM-DD", 400);
+            }
+            if (from > to) { return jsonErr("from must not be after to", 400); }
+            var spanDays = Math.round((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000) + 1;
+            if (!isFinite(spanDays) || spanDays > CALENDAR_RANGE_MAX_DAYS) {
+                return jsonErr("range must be " + CALENDAR_RANGE_MAX_DAYS + " days or fewer", 400);
+            }
+            startDate = from;
+            endDate   = to;
+        } else {
+            if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+                return jsonErr("month query param required (format: YYYY-MM), or from + to (YYYY-MM-DD)", 400);
+            }
+            startDate = month + "-01";
+            endDate   = month + "-31";
         }
 
         var res = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, reminder_sent_at, " +
             "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category, series_id " +
-            "FROM sessions WHERE date LIKE ? AND status != 'discarded' AND status != 'cancelled' ORDER BY date ASC, time ASC"
-        ).bind(month + "-%").all();
+            "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' ORDER BY date ASC, time ASC"
+        ).bind(startDate, endDate).all();
 
         var sessions = res.results.map(function(row) {
             return {

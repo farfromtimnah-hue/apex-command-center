@@ -19819,6 +19819,476 @@ async function handlePutGmJob(id, rowId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// TABELA DE PRECOS E CUSTOS (gm_pricing)
+//
+// What a client SELLS: the item, what it costs them to make, what they charge.
+// gm_jobs answers a different question -- what one project actually cost. A
+// price list is the standing answer, and nothing held it before, so it kept
+// being rebuilt by hand on a call.
+//
+// cost_total and margin are DERIVED HERE, never read from the request. The
+// cost_breakdown array is the source of truth and the total is its sum; a
+// typed total is exactly how a breakdown and its total drift apart. The
+// cost_total column is written on each save as a sort/report cache only.
+// ---------------------------------------------------------------------------
+
+// [{label, amount}], nothing else. Anything unparseable becomes an empty
+// breakdown rather than throwing: a malformed legacy row must still open.
+function gmPricingParseBreakdown(v) {
+    var arr = v;
+    if (typeof v === "string") {
+        try { arr = JSON.parse(v); } catch (e) { return []; }
+    }
+    if (!Array.isArray(arr)) { return []; }
+    var out = [];
+    for (var i = 0; i < arr.length && out.length < 60; i++) {
+        var r = arr[i];
+        if (!r || typeof r !== "object") { continue; }
+        var label = gmStr(r.label, 80);
+        var amount = gmNum(r.amount);
+        // A line with neither a name nor a number is not a cost line.
+        if (label === null && amount === null) { continue; }
+        out.push({ label: label, amount: amount === null ? null : amount });
+    }
+    return out;
+}
+
+// The whole computed side of a pricing row. margin_pct is null -- not 0 --
+// when price is missing or zero: a margin against no sale price is
+// unanswerable, the same three-state rule gm_jobs uses for margem_pct.
+function gmPricingComputed(row) {
+    var breakdown = gmPricingParseBreakdown(row.cost_breakdown);
+    var total = 0;
+    var any = false;
+    breakdown.forEach(function(l) {
+        if (l.amount !== null && l.amount !== undefined) { total += l.amount; any = true; }
+    });
+    var costTotal = any ? Math.round(total * 100) / 100 : null;
+    var price = (row.price === null || row.price === undefined) ? null : row.price;
+    var margin = (price === null || costTotal === null) ? null : Math.round((price - costTotal) * 100) / 100;
+    var marginPct = (price !== null && price > 0 && margin !== null)
+        ? Math.round((margin / price) * 1000) / 10 : null;
+    return {
+        cost_breakdown: breakdown,
+        cost_total:     costTotal,
+        margin:         margin,
+        margin_pct:     marginPct
+    };
+}
+
+function gmPricingFields(body, isUpdate) {
+    var out = {};
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    if (!isUpdate) {
+        var item = gmStr(body.item, 200);
+        if (!item) { return { error: "item is required" }; }
+        out.item = item;
+    } else if (has("item")) {
+        var it2 = gmStr(body.item, 200);
+        if (!it2) { return { error: "item cannot be empty" }; }
+        out.item = it2;
+    }
+    if (has("unit"))  { out.unit  = body.unit  === null ? null : gmStr(body.unit, 40); }
+    if (has("notes")) { out.notes = body.notes === null ? null : gmStr(body.notes, 1000); }
+    if (has("price")) { out.price = gmNum(body.price); }
+    if (has("sort_order")) {
+        var so = gmNum(body.sort_order);
+        out.sort_order = so === null ? 0 : Math.round(so);
+    }
+    // The breakdown always arrives whole -- it is a list, not a set of fields,
+    // and a partial merge of cost lines has no sensible meaning.
+    if (has("cost_breakdown")) {
+        out.cost_breakdown = JSON.stringify(gmPricingParseBreakdown(body.cost_breakdown));
+    }
+    return { fields: out };
+}
+
+// The sum that gets cached into the cost_total column on write. Reads never
+// trust it -- gmPricingComputed recomputes -- but keeping it correct means a
+// future report can ORDER BY it without parsing JSON.
+function gmPricingCachedTotal(breakdownJson) {
+    var c = gmPricingComputed({ cost_breakdown: breakdownJson, price: null });
+    return c.cost_total;
+}
+
+// GET /api/clients/:id/gm/pricing
+//
+// Seeds from gm_config.servicos on first open. servicos is the per-client
+// services list -- names only, no pricing -- so the starting rows are the
+// names they already gave us instead of an empty table they retype. Seeded
+// ONCE: the seed is skipped the moment the table has any row for this client,
+// so deleting a seeded row does not resurrect it on the next open.
+async function handleGetGmPricing(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_pricing WHERE client_id = ?"
+        ).bind(id).first();
+
+        var seeded = 0;
+        if (!existing || !existing.c) {
+            var config = await gmGetConfig(env, id);
+            var servicos = (config && config.servicos) || [];
+            for (var i = 0; i < servicos.length; i++) {
+                var name = gmStr(servicos[i], 200);
+                if (!name) { continue; }
+                try {
+                    await env.DB.prepare(
+                        "INSERT INTO gm_pricing (id, client_id, item, cost_breakdown, sort_order, created_by, updated_by) " +
+                        "VALUES (?, ?, ?, '[]', ?, ?, ?)"
+                    ).bind(crypto.randomUUID(), id, name, i, actorName(user), actorName(user)).run();
+                    seeded++;
+                } catch (seedErr) {
+                    // The unique index on (client_id, item) is the guard: a
+                    // duplicate name in servicos seeds once, not twice.
+                }
+            }
+        }
+
+        var rows = await env.DB.prepare(
+            "SELECT * FROM gm_pricing WHERE client_id = ? ORDER BY sort_order, item COLLATE NOCASE"
+        ).bind(id).all();
+
+        var items = [];
+        var withCosts = 0;
+        (rows.results || []).forEach(function(r) {
+            var computed = gmPricingComputed(r);
+            var out = {};
+            Object.keys(r).forEach(function(k) { out[k] = r[k]; });
+            Object.keys(computed).forEach(function(k) { out[k] = computed[k]; });
+            if (out.cost_total !== null) { withCosts++; }
+            items.push(out);
+        });
+
+        return jsonOk({
+            items: items,
+            total_count: items.length,
+            with_costs_count: withCosts,
+            seeded: seeded
+        });
+    } catch (e) {
+        return jsonErr("Error fetching pricing: " + e.message, 500);
+    }
+}
+
+async function handlePostGmPricing(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmPricingFields(body, false);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var breakdown = f.cost_breakdown !== undefined ? f.cost_breakdown : "[]";
+        var rowId = crypto.randomUUID();
+        try {
+            await env.DB.prepare(
+                "INSERT INTO gm_pricing (id, client_id, item, unit, cost_breakdown, cost_total, price, notes, sort_order, created_by, updated_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(rowId, id, f.item,
+                f.unit !== undefined ? f.unit : null,
+                breakdown,
+                gmPricingCachedTotal(breakdown),
+                f.price !== undefined ? f.price : null,
+                f.notes !== undefined ? f.notes : null,
+                f.sort_order !== undefined ? f.sort_order : 0,
+                actorName(user), actorName(user)).run();
+        } catch (insErr) {
+            // The unique index is what makes import idempotent; a hand-typed
+            // duplicate hits it too and deserves a real message rather than a
+            // 500 that reads as a broken screen.
+            if (String(insErr.message || "").indexOf("UNIQUE") !== -1) {
+                return jsonErr("Ja existe um item com esse nome nesta tabela", 400);
+            }
+            throw insErr;
+        }
+        var row = await gmOwnedRow(env, "gm_pricing", rowId, id);
+        var comp = gmPricingComputed(row);
+        Object.keys(comp).forEach(function(k) { row[k] = comp[k]; });
+        return jsonOk({ created: true, item: row });
+    } catch (e) {
+        return jsonErr("Error creating pricing item: " + e.message, 500);
+    }
+}
+
+async function handlePutGmPricing(id, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_pricing", rowId, id);
+        if (!existing) { return jsonErr("Pricing item not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var parsed = gmPricingFields(body, true);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var sets = [], binds = [];
+        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        // The cached total follows the breakdown in the same statement, so the
+        // column can never be left describing a previous set of cost lines.
+        if (f.cost_breakdown !== undefined) {
+            sets.push("cost_total = ?");
+            binds.push(gmPricingCachedTotal(f.cost_breakdown));
+        }
+        sets.push("updated_at = datetime('now')");
+        sets.push("updated_by = ?");
+        binds.push(actorName(user));
+        binds.push(rowId); binds.push(id);
+        try {
+            await gmRunUpdate(env, "UPDATE gm_pricing SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        } catch (updErr) {
+            if (String(updErr.message || "").indexOf("UNIQUE") !== -1) {
+                return jsonErr("Ja existe um item com esse nome nesta tabela", 400);
+            }
+            throw updErr;
+        }
+        var row = await gmOwnedRow(env, "gm_pricing", rowId, id);
+        var comp = gmPricingComputed(row);
+        Object.keys(comp).forEach(function(k) { row[k] = comp[k]; });
+        return jsonOk({ saved: true, item: row });
+    } catch (e) {
+        return jsonErr("Error updating pricing item: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CSV IMPORT — POST /api/clients/:id/gm/pricing/import
+//
+// TWO CALLS, ALWAYS. mode:"preview" parses and reports what WOULD happen and
+// writes nothing; mode:"commit" writes. Upload never writes on its own -- they
+// almost certainly have this in a spreadsheet already, and a spreadsheet is
+// exactly the kind of file whose columns are not what you assumed.
+//
+// Idempotent on item name within a client: a row whose item already exists is
+// an UPDATE, not a second row. Re-importing a corrected spreadsheet is the
+// normal case, not an edge case.
+//
+// Column mapping: item/unit/price are matched by header name, and the caller
+// can override with an explicit map when the headers do not match. EVERY
+// remaining column becomes a cost line whose LABEL IS ITS HEADER -- that is
+// how a cake arrives as flour/sugar/eggs instead of one opaque total.
+// ---------------------------------------------------------------------------
+
+// RFC4180-ish: quoted fields, doubled quotes, embedded commas and newlines.
+// Written out rather than split(",") because a notes column with a comma in
+// it would otherwise shift every column after it.
+function gmCsvParse(text) {
+    var rows = [];
+    var row = [];
+    var field = "";
+    var inQuotes = false;
+    var i = 0;
+    // A BOM from Excel would otherwise become part of the first header name.
+    if (text.charCodeAt(0) === 0xFEFF) { text = text.slice(1); }
+    while (i < text.length) {
+        var ch = text.charAt(i);
+        if (inQuotes) {
+            if (ch === '"') {
+                if (text.charAt(i + 1) === '"') { field += '"'; i += 2; continue; }
+                inQuotes = false; i++; continue;
+            }
+            field += ch; i++; continue;
+        }
+        if (ch === '"') { inQuotes = true; i++; continue; }
+        if (ch === ",") { row.push(field); field = ""; i++; continue; }
+        if (ch === "\r") { i++; continue; }
+        if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+        field += ch; i++;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    // Blank trailing lines are not rows.
+    return rows.filter(function(r) {
+        return r.some(function(c) { return String(c).trim() !== ""; });
+    });
+}
+
+// Money as typed by a human: "$1,234.56", "1.234,56", "R$ 12,00".
+function gmCsvNum(v) {
+    if (v === null || v === undefined) { return null; }
+    var s = String(v).trim();
+    if (!s) { return null; }
+    s = s.replace(/[^0-9.,\-]/g, "");
+    if (!s) { return null; }
+    var lastComma = s.lastIndexOf(",");
+    var lastDot   = s.lastIndexOf(".");
+    if (lastComma !== -1 && lastComma > lastDot) {
+        // Comma is the decimal separator: 1.234,56
+        s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+        // Dot is the decimal separator: 1,234.56
+        s = s.replace(/,/g, "");
+    }
+    var n = Number(s);
+    return isFinite(n) ? n : null;
+}
+
+function gmCsvNorm(s) {
+    return String(s === null || s === undefined ? "" : s)
+        .trim().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+var GM_PRICING_ITEM_HEADERS  = ["item", "produto", "servico", "nome", "descricao", "product", "service", "name", "description"];
+var GM_PRICING_UNIT_HEADERS  = ["unit", "unidade", "un", "medida"];
+var GM_PRICING_PRICE_HEADERS = ["price", "preco", "venda", "valor", "preco de venda", "sale price", "selling price"];
+
+// Which header fills which role. An explicit map from the caller always wins
+// -- that is what the mapping UI sends back when the guess was wrong.
+function gmPricingResolveColumns(headers, map) {
+    var res = { item: -1, unit: -1, price: -1 };
+    var norm = headers.map(gmCsvNorm);
+    function findBy(list) {
+        for (var i = 0; i < norm.length; i++) {
+            if (list.indexOf(norm[i]) !== -1) { return i; }
+        }
+        return -1;
+    }
+    res.item  = findBy(GM_PRICING_ITEM_HEADERS);
+    res.unit  = findBy(GM_PRICING_UNIT_HEADERS);
+    res.price = findBy(GM_PRICING_PRICE_HEADERS);
+    if (map && typeof map === "object") {
+        ["item", "unit", "price"].forEach(function(role) {
+            if (map[role] === null) { res[role] = -1; return; }
+            if (map[role] === undefined || map[role] === "") { return; }
+            var want = gmCsvNorm(map[role]);
+            for (var i = 0; i < norm.length; i++) {
+                if (norm[i] === want) { res[role] = i; }
+            }
+        });
+    }
+    return res;
+}
+
+async function handlePostGmPricingImport(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var csv = typeof body.csv === "string" ? body.csv : "";
+        if (!csv.trim()) { return jsonErr("csv is required", 400); }
+        // Anything other than an explicit commit is a preview. A missing or
+        // misspelled mode must never fall through to a write.
+        var commit = body.mode === "commit";
+
+        var rows = gmCsvParse(csv);
+        if (rows.length < 2) { return jsonErr("O arquivo precisa de um cabecalho e ao menos uma linha", 400); }
+
+        var headers = rows[0].map(function(h) { return String(h).trim(); });
+        var cols = gmPricingResolveColumns(headers, body.column_map);
+        if (cols.item === -1) {
+            return jsonOk({
+                needs_mapping: true,
+                headers: headers,
+                columns: cols,
+                message: "Escolha qual coluna e o item"
+            });
+        }
+
+        // Everything not claimed by item/unit/price is a cost line, and its
+        // header is the label. Empty header names are skipped: an unnamed cost
+        // line teaches nobody anything.
+        var costCols = [];
+        for (var h = 0; h < headers.length; h++) {
+            if (h === cols.item || h === cols.unit || h === cols.price) { continue; }
+            if (!headers[h]) { continue; }
+            costCols.push(h);
+        }
+
+        var existingRows = await env.DB.prepare(
+            "SELECT id, item FROM gm_pricing WHERE client_id = ?"
+        ).bind(id).all();
+        var byName = {};
+        (existingRows.results || []).forEach(function(r) {
+            byName[gmCsvNorm(r.item)] = r.id;
+        });
+
+        var planned = [];
+        var skipped = [];
+        var seenInFile = {};
+        for (var r2 = 1; r2 < rows.length; r2++) {
+            var cells = rows[r2];
+            var itemName = gmStr(cells[cols.item], 200);
+            if (!itemName) { skipped.push({ line: r2 + 1, reason: "sem nome de item" }); continue; }
+            var key = gmCsvNorm(itemName);
+            // A file that lists the same item twice would otherwise have the
+            // second line silently overwrite the first inside one import.
+            if (seenInFile[key]) { skipped.push({ line: r2 + 1, item: itemName, reason: "repetido no arquivo" }); continue; }
+            seenInFile[key] = true;
+
+            var breakdown = [];
+            costCols.forEach(function(ci) {
+                var amt = gmCsvNum(cells[ci]);
+                if (amt === null) { return; }
+                breakdown.push({ label: String(headers[ci]).slice(0, 80), amount: amt });
+            });
+            var price = cols.price === -1 ? null : gmCsvNum(cells[cols.price]);
+            var unit  = cols.unit  === -1 ? null : gmStr(cells[cols.unit], 40);
+            var computed = gmPricingComputed({ cost_breakdown: breakdown, price: price });
+            planned.push({
+                item:           itemName,
+                unit:           unit,
+                price:          price,
+                cost_breakdown: breakdown,
+                cost_total:     computed.cost_total,
+                margin:         computed.margin,
+                margin_pct:     computed.margin_pct,
+                action:         byName[key] ? "update" : "create",
+                existing_id:    byName[key] || null
+            });
+        }
+
+        if (!commit) {
+            return jsonOk({
+                preview:      true,
+                headers:      headers,
+                columns:      { item: headers[cols.item] || null,
+                                unit: cols.unit === -1 ? null : headers[cols.unit],
+                                price: cols.price === -1 ? null : headers[cols.price] },
+                cost_columns: costCols.map(function(ci) { return headers[ci]; }),
+                rows:         planned,
+                create_count: planned.filter(function(p) { return p.action === "create"; }).length,
+                update_count: planned.filter(function(p) { return p.action === "update"; }).length,
+                skipped:      skipped
+            });
+        }
+
+        var created = 0, updated = 0;
+        var actor = actorName(user);
+        for (var p2 = 0; p2 < planned.length; p2++) {
+            var row = planned[p2];
+            var bjson = JSON.stringify(row.cost_breakdown);
+            if (row.existing_id) {
+                await env.DB.prepare(
+                    "UPDATE gm_pricing SET unit = ?, cost_breakdown = ?, cost_total = ?, price = ?, " +
+                    "updated_at = datetime('now'), updated_by = ? WHERE id = ? AND client_id = ?"
+                ).bind(row.unit, bjson, row.cost_total, row.price, actor, row.existing_id, id).run();
+                updated++;
+            } else {
+                await env.DB.prepare(
+                    "INSERT INTO gm_pricing (id, client_id, item, unit, cost_breakdown, cost_total, price, sort_order, created_by, updated_by) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                ).bind(crypto.randomUUID(), id, row.item, row.unit, bjson, row.cost_total, row.price,
+                       0, actor, actor).run();
+                created++;
+            }
+        }
+        return jsonOk({ imported: true, created: created, updated: updated, skipped: skipped });
+    } catch (e) {
+        return jsonErr("Error importing pricing: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // SALESPERSON LOGIN REQUESTS (gm_seller_login_requests)
 //
 // A client asking us to give one of their salespeople a portal login. THESE

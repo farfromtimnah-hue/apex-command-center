@@ -677,11 +677,6 @@
       h += '<h1 class="prep-name">' + escHtml(c.name || "") + '</h1>';
       if (bits.length) { h += '<p class="prep-meta">' + bits.join(" &middot; ") + '</p>'; }
       h += '<p class="prep-meta">' + typeLabel + '</p>';
-      h += '<p style="margin:0 0 4px;"><a class="pkg-open" href="packages.html" target="_blank" rel="noopener">' +
-           ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>' +
-           '<span class="pkg-note">' +
-           ptEn("abre em outra aba, para mostrar ao cliente",
-                "opens in a new tab, to show the client") + '</span></p>';
       h += '<p class="prep-confid">' +
            ptEn("Esta p&#225;gina &#233; apenas para o consultor. Qualquer material mostrado ao cliente abre em separado.",
                 "This page is consultant-only. Anything shown on screen opens separately.") +
@@ -1087,6 +1082,38 @@
       return '<div class="card"><p class="sec-title">' +
              ptEn("O que ele j&#225; tem", "What he already has") + '</p>' +
              rows.join("") + '</div>';
+    }
+
+    // ---- Os planos --------------------------------------------------------
+    // On the two types where a package actually gets sold, and nowhere else:
+    // the X-Ray results meeting, and the 30-day close. A Start client
+    // finishing 30 days is exactly who upgrades, and the gap between $997 and
+    // the six-month programme is where Apex loses people. Kickoff and the
+    // weekly RDE are clients who have already bought.
+    //
+    // No checkboxes. WHICH packages he shows is decided live on the packages
+    // screen itself, by striking cards through in front of the client -- not
+    // committed to here, hours earlier, in preparation.
+    function renderPlans(d) {
+      var t = d.meeting_type;
+      if (t !== "xray_results" && t !== "fechamento") { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Os planos", "The plans") + '</p>';
+      h += '<p class="step-ctx">' +
+           (t === "fechamento"
+             ? ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;. Quem termina 30 dias &#233; exatamente quem sobe de pacote.",
+                    "The three packages, on the screen the client sees. A client finishing 30 days is exactly who moves up a package.")
+             : ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;.",
+                    "The three packages, on the screen the client sees.")) +
+           '</p>';
+      h += '<a class="step-link" href="packages.html" target="_blank" rel="noopener">' +
+           ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("Abre em outra aba, para mostrar ao cliente.",
+                "Opens in a new tab, to show the client.") + '</span>';
+      h += '</div>';
+      return h;
     }
 
     // ---- 9 After the meeting ---------------------------------------------
@@ -1933,6 +1960,9 @@
       }
 
       h += renderChecklist(d.meeting_type);
+      // Second from the bottom on the X-Ray, directly above Resultado; the
+      // last thing on the page at the cycle close.
+      h += renderPlans(d);
       // The lead outcome stays exclusive to the X-Ray type: only a lead can
       // be resolved, and renderOutcome already guards on status === 'lead'.
       if (d.meeting_type === "xray_results") {

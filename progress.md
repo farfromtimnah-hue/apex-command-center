@@ -3119,3 +3119,61 @@ client.html
     scroll-and-flash jumpToContactLog already used). Neither existed, and
     "scroll down and find the digital presence card" is not something he can
     do while a client is talking.
+
+## 2026-08-30 — Packages screen: strike-through, and Os planos in prep
+
+PACKAGES.HTML
+
+Card order is now ADVANCED, GROWTH, START. All three always render: he opens
+with three on screen — "Tres produtos aqui especificos".
+
+Each card carries a control that strikes it through. Struck means the card
+dims, its title and bullets get a line through them, and it STAYS VISIBLE.
+Never removed, never hidden — he has to be able to bring it back.
+
+A struck card is skipped in the reveal, and ITS PRICE NEVER APPEARS. In the
+Brax meeting Start was named, dismissed and never priced.
+
+He can un-strike at any point, including after the other prices are already
+up. That is the downsell: with Brax he struck Start early, then brought it
+back at the end as the bridge when Growth could not be funded — "faz o Start,
+comeca pelo Start, 997, acompanhamento de 30 dias."
+
+  THE BUG THIS ORDER CREATES, AND THE FIX. Un-striking re-enters a card into
+  the walk, which lengthens it. Naively that pushes every later price back one
+  step — so bringing Start back at the end RETRACTED Growth's price, live, in
+  front of the prospect. A revealed price must never come off the screen.
+  toggleStrike() therefore counts what is showing before the change and moves
+  `step` so exactly the same cards keep their bullets and prices afterwards;
+  the returning card becomes the next thing to reveal. Caught in the harness,
+  not in a meeting.
+
+  Step numbers are no longer fixed to a card. Step 2 means "the first LIVE
+  card's bullets" and re-resolves on every apply(), which is what makes
+  striking mid-walk safe in both directions.
+
+  THE CONTROL IS QUIET. It is on the screen the PROSPECT is looking at, so it
+  can never read as a button labelled "disqualify". It is a bare unlabelled
+  dot in the corner of the hero, no text and no tooltip, barely visible until
+  hovered, aria-hidden and out of the tab order. Struck, the dot fills in — so
+  the state is legible to HIM at a glance without ever naming itself. Each
+  card also answers to its number key (1/2/3), which is what he actually uses:
+  silent, no pointer travel across a shared screen, hittable mid-sentence.
+
+  Reveal is unchanged otherwise: bullets one card at a time, then prices one
+  at a time, click / arrow / space, never scroll, back step kept.
+
+MEETING-PREP.HTML
+
+New "Os planos" section, on the two types where a package actually gets sold:
+  xray_results — second from the bottom, directly above Resultado.
+  fechamento   — at the foot of the page. A Start client finishing 30 days is
+                 exactly who upgrades, and the gap between $997 and the
+                 six-month programme is where Apex loses people.
+Not on kickoff, not on rde_semanal — those clients have already bought.
+
+Heading, one line of context, one button opening packages.html in a new tab.
+NO checkboxes: which packages he shows is decided live on the packages screen
+by striking cards through in front of the client, not committed to hours
+earlier in preparation. The old "Abrir a tela de pacotes" line is gone from
+the header card, so the packages entry point lives in exactly one place.

@@ -185,6 +185,54 @@
       white-space: nowrap;
     }
 
+    /* ---- Struck through --------------------------------------------------
+       He says "o Start e para quem esta comecando, entao nao e o seu caso"
+       and moves on. The card DIMS and gets a line through its title and
+       bullets. It is never removed and never hidden: it has to stay on
+       screen, because he brings it back at the end as the downsell. */
+    .col.struck .card { opacity: 0.34; filter: saturate(0.55); }
+    .col.struck .hero-title,
+    .col.struck .hero-sub,
+    .col.struck .bullets li {
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+    }
+    .card, .price-pill { transition: opacity 0.3s ease, filter 0.3s ease; }
+
+    /* The control. It sits on a screen the PROSPECT is looking at, so it can
+       never read as a button labelled "disqualify". A bare dot in the corner
+       of the hero, no label, no tooltip, barely there until hovered -- and
+       every card also answers to its own number key, which is what he
+       actually uses mid-sentence. */
+    .strike {
+      position: absolute;
+      top: 10px; right: 10px;
+      z-index: 3;
+      width: 22px; height: 22px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.14);
+      cursor: pointer;
+      font: inherit;
+      color: transparent;
+      opacity: 0.5;
+      transition: opacity 0.2s ease, background 0.2s ease;
+    }
+    .strike:hover { opacity: 1; background: rgba(255,255,255,0.3); }
+    .strike:focus { outline: none; }
+    .strike::after {
+      content: "";
+      position: absolute;
+      left: 6px; right: 6px; top: 50%;
+      height: 1.5px;
+      background: rgba(255,255,255,0.9);
+      transform: translateY(-50%);
+    }
+    /* Struck: the dot fills in, so the state is legible to HIM at a glance
+       without ever naming itself. */
+    .col.struck .strike { background: rgba(255,255,255,0.42); opacity: 0.85; }
+
     .hint {
       margin-top: 22px;
       font-size: 11px;
@@ -256,24 +304,13 @@
     var currentUser = null;
     var auth        = null;
 
-    // Left to right, HIGHEST PRICE FIRST. Deliberate: descending order puts the
-    // largest number behind him first, so each one after feels easier. Ascending
-    // order builds tension instead.
+    // Left to right: ADVANCED, GROWTH, START.
     //
-    // `legacy` is where the delivery detail actually lives. The START/ADVANCED/
-    // GROWTH rows carry thin placeholder included_items; pkg_sprint and
-    // pkg_premium hold what is really delivered. The names changed, the
-    // delivery did not, so the legacy content is what the prospect sees.
+    // He opens with all three on screen -- "Tres produtos aqui especificos" --
+    // so every card renders from the start. START stays last: it is the
+    // entry point and the downsell, and it is the one most often struck out
+    // early and brought back at the end.
     var PACKAGES = [
-      {
-        key:    "growth",
-        title:  "GROWTH",
-        sub:    "4 meses, semanal",
-        image:  "assets/login/Picture3.jpg",
-        legacy: "pkg_premium",
-        price:  "$6997",
-        alt:    "ou 4 x $2197"
-      },
       {
         key:    "advanced",
         title:  "ADVANCED",
@@ -283,6 +320,15 @@
         omit:   "semanais",
         price:  "6 x $1397",
         alt:    ""
+      },
+      {
+        key:    "growth",
+        title:  "GROWTH",
+        sub:    "4 meses, semanal",
+        image:  "assets/login/Picture3.jpg",
+        legacy: "pkg_premium",
+        price:  "$6997",
+        alt:    "ou 4 x $2197"
       },
       {
         key:    "start",
@@ -316,10 +362,30 @@
       ]
     };
 
-    // 0 = nothing yet, 1 = all three cards (images and titles only),
-    // 2..4 = every bullet of card 1, 2, 3 at once, 5..7 = each price.
-    var STEP_MAX = 7;
-    var step     = 1;
+    // Step 1 = all three cards (images and titles only). After that the reveal
+    // walks the LIVE cards only: bullets one card at a time, then prices one
+    // at a time. A struck-through card is skipped in both passes, so its
+    // price never appears -- in the Brax meeting START was named, dismissed
+    // and never priced.
+    //
+    // Because striking changes how many cards are in the walk, the step
+    // numbers are not fixed to a card: step 2 means "the first live card's
+    // bullets" and it re-resolves every time apply() runs. That is what lets
+    // him un-strike a card after prices are already up and have that card
+    // simply become revealable, rather than renumbering the whole deck.
+    var step   = 1;
+    var struck = {};
+
+    function liveKeys() {
+      var out = [];
+      for (var i = 0; i < PACKAGES.length; i++) {
+        if (!struck[PACKAGES[i].key]) { out.push(PACKAGES[i].key); }
+      }
+      return out;
+    }
+
+    // 1 card step + one bullet step and one price step per live card.
+    function stepMax() { return 1 + (liveKeys().length * 2); }
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -360,6 +426,11 @@
         h += '<div class="hero" style="background-image:url(\'' + p.image + '\');">';
         h += '<div class="hero-head"><div class="hero-title">' + escHtml(p.title) + '</div>';
         h += '<div class="hero-sub">' + escHtml(p.sub) + '</div></div>';
+        // No label and no title attribute: nothing on this control announces
+        // what it does. aria-hidden + tabindex -1 keep it out of the tab order
+        // and off a screen reader, since it is his control, not the room's.
+        h += '<button type="button" class="strike" aria-hidden="true" tabindex="-1" ' +
+             'onclick="strikeClick(event, \'' + p.key + '\');"></button>';
         h += '</div>';
         h += '<div class="body"><ul class="bullets">';
         for (var j = 0; j < items.length; j++) {
@@ -380,20 +451,72 @@
     }
 
     function apply() {
+      var live = liveKeys();
+      var max  = stepMax();
+      if (step > max) { step = max; }
+
       for (var i = 0; i < PACKAGES.length; i++) {
-        var col = document.getElementById("col-" + PACKAGES[i].key);
+        var p   = PACKAGES[i];
+        var col = document.getElementById("col-" + p.key);
         if (!col) { continue; }
-        // Card i's bullets land on step 2+i; its price on step 5+i.
-        if (step >= 2 + i) { col.classList.add("show-bullets"); }
+
+        var isStruck = !!struck[p.key];
+        if (isStruck) { col.classList.add("struck"); }
+        else { col.classList.remove("struck"); }
+
+        // Position among the LIVE cards, not among all three. A struck card
+        // has no position, so it is skipped by both passes and, above all,
+        // never reaches its price step.
+        var n = live.indexOf(p.key);
+        var showBullets = !isStruck && n > -1 && step >= 2 + n;
+        var showPrice   = !isStruck && n > -1 && step >= 2 + live.length + n;
+
+        if (showBullets) { col.classList.add("show-bullets"); }
         else { col.classList.remove("show-bullets"); }
-        if (step >= 5 + i) { col.classList.add("show-price"); }
+        if (showPrice) { col.classList.add("show-price"); }
         else { col.classList.remove("show-price"); }
       }
       var hint = document.getElementById("hint");
-      if (hint) { hint.textContent = step >= STEP_MAX ? "" : "→"; }
+      if (hint) { hint.textContent = step >= max ? "" : "→"; }
     }
 
-    function next() { if (step < STEP_MAX) { step += 1; apply(); } }
+    // Strike / un-strike.
+    //
+    // Un-striking re-enters a card into the walk, which lengthens it and would
+    // otherwise push every later price back a step -- so bringing START back
+    // at the end would RETRACT a price already on screen in front of the
+    // prospect. That is the one thing this must never do. The fix is to hold
+    // the revealed set steady: count what is showing before the change and
+    // move `step` so that exactly the same cards keep their bullets and their
+    // prices afterwards. The returning card is then the next thing to reveal.
+    function toggleStrike(key) {
+      var beforeB = 0, beforeP = 0;
+      for (var i = 0; i < PACKAGES.length; i++) {
+        var c = document.getElementById("col-" + PACKAGES[i].key);
+        if (!c) { continue; }
+        if (c.classList.contains("show-bullets")) { beforeB += 1; }
+        if (c.classList.contains("show-price"))   { beforeP += 1; }
+      }
+
+      if (struck[key]) { delete struck[key]; } else { struck[key] = true; }
+
+      // Re-express that same reveal count in the new walk's numbering.
+      var live = liveKeys().length;
+      if (beforeP > 0)      { step = 2 + live + Math.min(beforeP, live) - 1; }
+      else if (beforeB > 0) { step = 2 + Math.min(beforeB, live) - 1; }
+      else                  { step = 1; }
+      apply();
+    }
+
+    // The control sits inside the page-wide click handler that advances the
+    // deck, so its click must not also step forward.
+    function strikeClick(ev, key) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      toggleStrike(key);
+    }
+
+    function next() { if (step < stepMax()) { step += 1; apply(); } }
     // He will be asked to go back.
     function back() { if (step > 1) { step -= 1; apply(); } }
 
@@ -401,6 +524,17 @@
 
     document.addEventListener("keydown", function(ev) {
       var k = ev.key;
+      // 1/2/3 strike or un-strike that card, left to right. This is the one he
+      // actually uses: it is silent, needs no pointer travel across a screen
+      // the prospect is watching, and can be hit mid-sentence.
+      if (k === "1" || k === "2" || k === "3") {
+        var idx = parseInt(k, 10) - 1;
+        if (PACKAGES[idx]) {
+          ev.preventDefault();
+          toggleStrike(PACKAGES[idx].key);
+          return;
+        }
+      }
       if (k === "ArrowRight" || k === "ArrowDown" || k === " " || k === "Spacebar" || k === "Enter" || k === "PageDown") {
         ev.preventDefault();
         next();

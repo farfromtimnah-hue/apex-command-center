@@ -3589,6 +3589,60 @@
       return { from: dateKey(start), to: dateKey(end) };
     }
 
+    // The months that range touches -- at most three, since a six-week grid
+    // anchored in one month can reach into the one before and the one after.
+    function visibleMonths() {
+      var r = visibleRange();
+      var y = parseInt(r.from.slice(0, 4), 10);
+      var m = parseInt(r.from.slice(5, 7), 10) - 1;
+      var lastKey = r.to.slice(0, 7);
+      var out = [];
+      for (var i = 0; i < 4; i++) {          // 4 is the guard; 3 is the real max
+        var d = new Date(y, m + i, 1);
+        var key = d.getFullYear() + "-" + padZ(d.getMonth() + 1);
+        out.push(key);
+        if (key === lastKey) { break; }
+      }
+      return out;
+    }
+
+    // Every session the grid can display, merged from month requests.
+    //
+    // DELIBERATELY BUILT ON ?month=, WHICH IS ALREADY DEPLOYED. The worker now
+    // also accepts ?from=&to=, which is one tidier request -- but this page
+    // ships on its own through Pages the moment main moves, while the Worker
+    // only goes out when someone runs scripts/deploy.sh by hand. A page that
+    // required the range parameter would therefore answer every calendar load
+    // with a 400 from the old Worker, fall into the catch below, and render an
+    // EMPTY calendar -- strictly worse than the bug being fixed, and invisible
+    // until someone opened the page. Asking in months costs at most two extra
+    // requests and cannot outrun the server it talks to.
+    function fetchVisibleSessions() {
+      return Promise.all(visibleMonths().map(function(mo) {
+        return apiFetch("/api/sessions/calendar?month=" + mo)
+          .then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          });
+      })).then(function(results) {
+        var seen = {};
+        var out  = [];
+        for (var i = 0; i < results.length; i++) {
+          var list = (results[i] && results[i].sessions) || [];
+          for (var j = 0; j < list.length; j++) {
+            var s = list[j];
+            if (!s) { continue; }
+            if (s.id) {
+              if (seen[s.id]) { continue; }   // months do not overlap, but a
+              seen[s.id] = 1;                 // duplicate must never double-draw
+            }
+            out.push(s);
+          }
+        }
+        return out;
+      });
+    }
+
     // Sessions in the anchor MONTH only. The hero tiles are labelled for the
     // month, so they must keep counting the month even though the fetch above
     // deliberately reaches past it.
@@ -3600,11 +3654,9 @@
     }
 
     function loadCalendar() {
-      var range = visibleRange();
-      apiFetch("/api/sessions/calendar?from=" + range.from + "&to=" + range.to)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          calSessions = data.sessions || [];
+      fetchVisibleSessions()
+        .then(function(sessions) {
+          calSessions = sessions;
           renderCalendar();
           updateCalendarHeroTiles();
         })
@@ -3638,14 +3690,11 @@
           });
         })
         .then(function(data) {
-          var range = visibleRange();
-          return apiFetch("/api/sessions/calendar?from=" + range.from + "&to=" + range.to)
-            .then(function(res) { return res.json(); })
-            .then(function(calData) {
-              calSessions = calData.sessions || [];
-              renderCalendar();
-              reportSyncConflicts(calSessions);
-            });
+          return fetchVisibleSessions().then(function(sessions) {
+            calSessions = sessions;
+            renderCalendar();
+            reportSyncConflicts(calSessions);
+          });
         })
         .catch(function(e) { /* sync trigger failed silently -- calSessions already rendered from the initial load */ });
     }
@@ -3674,16 +3723,13 @@
           return res.json();
         })
         .then(function() {
-          var range = visibleRange();
-          return apiFetch("/api/sessions/calendar?from=" + range.from + "&to=" + range.to)
-            .then(function(res) { return res.json(); })
-            .then(function(calData) {
-              calSessions = calData.sessions || [];
-              renderCalendar();
-              updateCalendarHeroTiles();
-              reportSyncConflicts(calSessions);
-              showToast(isEn() ? "Calendar synced" : "Calendario sincronizado");
-            });
+          return fetchVisibleSessions().then(function(sessions) {
+            calSessions = sessions;
+            renderCalendar();
+            updateCalendarHeroTiles();
+            reportSyncConflicts(calSessions);
+            showToast(isEn() ? "Calendar synced" : "Calendario sincronizado");
+          });
         })
         .catch(function(e) {
           showToast(isEn() ? "Sync failed — try again" : "Falha na sincronizacao");

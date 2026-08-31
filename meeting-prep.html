@@ -1179,13 +1179,6 @@
     // teaching the tool as he goes. So this is NOT a report: it is a checklist
     // where every step links to the screen that thing is actually entered on.
 
-    // Read-only portal preview for staff, optionally landing on a tab.
-    function portalHref(tab) {
-      var h = "portal.html?previewAs=" + encodeURIComponent(CLIENT_ID);
-      if (tab) { h += "&tab=" + encodeURIComponent(tab); }
-      return h;
-    }
-
     function clientHref(extra) {
       return "client.html?id=" + encodeURIComponent(CLIENT_ID) + (extra || "");
     }
@@ -1235,7 +1228,7 @@
       if (g.all_set) {
         // Do not send him to set what is already set.
         h += '<p class="step-done">' +
-             ptEn(escHtml("As " + g.goalable + " metas do mes ja estao definidas."),
+             ptEn(escHtml("As " + g.goalable + " metas do mês já estão definidas."),
                   escHtml("All " + g.goalable + " targets for the month are already set.")) +
              '</p>';
       } else {
@@ -1291,10 +1284,10 @@
            ptEn(kp.total + " itens registrados &#183; " + kp.with_costs + " com custos preenchidos",
                 kp.total + " items recorded &#183; " + kp.with_costs + " with costs filled in") +
            '</div>';
-      h += '<a class="step-link" href="' + portalHref("gmpricing") +
+      h += '<a class="step-link" href="' + clientHref("&section=gmpricing") +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir a tabela de pre&#231;os", "Open the pricing table") + '</a>';
-      h += '<a class="step-link" href="' + portalHref("gmpricing") +
+      h += '<a class="step-link" href="' + clientHref("&section=gmpricing") +
            '&import=1" target="_blank" rel="noopener">' +
            ptEn("Importar CSV", "Import CSV") + '</a>';
       h += '</div></div>';
@@ -1339,7 +1332,7 @@
       var h = '<div class="card"><p class="sec-title">' +
               ptEn("A &#250;ltima sess&#227;o", "Last session") + '</p>';
       h += '<p class="step-ctx">' +
-           ptEn(escHtml("Sessao de " + ls.date + "."),
+           ptEn(escHtml("Sessão de " + ls.date + "."),
                 escHtml("Session of " + ls.date + ".")) + '</p>';
 
       // The live task rows carry a real done flag, so they are shown as the
@@ -1408,7 +1401,7 @@
 
       if (!behind.length) {
         h += '<p class="ind-ok">' +
-             ptEn(escHtml("Todos os " + onPace.length + " indicadores com meta estao no ritmo do mes."),
+             ptEn(escHtml("Todos os " + onPace.length + " indicadores com meta estão no ritmo do mês."),
                   escHtml("All " + onPace.length + " indicators with a target are on pace for the month.")) +
              '</p>';
       } else {
@@ -1583,9 +1576,9 @@
       h += '<p class="step-ctx">' +
            ptEn("Abre nas telas reais, para entrar lead a lead e projeto a projeto.",
                 "Opens the real screens, to go lead by lead and project by project.") + '</p>';
-      h += '<a class="step-link" href="' + portalHref("gmcrm") + '" target="_blank" rel="noopener">' +
+      h += '<a class="step-link" href="' + clientHref("&section=gmcrm") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir o pipeline", "Open the pipeline") + '</a>';
-      h += '<a class="step-link" href="' + portalHref("gmjobs") + '" target="_blank" rel="noopener">' +
+      h += '<a class="step-link" href="' + clientHref("&section=gmjobs") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir os projetos", "Open the projects") + '</a>';
       // There is no staff-side pipeline or jobs screen at all -- gm.js loads
       // only inside the portal -- so these links are read-only and say so.
@@ -1598,7 +1591,7 @@
       // 5 Financeiro, a fixed beat of his meeting.
       h += '<div class="card"><p class="sec-title">' +
            ptEn("Financeiro", "Finances") + '</p>';
-      h += '<a class="step-link" href="' + portalHref("gmfinance") + '" target="_blank" rel="noopener">' +
+      h += '<a class="step-link" href="' + clientHref("&section=gmfinance") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir o financeiro", "Open the finances") + '</a>';
       h += '<span class="step-note">' + linkNoteReadOnly() + '</span>';
       h += '</div>';
@@ -1652,7 +1645,7 @@
                 'Week <span class="num">' + e.week + '</span> of ' + e.total_weeks +
                 ', on the ' + escHtml(e.package) + ' package.') + '</p>';
       h += '<p class="load-sub">' +
-           ptEn(escHtml("Comecou em " + e.started_at + ". Faltam " + e.days_left + " dias."),
+           ptEn(escHtml("Começou em " + e.started_at + ". Faltam " + e.days_left + " dias."),
                 escHtml("Started " + e.started_at + ". " + e.days_left + " days remaining.")) +
            '</p>';
       var pct = e.duration_days ? Math.round((e.day / e.duration_days) * 100) : 0;
@@ -2059,7 +2052,7 @@
       var h = '<div class="card"><p class="sec-title">' +
               ptEn("O antes e o depois, j&#225; calculado", "Before and after, already computed") + '</p>';
       h += '<p class="step-ctx">' +
-           ptEn(escHtml("Base: " + ba.baseline_month + ", inicio do contrato em " + ba.baseline_date + ". Comparado com " + ba.current_month + "."),
+           ptEn(escHtml("Base: " + ba.baseline_month + ", início do contrato em " + ba.baseline_date + ". Comparado com " + ba.current_month + "."),
                 escHtml("Baseline: " + ba.baseline_month + ", engagement started " + ba.baseline_date + ". Compared with " + ba.current_month + ".")) +
            '</p>';
       for (var i = 0; i < ba.rows.length; i++) {

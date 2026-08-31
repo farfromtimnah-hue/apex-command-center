@@ -87,6 +87,9 @@
   <script src="datetime.js"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1787608442"></script>
+  <link rel="stylesheet" href="gm.css?v=1788151190">
+  <script src="gm-labels.js?v=1788151190"></script>
+  <script src="gm.js?v=1788152284"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2313,6 +2316,81 @@
           </div>
         </div>
 
+        <!-- Growth Management: staff-side writable views. Same gm.js the
+             portal uses, hosted here so writes go through the normal admin
+             endpoints instead of the read-only previewAs preview. -->
+        <div class="content-card" id="sec-gmcrm" data-section-id="gmcrm">
+          <div class="content-card-header">
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Pipeline</span>
+              <span class="show-en">Pipeline</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="collapse-btn" onclick="toggleSection('gmcrm')" id="collapseGmcrm" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="gmcrmSecBody">
+            <div id="gmCrmBody">
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-card" id="sec-gmjobs" data-section-id="gmjobs">
+          <div class="content-card-header">
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Projetos</span>
+              <span class="show-en">Projects</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="collapse-btn" onclick="toggleSection('gmjobs')" id="collapseGmjobs" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="gmjobsSecBody">
+            <div id="gmJobsBody">
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-card" id="sec-gmfinance" data-section-id="gmfinance">
+          <div class="content-card-header">
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Financeiro</span>
+              <span class="show-en">Finance</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="collapse-btn" onclick="toggleSection('gmfinance')" id="collapseGmfinance" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="gmfinanceSecBody">
+            <div id="gmFinanceBody">
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-card" id="sec-gmpricing" data-section-id="gmpricing">
+          <div class="content-card-header">
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Pre&ccedil;os</span>
+              <span class="show-en">Pricing</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="collapse-btn" onclick="toggleSection('gmpricing')" id="collapseGmpricing" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="gmpricingSecBody">
+            <div id="gmPricingBody">
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Payment method -->
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
@@ -3644,6 +3722,39 @@
 
     if (!CLIENT_ID) { window.location.href = "dashboard.html"; }
 
+    // ── Growth Management host contract ────────────────────────────────────
+    // gm.js is the SAME file the client portal loads. It depends on exactly
+    // four things from its host page: clientId, apiFetch, isEn and GmLabels.
+    // Hosting it here is what makes these views writable: portal.html appends
+    // previewAs to every request, and the Worker rejects any non-GET carrying
+    // that param from an admin. Nothing about that gate changes -- this page
+    // simply never sets the param, so Rafa writes as himself.
+    //
+    // The body convention differs between the two hosts: this page's apiFetch
+    // stringifies opts.body, while gm.js passes JSON it has already
+    // stringified. gmApiFetch bridges that instead of touching either side.
+    var clientId = CLIENT_ID;
+
+    function gmApiFetch(path, opts) {
+      var o = opts || {};
+      return getToken().then(function(token) {
+        var headers = { "Authorization": "Bearer " + token };
+        var fetchOpts = { method: o.method || "GET", headers: headers };
+        if (o.body) {
+          headers["Content-Type"] = "application/json";
+          fetchOpts.body = o.body;
+        }
+        return fetch(WORKER_URL + path, fetchOpts);
+      });
+    }
+
+    function gmSectionsLoad() {
+      if (typeof gmLoadCrm     === "function") { gmLoadCrm();     }
+      if (typeof gmLoadJobs    === "function") { gmLoadJobs();    }
+      if (typeof gmLoadFinance === "function") { gmLoadFinance(); }
+      if (typeof gmLoadPricing === "function") { gmLoadPricing(); }
+    }
+
     // ── Utilities ──────────────────────────────────────────────────────────
 
     function toggleLang() {
@@ -3848,6 +3959,7 @@
       loadSellerSeats();
       loadAssessments();
       loadWeeklySummary();
+      gmSectionsLoad();
       initCollapseStates();
       // After the cards exist. ?day= is handled inside loadWeeklySummary,
       // which cannot run until its own fetch returns.
@@ -9164,6 +9276,10 @@
       { key: "notes",          bodyId: "notesBody",          btnId: "collapseNotes"          },
       { key: "resources",      bodyId: "resourcesBody",      btnId: "collapseResources"      },
       { key: "growth",         bodyId: "growthBody",         btnId: "collapseGrowth"         },
+      { key: "gmcrm",          bodyId: "gmcrmSecBody",       btnId: "collapseGmcrm"          },
+      { key: "gmjobs",         bodyId: "gmjobsSecBody",      btnId: "collapseGmjobs"         },
+      { key: "gmfinance",      bodyId: "gmfinanceSecBody",   btnId: "collapseGmfinance"      },
+      { key: "gmpricing",      bodyId: "gmpricingSecBody",   btnId: "collapseGmpricing"      },
       { key: "payment",        bodyId: "paymentBody",        btnId: "collapsePayment"        },
       { key: "vendors",        bodyId: "vendorsBody",        btnId: "collapseVendors"        },
       { key: "contacts",       bodyId: "contactsBody",       btnId: "collapseContacts"       },
@@ -9212,7 +9328,9 @@
 
     var DEFAULT_SECTION_ORDER = [
       "overview", "sessions", "dp", "clientTasks", "consultantTasks",
-      "contacts", "notes", "resources", "growth", "payment", "vendors", "docs"
+      "contacts", "notes", "resources", "growth",
+      "gmcrm", "gmjobs", "gmfinance", "gmpricing",
+      "payment", "vendors", "docs"
     ];
 
     var dragSrcEl = null;

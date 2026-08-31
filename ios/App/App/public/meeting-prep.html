@@ -546,8 +546,11 @@
     var IS_EXAMPLE   = params.get("example") === "1";
     // No ?type= means he has not chosen a meeting type yet: show the picker.
     var HAS_TYPE     = !!params.get("type");
-    // Brax Facilities, the one client with a completed X-Ray to show as an example.
-    var EXAMPLE_URL  = "meeting-prep.html?client=abc9f8b4-8408-4284-95f7-776ace15ad18"
+    // Perfect Square, the one client whose X-Ray results page renders in full:
+    // the current 62-question instrument across all six areas, a complete
+    // action plan, all 12 practice activities, and a recorded X-Ray meeting on
+    // 2026-07-27 to check every section against.
+    var EXAMPLE_URL  = "meeting-prep.html?client=mazinho-001"
                      + "&type=xray_results&example=1";
 
     var currentUser = null;
@@ -727,8 +730,8 @@
       var h = '<div class="card">';
       if (IS_EXAMPLE) {
         h += '<p class="example-line">' +
-             ptEn("Exemplo, com dados reais da Brax Facilities.",
-                  "Example, with real Brax Facilities data.") + '</p>';
+             ptEn("Exemplo, com dados reais da Perfect Square.",
+                  "Example, with real Perfect Square data.") + '</p>';
       }
       h += '<h1 class="prep-name">' + escHtml(c.name || "") + '</h1>';
       if (bits.length) { h += '<p class="prep-meta">' + bits.join(" &middot; ") + '</p>'; }
@@ -2206,8 +2209,8 @@
                encodeURIComponent(CLIENT_ID) + '&type=' + encodeURIComponent(t.type) + '">' +
                ptEn(t.pt, t.en) + '</a>';
           // The example belongs here, next to the type it is an example of --
-          // and ONLY next to that type: the Brax example is an X-Ray results
-          // meeting, so offering it on the kickoff row would be a lie.
+          // and ONLY next to that type: the Perfect Square example is an X-Ray
+          // results meeting, so offering it on the kickoff row would be a lie.
           if (t.type === "xray_results") {
             h += '<a class="pick-example" href="' + EXAMPLE_URL + '">' +
                  ptEn("Ver exemplo", "See example") + '</a>';

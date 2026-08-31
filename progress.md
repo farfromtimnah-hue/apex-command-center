@@ -3177,3 +3177,97 @@ NO checkboxes: which packages he shows is decided live on the packages screen
 by striking cards through in front of the client, not committed to hours
 earlier in preparation. The old "Abrir a tela de pacotes" line is gone from
 the header card, so the packages entry point lives in exactly one place.
+
+## 2026-08-30 — Meeting Prep: write-access audit, kickoff sequence, real cycle close
+
+WRITE ACCESS — the finding that reshaped every link
+
+Rafa hit this live: he opened his own client's CRM and could not write.
+"Eu nao vou dar, so a leitura, voce so consigo ler."
+
+Cause, deliberate and NOT loosened: worker/index.js fetch() rejects any
+non-GET carrying previewAs from an admin, before route dispatch. portal.html
+appends previewAs to EVERY request. So every portal link is read-only for
+staff, whatever the underlying endpoint allows.
+
+Audited each link Meeting Prep offers:
+
+  WRITABLE as rafa (staff pages, no previewAs):
+    Goals / metas      client.html field-config modal -> PUT /field-config.
+                       Added ?modal=fieldconfig so prep can open it directly.
+    Session summary    sessions.html?open=<id> -> POST /api/summarize,
+                       POST /api/approve.
+    Next session       calendar.html -> POST /api/sessions/schedule.
+
+  NOT WRITABLE (portal only; link kept but LABELLED read-only on the link):
+    Daily log entry    PUT .../entries/:date/sections/:sec would accept rafa,
+                       but the only UI is portal.html, so it 403s in practice.
+    Pipeline, projects, finance
+                       gm.js loads ONLY inside portal.html. There is no
+                       staff-side GM screen at all.
+
+  DOES NOT EXIST:
+    Client price table Not modelled anywhere. gm_config.servicos_json holds
+                       service NAMES with no prices. The kickoff page names
+                       this as a gap instead of linking nowhere.
+    Google review count Not stored. `google_review` is a daily-log indicator
+                       (a per-day count), not an external review total. The
+                       kickoff sequence marks it "look up" and says what to
+                       look up, rather than leaving the field blank.
+
+Goals links now point at the client page, not the portal. Everything that
+stays on the portal says "somente leitura" ON the link, so he knows before
+he clicks rather than after.
+
+MIGRATION: tasks.nota, applied to remote D1 and verified with a real SELECT.
+Three task states replace the checkbox: 'pending' (default, never assumed),
+'done', 'not_done' + nota saying why. "Nao fez" and "ainda nao chegamos
+nisso" are different facts and an unchecked box read as an accusation for a
+task that was never due. No backfill: every existing row is genuinely one of
+the first two.
+
+KICKOFF — built as the guided sequence it actually is
+  26 fields in his fixed order, grouped by the four pillars, each labelled
+  asked / derived / imposed / look-up. Derived fields carry the WORKING with
+  the real numbers in it -- "1500 - 750 = 750" -- because he says these out
+  loud and has miscalculated in front of a client. A derived field whose
+  inputs are missing says so instead of printing a number.
+  The revenue anchor is never suggested; it is always the client's own.
+  Then the daily-log walkthrough, every indicator in the order he asks, with
+  the rule that zero is a value that gets typed, not skipped.
+  Above all of it, what the system already answers: targets set, money in and
+  out today, leads today, open pipeline, whether an X-Ray exists -- plus the
+  two things it genuinely cannot answer (home-screen install, price table),
+  named rather than left as a blank he finds mid-meeting.
+
+CYCLE CLOSE — the shape it actually has
+  The client speaks first, by name, one at a time: the prompt he uses and a
+  slot per attendee, parsed from clients.owners.
+  The document in Mariel's order, all nine sections.
+  Before/after PRE-FETCHED: current figure, the baseline from the engagement
+  start WITH its date, and growth already computed -- in every closing he
+  stops and asks for this and the client digs through their phone. Growth is
+  null from a zero baseline rather than infinite.
+  Assets as a real list from the system -- documents, assessments, targets,
+  processes, log days. That list is "nada do que foi construido depende da
+  nossa presenca" made concrete.
+  A slot for a shortfall on Apex's side, with his own wording.
+  Financial settlement from client_package_terms, read verbatim.
+  Forward plan with the arithmetic already done.
+
+WEEKLY RDE — the eight beats, tasks fixed
+  Tasks now come ONLY from the previous session via tasks.session_id. It was
+  reading every task the client had ever had.
+
+SCOPED OUT what does not belong
+  bottleneck  xray_results only -- it is the opener for a PROSPECT.
+  stories     xray_results + fechamento.
+  Os planos   xray_results + fechamento.
+
+AFTER-MEETING CHECKLIST rebuilt from what happens: generate and approve the
+summary (links the session; approval files the report and he tells clients
+24 hours), confirm the targets (kickoff only), agree the next session (links
+the calendar). Removed "Enviar o Raio-X", "Enviar acesso ao sistema" and
+"Enviar a comparacao de planos" from every type.
+
+FOOT OF PAGE: Os planos, then Resultado, then Depois.

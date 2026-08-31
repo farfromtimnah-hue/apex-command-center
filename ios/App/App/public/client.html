@@ -3605,6 +3605,7 @@
     //   ?section=<id>    scroll that content-card into view and flash it
     var DEEP_DAY     = new URLSearchParams(window.location.search).get("day");
     var DEEP_SECTION = new URLSearchParams(window.location.search).get("section");
+    var DEEP_MODAL   = new URLSearchParams(window.location.search).get("modal");
 
     // Same scroll-and-flash jumpToContactLog() uses, by element id.
     function scrollToSection(elId) {
@@ -3614,6 +3615,17 @@
       el.style.transition = "background-color 0.4s";
       el.style.backgroundColor = "var(--gold-dim)";
       setTimeout(function() { el.style.backgroundColor = ""; }, 900);
+    }
+
+    // ?modal=fieldconfig opens the targets editor straight away. Meeting Prep
+    // sends him here to SET the month's goals: the portal's own goals screen
+    // is read-only for staff (any non-GET carrying previewAs is 403'd by the
+    // Worker), so this modal, which PUTs /field-config without previewAs, is
+    // the only place he can actually write them.
+    function applyDeepModal() {
+      if (DEEP_MODAL !== "fieldconfig") { return; }
+      if (typeof openFieldConfigModal !== "function") { return; }
+      openFieldConfigModal();
     }
 
     // ?section= runs after the page has painted its cards. Only ids that are
@@ -3840,6 +3852,7 @@
       // After the cards exist. ?day= is handled inside loadWeeklySummary,
       // which cannot run until its own fetch returns.
       setTimeout(applyDeepSection, 400);
+      setTimeout(applyDeepModal, 400);
     }
 
     // ── Client Portal access (login + field config) ────────────────────────

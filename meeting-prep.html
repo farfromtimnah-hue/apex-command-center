@@ -436,6 +436,59 @@
     .built-list { margin: 6px 0 0; padding-left: 18px; }
     .built-list li { font-size: 13px; line-height: 1.6; }
 
+    /* Kickoff target sequence */
+    .seq-row { padding: 11px 0; border-top: 1px solid var(--border); }
+    .seq-row:first-child { border-top: none; }
+    .seq-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .seq-name { font-size: 14px; font-weight: 700; }
+    .tag.t-asked   { background: rgba(20,36,61,0.10); color: var(--navy); }
+    .tag.t-derived { background: rgba(45,106,79,0.12); color: var(--good); }
+    .tag.t-imposed { background: rgba(107,102,96,0.12); color: var(--muted); }
+    .tag.t-ext     { background: rgba(180,64,64,0.10); color: var(--crit); }
+    .seq-ask { font-size: 14px; font-style: italic; color: var(--text); margin: 5px 0 0; }
+    .seq-formula { font-size: 12px; color: var(--muted); margin: 5px 0 0; }
+    /* The arithmetic he reads aloud, with the real numbers in it. */
+    .seq-work {
+      font-size: 15px; font-weight: 700; color: var(--navy);
+      font-variant-numeric: tabular-nums; margin: 3px 0 0;
+    }
+    .seq-val { font-size: 13px; margin: 4px 0 0; }
+    .seq-std { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+    .seq-pending { font-size: 12px; color: var(--muted); font-style: italic; margin: 4px 0 0; }
+    .seq-lookup { font-size: 13px; margin: 4px 0 0; }
+
+    /* Daily-log walkthrough */
+    .wt-row { display: flex; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+    .wt-row:first-child { border-top: none; }
+    .wt-n { flex: 0 0 22px; color: var(--muted); font-weight: 700; font-size: 12px; }
+
+    /* Tasks: three states, never a checkbox. */
+    .task-row { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+    .task-row:first-child { border-top: none; }
+    .task-mark { flex: 0 0 20px; font-weight: 700; font-size: 15px; text-align: center; }
+    .task-main { flex: 1; min-width: 0; }
+    .task-desc { font-size: 14px; line-height: 1.45; }
+    .task-meta { display: flex; gap: 10px; align-items: baseline; margin-top: 3px; }
+    .task-state { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .task-due { font-size: 11px; color: var(--muted); }
+    .task-note {
+      font-size: 12px; line-height: 1.5; color: var(--text); margin-top: 5px;
+      border-left: 3px solid var(--border); padding-left: 9px;
+    }
+    .ts-done { color: var(--good); }
+    .ts-not  { color: var(--crit); }
+    .ts-pend { color: var(--muted); }
+
+    /* Cycle close */
+    .voice-row { padding: 10px 0; border-top: 1px solid var(--border); }
+    .voice-row:first-of-type { border-top: none; }
+    .voice-name { font-size: 15px; font-weight: 700; }
+    .voice-space { display: block; height: 34px; border-bottom: 1px dashed var(--border); margin-top: 6px; }
+    .doc-row { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+    .doc-row:first-of-type { border-top: none; }
+    .doc-n { flex: 0 0 20px; color: var(--muted); font-weight: 700; font-size: 12px; }
+    .ba-growth { font-size: 13px; font-weight: 700; white-space: nowrap; }
+
     /* Checklist */
     .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
     .check-row:first-child { border-top: none; }
@@ -516,35 +569,31 @@
       risco_sem_conselho:     "risco sem conselho"
     };
 
-    // The after-meeting checklist. Every type ends on one; what belongs on it
-    // depends on the meeting. The X-Ray list is the sales close, and sending
-    // a prospect's pricing comparison after a weekly RDE with an existing
-    // client would be nonsense, so each type carries its own.
+    // The after-meeting checklist. Every type ends on one.
+    //
+    // These are the three things that actually happen. The old list was
+    // invented: "Enviar o Raio-X", "Enviar acesso ao sistema" and "Enviar a
+    // comparacao de planos" are not steps anybody performs after a session.
+    //
+    // Approving the summary is the real one, and it has a consequence he
+    // states to clients: once approved the session's report is filed against
+    // the client and he tells them they will have it within 24 hours.
     var AFTER_MEETING = [
-      { id: "chk_xray",     pt: "Enviar o Raio-X",                  en: "Send the X-Ray" },
-      { id: "chk_pricing",  pt: "Enviar o comparativo de pre&#231;os",   en: "Send the pricing comparison" },
-      { id: "chk_whatsapp", pt: "Criar o grupo de WhatsApp",        en: "Create the WhatsApp group" },
-      { id: "chk_payment",  pt: "Definir a data de pagamento",      en: "Set the payment date" }
+      { id: "chk_summary",  kind: "summary",
+        pt: "Gerar e aprovar o resumo da sess&#227;o", en: "Generate and approve the session summary" },
+      { id: "chk_next",     kind: "calendar",
+        pt: "Combinar a pr&#243;xima sess&#227;o",          en: "Agree the next session" }
     ];
 
-    var AFTER_MEETING_BY_TYPE = {
-      kickoff: [
-        { id: "chk_k_goals",   pt: "Conferir as metas que ficaram salvas",    en: "Check the targets that were saved" },
-        { id: "chk_k_entry",   pt: "Conferir o primeiro registro di&#225;rio",     en: "Check the first daily log" },
-        { id: "chk_k_costs",   pt: "Levantar os custos por unidade",          en: "Collect the unit costs" },
-        { id: "chk_k_whatsapp",pt: "Criar o grupo de WhatsApp",               en: "Create the WhatsApp group" }
-      ],
-      rde_semanal: [
-        { id: "chk_r_summary", pt: "Escrever o resumo da sess&#227;o",            en: "Write the session summary" },
-        { id: "chk_r_tasks",   pt: "Registrar o que cada um ficou de fazer",  en: "Record what each side agreed to do" },
-        { id: "chk_r_focus",   pt: "Definir o foco da pr&#243;xima sess&#227;o",       en: "Set the next session's focus" }
-      ],
-      fechamento: [
-        { id: "chk_f_report",  pt: "Escrever o relat&#243;rio do ciclo",           en: "Write the cycle report" },
-        { id: "chk_f_goals",   pt: "Definir as metas do pr&#243;ximo m&#234;s",         en: "Set next month's targets" },
-        { id: "chk_f_next",    pt: "Combinar o pr&#243;ximo ciclo",                en: "Agree the next cycle" }
-      ]
-    };
+    // Kickoff adds one: the targets were built live, so they get confirmed.
+    var AFTER_MEETING_KICKOFF = [
+      { id: "chk_summary",  kind: "summary",
+        pt: "Gerar e aprovar o resumo da sess&#227;o", en: "Generate and approve the session summary" },
+      { id: "chk_goals",    kind: "goals",
+        pt: "Confirmar as metas lan&#231;adas",        en: "Confirm the targets that were entered" },
+      { id: "chk_next",     kind: "calendar",
+        pt: "Combinar a pr&#243;xima sess&#227;o",          en: "Agree the next session" }
+    ];
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -1084,52 +1133,6 @@
              rows.join("") + '</div>';
     }
 
-    // ---- Os planos --------------------------------------------------------
-    // On the two types where a package actually gets sold, and nowhere else:
-    // the X-Ray results meeting, and the 30-day close. A Start client
-    // finishing 30 days is exactly who upgrades, and the gap between $997 and
-    // the six-month programme is where Apex loses people. Kickoff and the
-    // weekly RDE are clients who have already bought.
-    //
-    // No checkboxes. WHICH packages he shows is decided live on the packages
-    // screen itself, by striking cards through in front of the client -- not
-    // committed to here, hours earlier, in preparation.
-    function renderPlans(d) {
-      var t = d.meeting_type;
-      if (t !== "xray_results" && t !== "fechamento") { return ""; }
-
-      var h = '<div class="card"><p class="sec-title">' +
-              ptEn("Os planos", "The plans") + '</p>';
-      h += '<p class="step-ctx">' +
-           (t === "fechamento"
-             ? ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;. Quem termina 30 dias &#233; exatamente quem sobe de pacote.",
-                    "The three packages, on the screen the client sees. A client finishing 30 days is exactly who moves up a package.")
-             : ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;.",
-                    "The three packages, on the screen the client sees.")) +
-           '</p>';
-      h += '<a class="step-link" href="packages.html" target="_blank" rel="noopener">' +
-           ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>';
-      h += '<span class="step-note">' +
-           ptEn("Abre em outra aba, para mostrar ao cliente.",
-                "Opens in a new tab, to show the client.") + '</span>';
-      h += '</div>';
-      return h;
-    }
-
-    // ---- 9 After the meeting ---------------------------------------------
-    function renderChecklist(type) {
-      var list = AFTER_MEETING_BY_TYPE[type] || AFTER_MEETING;
-      var h = '<div class="card"><p class="sec-title">' +
-              ptEn("Depois da reuni&#227;o", "After the meeting") + '</p>';
-      for (var i = 0; i < list.length; i++) {
-        var it = list[i];
-        h += '<div class="check-row"><input type="checkbox" id="' + it.id + '">' +
-             '<label for="' + it.id + '">' + ptEn(it.pt, it.en) + '</label></div>';
-      }
-      h += '</div>';
-      return h;
-    }
-
     // ---- KICKOFF ----------------------------------------------------------
     // The meeting where targets do not exist yet. He builds about twenty of
     // them live with the client and fills in the first daily log with them,
@@ -1202,17 +1205,17 @@
              '</p>';
       }
 
-      h += '<a class="step-link" href="' + portalHref("goals") +
+      // The metas editor on the CLIENT page, not the portal: it PUTs
+      // /field-config without previewAs, so it is the only place he can
+      // actually write the targets. The portal's goals screen is read-only
+      // for staff and would fail on save.
+      h += '<a class="step-link" href="' + clientHref("&modal=fieldconfig") +
            '" target="_blank" rel="noopener">' +
-           ptEn("Abrir as metas no portal do cliente", "Open goals in the client portal") + '</a>';
+           ptEn("Definir as metas na ficha do cliente", "Set the targets on the client page") + '</a>';
       h += '<span class="step-note">' +
-           ptEn("O preview do portal &#233; somente leitura para a equipe. Na reuni&#227;o quem preenche &#233; o cliente, no login dele, enquanto ele acompanha.",
-                "The portal preview is read-only for staff. In the meeting the client drives it on their own login while he walks them through it.") +
+           ptEn("Esta &#233; a tela onde ele consegue gravar. Se quiser que o cliente preencha, o cliente faz no login dele.",
+                "This is the screen he can actually save on. If the client is to fill it in, they do it on their own login.") +
            '</span>';
-      h += '<a class="step-link" style="margin-top:8px;" href="' + clientHref("&section=portalAccess") +
-           '" target="_blank" rel="noopener">' +
-           ptEn("Ou definir as metas ele mesmo, na ficha do cliente",
-                "Or set the targets himself, on the client page") + '</a>';
       h += '</div></div>';
 
       // --- 2 the first daily log -------------------------------------------
@@ -1226,6 +1229,12 @@
       h += '<a class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir o registro de hoje", "Open today's entry") + '</a>';
+      // The staff view of a day is read-only: entries are only writable from
+      // the client's own portal login. He teaches, the client types.
+      h += '<span class="step-note">' +
+           ptEn("A ficha mostra o dia, mas quem digita &#233; o cliente, no login dele.",
+                "The client page shows the day, but the client types, on their own login.") +
+           '</span>';
       h += '</div></div>';
 
       // --- 3 unit costs, which the system does not hold ---------------------
@@ -1300,21 +1309,34 @@
       return h;
     }
 
+    // Three states, never a checkbox. "Nao fez" and "ainda nao chegamos nisso"
+    // are different facts, and an unchecked box read as an accusation for a
+    // task that was never due. Nothing ever defaults to done.
+    function taskState(t) {
+      if (t.status === "done") {
+        return { cls: "ts-done", mark: "&#10003;", pt: "feito", en: "done" };
+      }
+      if (t.status === "not_done") {
+        return { cls: "ts-not", mark: "&#215;", pt: "n&#227;o fez", en: "not done" };
+      }
+      return { cls: "ts-pend", mark: "&#8212;", pt: "pendente", en: "pending" };
+    }
+
     function taskBlock(labelHtml, rows) {
       if (!rows.length) { return ""; }
       var h = '<p class="plan-label" style="margin-top:12px;">' + labelHtml + '</p>';
       for (var i = 0; i < rows.length; i++) {
         var t = rows[i];
-        h += '<div class="check-row">';
-        // Not an input: this page states what is true, it does not re-open
-        // the task list. The tick is a read-out, not a control.
-        h += '<span class="q-mark ' + (t.done ? "q-yes" : "q-no") + '">' +
-             (t.done ? "&#10003;" : "&#8212;") + '</span>';
-        h += '<label>' + escHtml(t.description || "");
-        if (t.due_date) {
-          h += ' <span class="step-note" style="display:inline;">' + escHtml(t.due_date) + '</span>';
-        }
-        h += '</label></div>';
+        var st = taskState(t);
+        h += '<div class="task-row">';
+        h += '<span class="task-mark ' + st.cls + '">' + st.mark + '</span>';
+        h += '<div class="task-main"><div class="task-desc">' + escHtml(t.description || "") + '</div>';
+        h += '<div class="task-meta"><span class="task-state ' + st.cls + '">' +
+             ptEn(st.pt, st.en) + '</span>';
+        if (t.due_date) { h += '<span class="task-due">' + escHtml(t.due_date) + '</span>'; }
+        h += '</div>';
+        if (t.nota) { h += '<div class="task-note">' + escHtml(t.nota) + '</div>'; }
+        h += '</div></div>';
       }
       return h;
     }
@@ -1512,9 +1534,12 @@
            ptEn("Abrir o pipeline", "Open the pipeline") + '</a>';
       h += '<a class="step-link" href="' + portalHref("gmjobs") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir os projetos", "Open the projects") + '</a>';
-      h += '<span class="step-note">' +
-           ptEn("O preview do portal &#233; somente leitura para a equipe.",
-                "The portal preview is read-only for staff.") + '</span>';
+      // There is no staff-side pipeline or jobs screen at all -- gm.js loads
+      // only inside the portal -- so these links are read-only and say so.
+      h += '<span class="step-note">' + linkNoteReadOnly() + ' ' +
+           ptEn("N&#227;o existe tela da equipe para pipeline e projetos: para alterar, o cliente faz no login dele.",
+                "There is no staff screen for pipeline and projects: to change anything, the client does it on their own login.") +
+           '</span>';
       h += '</div>';
 
       // 5 Financeiro, a fixed beat of his meeting.
@@ -1522,6 +1547,7 @@
            ptEn("Financeiro", "Finances") + '</p>';
       h += '<a class="step-link" href="' + portalHref("gmfinance") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir o financeiro", "Open the finances") + '</a>';
+      h += '<span class="step-note">' + linkNoteReadOnly() + '</span>';
       h += '</div>';
       return h;
     }
@@ -1724,12 +1750,420 @@
               ptEn("O pr&#243;ximo ciclo", "Next cycle") + '</p>';
       h += '<p class="step-ctx">' +
            ptEn("As metas do m&#234;s que vem.", "Next month's targets.") + '</p>';
-      h += '<a class="step-link" href="' + portalHref("goals") + '" target="_blank" rel="noopener">' +
-           ptEn("Abrir as metas no portal do cliente", "Open goals in the client portal") + '</a>';
+      h += '<a class="step-link" href="' + clientHref("&modal=fieldconfig") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Definir as metas do pr&#243;ximo m&#234;s", "Set next month's targets") + '</a>';
       h += '<span class="step-note">' +
-           ptEn("O preview do portal &#233; somente leitura para a equipe. Quem preenche &#233; o cliente, no login dele.",
-                "The portal preview is read-only for staff. The client fills it in on their own login.") +
-           '</span>';
+           ptEn("Na ficha do cliente, que &#233; onde grava.",
+                "On the client page, which is where it saves.") + '</span>';
+      h += '</div>';
+      return h;
+    }
+
+    // ---- KICKOFF: the target sequence -------------------------------------
+    // 26 fields in his fixed order, grouped by pillar, each labelled with
+    // where its number comes from. The derived ones carry the WORKING, not
+    // just the answer: he says these out loud and has miscalculated in front
+    // of a client.
+    function kindTag(kind) {
+      if (kind === "asked") {
+        return '<span class="tag t-asked">' + ptEn("perguntado", "asked") + '</span>';
+      }
+      if (kind === "derived") {
+        return '<span class="tag t-derived">' + ptEn("derivado", "derived") + '</span>';
+      }
+      if (kind === "external") {
+        return '<span class="tag t-ext">' + ptEn("buscar fora", "look up") + '</span>';
+      }
+      return '<span class="tag t-imposed">' + ptEn("padr&#227;o Apex", "Apex standard") + '</span>';
+    }
+
+    function seqRow(f) {
+      var name = isEn() ? (f.label_en || f.label_pt) : (f.label_pt || f.label_en);
+      var h = '<div class="seq-row">';
+      h += '<div class="seq-head"><span class="seq-name">' + escHtml(name) + '</span>' +
+           kindTag(f.kind) + '</div>';
+
+      if (f.kind === "asked") {
+        // The anchor is always the client's own number. Never suggest one.
+        h += '<p class="seq-ask">&#8220;' +
+             escHtml(isEn() ? (f.ask_en || f.ask_pt) : (f.ask_pt || f.ask_en)) + '&#8221;</p>';
+        if (f.current !== null && f.current !== undefined) {
+          h += '<p class="seq-val">' + ptEn("j&#225; definido: ", "already set: ") +
+               '<span class="ind-num">' + fmtInd(f.current, f.type) + '</span></p>';
+        }
+      } else if (f.kind === "derived") {
+        var formula = isEn() ? (f.formula_en || f.formula_pt) : (f.formula_pt || f.formula_en);
+        h += '<p class="seq-formula">' + escHtml(formula) + '</p>';
+        if (f.working_pt) {
+          // The arithmetic with the real numbers in it, which is the line he
+          // reads aloud.
+          h += '<p class="seq-work">' + escHtml(f.working_pt) + '</p>';
+        } else {
+          h += '<p class="seq-pending">' +
+               ptEn("Depende dos n&#250;meros que o cliente ainda vai dar.",
+                    "Depends on numbers the client has not given yet.") + '</p>';
+        }
+      } else if (f.kind === "external") {
+        // Google Reviews: he currently leaves the app to look this up.
+        if (f.current !== null && f.current !== undefined) {
+          h += '<p class="seq-val">' + ptEn("meta atual: ", "current target: ") +
+               '<span class="ind-num">' + fmtInd(f.current, f.type) + '</span></p>';
+        }
+        h += '<p class="seq-lookup">' +
+             escHtml(isEn() ? (f.lookup_en || f.lookup_pt) : (f.lookup_pt || f.lookup_en)) +
+             '</p>';
+        h += '<p class="seq-pending">' +
+             ptEn("O sistema n&#227;o guarda a contagem de avalia&#231;&#245;es do Google. Esse n&#250;mero vem de fora.",
+                  "The system does not store the Google review count. That number comes from outside.") +
+             '</p>';
+      } else {
+        h += '<p class="seq-std">' +
+             escHtml(isEn() ? (f.standard_en || f.standard_pt) : (f.standard_pt || f.standard_en)) +
+             ' &middot; <span class="ind-num">' + fmtInd(f.value, f.type) + '</span></p>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    function renderKickoffSequence(d) {
+      var k = d.kickoff;
+      if (!k || !k.sequence || !k.sequence.length) { return ""; }
+      var pillars = k.pillars || [];
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("As metas, na ordem", "The targets, in order") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Vinte e seis campos, na ordem em que ele preenche. A &#226;ncora de receita &#233; sempre o n&#250;mero do cliente.",
+                "Twenty-six fields, in the order he fills them. The revenue anchor is always the client's own number.") +
+           '</p>';
+
+      for (var p = 0; p < pillars.length; p++) {
+        var pil = pillars[p];
+        var rows = [];
+        for (var i = 0; i < k.sequence.length; i++) {
+          if (k.sequence[i].pillar === pil.key) { rows.push(k.sequence[i]); }
+        }
+        if (!rows.length) { continue; }
+        h += '<div class="divider">' +
+             escHtml(isEn() ? pil.nameEn : pil.namePt) + '</div>';
+        for (var r = 0; r < rows.length; r++) { h += seqRow(rows[r]); }
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // The daily-log walkthrough: the most scriptable beat in the meeting. He
+    // walks every indicator asking today's value and enforces entering zeros.
+    function renderWalkthrough(d) {
+      var k = d.kickoff;
+      if (!k || !k.walkthrough || !k.walkthrough.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O primeiro registro, indicador por indicador",
+                   "The first daily log, indicator by indicator") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Ele pergunta o valor de hoje para cada um. Zero &#233; um valor: precisa ser digitado, n&#227;o pulado.",
+                "He asks today's value for each. Zero is a value: it gets typed, not skipped.") +
+           '</p>';
+      h += '<a class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o registro de hoje", "Open today's entry") + '</a>';
+      h += '<span class="step-note">' + linkNoteReadOnly() + '</span>';
+
+      h += '<div style="margin-top:12px;">';
+      for (var i = 0; i < k.walkthrough.length; i++) {
+        var w = k.walkthrough[i];
+        h += '<div class="wt-row"><span class="wt-n">' + (i + 1) + '</span>' +
+             escHtml(isEn() ? (w.label_en || w.label_pt) : (w.label_pt || w.label_en)) +
+             '</div>';
+      }
+      h += '</div></div>';
+      return h;
+    }
+
+    // What he asks that the system already knows, so the meeting does not open
+    // with questions the screen can answer.
+    function renderKnownToday(d) {
+      var k = d.kickoff;
+      var s = k && k.snapshot;
+      if (!s) { return ""; }
+      var g = k.goals || {};
+      var rows = [];
+
+      rows.push(kvItem(ptEn("Metas do m&#234;s", "Targets for the month"),
+        g.all_set
+          ? ptEn(escHtml("todas as " + g.goalable + " definidas"), escHtml("all " + g.goalable + " set"))
+          : ptEn(escHtml(g.with_meta + " de " + g.goalable), escHtml(g.with_meta + " of " + g.goalable))));
+
+      if (s.has_entry) {
+        if (s.receita !== null) {
+          rows.push(kvItem(ptEn("Entrou hoje", "In today"), fmtInd(s.receita, "currency")));
+        }
+        if (s.saida !== null) {
+          rows.push(kvItem(ptEn("Saiu hoje", "Out today"), fmtInd(s.saida, "currency")));
+        }
+        if (s.leads_gerados !== null) {
+          rows.push(kvItem(ptEn("Leads hoje", "Leads today"), String(s.leads_gerados)));
+        }
+      } else {
+        rows.push(kvItem(ptEn("Registro de hoje", "Today's entry"),
+          ptEn("ainda n&#227;o preenchido", "not filled in yet")));
+      }
+
+      rows.push(kvItem(ptEn("Pipeline aberto", "Open pipeline"),
+        s.pipeline_count
+          ? escHtml(s.pipeline_count + " / $" + Math.round(s.pipeline_total))
+          : ptEn("nenhum lead aberto", "no open leads")));
+
+      rows.push(kvItem(ptEn("Raio-X", "X-Ray"), k.has_xray
+        ? ptEn("conclu&#237;do", "completed")
+        : ptEn("sem Raio-X conclu&#237;do", "none completed")));
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O que o sistema j&#225; responde", "What the system already answers") + '</p>';
+      h += '<div class="kv">' + rows.join("") + '</div>';
+      // Two things he asks that the system genuinely cannot answer. Named,
+      // rather than left as a blank he discovers mid-meeting.
+      h += '<p class="step-gap" style="margin-top:14px;">' +
+           ptEn("O sistema n&#227;o sabe se o app est&#225; instalado na tela inicial, e n&#227;o guarda tabela de pre&#231;os do cliente &#8212; ela n&#227;o existe em lugar nenhum. As duas coisas precisam ser perguntadas.",
+                "The system does not know whether the app is installed on the home screen, and holds no client price table &#8212; it does not exist anywhere. Both have to be asked.") +
+           '</p>';
+      h += '</div>';
+      return h;
+    }
+
+    function kvItem(labelHtml, valueHtml) {
+      return '<div class="kv-item"><div class="kv-label">' + labelHtml +
+             '</div><div class="kv-value">' + valueHtml + '</div></div>';
+    }
+
+    // Every portal link is READ-ONLY for staff. Any non-GET carrying
+    // previewAs is rejected by the Worker before it reaches a route, which is
+    // exactly what bit Rafa live: "eu nao vou dar, so a leitura, voce so
+    // consigo ler." Where a writable staff screen exists the link goes there
+    // instead; where none exists the link still goes to the portal, and says
+    // so on the link so he knows BEFORE he clicks.
+    function linkNoteReadOnly() {
+      return ptEn("Somente leitura. Para alterar, use a tela da equipe.",
+                  "Read-only. To change anything, use the staff screen.");
+    }
+
+    // ---- CYCLE CLOSE: the client speaks first ------------------------------
+    // Both closings invert the agenda for it: the client speaks first, by
+    // name, one at a time.
+    function renderVoiceFirst(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var names = cy.attendees || [];
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Primeiro, eles falam", "First, they speak") + '</p>';
+      h += '<p class="ask-line">' +
+           ptEn("&#8220;Quero come&#231;ar ouvindo de voc&#234;s como que foi para voc&#234;s essa jornada.&#8221;",
+                "&#8220;I want to start by hearing from you how this journey was for you.&#8221;") +
+           '</p>';
+      if (names.length) {
+        h += '<p class="step-ctx">' +
+             ptEn("Um de cada vez, pelo nome.", "One at a time, by name.") + '</p>';
+        for (var i = 0; i < names.length; i++) {
+          h += '<div class="voice-row"><span class="voice-name">' + escHtml(names[i]) + '</span>' +
+               '<span class="voice-space"></span></div>';
+        }
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // The document he reads aloud, section by section, in Mariel's order.
+    function renderCloseDoc(d) {
+      var cy = d.cycle;
+      if (!cy || !cy.sections || !cy.sections.length) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O documento, na ordem", "The document, in order") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Ele l&#234; em voz alta, se&#231;&#227;o por se&#231;&#227;o.",
+                "He reads it aloud, section by section.") + '</p>';
+      for (var i = 0; i < cy.sections.length; i++) {
+        var s = cy.sections[i];
+        h += '<div class="doc-row"><span class="doc-n">' + (i + 1) + '</span>' +
+             escHtml(isEn() ? s.nameEn : s.namePt) + '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // The before/after number, PRE-FETCHED. In every closing he stops and asks
+    // for it and the client digs through their phone while the room waits.
+    function renderGrowth(d) {
+      var cy = d.cycle;
+      var ba = cy && cy.before_after;
+      if (!ba || !ba.rows || !ba.rows.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O antes e o depois, j&#225; calculado", "Before and after, already computed") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn(escHtml("Base: " + ba.baseline_month + ", inicio do contrato em " + ba.baseline_date + ". Comparado com " + ba.current_month + "."),
+                escHtml("Baseline: " + ba.baseline_month + ", engagement started " + ba.baseline_date + ". Compared with " + ba.current_month + ".")) +
+           '</p>';
+      for (var i = 0; i < ba.rows.length; i++) {
+        var r = ba.rows[i];
+        var name = isEn() ? (r.label_en || r.label_pt) : (r.label_pt || r.label_en);
+        h += '<div class="ba-row"><span class="ba-name">' + escHtml(name) + '</span>';
+        h += '<span class="ba-prev">' + fmtInd(r.was, r.type) + '</span>';
+        h += '<span class="ba-now">&#8594; ' + fmtInd(r.now, r.type) + '</span>';
+        if (r.growth_pct !== null && r.growth_pct !== undefined) {
+          var up = r.inverse ? (r.growth_pct < 0) : (r.growth_pct > 0);
+          h += '<span class="ba-growth ' + (up ? "s-good" : "s-crit") + '">' +
+               (r.growth_pct > 0 ? "+" : "") + r.growth_pct + '%</span>';
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // A shortfall on Apex's side. He does acknowledge these, so there is a
+    // slot for it rather than a page that pretends the cycle was flawless.
+    function renderShortfall(d) {
+      if (!d.cycle) { return ""; }
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que ficou devendo do nosso lado", "Where we fell short") + '</p>' +
+             '<p class="ask-line">' +
+             ptEn("&#8220;Tivemos alguns dessabores que talvez n&#227;o foi como voc&#234;s gostariam. A gente pede desculpa mais uma vez.&#8221;",
+                  "&#8220;There were some rough patches that maybe were not how you would have wanted. We apologise again.&#8221;") +
+             '</p><p class="step-ctx">' +
+             ptEn("Nomear o que foi, antes que eles precisem trazer.",
+                  "Name what it was, before they have to raise it.") +
+             '</p><div class="voice-row"><span class="voice-space"></span></div></div>';
+    }
+
+    // The financial settlement, read verbatim.
+    function renderSettlement(d) {
+      var cy = d.cycle;
+      var st = cy && cy.settlement;
+      if (!st) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O acerto financeiro", "The financial settlement") + '</p>';
+      if (!st.known) {
+        h += '<p class="step-gap">' +
+             ptEn("O sistema n&#227;o tem os termos deste contrato. Confirmar valor, data e forma antes de ler.",
+                  "The system has no terms for this engagement. Confirm amount, date and method before reading it out.") +
+             '</p></div>';
+        return h;
+      }
+      var rows = [];
+      if (st.total !== null && st.total !== undefined) {
+        rows.push(kvItem(ptEn("Valor", "Amount"), "$" + st.total));
+      }
+      if (st.installment_count && st.installment_amount) {
+        rows.push(kvItem(ptEn("Parcelas", "Instalments"),
+          escHtml(st.installment_count + " x $" + st.installment_amount)));
+      }
+      if (st.first_due_date) {
+        rows.push(kvItem(ptEn("Data", "Date"), escHtml(st.first_due_date)));
+      }
+      if (st.method) { rows.push(kvItem(ptEn("Forma", "Method"), escHtml(st.method))); }
+      if (st.payee)  { rows.push(kvItem(ptEn("Para", "Payee"), escHtml(st.payee))); }
+      h += '<div class="kv">' + rows.join("") + '</div></div>';
+      return h;
+    }
+
+    // The forward plan for a period he will NOT be present for, with the
+    // arithmetic already done rather than worked out aloud in the room.
+    function renderForward(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var list = cy.indicators || [];
+      if (!list.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Os pr&#243;ximos 90 dias", "The next 90 days") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Tr&#234;s meses no ritmo do m&#234;s que fechou. A conta j&#225; est&#225; feita.",
+                "Three months at the pace of the month just closed. The arithmetic is already done.") +
+           '</p>';
+      for (var i = 0; i < list.length; i++) {
+        var x = list[i];
+        if (x.realizado === null || x.realizado === undefined) { continue; }
+        var name = isEn() ? (x.label_en || x.label_pt) : (x.label_pt || x.label_en);
+        var three = Math.round(x.realizado * 3 * 100) / 100;
+        h += '<div class="ind-row"><span class="ind-name">' + escHtml(name) + '</span> &middot; ' +
+             escHtml(String(x.realizado)) + ' x 3 = <span class="ind-num">' +
+             fmtInd(three, x.type) + '</span></div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- Os planos --------------------------------------------------------
+    // On the two types where a package actually gets sold, and nowhere else:
+    // the X-Ray results meeting, and the 30-day close. A Start client
+    // finishing 30 days is exactly who upgrades, and the gap between $997 and
+    // the six-month programme is where Apex loses people. Kickoff and the
+    // weekly RDE are clients who have already bought.
+    //
+    // No checkboxes. WHICH packages he shows is decided live on the packages
+    // screen itself, by striking cards through in front of the client -- not
+    // committed to here, hours earlier, in preparation.
+    function renderPlans(d) {
+      var t = d.meeting_type;
+      if (t !== "xray_results" && t !== "fechamento") { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Os planos", "The plans") + '</p>';
+      h += '<p class="step-ctx">' +
+           (t === "fechamento"
+             ? ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;. Quem termina 30 dias &#233; exatamente quem sobe de pacote.",
+                    "The three packages, on the screen the client sees. A client finishing 30 days is exactly who moves up a package.")
+             : ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;.",
+                    "The three packages, on the screen the client sees.")) +
+           '</p>';
+      h += '<a class="step-link" href="packages.html" target="_blank" rel="noopener">' +
+           ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("Abre em outra aba, para mostrar ao cliente.",
+                "Opens in a new tab, to show the client.") + '</span>';
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 9 After the meeting ---------------------------------------------
+    function renderChecklist(type, d) {
+      var list = (type === "kickoff") ? AFTER_MEETING_KICKOFF : AFTER_MEETING;
+      var ls = d && d.weekly && d.weekly.last_session;
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Depois da reuni&#227;o", "After the meeting") + '</p>';
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i];
+        h += '<div class="check-row"><input type="checkbox" id="' + it.id + '">' +
+             '<label for="' + it.id + '">' + ptEn(it.pt, it.en);
+
+        if (it.kind === "summary") {
+          // sessions.html is staff-side and fully writable: generate, edit and
+          // approve all POST without previewAs.
+          var href = ls && ls.session_id
+            ? "sessions.html?open=" + encodeURIComponent(ls.session_id)
+            : "sessions.html";
+          h += ' <a class="step-link" style="margin-left:6px;" href="' + href +
+               '" target="_blank" rel="noopener">' +
+               ptEn("abrir", "open") + '</a>';
+          h += '<span class="step-note">' +
+               ptEn("Aprovado, o relat&#243;rio fica arquivado na sess&#227;o. Ele diz ao cliente que chega em 24 horas.",
+                    "Once approved the report is filed against the session. He tells the client it arrives within 24 hours.") +
+               '</span>';
+        } else if (it.kind === "calendar") {
+          h += ' <a class="step-link" style="margin-left:6px;" href="calendar.html"' +
+               ' target="_blank" rel="noopener">' + ptEn("agenda", "calendar") + '</a>';
+        } else if (it.kind === "goals") {
+          h += ' <a class="step-link" style="margin-left:6px;" href="' +
+               clientHref("&modal=fieldconfig") + '" target="_blank" rel="noopener">' +
+               ptEn("conferir", "check") + '</a>';
+        }
+        h += '</label></div>';
+      }
       h += '</div>';
       return h;
     }
@@ -1924,14 +2358,24 @@
         if (pm) { pm.hidden = true; }
         return;
       }
-      // Every type opens on the same header and closes on the same
-      // after-meeting checklist. What sits between them is the meeting.
+      // Every type opens on the same header. What sits between differs, and
+      // three things are now scoped to the meetings they belong to:
+      //
+      //   bottleneck  xray_results only. It is the opener for a PROSPECT,
+      //               asked before a diagnosis is revealed. Asking an existing
+      //               client what their bottleneck is, in week 6, is a
+      //               question he should already be able to answer.
+      //   stories     xray_results and fechamento. They help someone decide to
+      //               buy; that work is done once they are a client, and the
+      //               close is the other moment a package is sold.
+      //   Os planos   the same two, for the same reason.
       h += renderHead(d);
 
       if (d.meeting_type === "kickoff") {
+        h += renderKnownToday(d);
         h += renderKickoff(d);
-        h += renderBottleneck(d);
-        h += renderStories(d);
+        h += renderKickoffSequence(d);
+        h += renderWalkthrough(d);
       } else if (d.meeting_type === "rde_semanal") {
         h += renderLastSession(d);
         h += renderWeeklyIndicators(d);
@@ -1939,15 +2383,18 @@
         h += renderGold(d);
         h += renderStrategic(d);
         h += renderEngagement(d);
-        h += renderBottleneck(d);
-        h += renderStories(d);
       } else if (d.meeting_type === "fechamento") {
+        h += renderVoiceFirst(d);
+        h += renderCloseDoc(d);
+        h += renderGrowth(d);
         h += renderBeforeAfter(d);
         h += renderBuilt(d);
         h += renderStillWeak(d);
+        h += renderShortfall(d);
+        h += renderSettlement(d);
+        h += renderForward(d);
         h += renderNextCycle(d);
         h += renderEngagement(d);
-        h += renderBottleneck(d);
         h += renderStories(d);
       } else {
         h += renderBefore(d);
@@ -1959,15 +2406,14 @@
         h += renderAssets(d);
       }
 
-      h += renderChecklist(d.meeting_type);
-      // Second from the bottom on the X-Ray, directly above Resultado; the
-      // last thing on the page at the cycle close.
+      // The foot of the page, in the order the meeting ends: he shows the
+      // packages, closes, records the answer, and only THEN is there anything
+      // to do afterwards.
       h += renderPlans(d);
-      // The lead outcome stays exclusive to the X-Ray type: only a lead can
-      // be resolved, and renderOutcome already guards on status === 'lead'.
       if (d.meeting_type === "xray_results") {
         h += renderOutcome(d);
       }
+      h += renderChecklist(d.meeting_type, d);
       body.innerHTML = h;
       body.hidden = false;
       var msg = document.getElementById("stateMsg");

@@ -29752,15 +29752,22 @@ async function loadLastSessionRecap(env, clientId) {
     // The unified `tasks` table is the live source of truth for whether an
     // item is done; task_completions is the legacy per-session map. Both are
     // reported, because a client on the old shape has only the second.
+    // ONLY the previous session's tasks, via tasks.session_id. Every task the
+    // client has ever had is a different list, and opening the weekly meeting
+    // on it would put months of history in front of a conversation about last
+    // week. Three states, never a checkbox: 'pending' is the default and is
+    // never presented as done.
     var taskRows = await env.DB.prepare(
-        "SELECT id, type, description, due_date, status FROM tasks " +
-        "WHERE client_id = ? ORDER BY (status = 'done'), due_date"
-    ).bind(clientId).all();
+        "SELECT id, type, description, due_date, status, nota FROM tasks " +
+        "WHERE session_id = ? ORDER BY (status = 'done'), due_date"
+    ).bind(row.id).all();
 
     var tasks = (taskRows.results || []).map(function(t) {
+        var st = t.status === "done" ? "done"
+               : (t.status === "not_done" ? "not_done" : "pending");
         return {
             id: t.id, type: t.type, description: t.description,
-            due_date: t.due_date, done: t.status === "done"
+            due_date: t.due_date, status: st, nota: t.nota || null
         };
     });
 
@@ -29893,6 +29900,389 @@ async function loadCycleAssets(env, clientId, month) {
     };
 }
 
+
+// ---------------------------------------------------------------------------
+// KICKOFF — the target sequence.
+//
+// He fills 26 fields in a FIXED order matching the four pillars, and every
+// field is one of three kinds:
+//
+//   asked    the client's own number. Never suggested by us -- the revenue
+//            anchor especially: the whole sequence hangs off it, and a number
+//            we proposed would be ours, not theirs.
+//   derived  arithmetic on the asked numbers. He says these OUT LOUD and has
+//            miscalculated in front of a client, so the page carries the
+//            working, not just the answer.
+//   imposed  the Apex standard for that indicator. Same for every client.
+//
+// `formula` is the arithmetic in words; the page renders it substituted with
+// the real numbers once the anchors are known.
+var KICKOFF_SEQUENCE = [
+    // --- I Financeiro ---
+    { key: "receita",           pillar: "financeiro", kind: "asked",
+      askPt: "Quanto voce quer faturar por mes?",
+      askEn: "How much do you want to bill per month?" },
+    { key: "saida",             pillar: "financeiro", kind: "asked",
+      askPt: "Quanto sai por mes, tudo somado?",
+      askEn: "How much goes out per month, all in?" },
+    { key: "lucro_liquido",     pillar: "financeiro", kind: "derived",
+      from: ["receita", "saida"], op: "subtract",
+      formulaPt: "receita menos saida", formulaEn: "revenue minus cash out" },
+    { key: "margem_lucro",      pillar: "financeiro", kind: "derived",
+      from: ["lucro_liquido", "receita"], op: "percent_of",
+      formulaPt: "lucro dividido pela receita", formulaEn: "profit over revenue" },
+    { key: "vendas_fechadas",   pillar: "financeiro", kind: "asked",
+      askPt: "Quantas vendas fechadas por mes?",
+      askEn: "How many closed sales per month?" },
+    { key: "taxa_conversao",    pillar: "financeiro", kind: "asked",
+      askPt: "De cada 10 orcamentos, quantos fecham?",
+      askEn: "Out of every 10 quotes, how many close?" },
+    { key: "pipeline_ativo",    pillar: "financeiro", kind: "derived",
+      from: ["receita", "taxa_conversao"], op: "divide_by_rate",
+      formulaPt: "receita dividida pela conversao",
+      formulaEn: "revenue divided by the conversion rate" },
+
+    // --- II Clientes e mercado ---
+    { key: "leads_gerados",     pillar: "clientes_mercado", kind: "derived",
+      from: ["vendas_fechadas", "taxa_conversao"], op: "divide_by_rate",
+      formulaPt: "vendas fechadas vezes o mesmo multiplicador",
+      formulaEn: "closed sales times the same multiplier" },
+    { key: "visitas_estrategicas", pillar: "clientes_mercado", kind: "imposed",
+      value: 4,  standardPt: "cerca de 1 por semana", standardEn: "about 1 a week" },
+    { key: "contatos_estrategicos", pillar: "clientes_mercado", kind: "imposed",
+      value: 20, standardPt: "1 por dia util", standardEn: "1 per working day" },
+    { key: "retomadas_cliente", pillar: "clientes_mercado", kind: "imposed",
+      value: 20, standardPt: "1 por dia util", standardEn: "1 per working day" },
+    { key: "interacoes_estrategicas", pillar: "clientes_mercado", kind: "imposed",
+      value: 20, standardPt: "cerca de 1 por dia", standardEn: "about 1 a day" },
+    { key: "google_review",     pillar: "clientes_mercado", kind: "external",
+      lookupPt: "Contar quantas avaliacoes o Google ja mostra e somar a meta do mes.",
+      lookupEn: "Count the reviews Google already shows and add this month's target." },
+    { key: "post_publicado",    pillar: "clientes_mercado", kind: "imposed",
+      value: 12, standardPt: "12 por mes", standardEn: "12 a month" },
+    { key: "story",             pillar: "clientes_mercado", kind: "imposed",
+      value: 30, standardPt: "1 por dia", standardEn: "1 a day" },
+    { key: "video_curto",       pillar: "clientes_mercado", kind: "derived",
+      from: ["post_publicado"], op: "same_as",
+      formulaPt: "igual aos posts", formulaEn: "same as posts" },
+    { key: "novos_clientes",    pillar: "clientes_mercado", kind: "derived",
+      from: ["vendas_fechadas"], op: "same_as",
+      formulaPt: "igual as vendas fechadas", formulaEn: "same as closed sales" },
+
+    // --- III Processos ---
+    { key: "entregas_realizadas", pillar: "processos", kind: "derived",
+      from: ["vendas_fechadas"], op: "same_as",
+      formulaPt: "igual as vendas fechadas", formulaEn: "same as closed sales" },
+    { key: "envio_propostas",   pillar: "processos", kind: "derived",
+      from: ["vendas_fechadas"], op: "times_two",
+      formulaPt: "duas vezes as vendas fechadas", formulaEn: "twice the closed sales" },
+    { key: "velocidade_resposta", pillar: "processos", kind: "imposed",
+      value: 0.08, standardPt: "5 minutos", standardEn: "5 minutes" },
+    { key: "erros_retrabalho",  pillar: "processos", kind: "imposed",
+      value: 0, standardPt: "zero", standardEn: "zero" },
+    { key: "processos_documentados", pillar: "processos", kind: "imposed",
+      value: 4, standardPt: "cerca de 1 por semana", standardEn: "about 1 a week" },
+
+    // --- IV Crescimento ---
+    { key: "melhorias_internas", pillar: "crescimento", kind: "imposed",
+      value: 4, standardPt: "1 por semana", standardEn: "1 a week" },
+    { key: "treinamentos_realizados", pillar: "crescimento", kind: "imposed",
+      value: 4, standardPt: "1 por semana", standardEn: "1 a week" },
+    { key: "acoes_estrategicas", pillar: "crescimento", kind: "imposed",
+      value: 4, standardPt: "1 por semana", standardEn: "1 a week" },
+    { key: "dias_rotina_completos", pillar: "crescimento", kind: "imposed",
+      value: 23, standardPt: "23 dias no mes", standardEn: "23 days in the month" }
+];
+
+var KICKOFF_PILLARS = [
+    { key: "financeiro",       namePt: "Financeiro",          nameEn: "Financial" },
+    { key: "clientes_mercado", namePt: "Clientes e Mercado",  nameEn: "Clients & Market" },
+    { key: "processos",        namePt: "Processos",           nameEn: "Processes" },
+    { key: "crescimento",      namePt: "Crescimento",         nameEn: "Growth" }
+];
+
+function roundTo(n, places) {
+    var f = Math.pow(10, places || 0);
+    return Math.round(n * f) / f;
+}
+
+// Build the sequence with the arithmetic ALREADY DONE, given whatever anchors
+// are already set for the month. A derived field whose inputs are missing
+// reports itself as pending rather than inventing a number: the anchors are
+// the client's to give, and a placeholder would be read aloud as fact.
+function buildKickoffSequence(config) {
+    var meta = {};
+    for (var k in config) {
+        if (!Object.prototype.hasOwnProperty.call(config, k)) { continue; }
+        var m = config[k] ? config[k].meta_mensal : null;
+        if (m !== null && m !== undefined) { meta[k] = Number(m); }
+    }
+
+    var out = [];
+    for (var i = 0; i < KICKOFF_SEQUENCE.length; i++) {
+        var f    = KICKOFF_SEQUENCE[i];
+        var ind  = indicatorByKey(f.key);
+        var row  = {
+            key:     f.key,
+            pillar:  f.pillar,
+            kind:    f.kind,
+            label_pt: ind ? ind.labelPt : f.key,
+            label_en: ind ? ind.labelEn : f.key,
+            type:    ind ? ind.type : "count",
+            current: (f.key in meta) ? meta[f.key] : null,
+            value:   null,
+            working_pt: null,
+            working_en: null
+        };
+
+        if (f.kind === "asked") {
+            row.ask_pt = f.askPt;
+            row.ask_en = f.askEn;
+            row.value  = row.current;
+        } else if (f.kind === "imposed") {
+            row.value       = f.value;
+            row.standard_pt = f.standardPt;
+            row.standard_en = f.standardEn;
+        } else if (f.kind === "external") {
+            row.lookup_pt = f.lookupPt;
+            row.lookup_en = f.lookupEn;
+            row.value     = row.current;
+        } else if (f.kind === "derived") {
+            row.formula_pt = f.formulaPt;
+            row.formula_en = f.formulaEn;
+
+            // Resolve inputs from what is already set, or from an imposed
+            // default earlier in the same sequence (post_publicado -> reels).
+            var a = null, b = null;
+            var av = f.from[0], bv = f.from[1];
+            a = (av in meta) ? meta[av] : imposedDefault(av);
+            if (bv) { b = (bv in meta) ? meta[bv] : imposedDefault(bv); }
+            // lucro_liquido is itself derived, so it may need computing first.
+            if (av === "lucro_liquido" && a === null &&
+                ("receita" in meta) && ("saida" in meta)) {
+                a = meta.receita - meta.saida;
+            }
+
+            if (a !== null && (!bv || b !== null)) {
+                if (f.op === "subtract")        { row.value = roundTo(a - b, 2); }
+                else if (f.op === "percent_of") { row.value = b ? roundTo((a / b) * 100, 2) : null; }
+                else if (f.op === "divide_by_rate") { row.value = b ? roundTo(a / (b / 100), 2) : null; }
+                else if (f.op === "same_as")    { row.value = a; }
+                else if (f.op === "times_two")  { row.value = roundTo(a * 2, 2); }
+
+                // The working, with the REAL numbers in it. This is the line
+                // he reads out, so it has to show the operands, not the name
+                // of the operation.
+                if (row.value !== null) {
+                    var sym = (f.op === "subtract") ? " - "
+                            : (f.op === "percent_of") ? " / "
+                            : (f.op === "divide_by_rate") ? " / "
+                            : (f.op === "times_two") ? " x 2" : "";
+                    if (f.op === "same_as") {
+                        row.working_pt = String(a);
+                        row.working_en = String(a);
+                    } else if (f.op === "times_two") {
+                        row.working_pt = a + " x 2 = " + row.value;
+                        row.working_en = row.working_pt;
+                    } else if (f.op === "divide_by_rate") {
+                        row.working_pt = a + " / " + b + "% = " + row.value;
+                        row.working_en = row.working_pt;
+                    } else if (f.op === "percent_of") {
+                        row.working_pt = a + " / " + b + " = " + row.value + "%";
+                        row.working_en = row.working_pt;
+                    } else {
+                        row.working_pt = a + sym + b + " = " + row.value;
+                        row.working_en = row.working_pt;
+                    }
+                }
+            }
+            row.pending = row.value === null;
+        }
+        out.push(row);
+    }
+    return out;
+}
+
+function imposedDefault(key) {
+    for (var i = 0; i < KICKOFF_SEQUENCE.length; i++) {
+        if (KICKOFF_SEQUENCE[i].key === key && KICKOFF_SEQUENCE[i].kind === "imposed") {
+            return KICKOFF_SEQUENCE[i].value;
+        }
+    }
+    return null;
+}
+
+// The daily-log walkthrough: every indicator the client actually types, in the
+// order he asks for them. Computed fields are excluded -- he never asks for a
+// margin, the system derives it.
+function dailyWalkthrough(config) {
+    var out = [];
+    for (var i = 0; i < INDICATORS.length; i++) {
+        var ind = INDICATORS[i];
+        if (ind.type === "computed" || ind.type === "computed_month") { continue; }
+        if (config[ind.key] && !config[ind.key].enabled) { continue; }
+        out.push({
+            key: ind.key, section: ind.section, type: ind.type,
+            label_pt: ind.labelPt, label_en: ind.labelEn
+        });
+    }
+    return out;
+}
+
+// What he asks that the system already knows: today's money in and out, how
+// many leads arrived, what is sitting in the pipeline. One day's numbers, so
+// he does not open the meeting asking for something already on the screen.
+async function loadKickoffToday(env, clientId, today) {
+    var entry = await env.DB.prepare(
+        "SELECT sections_json FROM client_daily_entries WHERE client_id = ? AND entry_date = ?"
+    ).bind(clientId, today).first();
+
+    var vals = {};
+    if (entry) {
+        var secs = parseSectionsJson(entry.sections_json);
+        for (var s in secs) {
+            if (!Object.prototype.hasOwnProperty.call(secs, s)) { continue; }
+            var block = secs[s];
+            var v = block && (block.values || block.draft_values);
+            if (!v) { continue; }
+            for (var f in v) {
+                if (Object.prototype.hasOwnProperty.call(v, f)) { vals[f] = v[f]; }
+            }
+        }
+    }
+
+    // The live pipeline is the CLIENT's own open leads, not Apex's.
+    // The stage column is `estagio`, and the two terminal stages are
+    // 'fechado' and 'perdido' -- everything else is still open.
+    var pipe = await env.DB.prepare(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(valor), 0) AS total FROM gm_leads " +
+        "WHERE client_id = ? AND estagio NOT IN ('fechado', 'perdido')"
+    ).bind(clientId).first();
+
+    return {
+        date:            today,
+        has_entry:       !!entry,
+        receita:         (vals.receita !== undefined) ? Number(vals.receita) : null,
+        saida:           (vals.saida !== undefined) ? Number(vals.saida) : null,
+        leads_gerados:   (vals.leads_gerados !== undefined) ? Number(vals.leads_gerados) : null,
+        pipeline_count:  pipe ? pipe.n : 0,
+        pipeline_total:  pipe ? pipe.total : 0
+    };
+}
+
+// ---------------------------------------------------------------------------
+// CYCLE CLOSE — the parts that were missing.
+//
+// The document he reads aloud, in Mariel's order. Fixed sequence: he moves
+// down it section by section, so it is data, not prose assembled per client.
+var CLOSE_SECTIONS = [
+    { key: "resumo",      namePt: "Resumo executivo",                         nameEn: "Executive summary" },
+    { key: "indicadores", namePt: "Indicadores, antes e depois",              nameEn: "Indicators, before and after" },
+    { key: "onde",        namePt: "Onde a empresa estava quando a gente chegou", nameEn: "Where the business was when we arrived" },
+    { key: "construido",  namePt: "O que foi construido durante o ciclo",     nameEn: "What was built during the cycle" },
+    { key: "resultados",  namePt: "Os resultados comprovados",                nameEn: "The proven results" },
+    { key: "ativos",      namePt: "Os ativos que ficam para voces",           nameEn: "The assets that stay with you" },
+    { key: "rota",        namePt: "A rota dos proximos 90 dias",              nameEn: "The next 90 days" },
+    { key: "painel",      namePt: "Painel de execucao",                       nameEn: "Execution dashboard" },
+    { key: "palavra",     namePt: "Palavra final",                            nameEn: "Closing word" }
+];
+
+// The before/after number is NEVER ready. In every closing he stops, asks for
+// it, and the client digs through their phone while the room waits. So it is
+// pre-fetched here: the current figure, the baseline from the engagement
+// start with ITS DATE, and the growth already computed.
+//
+// The baseline is the first month of the engagement, not the first month with
+// data -- if they logged nothing in month one, that is what the baseline says,
+// and a later month silently standing in for it would overstate the growth.
+async function loadBeforeAfter(env, clientId, client, month) {
+    if (!client.package_started_at) { return null; }
+    var baseMonth = String(client.package_started_at).slice(0, 7);
+    if (baseMonth >= month) { return null; }
+
+    var cur  = await computeMonthlySummary(env, clientId, month);
+    var base = await computeMonthlySummary(env, clientId, baseMonth);
+
+    var baseBy = {};
+    base.indicators.forEach(function(x) { baseBy[x.key] = x; });
+
+    var rows = [];
+    cur.indicators.forEach(function(x) {
+        if (x.key === "metas_batidas") { return; }
+        var b = baseBy[x.key];
+        var was = b ? b.realizado : null;
+        var now = x.realizado;
+        if (was === null || was === undefined || now === null || now === undefined) { return; }
+        // Growth is only meaningful against a non-zero baseline. From zero the
+        // page reports the movement itself rather than a percentage that would
+        // read as infinite.
+        var pct = null;
+        if (was !== 0) { pct = Math.round(((now - was) / Math.abs(was)) * 1000) / 10; }
+        rows.push({
+            key: x.key, label_pt: x.label_pt, label_en: x.label_en,
+            type: x.type, inverse: !!x.inverse,
+            was: was, now: now, growth_pct: pct
+        });
+    });
+
+    // Biggest movement first: that is the one he opens with.
+    rows.sort(function(a, b) {
+        var ap = a.growth_pct === null ? -Infinity : Math.abs(a.growth_pct);
+        var bp = b.growth_pct === null ? -Infinity : Math.abs(b.growth_pct);
+        return bp - ap;
+    });
+
+    return {
+        baseline_month: baseMonth,
+        baseline_date:  client.package_started_at,
+        current_month:  month,
+        rows:           rows
+    };
+}
+
+// Who speaks first. The client does, by name, one at a time -- both closings
+// invert the agenda for it. clients.owners is a free-text list, so it is split
+// on the separators actually used rather than assumed to be one name.
+function attendeeNames(client) {
+    var raw = String(client.owners || "").trim();
+    if (!raw) { return []; }
+    var parts = raw.split(/\s*(?:,|;|\/|\be\b|&|\+)\s*/i);
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+        var n = parts[i].replace(/^\s+|\s+$/g, "");
+        if (n && out.indexOf(n) === -1) { out.push(n); }
+    }
+    return out;
+}
+
+// The financial settlement he reads verbatim. Real terms where the system has
+// them; null where it does not, so the page shows what is known and names
+// what he has to fill in rather than printing a confident blank.
+async function loadSettlement(env, clientId, client) {
+    var terms = await env.DB.prepare(
+        "SELECT adjusted_total, base_total, installment_count, installment_amount, " +
+        "first_due_date, pricing_option FROM client_package_terms WHERE client_id = ?"
+    ).bind(clientId).first();
+
+    if (!terms) {
+        return { known: false, method: client.payment_method || null };
+    }
+    var total = (terms.adjusted_total !== null && terms.adjusted_total !== undefined)
+        ? terms.adjusted_total : terms.base_total;
+    return {
+        known:              true,
+        total:              total,
+        installment_count:  terms.installment_count,
+        installment_amount: terms.installment_amount,
+        first_due_date:     terms.first_due_date,
+        pricing_option:     terms.pricing_option,
+        // Method and payee are the client's own arrangement; the payee is
+        // always Apex, which is the one part he does not have to look up.
+        method:             client.payment_method || null,
+        payee:              "APEX"
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/meeting-prep?type=xray_results
 // Staff only. One response, everything the prep page needs.
@@ -30008,10 +30398,14 @@ async function handleGetMeetingPrep(clientId, request, env) {
         if (type === "kickoff") {
             var kConfig = await getFieldConfig(env, clientId, month);
             kickoff = {
-                month:         month,
-                goals:         goalCoverage(kConfig),
-                has_xray:      !!(assessment && assessment.status === "completed"),
-                today:         today
+                month:        month,
+                goals:        goalCoverage(kConfig),
+                has_xray:     !!(assessment && assessment.status === "completed"),
+                today:        today,
+                pillars:      KICKOFF_PILLARS,
+                sequence:     buildKickoffSequence(kConfig),
+                walkthrough:  dailyWalkthrough(kConfig),
+                snapshot:     await loadKickoffToday(env, clientId, today)
             };
         }
 
@@ -30100,7 +30494,11 @@ async function handleGetMeetingPrep(clientId, request, env) {
                 indicators:      compared,
                 weak:            weak,
                 critical_areas:  criticalAreas,
-                assets:          await loadCycleAssets(env, clientId, month)
+                assets:          await loadCycleAssets(env, clientId, month),
+                sections:        CLOSE_SECTIONS,
+                attendees:       attendeeNames(client),
+                before_after:    await loadBeforeAfter(env, client.id, client, month),
+                settlement:      await loadSettlement(env, clientId, client)
             };
         }
 

@@ -3568,12 +3568,95 @@
         });
     }
 
+    // The dates the page can actually PUT ON SCREEN for the current anchor --
+    // which is not the anchor's month.
+    //
+    // The month grid is six whole weeks starting on the Sunday of the week
+    // containing the 1st, so its first and last rows show days from the
+    // neighbouring months; the week view straddles a boundary outright. Those
+    // days were rendered from a month fetch that never contained them, so they
+    // were on screen and permanently blank. On Mon 2026-08-31 that hid Sep 1
+    // and Sep 2 sessions in the bottom row of the August grid -- immediately
+    // beside today's cell -- and blanked Sep 1-5 in the current week.
+    //
+    // Six weeks from that Sunday covers the month grid, and therefore also any
+    // week or day anchored inside the month, so ONE range serves all three
+    // views and switching views needs no refetch.
+    function visibleRange() {
+      var first = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
+      var start = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
+      var end   = new Date(start.getTime() + 41 * 86400000);   // 6 weeks inclusive
+      return { from: dateKey(start), to: dateKey(end) };
+    }
+
+    // The months that range touches -- at most three, since a six-week grid
+    // anchored in one month can reach into the one before and the one after.
+    function visibleMonths() {
+      var r = visibleRange();
+      var y = parseInt(r.from.slice(0, 4), 10);
+      var m = parseInt(r.from.slice(5, 7), 10) - 1;
+      var lastKey = r.to.slice(0, 7);
+      var out = [];
+      for (var i = 0; i < 4; i++) {          // 4 is the guard; 3 is the real max
+        var d = new Date(y, m + i, 1);
+        var key = d.getFullYear() + "-" + padZ(d.getMonth() + 1);
+        out.push(key);
+        if (key === lastKey) { break; }
+      }
+      return out;
+    }
+
+    // Every session the grid can display, merged from month requests.
+    //
+    // DELIBERATELY BUILT ON ?month=, WHICH IS ALREADY DEPLOYED. The worker now
+    // also accepts ?from=&to=, which is one tidier request -- but this page
+    // ships on its own through Pages the moment main moves, while the Worker
+    // only goes out when someone runs scripts/deploy.sh by hand. A page that
+    // required the range parameter would therefore answer every calendar load
+    // with a 400 from the old Worker, fall into the catch below, and render an
+    // EMPTY calendar -- strictly worse than the bug being fixed, and invisible
+    // until someone opened the page. Asking in months costs at most two extra
+    // requests and cannot outrun the server it talks to.
+    function fetchVisibleSessions() {
+      return Promise.all(visibleMonths().map(function(mo) {
+        return apiFetch("/api/sessions/calendar?month=" + mo)
+          .then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          });
+      })).then(function(results) {
+        var seen = {};
+        var out  = [];
+        for (var i = 0; i < results.length; i++) {
+          var list = (results[i] && results[i].sessions) || [];
+          for (var j = 0; j < list.length; j++) {
+            var s = list[j];
+            if (!s) { continue; }
+            if (s.id) {
+              if (seen[s.id]) { continue; }   // months do not overlap, but a
+              seen[s.id] = 1;                 // duplicate must never double-draw
+            }
+            out.push(s);
+          }
+        }
+        return out;
+      });
+    }
+
+    // Sessions in the anchor MONTH only. The hero tiles are labelled for the
+    // month, so they must keep counting the month even though the fetch above
+    // deliberately reaches past it.
+    function anchorMonthSessions() {
+      var prefix = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1) + "-";
+      return calSessions.filter(function(s) {
+        return s.date && s.date.indexOf(prefix) === 0;
+      });
+    }
+
     function loadCalendar() {
-      var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
-      apiFetch("/api/sessions/calendar?month=" + monthStr)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          calSessions = data.sessions || [];
+      fetchVisibleSessions()
+        .then(function(sessions) {
+          calSessions = sessions;
           renderCalendar();
           updateCalendarHeroTiles();
         })
@@ -3607,14 +3690,11 @@
           });
         })
         .then(function(data) {
-          var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
-          return apiFetch("/api/sessions/calendar?month=" + monthStr)
-            .then(function(res) { return res.json(); })
-            .then(function(calData) {
-              calSessions = calData.sessions || [];
-              renderCalendar();
-              reportSyncConflicts(calSessions);
-            });
+          return fetchVisibleSessions().then(function(sessions) {
+            calSessions = sessions;
+            renderCalendar();
+            reportSyncConflicts(calSessions);
+          });
         })
         .catch(function(e) { /* sync trigger failed silently -- calSessions already rendered from the initial load */ });
     }
@@ -3643,16 +3723,13 @@
           return res.json();
         })
         .then(function() {
-          var monthStr = curDate.getFullYear() + "-" + padZ(curDate.getMonth() + 1);
-          return apiFetch("/api/sessions/calendar?month=" + monthStr)
-            .then(function(res) { return res.json(); })
-            .then(function(calData) {
-              calSessions = calData.sessions || [];
-              renderCalendar();
-              updateCalendarHeroTiles();
-              reportSyncConflicts(calSessions);
-              showToast(isEn() ? "Calendar synced" : "Calendario sincronizado");
-            });
+          return fetchVisibleSessions().then(function(sessions) {
+            calSessions = sessions;
+            renderCalendar();
+            updateCalendarHeroTiles();
+            reportSyncConflicts(calSessions);
+            showToast(isEn() ? "Calendar synced" : "Calendario sincronizado");
+          });
         })
         .catch(function(e) {
           showToast(isEn() ? "Sync failed — try again" : "Falha na sincronizacao");
@@ -3671,14 +3748,20 @@
       var weekStart = getWeekStart(today);
       var weekEnd   = new Date(weekStart.getTime() + 7 * 86400000);
 
+      // The month, not the fetched range. calSessions now reaches up to a week
+      // past each end of the month so the grid's leading and trailing days are
+      // populated; counting it whole would quietly make "TOTAL SESSIONS" mean
+      // something other than what the tile says.
+      var monthSessions = anchorMonthSessions();
+
       var countTotal     = 0;
       var countWeek      = 0;
       var countOnline    = 0;
       var countInPerson  = 0;
       var countAwaitLink = 0;
 
-      for (var i = 0; i < calSessions.length; i++) {
-        var s = calSessions[i];
+      for (var i = 0; i < monthSessions.length; i++) {
+        var s = monthSessions[i];
         countTotal++;
 
         if (s.date) {
@@ -3972,8 +4055,42 @@
 
     // ── Week view ──────────────────────────────────────────────────────────
 
-    var HOURS = [];
-    (function() { for (var h = 7; h <= 21; h++) { HOURS.push(h); } })();
+    // The DEFAULT hour window -- an ordinary 7:00 AM to 10:00 PM working day.
+    // It is a starting point, NOT a limit: see hoursFor() directly below.
+    //
+    // It was a hard limit until 2026-08-31, and that silently swallowed
+    // meetings. buildTimedOverlay() skips any block lying fully outside the
+    // window, so a session that never overlapped 7:00-22:00 -- a 6:00 AM
+    // breakfast, anything from 10:00 PM on -- was created, written to D1,
+    // counted in the hero tiles and drawn in Month view, while Week and Day
+    // view showed nothing at all. Alice added entries for today and could not
+    // find them: the day they belonged to was the one place they did not
+    // appear. A calendar may clip a block; it must never drop one.
+    var DEFAULT_HOUR_START = 7;
+    var DEFAULT_HOUR_END   = 21;   // the last hour ROW; the grid ends at 22:00
+
+    // The hour rows one render needs: the default window, STRETCHED to cover
+    // every session actually being drawn. A day of ordinary meetings is
+    // pixel-identical to before; a 6:00 AM one pulls the first row down to
+    // 6:00 instead of vanishing. Clamped to a real 0..23 day.
+    function hoursFor(sessions) {
+      var startH = DEFAULT_HOUR_START;
+      var endH   = DEFAULT_HOUR_END;
+      var list   = sessions || [];
+      for (var i = 0; i < list.length; i++) {
+        var span = sessionMinuteSpan(list[i]);
+        if (!span) { continue; }              // untimed -- the "no time" row has it
+        var sh = Math.floor(span.start / 60);
+        // An end landing exactly on the hour needs no row of its own:
+        // 10:00-11:00 is drawn entirely inside the 10:00 row.
+        var eh = Math.ceil(span.end / 60) - 1;
+        if (sh < startH) { startH = Math.max(0, sh); }
+        if (eh > endH)   { endH   = Math.min(23, eh); }
+      }
+      var out = [];
+      for (var h = startH; h <= endH; h++) { out.push(h); }
+      return out;
+    }
 
     // Pixel height of one hour row. Must stay equal to the min-height on
     // .cal-week-slot / .cal-day-slot / the time labels -- the absolutely
@@ -4071,12 +4188,14 @@
     }
 
     // Builds the absolutely-positioned overlay for one day column.
-    // gridStartMin/gridEndMin are the visible window (HOURS[0] .. HOURS[last]+1).
-    // Blocks reaching outside it are clipped to the edge and flagged, so a
-    // session that genuinely starts at 6:00 AM is not silently dropped.
-    function buildTimedOverlay(sessions, variant) {
-      var gridStartMin = HOURS[0] * 60;
-      var gridEndMin   = (HOURS[HOURS.length - 1] + 1) * 60;
+    // `hours` is the render's hour window, from hoursFor() -- which already
+    // stretched it to cover every session being drawn, so nothing reaching
+    // this point falls fully outside and the skip below is a guard rather
+    // than a filter. Blocks that merely straddle an edge are clipped to it
+    // and flagged with ↑/↓.
+    function buildTimedOverlay(sessions, variant, hours) {
+      var gridStartMin = hours[0] * 60;
+      var gridEndMin   = (hours[hours.length - 1] + 1) * 60;
       var overlay = document.createElement("div");
       overlay.className = "cal-day-col-overlay";
 
@@ -4155,6 +4274,19 @@
       var days       = en ? DAYS_EN : DAYS_PT;
       var map        = buildSessionMap();
 
+      // ONE hour window for the whole week -- the columns share their rows, so
+      // it has to cover every day at once. A 6:00 AM meeting on Tuesday
+      // stretches Monday's column too; that is the only way the grid lines
+      // stay a grid.
+      var weekTimed = [];
+      for (var wt = 0; wt < 7; wt++) {
+        var wtDay = map[weekDates[wt]] || [];
+        for (var wj = 0; wj < wtDay.length; wj++) {
+          if (wtDay[wj].time) { weekTimed.push(wtDay[wj]); }
+        }
+      }
+      var hours = hoursFor(weekTimed);
+
       var wrap = document.createElement("div");
       wrap.className = "cal-week-wrap";
 
@@ -4198,8 +4330,8 @@
       // timed session is drawn in the per-day overlay below, positioned by its
       // real start and end time.
       var firstHourLabel = null;
-      for (var hi = 0; hi < HOURS.length; hi++) {
-        var h = HOURS[hi];
+      for (var hi = 0; hi < hours.length; hi++) {
+        var h = hours[hi];
         var timeLabel = document.createElement("div");
         timeLabel.className = "cal-week-time-label";
         // 12-hour, via the shared datetime.js helper. The f04bcb7 conversion
@@ -4224,7 +4356,7 @@
       // DOM so the columns can be measured against the real slot geometry.
       var overlayHost = document.createElement("div");
       overlayHost.className = "cal-week-overlay-host";
-      overlayHost.style.height = (HOURS.length * HOUR_PX) + "px";
+      overlayHost.style.height = (hours.length * HOUR_PX) + "px";
       // Column 1 is the time gutter -- an empty spacer keeps the 7 day columns
       // in the same tracks as the grid underneath.
       overlayHost.appendChild(document.createElement("div"));
@@ -4232,7 +4364,7 @@
         var timedSess = (map[weekDates[dov]] || []).filter(function(s) { return !!s.time; });
         var col = document.createElement("div");
         col.className = "cal-week-overlay-col";
-        col.appendChild(buildTimedOverlay(timedSess, "week"));
+        col.appendChild(buildTimedOverlay(timedSess, "week", hours));
         overlayHost.appendChild(col);
       }
       wrap.appendChild(overlayHost);
@@ -4279,6 +4411,9 @@
       var days   = en ? DAYS_EN : DAYS_PT;
       var map    = buildSessionMap();
       var daySessions = map[key] || [];
+      // Stretched to this day's own sessions, so an early or late one has a
+      // row to be drawn in rather than being skipped by the overlay.
+      var hours  = hoursFor(daySessions);
 
       var wrap = document.createElement("div");
       wrap.className = "cal-day-wrap";
@@ -4316,8 +4451,8 @@
       // the overlay below, positioned by real start/end time. See
       // layoutTimedBlocks().
       var dayFirstHourLabel = null;
-      for (var hi = 0; hi < HOURS.length; hi++) {
-        var h = HOURS[hi];
+      for (var hi = 0; hi < hours.length; hi++) {
+        var h = hours[hi];
         var timeLabel = document.createElement("div");
         timeLabel.className = "cal-day-time-label";
         timeLabel.textContent = formatTime(padZ(h) + ":00");   // 12-hour -- see the week gutter above
@@ -4333,12 +4468,12 @@
 
       var dayOverlayHost = document.createElement("div");
       dayOverlayHost.className = "cal-day-overlay-host";
-      dayOverlayHost.style.height = (HOURS.length * HOUR_PX) + "px";
+      dayOverlayHost.style.height = (hours.length * HOUR_PX) + "px";
       dayOverlayHost.appendChild(document.createElement("div"));   // time-gutter spacer
       var dayTimedCol = document.createElement("div");
       dayTimedCol.className = "cal-day-overlay-col";
       dayTimedCol.appendChild(buildTimedOverlay(
-        daySessions.filter(function(s) { return !!s.time; }), "day"
+        daySessions.filter(function(s) { return !!s.time; }), "day", hours
       ));
       dayOverlayHost.appendChild(dayTimedCol);
       wrap.appendChild(dayOverlayHost);

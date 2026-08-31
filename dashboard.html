@@ -1233,6 +1233,61 @@
       return t.getFullYear() + "-" + padZ(t.getMonth() + 1);
     }
 
+    // Every month a date range touches, so a range that crosses a month
+    // boundary can actually be fetched.
+    //
+    // weekRangeStr() is MONDAY-based, so the week of Monday 31 August 2026 is
+    // 31 Aug - 6 Sep: six of its seven days are in September. A single
+    // currentMonthStr() fetch holds rows for exactly one of them, and the
+    // filter that follows then drops everything else -- not as an error, just
+    // as an absence. Rafa's week showed 2 meetings on 2026-08-31 while four
+    // more sat in D1 on the 1st and 2nd, and the tile counted the same short
+    // list. Two other callers on this page and in calendar.html already
+    // fetched a second month for exactly this reason; the weekly card never
+    // did.
+    function monthsSpanning(startStr, endStr) {
+      var y = parseInt(startStr.slice(0, 4), 10);
+      var m = parseInt(startStr.slice(5, 7), 10) - 1;
+      var lastKey = endStr.slice(0, 7);
+      var out = [];
+      for (var i = 0; i < 4; i++) {          // a range this page builds spans 2 at most
+        var d = new Date(y, m + i, 1);
+        var key = d.getFullYear() + "-" + padZ(d.getMonth() + 1);
+        out.push(key);
+        if (key === lastKey) { break; }
+      }
+      return out;
+    }
+
+    // Sessions covering [startStr, endStr], merged across whatever months that
+    // spans. Deduped by id so a row returned twice is never drawn or counted
+    // twice. Asks through ?month=, which is what the deployed Worker serves.
+    function fetchSessionsBetween(startStr, endStr) {
+      return Promise.all(monthsSpanning(startStr, endStr).map(function(mo) {
+        return apiFetch("/api/sessions/calendar?month=" + mo)
+          .then(function(res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          });
+      })).then(function(results) {
+        var seen = {};
+        var out  = [];
+        for (var i = 0; i < results.length; i++) {
+          var list = (results[i] && results[i].sessions) || [];
+          for (var j = 0; j < list.length; j++) {
+            var s = list[j];
+            if (!s) { continue; }
+            if (s.id) {
+              if (seen[s.id]) { continue; }
+              seen[s.id] = 1;
+            }
+            out.push(s);
+          }
+        }
+        return out;
+      });
+    }
+
     function escHtml(str) {
       return (str || "")
         .replace(/&/g, "&amp;")
@@ -2511,7 +2566,6 @@
 
     function loadRafaMeetingsAndTasks() {
       var scope = rafaScope;
-      var monthStr = currentMonthStr();
       var taskScope = scope === "daily" ? "today" : "week";
       var today = todayStr();
       var range = weekRangeStr();
@@ -2542,11 +2596,11 @@
         renderRafaTasks(scopedTasks);
       }
 
-      // Meetings
-      apiFetch("/api/sessions/calendar?month=" + monthStr)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          var sessions = data.sessions || [];
+      // Meetings. Fetched across the span actually being shown -- the weekly
+      // scope regularly crosses into the next month.
+      var span = (scope === "daily") ? { start: today, end: today } : range;
+      fetchSessionsBetween(span.start, span.end)
+        .then(function(sessions) {
           if (scope === "daily") {
             scopedMeetings = sessions.filter(function(s) { return s.date === today; });
           } else {

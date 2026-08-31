@@ -2331,7 +2331,7 @@
             </div>
           </div>
           <div class="card-body-collapsible" id="gmcrmSecBody">
-            <div id="gmCrmBody">
+            <div class="gm-host" id="gmCrmBody">
               <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
@@ -2349,7 +2349,7 @@
             </div>
           </div>
           <div class="card-body-collapsible" id="gmjobsSecBody">
-            <div id="gmJobsBody">
+            <div class="gm-host" id="gmJobsBody">
               <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
@@ -2367,7 +2367,7 @@
             </div>
           </div>
           <div class="card-body-collapsible" id="gmfinanceSecBody">
-            <div id="gmFinanceBody">
+            <div class="gm-host" id="gmFinanceBody">
               <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
@@ -2385,7 +2385,7 @@
             </div>
           </div>
           <div class="card-body-collapsible" id="gmpricingSecBody">
-            <div id="gmPricingBody">
+            <div class="gm-host" id="gmPricingBody">
               <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
           </div>
@@ -3747,6 +3747,43 @@
         return fetch(WORKER_URL + path, fetchOpts);
       });
     }
+
+    // gm.js expects these from its host. portal.html defines them inline; this
+    // page did not, so the pipeline/projects/finance renderers threw before
+    // painting. Same implementations, so both hosts format identically.
+    function fmtNumAmerican(n) {
+      var rounded = Math.round(n * 100) / 100;
+      var neg = rounded < 0;
+      var abs = Math.abs(rounded);
+      var parts = String(abs).split(".");
+      var intPart = parts[0];
+      var decPart = parts.length > 1 ? parts[1].slice(0, 2) : "";
+      var grouped = "";
+      for (var i = 0; i < intPart.length; i++) {
+        if (i > 0 && (intPart.length - i) % 3 === 0) { grouped += ","; }
+        grouped += intPart.charAt(i);
+      }
+      var out = grouped + (decPart ? "." + decPart : "");
+      return neg ? "-" + out : out;
+    }
+
+    function fmtNum(v, type) {
+      if (v === null || v === undefined) { return "--"; }
+      var n = Number(v);
+      if (isNaN(n)) { return "--"; }
+      if (type === "currency") { return "$" + fmtNumAmerican(n); }
+      if (type === "percent")  { return fmtNumAmerican(n) + "%"; }
+      return fmtNumAmerican(n);
+    }
+
+    // Portal-only chrome gm.js can reach from edge paths. No-ops here rather
+    // than absent, so a stray call cannot throw mid-render.
+    function switchTab(tab) {
+      var el = document.getElementById("sec-" + tab);
+      if (el && typeof scrollToSection === "function") { scrollToSection("sec-" + tab); }
+    }
+    function supportClose() {}
+    function openReferralSettings() {}
 
     function gmSectionsLoad() {
       if (typeof gmLoadCrm     === "function") { gmLoadCrm();     }

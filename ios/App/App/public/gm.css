@@ -873,3 +873,11 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
    #14243D the rest of the app uses, so the fill matches meeting-prep. */
 .gm-btn-primary   { background: var(--navy, #14243D); border: 1.5px solid var(--navy, #14243D); color: #fff; }
 .gm-btn-secondary { background: var(--card); border: 1.5px solid var(--border); color: var(--text); }
+
+/* Host inset for the staff-side sections on client.html. In the portal these
+   renderers sit inside a tab pane that already supplies the gutter; dropped
+   straight into a content-card they would run to the card edge. Scoped to
+   .gm-host so the portal is untouched. */
+.gm-host { padding: 14px 16px 18px; }
+.gm-host > :first-child { margin-top: 0; }
+.gm-host > :last-child  { margin-bottom: 0; }

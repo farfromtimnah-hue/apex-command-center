@@ -3271,3 +3271,48 @@ the calendar). Removed "Enviar o Raio-X", "Enviar acesso ao sistema" and
 "Enviar a comparacao de planos" from every type.
 
 FOOT OF PAGE: Os planos, then Resultado, then Depois.
+
+## 2026-08-30 — Auth race fixed on the ten pages that never got it
+
+SYMPTOM. The page sat on "Carregando..." forever with no navigation. A
+refresh replayed it; only retyping the URL and logging in again cleared it,
+and even that could land straight back in it. Fired most reliably right
+after a worker deploy or a fresh login, because both force a token refresh.
+
+CAUSE. Firebase reports a momentary null user during a token refresh and
+then restores the session a beat later. These pages treated that null as a
+hard failure. Some rejected immediately, some showed "Faca login" and
+returned. Either way the page neither booted nor navigated -- it did neither,
+forever.
+
+FIX. dashboard.html's pattern, copied exactly, no variant: on a null user,
+WAIT one second, then either boot or bail. Never neither.
+
+PAGES (10): portal.html, packages.html, meeting-prep.html, xray-report.html,
+management-xray-report.html, leadership-xray-report.html,
+permissividade-xray-report.html, falhas-xray-report.html,
+feedback-360-report.html, pilares-crescimento-report.html.
+
+Each carries its own copy of the auth block -- they are not shared modules --
+so the fix was applied and verified per page. Two shapes needed patching:
+  - the boot callback in init(), which is the one that hung; and
+  - firebaseUser() / firebaseReady(), whose promise rejects on null and
+    strands the caller's catch. Both got the wait.
+
+THE SESSION KEY, which is where a naive copy would have broken the client.
+dashboard.html probes sessionStorage.apex_role to decide wait-vs-bail. That
+key is written by the STAFF login only. portal.html and all seven report
+pages also serve CLIENT logins, which store localStorage.apex_client_token
+and never set apex_role -- so probing apex_role alone would have bailed a
+client out of the exact race this fixes. Those eight pages accept EITHER
+key. meeting-prep.html and packages.html are consultant-only and keep the
+staff key. Checked what each page actually stores before wiring it.
+
+VERIFIED in a real browser, per page, by driving each patched callback
+through all three states:
+  race (null then session restored)  -> BOOT
+  signed out, session cached         -> BAIL to login
+  signed out, nothing cached         -> BAIL to login
+Never NEITHER, which was the bug. Also confirmed a client-token session on a
+report page BOOTs through the race, and that portal.html with no session
+still redirects to index.html rather than hanging.

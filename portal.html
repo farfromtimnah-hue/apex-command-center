@@ -6581,7 +6581,31 @@
       firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth();
       auth.onAuthStateChanged(function(user) {
-        if (!user) { goToLogin(); return; }
+        if (!user) {
+          var hadSession = sessionStorage.getItem("apex_role") || localStorage.getItem("apex_client_token");
+          if (hadSession) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the
+            // bad outcome: if the user came back within the second it did
+            // NOTHING, and because this branch returns, the page never
+            // booted and never navigated. It sat on "Carregando..." forever,
+            // and a refresh replayed the same race -- only retyping the URL
+            // and logging in again cleared it.
+            //
+            // Same fix as dashboard.html; see the comment there.
+            setTimeout(function() {
+              if (!auth.currentUser) { goToLogin(); return; }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              bootAfterAuth();
+            }, 1000);
+            return;
+          }
+          goToLogin();
+          return;
+        }
         currentUser = user;
         bootAfterAuth();
       });

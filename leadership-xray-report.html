@@ -363,8 +363,15 @@
           auth = firebase.auth();
         }
         auth.onAuthStateChanged(function(user) {
-          if (user) { currentUser = user; resolve(user); }
-          else { reject(new Error("Not authenticated")); }
+          if (user) { currentUser = user; resolve(user); return; }
+          // Momentary null during a token refresh: wait, then decide. See the
+          // comment on the boot path below.
+          var hadSession = sessionStorage.getItem("apex_role") || localStorage.getItem("apex_client_token");
+          if (!hadSession) { reject(new Error("Not authenticated")); return; }
+          setTimeout(function() {
+            if (auth.currentUser) { currentUser = auth.currentUser; resolve(auth.currentUser); }
+            else { reject(new Error("Not authenticated")); }
+          }, 1000);
         });
       });
     }
@@ -656,6 +663,30 @@
       auth = firebase.auth();
       auth.onAuthStateChanged(function(user) {
         if (!user) {
+          var hadSession = sessionStorage.getItem("apex_role") || localStorage.getItem("apex_client_token");
+          if (hadSession) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the
+            // bad outcome: if the user came back within the second it did
+            // NOTHING, and because this branch returns, the page never
+            // booted and never navigated. It sat on "Carregando..." forever,
+            // and a refresh replayed the same race -- only retyping the URL
+            // and logging in again cleared it.
+            //
+            // Same fix as dashboard.html; see the comment there.
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                showMsg("Faça login para ver o relatório.", "Sign in to view the report.");
+                return;
+              }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              loadReport();
+            }, 1000);
+            return;
+          }
           showMsg("Faça login para ver o relatório.", "Sign in to view the report.");
           return;
         }

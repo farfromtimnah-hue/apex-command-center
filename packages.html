@@ -398,8 +398,24 @@
         firebase.initializeApp(FIREBASE_CONFIG);
         auth = firebase.auth();
         auth.onAuthStateChanged(function(user) {
-          if (user) { currentUser = user; resolve(user); }
-          else { reject(new Error("Not authenticated")); }
+          if (user) { currentUser = user; resolve(user); return; }
+          // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+          //
+          // Firebase reports a momentary null user during a token refresh
+          // and then restores the session. The old code only handled the
+          // bad outcome: if the user came back within the second it did
+          // NOTHING, and because this branch returns, the page never
+          // booted and never navigated. It sat on "Carregando..." forever,
+          // and a refresh replayed the same race -- only retyping the URL
+          // and logging in again cleared it.
+          //
+          // Same fix as dashboard.html; see the comment there.
+          var hadSession = sessionStorage.getItem("apex_role");
+          if (!hadSession) { reject(new Error("Not authenticated")); return; }
+          setTimeout(function() {
+            if (auth.currentUser) { currentUser = auth.currentUser; resolve(auth.currentUser); }
+            else { reject(new Error("Not authenticated")); }
+          }, 1000);
         });
       });
     }

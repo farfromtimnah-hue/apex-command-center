@@ -2246,7 +2246,7 @@
       btn.classList.remove("pkg-arm");
       if (note) { note.innerHTML = ptEn("Gravando...", "Saving..."); }
       apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID), {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify({ package: name })
       }).then(function(res) {
         if (!res.ok) { throw new Error("HTTP " + res.status); }

@@ -394,6 +394,13 @@
     }
     .step-link.primary:hover { opacity: 0.9; border-color: var(--navy); }
     .step-note { font-size: 11px; color: var(--muted); display: block; margin-top: 5px; }
+    /* Package picker. Buttons sit inline so the three read as one row of
+       choices rather than three separate actions. .pkg-arm is the armed state
+       between the first and second tap -- gold border, no fill, so it reads as
+       "waiting on you" and not as "done". */
+    .pkg-btn { display: inline-block; width: auto; margin: 0 6px 6px 0; }
+    .pkg-btn.pkg-cur { border-color: var(--navy); font-weight: 600; }
+    .pkg-btn.pkg-arm { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(191,159,84,0.22); }
     /* An unrecorded value, stated as data and nothing more. No colour block,
        no rule down the side: it is a fact about the client's records, not a
        warning, and this page is read with the client in the room. */
@@ -2174,8 +2181,79 @@
       h += '<span class="step-note">' +
            ptEn("Abre em outra aba, para mostrar ao cliente.",
                 "Opens in a new tab, to show the client.") + '</span>';
+
+      // Recording WHICH package was sold happens here, after the deck -- never
+      // on packages.html, which the client is watching. A control there would
+      // read as ringing him up mid-conversation, and every click on that page
+      // already advances the reveal.
+      //
+      // Two steps on purpose: assigning a package re-stamps package_started_at
+      // in the Worker, which restarts the engagement clock. That is not
+      // something a single mis-tap should do while he is talking.
+      var cur = (d.client && d.client.package) || "";
+      h += '<div class="pkg-pick">';
+      h += '<p class="sec-title" style="margin-top:18px;">' +
+           ptEn("Fechou?", "Closed?") + '</p>';
+      h += '<p class="step-ctx">' +
+           (cur
+             ? ptEn("Pacote atual: <strong>" + escHtml(cur) + "</strong>.",
+                    "Current package: <strong>" + escHtml(cur) + "</strong>.")
+             : ptEn("Nenhum pacote definido ainda.", "No package set yet.")) +
+           '</p>';
+      for (var pi = 0; pi < PACKAGE_NAMES.length; pi++) {
+        var nm = PACKAGE_NAMES[pi];
+        var isCur = (cur === nm);
+        h += '<button type="button" class="step-link pkg-btn' + (isCur ? ' pkg-cur' : '') +
+             '" data-pkg="' + escHtml(nm) + '" onclick="pkgPick(this);">' +
+             escHtml(nm) + (isCur ? ' &#10003;' : '') + '</button>';
+      }
+      h += '<span class="step-note" id="pkgNote">' +
+           ptEn("Toque para escolher. Ele pergunta antes de gravar.",
+                "Tap to choose. It asks before saving.") + '</span>';
+      h += '</div>';
       h += '</div>';
       return h;
+    }
+
+    // The three current names, matching what the clients table already holds
+    // (START / GROWTH / ADVANCED). Legacy values on older rows -- Sprint,
+    // Raio-X, Premium -- are left alone rather than migrated.
+    var PACKAGE_NAMES = ["ADVANCED", "GROWTH", "START"];
+    var pkgPending = null;
+
+    function pkgPick(btn) {
+      var name = btn.getAttribute("data-pkg");
+      var note = document.getElementById("pkgNote");
+      if (pkgPending !== name) {
+        // First tap arms it and says plainly what the second tap will do.
+        pkgPending = name;
+        var all = document.querySelectorAll(".pkg-btn");
+        for (var i = 0; i < all.length; i++) { all[i].classList.remove("pkg-arm"); }
+        btn.classList.add("pkg-arm");
+        if (note) {
+          note.innerHTML = ptEn(
+            "Toque em <strong>" + escHtml(name) + "</strong> de novo para gravar. Isso reinicia a contagem do pacote.",
+            "Tap <strong>" + escHtml(name) + "</strong> again to save. This restarts the package clock.");
+        }
+        return;
+      }
+      pkgPending = null;
+      btn.classList.remove("pkg-arm");
+      if (note) { note.innerHTML = ptEn("Gravando...", "Saving..."); }
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID), {
+        method: "PUT",
+        body: JSON.stringify({ package: name })
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function() {
+        if (note) { note.innerHTML = ptEn("Gravado.", "Saved."); }
+        return loadPrep(true);
+      }).catch(function() {
+        if (note) {
+          note.innerHTML = ptEn("N&#227;o foi poss&#237;vel gravar.", "Could not save.");
+        }
+      });
     }
 
     // ---- 9 After the meeting ---------------------------------------------

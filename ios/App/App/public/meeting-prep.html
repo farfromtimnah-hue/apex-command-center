@@ -90,6 +90,11 @@
 
     * { box-sizing: border-box; }
 
+    /* The language toggle. Without these two rules every ptEn() pair renders
+       both languages at once and the PT/EN button appears to do nothing. */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
     /* Without this the page renders black text on a dark ground. */
     body {
       margin: 0;
@@ -258,6 +263,30 @@
     .asset-label { flex: 0 0 150px; font-size: 12px; font-weight: 600; color: var(--muted); }
     .asset-gap { color: var(--crit); font-size: 12px; font-weight: 600; }
 
+    /* Meeting type picker, shown when no ?type= is present. */
+    .pick-name { font-size: 22px; font-weight: 800; margin: 0 0 2px; letter-spacing: -0.02em; }
+    .pick-ask { font-size: 14px; color: var(--muted); margin: 0 0 18px; }
+    .pick-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 0; border-top: 1px solid var(--border);
+    }
+    .pick-row:first-of-type { border-top: none; }
+    .pick-go {
+      display: inline-block; font-size: 15px; font-weight: 700; color: var(--text);
+      text-decoration: none; border-bottom: 1px solid transparent;
+    }
+    .pick-go:hover { border-bottom-color: var(--gold); }
+    /* Unbuilt types stay visible so he can see the shape of what is coming,
+       but must not read as live buttons that lead nowhere. */
+    .pick-soon { font-size: 15px; font-weight: 600; color: var(--muted); opacity: 0.65; }
+    .pick-soon-tag {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); border: 1px solid var(--border); border-radius: 20px;
+      padding: 3px 9px; white-space: nowrap;
+    }
+    .pick-example { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: underline; }
+    .pick-example:hover { color: var(--text); }
+
     /* Checklist */
     .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
     .check-row:first-child { border-top: none; }
@@ -285,7 +314,7 @@
   </header>
 
   <main>
-    <div id="stateMsg">Carregando...</div>
+    <div id="stateMsg"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
     <div id="prepBody" hidden></div>
   </main>
 
@@ -313,6 +342,11 @@
     var CLIENT_ID    = params.get("client");
     var MEETING_TYPE = params.get("type") || "xray_results";
     var IS_EXAMPLE   = params.get("example") === "1";
+    // No ?type= means he has not chosen a meeting type yet: show the picker.
+    var HAS_TYPE     = !!params.get("type");
+    // Brax Facilities, the one client with a completed X-Ray to show as an example.
+    var EXAMPLE_URL  = "meeting-prep.html?client=abc9f8b4-8408-4284-95f7-776ace15ad18"
+                     + "&type=xray_results&example=1";
 
     var currentUser = null;
     var auth        = null;
@@ -620,7 +654,7 @@
           var q = shown[k];
           var yes = q.answer === 1;
           h += '<div class="q-row"><span class="q-mark ' + (yes ? "q-yes" : "q-no") + '">' +
-               (yes ? "Sim" : "Nao") + '</span><span class="q-text">' +
+               (yes ? ptEn("Sim", "Yes") : ptEn("Nao", "No")) + '</span><span class="q-text">' +
                escHtml(isEn() ? (q.labelEn || q.labelPt) : (q.labelPt || q.labelEn)) +
                '</span></div>';
         }
@@ -646,16 +680,16 @@
 
       var reason = "";
       if (mb.length) {
-        reason = isEn() ? "Matches what he just said" : "Casa com o que ele acabou de dizer";
+        reason = ptEn("Casa com o que ele acabou de dizer", "Matches what he just said");
       } else if (mp.length) {
-        reason = isEn() ? "Matches a pattern in the X-Ray" : "Casa com um padrao do Raio-X";
+        reason = ptEn("Casa com um padrao do Raio-X", "Matches a pattern in the X-Ray");
       }
 
       var h = '<details class="story"><summary>';
       h += '<div class="story-line">' + escHtml(s.one_liner || "") + '</div>';
       if (why.length || reason) {
         h += '<div class="story-why">' + why.join("") +
-             (reason ? '<span>' + escHtml(reason) + '</span>' : "") + '</div>';
+             (reason ? '<span>' + reason + '</span>' : "") + '</div>';
       }
       h += '</summary><div class="story-body">';
       if (s.narrative) {
@@ -738,10 +772,61 @@
       return h;
     }
 
+    // ---- 0 Meeting type picker -------------------------------------------
+    // A client meeting is not one thing: kickoff, weekly RDE, 30-day close and
+    // X-Ray results each need different prep. Only the X-Ray one is built, so
+    // the other three are shown as unavailable rather than as live buttons.
+    // Reached only when the URL carries no ?type=; existing typed links skip it.
+    var MEETING_TYPES = [
+      { type: "xray_results", built: true,
+        pt: "Raio-X - Resultados",  en: "X-Ray - Results" },
+      { type: "kickoff",      built: false,
+        pt: "Kickoff",              en: "Kickoff" },
+      { type: "rde_semanal",  built: false,
+        pt: "RDE semanal",          en: "Weekly RDE" },
+      { type: "fechamento",   built: false,
+        pt: "Fechamento de ciclo",  en: "Cycle close" }
+    ];
+
+    function renderPicker(d) {
+      var c = (d && d.client) || {};
+      var h = '<div class="card">';
+      h += '<h1 class="pick-name">' + escHtml(c.name || "") + '</h1>';
+      h += '<p class="pick-ask">' +
+           ptEn("Qual e esta reuniao?", "Which meeting is this?") + '</p>';
+
+      for (var i = 0; i < MEETING_TYPES.length; i++) {
+        var t = MEETING_TYPES[i];
+        h += '<div class="pick-row">';
+        if (t.built) {
+          h += '<a class="pick-go" href="meeting-prep.html?client=' +
+               encodeURIComponent(CLIENT_ID) + '&type=' + encodeURIComponent(t.type) + '">' +
+               ptEn(t.pt, t.en) + '</a>';
+          // The example belongs here, next to the type it is an example of.
+          h += '<a class="pick-example" href="' + EXAMPLE_URL + '">' +
+               ptEn("Ver exemplo", "See example") + '</a>';
+        } else {
+          h += '<span class="pick-soon">' + ptEn(t.pt, t.en) + '</span>';
+          h += '<span class="pick-soon-tag">' + ptEn("em breve", "not yet") + '</span>';
+        }
+        h += '</div>';
+      }
+
+      h += '</div>';
+      return h;
+    }
+
     function render(d) {
       var body = document.getElementById("prepBody");
       if (!body) { return; }
       var h = "";
+      if (!HAS_TYPE) {
+        body.innerHTML = renderPicker(d);
+        body.hidden = false;
+        var pm = document.getElementById("stateMsg");
+        if (pm) { pm.hidden = true; }
+        return;
+      }
       h += renderHead(d);
       h += renderBefore(d);
       h += renderBottleneck(d);

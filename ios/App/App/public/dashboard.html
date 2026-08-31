@@ -504,17 +504,25 @@
     }
     .client-link:hover { color: var(--gold); }
 
-    /* Meeting Prep links, sitting under each of today's client meetings. */
-    .prep-links {
-      display: flex; flex-wrap: wrap; gap: 14px;
-      padding: 0 0 10px 2px; margin-top: -4px;
-    }
+    /* Meeting Prep link. Sits inside the meeting row next to Join / Send Link
+       and takes the same pill treatment, so it reads as part of the row rather
+       than as a bare anchor floating underneath the client name. */
     .prep-link {
-      font-size: 12px; font-weight: 600; color: var(--gold, #C9A43A);
-      text-decoration: none; border-bottom: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--gold, #C9A43A);
+      color: var(--gold, #C9A43A);
+      background: transparent;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
     }
-    .prep-link:hover { border-bottom-color: currentColor; }
-    .prep-link-example { color: var(--muted, #6b6660); font-weight: 500; }
+    .prep-link:hover { background: var(--gold, #C9A43A); color: #fff; }
 
     /* ─── List rows (Rafa meetings + tasks) ──────────────────────────────── */
     .list-row {
@@ -2528,15 +2536,11 @@
       var scopedTasks    = [];
 
       function tryRender() {
-        if (!meetingsDone || !tasksDone || xrayDoneIds === null) { return; }
+        if (!meetingsDone || !tasksDone) { return; }
         renderRafaTiles(scopedMeetings, scopedTasks, scope);
         renderRafaMeetings(scopedMeetings, scope);
         renderRafaTasks(scopedTasks);
       }
-
-      // Which clients already have an X-Ray, so the example link can be
-      // decided before the rows render rather than flickering in after them.
-      loadXrayCompleted().then(function() { tryRender(); });
 
       // Meetings
       apiFetch("/api/sessions/calendar?month=" + monthStr)
@@ -2598,46 +2602,16 @@
       if (fillEl) { fillEl.style.width = pct + "%"; }
     }
 
-    // Client ids WITH a completed business_xray. Drives the "Ver exemplo"
-    // link: it shows only for a client that has no X-Ray data of its own, and
-    // disappears the moment that client has one. Loaded once alongside the
-    // meetings rather than per row, so no meeting costs an extra round trip.
-    var xrayDoneIds = null;
-
-    function loadXrayCompleted() {
-      return apiFetch("/api/xray-completed-clients")
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          xrayDoneIds = {};
-          var ids = data.client_ids || [];
-          for (var i = 0; i < ids.length; i++) { xrayDoneIds[ids[i]] = true; }
-        })
-        .catch(function() { xrayDoneIds = {}; });
-    }
-
-    // The prep link, plus the example link when this client has no X-Ray yet.
-    // Never both for a client that already has data.
-    function buildPrepLinks(clientId) {
-      var wrap = document.createElement("div");
-      wrap.className = "prep-links";
-
-      var prepA = document.createElement("a");
-      prepA.href = "meeting-prep.html?client=" + encodeURIComponent(clientId) + "&type=xray_results";
-      prepA.className = "prep-link";
-      prepA.innerHTML = '<span class="show-pt">Preparacao da reuniao</span>' +
-                        '<span class="show-en">Meeting prep</span>';
-      wrap.appendChild(prepA);
-
-      if (xrayDoneIds && !xrayDoneIds[clientId]) {
-        var exA = document.createElement("a");
-        exA.href = "meeting-prep.html?client=abc9f8b4-8408-4284-95f7-776ace15ad18" +
-                   "&type=xray_results&example=1";
-        exA.className = "prep-link prep-link-example";
-        exA.innerHTML = '<span class="show-pt">Ver exemplo</span>' +
-                        '<span class="show-en">See example</span>';
-        wrap.appendChild(exA);
-      }
-      return wrap;
+    // The prep link for one meeting row. No ?type=: the page asks which
+    // meeting this is before it prepares anything. The example now lives on
+    // that picker screen, next to the meeting type it is an example of.
+    function buildPrepLink(clientId) {
+      var a = document.createElement("a");
+      a.href = "meeting-prep.html?client=" + encodeURIComponent(clientId);
+      a.className = "prep-link";
+      a.innerHTML = '<span class="show-pt">Preparacao da reuniao</span>' +
+                    '<span class="show-en">Meeting prep</span>';
+      return a;
     }
 
     function renderRafaMeetings(meetings, scope) {
@@ -2750,11 +2724,11 @@
             row.appendChild(waBtn);
           }
 
-          container.appendChild(row);
-
           if (m.client_id) {
-            container.appendChild(buildPrepLinks(m.client_id));
+            row.appendChild(buildPrepLink(m.client_id));
           }
+
+          container.appendChild(row);
         })(meetings[i]);
       }
     }

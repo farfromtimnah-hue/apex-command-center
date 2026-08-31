@@ -319,11 +319,13 @@
       border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
     }
     .prep-link {
-      font-size: 13px; font-weight: 600; color: #C9A43A;
-      text-decoration: none; border-bottom: 1px solid transparent;
+      display: inline-flex; align-items: center;
+      border: 1px solid #C9A43A; color: #C9A43A; background: transparent;
+      border-radius: 6px; padding: 6px 14px;
+      font-size: 13px; font-weight: 600; text-decoration: none;
+      transition: background 0.15s, color 0.15s;
     }
-    .prep-link:hover { border-bottom-color: currentColor; }
-    .prep-link-example { color: var(--muted, #6b6660); font-weight: 500; }
+    .prep-link:hover { background: #C9A43A; color: #fff; }
 
     .role-badge {
       background: var(--gold-dim);
@@ -3731,8 +3733,6 @@
     // Fill exactly ONE of the two mount points, by role. Rafa runs the X-Ray
     // results meetings, so his link goes at the top of the page; Alice
     // schedules them but does not run them, so hers goes lower down.
-    // The "Ver exemplo" link appears only while THIS client has no completed
-    // X-Ray of its own, and disappears once it has one.
     function renderPrepLinks(role) {
       if (!CLIENT_ID) { return; }
       var mount = null;
@@ -3745,35 +3745,16 @@
       }
       if (!mount) { return; }
 
-      apiFetch("/api/xray-completed-clients")
-        .then(function(res) { return res.json(); })
-        .then(function(data) { return data.client_ids || []; })
-        .catch(function() { return null; })
-        .then(function(ids) {
-          var hasXray = false;
-          if (ids) {
-            for (var i = 0; i < ids.length; i++) {
-              if (ids[i] === CLIENT_ID) { hasXray = true; break; }
-            }
-          }
-          var h = '<div class="prep-links-card">';
-          h += '<a class="prep-link" href="meeting-prep.html?client=' +
-               encodeURIComponent(CLIENT_ID) + '&type=xray_results">' +
-               '<span class="show-pt">Preparacao da reuniao</span>' +
-               '<span class="show-en">Meeting prep</span></a>';
-          // ids === null means the lookup failed; showing an example link then
-          // would be a guess about this client's data, so it stays hidden.
-          if (ids && !hasXray) {
-            h += '<a class="prep-link prep-link-example" ' +
-                 'href="meeting-prep.html?client=abc9f8b4-8408-4284-95f7-776ace15ad18' +
-                 '&type=xray_results&example=1">' +
-                 '<span class="show-pt">Ver exemplo</span>' +
-                 '<span class="show-en">See example</span></a>';
-          }
-          h += '</div>';
-          mount.innerHTML = h;
-          mount.hidden = false;
-        });
+      // No ?type=: the prep page asks which meeting this is first. The
+      // example now lives on that picker, next to the type it illustrates.
+      var h = '<div class="prep-links-card">';
+      h += '<a class="prep-link" href="meeting-prep.html?client=' +
+           encodeURIComponent(CLIENT_ID) + '">' +
+           '<span class="show-pt">Preparacao da reuniao</span>' +
+           '<span class="show-en">Meeting prep</span></a>';
+      h += '</div>';
+      mount.innerHTML = h;
+      mount.hidden = false;
     }
 
     function init() {

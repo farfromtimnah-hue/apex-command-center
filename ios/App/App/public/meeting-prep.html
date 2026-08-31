@@ -1186,8 +1186,13 @@
     // teaching the tool as he goes. So this is NOT a report: it is a checklist
     // where every step links to the screen that thing is actually entered on.
 
+    // Every link out of prep carries where it came from, so the destination can
+    // offer a way back. He runs these mid-meeting while talking: without this
+    // he lands on a long client page, loses the prep he was reading from, and
+    // has to find it again in front of the client.
     function clientHref(extra) {
-      return "client.html?id=" + encodeURIComponent(CLIENT_ID) + (extra || "");
+      return "client.html?id=" + encodeURIComponent(CLIENT_ID) + (extra || "") +
+             "&from=prep&prepType=" + encodeURIComponent(MEETING_TYPE);
     }
 
     // What the system already knows, so he does not open the meeting asking
@@ -1631,7 +1636,7 @@
         h += '<p class="plan-label">' + ptEn("O resumo", "The summary") + '</p>';
         h += '<div class="story-narr">' + narrativeHtml(summ) + '</div>';
       }
-      h += '<a class="step-link" href="sessions.html?open=' + encodeURIComponent(ls.session_id) +
+      h += '<a class="step-link" href="sessions.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '&open=' + encodeURIComponent(ls.session_id) +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir onde o resumo desta sess&#227;o ser&#225; escrito",
                 "Open where this session's summary gets written") + '</a>';
@@ -2276,8 +2281,8 @@
           // sessions.html is staff-side and fully writable: generate, edit and
           // approve all POST without previewAs.
           var href = ls && ls.session_id
-            ? "sessions.html?open=" + encodeURIComponent(ls.session_id)
-            : "sessions.html";
+            ? "sessions.html?from=prep&prepClient=" + encodeURIComponent(CLIENT_ID) + "&prepType=" + encodeURIComponent(MEETING_TYPE) + "&open=" + encodeURIComponent(ls.session_id)
+            : "sessions.html?from=prep&prepClient=" + encodeURIComponent(CLIENT_ID) + "&prepType=" + encodeURIComponent(MEETING_TYPE);
           h += '<a class="step-link" href="' + href +
                '" target="_blank" rel="noopener">' +
                ptEn("Abrir a sess&#227;o", "Open the session") + '</a>';
@@ -2286,7 +2291,7 @@
                     "Once approved the report is filed against the session. He tells the client it arrives within 24 hours.") +
                '</span>';
         } else if (it.kind === "calendar") {
-          h += '<a class="step-link" href="calendar.html"' +
+          h += '<a class="step-link" href="calendar.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '"' +
                ' target="_blank" rel="noopener">' + ptEn("Abrir a agenda", "Open the calendar") + '</a>';
         } else if (it.kind === "goals") {
           h += '<a class="step-link" href="' +

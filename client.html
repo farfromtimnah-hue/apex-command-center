@@ -1834,9 +1834,23 @@
         min-height: 44px;
       }
     }
-  </style>
+  
+    /* Return-to-prep bar. Gold on navy so it reads as a wayfinding strip and
+       not as one more action among the page's own buttons. */
+    #prepReturn {
+      position: sticky; top: 0; z-index: 60;
+      display: block; text-align: center;
+      background: var(--navy, #10233f); color: var(--gold, #bf9f54);
+      font-size: 14px; font-weight: 600; letter-spacing: 0.2px;
+      padding: 11px 14px; text-decoration: none;
+      border-bottom: 1px solid rgba(191,159,84,0.35);
+    }
+    #prepReturn:hover { color: #fff; }
+    @media print { #prepReturn { display: none; } }
+</style>
 </head>
 <body class="lang-pt">
+  <script src="prep-return.js?v=1788155480"></script>
 
   <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
   <header id="appHeader">
@@ -3683,6 +3697,7 @@
     //   ?section=<id>    scroll that content-card into view and flash it
     var DEEP_DAY     = new URLSearchParams(window.location.search).get("day");
     var DEEP_SECTION = new URLSearchParams(window.location.search).get("section");
+
     var DEEP_MODAL   = new URLSearchParams(window.location.search).get("modal");
 
     // Same scroll-and-flash jumpToContactLog() uses, by element id.

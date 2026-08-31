@@ -25,12 +25,8 @@ var gmCurrentTab  = null;   // which gm tab is on screen (lang re-render)
 
 function gmT(pt, en) { return isEn() ? en : pt; }
 
-// A host page may supply gmApiFetch when its own apiFetch has a different
-// body convention. portal.html has none and keeps using apiFetch, so its
-// behaviour -- including the previewAs it appends -- is unchanged.
 function gmApi(path, opts) {
-  var send = (typeof gmApiFetch === "function") ? gmApiFetch : apiFetch;
-  return send("/api/clients/" + clientId + "/gm/" + path, opts)
+  return apiFetch("/api/clients/" + clientId + "/gm/" + path, opts)
     .then(function(res) {
       return res.json().then(function(d) {
         if (!res.ok) { throw new Error(d.error || ("HTTP " + res.status)); }

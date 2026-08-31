@@ -3730,23 +3730,12 @@
     // that param from an admin. Nothing about that gate changes -- this page
     // simply never sets the param, so Rafa writes as himself.
     //
-    // The body convention differs between the two hosts: this page's apiFetch
-    // stringifies opts.body, while gm.js passes JSON it has already
-    // stringified. gmApiFetch bridges that instead of touching either side.
+    // gm.js passes body as a plain object on all 17 of its calls, which is
+    // exactly what this page's apiFetch already expects, so gm.js uses it
+    // directly. An earlier gmApiFetch shim assumed the opposite and sent
+    // "[object Object]"; the Worker parsed that as an empty body and answered
+    // "Nothing to update" on every field save.
     var clientId = CLIENT_ID;
-
-    function gmApiFetch(path, opts) {
-      var o = opts || {};
-      return getToken().then(function(token) {
-        var headers = { "Authorization": "Bearer " + token };
-        var fetchOpts = { method: o.method || "GET", headers: headers };
-        if (o.body) {
-          headers["Content-Type"] = "application/json";
-          fetchOpts.body = o.body;
-        }
-        return fetch(WORKER_URL + path, fetchOpts);
-      });
-    }
 
     // gm.js expects these from its host. portal.html defines them inline; this
     // page did not, so the pipeline/projects/finance renderers threw before

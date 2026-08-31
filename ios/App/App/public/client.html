@@ -3598,6 +3598,34 @@
     var auth        = null;
     var currentUser = null;
     var CLIENT_ID   = new URLSearchParams(window.location.search).get("id");
+    // Deep links into a specific part of this page. Meeting prep sends him
+    // here mid-meeting, and "scroll down and find the digital presence card"
+    // is not something he can do while a client is talking.
+    //   ?day=YYYY-MM-DD  open that day's entry under the week card
+    //   ?section=<id>    scroll that content-card into view and flash it
+    var DEEP_DAY     = new URLSearchParams(window.location.search).get("day");
+    var DEEP_SECTION = new URLSearchParams(window.location.search).get("section");
+
+    // Same scroll-and-flash jumpToContactLog() uses, by element id.
+    function scrollToSection(elId) {
+      var el = document.getElementById(elId);
+      if (!el) { return; }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.transition = "background-color 0.4s";
+      el.style.backgroundColor = "var(--gold-dim)";
+      setTimeout(function() { el.style.backgroundColor = ""; }, 900);
+    }
+
+    // ?section= runs after the page has painted its cards. Only ids that are
+    // really on the page resolve; anything else quietly does nothing rather
+    // than scrolling to the top.
+    function applyDeepSection() {
+      if (!DEEP_SECTION) { return; }
+      var id = "sec-" + DEEP_SECTION.replace(/[^a-zA-Z0-9_-]/g, "");
+      var el = document.getElementById(id);
+      if (!el) { return; }
+      scrollToSection(id);
+    }
     var clientData  = null;
     var sessions    = [];
     var latestApprovedSession = null; // for header Gerar PDF
@@ -3809,6 +3837,9 @@
       loadAssessments();
       loadWeeklySummary();
       initCollapseStates();
+      // After the cards exist. ?day= is handled inside loadWeeklySummary,
+      // which cannot run until its own fetch returns.
+      setTimeout(applyDeepSection, 400);
     }
 
     // ── Client Portal access (login + field config) ────────────────────────
@@ -4505,6 +4536,19 @@
           }
           html += '<div id="dayEntryPanel" style="margin-top:12px;"></div>';
           el.innerHTML = html;
+          // ?day=YYYY-MM-DD opens that day's entry straight away, so a link
+          // from meeting prep lands on the day itself rather than on the week
+          // it belongs to. Consumed once: moving weeks afterwards must not
+          // keep reopening it.
+          if (DEEP_DAY) {
+            var wanted = DEEP_DAY;
+            DEEP_DAY = null;
+            var hit = days.filter(function(d) { return d.date === wanted; })[0];
+            if (hit) {
+              scrollToSection("sec-weeklySummary");
+              openDayEntry(wanted);
+            }
+          }
         })
         .catch(function() {
           var el = document.getElementById("weeklySummaryBody");

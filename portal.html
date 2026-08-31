@@ -1837,6 +1837,14 @@
       return m ? decodeURIComponent(m[1]) : null;
     })();
 
+    // ?tab=<id>, read once at bootstrap. Deliberately NOT threaded through
+    // switchTab(): once he is inside the portal the tab is his to move, and a
+    // param that survived every switch would fight the back button.
+    function PORTAL_DEEP_TAB() {
+      var m = window.location.search.match(/[?&]tab=([^&]+)/);
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+
     // Which salesperson the admin is previewing AS, from ?previewSeller=<name>.
     // Only meaningful alongside PREVIEW_AS.
     //
@@ -3804,7 +3812,14 @@
       }
       applyPortalShape();
       populateMobileDock();
-      switchTab(isSeller() ? "gmcrm" : (isLead() ? "assigned" : "analytics"), true);
+      // ?tab=<id> lands straight on a tab. PORTAL_TABS has always called these
+      // "valid tab ids for deep links" but nothing read the URL, so a link
+      // into Pipeline or Financeiro could only ever open on Analytics and
+      // leave the reader to find the tab themselves. switchTab() already
+      // guards every id against the caller's role, so an unknown or
+      // not-allowed value falls back exactly as a stale in-app link does.
+      var deepTab = PORTAL_DEEP_TAB();
+      switchTab(deepTab || (isSeller() ? "gmcrm" : (isLead() ? "assigned" : "analytics")), true);
       showView("viewPortal");
     }
 

@@ -3023,3 +3023,99 @@ never in a JS string literal - same pattern dashboard.html already uses.
 
 Updated in all four places a template key lives: the D1 row (remote), the
 fallback constant, template-edit.js TOKENS, and the settings.html hint.
+
+## 2026-08-30 — Meeting Prep: kickoff, weekly RDE and 30-day cycle close
+
+The three remaining meeting types are live. The picker no longer shows any
+"em breve" row: all four types now lead somewhere.
+
+Same page, same header, same consultant-only line, same PT/EN toggle, accents
+in HTML and not in JS strings. Every line is written in the THIRD PERSON about
+the client — the page states what is true and he decides what to say. Nothing
+renders an empty state: a section with no data does not appear at all.
+
+WHAT WAS ADDED
+
+meeting-prep.html
+  - render() switches on d.meeting_type. The X-Ray path is byte-for-byte the
+    behaviour it had; the three new ones are new branches beside it.
+  - Stories now render on ALL FOUR types, not just the X-Ray. He tells stories
+    in every kind of meeting. With a completed X-Ray they rank on score_json +
+    profile_json as before; without one, on the typed bottleneck alone; with
+    neither, they show unranked rather than the section disappearing.
+  - Every type ends on the after-meeting checklist. The list is now per type:
+    the X-Ray one is a sales close ("send the pricing comparison"), which is
+    nonsense after a weekly RDE with an existing client.
+  - The lead outcome stays exclusive to xray_results — only a lead can be
+    resolved — and is now gated on the type as well as on status === 'lead'.
+
+  KICKOFF. Not a report: a checklist with a link at every step to the screen
+  the thing is actually entered on. Above it, what the system already knows
+  (package, start date, industry, location, owners, whether a completed X-Ray
+  exists) so he does not open by asking for it.
+    1 Metas — links the portal goals screen (PUT /goals), noted as read-only
+      for staff so the client drives it on their own login; plus the
+      field-config path for when he sets them himself. Shows N of M indicators
+      with a meta for the month, and says so instead of sending him to set
+      them again when they are all set.
+    2 First daily log, linked to today's entry. The point is teaching the tool.
+    3 Unit costs — the system holds these NOWHERE. Stated plainly as a named
+      gap rather than linked to a screen that does not exist.
+    4 Digital presence, linked to the section on the client page.
+
+  WEEKLY RDE. His actual meeting order, so he can move down the page as the
+  meeting moves: last session (agreed items + what is marked done) -> the
+  indicators -> the week day by day -> pipeline/projects -> financeiro ->
+  relatorio estrategico -> where the engagement stands.
+    - Indicators are CAPPED. He has said "muito indicador aqui" while hunting
+      on screen; 26 rows is not a list anyone can read live. Only zeros and
+      behind-pace show by default, worst first, the rest behind an expander.
+      Everything on pace collapses to one line. Pace is elapsed-day
+      proportional, so day 10 of 31 against a target of 100 expects ~32.
+    - The week reuses the client page's component: same GET /weekly-summary,
+      same eight states, same colours, same day names, same prev/next and
+      "Esta semana" only when he is not on the current week. Deliberately NOT
+      collapsed to "5 of 7 days" — a client answers "I think I did it all",
+      and the whole point is being able to name the days.
+    - Pipeline, projects and finance are LINKED, never summarised. He calls
+      them "o ouro" and needs to drill into real leads and per-project margin.
+
+  CYCLE CLOSE. The formal 30-day close, read aloud. It runs at 30 days even
+  inside a 180-day programme, so it is a checkpoint and not the end.
+    - Before and after: this month target vs achieved, with the previous month
+      alongside ONLY where it exists (no zero stands in for an untracked month).
+    - What was built: documents, assessments, targets set, processes recorded,
+      complete log days. Assets the business now HAS — explicitly NOT revenue.
+      A month of real structural work can sit beside a flat month of sales.
+    - What is still weak: indicators furthest behind at the close (not
+      pace-adjusted; the month is over) plus any X-Ray area still critical.
+    - Next cycle: the same portal goals screen, same read-only note.
+
+worker/index.js
+  - GET /api/clients/:id/meeting-prep now returns engagement / kickoff /
+    weekly / cycle blocks, each built ONLY for the type that shows it.
+  - No new tables. Reads clients, packages, sessions, session_summaries,
+    tasks, client_field_config, client_daily_entries, client_missed_days,
+    client_documents, client_assessments.
+  - An unrecognised ?type= falls back rather than rendering a sectionless page.
+
+  NOTE ON sessions.meeting_type: the spec asked to read it. THAT COLUMN DOES
+  NOT EXIST. sessions carries session_type (online_meet / in_person — the
+  channel, not the kind of meeting) and meeting_category ('client'). Nothing
+  on the row records which of the four meeting types a session is, so the type
+  still comes from ?type= and otherwise from the picker, and the response says
+  which via type_source. Recording the meeting type on a session would need a
+  schema change and a place in the booking UI to set it.
+
+portal.html
+  - ?tab=<id> deep link. PORTAL_TABS has always called these "valid tab ids for
+    deep links" but nothing read the URL, so a link into Pipeline or Financeiro
+    could only ever open on Analytics. switchTab() already guards every id by
+    role, so an unknown value falls back exactly as a stale in-app link does.
+
+client.html
+  - ?day=YYYY-MM-DD opens that day's entry under the week card, and
+    ?section=<id> scrolls a card into view and flashes it (the same
+    scroll-and-flash jumpToContactLog already used). Neither existed, and
+    "scroll down and find the digital presence card" is not something he can
+    do while a client is talking.

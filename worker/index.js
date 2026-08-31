@@ -29657,6 +29657,243 @@ function rankStories(rows, bottleneckPatterns, clientPatterns, clientIndustry) {
 }
 
 // ---------------------------------------------------------------------------
+// MEETING PREP — the three non-X-Ray types: kickoff, weekly RDE and the
+// 30-day cycle close. Everything below reads data that already exists; no
+// table was added for any of it.
+//
+// The X-Ray type answers "what is wrong with this business". These three
+// answer "where does this engagement stand", which is a different question
+// against different rows, so each type contributes its own block to the same
+// response rather than widening the X-Ray one.
+// ---------------------------------------------------------------------------
+
+// The four meeting types, in the order the picker lists them. LOCKED to this
+// set: an unrecognised ?type= falls back to xray_results rather than rendering
+// a page with no sections at all.
+var MEETING_TYPE_KEYS = ["xray_results", "kickoff", "rde_semanal", "fechamento"];
+
+function isMeetingTypeKey(t) {
+    return MEETING_TYPE_KEYS.indexOf(t) > -1;
+}
+
+// Month label 'YYYY-MM' for a date string, and the month before it. Used by
+// the cycle close, which shows this month against the previous one.
+function prevMonthLabel(month) {
+    var y = parseInt(String(month).slice(0, 4), 10);
+    var m = parseInt(String(month).slice(5, 7), 10);
+    if (!isFinite(y) || !isFinite(m)) { return null; }
+    m -= 1;
+    if (m < 1) { m = 12; y -= 1; }
+    return y + "-" + (m < 10 ? "0" + m : String(m));
+}
+
+// Where the engagement stands, from package_started_at + packages.duration_days.
+// Returns null when either is missing: "week 2" with no total is the framing
+// this section exists to avoid, since week 2 of 4 and week 2 of 26 are the
+// same number and opposite situations.
+async function computeEngagementStage(env, client, today) {
+    if (!client.package_started_at || !client.package) { return null; }
+    var pkg = await env.DB.prepare(
+        "SELECT short_name, duration_days FROM packages WHERE short_name = ?"
+    ).bind(client.package).first();
+    if (!pkg || !pkg.duration_days) { return null; }
+
+    var startMs = new Date(client.package_started_at + "T12:00:00Z").getTime();
+    var todayMs = new Date(today + "T12:00:00Z").getTime();
+    if (!isFinite(startMs) || !isFinite(todayMs)) { return null; }
+
+    var dayNum   = Math.floor((todayMs - startMs) / 86400000) + 1;
+    if (dayNum < 1) { dayNum = 1; }
+    var totalWks = Math.round(pkg.duration_days / 7);
+    var weekNum  = Math.ceil(dayNum / 7);
+    if (totalWks > 0 && weekNum > totalWks) { weekNum = totalWks; }
+
+    return {
+        started_at:    client.package_started_at,
+        package:       pkg.short_name,
+        duration_days: pkg.duration_days,
+        day:           dayNum,
+        week:          weekNum,
+        total_weeks:   totalWks,
+        days_left:     Math.max(0, pkg.duration_days - dayNum)
+    };
+}
+
+// The most recent session for this client that actually carries a summary.
+// A scheduled-but-unsummarised session is skipped rather than reported as an
+// empty last meeting -- "nothing was agreed" and "it has not been written up
+// yet" are different claims and only one of them is true.
+async function loadLastSessionRecap(env, clientId) {
+    var row = await env.DB.prepare(
+        "SELECT s.id, s.date, s.task_completions, " +
+        "ss.client_action_items_pt, ss.client_action_items_en, " +
+        "ss.rafa_followups_pt, ss.rafa_followups_en, " +
+        "ss.next_session_focus_pt, ss.next_session_focus_en, " +
+        "ss.summary_pt, ss.summary_en " +
+        "FROM sessions s JOIN session_summaries ss ON ss.session_id = s.id " +
+        "WHERE s.client_id = ? AND s.status != 'discarded' " +
+        "ORDER BY s.date DESC LIMIT 1"
+    ).bind(clientId).first();
+    if (!row) { return null; }
+
+    var completions = {};
+    if (row.task_completions) {
+        try { completions = JSON.parse(row.task_completions) || {}; } catch (e) { completions = {}; }
+    }
+    // The fireflies_id marker shares this column with real completion keys;
+    // it is not a task and must never be counted as one.
+    var doneCount = 0;
+    for (var k in completions) {
+        if (!Object.prototype.hasOwnProperty.call(completions, k)) { continue; }
+        if (k === "fireflies_id") { continue; }
+        if (completions[k]) { doneCount += 1; }
+    }
+
+    // The unified `tasks` table is the live source of truth for whether an
+    // item is done; task_completions is the legacy per-session map. Both are
+    // reported, because a client on the old shape has only the second.
+    var taskRows = await env.DB.prepare(
+        "SELECT id, type, description, due_date, status FROM tasks " +
+        "WHERE client_id = ? ORDER BY (status = 'done'), due_date"
+    ).bind(clientId).all();
+
+    var tasks = (taskRows.results || []).map(function(t) {
+        return {
+            id: t.id, type: t.type, description: t.description,
+            due_date: t.due_date, done: t.status === "done"
+        };
+    });
+
+    return {
+        session_id:   row.id,
+        date:         row.date,
+        client_action_items_pt: row.client_action_items_pt,
+        client_action_items_en: row.client_action_items_en,
+        rafa_followups_pt:      row.rafa_followups_pt,
+        rafa_followups_en:      row.rafa_followups_en,
+        next_session_focus_pt:  row.next_session_focus_pt,
+        next_session_focus_en:  row.next_session_focus_en,
+        summary_pt:             row.summary_pt,
+        summary_en:             row.summary_en,
+        completions_done:       doneCount,
+        tasks:                  tasks
+    };
+}
+
+// Goal coverage for a month: how many goalable indicators carry a meta_mensal
+// against how many are goalable at all. The kickoff checklist reads this to
+// decide whether to send him to set targets or to tell him they are set.
+function goalCoverage(config) {
+    var total = 0;
+    var withMeta = 0;
+    INDICATORS.forEach(function(ind) {
+        if (!isGoalableIndicator(ind)) { return; }
+        if (!config[ind.key] || !config[ind.key].enabled) { return; }
+        total += 1;
+        var m = config[ind.key].meta_mensal;
+        if (m !== null && m !== undefined) { withMeta += 1; }
+    });
+    return { goalable: total, with_meta: withMeta, all_set: total > 0 && withMeta === total };
+}
+
+// Indicators split into the ones that need talking about and the rest.
+// "behind" = zero, or behind the pace the month is actually at. Rafa has said
+// "muito indicador aqui" while hunting on screen: 26 rows is not a list he can
+// read live, so the page shows the bad ones and puts the rest behind an
+// expander. Pace is elapsed-day proportional, so on day 10 of 31 a target of
+// 100 expects ~32, not 100.
+function splitIndicatorsByPace(indicators, monthFraction) {
+    var behind = [];
+    var onPace = [];
+    for (var i = 0; i < indicators.length; i++) {
+        var x = indicators[i];
+        if (x.meta_mensal === null || x.meta_mensal === undefined) { continue; }
+        if (x.key === "metas_batidas") { continue; }
+        var real = x.realizado;
+        var isBehind;
+        if (real === null || real === undefined) {
+            isBehind = true;
+        } else if (x.inverse) {
+            // An inverse indicator (expenses, rework, response time) is behind
+            // when it is ALREADY over the whole-month ceiling.
+            isBehind = real > x.meta_mensal;
+        } else {
+            isBehind = real < (x.meta_mensal * monthFraction);
+        }
+        if (isBehind) { behind.push(x); } else { onPace.push(x); }
+    }
+    // Worst first, by how far short of the full month's target they are.
+    behind.sort(function(a, b) {
+        var am = a.meta_mensal || 1;
+        var bm = b.meta_mensal || 1;
+        var ap = (a.realizado === null || a.realizado === undefined) ? 0 : a.realizado / am;
+        var bp = (b.realizado === null || b.realizado === undefined) ? 0 : b.realizado / bm;
+        return ap - bp;
+    });
+    return { behind: behind, on_pace: onPace };
+}
+
+// What the business now HAS that it did not have before -- assets acquired,
+// never revenue. Rafa proves the cycle's value with what was built, and a
+// revenue scoreboard at the 30-day close is exactly the wrong artifact:
+// a month of real structural work can sit alongside a flat month of sales.
+async function loadCycleAssets(env, clientId, month) {
+    var monthLike = month + "-%";
+
+    var docs = await env.DB.prepare(
+        "SELECT id, title, created_at FROM client_documents " +
+        "WHERE client_id = ? AND created_at LIKE ? ORDER BY created_at"
+    ).bind(clientId, monthLike).all();
+
+    var assessments = await env.DB.prepare(
+        "SELECT assessment_type, status, completed_at FROM client_assessments " +
+        "WHERE client_id = ? AND status = 'completed' AND completed_at LIKE ?"
+    ).bind(clientId, monthLike).all();
+
+    var goalsSet = await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM client_field_config " +
+        "WHERE client_id = ? AND month_label = ? AND meta_mensal IS NOT NULL"
+    ).bind(clientId, month).first();
+
+    // Processes documented is an indicator the client logs, so the count of
+    // them built this month is a real asset, not a proxy for one.
+    var entries = await env.DB.prepare(
+        "SELECT sections_json FROM client_daily_entries " +
+        "WHERE client_id = ? AND entry_date LIKE ? AND completed = 1"
+    ).bind(clientId, monthLike).all();
+
+    var processos = 0;
+    var completedDays = 0;
+    (entries.results || []).forEach(function(r) {
+        completedDays += 1;
+        var secs = parseSectionsJson(r.sections_json);
+        var block = secs.processos;
+        if (block && block.values) {
+            var v = Number(block.values.processos_documentados);
+            if (isFinite(v)) { processos += v; }
+        }
+    });
+
+    return {
+        documents: (docs.results || []).map(function(d) {
+            return { id: d.id, title: d.title, created_at: d.created_at };
+        }),
+        assessments: (assessments.results || []).map(function(a) {
+            var meta = ASSESSMENT_TYPES[a.assessment_type];
+            return {
+                type: a.assessment_type,
+                labelPt: meta ? meta.labelPt : a.assessment_type,
+                labelEn: meta ? meta.labelEn : a.assessment_type,
+                completed_at: a.completed_at
+            };
+        }),
+        goals_set:             goalsSet ? goalsSet.n : 0,
+        processos_documentados: processos,
+        completed_days:        completedDays
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/meeting-prep?type=xray_results
 // Staff only. One response, everything the prep page needs.
 // ---------------------------------------------------------------------------
@@ -29667,14 +29904,27 @@ async function handleGetMeetingPrep(clientId, request, env) {
         if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
 
         var url  = new URL(request.url);
-        var type = url.searchParams.get("type") || "xray_results";
+        var type = url.searchParams.get("type") || "";
+        // An unrecognised type renders a page with no sections, so it falls
+        // back rather than being trusted.
+        if (!isMeetingTypeKey(type)) { type = ""; }
 
         var client = await env.DB.prepare(
-            "SELECT id, name, owners, industry, location, package, status, lead_stage, " +
-            "phone, email, whatsapp, instagram_handle, digital_presence, language " +
+            "SELECT id, name, owners, industry, location, package, package_started_at, " +
+            "status, lead_stage, phone, email, whatsapp, instagram_handle, " +
+            "digital_presence, language " +
             "FROM clients WHERE id = ?"
         ).bind(clientId).first();
         if (!client) { return jsonErr("Client not found", 404); }
+
+        // sessions carries the booked shape of the next meeting. There is no
+        // sessions.meeting_type column -- session_type is the online/in-person
+        // channel, not the kind of meeting -- so the scheduled row cannot
+        // choose the type on its own. What it CAN do is say whether a session
+        // exists at all, which is why type resolution stops at the explicit
+        // ?type= and otherwise leaves the picker to decide.
+        var typeSource = type ? "param" : "picker";
+        if (!type) { type = "xray_results"; }
 
         var assessment = await env.DB.prepare(
             "SELECT status, answers_json, profile_json, score_json, completed_at " +
@@ -29739,9 +29989,129 @@ async function handleGetMeetingPrep(clientId, request, env) {
             storyRows.results || [], bottleneckPatterns, clientPatterns, client.industry
         );
 
+        // ---- The three non-X-Ray types ------------------------------------
+        // Each block is built ONLY for the type that shows it: the weekly RDE
+        // does not pay for the cycle close's month-over-month read, and the
+        // kickoff does not pay for either. A block that is not built is null,
+        // and the page renders nothing for it rather than an empty state.
+        var today     = new Date().toISOString().slice(0, 10);
+        var month     = today.slice(0, 7);
+        var kickoff   = null;
+        var weekly    = null;
+        var cycle     = null;
+        var engagement = null;
+
+        if (type === "kickoff" || type === "rde_semanal" || type === "fechamento") {
+            engagement = await computeEngagementStage(env, client, today);
+        }
+
+        if (type === "kickoff") {
+            var kConfig = await getFieldConfig(env, clientId, month);
+            kickoff = {
+                month:         month,
+                goals:         goalCoverage(kConfig),
+                has_xray:      !!(assessment && assessment.status === "completed"),
+                today:         today
+            };
+        }
+
+        if (type === "rde_semanal") {
+            var wSummary = await computeMonthlySummary(env, clientId, month);
+            // Pace: how far into the month we are. A target is not "behind"
+            // on day 3 just because it is not yet met.
+            var daysInMonth = new Date(
+                parseInt(month.slice(0, 4), 10),
+                parseInt(month.slice(5, 7), 10), 0
+            ).getUTCDate();
+            var dayOfMonth = parseInt(today.slice(8, 10), 10);
+            var fraction = daysInMonth ? Math.min(1, dayOfMonth / daysInMonth) : 1;
+
+            var goaled = wSummary.indicators.filter(function(x) {
+                return x.meta_mensal !== null && x.meta_mensal !== undefined &&
+                       x.key !== "metas_batidas";
+            });
+            var split = splitIndicatorsByPace(goaled, fraction);
+
+            weekly = {
+                month:          month,
+                month_fraction: Math.round(fraction * 100) / 100,
+                completed_days: wSummary.completed_days,
+                behind:         split.behind,
+                on_pace:        split.on_pace,
+                last_session:   await loadLastSessionRecap(env, clientId)
+            };
+        }
+
+        if (type === "fechamento") {
+            var prev = prevMonthLabel(month);
+            var thisMonth = await computeMonthlySummary(env, clientId, month);
+            var prevMonth = prev ? await computeMonthlySummary(env, clientId, prev) : null;
+
+            var prevByKey = {};
+            if (prevMonth) {
+                prevMonth.indicators.forEach(function(x) { prevByKey[x.key] = x; });
+            }
+
+            var compared = thisMonth.indicators.filter(function(x) {
+                return x.meta_mensal !== null && x.meta_mensal !== undefined &&
+                       x.key !== "metas_batidas";
+            }).map(function(x) {
+                var pv = prevByKey[x.key];
+                return {
+                    key: x.key, label_pt: x.label_pt, label_en: x.label_en,
+                    inverse: x.inverse, type: x.type,
+                    meta_mensal: x.meta_mensal, realizado: x.realizado, falta: x.falta,
+                    prev_realizado: pv ? pv.realizado : null,
+                    prev_meta:      pv ? pv.meta_mensal : null
+                };
+            });
+
+            // Furthest behind at the close, worst first. Unlike the weekly
+            // read this is not pace-adjusted: the month is over.
+            var weak = compared.slice().filter(function(x) {
+                if (x.realizado === null || x.realizado === undefined) { return true; }
+                return x.inverse ? x.realizado > x.meta_mensal : x.realizado < x.meta_mensal;
+            }).sort(function(a, b) {
+                var am = a.meta_mensal || 1, bm = b.meta_mensal || 1;
+                var ap = (a.realizado === null || a.realizado === undefined) ? 0 : a.realizado / am;
+                var bp = (b.realizado === null || b.realizado === undefined) ? 0 : b.realizado / bm;
+                return ap - bp;
+            });
+
+            // Any X-Ray area still critical belongs in "what is still weak"
+            // alongside the numbers -- it is the same question asked of the
+            // instrument rather than of the daily log.
+            var criticalAreas = [];
+            var scAreas = (score && score.areas) || [];
+            for (var ci = 0; ci < scAreas.length; ci++) {
+                var st = String(scAreas[ci].status || "");
+                if (st === "Critico" || st === "Cr\u00edtico") {
+                    criticalAreas.push({
+                        key: scAreas[ci].key,
+                        namePt: scAreas[ci].namePt, nameEn: scAreas[ci].nameEn,
+                        pct: scAreas[ci].pct, status: scAreas[ci].status
+                    });
+                }
+            }
+
+            cycle = {
+                month:           month,
+                prev_month:      prev,
+                indicators:      compared,
+                weak:            weak,
+                critical_areas:  criticalAreas,
+                assets:          await loadCycleAssets(env, clientId, month)
+            };
+        }
+
         return jsonOk({
             client:        client,
             meeting_type:  type,
+            type_source:   typeSource,
+            engagement:    engagement,
+            kickoff:       kickoff,
+            weekly:        weekly,
+            cycle:         cycle,
             assessment:    assessment ? {
                 status:       assessment.status,
                 completed_at: assessment.completed_at,

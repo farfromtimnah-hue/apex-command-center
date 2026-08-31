@@ -353,6 +353,89 @@
       background: var(--gold-dim); border-radius: 8px;
     }
 
+    /* ---- Kickoff / weekly RDE / cycle close ---------------------------- */
+
+    /* The kickoff steps. A numbered step, one line of context, and the link
+       to the screen the thing is actually entered on. */
+    .step { display: flex; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); }
+    .step:first-of-type { border-top: none; padding-top: 0; }
+    .step-n {
+      flex: 0 0 26px; height: 26px; border-radius: 50%;
+      background: var(--navy); color: #fff;
+      font-size: 12px; font-weight: 700; text-align: center; line-height: 26px;
+    }
+    .step-main { min-width: 0; flex: 1; }
+    .step-title { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
+    .step-ctx { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 8px; }
+    .step-link {
+      display: inline-block; font-size: 13px; font-weight: 600; color: var(--gold);
+      text-decoration: none; border-bottom: 1px solid transparent; margin-right: 14px;
+    }
+    .step-link:hover { border-bottom-color: currentColor; }
+    .step-note { font-size: 11px; color: var(--muted); display: block; margin-top: 5px; }
+    /* Step 3 has nowhere to link: the system does not hold unit costs at all.
+       Saying so is the point, so it reads as a stated gap, not a dead link. */
+    .step-gap {
+      font-size: 13px; line-height: 1.55; border-left: 3px solid var(--crit);
+      background: var(--surface); padding: 9px 12px; border-radius: 0 6px 6px 0;
+    }
+    .step-done { font-size: 13px; color: var(--good); font-weight: 600; }
+
+    /* Indicator lines, in his own sentence shape. */
+    .ind-row { padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px; line-height: 1.5; }
+    .ind-row:first-child { border-top: none; }
+    .ind-name { font-weight: 700; }
+    .ind-num { font-weight: 700; color: var(--navy); }
+    .ind-miss { font-weight: 700; color: var(--crit); }
+    .ind-ok { font-size: 14px; color: var(--good); font-weight: 600; }
+
+    /* The week, day by day. Reused from the client page verbatim, so the
+       eight states keep the same colours he already reads there. */
+    .wk-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .wk-nav { display: flex; align-items: center; gap: 6px; }
+    .wk-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    }
+    .wk-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .wk-range { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .wk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 6px; }
+    .wk-day {
+      text-align: center; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 2px; font-family: inherit; background: transparent;
+    }
+    .wk-day.is-today { border-color: var(--gold); }
+    .wk-dow { font-size: 10px; color: var(--muted); font-weight: 700; }
+    .wk-num { font-size: 14px; font-weight: 700; margin: 2px 0; }
+    .wk-state { font-size: 9px; font-weight: 700; line-height: 1.2; }
+    .wk-reasons { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .wk-blind {
+      font-size: 12px; color: var(--muted); line-height: 1.55;
+      margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--border);
+    }
+
+    /* Before and after, at the close. */
+    .ba-row {
+      display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+      padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px;
+    }
+    .ba-row:first-child { border-top: none; }
+    .ba-name { flex: 1 1 180px; font-weight: 600; }
+    .ba-now { font-weight: 700; white-space: nowrap; }
+    .ba-prev { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    /* What was built. Assets, never revenue. */
+    .built-n { font-size: 22px; font-weight: 800; color: var(--navy); }
+    .built-row { padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px; }
+    .built-row:first-child { border-top: none; }
+    .built-label { font-size: 12px; color: var(--muted); }
+    .built-list { margin: 6px 0 0; padding-left: 18px; }
+    .built-list li { font-size: 13px; line-height: 1.6; }
+
     /* Checklist */
     .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
     .check-row:first-child { border-top: none; }
@@ -433,12 +516,35 @@
       risco_sem_conselho:     "risco sem conselho"
     };
 
+    // The after-meeting checklist. Every type ends on one; what belongs on it
+    // depends on the meeting. The X-Ray list is the sales close, and sending
+    // a prospect's pricing comparison after a weekly RDE with an existing
+    // client would be nonsense, so each type carries its own.
     var AFTER_MEETING = [
       { id: "chk_xray",     pt: "Enviar o Raio-X",                  en: "Send the X-Ray" },
       { id: "chk_pricing",  pt: "Enviar o comparativo de pre&#231;os",   en: "Send the pricing comparison" },
       { id: "chk_whatsapp", pt: "Criar o grupo de WhatsApp",        en: "Create the WhatsApp group" },
       { id: "chk_payment",  pt: "Definir a data de pagamento",      en: "Set the payment date" }
     ];
+
+    var AFTER_MEETING_BY_TYPE = {
+      kickoff: [
+        { id: "chk_k_goals",   pt: "Conferir as metas que ficaram salvas",    en: "Check the targets that were saved" },
+        { id: "chk_k_entry",   pt: "Conferir o primeiro registro di&#225;rio",     en: "Check the first daily log" },
+        { id: "chk_k_costs",   pt: "Levantar os custos por unidade",          en: "Collect the unit costs" },
+        { id: "chk_k_whatsapp",pt: "Criar o grupo de WhatsApp",               en: "Create the WhatsApp group" }
+      ],
+      rde_semanal: [
+        { id: "chk_r_summary", pt: "Escrever o resumo da sess&#227;o",            en: "Write the session summary" },
+        { id: "chk_r_tasks",   pt: "Registrar o que cada um ficou de fazer",  en: "Record what each side agreed to do" },
+        { id: "chk_r_focus",   pt: "Definir o foco da pr&#243;xima sess&#227;o",       en: "Set the next session's focus" }
+      ],
+      fechamento: [
+        { id: "chk_f_report",  pt: "Escrever o relat&#243;rio do ciclo",           en: "Write the cycle report" },
+        { id: "chk_f_goals",   pt: "Definir as metas do pr&#243;ximo m&#234;s",         en: "Set next month's targets" },
+        { id: "chk_f_next",    pt: "Combinar o pr&#243;ximo ciclo",                en: "Agree the next cycle" }
+      ]
+    };
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -518,6 +624,40 @@
       return "warn";
     }
 
+    // Meeting type -> the line under the client's name. Falls back to the raw
+    // key rather than to the X-Ray label, so an unknown type never claims to
+    // be a meeting it is not.
+    function typeLabelHtml(type) {
+      if (type === "xray_results") {
+        return ptEn("Reuni&#227;o de resultados do Raio-X", "X-Ray results meeting");
+      }
+      if (type === "kickoff") {
+        return ptEn("Kickoff", "Kickoff");
+      }
+      if (type === "rde_semanal") {
+        return ptEn("RDE semanal", "Weekly RDE");
+      }
+      if (type === "fechamento") {
+        return ptEn("Fechamento de ciclo, 30 dias", "Cycle close, 30 days");
+      }
+      return escHtml(type || "");
+    }
+
+    // A number as he would say it. Currency and percent carry their mark;
+    // everything else is a plain count. Nulls never reach here.
+    function fmtInd(v, type) {
+      var n = Number(v);
+      if (!isFinite(n)) { return escHtml(String(v)); }
+      var r = Math.round(n * 100) / 100;
+      if (type === "currency") { return "$" + r; }
+      if (type === "percent" || type === "computed" || type === "computed_month") {
+        // margem_lucro / taxa_conversao / metas_batidas are all percentages.
+        return r + "%";
+      }
+      if (type === "hours") { return r + "h"; }
+      return String(r);
+    }
+
     // ---- 1 Header ---------------------------------------------------------
     function renderHead(d) {
       var c = d.client || {};
@@ -526,9 +666,7 @@
       if (c.location) { bits.push(escHtml(c.location)); }
       if (c.industry) { bits.push(escHtml(c.industry)); }
 
-      var typeLabel = d.meeting_type === "xray_results"
-        ? ptEn("Reuni&#227;o de resultados do Raio-X", "X-Ray results meeting")
-        : escHtml(d.meeting_type || "");
+      var typeLabel = typeLabelHtml(d.meeting_type);
 
       var h = '<div class="card">';
       if (IS_EXAMPLE) {
@@ -892,6 +1030,11 @@
       return h;
     }
 
+    // He tells stories in EVERY kind of meeting, so this section is on all
+    // four types, not just the X-Ray one. With a completed X-Ray the ranking
+    // uses score_json and profile_json as before; without one it falls back to
+    // the typed bottleneck alone; with neither, the stories are simply shown
+    // unranked rather than the section disappearing.
     function renderStories(d) {
       var list = d.stories || [];
       if (!list.length) { return ""; }
@@ -947,14 +1090,619 @@
     }
 
     // ---- 9 After the meeting ---------------------------------------------
-    function renderChecklist() {
+    function renderChecklist(type) {
+      var list = AFTER_MEETING_BY_TYPE[type] || AFTER_MEETING;
       var h = '<div class="card"><p class="sec-title">' +
               ptEn("Depois da reuni&#227;o", "After the meeting") + '</p>';
-      for (var i = 0; i < AFTER_MEETING.length; i++) {
-        var it = AFTER_MEETING[i];
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i];
         h += '<div class="check-row"><input type="checkbox" id="' + it.id + '">' +
              '<label for="' + it.id + '">' + ptEn(it.pt, it.en) + '</label></div>';
       }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- KICKOFF ----------------------------------------------------------
+    // The meeting where targets do not exist yet. He builds about twenty of
+    // them live with the client and fills in the first daily log with them,
+    // teaching the tool as he goes. So this is NOT a report: it is a checklist
+    // where every step links to the screen that thing is actually entered on.
+
+    // Read-only portal preview for staff, optionally landing on a tab.
+    function portalHref(tab) {
+      var h = "portal.html?previewAs=" + encodeURIComponent(CLIENT_ID);
+      if (tab) { h += "&tab=" + encodeURIComponent(tab); }
+      return h;
+    }
+
+    function clientHref(extra) {
+      return "client.html?id=" + encodeURIComponent(CLIENT_ID) + (extra || "");
+    }
+
+    // What the system already knows, so he does not open the meeting asking
+    // for things it can already tell him.
+    function renderKickoffKnown(d) {
+      var c = d.client || {};
+      var k = d.kickoff || {};
+      var items = [];
+
+      function kv(labelHtml, valueHtml) {
+        items.push('<div class="kv-item"><div class="kv-label">' + labelHtml +
+                   '</div><div class="kv-value">' + valueHtml + '</div></div>');
+      }
+
+      if (c.package)            { kv(ptEn("Pacote", "Package"), escHtml(c.package)); }
+      if (c.package_started_at) { kv(ptEn("In&#237;cio", "Started"), escHtml(c.package_started_at)); }
+      if (c.industry)           { kv(ptEn("Setor", "Industry"), escHtml(c.industry)); }
+      if (c.location)           { kv(ptEn("Local", "Location"), escHtml(c.location)); }
+      if (c.owners)             { kv(ptEn("Donos", "Owners"), escHtml(c.owners)); }
+      kv(ptEn("Raio-X", "X-Ray"), k.has_xray
+        ? ptEn("conclu&#237;do", "completed")
+        : ptEn("sem Raio-X conclu&#237;do", "no completed X-Ray"));
+
+      if (!items.length) { return ""; }
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que o sistema j&#225; sabe", "What the system already knows") +
+             '</p><div class="kv">' + items.join("") + '</div></div>';
+    }
+
+    function renderKickoff(d) {
+      var k = d.kickoff;
+      if (!k) { return ""; }
+      var g = k.goals || {};
+
+      var h = renderKickoffKnown(d);
+
+      h += '<div class="card"><p class="sec-title">' +
+           ptEn("A reuni&#227;o, passo a passo", "The meeting, step by step") + '</p>';
+
+      // --- 1 the goals -----------------------------------------------------
+      h += '<div class="step"><div class="step-n">1</div><div class="step-main">';
+      h += '<p class="step-title">' +
+           ptEn("Definir as metas do m&#234;s", "Set the month's targets") + '</p>';
+
+      if (g.all_set) {
+        // Do not send him to set what is already set.
+        h += '<p class="step-done">' +
+             ptEn(escHtml("As " + g.goalable + " metas do mes ja estao definidas."),
+                  escHtml("All " + g.goalable + " targets for the month are already set.")) +
+             '</p>';
+      } else {
+        h += '<p class="step-ctx">' +
+             ptEn(escHtml(g.with_meta + " de " + g.goalable + " indicadores com meta definida para o mes."),
+                  escHtml(g.with_meta + " of " + g.goalable + " indicators have a target for the month.")) +
+             '</p>';
+      }
+
+      h += '<a class="step-link" href="' + portalHref("goals") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir as metas no portal do cliente", "Open goals in the client portal") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("O preview do portal &#233; somente leitura para a equipe. Na reuni&#227;o quem preenche &#233; o cliente, no login dele, enquanto ele acompanha.",
+                "The portal preview is read-only for staff. In the meeting the client drives it on their own login while he walks them through it.") +
+           '</span>';
+      h += '<a class="step-link" style="margin-top:8px;" href="' + clientHref("&section=portalAccess") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Ou definir as metas ele mesmo, na ficha do cliente",
+                "Or set the targets himself, on the client page") + '</a>';
+      h += '</div></div>';
+
+      // --- 2 the first daily log -------------------------------------------
+      h += '<div class="step"><div class="step-n">2</div><div class="step-main">';
+      h += '<p class="step-title">' +
+           ptEn("Preencher o primeiro registro di&#225;rio COM o cliente",
+                "Fill in the first daily log WITH the client") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("O objetivo aqui &#233; ensinar a ferramenta, n&#227;o coletar o dado.",
+                "The point here is teaching the tool, not collecting the data.") + '</p>';
+      h += '<a class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o registro de hoje", "Open today's entry") + '</a>';
+      h += '</div></div>';
+
+      // --- 3 unit costs, which the system does not hold ---------------------
+      h += '<div class="step"><div class="step-n">3</div><div class="step-main">';
+      h += '<p class="step-title">' + ptEn("Custos por unidade", "Unit costs") + '</p>';
+      h += '<div class="step-gap">' +
+           ptEn("O sistema n&#227;o registra custo por unidade em lugar nenhum. N&#227;o h&#225; tela para abrir: &#233; a maior lacuna que este kickoff deixa aberta, e ela precisa ser levantada na conversa.",
+                "The system records unit costs nowhere. There is no screen to open: it is the largest gap this kickoff leaves open, and it has to be raised in the conversation.") +
+           '</div>';
+      h += '</div></div>';
+
+      // --- 4 digital presence ----------------------------------------------
+      h += '<div class="step"><div class="step-n">4</div><div class="step-main">';
+      h += '<p class="step-title">' + ptEn("Presen&#231;a digital", "Digital presence") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("O que a empresa j&#225; tem no ar, e o que falta.",
+                "What the business already has live, and what is missing.") + '</p>';
+      h += '<a class="step-link" href="' + clientHref("&section=dp") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir a presen&#231;a digital", "Open digital presence") + '</a>';
+      h += '</div></div>';
+
+      h += '</div>';
+      return h;
+    }
+    // ---- WEEKLY RDE -------------------------------------------------------
+    // His actual meeting order, beat by beat, so he can move down the page as
+    // the meeting moves. The order is his, not a redesign of it.
+
+    // 1 Last session: what was agreed, and what is marked done.
+    function renderLastSession(d) {
+      var w = d.weekly;
+      var ls = w && w.last_session;
+      if (!ls) { return ""; }
+
+      var actions = isEn() ? (ls.client_action_items_en || ls.client_action_items_pt)
+                           : (ls.client_action_items_pt || ls.client_action_items_en);
+      var follow  = isEn() ? (ls.rafa_followups_en || ls.rafa_followups_pt)
+                           : (ls.rafa_followups_pt || ls.rafa_followups_en);
+
+      var tasks = ls.tasks || [];
+      var clientTasks = [];
+      var rafaTasks   = [];
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].type === "consultant") { rafaTasks.push(tasks[i]); }
+        else { clientTasks.push(tasks[i]); }
+      }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("A &#250;ltima sess&#227;o", "Last session") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn(escHtml("Sessao de " + ls.date + "."),
+                escHtml("Session of " + ls.date + ".")) + '</p>';
+
+      // The live task rows carry a real done flag, so they are shown as the
+      // record of what was agreed. The prose blocks below are the write-up.
+      if (clientTasks.length || rafaTasks.length) {
+        h += taskBlock(ptEn("O que o cliente ficou de fazer", "What the client agreed to do"), clientTasks);
+        h += taskBlock(ptEn("O que ele ficou de fazer", "What he agreed to do"), rafaTasks);
+      }
+
+      if (actions) {
+        h += '<p class="plan-label" style="margin-top:14px;">' +
+             ptEn("Combinado com o cliente", "Agreed with the client") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(actions) + '</div>';
+      }
+      if (follow) {
+        h += '<p class="plan-label">' + ptEn("Os retornos dele", "His follow-ups") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(follow) + '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    function taskBlock(labelHtml, rows) {
+      if (!rows.length) { return ""; }
+      var h = '<p class="plan-label" style="margin-top:12px;">' + labelHtml + '</p>';
+      for (var i = 0; i < rows.length; i++) {
+        var t = rows[i];
+        h += '<div class="check-row">';
+        // Not an input: this page states what is true, it does not re-open
+        // the task list. The tick is a read-out, not a control.
+        h += '<span class="q-mark ' + (t.done ? "q-yes" : "q-no") + '">' +
+             (t.done ? "&#10003;" : "&#8212;") + '</span>';
+        h += '<label>' + escHtml(t.description || "");
+        if (t.due_date) {
+          h += ' <span class="step-note" style="display:inline;">' + escHtml(t.due_date) + '</span>';
+        }
+        h += '</label></div>';
+      }
+      return h;
+    }
+
+    // 2 Indicators, worst first. Capped on purpose -- see the note in the
+    // section itself. Zeros and behind-pace only; the rest expand.
+    function renderWeeklyIndicators(d) {
+      var w = d.weekly;
+      if (!w) { return ""; }
+      var behind = w.behind || [];
+      var onPace = w.on_pace || [];
+      if (!behind.length && !onPace.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Os indicadores, pior primeiro", "Indicators, worst first") + '</p>';
+
+      if (!behind.length) {
+        h += '<p class="ind-ok">' +
+             ptEn(escHtml("Todos os " + onPace.length + " indicadores com meta estao no ritmo do mes."),
+                  escHtml("All " + onPace.length + " indicators with a target are on pace for the month.")) +
+             '</p>';
+      } else {
+        for (var i = 0; i < behind.length; i++) { h += indicatorLine(behind[i]); }
+      }
+
+      if (onPace.length && behind.length) {
+        h += '<details class="area-d" style="margin-top:12px;"><summary>' +
+             '<span class="area-more">' +
+             '<span class="area-more-shut">' +
+             ptEn(escHtml("Ver os outros " + onPace.length + " indicadores"),
+                  escHtml("See the other " + onPace.length + " indicators")) +
+             '</span>' +
+             '<span class="area-more-open">' + ptEn("Fechar", "Close") + '</span>' +
+             '</span></summary><div style="margin-top:8px;">';
+        for (var j = 0; j < onPace.length; j++) { h += indicatorLine(onPace[j]); }
+        h += '</div></details>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // His own sentence shape: done N, goal M, N missing.
+    function indicatorLine(x) {
+      var name = isEn() ? (x.label_en || x.label_pt) : (x.label_pt || x.label_en);
+      var done = (x.realizado === null || x.realizado === undefined)
+        ? null : fmtInd(x.realizado, x.type);
+      var goal = fmtInd(x.meta_mensal, x.type);
+
+      var h = '<div class="ind-row"><span class="ind-name">' + escHtml(name) + '</span> &middot; ';
+      if (done === null) {
+        h += ptEn("sem registro", "nothing logged") + ', ' +
+             ptEn("meta ", "goal ") + '<span class="ind-num">' + goal + '</span>';
+      } else {
+        var missTxt = "";
+        if (x.falta !== null && x.falta !== undefined && x.falta > 0) {
+          missTxt = ', <span class="ind-miss">' + fmtInd(x.falta, x.type) + ' ' +
+                    (isEn() ? "missing" : "faltando") + '</span>';
+        }
+        h += ptEn("feito ", "done ") + '<span class="ind-num">' + done + '</span>, ' +
+             ptEn("meta ", "goal ") + '<span class="ind-num">' + goal + '</span>' + missTxt;
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // 3 The week, day by day. The client page's component, same endpoint and
+    // same eight states -- deliberately NOT a simplified version, and never
+    // collapsed to "5 of 7 days": a client answers "I think I did it all", and
+    // the point is to be able to name the days.
+    var WEEK_START = null;
+
+    var WK_STATES = {
+      completed:     { color: "#3f7d4e", bg: "rgba(63,125,78,0.12)",  pt: "Completo",          en: "Completed" },
+      filled_late:   { color: "#8a6d1d", bg: "rgba(201,164,58,0.18)", pt: "Preenchido depois", en: "Filled late" },
+      day_off:       { color: "#6b6660", bg: "rgba(107,102,96,0.12)", pt: "Folga",             en: "Day off" },
+      not_scheduled: { color: "#b8b2a8", bg: "transparent",           pt: "N&#227;o trabalha", en: "Not scheduled" },
+      partial:       { color: "#8a6d1d", bg: "rgba(201,164,58,0.18)", pt: "Parcial",           en: "Partial" },
+      missing:       { color: "#b44040", bg: "rgba(180,64,64,0.1)",   pt: "Sem registro",      en: "Missing" },
+      future:        { color: "#b8b2a8", bg: "transparent",           pt: "&#8212;",           en: "&#8212;" },
+      not_tracked:   { color: "#b8b2a8", bg: "transparent",           pt: "&#8212;",           en: "&#8212;" }
+    };
+
+    function mondayOf(d) {
+      var t = new Date(d.getTime());
+      var dow = (t.getUTCDay() + 6) % 7;
+      t.setUTCDate(t.getUTCDate() - dow);
+      return t.toISOString().slice(0, 10);
+    }
+
+    function shiftWeek(days) {
+      var base = WEEK_START || mondayOf(new Date());
+      var dt = new Date(base + "T12:00:00Z");
+      dt.setUTCDate(dt.getUTCDate() + days);
+      WEEK_START = mondayOf(dt);
+      loadWeek();
+    }
+
+    function thisWeek() { WEEK_START = null; loadWeek(); }
+
+    function loadWeek() {
+      var box = document.getElementById("weekBody");
+      if (!box) { return; }
+      var qs = WEEK_START ? "?start=" + encodeURIComponent(WEEK_START) : "";
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/weekly-summary" + qs)
+        .then(function(res) { return res.json(); })
+        .then(function(data) { renderWeek(data); })
+        .catch(function() {
+          var el = document.getElementById("weekBody");
+          if (el) { el.innerHTML = ""; }
+        });
+    }
+
+    function renderWeek(data) {
+      var el = document.getElementById("weekBody");
+      if (!el) { return; }
+      var days = data.days || [];
+      if (!days.length) { el.innerHTML = ""; return; }
+
+      var dayNames = isEn()
+        ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        : ["Seg", "Ter", "Qua", "Qui", "Sex", "S&#225;b", "Dom"];
+
+      var first = days[0].date;
+      var last  = days[days.length - 1].date;
+      var today = new Date().toISOString().slice(0, 10);
+      var isCurrent = today >= first && today <= last;
+
+      var h = '<div class="wk-head"><div class="wk-nav">';
+      h += '<button type="button" class="wk-btn" onclick="shiftWeek(-7)">&#8249;</button>';
+      h += '<button type="button" class="wk-btn" onclick="shiftWeek(7)">&#8250;</button>';
+      // "Esta semana" only when he is not already on it.
+      if (!isCurrent) {
+        h += '<button type="button" class="wk-btn" onclick="thisWeek()">' +
+             ptEn("Esta semana", "This week") + '</button>';
+      }
+      h += '</div><div class="wk-range">' + escHtml(first) + ' &#8211; ' + escHtml(last) + '</div></div>';
+
+      h += '<div class="wk-grid">';
+      for (var i = 0; i < days.length; i++) {
+        var dday = days[i];
+        var m = WK_STATES[dday.status] || WK_STATES.missing;
+        var clickable = dday.status !== "future" && dday.status !== "not_tracked" &&
+                        dday.status !== "not_scheduled";
+        var cls = "wk-day" + (dday.date === today ? " is-today" : "");
+        var open = clickable
+          ? '<a class="' + cls + '" style="display:block;text-decoration:none;color:inherit;background:' + m.bg +
+            ';" href="' + clientHref("&day=" + encodeURIComponent(dday.date)) +
+            '" target="_blank" rel="noopener"'
+          : '<div class="' + cls + '" style="background:' + m.bg + ';"';
+        if (dday.reason) { open += ' title="' + escHtml(dday.reason) + '"'; }
+        h += open + '>';
+        h += '<div class="wk-dow">' + dayNames[i] + '</div>';
+        h += '<div class="wk-num">' + escHtml(dday.date.split("-")[2]) + '</div>';
+        h += '<div class="wk-state" style="color:' + m.color + ';">' + ptEn(m.pt, m.en) + '</div>';
+        h += clickable ? '</a>' : '</div>';
+      }
+      h += '</div>';
+
+      var reasons = days.filter(function(x) { return x.reason; });
+      if (reasons.length) {
+        h += '<div class="wk-reasons">';
+        for (var r = 0; r < reasons.length; r++) {
+          h += '<div>' + escHtml(reasons[r].date) + ': ' + escHtml(reasons[r].reason) + '</div>';
+        }
+        h += '</div>';
+      }
+
+      h += '<p class="wk-blind">' +
+           ptEn("Um zero registrado e um dia n&#227;o preenchido n&#227;o s&#227;o a mesma coisa, e a diferen&#231;a est&#225; nomeada aqui dia a dia.",
+                "A logged zero and a day nobody filled in are not the same thing, and the difference is named here day by day.") +
+           '</p>';
+      el.innerHTML = h;
+    }
+
+    // The container. The week itself loads after render(), since it has its
+    // own endpoint and its own navigation.
+    function renderWeekCard(d) {
+      if (!d.weekly) { return ""; }
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("A semana, dia a dia", "The week, day by day") + '</p>' +
+             '<div id="weekBody"></div></div>';
+    }
+
+    // 4 Pipeline, then projects and margin. "O ouro" -- never summarised
+    // here, because he needs to drill into the actual leads and the real
+    // per-project margin, not read a number off this page.
+    function renderGold(d) {
+      if (!d.weekly) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Pipeline, projetos e margem", "Pipeline, projects and margin") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Abre nas telas reais, para entrar lead a lead e projeto a projeto.",
+                "Opens the real screens, to go lead by lead and project by project.") + '</p>';
+      h += '<a class="step-link" href="' + portalHref("gmcrm") + '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o pipeline", "Open the pipeline") + '</a>';
+      h += '<a class="step-link" href="' + portalHref("gmjobs") + '" target="_blank" rel="noopener">' +
+           ptEn("Abrir os projetos", "Open the projects") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("O preview do portal &#233; somente leitura para a equipe.",
+                "The portal preview is read-only for staff.") + '</span>';
+      h += '</div>';
+
+      // 5 Financeiro, a fixed beat of his meeting.
+      h += '<div class="card"><p class="sec-title">' +
+           ptEn("Financeiro", "Finances") + '</p>';
+      h += '<a class="step-link" href="' + portalHref("gmfinance") + '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o financeiro", "Open the finances") + '</a>';
+      h += '</div>';
+      return h;
+    }
+
+    // 6 Relatorio estrategico. He reads this out at the end, so last
+    // session's three lines are carried forward for him to build on.
+    function renderStrategic(d) {
+      var w = d.weekly;
+      var ls = w && w.last_session;
+      if (!ls) { return ""; }
+
+      var focus = isEn() ? (ls.next_session_focus_en || ls.next_session_focus_pt)
+                         : (ls.next_session_focus_pt || ls.next_session_focus_en);
+      var summ  = isEn() ? (ls.summary_en || ls.summary_pt)
+                         : (ls.summary_pt || ls.summary_en);
+      if (!focus && !summ) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Relat&#243;rio estrat&#233;gico", "Strategic report") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Da &#250;ltima sess&#227;o, para levar adiante.",
+                "From last session, to carry forward.") + '</p>';
+      if (focus) {
+        h += '<p class="plan-label">' + ptEn("O foco da pr&#243;xima sess&#227;o", "Next session's focus") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(focus) + '</div>';
+      }
+      if (summ) {
+        h += '<p class="plan-label">' + ptEn("O resumo", "The summary") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(summ) + '</div>';
+      }
+      h += '<a class="step-link" href="sessions.html?open=' + encodeURIComponent(ls.session_id) +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir onde o resumo desta sess&#227;o ser&#225; escrito",
+                "Open where this session's summary gets written") + '</a>';
+      h += '</div>';
+      return h;
+    }
+
+    // 7 Where the engagement stands. Week 2 of 4 and week 2 of 26 are the
+    // same number and opposite situations; that framing is the whole point.
+    function renderEngagement(d) {
+      var e = d.engagement;
+      if (!e) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Onde o contrato est&#225;", "Where the engagement stands") + '</p>';
+      h += '<p class="load-line">' +
+           ptEn('Semana <span class="num">' + e.week + '</span> de ' + e.total_weeks +
+                ', no pacote ' + escHtml(e.package) + '.',
+                'Week <span class="num">' + e.week + '</span> of ' + e.total_weeks +
+                ', on the ' + escHtml(e.package) + ' package.') + '</p>';
+      h += '<p class="load-sub">' +
+           ptEn(escHtml("Comecou em " + e.started_at + ". Faltam " + e.days_left + " dias."),
+                escHtml("Started " + e.started_at + ". " + e.days_left + " days remaining.")) +
+           '</p>';
+      var pct = e.duration_days ? Math.round((e.day / e.duration_days) * 100) : 0;
+      if (pct > 100) { pct = 100; }
+      h += '<div class="load-bar"><span style="width:' + pct + '%;"></span></div>';
+      h += '</div>';
+      return h;
+    }
+    // ---- CYCLE CLOSE ------------------------------------------------------
+    // The formal 30-day close, read aloud. It runs at 30 days even inside a
+    // 180-day programme, so it is a checkpoint, not the end of the engagement.
+
+    // Before and after: this month against the previous one where it exists.
+    function renderBeforeAfter(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var list = cy.indicators || [];
+      if (!list.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Antes e depois", "Before and after") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn(escHtml(cy.month + (cy.prev_month ? ", ao lado de " + cy.prev_month + "." : ".")),
+                escHtml(cy.month + (cy.prev_month ? ", alongside " + cy.prev_month + "." : "."))) +
+           '</p>';
+
+      for (var i = 0; i < list.length; i++) {
+        var x = list[i];
+        var name = isEn() ? (x.label_en || x.label_pt) : (x.label_pt || x.label_en);
+        var done = (x.realizado === null || x.realizado === undefined)
+          ? null : fmtInd(x.realizado, x.type);
+
+        h += '<div class="ba-row"><span class="ba-name">' + escHtml(name) + '</span>';
+        h += '<span class="ba-now">' +
+             (done === null ? ptEn("sem registro", "nothing logged")
+                            : ptEn("feito ", "done ") + done) +
+             ' / ' + ptEn("meta ", "goal ") + fmtInd(x.meta_mensal, x.type) + '</span>';
+        // The previous month only where it exists. No zero stands in for a
+        // month that was never tracked.
+        if (x.prev_realizado !== null && x.prev_realizado !== undefined) {
+          h += '<span class="ba-prev">' +
+               ptEn("m&#234;s anterior: ", "previous month: ") +
+               fmtInd(x.prev_realizado, x.type) + '</span>';
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // What was built: assets the business now HAS. Explicitly not revenue --
+    // a month of real structural work can sit beside a flat month of sales,
+    // and a revenue scoreboard at the close would call that a failure.
+    function renderBuilt(d) {
+      var cy = d.cycle;
+      var a = cy && cy.assets;
+      if (!a) { return ""; }
+
+      var docs = a.documents || [];
+      var asmts = a.assessments || [];
+      var rows = [];
+
+      if (a.goals_set) {
+        rows.push(numRow(a.goals_set,
+          ptEn("metas definidas no m&#234;s", "targets set this month")));
+      }
+      if (a.processos_documentados) {
+        rows.push(numRow(a.processos_documentados,
+          ptEn("processos documentados", "processes documented")));
+      }
+      if (a.completed_days) {
+        rows.push(numRow(a.completed_days,
+          ptEn("dias de registro completos", "complete log days")));
+      }
+      if (docs.length) {
+        var dl = '<div class="built-row"><span class="built-n">' + docs.length + '</span> ' +
+                 '<span class="built-label">' +
+                 ptEn("documentos criados", "documents created") + '</span><ul class="built-list">';
+        for (var i = 0; i < docs.length; i++) {
+          dl += '<li>' + escHtml(docs[i].title || "") + '</li>';
+        }
+        dl += '</ul></div>';
+        rows.push(dl);
+      }
+      if (asmts.length) {
+        var al = '<div class="built-row"><span class="built-n">' + asmts.length + '</span> ' +
+                 '<span class="built-label">' +
+                 ptEn("avalia&#231;&#245;es conclu&#237;das", "assessments completed") +
+                 '</span><ul class="built-list">';
+        for (var j = 0; j < asmts.length; j++) {
+          al += '<li>' + escHtml(isEn() ? asmts[j].labelEn : asmts[j].labelPt) + '</li>';
+        }
+        al += '</ul></div>';
+        rows.push(al);
+      }
+
+      // Nothing to show rather than an empty state.
+      if (!rows.length) { return ""; }
+
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que foi constru&#237;do", "What was built") + '</p>' +
+             '<p class="step-ctx">' +
+             ptEn("O que a empresa passou a ter, e que n&#227;o tinha antes.",
+                  "What the business now has that it did not have before.") +
+             '</p>' + rows.join("") + '</div>';
+    }
+
+    function numRow(n, labelHtml) {
+      return '<div class="built-row"><span class="built-n">' + n + '</span> ' +
+             '<span class="built-label">' + labelHtml + '</span></div>';
+    }
+
+    // What is still weak: the indicators that ended the month furthest behind,
+    // plus any X-Ray area still critical.
+    function renderStillWeak(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var weak = cy.weak || [];
+      var areas = cy.critical_areas || [];
+      if (!weak.length && !areas.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O que ainda est&#225; fraco", "What is still weak") + '</p>';
+
+      for (var i = 0; i < weak.length; i++) { h += indicatorLine(weak[i]); }
+
+      if (areas.length) {
+        h += '<div class="divider">' + ptEn("No Raio-X", "In the X-Ray") + '</div>';
+        for (var j = 0; j < areas.length; j++) {
+          var a = areas[j];
+          var name = isEn() ? (a.nameEn || a.namePt || a.key) : (a.namePt || a.nameEn || a.key);
+          h += '<div class="ind-row"><span class="ind-name">' + escHtml(name) + '</span>';
+          if (typeof a.pct === "number") {
+            h += ' &middot; <span class="s-crit">' + Math.round(a.pct / 10) + '/10</span>';
+          }
+          h += '</div>';
+        }
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // Next cycle: the monthly cycle repeats here, on the same portal goals
+    // screen the kickoff uses, with the same read-only note.
+    function renderNextCycle(d) {
+      if (!d.cycle) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O pr&#243;ximo ciclo", "Next cycle") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("As metas do m&#234;s que vem.", "Next month's targets.") + '</p>';
+      h += '<a class="step-link" href="' + portalHref("goals") + '" target="_blank" rel="noopener">' +
+           ptEn("Abrir as metas no portal do cliente", "Open goals in the client portal") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("O preview do portal &#233; somente leitura para a equipe. Quem preenche &#233; o cliente, no login dele.",
+                "The portal preview is read-only for staff. The client fills it in on their own login.") +
+           '</span>';
       h += '</div>';
       return h;
     }
@@ -967,11 +1715,11 @@
     var MEETING_TYPES = [
       { type: "xray_results", built: true,
         pt: "Raio-X - Resultados",  en: "X-Ray - Results" },
-      { type: "kickoff",      built: false,
+      { type: "kickoff",      built: true,
         pt: "Kickoff",              en: "Kickoff" },
-      { type: "rde_semanal",  built: false,
+      { type: "rde_semanal",  built: true,
         pt: "RDE semanal",          en: "Weekly RDE" },
-      { type: "fechamento",   built: false,
+      { type: "fechamento",   built: true,
         pt: "Fechamento de ciclo",  en: "Cycle close" }
     ];
 
@@ -989,9 +1737,13 @@
           h += '<a class="pick-go" href="meeting-prep.html?client=' +
                encodeURIComponent(CLIENT_ID) + '&type=' + encodeURIComponent(t.type) + '">' +
                ptEn(t.pt, t.en) + '</a>';
-          // The example belongs here, next to the type it is an example of.
-          h += '<a class="pick-example" href="' + EXAMPLE_URL + '">' +
-               ptEn("Ver exemplo", "See example") + '</a>';
+          // The example belongs here, next to the type it is an example of --
+          // and ONLY next to that type: the Brax example is an X-Ray results
+          // meeting, so offering it on the kickoff row would be a lie.
+          if (t.type === "xray_results") {
+            h += '<a class="pick-example" href="' + EXAMPLE_URL + '">' +
+                 ptEn("Ver exemplo", "See example") + '</a>';
+          }
         } else {
           h += '<span class="pick-soon">' + ptEn(t.pt, t.en) + '</span>';
           h += '<span class="pick-soon-tag">' + ptEn("em breve", "not yet") + '</span>';
@@ -1145,21 +1897,55 @@
         if (pm) { pm.hidden = true; }
         return;
       }
+      // Every type opens on the same header and closes on the same
+      // after-meeting checklist. What sits between them is the meeting.
       h += renderHead(d);
-      h += renderBefore(d);
-      h += renderBottleneck(d);
-      h += renderOwnerLoad(d);
-      h += renderScores(d);
-      h += renderQuestions(d);
-      h += renderStories(d);
-      h += renderAssets(d);
-      h += renderChecklist();
-      h += renderOutcome(d);
+
+      if (d.meeting_type === "kickoff") {
+        h += renderKickoff(d);
+        h += renderBottleneck(d);
+        h += renderStories(d);
+      } else if (d.meeting_type === "rde_semanal") {
+        h += renderLastSession(d);
+        h += renderWeeklyIndicators(d);
+        h += renderWeekCard(d);
+        h += renderGold(d);
+        h += renderStrategic(d);
+        h += renderEngagement(d);
+        h += renderBottleneck(d);
+        h += renderStories(d);
+      } else if (d.meeting_type === "fechamento") {
+        h += renderBeforeAfter(d);
+        h += renderBuilt(d);
+        h += renderStillWeak(d);
+        h += renderNextCycle(d);
+        h += renderEngagement(d);
+        h += renderBottleneck(d);
+        h += renderStories(d);
+      } else {
+        h += renderBefore(d);
+        h += renderBottleneck(d);
+        h += renderOwnerLoad(d);
+        h += renderScores(d);
+        h += renderQuestions(d);
+        h += renderStories(d);
+        h += renderAssets(d);
+      }
+
+      h += renderChecklist(d.meeting_type);
+      // The lead outcome stays exclusive to the X-Ray type: only a lead can
+      // be resolved, and renderOutcome already guards on status === 'lead'.
+      if (d.meeting_type === "xray_results") {
+        h += renderOutcome(d);
+      }
       body.innerHTML = h;
       body.hidden = false;
       var msg = document.getElementById("stateMsg");
       if (msg) { msg.hidden = true; }
       wireBottleneck();
+      // The week has its own endpoint and its own navigation, so it loads
+      // after the page is in the DOM.
+      if (d.meeting_type === "rde_semanal") { loadWeek(); }
     }
 
     // Autosave on blur, debounced. A save that changes the text re-ranks the

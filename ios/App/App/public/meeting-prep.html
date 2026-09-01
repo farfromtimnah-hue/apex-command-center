@@ -401,6 +401,56 @@
     .pkg-btn { display: inline-block; width: auto; margin: 0 6px 6px 0; }
     .pkg-btn.pkg-cur { border-color: var(--navy); font-weight: 600; }
     .pkg-btn.pkg-arm { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(191,159,84,0.22); }
+
+    /* Custom agenda: a plain checklist. He is scanning this mid-call, so it is
+       one column of readable rows, not a dense grid. */
+    .agenda-list { margin: 10px 0 14px; }
+    .agenda-item {
+      display: flex; align-items: flex-start; gap: 9px;
+      padding: 8px 2px; border-bottom: 1px solid var(--border);
+      font-size: 14px; cursor: pointer;
+    }
+    .agenda-item:last-child { border-bottom: none; }
+    .agenda-item input { margin-top: 2px; flex: 0 0 auto; }
+    .agenda-mine {
+      font-style: normal; font-size: 11px; color: var(--gold);
+      border: 1px solid var(--gold); border-radius: 999px; padding: 1px 7px; margin-left: 6px;
+    }
+    .agenda-tpl { display: inline-block; width: auto; margin: 0 6px 6px 0; }
+
+    /* Builder */
+    .builder-title, .builder-label, .builder-opts {
+      width: 100%; padding: 10px 12px; margin: 6px 0;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 14px; background: var(--paper); color: var(--text);
+    }
+    .builder-field {
+      position: relative; padding: 10px 34px 10px 10px; margin: 8px 0;
+      border: 1px solid var(--border); border-radius: 10px;
+    }
+    .builder-type {
+      width: 100%; padding: 9px 12px; margin: 6px 0;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 14px; background: var(--paper); color: var(--text);
+    }
+    .builder-del {
+      position: absolute; top: 8px; right: 8px;
+      width: 24px; height: 24px; line-height: 1;
+      border: none; border-radius: 50%; background: transparent;
+      color: var(--muted); font-size: 17px; cursor: pointer;
+    }
+    .builder-del:hover { background: var(--border); color: var(--text); }
+
+    /* A block he built, rendered for real */
+    .cb-field { margin: 12px 0; }
+    .cb-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+    .cb-in {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 14px; background: var(--paper); color: var(--text);
+    }
+    textarea.cb-in { min-height: 80px; resize: vertical; }
+    .cb-opt { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 14px; cursor: pointer; }
     /* An unrecorded value, stated as data and nothing more. No colour block,
        no rule down the side: it is a fact about the client's records, not a
        warning, and this page is read with the client in the room. */
@@ -2261,6 +2311,362 @@
       });
     }
 
+    // ---- Custom agenda ------------------------------------------------------
+    // The picker screen for "Outra reuniao": every block we have, ticked on or
+    // off, plus whatever he has built himself. Rendered above the meeting so he
+    // can change his mind mid-call without leaving the page.
+    function renderAgendaPicker() {
+      var chosen = (prepAgenda && prepAgenda.blocks) || [];
+      var h = '<div class="card">';
+      h += '<p class="sec-title">' + ptEn("Monte a reuni&#227;o", "Build the meeting") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Marque o que voc&#234; vai usar. Muda a qualquer momento, at&#233; durante a reuni&#227;o.",
+                "Tick what you will use. Change it any time, even mid-meeting.") + '</p>';
+
+      if (prepTemplates.length) {
+        h += '<p class="sec-title" style="margin-top:14px;">' +
+             ptEn("Modelos salvos", "Saved templates") + '</p>';
+        for (var t = 0; t < prepTemplates.length; t++) {
+          h += '<button type="button" class="step-link agenda-tpl" onclick="agendaUseTemplate(' + t + ');">' +
+               escHtml(prepTemplates[t].name || "-") + '</button>';
+        }
+      }
+
+      h += '<div class="agenda-list">';
+      for (var i = 0; i < BLOCK_REGISTRY.length; i++) {
+        var b = BLOCK_REGISTRY[i];
+        var on = chosen.indexOf(b.key) > -1;
+        h += '<label class="agenda-item"><input type="checkbox" data-block="' +
+             escHtml(b.key) + '"' + (on ? ' checked' : '') +
+             ' onchange="agendaToggle(this);"> <span>' + ptEn(b.pt, b.en) + '</span></label>';
+      }
+      // His own blocks sit in the same list as ours -- once it works, it is not
+      // a lesser kind of block.
+      for (var j = 0; j < customBlocks.length; j++) {
+        var cb = customBlocks[j];
+        var ck = "custom:" + cb.id;
+        var con = chosen.indexOf(ck) > -1;
+        h += '<label class="agenda-item"><input type="checkbox" data-block="' +
+             escHtml(ck) + '"' + (con ? ' checked' : '') +
+             ' onchange="agendaToggle(this);"> <span>' + escHtml(cb.title) +
+             ' <em class="agenda-mine">' + ptEn("seu", "yours") + '</em></span></label>';
+      }
+      h += '</div>';
+
+      h += '<button type="button" class="step-link primary" onclick="builderOpen();">' +
+           ptEn("N&#227;o achou? Crie o bloco", "Not there? Build the block") + '</button>';
+      h += '<span class="step-note">' +
+           ptEn("Funciona agora, nesta reuni&#227;o. Depois a gente constr&#243;i direito.",
+                "It works now, in this meeting. We build it properly afterwards.") + '</span>';
+      h += '<span class="step-note" id="agendaNote"></span>';
+      h += '</div>';
+      return h;
+    }
+
+    function agendaToggle(el) {
+      var key = el.getAttribute("data-block");
+      if (!prepAgenda) { prepAgenda = { blocks: [] }; }
+      var i = prepAgenda.blocks.indexOf(key);
+      if (el.checked && i === -1) { prepAgenda.blocks.push(key); }
+      if (!el.checked && i > -1)  { prepAgenda.blocks.splice(i, 1); }
+      saveAgenda(false, null);
+      renderCustomBody();
+    }
+
+    function agendaUseTemplate(idx) {
+      var t = prepTemplates[idx];
+      if (!t) { return; }
+      prepAgenda = { blocks: (t.blocks || []).slice() };
+      saveAgenda(false, null);
+      loadPrep(true);
+    }
+
+    function saveAgenda(asTemplate, name) {
+      var note = document.getElementById("agendaNote");
+      return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/prep-agenda", {
+        method: "PUT",
+        body: JSON.stringify({
+          blocks: (prepAgenda && prepAgenda.blocks) || [],
+          save_as_template: !!asTemplate,
+          name: name || null
+        })
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        if (note && asTemplate) {
+          note.innerHTML = ptEn("Modelo salvo.", "Template saved.");
+        }
+        return true;
+      }).catch(function () {
+        if (note) { note.innerHTML = ptEn("N&#227;o foi poss&#237;vel salvar.", "Could not save."); }
+      });
+    }
+
+    // ---- The block builder --------------------------------------------------
+    // Google Forms, cut down to what a consultant needs mid-meeting: a title, a
+    // field, a type, and options when the type needs them.
+    function builderOpen() {
+      builderFields = [{ label: "", type: "text", options: [] }];
+      builderRender();
+    }
+
+    function builderRender() {
+      var wrap = document.getElementById("builderWrap");
+      if (!wrap) { return; }
+      var h = '<div class="card builder">';
+      h += '<p class="sec-title">' + ptEn("Novo bloco", "New block") + '</p>';
+      h += '<input class="builder-title" id="builderTitle" placeholder="' +
+           ptEn("T&#237;tulo do bloco", "Block title") + '">';
+
+      for (var i = 0; i < builderFields.length; i++) {
+        var f = builderFields[i];
+        h += '<div class="builder-field">';
+        h += '<input class="builder-label" data-i="' + i + '" placeholder="' +
+             ptEn("Pergunta", "Question") + '" value="' + escHtml(f.label) +
+             '" oninput="builderSetLabel(this);">';
+        h += '<select class="builder-type" data-i="' + i + '" onchange="builderSetType(this);">';
+        for (var t = 0; t < FIELD_TYPES.length; t++) {
+          h += '<option value="' + FIELD_TYPES[t].key + '"' +
+               (f.type === FIELD_TYPES[t].key ? ' selected' : '') + '>' +
+               ptEn(FIELD_TYPES[t].pt, FIELD_TYPES[t].en) + '</option>';
+        }
+        h += '</select>';
+        if (f.type === "choice" || f.type === "multichoice" || f.type === "checkbox") {
+          h += '<input class="builder-opts" data-i="' + i + '" placeholder="' +
+               ptEn("Op&#231;&#245;es, separadas por v&#237;rgula", "Options, comma separated") +
+               '" value="' + escHtml((f.options || []).join(", ")) +
+               '" oninput="builderSetOptions(this);">';
+        }
+        h += '<button type="button" class="builder-del" onclick="builderRemove(' + i + ');">&#215;</button>';
+        h += '</div>';
+      }
+
+      h += '<button type="button" class="step-link" onclick="builderAdd();">' +
+           ptEn("+ Campo", "+ Field") + '</button>';
+      h += '<button type="button" class="step-link primary" onclick="builderSave();">' +
+           ptEn("Usar nesta reuni&#227;o", "Use in this meeting") + '</button>';
+      h += '<span class="step-note" id="builderNote"></span>';
+      h += '</div>';
+      wrap.innerHTML = h;
+      wrap.hidden = false;
+      var ti = document.getElementById("builderTitle");
+      if (ti) { ti.focus(); }
+    }
+
+    function builderAdd() {
+      builderFields.push({ label: "", type: "text", options: [] });
+      builderRender();
+    }
+    function builderRemove(i) {
+      builderFields.splice(i, 1);
+      if (!builderFields.length) { builderFields.push({ label: "", type: "text", options: [] }); }
+      builderRender();
+    }
+    function builderSetLabel(el) {
+      builderFields[Number(el.getAttribute("data-i"))].label = el.value;
+    }
+    function builderSetType(el) {
+      builderFields[Number(el.getAttribute("data-i"))].type = el.value;
+      builderRender();
+    }
+    function builderSetOptions(el) {
+      var parts = el.value.split(",");
+      var out = [];
+      for (var i = 0; i < parts.length; i++) {
+        var v = parts[i].replace(/^\s+|\s+$/g, "");
+        if (v) { out.push(v); }
+      }
+      builderFields[Number(el.getAttribute("data-i"))].options = out;
+    }
+
+    function builderSave() {
+      var note  = document.getElementById("builderNote");
+      var title = (document.getElementById("builderTitle") || {}).value || "";
+      var fields = [];
+      for (var i = 0; i < builderFields.length; i++) {
+        if (builderFields[i].label) { fields.push(builderFields[i]); }
+      }
+      if (!title) {
+        if (note) { note.innerHTML = ptEn("Falta o t&#237;tulo.", "Needs a title."); }
+        return;
+      }
+      if (!fields.length) {
+        if (note) { note.innerHTML = ptEn("Adicione pelo menos uma pergunta.", "Add at least one question."); }
+        return;
+      }
+      if (note) { note.innerHTML = ptEn("Gravando...", "Saving..."); }
+
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/prep-blocks", {
+        method: "POST",
+        body: JSON.stringify({ title: title, fields: fields })
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function (d) {
+        var wrap = document.getElementById("builderWrap");
+        if (wrap) { wrap.hidden = true; wrap.innerHTML = ""; }
+        // Straight into the agenda -- he built it because he needs it NOW.
+        if (!prepAgenda) { prepAgenda = { blocks: [] }; }
+        prepAgenda.blocks.push("custom:" + d.block.id);
+        return saveAgenda(false, null).then(function () {
+          askTemplate(d.block.title);
+          return loadPrep(true);
+        });
+      }).catch(function () {
+        if (note) { note.innerHTML = ptEn("N&#227;o foi poss&#237;vel gravar.", "Could not save."); }
+      });
+    }
+
+    // One question, and only one. A second -- who is this template for -- is
+    // the friction that loses him mid-meeting.
+    function askTemplate(name) {
+      var wrap = document.getElementById("builderWrap");
+      if (!wrap) { return; }
+      wrap.innerHTML =
+        '<div class="card">' +
+        '<p class="sec-title">' + ptEn("Guardar?", "Keep it?") + '</p>' +
+        '<p class="step-ctx">' +
+        ptEn("Foi s&#243; para hoje, ou &#233; uma reuni&#227;o que se repete?",
+             "Was this just for today, or is it a meeting you run again?") + '</p>' +
+        '<button type="button" class="step-link" onclick="templateAnswer(false);">' +
+        ptEn("S&#243; hoje", "Just today") + '</button>' +
+        '<button type="button" class="step-link primary" onclick="templateAnswer(true);">' +
+        ptEn("Salvar como modelo", "Save as a template") + '</button>' +
+        '</div>';
+      wrap.hidden = false;
+      window.__tplName = name || "";
+    }
+
+    function templateAnswer(yes) {
+      var wrap = document.getElementById("builderWrap");
+      if (!yes) {
+        if (wrap) { wrap.hidden = true; wrap.innerHTML = ""; }
+        return;
+      }
+      saveAgenda(true, window.__tplName || "Sem nome").then(function () {
+        if (wrap) { wrap.hidden = true; wrap.innerHTML = ""; }
+        return loadPrep(true);
+      });
+    }
+
+    // ---- Rendering a block he built ----------------------------------------
+    function renderCustomBlock(cb) {
+      var a = cb.answers || {};
+      var h = '<div class="card"><p class="sec-title">' + escHtml(cb.title) + '</p>';
+      for (var i = 0; i < cb.fields.length; i++) {
+        var f = cb.fields[i];
+        var v = a[f.key];
+        h += '<div class="cb-field">';
+        h += '<label class="cb-label">' + escHtml(f.label) + '</label>';
+        if (f.type === "textarea") {
+          h += '<textarea class="cb-in" data-b="' + escHtml(cb.id) + '" data-f="' + escHtml(f.key) +
+               '" onchange="customAnswer(this);">' + escHtml(v || "") + '</textarea>';
+        } else if (f.type === "choice" || f.type === "yesno") {
+          var opts = f.type === "yesno" ? ["sim", "não"] : (f.options || []);
+          h += '<select class="cb-in" data-b="' + escHtml(cb.id) + '" data-f="' + escHtml(f.key) +
+               '" onchange="customAnswer(this);"><option value="">&#8212;</option>';
+          for (var o = 0; o < opts.length; o++) {
+            h += '<option' + (v === opts[o] ? ' selected' : '') + '>' + escHtml(opts[o]) + '</option>';
+          }
+          h += '</select>';
+        } else if (f.type === "multichoice" || f.type === "checkbox") {
+          var picked = String(v || "").split(", ");
+          for (var m = 0; m < (f.options || []).length; m++) {
+            var opt = f.options[m];
+            h += '<label class="cb-opt"><input type="checkbox" data-b="' + escHtml(cb.id) +
+                 '" data-f="' + escHtml(f.key) + '" value="' + escHtml(opt) + '"' +
+                 (picked.indexOf(opt) > -1 ? ' checked' : '') +
+                 ' onchange="customAnswerMulti(this);"> ' + escHtml(opt) + '</label>';
+          }
+        } else {
+          h += '<input class="cb-in" type="' + (f.type === "number" ? "number" : "text") +
+               '" data-b="' + escHtml(cb.id) + '" data-f="' + escHtml(f.key) +
+               '" value="' + escHtml(v || "") + '" onchange="customAnswer(this);">';
+        }
+        h += '</div>';
+      }
+      h += '<span class="step-note" id="cbNote-' + escHtml(cb.id) + '"></span>';
+      h += '</div>';
+      return h;
+    }
+
+    function customAnswer(el) {
+      var bid = el.getAttribute("data-b");
+      var key = el.getAttribute("data-f");
+      var cb = null;
+      for (var i = 0; i < customBlocks.length; i++) {
+        if (customBlocks[i].id === bid) { cb = customBlocks[i]; }
+      }
+      if (!cb) { return; }
+      cb.answers = cb.answers || {};
+      cb.answers[key] = el.value;
+      saveCustomAnswers(cb);
+    }
+
+    function customAnswerMulti(el) {
+      var bid = el.getAttribute("data-b");
+      var key = el.getAttribute("data-f");
+      var boxes = document.querySelectorAll('input[type=checkbox][data-b="' + bid + '"][data-f="' + key + '"]');
+      var on = [];
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) { on.push(boxes[i].value); }
+      }
+      var cb = null;
+      for (var j = 0; j < customBlocks.length; j++) {
+        if (customBlocks[j].id === bid) { cb = customBlocks[j]; }
+      }
+      if (!cb) { return; }
+      cb.answers = cb.answers || {};
+      cb.answers[key] = on.join(", ");
+      saveCustomAnswers(cb);
+    }
+
+    function saveCustomAnswers(cb) {
+      var note = document.getElementById("cbNote-" + cb.id);
+      if (note) { note.innerHTML = ptEn("Salvando...", "Saving..."); }
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) +
+               "/prep-blocks/" + encodeURIComponent(cb.id) + "/answers", {
+        method: "PUT",
+        body: JSON.stringify({ answers: cb.answers || {} })
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        if (note) { note.innerHTML = ptEn("Salvo.", "Saved."); }
+      }).catch(function () {
+        if (note) { note.innerHTML = ptEn("N&#227;o foi poss&#237;vel salvar.", "Could not save."); }
+      });
+    }
+
+    // Re-render only the meeting body when a checkbox changes, so ticking a
+    // block does not throw away anything he has already typed elsewhere.
+    function renderCustomBody() {
+      var el = document.getElementById("customBody");
+      if (!el || !prepData) { return; }
+      el.innerHTML = renderCustomBlocks(prepData);
+    }
+
+    function renderCustomBlocks(d) {
+      var chosen = (prepAgenda && prepAgenda.blocks) || [];
+      var h = "";
+      for (var i = 0; i < chosen.length; i++) {
+        var key = chosen[i];
+        if (key.indexOf("custom:") === 0) {
+          var id = key.slice(7);
+          for (var c = 0; c < customBlocks.length; c++) {
+            if (customBlocks[c].id === id) { h += renderCustomBlock(customBlocks[c]); }
+          }
+          continue;
+        }
+        for (var r = 0; r < BLOCK_REGISTRY.length; r++) {
+          if (BLOCK_REGISTRY[r].key === key) {
+            var fn = window[BLOCK_REGISTRY[r].fn];
+            if (typeof fn === "function") {
+              try { h += fn(d); } catch (e) { /* a block that cannot render must not take the meeting down */ }
+            }
+          }
+        }
+      }
+      return h;
+    }
+
     // ---- 9 After the meeting ---------------------------------------------
     function renderChecklist(type, d) {
       var list = (type === "kickoff") ? AFTER_MEETING_KICKOFF : AFTER_MEETING;
@@ -2309,6 +2715,61 @@
     // X-Ray results each need different prep. Only the X-Ray one is built, so
     // the other three are shown as unavailable rather than as live buttons.
     // Reached only when the URL carries no ?type=; existing typed links skip it.
+    // ---- Custom meeting -----------------------------------------------------
+    // Every block we have already built, in the order they read best. He ticks
+    // what he wants and prep renders exactly those. The label is what HE sees,
+    // so it names the thing on screen, not the function.
+    //
+    // This registry is the single source of truth for the custom picker. A new
+    // block gets one line here and is immediately available to him -- nothing
+    // else to remember.
+    var BLOCK_REGISTRY = [
+      { key: "renderKnownToday",      fn: "renderKnownToday",      pt: "O que o sistema j&#225; responde", en: "What the system already answers" },
+      { key: "renderBefore",          fn: "renderBefore",          pt: "Antes de come&#231;ar",           en: "Before you start" },
+      { key: "renderBottleneck",      fn: "renderBottleneck",      pt: "O gargalo, na palavra dele",      en: "The bottleneck, in his words" },
+      { key: "renderLastSession",     fn: "renderLastSession",     pt: "A sess&#227;o passada",           en: "Last session" },
+      { key: "renderWeeklyIndicators",fn: "renderWeeklyIndicators",pt: "Indicadores, pior primeiro",      en: "Indicators, worst first" },
+      { key: "renderWeekCard",        fn: "renderWeekCard",        pt: "A semana, dia a dia",             en: "The week, day by day" },
+      { key: "renderGold",            fn: "renderGold",            pt: "Pipeline e projetos",             en: "Pipeline and projects" },
+      { key: "renderStrategic",       fn: "renderStrategic",       pt: "Relat&#243;rio estrat&#233;gico", en: "Strategic report" },
+      { key: "renderEngagement",      fn: "renderEngagement",      pt: "O contrato",                      en: "The engagement" },
+      { key: "renderOwnerLoad",       fn: "renderOwnerLoad",       pt: "A depend&#234;ncia do dono",      en: "Owner dependency" },
+      { key: "renderScores",          fn: "renderScores",          pt: "As notas do Raio-X",              en: "X-Ray scores" },
+      { key: "renderQuestions",       fn: "renderQuestions",       pt: "Perguntas do Raio-X",             en: "X-Ray questions" },
+      { key: "renderStories",         fn: "renderStories",         pt: "Hist&#243;rias",                  en: "Stories" },
+      { key: "renderAssets",          fn: "renderAssets",          pt: "Presen&#231;a digital",           en: "Digital presence" },
+      { key: "renderKickoff",         fn: "renderKickoff",         pt: "O que o sistema j&#225; sabe",    en: "What the system already knows" },
+      { key: "renderKickoffSequence", fn: "renderKickoffSequence", pt: "A reuni&#227;o, passo a passo",   en: "The meeting, step by step" },
+      { key: "renderWalkthrough",     fn: "renderWalkthrough",     pt: "Passeio pelo sistema",            en: "System walkthrough" },
+      { key: "renderVoiceFirst",      fn: "renderVoiceFirst",      pt: "A voz dele primeiro",             en: "His voice first" },
+      { key: "renderCloseDoc",        fn: "renderCloseDoc",        pt: "Documento de fechamento",         en: "Closing document" },
+      { key: "renderGrowth",          fn: "renderGrowth",          pt: "Crescimento",                     en: "Growth" },
+      { key: "renderBeforeAfter",     fn: "renderBeforeAfter",     pt: "Antes e depois",                  en: "Before and after" },
+      { key: "renderBuilt",           fn: "renderBuilt",           pt: "O que foi constru&#237;do",       en: "What was built" },
+      { key: "renderStillWeak",       fn: "renderStillWeak",       pt: "O que ainda est&#225; fraco",     en: "What is still weak" },
+      { key: "renderShortfall",       fn: "renderShortfall",       pt: "O que faltou",                    en: "The shortfall" },
+      { key: "renderSettlement",      fn: "renderSettlement",      pt: "Acerto final",                    en: "Settlement" },
+      { key: "renderForward",         fn: "renderForward",         pt: "Daqui para frente",               en: "Going forward" },
+      { key: "renderNextCycle",       fn: "renderNextCycle",       pt: "Pr&#243;ximo ciclo",              en: "Next cycle" },
+      { key: "renderPlans",           fn: "renderPlans",           pt: "Os planos",                       en: "The plans" }
+    ];
+
+    // Field types he can choose when building a block, Google Forms style.
+    var FIELD_TYPES = [
+      { key: "text",        pt: "Texto curto",        en: "Short text" },
+      { key: "textarea",    pt: "Texto longo",        en: "Long text" },
+      { key: "choice",      pt: "Escolha &#250;nica", en: "Single choice" },
+      { key: "multichoice", pt: "M&#250;ltipla escolha", en: "Multiple choice" },
+      { key: "checkbox",    pt: "Caixas de sele&#231;&#227;o", en: "Checkboxes" },
+      { key: "number",      pt: "N&#250;mero",        en: "Number" },
+      { key: "yesno",       pt: "Sim / N&#227;o",     en: "Yes / No" }
+    ];
+
+    var prepAgenda   = null;   // { blocks: [] }
+    var prepTemplates = [];
+    var customBlocks = [];     // [{id,title,fields,answers}]
+    var builderFields = [];    // fields being assembled right now
+
     var MEETING_TYPES = [
       { type: "xray_results", built: true,
         pt: "Raio-X - Resultados",  en: "X-Ray - Results" },
@@ -2317,7 +2778,11 @@
       { type: "rde_semanal",  built: true,
         pt: "RDE semanal",          en: "Weekly RDE" },
       { type: "fechamento",   built: true,
-        pt: "Fechamento de ciclo",  en: "Cycle close" }
+        pt: "Fechamento de ciclo",  en: "Cycle close" },
+      // Everything he does that is not one of the four. He assembles it from
+      // blocks we already built, and builds what is missing himself.
+      { type: "custom",       built: true,
+        pt: "Outra reuni&#227;o",   en: "Another meeting" }
     ];
 
     function renderPicker(d) {
@@ -2532,6 +2997,12 @@
         h += renderNextCycle(d);
         h += renderEngagement(d);
         h += renderStories(d);
+      } else if (d.meeting_type === "custom") {
+        // He picks the blocks; we render exactly those and nothing else. The
+        // picker stays on the page so he can change it mid-call.
+        h += renderAgendaPicker();
+        h += '<div id="builderWrap" hidden></div>';
+        h += '<div id="customBody">' + renderCustomBlocks(d) + '</div>';
       } else {
         h += renderBefore(d);
         h += renderBottleneck(d);
@@ -2545,11 +3016,13 @@
       // The foot of the page, in the order the meeting ends: he shows the
       // packages, closes, records the answer, and only THEN is there anything
       // to do afterwards.
-      h += renderPlans(d);
-      if (d.meeting_type === "xray_results") {
-        h += renderOutcome(d);
+      if (d.meeting_type !== "custom") {
+        h += renderPlans(d);
+        if (d.meeting_type === "xray_results") {
+          h += renderOutcome(d);
+        }
+        h += renderChecklist(d.meeting_type, d);
       }
-      h += renderChecklist(d.meeting_type, d);
       body.innerHTML = h;
       body.hidden = false;
       var msg = document.getElementById("stateMsg");
@@ -2598,7 +3071,23 @@
       });
     }
 
+    // The custom type needs its agenda before it can render anything, so that
+    // fetch is chained ahead of the prep load rather than racing it.
+    function loadAgenda() {
+      if (MEETING_TYPE !== "custom") { return Promise.resolve(); }
+      return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/prep-agenda")
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (d) {
+          if (!d) { return; }
+          prepAgenda    = d.agenda || { blocks: [] };
+          prepTemplates = d.templates || [];
+          customBlocks  = d.custom_blocks || [];
+        })
+        .catch(function () { prepAgenda = prepAgenda || { blocks: [] }; });
+    }
+
     function loadPrep(quiet) {
+      return loadAgenda().then(function () {
       return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) +
                       "/meeting-prep?type=" + encodeURIComponent(MEETING_TYPE))
         .then(function(res) {
@@ -2626,6 +3115,7 @@
             showMsg("N&#227;o foi poss&#237;vel carregar a prepara&#231;&#227;o.", "Could not load the meeting prep.");
           }
         });
+      });
     }
 
     function init() {

@@ -1196,6 +1196,28 @@
       </div>
     </div>
 
+    <!-- Blocks Rafa built himself, mid-meeting, that we have not rebuilt yet.
+         Hides itself when the queue is empty, like the seller-login section
+         above it. This is a queue, not a new ask channel: the request already
+         exists as a working block, and this is the list of what to build
+         properly. -->
+    <div class="below-section" id="prepBlockQueueSection" hidden>
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Blocos que o Rafa criou</span>
+            <span class="show-en">Blocks Rafa built</span>
+            <span id="prepBlockQueueBadge" style="display:inline-block;margin-left:8px;background:rgba(191,159,84,0.16);color:#8a6d2f;font-size:12px;font-weight:800;padding:2px 10px;border-radius:12px;vertical-align:middle;"></span>
+          </h2>
+        </div>
+        <p class="muted" style="font-size:12px;margin:0 0 10px;">
+          <span class="show-pt">Ele montou isso durante uma reuni&atilde;o porque n&atilde;o existia. J&aacute; est&aacute; funcionando &mdash; e as respostas dizem para que serve de verdade.</span>
+          <span class="show-en">He built this mid-meeting because it did not exist. It already works &mdash; and the answers say what it is really for.</span>
+        </p>
+        <div id="prepBlockQueueList"></div>
+      </div>
+    </div>
+
   </main><!-- /appMain -->
 
     </div><!-- /contentArea -->
@@ -1472,6 +1494,7 @@
       loadGoalApprovals();
       loadInterviewSittings();
       loadSellerLoginRequests();
+      loadPrepBlockQueue();
       // Pre-fetch so the credentials modal's WhatsApp button can open
       // synchronously on click (popup-blocker rule).
       loadDashMessageTemplates();
@@ -1803,6 +1826,76 @@
         window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
       }
     };
+
+    // The build queue. Shows the SHAPE he drew and what he actually typed into
+    // it -- the answers are what turn a vague request into a spec.
+    function loadPrepBlockQueue() {
+      apiFetch("/api/prep-blocks/queue")
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          var section = document.getElementById("prepBlockQueueSection");
+          var listEl  = document.getElementById("prepBlockQueueList");
+          var badge   = document.getElementById("prepBlockQueueBadge");
+          if (!section || !listEl || !data) { return; }
+          var blocks = data.blocks || [];
+          if (!blocks.length) { section.hidden = true; return; }
+          if (badge) { badge.textContent = blocks.length; }
+
+          var esc = function (v) {
+            return String(v == null ? "" : v)
+              .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          };
+          var html = "";
+          blocks.forEach(function (b) {
+            html += '<div class="list-row"><div class="list-row-body">';
+            html += '<div class="list-row-main">' + esc(b.title) + '</div>';
+            html += '<div class="list-row-meta"><span class="list-row-meta-item">' +
+                    esc(b.client_name || "-") + '</span>';
+            if (b.created_at) {
+              html += '<span class="list-row-meta-item">' + esc(b.created_at) + '</span>';
+            }
+            html += '</div>';
+
+            (b.fields || []).forEach(function (f) {
+              html += '<div style="font-size:12px;margin-top:6px;">' +
+                      '<strong>' + esc(f.label) + '</strong> ' +
+                      '<span class="muted">' + esc(f.type) +
+                      (f.options && f.options.length ? ": " + esc(f.options.join(" / ")) : "") +
+                      '</span></div>';
+            });
+
+            // What he typed. This is the part that tells us what to build.
+            (b.answers || []).forEach(function (a) {
+              var parts = [];
+              Object.keys(a).forEach(function (k) {
+                if (a[k]) { parts.push(esc(a[k])); }
+              });
+              if (parts.length) {
+                html += '<div style="font-size:12px;margin-top:5px;padding:6px 9px;' +
+                        'background:rgba(191,159,84,0.09);border-radius:6px;">' +
+                        parts.join(" &middot; ") + '</div>';
+              }
+            });
+
+            html += '</div>';
+            html += '<button type="button" class="btn-join-wa" onclick="prepBlockBuilt(\'' +
+                    esc(b.id) + '\');">' +
+                    '<span class="show-pt">Constru&iacute;do</span>' +
+                    '<span class="show-en">Built</span></button>';
+            html += '</div>';
+          });
+          listEl.innerHTML = html;
+          section.hidden = false;
+        })
+        .catch(function () { /* the queue is never load-bearing for the page */ });
+    }
+
+    function prepBlockBuilt(id) {
+      apiFetch("/api/prep-blocks/" + encodeURIComponent(id) + "/built", {
+        method: "PUT",
+        body: { note: null }
+      }).then(function () { loadPrepBlockQueue(); });
+    }
 
     function loadSellerLoginRequests() {
       apiFetch("/api/gm/seller-login-requests")

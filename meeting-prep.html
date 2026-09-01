@@ -2439,7 +2439,9 @@
         for (var t = 0; t < FIELD_TYPES.length; t++) {
           h += '<option value="' + FIELD_TYPES[t].key + '"' +
                (f.type === FIELD_TYPES[t].key ? ' selected' : '') + '>' +
-               ptEn(FIELD_TYPES[t].pt, FIELD_TYPES[t].en) + '</option>';
+               // <option> text is not markup either -- the two-span trick
+               // concatenates both languages into "Texto curtoShort text".
+               ptEnAttr(FIELD_TYPES[t].pt, FIELD_TYPES[t].en) + '</option>';
         }
         h += '</select>';
         if (f.type === "choice" || f.type === "multichoice" || f.type === "checkbox") {
@@ -2857,7 +2859,7 @@
       h += '<p class="out-sub" style="margin-bottom:6px;">' +
            ptEn("Qual pacote?", "Which package?") + '</p>';
       h += '<select id="outPackage"><option value="">' +
-           ptEn("-- Pacote --", "-- Package --") + '</option></select> ';
+           ptEnAttr("-- Pacote --", "-- Package --") + '</option></select> ';
       h += '<button type="button" class="out-btn primary" onclick="confirmConvert()">' +
            ptEn("Confirmar", "Confirm") + '</button>';
       h += '</div>';
@@ -2883,7 +2885,7 @@
           outPackagesLoaded = true;
           var newPkgs    = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
           var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
-          var html = '<option value="">' + ptEn("-- Pacote --", "-- Package --") + '</option>';
+          var html = '<option value="">' + ptEnAttr("-- Pacote --", "-- Package --") + '</option>';
           for (var i = 0; i < newPkgs.length; i++) {
             html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' +
                     escHtml(newPkgs[i].short_name) + '</option>';

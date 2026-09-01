@@ -2418,6 +2418,7 @@
     // field, a type, and options when the type needs them.
     function builderOpen() {
       builderFields = [{ label: "", type: "text", options: [] }];
+      builderTitleVal = "";
       builderRender();
     }
 
@@ -2427,7 +2428,8 @@
       var h = '<div class="card builder">';
       h += '<p class="sec-title">' + ptEn("Novo bloco", "New block") + '</p>';
       h += '<input class="builder-title" id="builderTitle" placeholder="' +
-           ptEnAttr("T&#237;tulo do bloco", "Block title") + '">';
+           ptEnAttr("T&#237;tulo do bloco", "Block title") + '" value="' +
+           escHtml(builderTitleVal) + '" oninput="builderTitleVal = this.value;">';
 
       for (var i = 0; i < builderFields.length; i++) {
         var f = builderFields[i];
@@ -2494,7 +2496,7 @@
 
     function builderSave() {
       var note  = document.getElementById("builderNote");
-      var title = (document.getElementById("builderTitle") || {}).value || "";
+      var title = ((document.getElementById("builderTitle") || {}).value || builderTitleVal || "").replace(/^\s+|\s+$/g, "");
       var fields = [];
       for (var i = 0; i < builderFields.length; i++) {
         if (builderFields[i].label) { fields.push(builderFields[i]); }
@@ -2783,6 +2785,7 @@
     var prepTemplates = [];
     var customBlocks = [];     // [{id,title,fields,answers}]
     var builderFields = [];    // fields being assembled right now
+    var builderTitleVal = "";  // kept in state: every re-render rebuilds the DOM
 
     var MEETING_TYPES = [
       { type: "xray_results", built: true,

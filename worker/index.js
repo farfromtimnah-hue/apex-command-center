@@ -29328,6 +29328,17 @@ async function handleFetch(request, env, ctx) {
             if (method === "POST") { return handlePostInterviewSitting(request, env); }
         }
 
+        // /api/prep-blocks/queue  GET   — what he built that we have not rebuilt
+        if (segs[0] === "api" && segs[1] === "prep-blocks" && segs[2] === "queue" &&
+            segs.length === 3 && method === "GET") {
+            return handleGetPrepBlockQueue(request, env);
+        }
+        // /api/prep-blocks/:id/built  PUT
+        if (segs[0] === "api" && segs[1] === "prep-blocks" && segs[2] &&
+            segs[3] === "built" && segs.length === 4 && method === "PUT") {
+            return handlePutPrepBlockBuilt(segs[2], request, env);
+        }
+
         // /api/users/:email  DELETE
         if (segs[0] === "api" && segs[1] === "users" && segs[2] && method === "DELETE") {
             return handleDeleteUser(segs[2], request, env);
@@ -29363,6 +29374,18 @@ async function handleFetch(request, env, ctx) {
             // with the other :id subroutes. Length-guarded like its siblings.
             if (segs.length === 4 && segs[3] === "meeting-prep" && method === "GET") {
                 return handleGetMeetingPrep(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "prep-agenda" && method === "GET") {
+                return handleGetPrepAgenda(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "prep-agenda" && method === "PUT") {
+                return handlePutPrepAgenda(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "prep-blocks" && method === "POST") {
+                return handlePostPrepBlock(cid, request, env);
+            }
+            if (segs.length === 6 && segs[3] === "prep-blocks" && segs[5] === "answers" && method === "PUT") {
+                return handlePutPrepBlockAnswers(cid, segs[4], request, env);
             }
             if (segs.length === 5 && segs[3] === "meeting-prep" && segs[4] === "bottleneck" && method === "PUT") {
                 return handlePutMeetingPrepBottleneck(cid, request, env);
@@ -30805,6 +30828,292 @@ async function loadSettlement(env, clientId, client) {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// CUSTOM MEETING PREP
+//
+// Rafa moves fast. He will open a meeting ten minutes before it starts and
+// need a block that does not exist yet. The point of this is that he is never
+// blocked: he assembles an agenda from blocks we already built, and when
+// nothing fits he builds the block himself and it works IMMEDIATELY, in that
+// meeting, collecting real answers.
+//
+// What lands here is duct tape by design. The value is the trail: the field
+// definition tells us the shape he wanted, and the answers tell us what the
+// field was really for. We rebuild it properly from both, then stamp built_at
+// so it drops off the queue.
+// ---------------------------------------------------------------------------
+
+var PREP_FIELD_TYPES = ["text", "textarea", "choice", "multichoice",
+                        "checkbox", "number", "yesno"];
+
+// Field definitions come from a form HE builds, so they are validated the same
+// way any request body is -- never trusted because a trusted user typed them.
+function prepCleanFields(raw) {
+    if (!Array.isArray(raw)) { return []; }
+    var out = [];
+    for (var i = 0; i < raw.length && i < 40; i++) {
+        var f = raw[i];
+        if (!f || typeof f !== "object") { continue; }
+        var label = gmStr(f.label, 200);
+        if (!label) { continue; }
+        var type = PREP_FIELD_TYPES.indexOf(f.type) > -1 ? f.type : "text";
+        var opts = [];
+        if (Array.isArray(f.options)) {
+            for (var j = 0; j < f.options.length && j < 30; j++) {
+                var o = gmStr(f.options[j], 120);
+                if (o) { opts.push(o); }
+            }
+        }
+        out.push({ key: "f" + i, label: label, type: type, options: opts });
+    }
+    return out;
+}
+
+// GET /api/clients/:id/prep-agenda  -> saved agendas + templates + custom blocks
+async function handleGetPrepAgenda(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var mine = await env.DB.prepare(
+            "SELECT * FROM prep_agendas WHERE client_id = ? AND is_template = 0 " +
+            "ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
+        ).bind(clientId).first();
+
+        var templates = await env.DB.prepare(
+            "SELECT * FROM prep_agendas WHERE is_template = 1 ORDER BY name COLLATE NOCASE"
+        ).all();
+
+        var blocks = await env.DB.prepare(
+            "SELECT * FROM prep_custom_blocks WHERE client_id = ? OR client_id IS NULL " +
+            "ORDER BY created_at DESC"
+        ).bind(clientId).all();
+
+        var answers = await env.DB.prepare(
+            "SELECT * FROM prep_custom_answers WHERE client_id = ?"
+        ).bind(clientId).all();
+
+        var ansMap = {};
+        (answers.results || []).forEach(function (a) {
+            try { ansMap[a.block_id] = JSON.parse(a.answers || "{}"); }
+            catch (e) { ansMap[a.block_id] = {}; }
+        });
+
+        function shapeAgenda(r) {
+            if (!r) { return null; }
+            var b = [];
+            try { b = JSON.parse(r.blocks || "[]"); } catch (e) { b = []; }
+            return { id: r.id, name: r.name, blocks: b, is_template: r.is_template };
+        }
+
+        return jsonOk({
+            agenda: shapeAgenda(mine),
+            templates: (templates.results || []).map(shapeAgenda),
+            custom_blocks: (blocks.results || []).map(function (r) {
+                var f = [];
+                try { f = JSON.parse(r.fields || "[]"); } catch (e) { f = []; }
+                return {
+                    id: r.id, title: r.title, fields: f,
+                    built_at: r.built_at,
+                    answers: ansMap[r.id] || {}
+                };
+            })
+        });
+    } catch (e) {
+        return jsonErr("Error loading prep agenda: " + e.message, 500);
+    }
+}
+
+// PUT /api/clients/:id/prep-agenda   { blocks:[], save_as_template, name }
+//
+// One question after he builds it -- one time, or save as a template -- and
+// nothing else. A second question about who the template is for is exactly
+// the friction that loses him mid-meeting; Nicole watches for clutter instead.
+async function handlePutPrepAgenda(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+
+        var blocks = Array.isArray(body.blocks) ? body.blocks : [];
+        var clean = [];
+        for (var i = 0; i < blocks.length && i < 60; i++) {
+            var k = gmStr(blocks[i], 80);
+            if (k) { clean.push(k); }
+        }
+
+        var who = actorName(user);
+        var asTemplate = body.save_as_template ? 1 : 0;
+        var name = gmStr(body.name, 120);
+
+        // The per-client working agenda is upserted; a template is a NEW row so
+        // saving one never overwrites the agenda he is currently running.
+        if (asTemplate) {
+            var tid = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO prep_agendas (id, client_id, name, blocks, is_template, created_by) " +
+                "VALUES (?, NULL, ?, ?, 1, ?)"
+            ).bind(tid, name || "Sem nome", JSON.stringify(clean), who).run();
+        }
+
+        var existing = await env.DB.prepare(
+            "SELECT id FROM prep_agendas WHERE client_id = ? AND is_template = 0"
+        ).bind(clientId).first();
+
+        if (existing) {
+            await env.DB.prepare(
+                "UPDATE prep_agendas SET blocks = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+            ).bind(JSON.stringify(clean), who, existing.id).run();
+        } else {
+            await env.DB.prepare(
+                "INSERT INTO prep_agendas (id, client_id, name, blocks, is_template, created_by) " +
+                "VALUES (?, ?, NULL, ?, 0, ?)"
+            ).bind(crypto.randomUUID(), clientId, JSON.stringify(clean), who).run();
+        }
+
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error saving prep agenda: " + e.message, 500);
+    }
+}
+
+// POST /api/clients/:id/prep-blocks   { title, fields:[] }
+async function handlePostPrepBlock(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+
+        var title = gmStr(body.title, 200);
+        if (!title) { return jsonErr("Título é obrigatório", 400); }
+
+        var fields = prepCleanFields(body.fields);
+        if (!fields.length) { return jsonErr("Adicione pelo menos um campo", 400); }
+
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO prep_custom_blocks (id, client_id, title, fields, created_by) " +
+            "VALUES (?, ?, ?, ?, ?)"
+        ).bind(id, clientId, title, JSON.stringify(fields), actorName(user)).run();
+
+        var row = await env.DB.prepare(
+            "SELECT * FROM prep_custom_blocks WHERE id = ?"
+        ).bind(id).first();
+
+        return jsonOk({
+            created: true,
+            block: { id: row.id, title: row.title, fields: fields, answers: {} }
+        });
+    } catch (e) {
+        return jsonErr("Error creating block: " + e.message, 500);
+    }
+}
+
+// PUT /api/clients/:id/prep-blocks/:blockId/answers   { answers:{} }
+//
+// The answers are the whole point of the trail: the definition says what shape
+// he wanted, the answers say what it was actually for.
+async function handlePutPrepBlockAnswers(clientId, blockId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var block = await env.DB.prepare(
+            "SELECT * FROM prep_custom_blocks WHERE id = ?"
+        ).bind(blockId).first();
+        if (!block) { return jsonErr("Block not found", 404); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+        var answers = (body.answers && typeof body.answers === "object") ? body.answers : {};
+
+        var existing = await env.DB.prepare(
+            "SELECT id FROM prep_custom_answers WHERE block_id = ? AND client_id = ?"
+        ).bind(blockId, clientId).first();
+
+        var who = actorName(user);
+        if (existing) {
+            await env.DB.prepare(
+                "UPDATE prep_custom_answers SET answers = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+            ).bind(JSON.stringify(answers), who, existing.id).run();
+        } else {
+            await env.DB.prepare(
+                "INSERT INTO prep_custom_answers (id, block_id, client_id, answers, updated_by) " +
+                "VALUES (?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), blockId, clientId, JSON.stringify(answers), who).run();
+        }
+
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error saving answers: " + e.message, 500);
+    }
+}
+
+// GET /api/prep-blocks/queue  -> everything he built that we have not rebuilt
+async function handleGetPrepBlockQueue(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT b.*, c.name AS client_name FROM prep_custom_blocks b " +
+            "LEFT JOIN clients c ON c.id = b.client_id " +
+            "WHERE b.built_at IS NULL ORDER BY b.created_at DESC"
+        ).all();
+
+        var out = [];
+        for (var i = 0; i < (rows.results || []).length; i++) {
+            var r = rows.results[i];
+            var f = [];
+            try { f = JSON.parse(r.fields || "[]"); } catch (e) { f = []; }
+            var ans = await env.DB.prepare(
+                "SELECT answers FROM prep_custom_answers WHERE block_id = ?"
+            ).bind(r.id).all();
+            var collected = (ans.results || []).map(function (a) {
+                try { return JSON.parse(a.answers || "{}"); } catch (e2) { return {}; }
+            });
+            out.push({
+                id: r.id, title: r.title, fields: f,
+                client_id: r.client_id, client_name: r.client_name,
+                created_at: r.created_at, created_by: r.created_by,
+                answers: collected
+            });
+        }
+        return jsonOk({ blocks: out });
+    } catch (e) {
+        return jsonErr("Error loading queue: " + e.message, 500);
+    }
+}
+
+// PUT /api/prep-blocks/:id/built   { note }
+async function handlePutPrepBlockBuilt(blockId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+
+        await env.DB.prepare(
+            "UPDATE prep_custom_blocks SET built_at = datetime('now'), built_note = ? WHERE id = ?"
+        ).bind(gmStr(body.note, 500), blockId).run();
+
+        return jsonOk({ marked: true });
+    } catch (e) {
+        return jsonErr("Error marking block: " + e.message, 500);
+    }
+}
+
 // Route: GET /api/clients/:id/meeting-prep?type=xray_results
 // Staff only. One response, everything the prep page needs.
 // ---------------------------------------------------------------------------

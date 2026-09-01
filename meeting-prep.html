@@ -2523,9 +2523,13 @@
         // Straight into the agenda -- he built it because he needs it NOW.
         if (!prepAgenda) { prepAgenda = { blocks: [] }; }
         prepAgenda.blocks.push("custom:" + d.block.id);
+        // loadPrep re-renders the page, which rebuilds #builderWrap and would
+        // wipe the prompt if it were asked first. Reload, THEN ask -- the one
+        // question we get to ask has to survive to be seen.
         return saveAgenda(false, null).then(function () {
-          askTemplate(d.block.title);
           return loadPrep(true);
+        }).then(function () {
+          askTemplate(d.block.title);
         });
       }).catch(function () {
         if (note) { note.innerHTML = ptEn("N&#227;o foi poss&#237;vel gravar.", "Could not save."); }

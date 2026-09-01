@@ -532,12 +532,20 @@
       padding: 13px 18px;
       border-bottom: 1px solid var(--border);
       transition: background 0.1s;
+      /* Wrap on content, not on viewport. A viewport media query missed the
+         real case: the row also gets narrow inside a constrained card on a
+         tablet or a split view, and there the name still collapsed. */
+      flex-wrap: wrap;
     }
     .list-row:last-child { border-bottom: none; }
     .list-row:hover { background: #fdf7eb; }
 
     .list-row-body {
-      flex: 1;
+      /* A real floor for the name. With plain flex:1 the body shrinks to a
+         sliver and PRODUWALL renders as one clipped letter beside the
+         buttons; below 190px the row wraps and the buttons take their own
+         line instead. */
+      flex: 1 1 190px;
       min-width: 0;
     }
 

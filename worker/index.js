@@ -30214,7 +30214,9 @@ function rankStories(rows, bottleneckPatterns, clientPatterns, clientIndustry) {
 // The four meeting types, in the order the picker lists them. LOCKED to this
 // set: an unrecognised ?type= falls back to xray_results rather than rendering
 // a page with no sections at all.
-var MEETING_TYPE_KEYS = ["xray_results", "kickoff", "rde_semanal", "fechamento"];
+// "custom" is a real type: the page assembles its own blocks from the agenda
+// rather than a fixed set, so it must not be coerced back to xray_results.
+var MEETING_TYPE_KEYS = ["xray_results", "kickoff", "rde_semanal", "fechamento", "custom"];
 
 function isMeetingTypeKey(t) {
     return MEETING_TYPE_KEYS.indexOf(t) > -1;

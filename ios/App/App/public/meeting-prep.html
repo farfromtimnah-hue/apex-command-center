@@ -697,6 +697,15 @@
       return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
     }
 
+    // ptEn emits two spans and can never go inside an attribute. Placeholders
+    // and titles need the plain string for the language actually showing.
+    function ptEnAttr(pt, en) {
+      var t = isEn() ? en : pt;
+      var d = document.createElement("textarea");
+      d.innerHTML = t;
+      return d.value.replace(/"/g, "&quot;");
+    }
+
     function toggleLang() {
       var b = document.body;
       if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
@@ -785,6 +794,9 @@
       }
       if (type === "fechamento") {
         return ptEn("Fechamento de ciclo, 30 dias", "Cycle close, 30 days");
+      }
+      if (type === "custom") {
+        return ptEn("Outra reuni&#227;o", "Another meeting");
       }
       return escHtml(type || "");
     }
@@ -2415,13 +2427,13 @@
       var h = '<div class="card builder">';
       h += '<p class="sec-title">' + ptEn("Novo bloco", "New block") + '</p>';
       h += '<input class="builder-title" id="builderTitle" placeholder="' +
-           ptEn("T&#237;tulo do bloco", "Block title") + '">';
+           ptEnAttr("T&#237;tulo do bloco", "Block title") + '">';
 
       for (var i = 0; i < builderFields.length; i++) {
         var f = builderFields[i];
         h += '<div class="builder-field">';
         h += '<input class="builder-label" data-i="' + i + '" placeholder="' +
-             ptEn("Pergunta", "Question") + '" value="' + escHtml(f.label) +
+           ptEnAttr("Pergunta", "Question") + '" value="' + escHtml(f.label) +
              '" oninput="builderSetLabel(this);">';
         h += '<select class="builder-type" data-i="' + i + '" onchange="builderSetType(this);">';
         for (var t = 0; t < FIELD_TYPES.length; t++) {
@@ -2432,7 +2444,7 @@
         h += '</select>';
         if (f.type === "choice" || f.type === "multichoice" || f.type === "checkbox") {
           h += '<input class="builder-opts" data-i="' + i + '" placeholder="' +
-               ptEn("Op&#231;&#245;es, separadas por v&#237;rgula", "Options, comma separated") +
+           ptEnAttr("Op&#231;&#245;es, separadas por v&#237;rgula", "Options, comma separated") +
                '" value="' + escHtml((f.options || []).join(", ")) +
                '" oninput="builderSetOptions(this);">';
         }

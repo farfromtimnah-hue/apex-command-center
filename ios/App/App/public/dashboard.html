@@ -714,6 +714,29 @@
       .hero-section { padding: 20px 16px; }
       .below-section { padding: 16px; }
       .glass-tile { min-width: 100px; }
+
+      /* Meeting rows stack on a phone. The row is one flex line -- name, then
+         Entrar / Enviar Link / Preparacao -- and the three buttons are
+         flex-shrink:0, so on a narrow screen they keep their full width and
+         crush the name into a sliver: PRODUWALL renders as "PROD" behind the
+         Join button, and a long name like LIRA OUTDOOR LIVING wraps underneath
+         them. Rafa reads this card to see what his day looks like, so the
+         client name is the one thing that must never be the part that gives.
+         Buttons move to their own line and stay full-size for touch. */
+      .list-row {
+        flex-wrap: wrap;
+      }
+      .list-row-body {
+        flex: 1 0 100%;
+        min-width: 0;
+      }
+      .list-row .btn-join,
+      .list-row .btn-join-wa,
+      .list-row .prep-link {
+        margin-top: 8px;
+        padding: 7px 12px;
+        font-size: 12px;
+      }
     }
 
     #heroBgImageDev {

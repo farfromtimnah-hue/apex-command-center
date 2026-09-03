@@ -490,7 +490,18 @@ final class ApexLockCover {
     // hierarchy, so it still appears above this -- which is correct: the sheet
     // must be visible and interactive, and what must NOT be visible is the app
     // content behind it.
-    private static let coverLevel = UIWindow.Level.alert + 1
+    // ABOVE the app, BELOW the system alert layer.
+    //
+    // This was .alert + 1, which put the cover over the Face ID sheet itself:
+    // the sheet is presented at the alert level, so it was requested and then
+    // rendered UNDERNEATH an opaque window. The device log showed the whole
+    // failure -- prompt at t=1.2s, success at t=16.5s -- fifteen seconds spent
+    // waiting on a prompt nobody could see, which the 12s stall timer then
+    // reported as a stall. It was never a stall; it was an invisible prompt.
+    //
+    // .alert - 1 still covers every app window (the WebView lives at level 0)
+    // while letting the system present authentication above it.
+    private static let coverLevel = UIWindow.Level.alert - 1
 
     // Same #141210 the web cover paints, so the handoff between the two layers
     // has no visible seam.
@@ -1120,9 +1131,19 @@ final class ApexLockCover {
                             self?.setRecoveryMessage("Não reconhecido. Tente novamente.\nNot recognised. Try again.")
                         }
                     }
-                    // Best-effort only: lets the web layer sync its own state if
-                    // it happens to be listening. Nothing depends on it.
-                    self?.onRetry?()
+                    // DELIBERATELY NOT calling onRetry() here.
+                    //
+                    // It fired the JS unlock path alongside this native one:
+                    // the device log showed NATIVE authenticate at t=36621ms
+                    // and the JS internalAuthenticate at t=36641ms, 20ms apart,
+                    // and iOS cancelled one of the two -- "NATIVE-AUTH
+                    // failed/cancelled: Authentication canceled". That is the
+                    // double Face ID prompt, and it came from this line.
+                    //
+                    // The native path above already hides the cover on success
+                    // and already writes the unlock timestamp JS reads, so the
+                    // web layer resyncs on its own next check. Nothing needs
+                    // this call; only the second prompt depended on it.
                 }
             ))
         }

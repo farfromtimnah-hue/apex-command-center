@@ -1102,6 +1102,28 @@ var apexUnlockClearStarted = false;
 // giving a negative elapsed time, which is treated as locked. A cold launch
 // without a reboot is handled by apexClearUnlock() at startup, so a killed and
 // relaunched app always re-prompts.
+// Same freshness rule as apexUnlockIsFresh, minus the apexUnlockCleared wait.
+// Used only by the cold-launch clear itself, which cannot wait on the promise
+// it is in the middle of producing.
+function apexReadUnlockFresh() {
+  var prefs = apexPrefs();
+  if (!prefs) { return Promise.resolve(false); }
+  return Promise.resolve(prefs.get({ key: APEX_UNLOCK_KEY })).then(function (res) {
+    var raw = res && res.value ? res.value : null;
+    if (!raw) { return false; }
+    var at = parseInt(raw, 10);
+    if (isNaN(at)) { return false; }
+    return apexMonotonicMs().then(function (nowMs) {
+      if (nowMs === null) { return false; }
+      var elapsed = nowMs - at;
+      if (elapsed < 0) { return false; }
+      return elapsed < APEX_UNLOCK_GRACE_MS;
+    });
+  }).catch(function () {
+    return false;
+  });
+}
+
 function apexUnlockIsFresh() {
   var prefs = apexPrefs();
   if (!prefs) { return Promise.resolve(false); }
@@ -1539,13 +1561,55 @@ function apexInstallBiometricLock() {
   // express since it resets on every document the same as any other var.
   if (!apexUnlockClearStarted) {
     apexUnlockClearStarted = true;
+    // The referrer test alone was not enough. A Google OAuth round trip
+    // returns to the app with an EMPTY referrer -- the redirect strips it --
+    // so the page reached after signing in looked like the first document of
+    // a fresh launch and cleared the unlock that had JUST succeeded. The
+    // device log caught it: unlock at t=37.1s, then dashboard.html at t=43.6s
+    // reporting "no referrer, first document of this launch", clearing the
+    // record, arming its cover, and never prompting again. That is the black
+    // screen -- the app was covered by a page that had thrown away proof the
+    // user was already authenticated.
+    //
+    // The native uptime clock settles it: a genuinely fresh process has been
+    // up for a moment, while an OAuth return is many seconds into the SAME
+    // launch. If the process has been running longer than a cold start could
+    // account for, this is not a fresh start and the unlock must be left alone.
     if (document.referrer) {
       apexTrace("CLEAR-UNLOCK", "skipped: document.referrer=" + document.referrer +
         " (same-launch navigation, not a fresh process start)");
       apexUnlockCleared = Promise.resolve();
     } else {
-      apexTrace("CLEAR-UNLOCK", "running: no referrer, first document of this launch");
-      apexUnlockCleared = apexClearUnlock();
+      // No referrer is NOT proof of a fresh launch. A Google OAuth round trip
+      // returns with an empty referrer -- the redirect strips it -- so the page
+      // reached after signing in looked like the first document of a new launch
+      // and cleared the unlock that had JUST succeeded. The device log caught
+      // it exactly: unlock at t=37.1s, then dashboard.html at t=43.6s logging
+      // "no referrer, first document of this launch", wiping the record,
+      // arming its cover, and never prompting again. That is the black screen.
+      //
+      // So ask the record itself instead of guessing from the referrer. A
+      // genuinely stale record from a previous run fails the freshness check
+      // and is cleared as before; one written seconds ago by an unlock in THIS
+      // launch passes, and is left alone. This cannot be fooled by a missing
+      // referrer because it does not consult the referrer at all.
+      // NOTE: deliberately NOT apexUnlockIsFresh() -- that function waits on
+      // apexUnlockCleared, which is the very promise being assigned here, and
+      // would deadlock. This reads the record directly with the same rule.
+      apexUnlockCleared = apexReadUnlockFresh().then(function (fresh) {
+        if (fresh) {
+          apexTrace("CLEAR-UNLOCK",
+            "skipped: no referrer, but the stored unlock is still FRESH " +
+            "(OAuth return, not a fresh process start)");
+          return;
+        }
+        apexTrace("CLEAR-UNLOCK", "running: no referrer and no fresh unlock, first document of this launch");
+        return apexClearUnlock();
+      }).catch(function () {
+        // Unreadable record: clear it and make this launch authenticate.
+        apexTrace("CLEAR-UNLOCK", "running: freshness unreadable, clearing to fail closed");
+        return apexClearUnlock();
+      });
     }
   }
 

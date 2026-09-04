@@ -1576,6 +1576,11 @@ function apexRunUnlock(manual) {
     // has no bundler. Calling the wrapper name here silently rejected with
     // "not implemented", which the catch below turned into a fail-open - the
     // app opened with no prompt at all. Verified on the device.
+    // Push permission goes FIRST, while the launch cover is still up. Both are
+    // system dialogs that background the app and raise the cover, so asking
+    // them back to back behind the logo means one interruption instead of two -
+    // and the user is not stopped again after the dashboard has appeared.
+    return apexAskPushBeforeFaceId().then(function () {
     apexTrace("PROMPT", "calling internalAuthenticate (Face ID sheet should appear NOW)");
     apexNoteAlive();
     return plugin.internalAuthenticate({
@@ -1595,32 +1600,8 @@ function apexRunUnlock(manual) {
       return apexMarkUnlocked().then(function () {
         apexHideLock();
         apexUnlockInFlight = false;
-        // The push permission prompt goes HERE - after a real authentication,
-        // with the app about to become visible. Not at launch: stacking a
-        // notifications dialog on top of Face ID asks twice before the user has
-        // seen anything, and an iOS "no" cannot be re-asked. Deferred a tick so
-        // the reveal paints first.
-        // ONLY ON A PAGE THAT IS NOT THE LOGIN SCREEN.
-        //
-        // This fired 1.2s after any unlock, which on a fresh install lands
-        // while the user is looking at the login page - and the iOS permission
-        // dialog backgrounds the app, so the cover went up over the login
-        // screen and came back down. Login, Apex logo, login again, before the
-        // user could even tap Sign in with Google.
-        //
-        // There is also no point asking someone who has not signed in yet what
-        // notifications they want. Waiting until they are past the login screen
-        // both removes the flicker and asks at a moment that means something.
-        try {
-          window.setTimeout(function () {
-            var onLogin = /(^|\/)(index\.html)?$/.test(window.location.pathname);
-            if (onLogin) {
-              apexTrace("PUSH", "deferred: still on the login page");
-              return;
-            }
-            apexInitPush();
-          }, 1200);
-        } catch (e) {}
+        // Push was already asked for BEFORE this prompt, behind the same
+        // launch cover, so there is nothing to do here.
         return true;
       });
     }).catch(function (err) {
@@ -1638,6 +1619,7 @@ function apexRunUnlock(manual) {
         "Autenticação cancelada.\nAuthentication cancelled.");
       apexUnlockInFlight = false;
       return false;
+    });
     });
   }).catch(function (err) {
     // checkBiometry itself failed, or a plugin method was missing. This must
@@ -1888,6 +1870,32 @@ function apexMaybeAskPush() {
     if (onLogin) { return; }
     window.setTimeout(function () { apexInitPush(); }, 1200);
   } catch (e) {}
+}
+
+// Asks for push while the launch cover is still up, BEFORE the Face ID prompt.
+//
+// Both are system dialogs that background the app, and both therefore raise the
+// cover. Asking them back to back behind the logo means the user answers two
+// questions on one screen instead of being interrupted again after the
+// dashboard has already appeared. Nicole: "can we get it to happen right before
+// the face ID on that first logo screen?"
+//
+// Deliberately NOT gated on the login page: this runs from the unlock path,
+// which only happens when a session already exists.
+function apexAskPushBeforeFaceId() {
+  try {
+    if (apexPushRegistered) { return Promise.resolve(); }
+    var plugin = apexPushPlugin();
+    if (!plugin) { return Promise.resolve(); }
+    apexTrace("PUSH", "asking before Face ID, behind the launch cover");
+    apexInitPush();
+    // A short settle so the permission sheet is dismissed before the biometric
+    // sheet is presented. Two system sheets racing each other is how the
+    // double-prompt bugs earlier in this file happened.
+    return new Promise(function (resolve) { window.setTimeout(resolve, 900); });
+  } catch (e) {
+    return Promise.resolve();
+  }
 }
 
 function apexInitPush() {

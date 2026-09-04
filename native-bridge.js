@@ -1397,6 +1397,20 @@ function apexRepairSessionHint() {
       "COOKIE HINT WAS LOST, Preferences still had it -> restoring and re-driving the lock. " +
       "This is the capacitor:// cookie failure; the durable copy is what saved it.");
     apexMirrorSnapshot(APEX_ADMIN_HINT_KEY, "1");
+    // SET THE IN-MEMORY FLAG TOO, and set it BEFORE driving the lock.
+    //
+    // Writing document.cookie and immediately reading it back through
+    // apexHasSession() does not work on capacitor://: the first run of this
+    // repair restored the cookie and called apexMaybeLock() on the very next
+    // line, which still logged "skipped: no session" on every page. The write
+    // was not visible to the read that followed it. The watchdog then rescued
+    // the page ~6s later, so it worked but slowly and only by accident.
+    //
+    // apexNativeSessionPresent is a plain JS var in this document, so setting
+    // it is synchronous and certain. Preferences has already told us a session
+    // exists - that is the whole reason we are in this branch - so this asserts
+    // what we just proved rather than trusting a round trip through storage.
+    apexNativeSessionPresent = true;
     apexShowLock();
     apexMaybeLock();
     return true;
@@ -1601,6 +1615,18 @@ function apexCoverWatchdogStart(reason) {
     if (apexUnlockInFlight || apexMaybeLockInFlight || apexSignInInFlight) {
       apexTrace("WATCHDOG", "cover up but work in flight -> leaving it");
       apexCoverWatchdogStart("re-arm");
+      return;
+    }
+    // Never prompt while the app is not frontmost. iOS refuses biometry for a
+    // backgrounded app with LocalAuthentication error 6 (biometry unavailable),
+    // and the refusal is reported as a FAILED authentication - which showed the
+    // user "Não reconhecido" for a prompt they never saw. Observed at
+    // t=78212ms: the watchdog fired as the app was resigning active, and the
+    // auth failed 86ms later. Re-arm instead; the resume listener drives the
+    // real prompt when the app comes back.
+    if (document.hidden) {
+      apexTrace("WATCHDOG", "cover up but app is backgrounded -> re-arming, not prompting");
+      apexCoverWatchdogStart("backgrounded");
       return;
     }
     apexTrace("WATCHDOG",

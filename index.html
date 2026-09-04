@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
-       native-bridge.js?v=1788487514, so it is installed before anything that can throw.
+       native-bridge.js?v=1788489670, so it is installed before anything that can throw.
 
        WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
        with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
@@ -13,7 +13,7 @@
 
        Buffers into a cookie as well as the console, because the native log is
        only reachable once the Capacitor plugin exists -- which is exactly what
-       may not have happened yet when the error fires. native-bridge.js?v=1788487514 replays
+       may not have happened yet when the error fires. native-bridge.js?v=1788489670 replays
        this buffer into the native log once the plugin appears. -->
   <script>
   (function () {
@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1788487514"></script>
+  <script src="native-bridge.js?v=1788489670"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -656,6 +656,20 @@
           // it, but "eventually" is not a guarantee - a slow role fetch, or a
           // navigation that never happens, leaves the lock disabled.
           if (typeof apexSetSignInInFlight === "function") { apexSetSignInInFlight(false); }
+          // RECORD THE SESSION BEFORE NAVIGATING. Added 2026-09-03.
+          //
+          // apexSetNativeSessionHint(true) was only ever called inside
+          // apexBootstrapNativeSession, which runs when getCurrentUser() finds
+          // an EXISTING session. A first sign-in does not go through it, so
+          // nothing recorded the session and every page after this logged
+          // "MAYBELOCK skipped: no session -- clientToken=no nativePresent=false
+          // cookieHint=false". The cover went up with nothing able to lower it:
+          // a black screen on the one path Alice and Rafa hit on day one.
+          //
+          // Verified on device after signing out and reinstalling, which is the
+          // only way to reach this path once a session already exists.
+          if (typeof apexSetNativeSessionHint === "function") { apexSetNativeSessionHint(true); }
+          if (typeof apexNoteNativeSessionPresent === "function") { apexNoteNativeSessionPresent(); }
           sessionStorage.setItem("apex_role",  data.role);
           sessionStorage.setItem("apex_email", data.email);
           // Client-role Google accounts land in the Client Portal;

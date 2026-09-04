@@ -1478,6 +1478,14 @@ function apexRepairSessionHint() {
 // apexMirrorKey writes Preferences (native, durable, survives navigation and
 // WebView storage eviction) AND the cookie, so the cookie stays the fast
 // synchronous read and Preferences is the copy that actually lasts.
+// Marks the in-memory flag as well as the durable hint. index.html calls this
+// straight after a successful sign-in so the CURRENT document knows about the
+// session too, not just the next one.
+function apexNoteNativeSessionPresent() {
+  apexNativeSessionPresent = true;
+  apexTrace("SESSION", "recorded after sign-in: nativePresent=true, hint written");
+}
+
 function apexSetNativeSessionHint(present) {
   apexMirrorKey(APEX_ADMIN_HINT_KEY, present ? "1" : null);
 }

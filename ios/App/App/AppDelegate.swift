@@ -75,4 +75,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         config.delegateClass = SceneDelegate.self
         return config
     }
+
+    // ── APNs delivery, required for push to work at all ──────────────────────
+    //
+    // iOS hands the device token to the APP DELEGATE, not to the plugin. The
+    // Capacitor push plugin listens for these two NotificationCenter names and
+    // forwards them to JS; without these methods the plugin's register() call
+    // succeeds, Apple issues a token, and it is delivered to nobody.
+    //
+    // Seen on device 2026-09-03: permission granted, "PUSH already granted ->
+    // register()" logged, and then silence - no registration callback, no
+    // error, and apns_device_tokens stayed empty. Capacitor does not add these
+    // for you.
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(
+            name: .capacitorDidRegisterForRemoteNotifications,
+            object: deviceToken)
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(
+            name: .capacitorDidFailToRegisterForRemoteNotifications,
+            object: error)
+    }
+
 }

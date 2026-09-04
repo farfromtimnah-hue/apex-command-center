@@ -1225,12 +1225,117 @@ function gmMethodLabel(key) {
   return m ? gmT(m.pt, m.en) : escHtml(key);
 }
 
+// ── The pending contact ───────────────────────────────────────────────────
+//
+// THE ATTEMPT IS WRITTEN AT BUTTON PRESS, NOT AT SAVE. This is the whole fix.
+//
+// Tapping Call or WhatsApp hands the phone to another app. The browser tab is
+// then a BACKGROUND TAB ON A PHONE, and iOS reclaims those freely. The old
+// design opened the outcome modal at that moment and held the draft in a plain
+// JS variable, so after a ten-minute call the rep came back to a reloaded page,
+// an empty variable and no modal. Nothing was ever written, and nothing ever
+// said so.
+//
+// The evidence: JM has 133 leads and 12 with any logged contact, and all 25 of
+// those rows are spreadsheet imports (uniform 12:00:00 stamps, stopping
+// 2026-08-05). NOT ONE contact has ever been logged by a human through this UI,
+// on any client. The log was not unused — it was structurally unable to record.
+//
+// So: POST the attempt immediately (method + timestamp, result null), which is
+// the one instant we know the app is alive, and stash the returned contact id
+// in localStorage. On return, the prompt asks what happened and PATCHes the
+// outcome on. Worst case is an attempt with no outcome, which is still a real
+// fact and is shown as one — infinitely better than silence.
+var GM_PENDING_KEY = "apex_gm_pending_contact";
+
+// localStorage throws outright in some contexts (private windows, site data
+// blocked). A failure here must cost the PROMPT, never the contact.
+function gmPendingRead() {
+  try {
+    var raw = window.localStorage.getItem(GM_PENDING_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function gmPendingWrite(v) {
+  try {
+    if (v) { window.localStorage.setItem(GM_PENDING_KEY, JSON.stringify(v)); }
+    else   { window.localStorage.removeItem(GM_PENDING_KEY); }
+  } catch (e) {}
+}
+function gmPendingClear() { gmPendingWrite(null); }
+
 function gmLogOutreach(method) {
   if (!gmDetailLead) { return; }
-  // Deferred one tick so the browser commits the link navigation first; the
-  // modal is only bookkeeping and must never delay the outreach itself.
-  window.setTimeout(function() { gmOpenOutcomeModal(method); }, 0);
+  var lead = gmDetailLead;
+  // Written BEFORE the round trip and independently of it: if the OS suspends
+  // us mid-request, the prompt still knows a contact was attempted, and the
+  // reconciler below adopts the real row when it can.
+  gmPendingWrite({
+    lead_id: lead.id,
+    lead_name: lead.cliente || "",
+    method: method,
+    at: Date.now(),
+    contact_id: null
+  });
+  // Fire-and-forget. The href is what launches the call; this must not delay
+  // it, block it, or surface an error over the top of it.
+  gmApi("leads/" + lead.id + "/contacts", {
+    method: "POST",
+    body: { method: method, result: null, objection: null, notes: null }
+  })
+    .then(function(r) {
+      var p = gmPendingRead();
+      // Only adopt the id if the pending record is still the one we sent. The
+      // rep may have moved on to a different lead while this was in flight.
+      if (p && p.lead_id === lead.id && !p.contact_id) {
+        p.contact_id = r.contact_id || null;
+        gmPendingWrite(p);
+      }
+      if (gmDetailLead && gmDetailLead.id === lead.id) {
+        lead.contatos_count = r.contatos_count;
+        lead.primeiro_contato = r.primeiro_contato;
+        gmLeadContacts = null;
+      }
+    })
+    .catch(function() {
+      // Swallowed deliberately. The rep is in a phone call; an error toast
+      // over the dialer helps nobody. The pending record survives either way
+      // and the prompt on return still fires.
+    });
 }
+
+// ── Asking on return ──────────────────────────────────────────────────────
+//
+// Fires when the tab becomes visible again — coming back from the dialer or
+// WhatsApp, and also on a cold PWA start, which is why pageshow is bound too.
+//
+// Bound ONCE at load rather than per-lead: a listener that has to be installed
+// by whoever opens a lead is a listener that will be missed. See
+// guards-must-not-need-installing.
+var GM_PENDING_MAX_AGE_MS = 6 * 60 * 60 * 1000;   // 6 hours
+
+function gmCheckPendingContact() {
+  var p = gmPendingRead();
+  if (!p || !p.lead_id) { return; }
+  // Stale: nobody can usefully say what happened on a call from yesterday, and
+  // a prompt that outlives its context is just an obstacle. The attempt row
+  // stays in the log; only the question expires.
+  if (!p.at || (Date.now() - p.at) > GM_PENDING_MAX_AGE_MS) { gmPendingClear(); return; }
+  // Do not interrupt something already open.
+  if (gmOutcomeDraft) { return; }
+  gmOpenOutcomeModal(p.method, p);
+}
+
+(function gmBindPendingWatch() {
+  function check() {
+    if (document.visibilityState === "visible") { gmCheckPendingContact(); }
+  }
+  document.addEventListener("visibilitychange", check);
+  // A PWA resumed from the background fires pageshow, not always
+  // visibilitychange — and the persisted state is exactly the case that
+  // matters here.
+  window.addEventListener("pageshow", check);
+})();
 
 // ── Objections ────────────────────────────────────────────────────────────
 // Nicole's list, from six years running life-insurance sales teams. The ORDER
@@ -1271,17 +1376,42 @@ function gmObjectionLabel(key) {
 // never stored half-logged.
 var gmOutcomeDraft = null;
 
-function gmOpenOutcomeModal(method) {
-  gmOutcomeDraft = { method: method, result: null, objection: null, notes: "" };
+// pending is the localStorage record when this is the ask-on-return prompt,
+// and null when the modal is opened any other way.
+function gmOpenOutcomeModal(method, pending) {
+  gmOutcomeDraft = {
+    method: method, result: null, objection: null, notes: "",
+    contact_id: pending ? pending.contact_id : null,
+    lead_id:    pending ? pending.lead_id : null,
+    lead_name:  pending ? pending.lead_name : null,
+    at:         pending ? pending.at : null,
+    isPending:  !!pending
+  };
   gmRenderOutcomeModal();
+}
+
+// "12 min" / "2 h" — the gap since the button was pressed. Coming back to a
+// bare "what happened?" with no anchor is disorienting; naming the lead and
+// how long ago makes the question answerable at a glance.
+function gmPendingAgo(at) {
+  var mins = Math.max(0, Math.round((Date.now() - at) / 60000));
+  if (mins < 1)  { return gmT("agora há pouco", "just now"); }
+  if (mins < 60) { return mins + " " + gmT("min atrás", "min ago"); }
+  var h = Math.round(mins / 60);
+  return h + " " + (h === 1 ? gmT("hora atrás", "hour ago") : gmT("horas atrás", "hours ago"));
 }
 
 function gmRenderOutcomeModal() {
   var d = gmOutcomeDraft;
   if (!d) { return; }
   var body = '<p class="gm-derived-note">' +
-    gmT("Registrando: ", "Logging: ") + '<strong>' + gmMethodLabel(d.method) + '</strong>. ' +
-    gmT("Escolha o resultado.", "Pick the outcome.") + '</p>' +
+    (d.isPending
+      ? (gmT("Você contatou ", "You contacted ") + '<strong>' + escHtml(d.lead_name || "") +
+         '</strong>' + gmT(" por ", " by ") + '<strong>' + gmMethodLabel(d.method) + '</strong> ' +
+         (d.at ? escHtml(gmPendingAgo(d.at)) : "") + '. ' +
+         gmT("O que aconteceu?", "What happened?"))
+      : (gmT("Registrando: ", "Logging: ") + '<strong>' + gmMethodLabel(d.method) + '</strong>. ' +
+         gmT("Escolha o resultado.", "Pick the outcome."))) + '</p>' +
     '<div class="gm-chip-set" style="flex-direction:column;align-items:stretch;">';
   GM_CONTACT_RESULTS.forEach(function(r) {
     var on = d.result === r.key;
@@ -1330,8 +1460,13 @@ function gmRenderOutcomeModal() {
       gmT("Salvar contato", "Save contact") + '</button>';
   }
 
+  // On the ask-on-return prompt, "Cancel" is the wrong word — there is nothing
+  // to cancel, the contact is already logged. This clears the QUESTION and says
+  // so, and the attempt stays in the log marked as awaiting an outcome. A
+  // prompt with no way out is what makes people stop tapping the button at all,
+  // and losing the method data is worse than losing the result.
   body += '<button type="button" class="btn-outline gm-add-btn" onclick="gmCancelOutcome()">' +
-    gmT("Cancelar", "Cancel") + '</button>';
+    (d.isPending ? gmT("Agora não", "Not now") : gmT("Cancelar", "Cancel")) + '</button>';
   gmSheetOpen(gmT("Resultado do contato", "Contact outcome"), body, "crm-outcome");
   // Restore focus and caret if the note was mid-edit before a re-render.
   var ta = document.getElementById("gmOutcomeNotes");
@@ -1363,7 +1498,25 @@ function gmOutcomeSetNotes(v) {
   gmOutcomeDraft.notes = v;
 }
 
+// Finish a contact that was logged at button press but never given an
+// outcome — tapped from the log itself, so a row the prompt was dismissed on
+// is still completable later.
+function gmResumeContact(contactId, method) {
+  if (!gmDetailLead) { return; }
+  gmSheetClose();
+  gmOpenOutcomeModal(method, {
+    contact_id: contactId,
+    lead_id: gmDetailLead.id,
+    lead_name: gmDetailLead.cliente || "",
+    at: null
+  });
+}
+
 function gmCancelOutcome() {
+  // Dismissing the ask-on-return prompt drops the QUESTION, never the contact:
+  // the attempt row is already in D1 with its method and timestamp. Clearing
+  // the pending record stops it re-firing on every tab focus for six hours.
+  if (gmOutcomeDraft && gmOutcomeDraft.isPending) { gmPendingClear(); }
   gmOutcomeDraft = null;
   gmRenderLeadSheet();
 }
@@ -1386,18 +1539,32 @@ function gmSaveOutreach() {
     if (ta) { ta.focus(); }
     return;
   }
+  // Completing an attempt that was already logged at button press is a PATCH
+  // onto that row — a second POST would double-count the contact. Falls back
+  // to POST when there is no pending row: either the modal was opened some
+  // other way, or the attempt POST failed while the rep was on the call, and
+  // in that case writing it now is exactly right.
+  var pendingId = d.isPending ? d.contact_id : null;
+  var leadId = (d.isPending && d.lead_id) ? d.lead_id : lead.id;
+  var req = pendingId
+    ? gmApi("leads/" + leadId + "/contacts/" + pendingId, {
+        method: "PATCH",
+        body: { result: d.result, objection: d.objection || null, notes: notes || null }
+      })
+    : gmApi("leads/" + leadId + "/contacts", {
+        method: "POST",
+        body: { method: d.method, result: d.result, objection: d.objection || null, notes: notes || null }
+      });
   // logged_by is NOT sent: the server stamps it from the session. A body-
   // supplied name would be ignored anyway.
-  gmApi("leads/" + lead.id + "/contacts", {
-    method: "POST",
-    body: { method: d.method, result: d.result, objection: d.objection || null, notes: notes || null }
-  })
+  req
     .then(function(r) {
       // The server returns the refreshed derived values, so the sheet can
       // re-render without a second round trip.
       lead.contatos_count = r.contatos_count;
       lead.primeiro_contato = r.primeiro_contato;
       gmLeadContacts = null;                 // force a refetch if the log opens
+      gmPendingClear();
       gmOutcomeDraft = null;
       gmRenderLeadSheet();
       gmToast(gmT("Contato registrado ✓", "Contact logged ✓"));
@@ -1432,11 +1599,24 @@ function gmOpenContactLog() {
           // what the customer actually said, and the gap between them is the
           // point. logged_by is NULL on rows predating this column — it is
           // simply omitted rather than guessed at.
-          body += '<div class="gm-sheet-row" style="cursor:default;">' +
+          // An attempt logged at button press whose outcome was never filled
+          // in. It must LOOK unfinished and be tappable to finish: an
+          // incomplete row that renders like a complete one is how the log
+          // quietly stops meaning anything.
+          var awaiting = !c.result;
+          body += '<div class="gm-sheet-row"' +
+            (awaiting
+              ? ' style="cursor:pointer;" onclick="gmResumeContact(\'' + escHtml(c.id) + '\',\'' +
+                escHtml(c.method) + '\')"'
+              : ' style="cursor:default;"') + '>' +
             '<span class="gm-sheet-row-icon">' + gmIcon(gmMethodIcon(c.method)) + '</span>' +
             '<span class="gm-sheet-row-body">' +
               '<span class="gm-sheet-row-label">' + gmMethodLabel(c.method) +
-              (res ? ' · ' + escHtml(res) : "") + '</span>' +
+              (res ? ' · ' + escHtml(res) : "") +
+              (awaiting
+                ? ' · <em style="opacity:0.7;font-style:normal;">' +
+                  gmT("aguardando resultado", "awaiting outcome") + '</em>'
+                : "") + '</span>' +
               '<span class="gm-sheet-row-value">' + escHtml(formatDateTimeUTC(c.logged_at)) +
               (c.logged_by ? ' · ' + escHtml(c.logged_by) : "") + '</span>' +
               (c.objection

@@ -17176,11 +17176,15 @@ async function handlePostGmLeadContact(id, leadId, request, env) {
         // client display name for an owner, and users.display_name for an admin,
         // because authenticateClientToken already resolves display_name that way.
         var loggedBy = actorName(user);
+        // The id is generated here rather than left to the DB so it can be
+        // returned: the client stashes it and PATCHes the outcome on later,
+        // once the rep is back from the call.
+        var contactId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO gm_lead_contacts (id, lead_id, client_id, method, result, notes, objection, logged_by) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
-            crypto.randomUUID(), leadId, id, method, result || null,
+            contactId, leadId, id, method, result || null,
             notes || null, objection || null, loggedBy
         ).run();
         // Return the lead's refreshed derived values so the sheet can re-render
@@ -17191,11 +17195,92 @@ async function handlePostGmLeadContact(id, leadId, request, env) {
         ).bind(leadId).first();
         return jsonOk({
             saved: true,
+            contact_id: contactId,
             contatos_count: (agg && agg.contatos_count) || 0,
             primeiro_contato: (agg && agg.primeiro_contato) || null
         });
     } catch (e) {
         return jsonErr("Error saving contact: " + e.message, 500);
+    }
+}
+
+// PATCH /api/clients/:id/gm/leads/:leadId/contacts/:contactId
+//
+// FILLS IN THE OUTCOME OF AN ALREADY-LOGGED ATTEMPT.
+//
+// Why this route exists: tapping Call / WhatsApp hands the phone off to
+// another app, and the browser tab is then a background tab on a phone. iOS
+// reclaims it freely. The old design opened the outcome modal at that moment
+// and held the draft in a plain JS variable, so by the time the rep came back
+// from a ten-minute call the variable was gone and NOTHING was written.
+//
+// That is not a theory — JM has 133 leads and 12 with any logged contact, and
+// all 25 of those rows are spreadsheet imports (uniform 12:00:00 stamps,
+// stopping 2026-08-05). No human has ever successfully logged a contact
+// through this UI.
+//
+// So the attempt is now written at BUTTON PRESS (POST with result = null),
+// which is the one moment we are certain the app is alive, and the outcome is
+// patched in later through here when the rep returns. A contact can therefore
+// never be lost; at worst it is incomplete and says so.
+//
+// Only the outcome fields are patchable. method, lead_id and logged_by are
+// fixed at creation — a rep must not be able to rewrite who made the contact
+// or how, only to say what came of it.
+async function handlePatchGmLeadContact(id, leadId, contactId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        var cSeller = sessionSellerName(user);
+        if (cSeller && lead.vendedor !== cSeller) { return jsonErr("Forbidden", 403); }
+
+        // The row must belong to THIS lead and THIS client — a guessed id from
+        // another business must not be patchable. Same rule as gmEventFields.
+        var row = await env.DB.prepare(
+            "SELECT id, result FROM gm_lead_contacts WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(contactId, leadId, id).first();
+        if (!row) { return jsonErr("Contact not found", 404); }
+        // An outcome already recorded is not re-writable from the prompt. The
+        // prompt only ever fires for a pending row, so a PATCH against a
+        // completed one means stale client state, not an edit the rep asked
+        // for. Silently overwriting a real logged outcome would be worse than
+        // refusing.
+        if (row.result) { return jsonErr("This contact already has an outcome", 409); }
+
+        var body = await request.json();
+        var result = gmStr(body.result, 40);
+        if (!result) { return jsonErr("A result is required", 400); }
+        if (LEAD_CONTACT_RESULTS.indexOf(result) < 0) { return jsonErr("Invalid result", 400); }
+        var objection = gmStr(body.objection, 60);
+        if (objection && GM_LEAD_OBJECTIONS.indexOf(objection) < 0) {
+            return jsonErr("Invalid objection", 400);
+        }
+        var notes = gmStr(body.notes, 2000);
+        // Same pairing rule the POST enforces, and for the same reason: a
+        // category count with no note behind it cannot be read.
+        if (objection && !notes) {
+            return jsonErr("A note is required when you select an objection", 400);
+        }
+
+        await env.DB.prepare(
+            "UPDATE gm_lead_contacts SET result = ?, objection = ?, notes = ? " +
+            "WHERE id = ? AND lead_id = ? AND client_id = ?"
+        ).bind(result, objection || null, notes || null, contactId, leadId, id).run();
+
+        var agg = await env.DB.prepare(
+            "SELECT COUNT(*) AS contatos_count, MIN(logged_at) AS primeiro_contato " +
+            "FROM gm_lead_contacts WHERE lead_id = ?"
+        ).bind(leadId).first();
+        return jsonOk({
+            saved: true,
+            contatos_count: (agg && agg.contatos_count) || 0,
+            primeiro_contato: (agg && agg.primeiro_contato) || null
+        });
+    } catch (e) {
+        return jsonErr("Error updating contact: " + e.message, 500);
     }
 }
 
@@ -30010,6 +30095,12 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "contacts") {
                     if (method === "GET")  { return handleGetGmLeadContacts(cid, segs[5], request, env); }
                     if (method === "POST") { return handlePostGmLeadContact(cid, segs[5], request, env); }
+                }
+                // /gm/leads/:leadId/contacts/:contactId — patch the outcome
+                // onto an attempt that was logged at button press.
+                if (segs.length === 8 && gmCol === "leads" && segs[6] === "contacts" &&
+                    method === "PATCH") {
+                    return handlePatchGmLeadContact(cid, segs[5], segs[7], request, env);
                 }
                 // /gm/leads/:leadId/files — attachments on a lead (PDF or
                 // image). Sellers reach these too (2026-08-12): they are the

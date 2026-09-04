@@ -49,6 +49,11 @@ public class ApexUptimePlugin: CAPPlugin, CAPBridgedPlugin {
     // the record belongs to a run that is over, whatever the clock says.
     private static let launchNonce = UUID().uuidString
 
+    // Exposed so ApexLockCover.markUnlocked writes the same "<ms>:<nonce>"
+    // record shape the JS side writes. Two writers of one record must agree on
+    // its format or the reader fails closed on whichever it did not write.
+    static var launchNonceValue: String { return launchNonce }
+
     @objc func now(_ call: CAPPluginCall) {
         // Milliseconds since boot, as a Double. Resolution is far finer than
         // the 15-minute window needs.

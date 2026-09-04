@@ -108,9 +108,20 @@ enum ApexNativeRecovery {
     // Writes the unlock timestamp in the SAME units and key JS uses, so the
     // 15-minute grace period works across both. ApexUptimePlugin returns
     // systemUptime * 1000, and JS stores it as a string.
+    // Must write the SAME "<uptimeMs>:<launchNonce>" shape the JS side writes.
+    //
+    // This wrote the bare timestamp until 2026-09-03, and the JS reader treats
+    // a record with no nonce as belonging to a finished run and fails closed.
+    // So a recovery-button unlock authenticated successfully, wrote a record JS
+    // could not honour, and the next document prompted for Face ID all over
+    // again - a third prompt in one launch, seen on device.
+    //
+    // ApexUptimePlugin.launchNonceValue is the same per-process id the plugin
+    // hands to JS, so both writers agree on what "this launch" means.
     static func markUnlocked() {
         let ms = ProcessInfo.processInfo.systemUptime * 1000.0
-        UserDefaults.standard.set(String(ms), forKey: prefsPrefix + unlockKey)
+        let value = String(ms) + ":" + ApexUptimePlugin.launchNonceValue
+        UserDefaults.standard.set(value, forKey: prefsPrefix + unlockKey)
     }
 
     // SIGN OUT: destroy every durable copy of the session, natively.

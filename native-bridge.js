@@ -1802,6 +1802,9 @@ function apexInitPush() {
   if (!plugin) { apexTrace("PUSH", "plugin not present"); return; }
   apexPushRegistered = true;
 
+  // Listeners FIRST, before any permission or register call. iOS can deliver
+  // the token immediately on an already-granted launch, and a listener attached
+  // afterwards misses it - which is exactly what left the table empty.
   plugin.addListener("registration", function (t) {
     var tok = t && t.value ? String(t.value) : null;
     apexTrace("PUSH", "APNs registration callback, token length=" + (tok ? tok.length : 0));
@@ -1812,10 +1815,20 @@ function apexInitPush() {
     apexTrace("PUSH", "registrationError: " + JSON.stringify(err || {}));
   });
 
+  // Ask the OS for the token EVERY launch once permission exists, and re-post
+  // it. Added 2026-09-03 after permission was granted on the device and the
+  // table stayed empty: the grant resolved on index.html, which navigated to
+  // dashboard.html mid-flight, and the registration callback landed with no
+  // listener attached to hear it. Registration is idempotent on Apple's side
+  // and the endpoint upserts on the token, so re-posting costs one request and
+  // removes the race entirely.
   plugin.checkPermissions().then(function (perm) {
     var state = perm && perm.receive ? perm.receive : "prompt";
     apexTrace("PUSH", "permission state=" + state);
-    if (state === "granted") { return plugin.register(); }
+    if (state === "granted") {
+      apexTrace("PUSH", "already granted -> register()");
+      return plugin.register();
+    }
     if (state === "denied") {
       // Asking again does nothing - iOS will not re-prompt once denied.
       apexTrace("PUSH", "denied previously; not re-asking");

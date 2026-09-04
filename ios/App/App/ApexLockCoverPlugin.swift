@@ -565,6 +565,11 @@ final class ApexLockCover {
     // has no visible seam.
     private static let coverColor = UIColor(red: 20.0/255.0, green: 18.0/255.0, blue: 16.0/255.0, alpha: 1.0)
 
+    // Exposed so SceneDelegate can paint the Capacitor window the same colour
+    // before it is made visible. One definition, so the launch window, the
+    // cover and the web pages cannot drift apart.
+    static var coverColorPublic: UIColor { return coverColor }
+
     // STALL TIMER -- NOT A REVEAL.
     //
     // The previous version of this timer called hide() after 20 seconds "so the

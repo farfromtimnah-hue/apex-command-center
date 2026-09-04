@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
-       native-bridge.js?v=1788480745, so it is installed before anything that can throw.
+       native-bridge.js?v=1788482350, so it is installed before anything that can throw.
 
        WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
        with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
@@ -13,7 +13,7 @@
 
        Buffers into a cookie as well as the console, because the native log is
        only reachable once the Capacitor plugin exists -- which is exactly what
-       may not have happened yet when the error fires. native-bridge.js?v=1788480745 replays
+       may not have happened yet when the error fires. native-bridge.js?v=1788482350 replays
        this buffer into the native log once the plugin appears. -->
   <script>
   (function () {
@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1788480745"></script>
+  <script src="native-bridge.js?v=1788482350"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -646,6 +646,16 @@
           return res.json();
         })
         .then(function(data) {
+          // Cleared on SUCCESS too, added 2026-09-03. It used to be cleared
+          // only in the .catch below, on the theory that "a successful sign-in
+          // navigates away, which resets the flag with the page." The device
+          // trace disproved that: the flag was still true 14 seconds after Face
+          // ID had already succeeded, on a page that had NOT yet navigated, and
+          // apexMaybeLock aborts immediately with "skipped: signIn in flight"
+          // for the whole of that window. The navigation does eventually clear
+          // it, but "eventually" is not a guarantee - a slow role fetch, or a
+          // navigation that never happens, leaves the lock disabled.
+          if (typeof apexSetSignInInFlight === "function") { apexSetSignInInFlight(false); }
           sessionStorage.setItem("apex_role",  data.role);
           sessionStorage.setItem("apex_email", data.email);
           // Client-role Google accounts land in the Client Portal;

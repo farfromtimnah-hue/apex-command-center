@@ -997,6 +997,7 @@ function apexBiometricPlugin() {
 // sheet causes cannot raise a Face ID prompt on top of it.
 function apexSetSignInInFlight(v) {
   apexSignInInFlight = !!v;
+  apexTrace("SIGNIN-FLAG", "apexSignInInFlight = " + apexSignInInFlight);
 }
 
 // MONOTONIC TIME, deliberately not a calendar value.
@@ -1369,13 +1370,68 @@ function apexNativeSessionHint() {
   return apexReadSnapshot(APEX_ADMIN_HINT_KEY) === "1";
 }
 
+// Repairs the cookie hint from Preferences, asynchronously.
+//
+// The cookie read above must stay SYNCHRONOUS - the parse-time session check
+// runs before anything can be awaited, and that is the whole reason a cookie
+// snapshot exists alongside Preferences. But on capacitor://localhost the
+// cookie is exactly what went missing across a navigation, so the synchronous
+// read alone answered "no session" on every page after the first.
+//
+// This runs just after parse, reads the durable Preferences copy, and if it
+// says a session exists while the cookie says nothing, restores the cookie and
+// re-drives the lock. It can only ever turn "no session" into "session" - it
+// never reveals, and it never clears a hint - so a failure here leaves the app
+// covered, which is the correct direction.
+function apexRepairSessionHint() {
+  if (apexNativeSessionHint()) { return Promise.resolve(false); }
+  var prefs = apexPrefs();
+  if (!prefs) { return Promise.resolve(false); }
+  return Promise.resolve(prefs.get({ key: APEX_ADMIN_HINT_KEY })).then(function (res) {
+    var val = res && res.value ? String(res.value) : null;
+    if (val !== "1") {
+      apexTrace("HINT-REPAIR", "Preferences has no admin hint either - nothing to repair");
+      return false;
+    }
+    apexTrace("HINT-REPAIR",
+      "COOKIE HINT WAS LOST, Preferences still had it -> restoring and re-driving the lock. " +
+      "This is the capacitor:// cookie failure; the durable copy is what saved it.");
+    apexMirrorSnapshot(APEX_ADMIN_HINT_KEY, "1");
+    apexShowLock();
+    apexMaybeLock();
+    return true;
+  }).catch(function (e) {
+    apexTrace("HINT-REPAIR", "failed, staying covered: " + (e && e.message));
+    return false;
+  });
+}
+
 // Written when a native session is confirmed, cleared on sign-out. A stale
 // "1" is harmless: it raises the cover on a launch with no session, and the
 // bootstrap hides it again the moment getCurrentUser() reports nobody. The
 // reverse mistake - a missing marker - is the one that exposes data, so this
 // errs toward covering.
+// FIX 2026-09-03. This used to call apexMirrorSnapshot, which writes the
+// COOKIE ONLY. The file's own comment above apexMirrorSnapshot claims
+// "Preferences remains the source of truth and repairs the snapshot if the
+// cookie is ever lost" - but that was never true for THIS key, because nothing
+// ever wrote it to Preferences. The cookie was the single point of failure.
+//
+// It failed. The app is served from capacitor://localhost, and on that custom
+// scheme the cookie did not survive the navigation from index.html to
+// dashboard.html: the root document wrote the hint after a successful
+// getCurrentUser, and the very next document's parse-time check logged
+// adminHint=false. With no session visible and no bootstrap on that page (see
+// apexBootstrapNativeSession's call sites), apexHasSession() was permanently
+// false, every apexMaybeLock logged "skipped: no session", and the 12s stall
+// timer looped the recovery UI forever. Face ID kept succeeding and revealing
+// a page that had no session behind it.
+//
+// apexMirrorKey writes Preferences (native, durable, survives navigation and
+// WebView storage eviction) AND the cookie, so the cookie stays the fast
+// synchronous read and Preferences is the copy that actually lasts.
 function apexSetNativeSessionHint(present) {
-  apexMirrorSnapshot(APEX_ADMIN_HINT_KEY, present ? "1" : null);
+  apexMirrorKey(APEX_ADMIN_HINT_KEY, present ? "1" : null);
 }
 
 // Runs the biometric prompt. `manual` is true when the user tapped Unlock.
@@ -1900,6 +1956,13 @@ function apexInitNativeBridge() {
   // neither ever resolves.
   if (!coverRaised) {
     apexTrace("SESSION-CHECK", "nothing visible at parse - staying covered until getCurrentUser answers");
+    // "Nothing visible" is exactly the state the lost cookie produces on every
+    // page after the first. Ask the DURABLE store before concluding there is
+    // no session: apexRepairSessionHint restores the cookie and drives the
+    // lock if Preferences still knows about the session. It cannot reveal and
+    // cannot clear a hint, so if it finds nothing the page stays covered
+    // exactly as it does now.
+    apexRepairSessionHint();
   }
 
   apexInstallBiometricLock();

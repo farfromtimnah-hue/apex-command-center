@@ -1888,20 +1888,30 @@ function apexAskPushBeforeFaceId() {
     var plugin = apexPushPlugin();
     if (!plugin) { return Promise.resolve(); }
     apexTrace("PUSH", "asking before Face ID, behind the launch cover");
-    apexInitPush();
-    // A short settle so the permission sheet is dismissed before the biometric
-    // sheet is presented. Two system sheets racing each other is how the
-    // double-prompt bugs earlier in this file happened.
-    return new Promise(function (resolve) { window.setTimeout(resolve, 900); });
+    // AWAIT THE ANSWER, do not guess a delay. A 900ms settle was not enough:
+    // Face ID was presented on top of the push dialog before it could be
+    // tapped, and the push dialog only came back once Face ID was cleared.
+    // apexInitPush now resolves when the user has actually answered.
+    return apexInitPush().then(function () {
+      apexTrace("PUSH", "permission answered - Face ID can go now");
+      // One runloop turn so iOS has finished dismissing its own sheet before
+      // the biometric sheet is presented.
+      return new Promise(function (r) { window.setTimeout(r, 350); });
+    }).catch(function () { return null; });
   } catch (e) {
     return Promise.resolve();
   }
 }
 
+// RETURNS a promise that settles once the user has ANSWERED the permission
+// dialog. It used to return nothing, so a caller wanting to wait for it had to
+// guess a delay - and 900ms was not enough: Face ID appeared on top of the push
+// dialog before it could be tapped, then the push dialog came back afterwards.
+// Waiting on the real answer removes the guess.
 function apexInitPush() {
-  if (apexPushRegistered) { return; }
+  if (apexPushRegistered) { return Promise.resolve(); }
   var plugin = apexPushPlugin();
-  if (!plugin) { apexTrace("PUSH", "plugin not present"); return; }
+  if (!plugin) { apexTrace("PUSH", "plugin not present"); return Promise.resolve(); }
   apexPushRegistered = true;
 
   // Listeners FIRST, before any permission or register call. iOS can deliver
@@ -1924,7 +1934,7 @@ function apexInitPush() {
   // listener attached to hear it. Registration is idempotent on Apple's side
   // and the endpoint upserts on the token, so re-posting costs one request and
   // removes the race entirely.
-  plugin.checkPermissions().then(function (perm) {
+  return plugin.checkPermissions().then(function (perm) {
     var state = perm && perm.receive ? perm.receive : "prompt";
     apexTrace("PUSH", "permission state=" + state);
     if (state === "granted") {

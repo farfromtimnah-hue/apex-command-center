@@ -349,12 +349,19 @@ function apexDisarmPaintCover(reason) {
     }
   }
 
+  // The app is now visible on a real page. Ask about notifications whichever
+  // route got us here.
+  //
+  // This was INSIDE the `if (cover && cover.hide)` branch below, so it only
+  // ran when the native cover plugin happened to be present and being hidden.
+  // On a fresh install the user signs in and lands on the dashboard through a
+  // reveal that does not always take that branch, and push was never asked at
+  // all - reported three times as "it never asked about push notifications".
+  apexMaybeAskPush();
+
   var cover = apexLockCoverPlugin();
   if (cover && typeof cover.hide === "function") {
     apexTrace("DISARM-NATIVE", "reason=" + why + "  <-- APP NOW VISIBLE");
-  // The app is now visible on a real page. This is the moment to ask about
-  // notifications, whichever route got us here.
-  apexMaybeAskPush();
     try { cover.hide({ reason: why }); } catch (e) {
       apexTrace("DISARM-NATIVE", "hide() threw: " + (e && e.message));
     }

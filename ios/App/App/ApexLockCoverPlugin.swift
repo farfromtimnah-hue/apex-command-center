@@ -249,6 +249,7 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "hide", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "show", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "state", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "alive", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "trace", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "dumpTrace", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRecovery", returnType: CAPPluginReturnPromise)
@@ -297,6 +298,25 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
     // Lets the JS side write into the SAME native timeline as the native
     // events, so web and native lines interleave in one ordered log instead of
     // two clocks that have to be reconciled by hand.
+    // JS reporting that it is alive and actively working on the unlock.
+    //
+    // The stall timer exists to rescue a launch where NOTHING is happening. It
+    // could not tell that apart from a launch where the WebView simply had not
+    // started yet, so it fired at 12s on every cold start and showed Alice and
+    // Rafa the "Could not unlock" recovery screen EVERY TIME they opened the
+    // app - while the unlock was still perfectly on track behind it. Reported
+    // for both of them 2026-09-03.
+    //
+    // Each call restarts the clock, so the screen now appears only if JS goes
+    // quiet for a full stall window, which is what "stalled" was always meant
+    // to mean. It never reveals, so a lying caller gains nothing.
+    @objc func alive(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            ApexLockCover.shared.noteProgress()
+        }
+        call.resolve()
+    }
+
     @objc func trace(_ call: CAPPluginCall) {
         let message = call.getString("message") ?? ""
         ApexLockCover.shared.trace("JS   " + message)
@@ -531,7 +551,13 @@ final class ApexLockCover {
     // ON TOP OF the cover, and the cover itself never comes down. There is
     // always a way forward, and it is never "here is the data anyway".
     private var stallTimer: Timer?
-    private let stallSeconds: TimeInterval = 12.0
+    // 20s, raised from 12s on 2026-09-03. Twelve seconds was shorter than a
+    // cold WebView start on a real device, so the recovery screen appeared on
+    // EVERY launch for both Alice and Rafa while the unlock was still on track.
+    // The heartbeat (see `alive`) is the real fix - each sign of progress
+    // restarts this - and the longer window covers the stretch before JS runs
+    // at all, where there is nothing to send a heartbeat yet.
+    private let stallSeconds: TimeInterval = 20.0
 
     // Tap handlers, wired by the plugin to JS events. Native never decides to
     // authenticate or reveal; it only reports the tap.
@@ -1331,6 +1357,13 @@ final class ApexLockCover {
     }
 
     // Fires if nothing has resolved in time. Shows the recovery UI. NEVER hides.
+    // Restarts the stall countdown. Only meaningful while a cover is up; if the
+    // app is already visible there is nothing to rescue.
+    func noteProgress() {
+        guard isActuallyCovering else { return }
+        startStallTimer()
+    }
+
     private func startStallTimer() {
         cancelStallTimer()
         stallTimer = Timer.scheduledTimer(withTimeInterval: stallSeconds, repeats: false) { [weak self] _ in

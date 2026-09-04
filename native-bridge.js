@@ -1212,6 +1212,21 @@ function apexUnlockIsFresh() {
 // lead data is painted before the lock appears.
 var APEX_LOCK_ID = "apex-biometric-lock";
 
+// Tells native "JS is alive and working on this", restarting the stall
+// countdown. The recovery screen is meant for a launch where nothing is
+// happening; without this it could not tell that apart from a WebView that had
+// simply not started yet, and it fired at 12s on EVERY cold start - Alice and
+// Rafa saw "Could not unlock" every single time they opened the app while the
+// unlock was still perfectly on track behind it.
+//
+// Called at the points that prove real progress, never on a timer.
+function apexNoteAlive() {
+  try {
+    var plugin = apexLockCoverPlugin();
+    if (plugin && typeof plugin.alive === "function") { plugin.alive(); }
+  } catch (e) {}
+}
+
 function apexShowLock() {
   if (document.getElementById(APEX_LOCK_ID)) { return; }
   apexTrace("SHOWLOCK", "in-document lock UI raised");
@@ -1522,6 +1537,7 @@ function apexRunUnlock(manual) {
     // "not implemented", which the catch below turned into a fail-open - the
     // app opened with no prompt at all. Verified on the device.
     apexTrace("PROMPT", "calling internalAuthenticate (Face ID sheet should appear NOW)");
+    apexNoteAlive();
     return plugin.internalAuthenticate({
       reason: "Unlock Apex Command Center",
       cancelTitle: "Cancelar",
@@ -1695,6 +1711,7 @@ function apexMaybeLock() {
     return;
   }
   apexTrace("MAYBELOCK", "session present -> cover + freshness check");
+  apexNoteAlive();
   apexMaybeLockInFlight = true;
 
   // COVER FIRST, ASK QUESTIONS AFTER.
@@ -2111,7 +2128,8 @@ function apexInitNativeBridge() {
   try {
     var hasClientToken = !!window.localStorage.getItem("apex_client_token");
     var hasAdminHint = apexNativeSessionHint();
-    apexTrace("SESSION-CHECK",
+    apexNoteAlive();
+  apexTrace("SESSION-CHECK",
       "clientToken=" + hasClientToken + " adminHint=" + hasAdminHint +
       " plugin=" + (apexBiometricPlugin() ? "present" : "NULL") +
       " capacitorPlugins=" + ((window.Capacitor && window.Capacitor.Plugins) ? "present" : "NULL"));

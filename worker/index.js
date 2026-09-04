@@ -25255,6 +25255,53 @@ async function pushToUsers(env, emails, payloadObj) {
 
 // ---------------------------------------------------------------------------
 // Route: GET  /api/push/key        — the VAPID public key (auth-free, public)
+// ---------------------------------------------------------------------------
+// Route: POST /api/push/apns  — register this device's APNs token
+//
+// The iOS app calls this once the OS hands it a token. Tokens rotate per
+// install and occasionally on their own, so this upserts on the token itself:
+// a device that reinstalls replaces its row rather than leaving a dead one
+// that would fail forever.
+// ---------------------------------------------------------------------------
+async function handlePostApnsToken(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var body = {};
+        try { body = await request.json(); } catch (e) { body = {}; }
+
+        var token = String(body.token || "").trim();
+        // APNs tokens are 64 hex characters. Validating here keeps junk out of
+        // a column that is the primary key.
+        if (!/^[0-9a-fA-F]{64}$/.test(token)) {
+            return jsonErr("A valid APNs device token is required", 400);
+        }
+
+        var envName = (String(body.environment || "").toLowerCase() === "sandbox")
+            ? "sandbox" : "production";
+
+        await env.DB.prepare(
+            "INSERT INTO apns_device_tokens (token, user_email, environment, bundle_id, device_model) " +
+            "VALUES (?, ?, ?, ?, ?) " +
+            "ON CONFLICT(token) DO UPDATE SET " +
+            "user_email = excluded.user_email, environment = excluded.environment, " +
+            "bundle_id = excluded.bundle_id, device_model = excluded.device_model, " +
+            "last_error = NULL"
+        ).bind(
+            token,
+            user.email,
+            envName,
+            String(body.bundleId || "").slice(0, 120) || null,
+            String(body.model || "").slice(0, 60) || null
+        ).run();
+
+        return jsonOk({ registered: true, environment: envName });
+    } catch (e) {
+        return jsonErr("Error registering APNs token: " + e.message, 500);
+    }
+}
+
 // Route: POST /api/push/subscribe  — store this device's subscription
 // Route: POST /api/push/test       — send a test notification to myself
 // ---------------------------------------------------------------------------

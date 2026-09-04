@@ -812,6 +812,40 @@
       font-size: 13px; line-height: 1.6;
     }
     .fwd-owner b { font-weight: 600; }
+    /* ── Bill date range + totals ──
+       The filter reads as a sentence ("De [date] até [date]") rather than as
+       two labelled fields, because that is how the question is asked. */
+    .bill-range {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 12px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .bill-range-lbl { font-size: 13px; color: var(--muted); }
+    .bill-range-date {
+      font: inherit; font-size: 14px; padding: 6px 8px;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--card, #fff); color: var(--text);
+      min-width: 0;
+    }
+    /* The total is the ANSWER to the question the filter asks, so it carries
+       real visual weight -- a summed figure set like body text gets re-added
+       by hand, which is the work this is meant to remove. */
+    .bill-totals { margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--border); }
+    .bill-total-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 12px; padding: 3px 0;
+    }
+    .bill-total-lbl { font-size: 14px; color: var(--text); }
+    .bill-total-amt { font-size: 18px; font-weight: 700; color: var(--text); }
+    /* The overdue line is a SECOND, larger number sitting under the first.
+       It answers "and if I also clear what is already late?" -- a different
+       question from the range total, so it is never merged into it. */
+    .bill-total-row.is-overdue { margin-top: 4px; padding-top: 6px;
+      border-top: 1px dashed var(--border); }
+    .bill-total-row.is-overdue .bill-total-lbl { color: var(--danger, #c0392b); }
+    .bill-total-row.is-overdue .bill-total-amt { color: var(--danger, #c0392b); }
+    .bill-total-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
     .fwd-bills { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
     .fwd-bills-head { font-size: 12px; font-weight: 700; letter-spacing: 0.8px;
       text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
@@ -1995,7 +2029,34 @@
       <div class="card-body-collapsible" id="body_bills">
         <!-- Fixed bills. Ships EMPTY -- nothing is seeded, suggested, or
              pre-filled. Alice enters what she wants tracked. -->
+
+          <!-- ── "What is due by the 15th?" ──────────────────────────────
+               Alice's clients pay invoices on their own intervals, so she
+               works from a known amount of money and has to know what it has
+               to cover BEFORE the next payment lands. That question is a date
+               RANGE, and the answer is a total, not a list she adds up in her
+               head.
+
+               "From" defaults to today because the question is always about
+               what is still ahead of her. It stays editable: looking back at
+               a range that has already passed is a different, rarer question,
+               but not one worth a second control. -->
+          <div class="bill-range" id="billRange">
+            <label class="bill-range-lbl" for="billFrom">
+              <span class="show-pt">De</span><span class="show-en">From</span>
+            </label>
+            <input type="date" id="billFrom" class="bill-range-date" onchange="renderBills()">
+            <label class="bill-range-lbl" for="billTo">
+              <span class="show-pt">at&eacute;</span><span class="show-en">to</span>
+            </label>
+            <input type="date" id="billTo" class="bill-range-date" onchange="renderBills()">
+            <button class="btn btn-sm" id="billRangeClear" onclick="clearBillRange()">
+              <span class="show-pt">Limpar</span><span class="show-en">Clear</span>
+            </button>
+          </div>
+
           <div id="billsList"></div>
+          <div id="billsTotals" class="bill-totals" hidden></div>
           <!-- Detected from her own history, never seeded. Nothing here is
                tracked until she presses the button on that row. -->
           <div id="billSuggest" class="club-suggest" hidden></div>
@@ -4275,16 +4336,107 @@
       return main;
     }
 
+    // ── The date range ────────────────────────────────────────────────────
+    //
+    // Fixed bills are stored as a DAY OF THE MONTH, not as dates, so a range
+    // filter has to project each bill forward onto the calendar. billDueDates
+    // returns every occurrence of one bill that falls inside [from, to] --
+    // plural, because a range spanning a month boundary genuinely contains the
+    // rent twice and both have to be paid.
+    //
+    // Local dates throughout, never Date.parse on the input value: "2026-09-15"
+    // parses as UTC midnight, which in Eastern is the 14th at 8 PM, and a bill
+    // due on the 15th would drop out of a range ending on the 15th.
+    function billLocalToday() {
+      var n = new Date();
+      return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    }
+    function billParseInput(v) {
+      if (!v) { return null; }
+      var m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) { return null; }
+      return new Date(+m[1], +m[2] - 1, +m[3]);
+    }
+    function billFmtInput(d) {
+      function p(n) { return (n < 10 ? "0" : "") + n; }
+      return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    }
+
+    function billDueDates(bill, from, to) {
+      var out = [];
+      var day = Number(bill.day_of_month) || 0;
+      if (!day) { return out; }
+      // Walk month by month from the month `from` falls in. A bill on the 31st
+      // in a 30-day month is CLAMPED to the last day rather than skipped: the
+      // money still leaves her account that month, and dropping it would
+      // understate the total, which is the one failure that matters here.
+      var cur = new Date(from.getFullYear(), from.getMonth(), 1);
+      while (cur <= to) {
+        var lastDay = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+        var d = new Date(cur.getFullYear(), cur.getMonth(), Math.min(day, lastDay));
+        if (d >= from && d <= to) { out.push(d); }
+        cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+      }
+      return out;
+    }
+
+    function clearBillRange() {
+      var to = document.getElementById("billTo");
+      if (to) { to.value = ""; }
+      var from = document.getElementById("billFrom");
+      // "From" returns to today rather than to empty: today is the default,
+      // not a blank.
+      if (from) { from.value = billFmtInput(billLocalToday()); }
+      renderBills();
+    }
+
     function renderBills() {
       var list = document.getElementById("billsList");
       if (!list) { return; }
+      var totalsBox = document.getElementById("billsTotals");
       if (!BILLS.length) {
         list.innerHTML = '<div class="tag-meta">' +
           '<span class="show-pt">Nenhuma ainda.</span>' +
           '<span class="show-en">None yet.</span></div>';
+        if (totalsBox) { totalsBox.hidden = true; }
         return;
       }
-      list.innerHTML = BILLS.map(function(b) {
+
+      var fromEl = document.getElementById("billFrom");
+      var toEl   = document.getElementById("billTo");
+      // First render seeds "from" with today. Done here rather than in the
+      // markup because the page can outlive midnight on a phone that never
+      // reloads, and a stale default silently answers the wrong question.
+      if (fromEl && !fromEl.value) { fromEl.value = billFmtInput(billLocalToday()); }
+      var from = fromEl ? billParseInput(fromEl.value) : null;
+      var to   = toEl   ? billParseInput(toEl.value)   : null;
+
+      // The range is only ACTIVE once she picks an end date. Until then the
+      // section behaves exactly as it always has -- every bill, no total --
+      // so the filter cannot silently hide a bill she was looking for.
+      var ranged = !!(from && to && to >= from);
+
+      var shown = BILLS;
+      var rangeTotal = 0;
+      var occurrences = {};
+      if (ranged) {
+        shown = BILLS.filter(function(b) {
+          var hits = billDueDates(b, from, to);
+          if (!hits.length) { return false; }
+          occurrences[b.id] = hits;
+          // Each occurrence counts: a range covering two months owes the rent
+          // twice.
+          rangeTotal += (Number(b.amount_cents) || 0) * hits.length;
+          return true;
+        });
+      }
+
+      if (ranged && !shown.length) {
+        list.innerHTML = '<div class="tag-meta">' +
+          '<span class="show-pt">Nenhuma conta vence neste per&iacute;odo.</span>' +
+          '<span class="show-en">No bills due in this range.</span></div>';
+      } else {
+      list.innerHTML = shown.map(function(b) {
         var methodLabel = b.payment_method === "draft"
           ? (isEn() ? "autopay" : "d&eacute;bito autom&aacute;tico")
           : (isEn() ? "manual" : "manual");
@@ -4326,6 +4478,67 @@
             '<span class="show-pt">Remover</span><span class="show-en">Remove</span></button>' +
         "</div>";
       }).join("");
+      }
+
+      renderBillTotals(ranged, rangeTotal, shown.length, from, to);
+    }
+
+    // ── The totals ────────────────────────────────────────────────────────
+    //
+    // Two numbers, deliberately NOT merged.
+    //
+    //   1. What is due in the range. This is the direct answer to "what do I
+    //      have to cover by the 15th?"
+    //   2. The same figure PLUS anything already overdue. Overdue bills are not
+    //      in the range -- their due date has passed -- but they still have to
+    //      come out of the same money, so leaving them out of the picture
+    //      entirely would make the first number look sufficient when it is not.
+    //
+    // Adding them into one total would answer neither question: she needs to
+    // know what the range costs AND what the real bill is if she clears the
+    // backlog too. The second row only appears when there IS a backlog.
+    function renderBillTotals(ranged, rangeTotal, count, from, to) {
+      var box = document.getElementById("billsTotals");
+      if (!box) { return; }
+      if (!ranged) { box.hidden = true; box.innerHTML = ""; return; }
+
+      var overdueCents = 0, overdueCount = 0;
+      var od = (OVERDUE && OVERDUE.overdue_bills) || [];
+      od.forEach(function(b) {
+        overdueCents += Number(b.amount_cents) || 0;
+        overdueCount++;
+      });
+
+      var html = '<div class="bill-total-row">' +
+        '<span class="bill-total-lbl">' +
+          t("Total de " + fmtDate(billFmtInput(from)) + " a " + fmtDate(billFmtInput(to)),
+            "Total from " + fmtDate(billFmtInput(from)) + " to " + fmtDate(billFmtInput(to))) +
+        '</span>' +
+        '<span class="bill-total-amt">' + fmtCents(rangeTotal) + '</span>' +
+      '</div>' +
+      '<div class="bill-total-sub">' +
+        count + " " + (count === 1 ? t("conta", "bill") : t("contas", "bills")) +
+      '</div>';
+
+      if (overdueCount) {
+        html += '<div class="bill-total-row is-overdue">' +
+          '<span class="bill-total-lbl">' +
+            t("Com contas atrasadas", "With overdue bills") +
+          '</span>' +
+          '<span class="bill-total-amt">' + fmtCents(rangeTotal + overdueCents) + '</span>' +
+        '</div>' +
+        '<div class="bill-total-sub">' +
+          t("inclui " + overdueCount + " " +
+              (overdueCount === 1 ? "conta atrasada" : "contas atrasadas") +
+              " &mdash; " + fmtCents(overdueCents),
+            "includes " + overdueCount + " overdue " +
+              (overdueCount === 1 ? "bill" : "bills") +
+              " &mdash; " + fmtCents(overdueCents)) +
+        '</div>';
+      }
+
+      box.innerHTML = html;
+      box.hidden = false;
     }
 
     // Recurring charges found in HER OWN history, offered for confirmation.

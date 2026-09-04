@@ -998,6 +998,17 @@ function apexBiometricPlugin() {
 function apexSetSignInInFlight(v) {
   apexSignInInFlight = !!v;
   apexTrace("SIGNIN-FLAG", "apexSignInInFlight = " + apexSignInInFlight);
+  // Suspend the stall countdown for the whole sign-in. Google's OAuth sheet
+  // took EIGHTEEN SECONDS to appear on device and then stayed open while the
+  // user typed; the timer ran underneath and had the recovery screen waiting
+  // when they came back. The app stays ACTIVE during that sheet, so only this
+  // flag knows the wait is legitimate.
+  try {
+    var plugin = apexLockCoverPlugin();
+    if (!plugin) { return; }
+    if (apexSignInInFlight && typeof plugin.suspendStall === "function") { plugin.suspendStall(); }
+    if (!apexSignInInFlight && typeof plugin.resumeStall === "function") { plugin.resumeStall(); }
+  } catch (e) {}
 }
 
 // MONOTONIC TIME, deliberately not a calendar value.

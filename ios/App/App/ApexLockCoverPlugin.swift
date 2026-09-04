@@ -250,6 +250,8 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "show", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "state", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "alive", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "suspendStall", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "resumeStall", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "trace", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "dumpTrace", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRecovery", returnType: CAPPluginReturnPromise)
@@ -310,6 +312,25 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
     // Each call restarts the clock, so the screen now appears only if JS goes
     // quiet for a full stall window, which is what "stalled" was always meant
     // to mean. It never reveals, so a lying caller gains nothing.
+    // Suspend the stall countdown across work that legitimately takes a long
+    // time and is NOT a stall: the Google OAuth sheet above all.
+    //
+    // Measured on device: tapping "Sign in with Google" at t=51.7s, the sheet
+    // appearing at t=69.5s - eighteen seconds - and then sitting open while the
+    // user typed. The countdown ran underneath the whole time and had the
+    // recovery screen waiting when they came back. The app is ACTIVE during
+    // that sheet, so the frontmost check cannot see it; only the code that
+    // started the sign-in knows.
+    @objc func suspendStall(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { ApexLockCover.shared.setStallSuspended(true) }
+        call.resolve()
+    }
+
+    @objc func resumeStall(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { ApexLockCover.shared.setStallSuspended(false) }
+        call.resolve()
+    }
+
     @objc func alive(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             ApexLockCover.shared.noteProgress()
@@ -1383,6 +1404,17 @@ final class ApexLockCover {
     // Fires if nothing has resolved in time. Shows the recovery UI. NEVER hides.
     // Restarts the stall countdown. Only meaningful while a cover is up; if the
     // app is already visible there is nothing to rescue.
+    // While true the countdown does not run at all. Resuming restarts it from
+    // zero rather than resuming a part-elapsed timer, so returning from a long
+    // sign-in gets a full window rather than whatever was left.
+    private var stallSuspended = false
+
+    func setStallSuspended(_ suspended: Bool) {
+        stallSuspended = suspended
+        trace("STALL TIMER " + (suspended ? "SUSPENDED (long user-facing work)" : "resumed"))
+        if suspended { cancelStallTimer() } else if isActuallyCovering { startStallTimer() }
+    }
+
     func noteProgress() {
         if !jsHasReportedIn {
             jsHasReportedIn = true
@@ -1407,6 +1439,7 @@ final class ApexLockCover {
 
     private func startStallTimer() {
         cancelStallTimer()
+        if stallSuspended { return }
         stallTimer = Timer.scheduledTimer(withTimeInterval: stallSeconds, repeats: false) { [weak self] _ in
             // NEVER while the app is not frontmost. A system dialog - the push
             // permission prompt, the Face ID sheet - backgrounds the app, and

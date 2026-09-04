@@ -1767,6 +1767,15 @@ function apexInstallBiometricLock() {
     if (!appPlugin || !appPlugin.addListener) { return false; }
     apexResumeWired = true;
     appPlugin.addListener("appStateChange", function (state) {
+      // TRACE FIRST, unconditionally. Added 2026-09-03: a resume after
+      // backgrounding produced NO MAYBELOCK line at all, and the silence was
+      // unreadable - it could mean the listener never fired, or that it fired
+      // with isActive false, or that it fired and apexMaybeLock returned early.
+      // Logging only inside the if made all three look identical. The stall
+      // timer then offered the recovery UI 12s later, so every return to the
+      // app needed a manual Unlock tap.
+      apexTrace("RESUME-EVENT",
+        "appStateChange fired: isActive=" + (state ? state.isActive : "(no state)"));
       if (state && state.isActive) { apexMaybeLock(); }
     });
     apexTrace("RESUME", "appStateChange listener ATTACHED");

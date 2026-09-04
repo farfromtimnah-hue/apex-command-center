@@ -1000,6 +1000,22 @@ final class ApexLockCover {
 
     // Disables the buttons and shows progress while a native action runs, so a
     // second tap cannot start a second Face ID prompt on top of the first.
+    // Dimming the buttons was the ONLY feedback here until 2026-09-03, and it
+    // reads as "the button is broken", not "working on it".
+    //
+    // Face ID legitimately takes about two seconds to read a face - measured on
+    // device: ACTION-FIRED at t=47370ms, the OS prompt presented 26ms later,
+    // NATIVE-AUTH SUCCEEDED at t=49445ms. The button is not slow; the biometric
+    // read is. But the OS sheet can be slow to paint over this cover, so for
+    // those two seconds the user saw two greyed-out buttons and nothing else,
+    // and reported the app as hung. Reported as "super delayed between when I
+    // click and something actually happens."
+    //
+    // A spinner and a word turn an unexplained freeze into visible progress.
+    // Nothing about the security model changes: this is presentation only, and
+    // the cover stays up exactly as long as it did before.
+    private var recoverySpinner: UIActivityIndicatorView?
+
     func setRecoveryBusy(_ busy: Bool) {
         guard let stack = recoveryStack else { return }
         for v in stack.arrangedSubviews {
@@ -1007,6 +1023,19 @@ final class ApexLockCover {
                 b.isEnabled = !busy
                 b.alpha = busy ? 0.45 : 1.0
             }
+        }
+        if busy {
+            setRecoveryMessage("Autenticando...\nAuthenticating...")
+            if recoverySpinner == nil {
+                let sp = UIActivityIndicatorView(style: .medium)
+                sp.color = UIColor(white: 0.85, alpha: 1.0)
+                sp.hidesWhenStopped = true
+                recoverySpinner = sp
+                stack.addArrangedSubview(sp)
+            }
+            recoverySpinner?.startAnimating()
+        } else {
+            recoverySpinner?.stopAnimating()
         }
     }
 

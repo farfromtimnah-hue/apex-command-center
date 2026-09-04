@@ -1024,11 +1024,22 @@ final class ApexLockCover {
             // photo on every screen size. The recovery message and buttons are
             // in this same stack and move with it, which is deliberate - see
             // b49b6db, where two independently-centred groups was the bug.
-            content.centerYAnchor.constraint(equalTo: container.centerYAnchor,
-                                             constant: -(UIScreen.main.bounds.height * 0.14)),
+            // TOP-ANCHORED, NOT CENTRED — this is what stops the bounce.
+            //
+            // The recovery message and buttons join THIS stack when they
+            // appear, which makes it taller. A centred stack then shifts up to
+            // re-centre, so the logo visibly jumped down and back as the
+            // recovery UI came and went. Nicole: "it bounces down later to
+            // where it was, and then it goes back up."
+            //
+            // Pinning the TOP means the logo lands in one place and stays
+            // there; anything added below simply extends downward. The
+            // fraction keeps it in the same spot relative to the photo across
+            // screen sizes, clear of the peak with the sky balanced above.
+            content.topAnchor.constraint(equalTo: container.topAnchor,
+                                         constant: UIScreen.main.bounds.height * 0.13),
             content.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 32),
             content.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -32),
-            content.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor, constant: 24),
             content.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -24)
         ])
 

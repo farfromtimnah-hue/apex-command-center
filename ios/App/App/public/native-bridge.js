@@ -1039,19 +1039,46 @@ function apexMonotonicMs() {
   });
 }
 
+// Uptime AND the identity of the current process, in one bridge call.
+//
+// systemUptime belongs to the DEVICE, not to this app run, so it cannot tell
+// a relaunch from a continuing launch. Force-quitting and reopening inside the
+// grace window leaves a record that still reads as fresh: the cold-launch
+// clear skips, nothing ever authenticates, and the cover stays up. Every
+// relaunch lands in the same window, which is why force-quitting did not fix
+// it. The nonce is constant within one run and different across runs, so
+// comparing it is what actually answers "is this still the same launch".
+function apexClockReading() {
+  var plugin = apexUptimePlugin();
+  if (!plugin) { return Promise.resolve(null); }
+  return plugin.now().then(function (res) {
+    if (!res || typeof res.ms !== "number") { return null; }
+    return { ms: Math.round(res.ms), launch: (typeof res.launch === "string" ? res.launch : null) };
+  }).catch(function () {
+    return null;
+  });
+}
+
 // Records a successful unlock as a boot-relative reading. Stored in
 // Preferences (native UserDefaults) so it survives both page navigation and
 // the WebView storage eviction the auth mirror above exists to work around.
 function apexMarkUnlocked() {
   var prefs = apexPrefs();
   if (!prefs) { return Promise.resolve(); }
-  return apexMonotonicMs().then(function (ms) {
-    if (ms === null) { return; }
+  return apexClockReading().then(function (reading) {
+    if (!reading) { return; }
+    var ms = reading.ms;
+    // Stored as "<uptimeMs>:<launchNonce>". The nonce is what makes the
+    // record belong to THIS app run rather than merely to this device, so a
+    // relaunch inside the grace window cannot inherit it. Older records with
+    // no colon are read as nonce-less and always fail the match, which fails
+    // closed - the correct direction.
+    var value = String(ms) + (reading.launch ? ":" + reading.launch : "");
     // The promise is RETURNED, not fired and forgotten. Preferences.set is
     // async, and not awaiting it let the page navigate before the record
     // landed - the next page then found no unlock and prompted for Face ID a
     // second time. Observed on the device going from index to dashboard.
-    return prefs.set({ key: APEX_UNLOCK_KEY, value: String(ms) }).catch(function () {
+    return prefs.set({ key: APEX_UNLOCK_KEY, value: value }).catch(function () {
       // Unlock still succeeded for this resume; worst case the next one
       // prompts again, which fails safe.
     });
@@ -1105,19 +1132,47 @@ var apexUnlockClearStarted = false;
 // Same freshness rule as apexUnlockIsFresh, minus the apexUnlockCleared wait.
 // Used only by the cold-launch clear itself, which cannot wait on the promise
 // it is in the middle of producing.
+// Splits a stored unlock record into its timestamp and the launch nonce that
+// wrote it. A record with no nonce (written by a build before the nonce
+// existed) yields launch:null, which never matches a live nonce and therefore
+// fails closed.
+function apexParseUnlockRecord(raw) {
+  if (!raw) { return null; }
+  var idx = String(raw).indexOf(":");
+  var atPart = idx === -1 ? String(raw) : String(raw).slice(0, idx);
+  var launch = idx === -1 ? null : String(raw).slice(idx + 1);
+  var at = parseInt(atPart, 10);
+  if (isNaN(at)) { return null; }
+  return { at: at, launch: launch || null };
+}
+
+// Is a stored record still a valid unlock for the CURRENT app run?
+//
+// Two independent conditions, both required:
+//   1. Same launch  - the nonce matches this process. A record from a run that
+//                     has ended is never ours, however recent it looks.
+//   2. Within grace - less than APEX_UNLOCK_GRACE_MS of uptime has passed.
+//
+// Condition 1 is the one added 2026-09-03. Without it a force-quit and
+// relaunch inside the window inherited the previous run's unlock, the
+// cold-launch clear skipped itself, and nothing ever prompted or revealed.
+function apexRecordIsCurrent(raw, reading) {
+  var rec = apexParseUnlockRecord(raw);
+  if (!rec || !reading) { return false; }
+  if (!rec.launch || !reading.launch || rec.launch !== reading.launch) { return false; }
+  var elapsed = reading.ms - rec.at;
+  if (elapsed < 0) { return false; }
+  return elapsed < APEX_UNLOCK_GRACE_MS;
+}
+
 function apexReadUnlockFresh() {
   var prefs = apexPrefs();
   if (!prefs) { return Promise.resolve(false); }
   return Promise.resolve(prefs.get({ key: APEX_UNLOCK_KEY })).then(function (res) {
     var raw = res && res.value ? res.value : null;
     if (!raw) { return false; }
-    var at = parseInt(raw, 10);
-    if (isNaN(at)) { return false; }
-    return apexMonotonicMs().then(function (nowMs) {
-      if (nowMs === null) { return false; }
-      var elapsed = nowMs - at;
-      if (elapsed < 0) { return false; }
-      return elapsed < APEX_UNLOCK_GRACE_MS;
+    return apexClockReading().then(function (reading) {
+      return apexRecordIsCurrent(raw, reading);
     });
   }).catch(function () {
     return false;
@@ -1136,17 +1191,12 @@ function apexUnlockIsFresh() {
   }).then(function (res) {
     var raw = res && res.value ? res.value : null;
     if (!raw) { return false; }
-    var at = parseInt(raw, 10);
-    if (isNaN(at)) { return false; }
 
-    return apexMonotonicMs().then(function (nowMs) {
-      // No trustworthy clock means no trustworthy grace period.
-      if (nowMs === null) { return false; }
-      var elapsed = nowMs - at;
-      // Negative means the device rebooted (uptime reset) or the record was
-      // tampered with. Either way, require authentication.
-      if (elapsed < 0) { return false; }
-      return elapsed < APEX_UNLOCK_GRACE_MS;
+    // No trustworthy clock means no trustworthy grace period; a nonce that
+    // does not match this process means the record is from a finished run.
+    // Both fail closed inside apexRecordIsCurrent.
+    return apexClockReading().then(function (reading) {
+      return apexRecordIsCurrent(raw, reading);
     });
   }).catch(function () {
     return false;
@@ -1164,6 +1214,9 @@ var APEX_LOCK_ID = "apex-biometric-lock";
 function apexShowLock() {
   if (document.getElementById(APEX_LOCK_ID)) { return; }
   apexTrace("SHOWLOCK", "in-document lock UI raised");
+  // Arm the invariant check. If this cover is still up in a few seconds with
+  // no unlock running, something exited early and the watchdog prompts.
+  apexCoverWatchdogStart("showLock");
   var el = document.createElement("div");
   el.id = APEX_LOCK_ID;
   el.setAttribute("role", "presentation");
@@ -1462,6 +1515,44 @@ var apexMaybeLockInFlight = false;
 // already funnels through that one function.
 var apexLastHideLockAt = 0;
 var APEX_MAYBELOCK_DEBOUNCE_MS = 4000;
+
+// ── Last-resort watchdog: never leave the cover up with nothing running ──
+//
+// Every black screen in this file's history is the same shape: a cover goes
+// up, the path that was supposed to lower it exits early, and nothing else
+// ever runs. The 2026-09-03 relaunch bug is the fourth instance. Each one was
+// fixed at its own call site, which is the failure pattern the reentrancy
+// guards above were written to stop repeating.
+//
+// So this does not fix a cause. It enforces the INVARIANT the causes keep
+// violating: if a cover is raised, either an unlock is in flight or one is
+// about to be. Anything else is a bug, and the user should get a prompt
+// rather than a black rectangle.
+//
+// It NEVER reveals on its own - revealing on a timer is exactly the hole the
+// removed auto-reveal watchdog left, where someone holding the phone could
+// simply wait. It only ever PROMPTS, which is the fail-closed direction.
+var APEX_COVER_WATCHDOG_MS = 6000;
+var apexCoverWatchdogTimer = null;
+
+function apexCoverWatchdogStart(reason) {
+  if (apexCoverWatchdogTimer !== null) { return; }
+  apexCoverWatchdogTimer = setTimeout(function () {
+    apexCoverWatchdogTimer = null;
+    // Cover already gone: nothing to rescue.
+    if (!document.getElementById(APEX_LOCK_ID)) { return; }
+    // Something is legitimately in progress - leave it alone.
+    if (apexUnlockInFlight || apexMaybeLockInFlight || apexSignInInFlight) {
+      apexTrace("WATCHDOG", "cover up but work in flight -> leaving it");
+      apexCoverWatchdogStart("re-arm");
+      return;
+    }
+    apexTrace("WATCHDOG",
+      "COVER UP WITH NOTHING RUNNING (" + reason + ") -> forcing a prompt. " +
+      "This is a bug upstream; the prompt is the fail-closed rescue.");
+    apexRunUnlock(false);
+  }, APEX_COVER_WATCHDOG_MS);
+}
 
 // Decides whether this resume needs the prompt, then runs it.
 function apexMaybeLock() {

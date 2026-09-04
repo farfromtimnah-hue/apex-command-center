@@ -32,11 +32,28 @@ public class ApexUptimePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "now", returnType: CAPPluginReturnPromise)
     ]
 
+    // Identity of THIS process. Generated once when the plugin class is first
+    // loaded and constant for the life of the app run.
+    //
+    // systemUptime alone cannot tell a fresh launch from a continuing one: it
+    // is a property of the DEVICE, not of this process. Force-quitting and
+    // relaunching inside the 15-minute grace window leaves a stored unlock
+    // that still reads as fresh, so the cold-launch clear skips itself, the
+    // launch never authenticates, and the cover is never lowered - a black
+    // screen that force-quitting cannot clear, because every relaunch lands
+    // in the same window. Observed on device 2026-09-03.
+    //
+    // The nonce settles it: it is written alongside the unlock record and
+    // compared on read. Same nonce means the same app run and the unlock is
+    // genuinely still ours; a different nonce means this is a new process and
+    // the record belongs to a run that is over, whatever the clock says.
+    private static let launchNonce = UUID().uuidString
+
     @objc func now(_ call: CAPPluginCall) {
         // Milliseconds since boot, as a Double. Resolution is far finer than
         // the 15-minute window needs.
         let uptimeMs = ProcessInfo.processInfo.systemUptime * 1000.0
-        call.resolve(["ms": uptimeMs])
+        call.resolve(["ms": uptimeMs, "launch": Self.launchNonce])
     }
 }
 

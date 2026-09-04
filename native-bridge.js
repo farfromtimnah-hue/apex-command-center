@@ -1644,7 +1644,22 @@ function apexMaybeLock() {
   if (apexSignInInFlight) { apexTrace("MAYBELOCK", "skipped: signIn in flight"); return; }
   // apexHasSession() is synchronous BY DESIGN (see apexNativeSessionPresent),
   // so "is there anything to protect" is answered without awaiting anything.
-  if (!apexHasSession()) { apexTrace("MAYBELOCK", "skipped: no session"); return; }
+  if (!apexHasSession()) {
+    // Report WHICH of the three signals is missing, not just the verdict.
+    // "skipped: no session" was ambiguous across at least three different
+    // causes and cost several rounds of guessing on 2026-09-03.
+    var dbgTok = null, dbgTokErr = null;
+    try { dbgTok = window.localStorage.getItem("apex_client_token"); }
+    catch (e) { dbgTokErr = e && e.message; }
+    apexTrace("MAYBELOCK",
+      "skipped: no session -- clientToken=" + (dbgTok ? "yes" : "no") +
+      (dbgTokErr ? "(threw:" + dbgTokErr + ")" : "") +
+      " nativePresent=" + apexNativeSessionPresent +
+      " cookieHint=" + apexNativeSessionHint() +
+      " rawCookie=" + JSON.stringify(apexReadSnapshot(APEX_ADMIN_HINT_KEY)) +
+      " coverUp=" + !!document.getElementById(APEX_LOCK_ID));
+    return;
+  }
   if (apexMaybeLockInFlight) {
     apexTrace("MAYBELOCK", "skipped: another apexMaybeLock() already running");
     return;

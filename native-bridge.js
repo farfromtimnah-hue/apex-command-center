@@ -1539,6 +1539,12 @@ function apexRunUnlock(manual) {
       return apexMarkUnlocked().then(function () {
         apexHideLock();
         apexUnlockInFlight = false;
+        // The push permission prompt goes HERE - after a real authentication,
+        // with the app about to become visible. Not at launch: stacking a
+        // notifications dialog on top of Face ID asks twice before the user has
+        // seen anything, and an iOS "no" cannot be re-asked. Deferred a tick so
+        // the reveal paints first.
+        try { window.setTimeout(function () { apexInitPush(); }, 1200); } catch (e) {}
         return true;
       });
     }).catch(function (err) {
@@ -1725,6 +1731,104 @@ function apexMaybeLock() {
     // Freshness unknown - stay covered and prompt. Fails closed.
     apexTrace("GRACE", "check failed, failing closed -> prompt: " + (e && e.message));
     apexRunUnlock(false);
+  });
+}
+
+// ── NATIVE PUSH (APNs) ──────────────────────────────────────────────────────
+//
+// MUST SHIP IN THE BUILD ALICE AND RAFA FIRST INSTALL. iOS asks for
+// notification permission exactly ONCE per install; if the first build has no
+// push, they never see the prompt and enabling it later means asking them to
+// dig through Settings. That is why this is gated before TestFlight rather
+// than added afterwards.
+//
+// WHEN THE PROMPT FIRES: deliberately NOT at launch. A permission dialog on a
+// cold start, on top of Face ID, is two system prompts before the app has shown
+// anything - and a "no" is close to permanent. This runs after the first
+// successful unlock instead, when the user is looking at real content.
+var APEX_PUSH_ASKED_KEY = "apex_push_asked";
+var apexPushRegistered = false;
+
+// The Worker origin. Each page defines its own WORKER_URL local; this file is
+// loaded before them, so it cannot read those. The constant is the same in
+// every page and has been since the Worker was created.
+function apexWorkerBase() {
+  return "https://apex-api.farfromtimnah.workers.dev";
+}
+
+function apexPushPlugin() {
+  if (!window.Capacitor || !window.Capacitor.Plugins) { return null; }
+  return window.Capacitor.Plugins.PushNotifications || null;
+}
+
+// Sends the device token to the Worker. Uses the Firebase ID token for auth,
+// the same credential every other authenticated call uses.
+function apexRegisterApnsToken(token) {
+  var fbPlugin = apexFirebaseAuthPlugin();
+  if (!fbPlugin || !token) { return; }
+  fbPlugin.getIdToken().then(function (res) {
+    var idToken = res && res.token ? res.token : null;
+    if (!idToken) { apexTrace("PUSH", "no id token - cannot register"); return; }
+    // Sandbox tokens come from debug builds and only work against Apple's
+    // sandbox host; TestFlight and App Store builds are production. Getting
+    // this wrong returns BadDeviceToken, which is indistinguishable from a
+    // revoked token, so the app reports which one minted it.
+    var isDebug = false;
+    try { isDebug = !!(window.Capacitor && window.Capacitor.DEBUG); } catch (e) {}
+    return fetch(apexWorkerBase() + "/api/push/apns", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + idToken
+      },
+      body: JSON.stringify({
+        token: token,
+        environment: isDebug ? "sandbox" : "production",
+        bundleId: "com.resonatebusinesssystems.apexcommandcenter",
+        model: (navigator && navigator.userAgent) ? navigator.userAgent.slice(0, 60) : null
+      })
+    }).then(function (r) {
+      apexTrace("PUSH", "token registered: HTTP " + r.status);
+    });
+  }).catch(function (e) {
+    apexTrace("PUSH", "registration failed: " + (e && e.message));
+  });
+}
+
+// Asks for permission and starts registration. Safe to call repeatedly.
+function apexInitPush() {
+  if (apexPushRegistered) { return; }
+  var plugin = apexPushPlugin();
+  if (!plugin) { apexTrace("PUSH", "plugin not present"); return; }
+  apexPushRegistered = true;
+
+  plugin.addListener("registration", function (t) {
+    var tok = t && t.value ? String(t.value) : null;
+    apexTrace("PUSH", "APNs registration callback, token length=" + (tok ? tok.length : 0));
+    if (tok) { apexRegisterApnsToken(tok); }
+  });
+
+  plugin.addListener("registrationError", function (err) {
+    apexTrace("PUSH", "registrationError: " + JSON.stringify(err || {}));
+  });
+
+  plugin.checkPermissions().then(function (perm) {
+    var state = perm && perm.receive ? perm.receive : "prompt";
+    apexTrace("PUSH", "permission state=" + state);
+    if (state === "granted") { return plugin.register(); }
+    if (state === "denied") {
+      // Asking again does nothing - iOS will not re-prompt once denied.
+      apexTrace("PUSH", "denied previously; not re-asking");
+      return null;
+    }
+    return plugin.requestPermissions().then(function (r) {
+      try { window.localStorage.setItem(APEX_PUSH_ASKED_KEY, "1"); } catch (e) {}
+      if (r && r.receive === "granted") { return plugin.register(); }
+      apexTrace("PUSH", "permission not granted: " + (r && r.receive));
+      return null;
+    });
+  }).catch(function (e) {
+    apexTrace("PUSH", "init failed: " + (e && e.message));
   });
 }
 

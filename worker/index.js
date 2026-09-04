@@ -25064,6 +25064,127 @@ async function sendWebPush(env, sub, payloadObj) {
 }
 
 // Fan-out helper. `emails` null = every subscription.
+// ---------------------------------------------------------------------------
+// APNs — native iOS push. Separate transport from web push, same fan-out.
+//
+// Web push POSTs to a subscription's own endpoint URL with a VAPID JWT. APNs
+// posts to Apple's host with a device token in the PATH and an ES256 JWT signed
+// with the .p8 key. Nothing is shared but the intent, which is why this is its
+// own pair of functions and its own table.
+// ---------------------------------------------------------------------------
+
+// The provider token. Apple allows reuse for up to an hour and REJECTS a token
+// minted more than once every 20 minutes with TooManyProviderTokenUpdates, so
+// this is cached per isolate rather than signed per notification.
+var apnsJwtCache = { token: null, madeAt: 0 };
+
+function b64urlFromBytes(bytes) {
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) { bin += String.fromCharCode(bytes[i]); }
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64urlFromString(str) {
+    return btoa(unescape(encodeURIComponent(str)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Turns the PEM in APNS_KEY_P8 into a CryptoKey. The secret is stored with real
+// newlines OR with literal \n, because pasting a PEM through a shell mangles it
+// either way; both are normalised here rather than at the call site.
+async function apnsImportKey(env) {
+    var pem = String(env.APNS_KEY_P8 || "").replace(/\\n/g, "\n").trim();
+    var body = pem.replace(/-----BEGIN PRIVATE KEY-----/, "")
+                  .replace(/-----END PRIVATE KEY-----/, "")
+                  .replace(/\s+/g, "");
+    if (!body) { throw new Error("APNS_KEY_P8 is not set"); }
+    var raw = atob(body);
+    var bytes = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) { bytes[i] = raw.charCodeAt(i); }
+    return crypto.subtle.importKey(
+        "pkcs8", bytes.buffer,
+        { name: "ECDSA", namedCurve: "P-256" },
+        false, ["sign"]
+    );
+}
+
+async function apnsProviderToken(env) {
+    var nowSec = Math.floor(Date.now() / 1000);
+    // Refresh at 45 minutes: comfortably inside Apple's 60-minute expiry and
+    // well outside the 20-minute minimum between mints.
+    if (apnsJwtCache.token && (nowSec - apnsJwtCache.madeAt) < 45 * 60) {
+        return apnsJwtCache.token;
+    }
+    var keyId = String(env.APNS_KEY_ID || "");
+    var teamId = String(env.APNS_TEAM_ID || "");
+    if (!keyId || !teamId) { throw new Error("APNS_KEY_ID or APNS_TEAM_ID is not set"); }
+
+    var header = b64urlFromString(JSON.stringify({ alg: "ES256", kid: keyId }));
+    var claims = b64urlFromString(JSON.stringify({ iss: teamId, iat: nowSec }));
+    var signingInput = header + "." + claims;
+
+    var key = await apnsImportKey(env);
+    var sig = await crypto.subtle.sign(
+        { name: "ECDSA", hash: { name: "SHA-256" } },
+        key, new TextEncoder().encode(signingInput)
+    );
+    var token = signingInput + "." + b64urlFromBytes(new Uint8Array(sig));
+    apnsJwtCache = { token: token, madeAt: nowSec };
+    return token;
+}
+
+// Sends one notification to one device token.
+//
+// The environment on the ROW picks the host. A token minted by a debug build
+// only works against the sandbox host and vice versa, and sending to the wrong
+// one returns BadDeviceToken - which is indistinguishable from a genuinely
+// revoked token and would delete a working row.
+async function sendApns(env, row, payloadObj) {
+    try {
+        var jwt = await apnsProviderToken(env);
+        var host = (row.environment === "sandbox")
+            ? "https://api.sandbox.push.apple.com"
+            : "https://api.push.apple.com";
+        var topic = row.bundle_id || String(env.APNS_BUNDLE_ID || "");
+
+        var body = JSON.stringify({
+            aps: {
+                alert: {
+                    title: payloadObj.title || "Apex",
+                    body: payloadObj.body || ""
+                },
+                sound: "default",
+                badge: 1
+            },
+            // The web-push payload already carries a url for the click handler;
+            // pass it through unchanged so both transports deep-link the same.
+            url: payloadObj.url || null
+        });
+
+        var res = await fetch(host + "/3/device/" + row.token, {
+            method: "POST",
+            headers: {
+                "authorization": "bearer " + jwt,
+                "apns-topic": topic,
+                "apns-push-type": "alert",
+                "apns-priority": "10"
+            },
+            body: body
+        });
+
+        if (res.ok) { return { ok: true }; }
+
+        var txt = await res.text().catch(function() { return ""; });
+        // 410 Unregistered, or 400 BadDeviceToken, means the app is gone from
+        // that device. Anything else is a real error worth keeping the row for.
+        var gone = res.status === 410 || txt.indexOf("BadDeviceToken") !== -1 ||
+                   txt.indexOf("Unregistered") !== -1;
+        return { ok: false, gone: gone, error: res.status + " " + txt.slice(0, 120) };
+    } catch (e) {
+        return { ok: false, gone: false, error: e.message };
+    }
+}
+
 async function pushToUsers(env, emails, payloadObj) {
     var q = emails && emails.length
         ? "SELECT * FROM push_subscriptions WHERE user_email IN (" +
@@ -25094,7 +25215,42 @@ async function pushToUsers(env, emails, payloadObj) {
             ).bind(String(r.error || "unknown").slice(0, 200), subs[i].id).run();
         }
     }
-    return { sent: sent, removed: removed, failed: failed, total: subs.length };
+    // ---- APNs leg: the same recipients, the native transport ----------------
+    //
+    // Added with native push 2026-09-03. Every existing caller of pushToUsers
+    // now reaches iOS devices too, with no edit at the call sites - which is
+    // the point of doing it here rather than in each notification path.
+    var aq = emails && emails.length
+        ? "SELECT * FROM apns_device_tokens WHERE user_email IN (" +
+          emails.map(function() { return "?"; }).join(",") + ")"
+        : "SELECT * FROM apns_device_tokens";
+    var astmt = env.DB.prepare(aq);
+    if (emails && emails.length) { astmt = astmt.bind.apply(astmt, emails); }
+
+    var toks = [];
+    try { toks = (await astmt.all()).results || []; }
+    catch (e) { toks = []; }
+
+    for (var j = 0; j < toks.length; j++) {
+        var ar = await sendApns(env, toks[j], payloadObj);
+        if (ar.ok) {
+            sent++;
+            await env.DB.prepare(
+                "UPDATE apns_device_tokens SET last_sent_at = datetime('now'), last_error = NULL WHERE token = ?"
+            ).bind(toks[j].token).run();
+        } else if (ar.gone) {
+            removed++;
+            await env.DB.prepare("DELETE FROM apns_device_tokens WHERE token = ?").bind(toks[j].token).run();
+        } else {
+            failed++;
+            await env.DB.prepare(
+                "UPDATE apns_device_tokens SET last_error = ? WHERE token = ?"
+            ).bind(String(ar.error || "unknown").slice(0, 200), toks[j].token).run();
+        }
+    }
+
+    return { sent: sent, removed: removed, failed: failed,
+             total: subs.length + toks.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -29878,6 +30034,7 @@ async function handleFetch(request, env, ctx) {
         // key and the client needs it before it can subscribe.
         if (path === "/api/push/key"       && method === "GET")  { return handleGetPushKey(); }
         if (path === "/api/push/subscribe" && method === "POST") { return handlePostPushSubscribe(request, env); }
+        if (path === "/api/push/apns" && method === "POST") { return handlePostApnsToken(request, env); }
         if (path === "/api/push/test"      && method === "POST") { return handlePostPushTest(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }

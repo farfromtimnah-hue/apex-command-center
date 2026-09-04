@@ -11,22 +11,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         ApexLockCover.shared.trace("SCENE willConnectTo - creating window")
 
         window = UIWindow(windowScene: windowScene)
-        // PAINT THE WINDOW BEFORE IT IS SHOWN.
-        //
-        // iOS tears the LaunchScreen down the instant makeKeyAndVisible()
-        // returns. At that moment the Capacitor window is key and visible, its
-        // root view IS the WKWebView (CAPBridgeViewController.loadView does
-        // `view = webView`), and neither had a background colour - so the
-        // system showed an unpainted BLACK window until the cover appeared.
-        //
-        // Measured: cover not up until t=1797ms, so that is nearly two seconds
-        // of pure black on every launch, before any of this app's UI exists. It
-        // is why replacing the launch storyboard artwork changed nothing: the
-        // storyboard was already gone.
-        //
-        // #141210 is the same colour the cover and the web pages paint, so
-        // there is no seam between any of them.
-        window?.backgroundColor = ApexLockCover.coverColorPublic
         window?.rootViewController = ApexBridgeViewController()
         window?.makeKeyAndVisible()
 

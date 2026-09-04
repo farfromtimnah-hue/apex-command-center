@@ -63,6 +63,55 @@ for F in $STAGED; do
   MISSING="$MISSING $F"
 done
 
+# ---------------------------------------------------------------------------
+# www/ -- THE COPY CAPACITOR ACTUALLY BUILDS FROM.
+#
+# capacitor.config.json sets webDir: "www". `npx cap sync ios` copies www/ ->
+# ios/App/App/public/, so the check above guards the DESTINATION while this
+# guards the SOURCE. Getting the destination right means nothing if the next
+# sync overwrites it from a stale source.
+#
+# www/ is GITIGNORED, which is exactly why this was invisible: the hook and the
+# CI drift job both work off staged paths, and an ignored directory is never
+# staged. On 2026-09-04 the guard passed green all day on four commits while
+# www/finance-new.html sat 16 hours behind, and the change simply was not in
+# the app. That is the same class of bug the header above describes -- "nobody
+# remembered" -- so it gets the same treatment: block, do not warn.
+#
+# Content comparison IS right here, unlike above: www/ is generated output,
+# never hand-edited, so identical is precisely the correct test.
+# ---------------------------------------------------------------------------
+WWW_STALE=""
+if [ -d "www" ]; then
+  for F in $STAGED; do
+    case "$F" in
+      "$IOS_DIR"/*) continue ;;
+      ios/*)        continue ;;
+      www/*)        continue ;;
+    esac
+    [ -f "www/$F" ] || continue
+    git show ":$F" 2>/dev/null | cmp -s - "www/$F" && continue
+    WWW_STALE="$WWW_STALE $F"
+  done
+fi
+
+if [ -n "$WWW_STALE" ]; then
+  printf '\n'
+  printf '  ============================================================\n'
+  printf '   COMMIT BLOCKED -- www/ is stale (the iOS app builds from it)\n'
+  printf '  ============================================================\n\n'
+  printf '  capacitor.config.json sets webDir: "www", so www/ is what the iOS\n'
+  printf '  app is actually built from. These files differ from it:\n\n'
+  for F in $WWW_STALE; do printf '     %s\n' "$F"; done
+  printf '\n'
+  printf '  www/ is generated, never hand-edited. Regenerate and re-sync:\n\n'
+  printf '     sh scripts/build-webdir.sh && npx cap sync ios\n\n'
+  printf '  (or: npm run sync, which does both), then commit again.\n\n'
+  printf '  If this change genuinely should NOT reach the app:\n'
+  printf '     SKIP_IOS_DRIFT=1 git commit ...\n\n'
+  exit 1
+fi
+
 [ -n "$MISSING" ] || exit 0
 
 printf '\n'

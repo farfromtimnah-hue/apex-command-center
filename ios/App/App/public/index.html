@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
-       native-bridge.js?v=1788492701, so it is installed before anything that can throw.
+       native-bridge.js?v=1788492932, so it is installed before anything that can throw.
 
        WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
        with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
@@ -13,7 +13,7 @@
 
        Buffers into a cookie as well as the console, because the native log is
        only reachable once the Capacitor plugin exists -- which is exactly what
-       may not have happened yet when the error fires. native-bridge.js?v=1788492701 replays
+       may not have happened yet when the error fires. native-bridge.js?v=1788492932 replays
        this buffer into the native log once the plugin appears. -->
   <script>
   (function () {
@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1788492701"></script>
+  <script src="native-bridge.js?v=1788492932"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -252,6 +252,14 @@
     }
 
     /* Google sign-in button */
+    /* REMOVES WEBKIT'S TAP DELAY.
+       Without touch-action, WebKit waits to see whether a tap is the start of
+       a double-tap-to-zoom before firing onclick - a real, perceptible pause on
+       every button, and it lands on the one button whose next step already
+       takes seconds. Nicole watched it: "push the button, nothing happens,
+       then you watch the button depress." */
+    button, .btn-google, .btn-primary, a { touch-action: manipulation; }
+
     .btn-google {
       display: flex;
       align-items: center;
@@ -470,7 +478,8 @@
         </div>
         <p class="card-wordmark">Command Center</p>
       </div>
-      <button class="btn-google" id="signInBtn" onclick="handleSignIn()">
+      <button class="btn-google" id="signInBtn" onclick="handleSignIn()"
+              ontouchstart="apexTouchTrace()">
         <span class="g-mark">G</span>
         <span class="show-pt">Entrar com Google</span>
         <span class="show-en">Sign in with Google</span>
@@ -605,7 +614,33 @@
       el.className = "status-msg" + (isError ? " is-error" : "");
     }
 
+    // Fires the INSTANT a finger lands, before the browser has decided whether
+    // this is a tap, a scroll or a double-tap. onclick only fires on RELEASE
+    // and after that decision, so the gap between these two lines is lag the
+    // user feels and no other trace can see. Nicole: "I almost wonder if the
+    // trace is registering when that depression happens, not when I actually
+    // tap it."
+    function apexTouchTrace() {
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins &&
+            window.Capacitor.Plugins.ApexLockCover) {
+          window.Capacitor.Plugins.ApexLockCover.trace({
+            message: "TOUCH-SIGNIN finger down on Sign in with Google"
+          });
+        }
+      } catch (e) {}
+    }
+
     function handleSignIn() {
+      // onclick reached - compare this timestamp with TOUCH-SIGNIN above.
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins &&
+            window.Capacitor.Plugins.ApexLockCover) {
+          window.Capacitor.Plugins.ApexLockCover.trace({
+            message: "CLICK-SIGNIN onclick fired (finger released, gesture resolved)"
+          });
+        }
+      } catch (e) {}
       // The button is already disabled when the SDK is missing, but a stray
       // programmatic call must not throw on a null auth.
       if (!FIREBASE_READY) { showFirebaseUnavailable(); return; }

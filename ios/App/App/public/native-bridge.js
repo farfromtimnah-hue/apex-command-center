@@ -1597,7 +1597,27 @@ function apexRunUnlock(manual) {
         // notifications dialog on top of Face ID asks twice before the user has
         // seen anything, and an iOS "no" cannot be re-asked. Deferred a tick so
         // the reveal paints first.
-        try { window.setTimeout(function () { apexInitPush(); }, 1200); } catch (e) {}
+        // ONLY ON A PAGE THAT IS NOT THE LOGIN SCREEN.
+        //
+        // This fired 1.2s after any unlock, which on a fresh install lands
+        // while the user is looking at the login page - and the iOS permission
+        // dialog backgrounds the app, so the cover went up over the login
+        // screen and came back down. Login, Apex logo, login again, before the
+        // user could even tap Sign in with Google.
+        //
+        // There is also no point asking someone who has not signed in yet what
+        // notifications they want. Waiting until they are past the login screen
+        // both removes the flicker and asks at a moment that means something.
+        try {
+          window.setTimeout(function () {
+            var onLogin = /(^|\/)(index\.html)?$/.test(window.location.pathname);
+            if (onLogin) {
+              apexTrace("PUSH", "deferred: still on the login page");
+              return;
+            }
+            apexInitPush();
+          }, 1200);
+        } catch (e) {}
         return true;
       });
     }).catch(function (err) {

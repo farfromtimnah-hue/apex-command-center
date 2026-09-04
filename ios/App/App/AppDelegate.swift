@@ -141,7 +141,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 withCompletionHandler completionHandler:
                                     @escaping (UNNotificationPresentationOptions) -> Void) {
         ApexLockCover.shared.trace("PUSH-FOREGROUND willPresent called -> showing banner")
-        completionHandler([.banner, .sound, .badge])
+        completionHandler([.banner, .sound])
     }
 
 }

@@ -1012,7 +1012,20 @@ final class ApexLockCover {
             container.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
             container.heightAnchor.constraint(greaterThanOrEqualTo: scroll.frameLayoutGuide.heightAnchor),
 
-            content.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            // RAISED ABOVE THE PEAK, not centred.
+            //
+            // Dead-centre put the wordmark across the middle of the mountain,
+            // which reads wrong for a brand whose name means the summit.
+            // Nicole: "Apex means the top and right now it's towards the middle
+            // of the mountain, it's just not right to the meaning."
+            //
+            // The offset is a fraction of the container rather than a fixed
+            // number of points so it lands in the same place relative to the
+            // photo on every screen size. The recovery message and buttons are
+            // in this same stack and move with it, which is deliberate - see
+            // b49b6db, where two independently-centred groups was the bug.
+            content.centerYAnchor.constraint(equalTo: container.centerYAnchor,
+                                             constant: -(UIScreen.main.bounds.height * 0.14)),
             content.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 32),
             content.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -32),
             content.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor, constant: 24),

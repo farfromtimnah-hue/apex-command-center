@@ -1083,45 +1083,13 @@ final class ApexLockCover {
         // Everything above this line has already run: the cover is up, opaque,
         // and covering the app. The branding is strictly additive from here, so
         // nothing below can delay or gate the cover appearing.
-        // BRAND THE SCREEN BEFORE ANYTHING DECODES.
-        //
-        // Until loadAssets finishes, the cover is bare #141210 - which reads as
-        // a dead black screen, not as an app starting. It was measured at 30
-        // seconds under the debugger on a first install (cover up at t=1.8s,
-        // branding at t=31.6s), and even at a fraction of that it is the first
-        // thing anyone sees. Nicole: "it's got a black screen for, like, six
-        // seven seconds. It feels like something's wrong."
-        //
-        // The wordmark is drawn in code, so it needs no file, no decode and no
-        // main-thread work worth measuring. It sits under the real logo and is
-        // removed the moment that fades in, so the screen says APEX from the
-        // first frame however slow the rest of the launch is.
-        let placeholder = UILabel()
-        placeholder.translatesAutoresizingMaskIntoConstraints = false
-        placeholder.text = "APEX"
-        placeholder.textColor = UIColor(red: 0.85, green: 0.68, blue: 0.30, alpha: 1.0)
-        placeholder.font = UIFont.systemFont(ofSize: 42, weight: .semibold)
-        placeholder.textAlignment = .center
-        placeholder.isUserInteractionEnabled = false
-        host.view.addSubview(placeholder)
-        NSLayoutConstraint.activate([
-            placeholder.centerXAnchor.constraint(equalTo: host.view.centerXAnchor),
-            placeholder.centerYAnchor.constraint(equalTo: host.view.centerYAnchor,
-                                                 constant: -(UIScreen.main.bounds.height * 0.13))
-        ])
-
         let animate = Self.isColdLaunch(reason: reason)
-        loadAssets { [weak self, weak photo, weak scrim, weak logo, weak placeholder] p, l in
+        loadAssets { [weak self, weak photo, weak scrim, weak logo] p, l in
             guard let self = self, let photo = photo, let scrim = scrim, let logo = logo else { return }
             // The cover may already have come down during the decode.
             guard photo.window != nil else { return }
             photo.image = p
             logo.image = l
-            // The real branding is about to appear; retire the stand-in.
-            UIView.animate(withDuration: 0.25, animations: {
-                placeholder?.alpha = 0
-            }, completion: { _ in placeholder?.removeFromSuperview() })
-
             if animate {
                 scrim.alpha = 1
                 self.runLaunchAnimation(photo: photo, logo: logo)

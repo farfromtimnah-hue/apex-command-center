@@ -853,7 +853,7 @@ final class ApexLockCover {
             // running and restarting it would stutter) and by every re-arm on a
             // resume (where no animation should run at all).
             trace("COVER re-shown (reason=\(reason)) \(describeWindows())")
-            startStallTimer()
+            if jsHasReportedIn { startStallTimer() }
             return
         }
 
@@ -1027,7 +1027,7 @@ final class ApexLockCover {
         overlayWindow = w
 
         trace("COVER SHOWN (reason=\(reason)) level=\(w.windowLevel.rawValue) \(describeWindows())")
-        startStallTimer()
+        if jsHasReportedIn { startStallTimer() }
 
         // Everything above this line has already run: the cover is up, opaque,
         // and covering the app. The branding is strictly additive from here, so
@@ -1360,9 +1360,26 @@ final class ApexLockCover {
     // Restarts the stall countdown. Only meaningful while a cover is up; if the
     // app is already visible there is nothing to rescue.
     func noteProgress() {
+        if !jsHasReportedIn {
+            jsHasReportedIn = true
+            trace("STALL TIMER armed for the first time - JS is alive")
+        }
         guard isActuallyCovering else { return }
         startStallTimer()
     }
+
+    // Has JS ever reported in on this launch?
+    //
+    // The stall countdown must not run before the WebView exists. On device the
+    // cover goes up at ~2s and JS does not execute until ~58s under the
+    // debugger, so a timer started with the cover fired 21s before there was
+    // any JS alive to send a heartbeat - and showed Alice and Rafa the recovery
+    // screen on EVERY launch while the unlock was still perfectly on track.
+    //
+    // Raising the timeout only moved the problem. The countdown now begins at
+    // the first sign of JS and each later sign restarts it, so "stalled" means
+    // what it says: JS was alive and then went quiet.
+    private var jsHasReportedIn = false
 
     private func startStallTimer() {
         cancelStallTimer()

@@ -16,7 +16,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Required for willPresent below to ever be called.
+        //
+        // Re-asserted after a delay as well: the Capacitor push plugin sets
+        // ITSELF as this delegate when it initialises, which happens after
+        // didFinishLaunching and silently replaces us. Whoever is last wins,
+        // and if it is the plugin then foreground notifications are dropped
+        // again - which is the exact symptom this was added to fix.
         UNUserNotificationCenter.current().delegate = self
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            if !(UNUserNotificationCenter.current().delegate is AppDelegate) {
+                ApexLockCover.shared.trace("PUSH-FOREGROUND delegate was taken over -> reclaiming it")
+                UNUserNotificationCenter.current().delegate = self
+            } else {
+                ApexLockCover.shared.trace("PUSH-FOREGROUND delegate still ours")
+            }
+        }
         // @capacitor-firebase/authentication requires the Firebase iOS SDK to be
         // configured before any of its methods run.
         //
@@ -119,6 +133,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler:
                                     @escaping (UNNotificationPresentationOptions) -> Void) {
+        ApexLockCover.shared.trace("PUSH-FOREGROUND willPresent called -> showing banner")
         completionHandler([.banner, .sound, .badge])
     }
 

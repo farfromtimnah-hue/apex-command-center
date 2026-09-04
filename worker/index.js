@@ -19512,11 +19512,18 @@ async function gmDerivedLeadEvents(env, clientId, fromDate, toDate) {
             });
         }
 
-        // The in-home estimate visit — the appointment that started all this.
+        // The in-home estimate visit — the appointment that started all this,
+        // and the ONLY lead date that belongs on a calendar.
+        //
+        // data_lead is deliberately NOT pushed. It is a log entry, not an
+        // appointment: it records when a lead landed in the system, usually
+        // auto-stamped as someone types it in, and nobody schedules around it.
+        // Across JM's pipeline (checked 2026-09-04) 60 of 133 leads carry a
+        // data_lead against just 7 with a data_estimate — a 9:1 ratio that
+        // turned the Agenda tab into an intake feed and buried the handful of
+        // entries that are real commitments. A calendar is for things you have
+        // to show up to.
         push(l.data_estimate, "Estimate", "Estimate", "estimate");
-        // When the lead came in. Dated, client-owned, and useful for seeing
-        // how a week actually filled up.
-        push(l.data_lead, "Lead", "Lead", "lead");
     });
     return out;
 }

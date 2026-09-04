@@ -4633,9 +4633,10 @@ function gmCalChip(ev) {
   } else if (ev.kind === "club") {
     name.textContent = "★ " + (ev.title || "Apex Club");
   } else if (ev.kind === "lead") {
-    // Same reasoning as the derived job chip: label WHICH date this is, then
-    // the customer's name. "Estimate: Debraj Ghosh" answers the only question
-    // an owner asks looking at a day.
+    // Same reasoning as the derived job chip: label the kind, then the
+    // customer's name. "Estimate: Debraj Ghosh" answers the only question an
+    // owner asks looking at a day. Only estimate visits reach this branch —
+    // the calendar carries appointments, not records.
     name.textContent = (isEn() ? ev.label_en : ev.label_pt) + ": " + (ev.title || "");
   } else if (ev.kind === "apex") {
     name.textContent = isEn() ? "Meeting with Apex" : (ev.title || "Reunião com a Apex");
@@ -4686,7 +4687,7 @@ function gmRenderCalendar() {
       '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
       '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
       '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
-      '<span><i class="cgrid-chip lead"></i>' + gmT("Leads e estimates", "Leads and estimates") + '</span>' +
+      '<span><i class="cgrid-chip lead"></i>' + gmT("Estimates", "Estimates") + '</span>' +
       '<span><i class="cgrid-chip apex"></i>' + gmT("Reunião com a Apex", "Meeting with Apex") + '</span>' +
     '</div>' +
     '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +

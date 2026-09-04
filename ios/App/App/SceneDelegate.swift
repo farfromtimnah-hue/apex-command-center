@@ -51,6 +51,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // UISceneDelegate-based app never receives the AppDelegate lifecycle
     // callbacks at all.
     func sceneWillResignActive(_ scene: UIScene) {
+        // Presenting Google's sign-in sheet resigns the scene, so this used to
+        // raise the cover OVER the sign-in: tap the button, the Apex logo
+        // appears, and the user sits looking at it before the Google steps ever
+        // show. Nothing needs hiding then - the screen behind the cover is the
+        // login page, not client data.
+        guard ApexLockCover.shared.shouldCoverOnResignActive else {
+            ApexLockCover.shared.trace("SCENE willResignActive - NOT covering, sign-in in flight")
+            return
+        }
         ApexLockCover.shared.trace("SCENE willResignActive - covering for app switcher")
         ApexLockCover.shared.show(reason: "resign-active")
     }

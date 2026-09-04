@@ -322,12 +322,18 @@ public class ApexLockCoverPlugin: CAPPlugin, CAPBridgedPlugin {
     // that sheet, so the frontmost check cannot see it; only the code that
     // started the sign-in knows.
     @objc func suspendStall(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { ApexLockCover.shared.setStallSuspended(true) }
+        DispatchQueue.main.async {
+            ApexLockCover.shared.setStallSuspended(true)
+            ApexLockCover.shared.setSignInInFlight(true)
+        }
         call.resolve()
     }
 
     @objc func resumeStall(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { ApexLockCover.shared.setStallSuspended(false) }
+        DispatchQueue.main.async {
+            ApexLockCover.shared.setStallSuspended(false)
+            ApexLockCover.shared.setSignInInFlight(false)
+        }
         call.resolve()
     }
 
@@ -1408,6 +1414,27 @@ final class ApexLockCover {
     // zero rather than resuming a part-elapsed timer, so returning from a long
     // sign-in gets a full window rather than whatever was left.
     private var stallSuspended = false
+
+    // True from the moment "Sign in with Google" is tapped until the sign-in
+    // settles. While it is set, resign-active does NOT raise the cover.
+    //
+    // Presenting Google's sheet resigns the scene, so the cover went up over
+    // the sign-in itself: tap the button, the Apex logo screen appears, and you
+    // sit looking at it before the Google steps ever show. Nicole: "it goes
+    // back to the Apex logo and just sits there."
+    //
+    // Safe because there is nothing to hide. The cover protects client data in
+    // the app switcher, and during sign-in the screen behind it IS the login
+    // page. The moment a session exists this goes false again and every later
+    // resign-active covers as before.
+    private var signInInFlight = false
+
+    func setSignInInFlight(_ inFlight: Bool) {
+        signInInFlight = inFlight
+        trace("COVER " + (inFlight ? "SUPPRESSED for sign-in (nothing to hide yet)" : "sign-in done, covering normally again"))
+    }
+
+    var shouldCoverOnResignActive: Bool { return !signInInFlight }
 
     func setStallSuspended(_ suspended: Bool) {
         stallSuspended = suspended

@@ -1014,8 +1014,6 @@ final class ApexLockCover {
     // A spinner and a word turn an unexplained freeze into visible progress.
     // Nothing about the security model changes: this is presentation only, and
     // the cover stays up exactly as long as it did before.
-    private var recoverySpinner: UIActivityIndicatorView?
-
     func setRecoveryBusy(_ busy: Bool) {
         guard let stack = recoveryStack else { return }
         for v in stack.arrangedSubviews {
@@ -1024,19 +1022,17 @@ final class ApexLockCover {
                 b.alpha = busy ? 0.45 : 1.0
             }
         }
-        if busy {
-            setRecoveryMessage("Autenticando...\nAuthenticating...")
-            if recoverySpinner == nil {
-                let sp = UIActivityIndicatorView(style: .medium)
-                sp.color = UIColor(white: 0.85, alpha: 1.0)
-                sp.hidesWhenStopped = true
-                recoverySpinner = sp
-                stack.addArrangedSubview(sp)
-            }
-            recoverySpinner?.startAnimating()
-        } else {
-            recoverySpinner?.stopAnimating()
-        }
+        // NO SPINNER HERE. A spinner was added on 2026-09-03 and reverted the
+        // same night: recoveryStack IS contentStack (line ~1221 assigns it),
+        // and the LOGO is in that same stack. addArrangedSubview relayouts it,
+        // which moves the logo's bounds - but the sweep is a CALayer sized from
+        // those bounds when it started, and nothing resizes it. The highlight
+        // then travelled across coordinates that no longer matched the glyphs,
+        // and the launch animation looked broken.
+        //
+        // The message text below is safe: it replaces a label in place and
+        // changes no layout.
+        if busy { setRecoveryMessage("Autenticando...\nAuthenticating...") }
     }
 
     // Replaces the recovery message in place, e.g. after a failed attempt, so

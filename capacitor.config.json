@@ -1,6 +1,6 @@
 {
   "appId": "com.resonatebusinesssystems.apexcommandcenter",
-  "appName": "Apex Command Center",
+  "appName": "Apex CC",
   "webDir": "www",
   "ios": {
     "contentInset": "always"

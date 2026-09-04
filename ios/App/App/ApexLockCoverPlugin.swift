@@ -1384,6 +1384,17 @@ final class ApexLockCover {
     private func startStallTimer() {
         cancelStallTimer()
         stallTimer = Timer.scheduledTimer(withTimeInterval: stallSeconds, repeats: false) { [weak self] _ in
+            // NEVER while the app is not frontmost. A system dialog - the push
+            // permission prompt, the Face ID sheet - backgrounds the app, and
+            // the countdown kept running behind it. Seen on device: the push
+            // dialog appeared at t=71.5s, the app resigned active, and the
+            // recovery screen was waiting underneath 20s later. Nothing was
+            // stalled; the user was answering a question iOS asked.
+            if UIApplication.shared.applicationState != .active {
+                ApexLockCover.shared.trace("STALL TIMER skipped - app is not frontmost")
+                ApexLockCover.shared.noteProgress()
+                return
+            }
             guard let self = self else { return }
             guard self.isVisible else { return }
             self.trace("STALL TIMER fired after \(Int(self.stallSeconds))s - showing recovery UI, NOT revealing")

@@ -1227,6 +1227,28 @@ function apexNoteAlive() {
   } catch (e) {}
 }
 
+// ── THE ONE WAY IN ──────────────────────────────────────────────────────────
+//
+// Every caller that has a session and wants the app unlocked comes through
+// here. Before this existed there were five call sites, each doing
+// `apexShowLock(); apexMaybeLock();` by hand, and each one was added by a
+// different bug fix without knowing about the others. The bugs that followed
+// were not in any single path - they were two paths interacting.
+//
+// The contract, in one place:
+//   1. Record that a session exists, so every later check agrees.
+//   2. Raise the cover BEFORE anything async, so nothing paints uncovered.
+//   3. Drive the unlock exactly once.
+//
+// apexMaybeLock's own guards make step 3 safe against any number of callers,
+// which is what makes one door possible at all.
+function apexEnsureUnlocked(reason) {
+  apexNativeSessionPresent = true;
+  apexTrace("GATE", "ensureUnlocked (" + reason + ")");
+  apexShowLock();
+  apexMaybeLock();
+}
+
 function apexShowLock() {
   if (document.getElementById(APEX_LOCK_ID)) { return; }
   apexTrace("SHOWLOCK", "in-document lock UI raised");
@@ -1414,9 +1436,7 @@ function apexRepairSessionHint() {
   // the freshness check and prompts.
   if (apexNativeSessionHint()) {
     apexTrace("HINT-REPAIR", "cookie hint present - recording session and driving the lock");
-    apexNativeSessionPresent = true;
-    apexShowLock();
-    apexMaybeLock();
+    apexEnsureUnlocked("hint-present");
     return Promise.resolve(false);
   }
   var prefs = apexPrefs();
@@ -1444,9 +1464,7 @@ function apexRepairSessionHint() {
     // it is synchronous and certain. Preferences has already told us a session
     // exists - that is the whole reason we are in this branch - so this asserts
     // what we just proved rather than trusting a round trip through storage.
-    apexNativeSessionPresent = true;
-    apexShowLock();
-    apexMaybeLock();
+    apexEnsureUnlocked("hint-repaired");
     return true;
   }).catch(function (e) {
     apexTrace("HINT-REPAIR", "failed, staying covered: " + (e && e.message));
@@ -2240,7 +2258,6 @@ function apexBootstrapNativeSession(firebaseSdk) {
     // no cover raised, no prompt, and the dashboard painted. apexRunUnlock
     // already handles a missing plugin correctly (it opens the app rather than
     // stranding the user), so asking here only created a way to skip.
-    apexShowLock();
     // Cover stays up regardless (fail-closed backstop). But if the synchronous
     // cold-launch path (the admin-hint cookie from the PREVIOUS session) has
     // already scheduled its own apexMaybeLock() for this document, this is a
@@ -2251,11 +2268,13 @@ function apexBootstrapNativeSession(firebaseSdk) {
     // launch's unlock. See apexColdLaunchMaybeLockScheduled above for the full
     // reasoning.
     if (apexColdLaunchMaybeLockScheduled) {
+      apexNativeSessionPresent = true;
+      apexShowLock();
       apexTrace("BOOTSTRAP", "user present - maybeLock already scheduled by cold-launch path, not calling again");
     } else {
       apexTrace("BOOTSTRAP", "user present -> maybeLock (plugin=" +
         (apexBiometricPlugin() ? "present" : "NULL, maybeLock will handle it") + ")");
-      apexMaybeLock();
+      apexEnsureUnlocked("bootstrap");
     }
     apexTrace("BOOTSTRAP", "restoring firebase session (will fire onAuthStateChanged)");
     return apexRestoreFirebaseSession(firebaseSdk);

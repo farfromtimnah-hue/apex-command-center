@@ -352,6 +352,9 @@ function apexDisarmPaintCover(reason) {
   var cover = apexLockCoverPlugin();
   if (cover && typeof cover.hide === "function") {
     apexTrace("DISARM-NATIVE", "reason=" + why + "  <-- APP NOW VISIBLE");
+  // The app is now visible on a real page. This is the moment to ask about
+  // notifications, whichever route got us here.
+  apexMaybeAskPush();
     try { cover.hide({ reason: why }); } catch (e) {
       apexTrace("DISARM-NATIVE", "hide() threw: " + (e && e.message));
     }
@@ -1870,6 +1873,23 @@ function apexRegisterApnsToken(token) {
 }
 
 // Asks for permission and starts registration. Safe to call repeatedly.
+// Asks for push on any page that is NOT the login screen, however the app got
+// revealed. apexInitPush's only caller was the unlock success path, but a page
+// reached after sign-in reveals through "GRACE FRESH -> reveal without
+// prompting" - no authentication runs, so push was never asked for at all.
+// Deferring it past the login page (which fixed a real flicker) turned that
+// gap into "never".
+//
+// Safe to call repeatedly: apexInitPush no-ops once it has run, and iOS only
+// ever shows the permission dialog once.
+function apexMaybeAskPush() {
+  try {
+    var onLogin = /(^|\/)(index\.html)?$/.test(window.location.pathname);
+    if (onLogin) { return; }
+    window.setTimeout(function () { apexInitPush(); }, 1200);
+  } catch (e) {}
+}
+
 function apexInitPush() {
   if (apexPushRegistered) { return; }
   var plugin = apexPushPlugin();

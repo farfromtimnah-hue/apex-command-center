@@ -76,7 +76,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
     }
 
+    // CLEAR THE BADGE WHENEVER THE APP IS OPENED.
+    //
+    // The worker sends aps.badge = 1 on every notification and nothing ever
+    // cleared it, so the red dot stuck on the icon permanently once any push
+    // had arrived - with no way for the user to get rid of it. Opening the app
+    // IS reading the notification, so this is the right moment.
     func applicationDidBecomeActive(_ application: UIApplication) {
+        UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
     }
 

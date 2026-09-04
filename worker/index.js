@@ -25154,6 +25154,15 @@ async function sendApns(env, row, payloadObj) {
                     body: payloadObj.body || ""
                 },
                 sound: "default",
+                // APNs SETS the badge to this number, it does not increment, so
+                // every notification pins it at 1 regardless of how many are
+                // waiting. Left at 1 deliberately: the alternative is tracking
+                // an unread count per device, and "there is something for you"
+                // is all this needs to say.
+                //
+                // The app clears it on open (AppDelegate.applicationDidBecomeActive).
+                // Before that existed the red dot was permanent once any push
+                // had arrived, with no way for the user to remove it.
                 badge: 1
             },
             // The web-push payload already carries a url for the click handler;

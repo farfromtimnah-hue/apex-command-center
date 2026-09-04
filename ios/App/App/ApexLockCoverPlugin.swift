@@ -740,18 +740,43 @@ final class ApexLockCover {
         // sliding across the screen instead of gold catching the light. Using
         // the logo image itself as the overlay, tinted white, means only the
         // glyphs can ever brighten.
+        // THE SHINE MUST SIT ON THE GLYPHS, NOT ON THE VIEW.
+        //
+        // This was the full bounds of the image view with contentsGravity
+        // .resizeAspect, which makes the layer compute its OWN aspect fit. The
+        // view is .scaleAspectFit, so the gold logo is already letterboxed
+        // inside those bounds, and the two fits agree only when the view's
+        // aspect ratio happens to match the image's exactly. It does not - so
+        // the white copy drew at a different offset and scale from the logo
+        // underneath and the highlight rippled across a ghost sitting above the
+        // real glyphs. Visible on any launch slow enough to watch.
+        //
+        // Computing the aspect-fit rect explicitly puts the white copy
+        // pixel-on-pixel over the gold one.
+        let imgSize = logo.image?.size ?? CGSize(width: w, height: h)
+        var fit = CGRect(x: 0, y: 0, width: w, height: h)
+        if imgSize.width > 0, imgSize.height > 0 {
+            let scale = min(w / imgSize.width, h / imgSize.height)
+            let fw = imgSize.width * scale
+            let fh = imgSize.height * scale
+            fit = CGRect(x: (w - fw) / 2.0, y: (h - fh) / 2.0, width: fw, height: fh)
+        }
+
         let shine = CALayer()
-        shine.frame = CGRect(x: 0, y: 0, width: w, height: h)
+        shine.frame = fit
         shine.contents = glyphs
-        shine.contentsGravity = .resizeAspect
+        shine.contentsGravity = .resize
         shine.backgroundColor = UIColor.clear.cgColor
         // Tints the glyphs white while keeping the image's alpha, so the shape
         // is the logo's and the colour is the highlight's.
         shine.compositingFilter = "screenBlendMode"
         shine.opacity = 0.55
 
+        // The mask travels in the SHINE's coordinate space, which is now the
+        // fitted glyph rect rather than the whole view, so it is sized from
+        // that rect.
         let mask = CAGradientLayer()
-        mask.frame = CGRect(x: -w, y: 0, width: w, height: h)
+        mask.frame = CGRect(x: -fit.width, y: 0, width: fit.width, height: fit.height)
         mask.startPoint = CGPoint(x: 0, y: 0.5)
         mask.endPoint = CGPoint(x: 1, y: 0.5)
         mask.colors = [
@@ -766,7 +791,7 @@ final class ApexLockCover {
         sweepLayer = mask
 
         let travel = CABasicAnimation(keyPath: "position.x")
-        travel.byValue = 2 * w
+        travel.byValue = 2 * fit.width
         travel.duration = 2.0
         travel.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         // One 2s pass, then a 1.8s rest before the next -- the pause is what

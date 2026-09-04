@@ -4619,7 +4619,10 @@ function gmCalChip(ev) {
   btn.type = "button";
   btn.className = "cgrid-chip " +
     (ev.kind === "club" ? "club" : ev.kind === "derived" ? "derived" :
-     ev.kind === "apex" ? "apex" : "own");
+     ev.kind === "apex" ? "apex" : ev.kind === "lead" ? "lead" : "own");
+  // Closed and lost leads stay on the calendar as history but must not compete
+  // with the live pipeline for attention on a busy month.
+  if (ev.dim) { btn.className += " is-dim"; }
 
   var name = document.createElement("span");
   name.className = "cgrid-chip-name";
@@ -4629,6 +4632,11 @@ function gmCalChip(ev) {
     name.textContent = (isEn() ? ev.label_en : ev.label_pt) + ": " + (ev.title || "");
   } else if (ev.kind === "club") {
     name.textContent = "★ " + (ev.title || "Apex Club");
+  } else if (ev.kind === "lead") {
+    // Same reasoning as the derived job chip: label WHICH date this is, then
+    // the customer's name. "Estimate: Debraj Ghosh" answers the only question
+    // an owner asks looking at a day.
+    name.textContent = (isEn() ? ev.label_en : ev.label_pt) + ": " + (ev.title || "");
   } else if (ev.kind === "apex") {
     name.textContent = isEn() ? "Meeting with Apex" : (ev.title || "Reunião com a Apex");
   } else {
@@ -4648,6 +4656,7 @@ function gmCalChip(ev) {
   btn.onclick = function(e) {
     e.stopPropagation();
     if (ev.kind === "derived") { gmCalOpenJob(ev); }
+    else if (ev.kind === "lead") { gmCalOpenLead(ev); }
     else if (ev.kind === "club") { gmCalOpenClub(ev); }
     else if (ev.kind === "apex") { gmCalOpenApex(ev); }
     else { gmCalOpenEvent(ev); }
@@ -4677,6 +4686,7 @@ function gmRenderCalendar() {
       '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
       '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
       '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
+      '<span><i class="cgrid-chip lead"></i>' + gmT("Leads e estimates", "Leads and estimates") + '</span>' +
       '<span><i class="cgrid-chip apex"></i>' + gmT("Reunião com a Apex", "Meeting with Apex") + '</span>' +
     '</div>' +
     '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +
@@ -5056,6 +5066,25 @@ function gmCalOpenJob(ev) {
       var idx = -1;
       gmJobsData.jobs.forEach(function(j, i) { if (j.id === ev.job_id) { idx = i; } });
       if (idx !== -1) { gmOpenJob(idx); }
+    } else if (tries > 40) { clearInterval(t); }
+  }, 100);
+}
+
+// A lead's estimate visit or lead date, opened from the calendar. Mirrors
+// gmCalOpenJob: the chip is a reflection of the lead, so tapping it goes to
+// the lead itself rather than opening a second, editable copy of the facts.
+function gmCalOpenLead(ev) {
+  gmSheetClose();
+  switchTab("gmcrm");
+  // gmLoadCrm() is async; wait for the list before opening the sheet.
+  var tries = 0;
+  var t = setInterval(function() {
+    tries++;
+    if (gmLeadsData && gmLeadsData.leads) {
+      clearInterval(t);
+      var idx = -1;
+      gmLeadsData.leads.forEach(function(l, i) { if (l.id === ev.lead_id) { idx = i; } });
+      if (idx !== -1) { gmOpenLead(idx); }
     } else if (tries > 40) { clearInterval(t); }
   }, 100);
 }

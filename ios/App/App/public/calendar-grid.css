@@ -121,6 +121,23 @@
   color: var(--text);
   border: 1px dashed var(--border);
 }
+/* A LEAD: an in-home estimate visit or the date the lead arrived. Derived
+   from gm_leads and read-only here, like the job chip, but solid rather than
+   dashed and in a cooler tone — an estimate is an APPOINTMENT somebody has to
+   drive to, not a milestone reflected off another record. */
+.cgrid-chip.lead {
+  background: rgba(58, 106, 160, 0.16);
+  color: #24486f;
+  border: 1px solid rgba(58, 106, 160, 0.34);
+}
+/* Closed and lost leads: kept on the calendar as history, muted so the live
+   pipeline is what the eye lands on. Applied alongside .lead, never alone. */
+.cgrid-chip.is-dim {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.cgrid-chip.is-dim:hover { opacity: 0.7; }
+
 /* APEX CLUB — another tier's event, read-only, and deliberately unlike
    anything the client owns so nobody mistakes it for theirs. */
 .cgrid-chip.club {

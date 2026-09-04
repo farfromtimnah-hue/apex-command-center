@@ -19363,6 +19363,164 @@ async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
     return out;
 }
 
+
+// ---------------------------------------------------------------------------
+// LEADS rendered onto the calendar, DERIVED at read time from gm_leads.
+//
+// The reason these belong here at all: an "estimate" for a pool builder is an
+// IN-HOME APPOINTMENT. data_estimate is not a status date like "estimate was
+// sent" — it is a time somebody has to physically be at an address. That makes
+// it the single most calendar-shaped fact in the whole leads table, and it was
+// invisible on the Agenda tab until now (found 2026-09-04 from Rafa's
+// screenshot: Debraj Ghosh, 09/07/2026 5:00 PM, nowhere on the grid).
+//
+// Derived, never mirrored into gm_events — same rule as gmDerivedJobEvents.
+// Each entry carries lead_id so a tap opens the lead itself.
+//
+// ⚠️ THE DATE COLUMNS ARE FREE TEXT AND HOLD THREE DIFFERENT SHAPES.
+// gm_leads.data_lead / data_estimate are TEXT with no format constraint, and
+// the live table (checked 2026-09-04) contains all of:
+//     2026-09-07T17:00      ISO, what the app writes today
+//     07/27/26              US date only, from the LIRA spreadsheet import
+//     08/01/26 - 10am       US date + loose time, also from that import
+//     07/11/2026            US date, four-digit year
+// A plain SQL range compare (the approach gmDerivedJobEvents can safely use,
+// because gm_jobs dates are real ISO) would match ONLY the ISO rows and
+// silently drop every lira-imp-* lead. That is a bug that looks fixed.
+//
+// So: fetch the client's leads and normalise in JS. The rows are small (one
+// client's pipeline), and correctness over every shape beats an index here.
+// ---------------------------------------------------------------------------
+
+// Parses any of the shapes above into { date: "YYYY-MM-DD", time: "HH:MM"|null }
+// or null when nothing usable is there. TIME IS RETURNED 24-HOUR because that
+// is what the event contract carries everywhere else; the frontend's
+// formatTime() is what turns it into 12-hour with AM/PM for display.
+function gmLeadDateParse(raw) {
+    if (raw === null || raw === undefined) { return null; }
+    var s = String(raw).trim();
+    if (!s) { return null; }
+
+    var date = null, time = null;
+
+    // Shape 1 — ISO: 2026-09-07T17:00 or 2026-09-07 17:00 or bare 2026-09-07
+    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2}))?/);
+    if (iso) {
+        date = iso[1] + "-" + iso[2] + "-" + iso[3];
+        if (iso[4] !== undefined) { time = gmLeadPad2(iso[4]) + ":" + iso[5]; }
+        // Midnight is not an appointment. The spreadsheet import padded
+        // date-only cells to T00:00, and rendering those as "12:00 AM" would
+        // put a time on the chip that nobody ever entered. Treat as all-day.
+        if (time === "00:00") { time = null; }
+        return gmLeadDateOut(date, time);
+    }
+
+    // Shape 2 — US: 09/07/26 or 09/07/2026, optionally followed by a time in
+    // any of " - 10am", " 10:30 AM", "T14:00".
+    // \d{4} MUST come first: the alternation is left-to-right, so \d{2}|\d{4}
+    // matches the "20" of "07/11/2026" and yields the year 2020. Caught in test.
+    var us = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})/);
+    if (!us) { return null; }
+    var yr = us[3].length === 2 ? "20" + us[3] : us[3];
+    date = yr + "-" + gmLeadPad2(us[1]) + "-" + gmLeadPad2(us[2]);
+
+    var rest = s.slice(us[0].length);
+    // 10am / 10:30am / 10:30 AM / 14:00 — the separator before it varies
+    // (" - ", " ", ", "), so anchor on the clock itself, not the separator.
+    var tm = rest.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|AM|PM)?/);
+    if (tm && tm[0].trim()) {
+        var h = parseInt(tm[1], 10);
+        var mi = tm[2] || "00";
+        var mer = tm[3] ? tm[3].toLowerCase() : null;
+        if (!isNaN(h) && h >= 0 && h <= 23) {
+            if (mer === "pm" && h < 12) { h += 12; }
+            if (mer === "am" && h === 12) { h = 0; }
+            // No meridiem and an hour under 8 on a US-format row is far more
+            // likely a stray number than a 3 AM appointment; drop it rather
+            // than render a time nobody entered.
+            if (mer || h >= 8) { time = gmLeadPad2(String(h)) + ":" + mi; }
+        }
+    }
+    return gmLeadDateOut(date, time);
+}
+
+function gmLeadPad2(v) {
+    var s = String(v);
+    return s.length === 1 ? "0" + s : s;
+}
+
+function gmLeadDateOut(date, time) {
+    // Reject impossible dates rather than emitting a key the grid cannot place.
+    var p = date.split("-");
+    var mo = parseInt(p[1], 10), dy = parseInt(p[2], 10);
+    if (!(mo >= 1 && mo <= 12) || !(dy >= 1 && dy <= 31)) { return null; }
+    return { date: date, time: time || null };
+}
+
+// Closed and lost leads still show — a delivered estimate is history the owner
+// may want to look back at — but they are muted, so the live pipeline is what
+// stands out on a busy month. The frontend greys any entry with dim: true.
+var GM_LEAD_DIM_STAGES = { fechado: 1, perdido: 1 };
+
+// Address plus city, whichever of the two is present. An in-home estimate
+// without a place on it is the one detail that makes the chip useless.
+function gmLeadPlace(l) {
+    var parts = [];
+    if (l.address) { parts.push(String(l.address).trim()); }
+    // Case-insensitive: JM's rows have "…Riverview, FL 33579" in address and
+    // "riverview" in city, which a case-sensitive check appends twice.
+    if (l.city && (!l.address ||
+        String(l.address).toLowerCase().indexOf(String(l.city).trim().toLowerCase().replace(/,+$/, "")) === -1)) {
+        parts.push(String(l.city).trim().replace(/,+$/, ""));
+    }
+    return parts.length ? parts.join(", ") : null;
+}
+
+async function gmDerivedLeadEvents(env, clientId, fromDate, toDate) {
+    var rows = await env.DB.prepare(
+        "SELECT id, cliente, data_lead, data_estimate, estagio, valor, servico, address, city " +
+        "FROM gm_leads WHERE client_id = ?"
+    ).bind(clientId).all();
+
+    var out = [];
+    (rows.results || []).forEach(function (l) {
+        var stage = l.estagio || null;
+        var dim = GM_LEAD_DIM_STAGES[stage] ? true : false;
+
+        function push(raw, labelPt, labelEn, slot) {
+            var p = gmLeadDateParse(raw);
+            if (!p) { return; }
+            if (p.date < fromDate || p.date > toDate) { return; }
+            out.push({
+                kind: "lead",
+                source: "lead",
+                id: "lead:" + l.id + ":" + slot,
+                lead_id: l.id,
+                date: p.date,
+                start_time: p.time,
+                // An entry with a real clock time is a real appointment and
+                // must render its time; one with only a date is all-day.
+                all_day: p.time ? false : true,
+                label_pt: labelPt,
+                label_en: labelEn,
+                title: l.cliente,
+                stage: stage,
+                dim: dim,
+                servico: l.servico || null,
+                location: gmLeadPlace(l),
+                editable: false
+            });
+        }
+
+        // The in-home estimate visit — the appointment that started all this.
+        push(l.data_estimate, "Estimate", "Estimate", "estimate");
+        // When the lead came in. Dated, client-owned, and useful for seeing
+        // how a week actually filled up.
+        push(l.data_lead, "Lead", "Lead", "lead");
+    });
+    return out;
+}
+
 // ---------------------------------------------------------------------------
 // Apex Club invitations for a client business — A TIER BOUNDARY CROSSING.
 //
@@ -19489,13 +19647,14 @@ async function handleGetGmEvents(id, request, env) {
 
         var own = (rows.results || []).map(gmEventOut);
         var derived = await gmDerivedJobEvents(env, id, fromD, toD);
+        var leadEv = await gmDerivedLeadEvents(env, id, fromD, toD);
         var club = await gmClubInviteEvents(env, fromD, toD);
         var apex = await gmApexMeetingEvents(env, id, fromD, toD);
 
         return jsonOk({
             month: month,
             range: { from: fromD, to: toD, month_start: first, month_end: last },
-            events: own.concat(derived).concat(club).concat(apex)
+            events: own.concat(derived).concat(leadEv).concat(club).concat(apex)
         });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);

@@ -1384,7 +1384,26 @@ function apexNativeSessionHint() {
 // never reveals, and it never clears a hint - so a failure here leaves the app
 // covered, which is the correct direction.
 function apexRepairSessionHint() {
-  if (apexNativeSessionHint()) { return Promise.resolve(false); }
+  // A PRESENT COOKIE IS NOT A REASON TO DO NOTHING.
+  //
+  // This used to `return` here, which was the black screen on every page whose
+  // cookie DID survive. Making the hint durable (the fix one commit earlier)
+  // is what created that case: pages that previously lost the cookie and got
+  // repaired now keep it, take this branch, and left apexNativeSessionPresent
+  // false with nothing driving the lock. The cover went up at parse and never
+  // came down.
+  //
+  // A readable cookie says a session exists just as surely as Preferences
+  // does, so record it and drive the lock on this path too. Verified against
+  // the real apexMaybeLock: with apexNativeSessionPresent true it proceeds to
+  // the freshness check and prompts.
+  if (apexNativeSessionHint()) {
+    apexTrace("HINT-REPAIR", "cookie hint present - recording session and driving the lock");
+    apexNativeSessionPresent = true;
+    apexShowLock();
+    apexMaybeLock();
+    return Promise.resolve(false);
+  }
   var prefs = apexPrefs();
   if (!prefs) { return Promise.resolve(false); }
   return Promise.resolve(prefs.get({ key: APEX_ADMIN_HINT_KEY })).then(function (res) {

@@ -1090,6 +1090,7 @@ final class ApexLockCover {
             guard photo.window != nil else { return }
             photo.image = p
             logo.image = l
+
             if animate {
                 scrim.alpha = 1
                 self.runLaunchAnimation(photo: photo, logo: logo)

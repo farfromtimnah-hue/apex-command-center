@@ -349,15 +349,12 @@ function apexDisarmPaintCover(reason) {
     }
   }
 
-  // NO PUSH ASK HERE. It belongs behind the launch cover - either in front of
-  // the Face ID prompt, or on the no-session path before the login screen is
-  // revealed. Asking on a reveal means the dashboard appears and is then
-  // covered again by the logo for a permission dialog, which is the exact
-  // interruption this was moved away from.
-
   var cover = apexLockCoverPlugin();
   if (cover && typeof cover.hide === "function") {
     apexTrace("DISARM-NATIVE", "reason=" + why + "  <-- APP NOW VISIBLE");
+  // The app is now visible on a real page. This is the moment to ask about
+  // notifications, whichever route got us here.
+  apexMaybeAskPush();
     try { cover.hide({ reason: why }); } catch (e) {
       apexTrace("DISARM-NATIVE", "hide() threw: " + (e && e.message));
     }
@@ -2314,25 +2311,8 @@ function apexBootstrapNativeSession(firebaseSdk) {
       // cover this launch raised on the strength of a stale hint.
       apexSetNativeSessionHint(false);
       if (!apexHasSession()) {
-        // FIRST INSTALL: ask for push HERE, behind the logo cover, before the
-        // login screen is revealed.
-        //
-        // Push normally rides in front of the Face ID prompt so both system
-        // dialogs happen on one screen. A first install has no session, so no
-        // Face ID runs and push was never asked at all. Putting it back on the
-        // dashboard reveal was wrong - that is the interruption Nicole rejected:
-        // "it's really dumb to have the dashboard load and then the logo screen
-        // come back up."
-        //
-        // The cover is already up here, so the dialog appears over the logo
-        // exactly as it does on the Face ID path, and the login screen is only
-        // revealed once it has been answered.
-        apexTrace("BOOTSTRAP", "no session - asking push behind the cover before revealing login");
-        return apexAskPushBeforeFaceId().then(function () {
-          apexTrace("BOOTSTRAP", "no session anywhere -> apexHideLock()");
-          apexHideLock();
-          return false;
-        });
+        apexTrace("BOOTSTRAP", "no session anywhere -> apexHideLock()");
+        apexHideLock();
       }
       return false;
     }

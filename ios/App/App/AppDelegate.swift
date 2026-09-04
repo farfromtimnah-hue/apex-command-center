@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 import Capacitor
 // Present only while @capacitor-firebase/authentication is installed, which
 // is what pulls in FirebaseCore. Kept conditional so that removing the plugin
@@ -9,11 +10,13 @@ import FirebaseCore
 #endif
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Required for willPresent below to ever be called.
+        UNUserNotificationCenter.current().delegate = self
         // @capacitor-firebase/authentication requires the Firebase iOS SDK to be
         // configured before any of its methods run.
         //
@@ -99,6 +102,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         NotificationCenter.default.post(
             name: .capacitorDidFailToRegisterForRemoteNotifications,
             object: error)
+    }
+
+
+    // Show notifications while the app is OPEN.
+    //
+    // iOS suppresses banners for the foreground app by default, so a
+    // notification arrived, was accepted by APNs, and displayed nothing -
+    // verified on device 2026-09-03: the same push showed on the home screen
+    // and was invisible with Apex in front.
+    //
+    // Alice and Rafa live in this app during the working day, which is exactly
+    // when an invoice draft or a meeting reminder matters most. Suppressing it
+    // then defeats the point of building push at all.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler:
+                                    @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge])
     }
 
 }

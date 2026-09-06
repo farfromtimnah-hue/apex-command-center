@@ -409,6 +409,14 @@ function isAdminRole(user) {
     return !!user && (user.role === "alice" || user.role === "rafa" || user.role === "developer");
 }
 
+// Nicole only. Some surfaces are the build trail, not the product: the prep
+// block queue is a list of what Rafa asked for by building it himself, so
+// showing it to him turns a silent signal into a to-do list on his own screen
+// (and he can clear it). Alice has no use for it either.
+function isDeveloperRole(user) {
+    return !!user && user.role === "developer";
+}
+
 // ---------------------------------------------------------------------------
 // LEAD PIPELINE (Apex's own sales pipeline over clients.status = 'lead')
 //
@@ -31531,7 +31539,7 @@ async function handleGetPrepBlockQueue(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
 
         var rows = await env.DB.prepare(
             "SELECT b.*, c.name AS client_name FROM prep_custom_blocks b " +
@@ -31568,7 +31576,7 @@ async function handlePutPrepBlockBuilt(blockId, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
 
         var body = {};
         try { body = await request.json(); } catch (e) { body = {}; }

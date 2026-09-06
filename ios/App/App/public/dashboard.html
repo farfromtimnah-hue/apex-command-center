@@ -1494,7 +1494,6 @@
       loadGoalApprovals();
       loadInterviewSittings();
       loadSellerLoginRequests();
-      loadPrepBlockQueue();
       // Pre-fetch so the credentials modal's WhatsApp button can open
       // synchronously on click (popup-blocker rule).
       loadDashMessageTemplates();
@@ -1512,6 +1511,11 @@
         initHeroBg("heroBgImageRafa", "heroBgScrimRafa");
         renderRafaDashboard();
       } else {
+        // Developer only. The prep block queue is the build trail -- it lists
+        // what Rafa asked for by building it himself. On his own dashboard it
+        // reads as a to-do list he can clear, which is the opposite of the
+        // point. The worker enforces this too; this just avoids the 403.
+        loadPrepBlockQueue();
         window.setView(sessionStorage.getItem("apex_dev_view") || "dev");
       }
     }

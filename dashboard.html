@@ -1695,7 +1695,19 @@
       // never a gate: the meeting is already saved.
       var fu = document.getElementById("voiceFollowUp");
       if (!fu) { return; }
-      if (!d.follow_up) { fu.hidden = true; return; }
+      if (!d.follow_up) {
+        fu.hidden = true;
+        // Nothing is missing, so there is nothing left to do here. Leaving the
+        // dialog open made the user hunt for a close link on a screen that had
+        // already finished its job -- and when the close was broken, that is
+        // exactly where Rafa got stuck. Show the confirmation long enough to
+        // read, then get out of his way.
+        window.setTimeout(function () {
+          var m = document.getElementById("voiceModal");
+          if (m && !m.hidden) { closeVoiceModal(); }
+        }, 2500);
+        return;
+      }
       fu.hidden = false;
       var q = document.getElementById("voiceFollowUpQ");
       if (q) {

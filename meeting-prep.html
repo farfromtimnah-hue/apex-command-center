@@ -735,6 +735,11 @@
       else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
       if (window.apexApplyTitle) { window.apexApplyTitle(); }
       if (prepData) { render(prepData); }
+      // The company tab strip is NOT built by render(), so a toggle never
+      // rebuilt it and its "(sem preparacao)" suffix -- appended onto a client
+      // name, so it cannot be a show-pt/show-en span -- kept whatever language
+      // it was drawn in. Rebuild it explicitly.
+      renderPrepTabs();
     }
 
     function goBack() {

@@ -1103,9 +1103,12 @@
             <!-- Replaced with live /api/settings/packages options (new packages + divider + legacy) by loadNewClientPackageOptions() -->
           </div>
           <div class="field-group">
+            <!-- Lead is FIRST, so the browser's own default for this select is
+                 lead. Active means a contract, and a contract means a package;
+                 a record being typed for the first time has neither. -->
             <select id="ncStatus">
-              <option value="active" data-opt-pt="Ativo" data-opt-en="Active">Ativo</option>
               <option value="lead">Lead</option>
+              <option value="active" data-opt-pt="Ativo" data-opt-en="Active">Ativo</option>
               <option value="paused" data-opt-pt="Pausado" data-opt-en="Paused">Pausado</option>
               <option value="closed" data-opt-pt="Encerrado" data-opt-en="Closed">Encerrado</option>
             </select>
@@ -2257,7 +2260,7 @@ function escHtml(str) {
       var modalEl      = document.getElementById("modalNewClient");
 
       if (ncPackageEl)  { ncPackageEl.value   = ""; }
-      if (ncStatusEl)   { ncStatusEl.value    = "active"; }
+      if (ncStatusEl)   { ncStatusEl.value    = "lead"; }
       if (ncStatus2El)  { ncStatus2El.textContent = ""; ncStatus2El.className = "form-status"; }
       if (ncSaveBtn)    { ncSaveBtn.disabled   = false; }
       if (nc2WrapEl)    { nc2WrapEl.style.display = "none"; }
@@ -2325,7 +2328,12 @@ function escHtml(str) {
         industry: (ncIndustryEl ? (ncIndustryEl.value || "").trim() : null) || null,
         location: (ncLocationEl ? (ncLocationEl.value || "").trim() : null) || null,
         package:  (ncPackageEl  ? ncPackageEl.value  : null) || null,
-        status:   (ncStatusEl   ? ncStatusEl.value   : "active") || "active",
+        // Somebody becomes ACTIVE when they have a contract, which means they
+        // have a package. A brand-new record has neither, so 'lead' is the
+        // truthful default; the package requirement lives on the lead ->
+        // active promotion, not here, because asking for one at creation is
+        // what makes people abandon the form.
+        status:   (ncStatusEl   ? ncStatusEl.value   : "lead") || "lead",
         contacts: contacts.length > 0 ? JSON.stringify(contacts) : null
       };
 

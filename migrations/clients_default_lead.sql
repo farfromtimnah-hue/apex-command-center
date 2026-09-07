@@ -1,0 +1,26 @@
+-- New clients default to 'lead', not 'active'.
+--
+-- Somebody becomes ACTIVE when they have a contract, which means they have a
+-- package. A record being typed for the first time has neither, so 'active'
+-- was asserting a relationship that did not exist yet. The package
+-- requirement now lives on the lead -> active PROMOTION (handlePatchClient),
+-- deliberately not at creation: asking for a package before there is a
+-- relationship is what makes people abandon the form.
+--
+-- WHY THIS FILE CHANGES NO SCHEMA. SQLite has no ALTER COLUMN, so moving the
+-- clients.status column DEFAULT from 'active' to 'lead' would mean creating a
+-- new table, copying 289 rows, dropping the original and renaming -- and
+-- dropping a live table is exactly what this project does not do. It is also
+-- unnecessary: BOTH insert paths write status explicitly and neither can fall
+-- through to the column default --
+--
+--   handlePostClients        -> body.status || "lead"
+--   the partner referral path -> the literal 'lead'
+--
+-- so the default is unreachable dead metadata rather than behaviour. The
+-- app-layer default is the real one, and it is covered by clients.html
+-- (the ncStatus select now lists lead first and resets to it) and by the
+-- worker fallback above.
+--
+-- No existing client's status or package is backfilled or guessed. Whoever is
+-- 'active' today stays active, with whatever package they already have.

@@ -10601,7 +10601,27 @@
       loadLivePackageList()
         .then(maybeAutoOpenPaymentTerms)
         .catch(function() {});
+      maybeAutoOpenClientLogin();
     };
+
+    // Arriving from calendar.html's "+ Novo cliente", which creates a lead
+    // mid-booking and then OFFERS the credentials flow rather than building a
+    // second copy of it. Waits for clientData the same way the payment-terms
+    // handoff above does, because createClientLogin needs the record loaded.
+    function maybeAutoOpenClientLogin() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("login") !== "1") { return; }
+      var attempts = 0;
+      var waitForClient = setInterval(function() {
+        attempts++;
+        if (clientData && clientData.id) {
+          clearInterval(waitForClient);
+          createClientLogin();
+        } else if (attempts > 40) {
+          clearInterval(waitForClient); // ~10s timeout, give up silently
+        }
+      }, 250);
+    }
 
     // If arriving fresh from clients.html's "+ Add New Client" flow with a
     // package already chosen at creation, auto-open the Payment Terms modal

@@ -1,0 +1,11 @@
+-- A 'personal' block where someone else is covering the kids.
+--
+-- The block still DISPLAYS -- Rafa wants his own life on the calendar -- but
+-- it stops being a reason not to book over that time. Without this flag the
+-- only way to make a personal block bookable-over was to delete it, which is
+-- how personal items ended up in 'client' instead: an entry you cannot book
+-- around is worse than no entry, so the entry was miscategorised on purpose.
+--
+-- 0/1, NOT NULL, defaulting to 0: an existing personal block keeps blocking,
+-- which is the behaviour every current row was created under.
+ALTER TABLE sessions ADD COLUMN kids_covered INTEGER NOT NULL DEFAULT 0;

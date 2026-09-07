@@ -1224,7 +1224,7 @@ async function handleGetSessions(request, env) {
                 // SELECT *, so a new column is invisible to the UI until named here.
                 "summarized_by, summarized_at, approved_by, " +
                 "raw_transcript IS NOT NULL as has_transcript " +
-                "FROM sessions WHERE status != 'archived' AND meeting_category != 'event' AND client_id = ? ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND meeting_category NOT IN ('event', 'church') AND client_id = ? ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
@@ -1236,7 +1236,7 @@ async function handleGetSessions(request, env) {
                 "raw_transcript IS NOT NULL as has_transcript " +
                 // Event entries (conferences, Apex Club) are not client
                 // sessions -- keep them out of the summarize/transcript list.
-                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category NOT IN ('event', 'personal') ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category NOT IN ('event', 'personal', 'church') ORDER BY created_at DESC"
             );
         }
 
@@ -2208,13 +2208,18 @@ async function handlePostClients(request, env) {
             body.profile_pt || null,
             body.profile_en || null,
             body.package    || null,
-            body.status     || "active",
+            // 'lead', not 'active': active means a contract, which means a
+            // package. Nothing created through this endpoint has one yet.
+            body.status     || "lead",
             body.phone      || null,
             body.email      || null,
             body.whatsapp   || null,
             body.contacts   || null,
             // New leads start at the first stage; anything else has no pipeline.
-            (body.status === "lead") ? "Lead" : null
+            // Reads the RESOLVED status, not the raw body: with 'lead' now the
+            // default, a request that omits status is a lead and must get a
+            // pipeline position, or it lands in the Leads tab with no stage.
+            ((body.status || "lead") === "lead") ? "Lead" : null
         ).run();
 
         var result = { client_id: clientId, name: body.name };
@@ -4276,6 +4281,28 @@ async function handlePatchClient(id, request, env) {
                     "stage_changed_at = datetime('now'), stage_changed_by = ?, " +
                     "stage_change_source = 'client-status-edit' WHERE id = ?"
                 ).bind(leadStage, user.display_name || user.role, id).run();
+            } else if (newStatus === "active") {
+                // Somebody becomes ACTIVE when they have a contract, and a
+                // contract means a package. The requirement lives HERE, on the
+                // promotion, and deliberately not at creation: asking for a
+                // package before there is a relationship is what made people
+                // abandon the form, which is how records were being created as
+                // 'active' with no contract behind them in the first place.
+                //
+                // The package may arrive in this same request (the promotion
+                // and the package chosen together) or already be on the row.
+                // Nothing is guessed or backfilled for existing records.
+                // Read the row AFTER the package block above has run, so a
+                // promotion that carries its package in the same request sees
+                // it. This only VALIDATES -- the package block owns the write,
+                // including the package_started_at clock it re-stamps.
+                var pkgRow = await env.DB.prepare("SELECT package FROM clients WHERE id = ?")
+                    .bind(id).first();
+                if (!pkgRow || !pkgRow.package) {
+                    return jsonErr("Selecione um pacote para ativar / Select a package to activate", 400);
+                }
+                await env.DB.prepare("UPDATE clients SET status = 'active' WHERE id = ?")
+                    .bind(id).run();
             } else {
                 await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
                     .bind(newStatus, id).run();
@@ -4512,7 +4539,8 @@ async function handlePatchTask(id, request, env) {
 // Body: { client_id, date, time, session_type, notes, meeting_category?,
 //         end_time?, location?, event_name?, recur_frequency?, recur_count? }
 // session_type: 'online_meet' | 'in_person'
-// meeting_category: 'client' (default) | 'prospective' | 'event' | 'vendor' | 'personal'
+// meeting_category: 'client' (default) | 'prospective' | 'event' | 'vendor' |
+//                   'personal' | 'onsite_visit' | 'xray' | 'church'
 // 'event' entries (conferences, Apex Club) have no client: client_id is
 // stored NULL and event_name lands in the NOT NULL client_name column.
 // end_time is stored as a plain "HH:MM" (the Google Calendar sync path
@@ -4558,6 +4586,19 @@ async function handlePostSessionsSchedule(request, env) {
         var meetingCategory = "client";
         if (body.meeting_category === "prospective") { meetingCategory = "prospective"; }
         if (body.meeting_category === "event")       { meetingCategory = "event"; }
+        // 'onsite_visit' is a client meeting held at the client's own place.
+        // It is its own category rather than an in_person 'client' row so it
+        // can be COUNTED apart from the weekly meeting -- "how many times did
+        // we actually go there" is a different question from "how many
+        // meetings did we hold", and one category cannot answer both.
+        if (body.meeting_category === "onsite_visit") { meetingCategory = "onsite_visit"; }
+        // 'xray' is the diagnostic that opens a relationship. Separate for the
+        // same counting reason, and because prep reads it to surface a missing
+        // assessment -- booking is never blocked on one being complete.
+        if (body.meeting_category === "xray")        { meetingCategory = "xray"; }
+        // 'church' left the 'event' junk drawer, which had grown to hold kids'
+        // birthdays, church, X-Rays and networking dinners at once.
+        if (body.meeting_category === "church")      { meetingCategory = "church"; }
         // 'vendor' is a meeting with a vendor or partner: not a client and not
         // a lead. Unlike 'event' it DOES take a Meet link -- these are usually
         // online -- which is why it is a separate category and not an event
@@ -4568,6 +4609,10 @@ async function handlePostSessionsSchedule(request, env) {
         // in client_name, no client_id, never a Meet link -- and it exists only
         // because "Event" was the wrong word in Alice's head for a meeting.
         if (body.meeting_category === "personal")    { meetingCategory = "personal"; }
+
+        // Only meaningful on a personal block: it says the block still shows
+        // but must not stop anyone booking over that time.
+        var kidsCovered = (meetingCategory === "personal" && body.kids_covered) ? 1 : 0;
 
         var endTime = null;
         if (body.end_time) {
@@ -4586,11 +4631,16 @@ async function handlePostSessionsSchedule(request, env) {
         // 'personal' takes the event shape exactly: free-text name, no client,
         // forced in_person so no Meet link is ever created for Rafa's church
         // or school appointments.
-        if (meetingCategory === "event" || meetingCategory === "personal") {
+        if (meetingCategory === "event" || meetingCategory === "personal" ||
+            meetingCategory === "church") {
             if (!body.event_name) { return jsonErr("event_name is required for events", 400); }
             clientId    = null;
             clientName  = body.event_name;
-            sessionType = "in_person"; // events never get a Google Meet link
+            // Church is the one of these three that may carry a link, so it
+            // keeps the caller's session_type; the other two are always
+            // in_person precisely so no Meet link is ever created for them.
+            sessionType = (meetingCategory === "church" && body.google_meet_link)
+                ? body.session_type : "in_person";
         } else if (meetingCategory === "vendor") {
             // Same no-client shape as an event -- the vendor/partner name is
             // free text and lands in client_name -- but the session type is
@@ -4620,7 +4670,8 @@ async function handlePostSessionsSchedule(request, env) {
         var recurCount = 1;
         var recurFreq  = null;
         if (body.recur_count !== undefined && body.recur_count !== null) {
-            if (meetingCategory === "event" || meetingCategory === "personal") { return jsonErr("Events cannot recur", 400); }
+            if (meetingCategory === "event" || meetingCategory === "personal" ||
+                meetingCategory === "church") { return jsonErr("Events cannot recur", 400); }
             recurCount = parseInt(body.recur_count, 10);
             if (isNaN(recurCount) || recurCount < 2 || recurCount > 26) {
                 return jsonErr("recur_count must be between 2 and 26", 400);
@@ -4691,9 +4742,9 @@ async function handlePostSessionsSchedule(request, env) {
             var occDate = recurFreq ? recurOccurrenceDate(body.date, recurFreq, i) : body.date;
             var sessionId = crypto.randomUUID();
             await env.DB.prepare(
-                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, html_link, created_by) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?, ?)"
-            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, htmlLink, actorName(user)).run();
+                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, html_link, kids_covered, created_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?, ?, ?)"
+            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, htmlLink, kidsCovered, actorName(user)).run();
             sessionIds.push(sessionId);
         }
 
@@ -4701,7 +4752,7 @@ async function handlePostSessionsSchedule(request, env) {
         await advanceLeadStage(env, clientId, "Agendamento", actorName(user), "auto:session_scheduled");
 
         var session = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, series_id, created_at " +
+            "SELECT id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, status, whatsapp_sent_at, meeting_category, series_id, kids_covered, created_at " +
             "FROM sessions WHERE id = ?"
         ).bind(sessionIds[0]).first();
 
@@ -4769,7 +4820,7 @@ async function handleGetSessionsCalendar(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, reminder_sent_at, " +
-            "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category, series_id " +
+            "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category, series_id, kids_covered " +
             "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' ORDER BY date ASC, time ASC"
         ).bind(startDate, endDate).all();
 
@@ -4797,6 +4848,7 @@ async function handleGetSessionsCalendar(request, env) {
                 has_transcript:     !!row.raw_transcript,
                 has_pdf:            !!row.pdf_data,
                 meeting_category:   row.meeting_category || "client",
+                kids_covered:       row.kids_covered ? 1 : 0,
                 series_id:          row.series_id || null,
                 // Notes live in raw_transcript until a real transcript
                 // replaces them -- only expose while still just notes.
@@ -5825,8 +5877,9 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         // ---- Resolve every field to its post-edit value -------------------
         var newCategory = session.meeting_category || "client";
         if (hasCategory) {
-            if (["client", "prospective", "event", "vendor", "personal"].indexOf(body.meeting_category) === -1) {
-                return jsonErr("meeting_category must be client, prospective, event, vendor or personal", 400);
+            if (["client", "prospective", "event", "vendor", "personal",
+                 "onsite_visit", "xray", "church"].indexOf(body.meeting_category) === -1) {
+                return jsonErr("meeting_category must be client, prospective, event, vendor, personal, onsite_visit, xray or church", 400);
             }
             newCategory = body.meeting_category;
         }
@@ -5852,11 +5905,13 @@ async function handlePatchSessionDetails(sessionId, request, env) {
                 var evName = (body.event_name && String(body.event_name).trim()) || "";
                 if (!evName) { return jsonErr("event_name is required for events", 400); }
                 newClientName = evName;
-            } else if (session.meeting_category !== "event" && session.meeting_category !== "personal" && !session.client_name) {
+            } else if (session.meeting_category !== "event" && session.meeting_category !== "personal" &&
+                       session.meeting_category !== "church" && !session.client_name) {
                 return jsonErr("event_name is required for events", 400);
             }
             newClientId = null;
-        } else if (hasClient || session.meeting_category === "event" || session.meeting_category === "personal") {
+        } else if (hasClient || session.meeting_category === "event" ||
+                   session.meeting_category === "personal" || session.meeting_category === "church") {
             var wantClientId = hasClient ? body.client_id : null;
             if (!wantClientId) { return jsonErr("client_id is required", 400); }
             var clientRow = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")

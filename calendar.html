@@ -1759,8 +1759,39 @@
         <button class="modal-close" onclick="closeModal('modalNewSession')">×</button>
       </div>
       <div class="modal-body">
+        <!-- ══ Meeting type — THE FIRST QUESTION ═══════════════════════════
+             Everything below reshapes around this answer. Before this, the
+             type was INFERRED from sentinel rows inside the client dropdown
+             ("+ Event", "+ Vendor"), which is why "event" became a junk
+             drawer holding kids' birthdays, church, X-Rays and networking
+             dinners at once, and why personal items landed in "client".
+             Asking first is what keeps those apart. -->
+        <div class="field-group" id="nsMeetingTypeGroup">
+          <div class="field-label">
+            <span class="show-pt">Tipo de reuni&#227;o</span>
+            <span class="show-en">Meeting type</span>
+          </div>
+          <select id="nsMeetingType" onchange="onNsMeetingTypeChange()">
+            <option value="client_meeting" data-opt-pt="Reuni&#227;o com cliente" data-opt-en="Client meeting">Reuni&#227;o com cliente</option>
+            <option value="onsite_visit" data-opt-pt="Visita presencial" data-opt-en="Onsite visit">Visita presencial</option>
+            <option value="xray" data-opt-pt="X-Ray" data-opt-en="X-Ray">X-Ray</option>
+            <option value="church" data-opt-pt="Igreja" data-opt-en="Church">Igreja</option>
+            <option value="personal" data-opt-pt="Pessoal" data-opt-en="Personal">Pessoal</option>
+            <option value="vendor" data-opt-pt="Fornecedor / parceiro" data-opt-en="Vendor / partner">Fornecedor / parceiro</option>
+            <option value="event" data-opt-pt="Evento (Apex Club, confer&#234;ncia)" data-opt-en="Event (Apex Club, conference)">Evento (Apex Club, confer&#234;ncia)</option>
+          </select>
+        </div>
+        <!-- Apex Club prefills the event name; it is a shape of "event", not
+             a type of its own, so it rides here rather than in the list. -->
+        <div class="field-group" id="nsApexClubRow" hidden>
+          <label class="recur-check-row">
+            <input type="checkbox" id="nsApexClub" onchange="onNsApexClubToggle()">
+            <span class="show-pt">&#201; um Apex Club</span>
+            <span class="show-en">This is an Apex Club</span>
+          </label>
+        </div>
         <!-- Client dropdown -->
-        <div class="field-group">
+        <div class="field-group" id="nsClientGroup">
           <div class="field-label">
             <span class="show-pt">Cliente</span>
             <span class="show-en">Client</span>
@@ -1776,7 +1807,7 @@
              Stored in the client_name column server-side. -->
         <div class="field-group" id="nsEventNameGroup" hidden>
           <!-- One field, two meanings: the event name, or the vendor/partner
-               name. setNsVendorMode swaps which label is shown, so the two
+               name. applyNsMeetingType swaps which label is shown, so the two
                spans stay in the page's normal bilingual show-pt/show-en form. -->
           <div class="field-label" id="nsEventNameLabel">
             <span class="show-pt">Nome do evento</span>
@@ -1929,6 +1960,62 @@
             </div>
           </div>
         </div>
+        <!-- ══ Church extras ═══════════════════════════════════════════
+             A church meeting has no client and usually no Meet link, but it
+             sometimes DOES have one (an elders' call). The link field stays
+             hidden behind a small affordance so the common case is not made
+             to look like a form. -->
+        <div id="nsChurchGroup" hidden>
+          <div class="field-group">
+            <button type="button" id="nsChurchLinkToggle" class="btn-cancel-link" onclick="toggleNsChurchLink()">
+              <span class="show-pt">adicionar link</span>
+              <span class="show-en">add link</span>
+            </button>
+            <div id="nsChurchLinkWrap" hidden style="margin-top:8px;">
+              <div class="field-label">
+                <span class="show-pt">Link da reuni&#227;o</span>
+                <span class="show-en">Meeting link</span>
+              </div>
+              <input type="url" id="nsChurchLink" placeholder="https://">
+            </div>
+          </div>
+          <div class="field-group" id="nsChurchDurationGroup">
+            <div class="field-label">
+              <span class="show-pt">Dura&#231;&#227;o</span>
+              <span class="show-en">Duration</span>
+            </div>
+            <select id="nsChurchDuration" onchange="onNsChurchDurationChange()">
+              <option value="30" data-opt-pt="30 minutos" data-opt-en="30 minutes">30 minutos</option>
+              <option value="60" data-opt-pt="1 hora" data-opt-en="1 hour">1 hora</option>
+              <option value="90" data-opt-pt="1 hora e 30" data-opt-en="1 hour 30">1 hora e 30</option>
+              <option value="120" data-opt-pt="2 horas" data-opt-en="2 hours">2 horas</option>
+              <option value="180" data-opt-pt="3 horas" data-opt-en="3 hours">3 horas</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="recur-check-row">
+              <input type="checkbox" id="nsChurchAllDay" onchange="onNsChurchAllDayChange()">
+              <span class="show-pt">Dia inteiro</span>
+              <span class="show-en">All day</span>
+            </label>
+          </div>
+        </div>
+        <!-- ══ Personal extras ══════════════════════════════════════════
+             A personal block is visible to Rafa AND Alice and never to a
+             client. When someone else is covering the kids the block still
+             SHOWS -- Rafa wants to see his own life on the calendar -- but it
+             stops being a reason not to book over that time. -->
+        <div class="field-group" id="nsPersonalGroup" hidden>
+          <label class="recur-check-row">
+            <input type="checkbox" id="nsPersonalCovered">
+            <span class="show-pt">Outra pessoa cuida das crian&#231;as</span>
+            <span class="show-en">Someone else is covering the kids</span>
+          </label>
+          <div style="font-size:12px;color:var(--muted);margin-top:5px;">
+            <span class="show-pt">O bloco continua vis&#237;vel, mas n&#227;o impede agendar nesse hor&#225;rio.</span>
+            <span class="show-en">The block still shows, but does not prevent booking over that time.</span>
+          </div>
+        </div>
         <!-- Location: in-person sessions and events only. The placeholder
              asks for a real street address because this string feeds the
              Directions maps link -- "Rafa's office" produces a broken link.
@@ -2037,30 +2124,28 @@
         <button class="modal-close" onclick="closeModal('modalQuickAddClient')">×</button>
       </div>
       <div class="modal-body">
+        <!-- Two questions, deliberately. This form opens mid-booking, with a
+             client in front of him; anything more is a reason to abandon the
+             booking. Everything else about the record is filled in later on
+             the client page, which is also where the credentials and WhatsApp
+             flow already lives. -->
         <div class="field-group">
           <div class="field-label">
-            <span class="show-pt">Nome</span>
-            <span class="show-en">Name</span>
+            <span class="show-pt">Nome do neg&#243;cio</span>
+            <span class="show-en">Business name</span>
           </div>
           <input type="text" id="qacName" placeholder="">
         </div>
         <div class="field-group">
           <div class="field-label">
-            <span class="show-pt">E-mail (opcional)</span>
-            <span class="show-en">Email (optional)</span>
-          </div>
-          <input type="email" id="qacEmail" placeholder="">
-        </div>
-        <div class="field-group">
-          <div class="field-label">
-            <span class="show-pt">Telefone (opcional)</span>
-            <span class="show-en">Phone (optional)</span>
+            <span class="show-pt">Telefone</span>
+            <span class="show-en">Phone</span>
           </div>
           <input type="text" id="qacPhone" placeholder="">
         </div>
         <button class="btn-submit" onclick="handleQuickAddClient()">
-          <span class="show-pt">Salvar Cliente</span>
-          <span class="show-en">Save Client</span>
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
         </button>
         <button class="btn-cancel-link" onclick="closeModal('modalQuickAddClient')">
           <span class="show-pt">Cancelar</span>
@@ -2978,7 +3063,8 @@
     // NOT 'client' or 'prospective'.
     function rafaIsNonApex(s) {
       if (isExternalSession(s)) { return false; }
-      return s.meeting_category === "event" || s.meeting_category === "personal";
+      return s.meeting_category === "event" || s.meeting_category === "personal" ||
+             s.meeting_category === "church";
     }
 
     function rafaSortByTime(list) {
@@ -3251,189 +3337,330 @@
         .catch(function() {});
     }
 
-    function populateClientDropdown() {
+    // leadsFirst is the X-Ray ordering: an X-Ray is the diagnostic that OPENS
+    // a relationship, so the person being booked is nearly always a lead and
+    // not yet a client. Every other type keeps the long-standing order
+    // (active, then leads, then closed behind a group) -- that order exists
+    // because listing every client that ever existed is how Alice failed to
+    // find JM Luxury Pools, created a duplicate, and cost a full merge.
+    function populateClientDropdown(leadsFirst) {
       var sel = document.getElementById("nsClient");
       if (!sel) { return; }
       var en = isEn();
+      var keep = sel.value;
       sel.innerHTML = "";
 
-      var addOpt = document.createElement("option");
-      addOpt.value = "__add_new__";
-      addOpt.textContent = (en ? "+ Add New Client" : "+ Adicionar Novo Cliente");
-      sel.appendChild(addOpt);
-
-      var eventOpt = document.createElement("option");
-      eventOpt.value = "__event__";
-      eventOpt.textContent = (en ? "+ Event" : "+ Evento");
-      sel.appendChild(eventOpt);
-
-      // Apex Club is the monthly in-person client/prospect event -- identical
-      // to "+ Event" except it prefills the event name to save typing.
-      var apexOpt = document.createElement("option");
-      apexOpt.value = "__apex_club__";
-      apexOpt.textContent = "+ Apex Club";
-      sel.appendChild(apexOpt);
-
-      // Vendors/partners are not clients and not leads, so they belong up here
-      // with the other non-client options rather than anywhere in the client
-      // list. Alice had real meetings she could not book before this existed.
-      var vendorOpt = document.createElement("option");
-      vendorOpt.value = "__vendor__";
-      vendorOpt.textContent = (en ? "+ Vendor / Partner" : "+ Fornecedor / Parceiro");
-      sel.appendChild(vendorOpt);
-
-      // A NON-APEX meeting: church, school, family. Behaves exactly like
-      // "+ Event" and looks identical on the calendar -- it exists because
-      // "Event" was the wrong word in Alice's head for a meeting Rafa had
-      // with the senior pastor.
-      var personalOpt = document.createElement("option");
-      personalOpt.value = "__personal__";
-      personalOpt.textContent = (en ? "+ Non-Apex meeting" : "+ Reuniao nao-Apex");
-      sel.appendChild(personalOpt);
-
-      var sep = document.createElement("option");
-      sep.disabled = true;
-      sep.textContent = "──────────────";
-      sel.appendChild(sep);
-
-      var placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = en ? "— select client —" : "— selecionar cliente —";
-      sel.appendChild(placeholder);
-
-      // Active clients only by default. Listing every client that ever existed
-      // is not a cosmetic problem: Alice could not find JM Luxury Pools among
-      // the dead records while scheduling, created a second one, and that
-      // duplicate cost a full merge to clean up. A confusing picker
-      // manufactures bad data.
-      //
-      // 'merged' is deliberately excluded from this list entirely. A merged
-      // record is a tombstone pointing at a surviving record; scheduling onto
-      // it recreates the exact bug this is meant to prevent. It appears only
-      // inside the collapsed group below, and is visibly labelled there.
-      var inactive = [];
-      for (var i = 0; i < clients.length; i++) {
-        var status = clients[i].status || "";
-        if (status === "active" || status === "lead") {
-          var opt = document.createElement("option");
-          opt.value = clients[i].id;
-          opt.textContent = clients[i].name;
-          opt.dataset.status = status;
-          sel.appendChild(opt);
-        } else {
-          inactive.push(clients[i]);
-        }
+      // Pinned at the very top for X-Ray: booking one is the moment a new
+      // name most often needs to exist. It stays available for every other
+      // type too, just below the placeholder.
+      function addNewClientOption() {
+        var addOpt = document.createElement("option");
+        addOpt.value = "__add_new__";
+        addOpt.textContent = (en ? "+ New client" : "+ Novo cliente");
+        sel.appendChild(addOpt);
       }
 
-      // Closed/merged/inactive records stay reachable -- scheduling against one
-      // is still legitimate -- but behind a deliberate second click rather than
-      // in the default view. Rendered as a real <optgroup> so type-to-filter
-      // still searches these names: Alice typing a name she knows is faster
-      // than any grouping, and the browser's own search spans optgroups.
-      if (inactive.length) {
+      function addPlaceholder() {
+        var placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = en ? "\u2014 select client \u2014" : "\u2014 selecionar cliente \u2014";
+        sel.appendChild(placeholder);
+      }
+
+      addNewClientOption();
+      addPlaceholder();
+
+      var actives = [], leads = [], inactive = [];
+      for (var i = 0; i < clients.length; i++) {
+        var status = clients[i].status || "";
+        if (status === "lead")        { leads.push(clients[i]); }
+        else if (status === "active") { actives.push(clients[i]); }
+        else                          { inactive.push(clients[i]); }
+      }
+
+      function appendGroup(rows, labelPt, labelEn) {
+        if (!rows.length) { return; }
         var grp = document.createElement("optgroup");
-        grp.label = (en ? "▸ Closed clients (" : "▸ Clientes encerrados (") + inactive.length + ")";
-        for (var j = 0; j < inactive.length; j++) {
-          var iOpt = document.createElement("option");
-          iOpt.value = inactive[j].id;
-          var st = inactive[j].status || "";
-          // A merged record is labelled as such right in the option text, so
-          // picking one is always a knowing choice.
-          var suffix = st === "merged"
-            ? (en ? " — merged" : " — mesclado")
-            : (st === "closed" ? (en ? " — closed" : " — encerrado") : "");
-          iOpt.textContent = inactive[j].name + suffix;
-          iOpt.dataset.status = st;
-          grp.appendChild(iOpt);
+        grp.label = en ? labelEn : labelPt;
+        for (var k = 0; k < rows.length; k++) {
+          var opt = document.createElement("option");
+          opt.value = rows[k].id;
+          opt.textContent = rows[k].name;
+          opt.dataset.status = rows[k].status || "";
+          grp.appendChild(opt);
         }
         sel.appendChild(grp);
       }
 
-      sel.value = "";
+      if (leadsFirst) {
+        appendGroup(leads,   "Leads",           "Leads");
+        appendGroup(actives, "Clientes ativos", "Active clients");
+      } else {
+        appendGroup(actives, "Clientes ativos", "Active clients");
+        appendGroup(leads,   "Leads",           "Leads");
+      }
+
+      // Closed/merged records stay reachable -- scheduling against one is
+      // still legitimate -- but behind a deliberate second click. Rendered as
+      // a real optgroup so the browser's type-to-filter still finds them.
+      if (inactive.length) {
+        var grp2 = document.createElement("optgroup");
+        grp2.label = (en ? "\u25b8 Closed clients (" : "\u25b8 Clientes encerrados (") + inactive.length + ")";
+        for (var j = 0; j < inactive.length; j++) {
+          var iOpt = document.createElement("option");
+          iOpt.value = inactive[j].id;
+          var st = inactive[j].status || "";
+          // A merged record is a tombstone pointing at a surviving record.
+          // Labelling it inline is what makes picking one a knowing choice.
+          var suffix = st === "merged"
+            ? (en ? " \u2014 merged" : " \u2014 mesclado")
+            : (st === "closed" ? (en ? " \u2014 closed" : " \u2014 encerrado") : "");
+          iOpt.textContent = inactive[j].name + suffix;
+          iOpt.dataset.status = st;
+          grp2.appendChild(iOpt);
+        }
+        sel.appendChild(grp2);
+      }
+
+      // Placeholder-first default: sending must stay a deliberate choice.
+      var restored = false;
+      if (keep) {
+        for (var m = 0; m < sel.options.length; m++) {
+          if (sel.options[m].value === keep) { sel.value = keep; restored = true; break; }
+        }
+      }
+      if (!restored) { sel.value = ""; }
     }
 
     function onNsClientChange() {
       var sel = document.getElementById("nsClient");
+      if (!sel) { return; }
       if (sel.value === "__add_new__") {
         sel.value = "";
         openModal("modalQuickAddClient");
         return;
       }
-      // Event / Apex Club: not a client session at all. The dropdown keeps
-      // showing the chosen option (unlike "__add_new__").
-      if (sel.value === "__event__" || sel.value === "__apex_club__" || sel.value === "__personal__") {
-        setNsEventMode(true, sel.value === "__apex_club__");
-        return;
+      // Client vs prospective is only asked for an ordinary client meeting;
+      // the other types carry their own category. Auto-default it from the
+      // chosen client's own status -- still overridable either direction.
+      if (NS_MEETING_TYPE === "client_meeting") {
+        var opt = sel.options[sel.selectedIndex];
+        var status = opt ? opt.dataset.status : "";
+        setNewSessionCategory(status === "lead" ? "prospective" : "client");
       }
-      if (sel.value === "__vendor__") {
-        setNsVendorMode(true);
-        return;
-      }
-      setNsVendorMode(false);
-      setNsEventMode(false, false);
-      // Auto-default the category toggle from the selected client's own
-      // status, but this is only a default -- Alice/Rafa can still flip
-      // it manually either direction afterward.
-      var opt = sel.options[sel.selectedIndex];
-      var status = opt ? opt.dataset.status : "";
-      setNewSessionCategory(status === "lead" ? "prospective" : "client");
-      // Show this client's own engagement dates and preselect the duration
-      // matching their package, where one is known.
+      // This client's own engagement dates, and the duration matching their
+      // package where one is known.
       renderNsEngagementHint();
       applyNsDurationDefault();
     }
 
+    // ── Meeting type: the first question, and the one that reshapes the
+    //    rest of the dialog ─────────────────────────────────────────────
+    //
+    // NS_MEETING_TYPE is the UI's answer. It is NOT the same vocabulary as
+    // sessions.meeting_category, which the worker still validates against
+    // its own list -- nsCategoryForType() is the single place that maps one
+    // to the other, so the stored value can never drift from the picked type.
+    var NS_MEETING_TYPE = "client_meeting";
+
+    // Which UI types require a client to be chosen.
+    function nsTypeNeedsClient(type) {
+      return type === "client_meeting" || type === "onsite_visit" || type === "xray";
+    }
+
+    // UI type -> sessions.meeting_category. onsite_visit and xray are their
+    // own categories precisely so they can be COUNTED apart from a weekly
+    // meeting; church is its own category so it stops landing in the "event"
+    // junk drawer next to conferences.
+    function nsCategoryForType(type) {
+      if (type === "onsite_visit") { return "onsite_visit"; }
+      if (type === "xray")         { return "xray"; }
+      if (type === "church")       { return "church"; }
+      if (type === "personal")     { return "personal"; }
+      if (type === "vendor")       { return "vendor"; }
+      if (type === "event")        { return "event"; }
+      return "client";
+    }
+
+    function onNsMeetingTypeChange() {
+      var sel = document.getElementById("nsMeetingType");
+      if (!sel) { return; }
+      applyNsMeetingType(sel.value);
+    }
+
+    // Repaints the dialog for a meeting type. Every branch sets EVERY group
+    // it cares about, so switching types repeatedly can never leave a field
+    // from a previous type behind.
+    function applyNsMeetingType(type) {
+      NS_MEETING_TYPE = type || "client_meeting";
+      var needsClient = nsTypeNeedsClient(NS_MEETING_TYPE);
+      var isEventType = NS_MEETING_TYPE === "event";
+      var isChurch    = NS_MEETING_TYPE === "church";
+      var isPersonal  = NS_MEETING_TYPE === "personal";
+      var isVendor    = NS_MEETING_TYPE === "vendor";
+      var isXray      = NS_MEETING_TYPE === "xray";
+      var isOnsite    = NS_MEETING_TYPE === "onsite_visit";
+      var en = isEn();
+
+      var clientGroup = document.getElementById("nsClientGroup");
+      if (clientGroup) { clientGroup.hidden = !needsClient; }
+
+      // The free-text name field serves event / vendor / church / personal.
+      var nameGroup = document.getElementById("nsEventNameGroup");
+      if (nameGroup) { nameGroup.hidden = needsClient; }
+      var nameEl = document.getElementById("nsEventName");
+      if (nameEl && needsClient) { nameEl.value = ""; }
+
+      var eventLabel    = document.getElementById("nsEventNameLabel");
+      var vendorLabel   = document.getElementById("nsVendorNameLabel");
+      var personalLabel = document.getElementById("nsPersonalNameLabel");
+      if (eventLabel)    { eventLabel.hidden    = !isEventType; }
+      if (vendorLabel)   { vendorLabel.hidden   = !isVendor; }
+      if (personalLabel) { personalLabel.hidden = !(isChurch || isPersonal); }
+      if (nameEl) {
+        if (isVendor)        { nameEl.placeholder = en ? "Who are you meeting?" : "Com quem e a reuniao?"; }
+        else if (isChurch)   { nameEl.placeholder = en ? "What is this meeting?" : "Qual e a reuniao?"; }
+        else if (isPersonal) { nameEl.placeholder = en ? "What is this block?" : "Qual e o compromisso?"; }
+        else                 { nameEl.placeholder = ""; }
+      }
+
+      var churchGroup = document.getElementById("nsChurchGroup");
+      if (churchGroup) { churchGroup.hidden = !isChurch; }
+      var personalGroup = document.getElementById("nsPersonalGroup");
+      if (personalGroup) { personalGroup.hidden = !isPersonal; }
+      var clubRow = document.getElementById("nsApexClubRow");
+      if (clubRow) { clubRow.hidden = !isEventType; }
+      if (!isEventType) {
+        var clubCk = document.getElementById("nsApexClub");
+        if (clubCk) { clubCk.checked = false; }
+        NS_IS_APEX_CLUB = false;
+        var clubGroup = document.getElementById("nsClubGroup");
+        if (clubGroup) { clubGroup.hidden = true; }
+      }
+
+      // Client vs prospective is a distinction that only means anything for
+      // an ordinary client meeting. An X-Ray or an onsite visit carries its
+      // own category, so the toggle would be noise.
+      var catGroup = document.getElementById("nsCategoryGroup");
+      if (catGroup) { catGroup.hidden = NS_MEETING_TYPE !== "client_meeting"; }
+
+      // Recurrence belongs to engagements, not to one-off visits or blocks.
+      var recurGroup = document.getElementById("nsRecurGroup");
+      if (recurGroup) {
+        recurGroup.hidden = !(NS_MEETING_TYPE === "client_meeting");
+        if (recurGroup.hidden) {
+          var rc = document.getElementById("nsRecurring");
+          if (rc && rc.checked) { rc.checked = false; toggleNsRecurring(); }
+        }
+      }
+
+      // An onsite visit IS in person -- that is what makes it an onsite
+      // visit -- so the type toggle is forced rather than asked. Church,
+      // personal and events never get a Meet link either.
+      var typeGroup = document.getElementById("nsTypeGroup");
+      if (typeGroup) { typeGroup.hidden = isOnsite || isChurch || isPersonal || isEventType; }
+      if (isOnsite)                            { setNewSessionType("in_person"); }
+      else if (isChurch || isPersonal || isEventType) { setNewSessionType("in_person"); }
+      else if (isVendor)                       { setNewSessionType("online_meet"); }
+
+      document.getElementById("nsCategoryVal").value = nsCategoryForType(NS_MEETING_TYPE);
+
+      // The X-Ray picker leads with leads, because an X-Ray is the diagnostic
+      // that OPENS a relationship -- the person being booked is nearly always
+      // not a client yet.
+      var clientSel = document.getElementById("nsClient");
+      if (clientSel && needsClient) {
+        populateClientDropdown(isXray);
+      }
+
+      updateNsLocationVisibility();
+      updateNsEndTimeVisibility();
+    }
+
+    // Church: the link field hides behind a small affordance so the ordinary
+    // case (no link) is not dressed up as a form.
+    function toggleNsChurchLink() {
+      var wrap = document.getElementById("nsChurchLinkWrap");
+      if (!wrap) { return; }
+      wrap.hidden = !wrap.hidden;
+      var btn = document.getElementById("nsChurchLinkToggle");
+      if (btn) { btn.hidden = !wrap.hidden ? true : false; }
+    }
+
+    // Duration drives the end time, so a church entry never lands with
+    // end_time NULL (which silently disables the travel-time warning).
+    function onNsChurchDurationChange() {
+      var allDay = document.getElementById("nsChurchAllDay");
+      if (allDay && allDay.checked) { return; }
+      applyNsChurchDuration();
+    }
+
+    function applyNsChurchDuration() {
+      var durEl   = document.getElementById("nsChurchDuration");
+      var startEl = document.getElementById("nsTime");
+      var endEl   = document.getElementById("nsEndTime");
+      if (!durEl || !startEl || !endEl || !startEl.value) { return; }
+      var mins = parseInt(durEl.value, 10);
+      if (isNaN(mins)) { return; }
+      var parts = startEl.value.split(":");
+      var total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) + mins;
+      if (total >= 24 * 60) { total = 24 * 60 - 1; }
+      var hh = Math.floor(total / 60), mm = total % 60;
+      var val = (hh < 10 ? "0" + hh : "" + hh) + ":" + (mm < 10 ? "0" + mm : "" + mm);
+      // Only settable if the end list actually offers that slot.
+      for (var i = 0; i < endEl.options.length; i++) {
+        if (endEl.options[i].value === val) { endEl.value = val; return; }
+      }
+    }
+
+    // All day fills the whole working span rather than inventing a new
+    // storage shape: end_time stays a plain "HH:MM" like every other row.
+    function onNsChurchAllDayChange() {
+      var ck = document.getElementById("nsChurchAllDay");
+      if (!ck) { return; }
+      var durGroup = document.getElementById("nsChurchDurationGroup");
+      if (durGroup) { durGroup.hidden = ck.checked; }
+      var startEl = document.getElementById("nsTime");
+      var endEl   = document.getElementById("nsEndTime");
+      if (ck.checked && startEl && endEl) {
+        for (var i = 0; i < startEl.options.length; i++) {
+          if (startEl.options[i].value === "08:00") { startEl.value = "08:00"; break; }
+        }
+        for (var j = 0; j < endEl.options.length; j++) {
+          if (endEl.options[j].value === "20:00") { endEl.value = "20:00"; break; }
+        }
+      } else {
+        applyNsChurchDuration();
+      }
+    }
+
+    function onNsApexClubToggle() {
+      var ck = document.getElementById("nsApexClub");
+      var on = !!(ck && ck.checked);
+      NS_IS_APEX_CLUB = on;
+      var clubGroup = document.getElementById("nsClubGroup");
+      if (clubGroup) { clubGroup.hidden = !on; }
+      var nameEl = document.getElementById("nsEventName");
+      if (nameEl && on && !nameEl.value) { nameEl.value = "Apex Club"; }
+    }
+
+    // "Event shape" = no client, free-text name, forced in_person. Church and
+    // personal share that shape; they are separate CATEGORIES, not separate
+    // layouts, which is why this predicate still gathers them.
     function nsIsEvent() {
-      var v = document.getElementById("nsClient").value;
-      return v === "__event__" || v === "__apex_club__" || v === "__personal__";
+      return NS_MEETING_TYPE === "event" || NS_MEETING_TYPE === "personal" ||
+             NS_MEETING_TYPE === "church";
     }
 
     // True only for the non-Apex sentinel. Everything about the modal is the
     // event path; this decides the one thing that differs -- the category the
     // row is saved with.
     function nsIsPersonal() {
-      return document.getElementById("nsClient").value === "__personal__";
+      return NS_MEETING_TYPE === "personal";
     }
 
-    // Switches the New Session modal between event mode (category/type/
-    // recurrence hidden, event name shown, type forced in_person so no Meet
-    // link is ever created) and normal client mode.
-    function setNsEventMode(isEvent, isApexClub) {
-      var nameGroup = document.getElementById("nsEventNameGroup");
-      var nameEl    = document.getElementById("nsEventName");
-      document.getElementById("nsCategoryGroup").hidden = isEvent;
-      document.getElementById("nsTypeGroup").hidden     = isEvent;
-      document.getElementById("nsRecurGroup").hidden    = isEvent;
-      nameGroup.hidden = !isEvent;
-      var isPersonal     = nsIsPersonal();
-      var eventLabelE     = document.getElementById("nsEventNameLabel");
-      var personalLabelE  = document.getElementById("nsPersonalNameLabel");
-      var vendorLabelE    = document.getElementById("nsVendorNameLabel");
-      if (isEvent) {
-        nameEl.value = isApexClub ? "Apex Club" : "";
-        nameEl.placeholder = "";
-        document.getElementById("nsCategoryVal").value = isPersonal ? "personal" : "event";
-        setNewSessionType("in_person");
-        if (vendorLabelE)   { vendorLabelE.hidden   = true; }
-        if (eventLabelE)    { eventLabelE.hidden    = isPersonal; }
-        if (personalLabelE) { personalLabelE.hidden = !isPersonal; }
-      } else {
-        nameEl.value = "";
-        if (eventLabelE)    { eventLabelE.hidden    = false; }
-        if (personalLabelE) { personalLabelE.hidden = true; }
-      }
-      // Apex Club carries a price, a flyer and a registration page; a plain
-      // event does not. Purely additive -- the scheduling path above is
-      // untouched, this only reveals extra fields.
-      var clubGroup = document.getElementById("nsClubGroup");
-      if (clubGroup) { clubGroup.hidden = !(isEvent && isApexClub); }
-      NS_IS_APEX_CLUB = !!(isEvent && isApexClub);
-
-      updateNsLocationVisibility();
-      updateNsEndTimeVisibility();
-    }
-
-    // Set by setNsEventMode; read after the session saves, to decide whether
+    // Set by applyNsMeetingType/onNsApexClubToggle; read after the session
+    // saves, to decide whether
     // an apex_club_events row should be created and linked.
     var NS_IS_APEX_CLUB = false;
 
@@ -3486,39 +3713,8 @@
         .catch(function() { /* the calendar entry stands regardless */ });
     }
 
-    // Vendor/partner mode. Deliberately NOT a variant of event mode: an event
-    // forces in_person precisely so it never gets a Meet link, and a vendor
-    // meeting needs that link -- Rafa meets vendors and partners online. So the
-    // type toggle stays VISIBLE and defaults to online_meet, while the client
-    // association is dropped exactly as it is for events.
-    function setNsVendorMode(isVendor) {
-      var nameGroup = document.getElementById("nsEventNameGroup");
-      var nameEl    = document.getElementById("nsEventName");
-      var eventLabel  = document.getElementById("nsEventNameLabel");
-      var vendorLabel = document.getElementById("nsVendorNameLabel");
-      var en = isEn();
-      var personalLabelV = document.getElementById("nsPersonalNameLabel");
-      if (eventLabel)  { eventLabel.hidden  = !!isVendor; }
-      if (vendorLabel) { vendorLabel.hidden = !isVendor; }
-      if (personalLabelV && isVendor) { personalLabelV.hidden = true; }
-      if (isVendor) {
-        document.getElementById("nsCategoryGroup").hidden = true;
-        document.getElementById("nsRecurGroup").hidden    = true;
-        document.getElementById("nsTypeGroup").hidden     = false; // needs the link
-        nameGroup.hidden = false;
-        nameEl.value = "";
-        nameEl.placeholder = en ? "Who are you meeting?" : "Com quem e a reuniao?";
-        document.getElementById("nsCategoryVal").value = "vendor";
-        setNewSessionType("online_meet");
-      } else {
-        nameEl.placeholder = "";
-      }
-      updateNsLocationVisibility();
-      updateNsEndTimeVisibility();
-    }
-
     function nsIsVendor() {
-      return document.getElementById("nsClient").value === "__vendor__";
+      return NS_MEETING_TYPE === "vendor";
     }
 
     function openModal(id) {
@@ -3528,16 +3724,17 @@
 
     function handleQuickAddClient() {
       var nameEl    = document.getElementById("qacName");
-      var emailEl   = document.getElementById("qacEmail");
       var phoneEl   = document.getElementById("qacPhone");
       var statusEl  = document.getElementById("qacStatus");
+      if (!nameEl || !statusEl) { return; }
       var en = isEn();
 
       var name = (nameEl.value || "").trim();
       if (!name) {
-        statusEl.textContent = en ? "Name is required." : "Nome é obrigatório.";
+        statusEl.textContent = en ? "Business name is required." : "Nome do negocio e obrigatorio.";
         return;
       }
+      var phone = phoneEl ? (phoneEl.value || "").trim() : "";
 
       statusEl.textContent = en ? "Saving..." : "Salvando...";
 
@@ -3545,8 +3742,10 @@
         method: "POST",
         body: {
           name: name,
-          email: emailEl.value.trim() || null,
-          phone: phoneEl.value.trim() || null
+          phone: phone || null,
+          // Somebody becomes ACTIVE when they have a contract, which means
+          // they have a package. Created here, mid-booking, they have neither.
+          status: "lead"
         }
       })
         .then(function(res) { return res.json(); })
@@ -3557,15 +3756,44 @@
           }
           statusEl.textContent = "";
           nameEl.value = "";
-          emailEl.value = "";
-          phoneEl.value = "";
+          if (phoneEl) { phoneEl.value = ""; }
           closeModal("modalQuickAddClient");
-          loadClients();
-          showToast(en ? "Client added." : "Cliente adicionado.");
+
+          // Put the new lead straight into the booking that prompted it --
+          // otherwise the picker reopens on the placeholder and the name just
+          // typed has to be hunted for.
+          var newId = data.client_id;
+          apiFetch("/api/clients")
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              clients = (d.clients || []).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+              populateClientDropdown(NS_MEETING_TYPE === "xray");
+              var sel = document.getElementById("nsClient");
+              if (sel) {
+                sel.value = newId;
+                onNsClientChange();
+              }
+              offerCredentialsForNewLead(newId, name);
+            })
+            .catch(function() {});
         })
         .catch(function() {
           statusEl.textContent = en ? "Error saving client." : "Erro ao salvar cliente.";
         });
+    }
+
+    // The credentials + WhatsApp send flow already exists, in full, on the
+    // client page (createClientLogin/sendLoginViaWhatsapp). Building a second
+    // one here would give two implementations of a one-time password that can
+    // never be shown again, so this OFFERS the existing one instead of
+    // reimplementing it. Declining leaves a perfectly good lead behind.
+    function offerCredentialsForNewLead(clientId, clientName) {
+      var en = isEn();
+      var msg = en
+        ? "Lead created: " + clientName + ".\n\nSend login credentials now?"
+        : "Lead criado: " + clientName + ".\n\nEnviar as credenciais de acesso agora?";
+      if (!window.confirm(msg)) { return; }
+      window.open(safeUrl("client.html?id=" + encodeURIComponent(clientId) + "&login=1"), "_blank");
     }
 
     // The dates the page can actually PUT ON SCREEN for the current anchor --
@@ -3970,8 +4198,15 @@
       // Same colours as an event by design, but its own class so the two stay
       // separately restylable if that ever changes.
       if (session.meeting_category === "personal") { return "personal"; }
+      // Church left the event junk drawer but keeps the event look: it is a
+      // non-Apex block on Rafa's calendar and reads as one.
+      if (session.meeting_category === "church") { return "personal"; }
       if (session.meeting_category === "vendor") { return "vendor"; }
       if (session.meeting_category === "prospective") { return "prospective"; }
+      // An onsite visit IS in person -- that is what makes it one -- so it
+      // carries the in-person colour without needing session_type consulted.
+      if (session.meeting_category === "onsite_visit") { return "inperson"; }
+      if (session.meeting_category === "xray") { return "prospective"; }
       return (session.session_type === "in_person") ? "inperson" : "online";
     }
 
@@ -3986,6 +4221,7 @@
       // A non-Apex meeting never has a Meet link and must never be flagged as
       // a broken session for that.
       if (session.meeting_category === "personal") { return false; }
+      if (session.meeting_category === "church") { return false; }
       if (session.session_type !== "online_meet") { return false; }
       return !session.google_meet_link || session.google_meet_link === "[PENDING_GOOGLE_API]";
     }
@@ -4798,6 +5034,13 @@
     // Core pass. `candidate` is the session being booked/edited (may have no
     // id yet); `others` are the rows to test it against. Returns
     // { conflicts: [], travel: [] } of plain description objects.
+    // kids_covered is 0/1 from D1, so a plain truthiness test is enough --
+    // but the category is checked too, because the column is only meaningful
+    // on a personal row.
+    function isCoveredPersonal(row) {
+      return !!(row && row.meeting_category === "personal" && row.kids_covered);
+    }
+
     function findWarnings(candidate, others) {
       var out = { conflicts: [], travel: [] };
       var mySpan = sessionSpan(candidate);
@@ -4808,6 +5051,13 @@
         if (!other || !other.date || other.date !== candidate.date) { continue; }
         if (candidate.id && other.id === candidate.id) { continue; }
         if (other.status === "cancelled" || other.status === "discarded") { continue; }
+        // A personal block whose kids are covered still SHOWS on the calendar
+        // -- Rafa wants his own life visible -- but it is explicitly not a
+        // reason to refuse a booking, so it raises neither a conflict nor a
+        // travel warning. Before this existed the only way to make such a
+        // block bookable-over was to delete it, which is precisely why
+        // personal items were being filed as "client" instead.
+        if (isCoveredPersonal(other)) { continue; }
         // A series edit moves every occurrence together -- its siblings are
         // not conflicts with each other.
         if (candidate.series_id && other.series_id &&
@@ -5149,9 +5399,28 @@
       document.getElementById("nsNotes").value    = "";
       document.getElementById("nsLocation").value = "";
       document.getElementById("nsLocation").placeholder = isEn() ? "Street address" : "Endereço completo";
-      setNsEventMode(false, false);
       setNewSessionType("online_meet");
       setNewSessionCategory("client");
+      // Reset the first question, then let it repaint everything below it.
+      var mtSel = document.getElementById("nsMeetingType");
+      if (mtSel) { mtSel.value = "client_meeting"; }
+      var churchLink = document.getElementById("nsChurchLink");
+      if (churchLink) { churchLink.value = ""; }
+      var churchWrap = document.getElementById("nsChurchLinkWrap");
+      if (churchWrap) { churchWrap.hidden = true; }
+      var churchToggle = document.getElementById("nsChurchLinkToggle");
+      if (churchToggle) { churchToggle.hidden = false; }
+      var churchAllDay = document.getElementById("nsChurchAllDay");
+      if (churchAllDay) { churchAllDay.checked = false; }
+      var churchDur = document.getElementById("nsChurchDuration");
+      if (churchDur) { churchDur.value = "60"; }
+      var churchDurGroup = document.getElementById("nsChurchDurationGroup");
+      if (churchDurGroup) { churchDurGroup.hidden = false; }
+      var covered = document.getElementById("nsPersonalCovered");
+      if (covered) { covered.checked = false; }
+      var clubCk = document.getElementById("nsApexClub");
+      if (clubCk) { clubCk.checked = false; }
+      applyNsMeetingType("client_meeting");
       document.getElementById("nsRecurring").checked = false;
       document.getElementById("nsRecurFields").hidden = true;
       document.getElementById("nsRecurFreq").value  = "weekly";
@@ -5461,8 +5730,13 @@
       // A vendor meeting keeps its chosen type -- that is what earns it a Meet
       // link -- unlike an event, which is forced in_person.
       var type      = isEvent ? "in_person" : (document.getElementById("nsTypeVal").value || "online_meet");
-      var category  = isEvent ? (nsIsPersonal() ? "personal" : "event")
-                              : (isVendor ? "vendor" : (document.getElementById("nsCategoryVal").value || "client"));
+      // The meeting type is the source of truth. The only type that still
+      // asks a follow-up question is an ordinary client meeting, which can be
+      // flipped to prospective.
+      var category  = nsCategoryForType(NS_MEETING_TYPE);
+      if (NS_MEETING_TYPE === "client_meeting") {
+        category = document.getElementById("nsCategoryVal").value || "client";
+      }
       var notes     = document.getElementById("nsNotes").value;
       var location  = (document.getElementById("nsLocation").value || "").trim();
       var eventName = (document.getElementById("nsEventName").value || "").trim();
@@ -5484,11 +5758,11 @@
         }
       } else if (isEvent) {
         if (!eventName || !date || !time) {
-          fail(en ? "Event name, date and time are required." : "Nome do evento, data e hora sao obrigatorios.");
+          fail(en ? "Name, date and time are required." : "Nome, data e hora sao obrigatorios.");
           return;
         }
         if (!endTime) {
-          fail(en ? "End time is required for events." : "Hora de termino e obrigatoria para eventos.");
+          fail(en ? "End time is required." : "Hora de termino e obrigatoria.");
           return;
         }
       } else if (!clientId || !date || !time) {
@@ -5540,6 +5814,18 @@
         if (isEvent || isVendor) { body.event_name = eventName; } else { body.client_id = clientId; }
         if (endTime)  { body.end_time = endTime; }
         if (location) { body.location = location; }
+        // A church meeting occasionally has a real link (an elders' call).
+        // It rides in the same column the Meet link uses, so every reader
+        // that already knows how to open a link keeps working unchanged.
+        if (NS_MEETING_TYPE === "church") {
+          var churchLinkEl = document.getElementById("nsChurchLink");
+          var churchLink = churchLinkEl ? (churchLinkEl.value || "").trim() : "";
+          if (churchLink) { body.google_meet_link = churchLink; }
+        }
+        if (NS_MEETING_TYPE === "personal") {
+          var coveredEl = document.getElementById("nsPersonalCovered");
+          body.kids_covered = !!(coveredEl && coveredEl.checked);
+        }
         if (meetLink) { body.google_meet_link = meetLink; }
         if (googleEventId) { body.google_event_id = googleEventId; }
         // Google's own event URL, so the detail modal can link straight to it.
@@ -5889,7 +6175,12 @@
       loadClubPanel(session.id);
       var isExternal = isExternalSession(session);
       var isPersonalCat = session.meeting_category === "personal";
-      var isEventCat = session.meeting_category === "event" || isPersonalCat;
+      // Church shares the event SHAPE (no client, free-text name, location
+      // rather than a Meet link), so every event-shaped branch below must see
+      // it. An onsite_visit is NOT here: it is a real client meeting and
+      // takes the client path, which is what gives it a client history entry.
+      var isEventCat = session.meeting_category === "event" || isPersonalCat ||
+                       session.meeting_category === "church";
 
       document.getElementById("detailTitle").textContent     = session.client_name || "—";
       document.getElementById("detailClientName").textContent = session.client_name || "—";
@@ -6091,7 +6382,8 @@
 
       // Event entries (conferences, Apex Club) are not client sessions --
       // never offer the transcript/PDF record flow for them.
-      if (session.meeting_category === "event" || session.meeting_category === "personal") {
+      if (session.meeting_category === "event" || session.meeting_category === "personal" ||
+          session.meeting_category === "church") {
         section.hidden = true;
         return;
       }
@@ -6278,6 +6570,7 @@
       // meetings are none of those, so they keep their plain name.
       var title = (session.meeting_category === "event" ||
                    session.meeting_category === "personal" ||
+                   session.meeting_category === "church" ||
                    session.meeting_category === "vendor" ||
                    session.meeting_category === "prospective")
         ? name : name + " - RDE";
@@ -6305,6 +6598,7 @@
       // email to invite -- looking one up would be meaningless.
       var addAttendee = (session.meeting_category === "event" ||
                          session.meeting_category === "personal" ||
+                         session.meeting_category === "church" ||
                          session.meeting_category === "vendor")
         ? null : clientEmailById(session.client_id);
       if (addAttendee) { addBody.attendee_email = addAttendee; }
@@ -6764,7 +7058,8 @@
       populateHHMMSelect(document.getElementById("edEndTime"), true);
 
       var isEventCat = session.meeting_category === "event" ||
-                       session.meeting_category === "personal";
+                       session.meeting_category === "personal" ||
+                       session.meeting_category === "church";
       document.getElementById("edClient").value    = session.client_id || "";
       document.getElementById("edEventName").value = isEventCat ? (session.client_name || "") : "";
       document.getElementById("edDate").value      = session.date || "";
@@ -6787,8 +7082,12 @@
       // convert Rafa's non-Apex meeting into an event the moment Alice saved
       // an unrelated edit like the time.
       if (isEventCat) {
+        // Preserve the row's OWN category. Collapsing this to personal-or-event
+        // is what would turn a church row into an event the moment Alice saved
+        // an unrelated edit like the time.
+        var evCat = session.meeting_category;
         document.getElementById("edCategoryVal").value =
-          (session.meeting_category === "personal") ? "personal" : "event";
+          (evCat === "personal" || evCat === "church") ? evCat : "event";
       }
       updateEditFieldVisibility();
 

@@ -710,6 +710,104 @@
 
 **Last updated:** 2026-07-06 (session 66 — all four Zoho reconciliation actions confirmed live; customerpayments schema confirmed; UI click-through pending Nicole's login)
 
+---
+
+## Meeting types — the type is now the first question (2026-09-06)
+
+**1. The junk drawer had a cause, and it was the form's shape.**
+
+meeting_category allowed client, prospective, event, vendor, personal, and
+"event" had become a drawer holding kids' birthdays, church meetings, X-Rays
+and networking dinners at once, while personal items landed in "client". The
+reason was structural: the category was never ASKED. It was INFERRED from
+sentinel rows inside the client dropdown -- "+ Event", "+ Apex Club",
+"+ Vendor / Partner", "+ Non-Apex meeting" -- so picking a category meant
+picking a fake client, and anything without a sentinel of its own had to
+borrow the closest one.
+
+MEETING TYPE IS NOW THE FIRST FIELD in the dialog and the rest of the form
+reshapes around the answer (applyNsMeetingType). The sentinels are gone from
+the client list, which is now only clients. setNsEventMode and setNsVendorMode
+were deleted rather than left beside the new path: two functions reshaping one
+modal is how a field from a previous type survives a switch.
+
+Seven types: client_meeting, onsite_visit, xray, church, personal, vendor,
+event. NS_MEETING_TYPE is the UI's answer and nsCategoryForType() is the ONE
+place mapping it to a stored meeting_category, so the two cannot drift.
+
+**2. onsite_visit and xray are client meetings, counted apart.**
+
+Both require a client and both flow into that client's history -- the two
+history queries exclude only event/personal/church, so nothing was needed to
+include them. They are separate categories rather than in_person 'client' rows
+because "how many times did we actually go there" and "how many meetings did
+we hold" are different questions and one category cannot answer both.
+
+An onsite_visit is forced in_person (that is what makes it one), so the
+existing Directions button lights up through the untouched
+session_type === "in_person" branch -- no second directions path exists.
+
+The X-Ray picker reorders to LEADS FIRST with "+ Novo cliente" pinned on top,
+because an X-Ray is the diagnostic that opens a relationship and the person
+being booked is usually not a client yet. populateClientDropdown(leadsFirst)
+takes a flag; every other type keeps the long-standing order (active, leads,
+then closed behind a collapsed optgroup) and the placeholder-first default, so
+sending still requires a deliberate choice. That order is not cosmetic: it
+exists because Alice could not find JM Luxury Pools among the dead records,
+created a duplicate, and it cost a full merge.
+
+Booking an X-Ray is NEVER blocked on the assessment being complete. The
+meeting attaches to the client and prep surfaces the gap later. Blocking is
+what makes him stop using the tool.
+
+**3. church left the drawer; personal got the flag it was missing.**
+
+church has no client, an optional meeting-link field hidden behind a small
+"adicionar link" affordance, a duration picker driving end_time, and an all-day
+checkbox. All-day fills 08:00-20:00 rather than inventing a storage shape:
+end_time stays a plain "HH:MM" like every other row, so endTimeHHMMFromRow()
+keeps working and nothing was migrated.
+
+personal gained "someone else is covering the kids" -> sessions.kids_covered
+(migrations/session_kids_covered.sql, applied remote, NOT NULL DEFAULT 0 so
+every existing block keeps blocking). A covered block still DISPLAYS -- Rafa
+wants his own life on the calendar -- but findWarnings() skips it entirely, so
+it raises neither a conflict nor a travel warning. That absence was the actual
+cause of the miscategorisation: with no way to make a block bookable-over
+except deleting it, personal items were filed as "client" on purpose.
+
+**4. New clients are leads.**
+
+The default moved from 'active' to 'lead' in all three places that decide it:
+clients.html (the ncStatus select now lists lead FIRST, so the browser's own
+default is lead, and the reset writes lead), and handlePostClients
+(body.status || "lead"). The lead_stage seed now reads the RESOLVED status
+rather than the raw body, or a request omitting status would land in the Leads
+tab with no pipeline position.
+
+The clients.status column DEFAULT stays 'active' and this is deliberate:
+SQLite has no ALTER COLUMN, so changing it means rebuilding a live 289-row
+table, and both insert paths write status explicitly and cannot reach the
+default. It is unreachable metadata, not behaviour. Written up in
+migrations/clients_default_lead.sql.
+
+Active means a contract, which means a package -- so the package requirement
+sits on the lead -> active PROMOTION in handlePatchClient, not at creation.
+Asking for a package before there is a relationship is what makes people
+abandon the form. The check only VALIDATES (the package block above it owns
+the write and the package_started_at clock). No existing client's status or
+package is backfilled or guessed.
+
+**5. "+ Novo cliente" asks two questions.**
+
+Business name and phone, nothing else -- it opens mid-booking with a client in
+front of him, and anything more is a reason to abandon the booking. It creates
+status='lead', drops the new lead straight into the booking that prompted it,
+then OFFERS the existing credentials flow by handing off to
+client.html?id=...&login=1 (maybeAutoOpenClientLogin, modelled exactly on the
+existing ?newpkg=1 handoff). No second credentials flow was built: a one-time
+password that can never be shown again must have exactly one implementation.
+
 ## Completed (2026-07-03, worker fix — discarded session leak)
 
 - [x] Excluded `discarded` sessions from `handleGetSessions` (both client-filtered and unfiltered queries) using `NOT IN ('archived','discarded')`; `handleGetSessionsCalendar` already had the fix applied

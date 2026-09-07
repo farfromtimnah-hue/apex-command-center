@@ -6653,7 +6653,11 @@ async function handleGetGoogleCalendarEvents(request, env) {
                 // still without writing to either side.
                 if (existing.calendar_provider !== "google_external") {
                     if (existing.status !== "cancelled" && existing.status !== "discarded") {
-                        var apexEndHHMM = existing.end_time ? String(existing.end_time).slice(0, 5) : null;
+                        // end_time holds "HH:MM" from the app and a full ISO
+                        // datetime from the Google sync. A blind slice(0,5)
+                        // returned "2026-" for the ISO shape and reported drift
+                        // on meetings where the two sides actually agree.
+                        var apexEndHHMM = endTimeHHMMFromRow(existing.end_time);
                         var googleEndHHMM = (endVal && endVal.indexOf("T") !== -1) ? endVal.slice(11, 16) : null;
                         var diffs = [];
                         if ((existing.date || null) !== (datePart || null)) {
@@ -6896,7 +6900,8 @@ async function handleGetGoogleCalendarEvent(googleEventId, request, env) {
         var agrees = null;
         var statusAgrees = null;
         if (apexRow) {
-            var apexEnd = apexRow.end_time ? String(apexRow.end_time).slice(0, 5) : null;
+            // Same two-shape column as above -- normalize, never slice raw.
+            var apexEnd = endTimeHHMMFromRow(apexRow.end_time);
             apex = {
                 session_id:        apexRow.id,
                 client_name:       apexRow.client_name || null,

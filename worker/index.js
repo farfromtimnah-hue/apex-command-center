@@ -5572,7 +5572,14 @@ async function handleGetSessionsCalendar(request, env) {
         var res = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, session_type, status, google_meet_link, whatsapp_sent_at, reminder_sent_at, " +
             "google_event_id, calendar_provider, html_link, end_time, location, attendees, raw_transcript, pdf_data, meeting_category, series_id, kids_covered " +
-            "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' ORDER BY date ASC, time ASC"
+            // 'inbox' is a Fireflies transcript waiting to be reviewed -- a
+            // RECORD of a meeting that already happened, not an appointment.
+            // Those rows carry time = NULL and, for an ad-hoc Meet with no
+            // calendar event, a raw Meet code as the title. Without this filter
+            // one appeared on Rafa's "Reunioes de Hoje" as "xbb-jcyu-hxt" with
+            // Entrar and Enviar Link buttons -- offering to send a client a
+            // link to a call that had already finished.
+            "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' AND status != 'inbox' ORDER BY date ASC, time ASC"
         ).bind(startDate, endDate).all();
 
         var sessions = res.results.map(function(row) {
@@ -22806,6 +22813,26 @@ async function syncPlaidTransactions(env) {
 
 var TRANSFER_PATTERNS = /(TRANSFER|ONLINE TRANSFER|ZELLE|WIRE|MOVE MONEY|XFER)/i;
 
+// Zelle prints a confirmation number on BOTH legs of the same transfer, and
+// BofA carries it into the description verbatim: "Conf# awb0hs85l". Verified
+// against production -- all 131 Zelle rows carry one, and nothing else does.
+//
+// This is a HARD KEY, and matching without it is what produced the bug this
+// exists to fix: on 2026-08-10 an outgoing $200 was paired to an INCOMING $200
+// from 2026-08-11 -- a different transfer entirely -- because amount+date alone
+// cannot tell two similar draws apart. Alice draws money often and in round
+// numbers, so near-identical pairs are normal, not rare.
+function confNumber(desc) {
+    var d = String(desc || "");
+    var i = d.toLowerCase().indexOf("conf#");
+    if (i === -1) { return null; }
+    var rest = d.slice(i + 5).trim();
+    var m = rest.match(/^[A-Za-z0-9]+/);
+    if (!m) { return null; }
+    var v = m[0].toLowerCase();
+    return v.length >= 6 ? v : null;
+}
+
 // Does either leg look like a transfer? An account's own last-four appearing
 // in the other leg's description counts too -- BofA writes "TO CHK 1234".
 function looksLikeTransfer(descA, descB, masks) {
@@ -22825,7 +22852,13 @@ async function detectTransfers(env) {
     var rows = await env.DB.prepare(
         "SELECT t.id, t.account_id, t.amount_cents, t.date, t.description, t.transfer_status, a.mask " +
         "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
-        "WHERE t.transfer_status = 'none' AND t.voided_at IS NULL AND t.date >= date('now', '-120 day')"
+        // 'none' OR settled-but-never-paired. A row the category rule marked
+        // 'confirmed' was invisible to this pass forever, so three real owner
+        // draws sat confirmed with no partner and nothing ever reprocessed
+        // them. A rejected row stays rejected -- that is a human decision.
+        "WHERE t.voided_at IS NULL AND t.date >= date('now', '-120 day') " +
+        "AND t.transfer_status != 'rejected' " +
+        "AND (t.transfer_status = 'none' OR t.transfer_pair_id IS NULL)"
     ).all();
 
     var txns = rows.results || [];
@@ -22837,6 +22870,48 @@ async function detectTransfers(env) {
 
     var used = {};
     var i, j;
+
+    // ── PASS 1: confirmation number ────────────────────────────────────────
+    // A shared Conf# with opposite amounts in different accounts is the same
+    // transfer, full stop -- no date window and no description sniffing
+    // needed. Running this FIRST means a near-identical pair a day apart can
+    // never steal the wrong partner from the heuristic pass below.
+    //
+    // A conf# appearing on more than two rows means a DUPLICATE INGEST, not a
+    // three-way transfer (seen in production: one $200 draw recorded three
+    // times). Pair the first opposite-signed match and leave the extras alone
+    // rather than guessing which duplicate is real.
+    var byConf = {};
+    for (i = 0; i < txns.length; i++) {
+        var c = confNumber(txns[i].description);
+        if (!c) { continue; }
+        if (!byConf[c]) { byConf[c] = []; }
+        byConf[c].push(txns[i]);
+    }
+    var confKeys = Object.keys(byConf);
+    for (i = 0; i < confKeys.length; i++) {
+        var group = byConf[confKeys[i]];
+        if (group.length < 2) { continue; }
+        for (j = 0; j < group.length; j++) {
+            var out = group[j];
+            if (used[out.id] || out.amount_cents >= 0) { continue; }
+            for (var k = 0; k < group.length; k++) {
+                var inn = group[k];
+                if (used[inn.id] || inn.id === out.id) { continue; }
+                if (inn.amount_cents !== -out.amount_cents) { continue; }
+                if (inn.account_id === out.account_id) { continue; }
+                var confPairId = crypto.randomUUID();
+                await env.DB.prepare(
+                    "UPDATE transactions SET transfer_status = 'suspected', transfer_pair_id = ? WHERE id IN (?, ?)"
+                ).bind(confPairId, out.id, inn.id).run();
+                used[out.id] = true;
+                used[inn.id] = true;
+                break;
+            }
+        }
+    }
+
+    // ── PASS 2: amount + date heuristic, for anything with no conf# ────────
     for (i = 0; i < txns.length; i++) {
         var a = txns[i];
         if (used[a.id]) { continue; }

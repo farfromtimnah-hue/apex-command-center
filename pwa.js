@@ -47,7 +47,13 @@
     });
   }
 
-  var VERSION_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+  // 60s, not 10 minutes. On 2026-09-07 a broken overlay left Alice unable to
+  // use the app; the fix was live within minutes but her page kept serving the
+  // pre-fix HTML. A ten-minute poll is far too slow when the page is unusable,
+  // and worse: knownVersion resets to null on every load, so a stuck user
+  // reloading repeatedly -- exactly what a stuck user does -- restarts the
+  // clock each time and the check never fires at all.
+  var VERSION_CHECK_INTERVAL_MS = 60 * 1000;
   var knownVersion = null;
   var reloaded = false;
 
@@ -62,6 +68,17 @@
       if (reloaded) { return; }
       if (data.version !== knownVersion) {
         reloaded = true;
+        // A plain reload() re-requests the HTML and can be answered from the
+        // browser's own cache -- GitHub Pages serves *.html with
+        // max-age=600 -- which reloads straight back into the stale page.
+        // A one-shot cache-busting query string is a different URL, so it
+        // cannot be served from that cache.
+        try {
+          var u = new URL(window.location.href);
+          u.searchParams.set("_v", String(data.version));
+          window.location.replace(u.href);
+          return;
+        } catch (e) { /* fall through */ }
         window.location.reload();
       }
     })["catch"](function () {

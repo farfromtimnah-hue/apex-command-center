@@ -2876,6 +2876,50 @@
         <div id="catManageList" class="cat-manage-list"></div>
       </div>
 
+      <!-- Income by SOURCE. They earn from several distinct streams -- Apex
+           consulting, Charisma teaching, Alice's insurance commissions, the My
+           Pure Filter partnership, Apex Club events -- and every screen could
+           only show "money in" with no source attached. Sits ABOVE spending
+           because "where did it come from" is the question being asked.
+           Defaults to the current month; the full-history option carries a note
+           saying how far back that actually reaches, because Bank of America
+           returns nothing before May 2026 and a total labelled "everything"
+           that silently starts in May would misinform them. -->
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span>
+            <span class="show-pt">Receita por origem</span>
+            <span class="show-en">Income by source</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <input type="month" id="incMonth" onchange="loadIncomeBySource()">
+            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" id="incAll" onchange="loadIncomeBySource()">
+              <span class="show-pt">Tudo</span><span class="show-en">All</span>
+            </label>
+          </span>
+        </div>
+        <div class="net-note" style="margin-bottom:14px">
+          <span class="show-pt">Transfer&ecirc;ncias entre as suas pr&oacute;prias contas n&atilde;o contam como receita.</span>
+          <span class="show-en">Transfers between your own accounts do not count as income.</span>
+        </div>
+        <div id="incHistoryNote" class="net-note" style="margin-bottom:14px;display:none"></div>
+        <div class="cat-split">
+          <div class="cat-col">
+            <div class="cat-col-head">
+              <span class="show-pt">Comercial</span><span class="show-en">Business</span>
+            </div>
+            <div id="incBusiness"></div>
+          </div>
+          <div class="cat-col">
+            <div class="cat-col-head">
+              <span class="show-pt">Pessoal</span><span class="show-en">Personal</span>
+            </div>
+            <div id="incPersonal"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Spending breakdown. Business and personal separately, matching how
            the rest of the page treats them. Transfers excluded entirely. -->
       <div class="card">
@@ -7494,6 +7538,7 @@
         categoriasLoaded = true;
         initCategoryMonth();
         loadCategories().then(renderCategoryManageList);
+        loadIncomeBySource();
         loadCategoryBreakdown();
         loadRules();
       }
@@ -7965,6 +8010,86 @@
         },
         options: opts
       });
+    }
+
+    // Income by source. Defaults to the current month; "Tudo" sums everything
+    // available and shows how far back that is.
+    function loadIncomeBySource() {
+      var allEl = document.getElementById("incAll");
+      var monthEl = document.getElementById("incMonth");
+      var wantAll = !!(allEl && allEl.checked);
+      if (monthEl) { monthEl.disabled = wantAll; }
+      if (monthEl && !monthEl.value) { monthEl.value = new Date().toISOString().slice(0, 7); }
+      var qs = wantAll ? "all=1" : "month=" + encodeURIComponent(monthEl ? monthEl.value : "");
+      return apiFetch("/api/finance-new/income/by-source?" + qs)
+        .then(function(r) { return r.json(); })
+        .then(function(d) { renderIncomeBySource(d); })
+        .catch(function() { renderIncomeBySource(null); });
+    }
+
+    function renderIncomeBySource(d) {
+      var en = isEn();
+      var biz = document.getElementById("incBusiness");
+      var per = document.getElementById("incPersonal");
+      var note = document.getElementById("incHistoryNote");
+      if (!biz || !per) { return; }
+
+      if (!d || !d.sources) {
+        biz.innerHTML = "";
+        per.innerHTML = "";
+        if (note) { note.style.display = "none"; }
+        return;
+      }
+
+      // Only shown for the full-history view: on a single month the floor is
+      // irrelevant, but a lifetime total that quietly begins in May is not.
+      if (note) {
+        if (d.scope === "all" && d.history_starts_at) {
+          note.textContent = en
+            ? "The bank only provides history back to " + d.history_starts_at +
+              ", so anything earlier is not included."
+            : "O banco so fornece historico desde " + d.history_starts_at +
+              ", entao nada anterior a isso esta incluido.";
+          note.style.display = "";
+        } else {
+          note.style.display = "none";
+        }
+      }
+
+      function col(el, purpose) {
+        var rows = [];
+        var total = 0;
+        for (var i = 0; i < d.sources.length; i++) {
+          if (d.sources[i].purpose !== purpose) { continue; }
+          rows.push(d.sources[i]);
+          total += d.sources[i].cents;
+        }
+        if (!rows.length) {
+          el.innerHTML = '<div class="cat-row"><div class="cat-row-name">' +
+            (en ? "No income" : "Sem receita") + "</div></div>";
+          return;
+        }
+        var html = "";
+        for (var j = 0; j < rows.length; j++) {
+          var r = rows[j];
+          var pct = total > 0 ? Math.round((r.cents / total) * 100) : 0;
+          html += '<div class="cat-row">' +
+            '<div class="cat-row-name">' +
+              esc(en ? r.name_en : r.name_pt) +
+              ' <span class="muted" style="font-size:11px">(' + r.count + ')</span>' +
+            '</div>' +
+            '<div class="cat-row-value is-green">' + fmtCents(r.cents) +
+              ' <span class="muted" style="font-size:11px">' + pct + '%</span>' +
+            '</div></div>';
+        }
+        html += '<div class="cat-row" style="border-top:1px solid rgba(0,0,0,.12);margin-top:6px;padding-top:6px">' +
+          '<div class="cat-row-name"><strong>' + (en ? "Total" : "Total") + '</strong></div>' +
+          '<div class="cat-row-value"><strong>' + fmtCents(total) + '</strong></div></div>';
+        el.innerHTML = html;
+      }
+
+      col(biz, "business");
+      col(per, "personal");
     }
 
     function loadCategoryBreakdown() {

@@ -1267,9 +1267,19 @@
         <span class="show-pt">Falar uma reuniao</span>
         <span class="show-en">Speak a meeting</span>
       </h3>
+      <!-- The extractor can already return all seven meeting categories, but it
+           can only work with what he actually says. Asking for "who, when and
+           where" got exactly those three things and left the type to a guess,
+           which defaulted every meeting to an ordinary online client meeting.
+           Naming the type here is what makes an on-site visit or an X-Ray
+           arrive as one. Whatever is not asked for does not get said. -->
       <p class="voice-hint">
-        <span class="show-pt">Diga a reuniao normalmente: com quem, quando e onde.</span>
-        <span class="show-en">Just say the meeting: who, when and where.</span>
+        <span class="show-pt">Diga a reuniao normalmente: que tipo de reuniao, com quem, quando e onde.</span>
+        <span class="show-en">Just say the meeting: what kind of meeting, who, when and where.</span>
+      </p>
+      <p class="voice-hint" style="opacity:.75;">
+        <span class="show-pt">Ex.: &#8220;visita na obra da JM Luxury Pools quinta as 9, umas 4 horas&#8221;</span>
+        <span class="show-en">E.g. &#8220;on-site visit at JM Luxury Pools Thursday at 9, about 4 hours&#8221;</span>
       </p>
 
       <div style="margin:18px 0;">

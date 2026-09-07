@@ -4013,6 +4013,11 @@
             return;
           }
           statusEl.textContent = "";
+          // Read the note BEFORE the inputs are cleared a few lines below.
+          // Reading it after meant qacVal always saw an empty box, so the
+          // request was never even made -- not cancelled in flight, simply
+          // never sent.
+          var noteTxt = qacVal("qacNotes");
           nameEl.value = "";
           if (phoneEl) { phoneEl.value = ""; }
           // Clear the optional block and recollapse it, or the next lead
@@ -4035,7 +4040,6 @@
           // in-flight request dies with the page. The endpoint was fine; the
           // note simply never arrived. Same shape as losing a record because
           // the tab went away mid-call.
-          var noteTxt = qacVal("qacNotes");
           var notePromise = noteTxt
             ? apiFetch("/api/clients/" + encodeURIComponent(newId) + "/notes", {
                 method: "POST",

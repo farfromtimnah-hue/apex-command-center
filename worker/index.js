@@ -30639,6 +30639,9 @@ export default {
         // recurrence is an invoice Alice never sends and revenue that never
         // gets billed. Each swallows its own errors for the same reason.
         ctx.waitUntil(checkIntegrationHealth(env));
+        // Drift watch on imported spreadsheets. Independent of the health
+        // check above: a Drive failure must not suppress the Zoho/Calendar alert.
+        ctx.waitUntil(pollWatchedFiles(env, false));
         ctx.waitUntil(syncPlaidTransactions(env).then(function(sum) {
             // An orphan is a transaction Plaid retired that we deliberately did
             // NOT delete, because a bill match or Apex Club confirmation still
@@ -31601,7 +31604,353 @@ async function handleFetch(request, env, ctx) {
             return handleGetFinanceNewDueDateChanges(request, env);
         }
 
+        if (path === "/api/google-drive/oauth/start" && method === "GET") {
+            return handleGoogleDriveOAuthStart(request, env);
+        }
+        if (path === "/api/google-drive/oauth/callback" && method === "GET") {
+            return handleGoogleDriveOAuthCallback(request, env);
+        }
+        if (path === "/api/google-drive/oauth/status" && method === "GET") {
+            return handleGoogleDriveOAuthStatus(request, env);
+        }
+        if (path === "/api/watched-files" && method === "GET") {
+            return handleGetWatchedFiles(request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "watched-files" && segs[2] && segs[3] === "ack" && method === "POST") {
+            return handlePostWatchedFileAck(segs[2], request, env);
+        }
+
         return jsonErr("Not found", 404);
+}
+
+// ===========================================================================
+// GOOGLE DRIVE WATCH — drift detection on imported spreadsheets
+//
+// WHY (2026-09-07): JM Luxury Pools was imported from a Google Sheet on 08/06.
+// Their sellers had no working logins until 08/11-08/14, so they kept working
+// in the sheet: 37 leads never reached the system, including a $2,000,000
+// estimate. Edits continued to 08/27 -- three weeks after the last seller got
+// access -- and nobody knew until an audit on 09/07.
+//
+// A "frozen section" check on our own tables cannot catch this. The client is
+// diligently maintaining their data; it is just landing somewhere we cannot
+// see. The only reliable signal is the SOURCE FILE's modifiedTime.
+//
+// Deliberately SEPARATE from the google_calendar token: a different account may
+// own the calendar, and scoping Drive to drive.metadata.readonly means this
+// connection can read timestamps and editor names but NOT a single cell.
+//
+// Alerts go to NICOLE ONLY -- Telegram plus a dashboard banner. Never to Rafa
+// and never to the client: a stray edit is usually nothing, and she triages
+// before anyone is told.
+// ---------------------------------------------------------------------------
+
+var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
+
+async function getGoogleDriveAccessToken(env) {
+    var tokenRow = await env.DB.prepare(
+        "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_drive'"
+    ).first();
+    if (!tokenRow) { throw new Error("Google Drive not connected"); }
+
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 15000);
+
+    var refreshRes;
+    try {
+        refreshRes = await fetch("https://oauth2.googleapis.com/token", {
+            method:  "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body:    new URLSearchParams({
+                client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
+                client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                refresh_token: tokenRow.refresh_token,
+                grant_type:    "refresh_token"
+            }).toString(),
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+
+    var refreshData = await refreshRes.json();
+    if (!refreshRes.ok) {
+        throw new Error("Failed to refresh Drive token: " + (refreshData.error_description || refreshData.error || "unknown"));
+    }
+    return refreshData.access_token;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google-drive/oauth/start   (developer only)
+// ---------------------------------------------------------------------------
+async function handleGoogleDriveOAuthStart(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var state     = crypto.randomUUID();
+        var expiresAt = Math.floor(Date.now() / 1000) + 600;
+
+        await env.DB.prepare(
+            "INSERT INTO oauth_state (state, initiated_by, expires_at) VALUES (?, ?, ?)"
+        ).bind(state, "drive:" + user.email, expiresAt).run();
+
+        await env.DB.prepare(
+            "DELETE FROM oauth_state WHERE expires_at < ?"
+        ).bind(Math.floor(Date.now() / 1000)).run();
+
+        var params = new URLSearchParams();
+        params.set("client_id",     env.GOOGLE_CALENDAR_CLIENT_ID);
+        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google-drive/oauth/callback");
+        params.set("response_type", "code");
+        params.set("scope",         DRIVE_SCOPE);
+        params.set("access_type",   "offline");
+        params.set("prompt",        "consent");
+        params.set("state",         state);
+
+        return jsonOk({ auth_url: "https://accounts.google.com/o/oauth2/v2/auth?" + params.toString() });
+    } catch (e) {
+        return jsonErr("Error building Drive OAuth URL: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google-drive/oauth/callback   (no auth -- Google calls it)
+// ---------------------------------------------------------------------------
+async function handleGoogleDriveOAuthCallback(request, env) {
+    try {
+        var url   = new URL(request.url);
+        var code  = url.searchParams.get("code");
+        var state = url.searchParams.get("state");
+        var errParam = url.searchParams.get("error");
+
+        if (errParam) {
+            return new Response(
+                "<h2>Google Drive connection failed</h2><p>" + errParam +
+                "</p><p>If this says the scope is not allowed, the OAuth app needs " +
+                "drive.metadata.readonly added to its consent screen.</p>",
+                { status: 400, headers: { "Content-Type": "text/html" } }
+            );
+        }
+        if (!code || !state) { return jsonErr("Missing code or state", 400); }
+
+        var stateRow = await env.DB.prepare(
+            "SELECT initiated_by, expires_at FROM oauth_state WHERE state = ?"
+        ).bind(state).first();
+        if (!stateRow) { return jsonErr("Invalid state", 400); }
+        await env.DB.prepare("DELETE FROM oauth_state WHERE state = ?").bind(state).run();
+        if (stateRow.expires_at < Math.floor(Date.now() / 1000)) { return jsonErr("State expired", 400); }
+
+        var tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method:  "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body:    new URLSearchParams({
+                code:          code,
+                client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
+                client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                redirect_uri:  "https://apex-api.farfromtimnah.workers.dev/api/google-drive/oauth/callback",
+                grant_type:    "authorization_code"
+            }).toString()
+        });
+        var tokenData = await tokenRes.json();
+        if (!tokenRes.ok || !tokenData.refresh_token) {
+            return new Response(
+                "<h2>Google Drive connection failed</h2><p>" +
+                (tokenData.error_description || tokenData.error || "no refresh_token returned") + "</p>",
+                { status: 400, headers: { "Content-Type": "text/html" } }
+            );
+        }
+
+        await env.DB.prepare(
+            "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, scope, updated_at) VALUES ('google_drive', ?, ?, datetime('now'))"
+        ).bind(tokenData.refresh_token, DRIVE_SCOPE).run();
+
+        // Baseline every watched file immediately, so "changed since we started
+        // watching" is answerable from this moment rather than from the next cron.
+        try { await pollWatchedFiles(env, true); } catch (e) { /* baseline is best-effort */ }
+
+        return new Response(
+            "<h2>Google Drive connected</h2><p>Watched spreadsheets are now baselined. You can close this tab.</p>",
+            { status: 200, headers: { "Content-Type": "text/html" } }
+        );
+    } catch (e) {
+        return jsonErr("Drive OAuth callback error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google-drive/oauth/status   (developer only)
+// ---------------------------------------------------------------------------
+async function handleGoogleDriveOAuthStatus(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare(
+            "SELECT id, substr(updated_at,1,16) AS updated_at FROM oauth_tokens WHERE id = 'google_drive'"
+        ).first();
+
+        var watched = await env.DB.prepare(
+            "SELECT COUNT(*) AS n, SUM(CASE WHEN alert_active = 1 THEN 1 ELSE 0 END) AS alerting, " +
+            "SUM(CASE WHEN access_lost = 1 THEN 1 ELSE 0 END) AS lost " +
+            "FROM watched_files WHERE active = 1"
+        ).first();
+
+        return jsonOk({
+            connected:     !!row,
+            connected_at:  row ? row.updated_at : null,
+            watched_files: watched ? (watched.n || 0) : 0,
+            alerting:      watched ? (watched.alerting || 0) : 0,
+            access_lost:   watched ? (watched.lost || 0) : 0
+        });
+    } catch (e) {
+        return jsonErr("Error checking Drive status: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The poll itself. One metadata call per watched file.
+//
+// baselineOnly=true records the current modifiedTime WITHOUT alerting -- used
+// right after connecting, so pre-existing edits do not fire a stale alarm.
+//
+// Never throws: it runs inside the cron's waitUntil alongside other checks.
+// ---------------------------------------------------------------------------
+async function pollWatchedFiles(env, baselineOnly) {
+    var out = { checked: 0, changed: 0, lost: 0, errors: [] };
+
+    var files = await env.DB.prepare(
+        "SELECT * FROM watched_files WHERE active = 1"
+    ).all();
+    if (!files || !files.results || files.results.length === 0) { return out; }
+
+    var accessToken;
+    try {
+        accessToken = await getGoogleDriveAccessToken(env);
+    } catch (e) {
+        out.errors.push(e.message);
+        return out;
+    }
+
+    for (var i = 0; i < files.results.length; i++) {
+        var f = files.results[i];
+        try {
+            var res = await fetch(
+                "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(f.file_id) +
+                "?fields=modifiedTime,lastModifyingUser(displayName),name",
+                { headers: { "Authorization": "Bearer " + accessToken } }
+            );
+
+            if (res.status === 404 || res.status === 403) {
+                // Lost visibility -- the watch is now silently dead unless we say so.
+                if (!f.access_lost) {
+                    await env.DB.prepare(
+                        "UPDATE watched_files SET access_lost = 1, last_checked_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
+                    ).bind(f.id).run();
+                    await notifyNicoleTelegram(env,
+                        "Apex: LOST ACCESS to a watched spreadsheet\n\n" + f.label +
+                        "\n\nDrive returned " + res.status + ". It was probably unshared or deleted." +
+                        "\nThe drift watch on this file is NOT running until access is restored."
+                    );
+                }
+                out.lost++;
+                continue;
+            }
+
+            if (!res.ok) { out.errors.push(f.label + ": HTTP " + res.status); continue; }
+
+            var meta = await res.json();
+            var modified = meta.modifiedTime || null;
+            var who = (meta.lastModifyingUser && meta.lastModifyingUser.displayName) || null;
+            out.checked++;
+
+            // Restore from a previous access-loss without alerting again.
+            var clearLost = f.access_lost ? ", access_lost = 0" : "";
+
+            if (baselineOnly || !f.baseline_modified) {
+                await env.DB.prepare(
+                    "UPDATE watched_files SET baseline_modified = ?, last_modified_seen = ?, last_modifier = ?, " +
+                    "last_checked_at = datetime('now'), updated_at = datetime('now')" + clearLost + " WHERE id = ?"
+                ).bind(modified, modified, who, f.id).run();
+                continue;
+            }
+
+            var previous = f.last_modified_seen || f.baseline_modified;
+            if (modified && previous && modified > previous) {
+                var msg = f.label + " was edited on " + String(modified).slice(0, 16).replace("T", " ") + " UTC" +
+                          (who ? " by " + who : "") + ".";
+                await env.DB.prepare(
+                    "UPDATE watched_files SET last_modified_seen = ?, last_modifier = ?, alert_active = 1, " +
+                    "alert_message = ?, alert_raised_at = datetime('now'), last_checked_at = datetime('now'), " +
+                    "updated_at = datetime('now')" + clearLost + " WHERE id = ?"
+                ).bind(modified, who, msg, f.id).run();
+
+                await notifyNicoleTelegram(env,
+                    "Apex: a watched spreadsheet changed\n\n" + msg +
+                    "\n\nThis file was imported into Apex on " + (f.imported_at || "an earlier date") +
+                    ". Someone may still be working there instead of in the system." +
+                    (f.source_url ? "\n\n" + f.source_url : "")
+                );
+                out.changed++;
+            } else {
+                await env.DB.prepare(
+                    "UPDATE watched_files SET last_checked_at = datetime('now'), updated_at = datetime('now')" +
+                    clearLost + " WHERE id = ?"
+                ).bind(f.id).run();
+            }
+        } catch (e) {
+            out.errors.push(f.label + ": " + e.message);
+        }
+    }
+
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/watched-files   (developer only) -- powers the dashboard banner
+// ---------------------------------------------------------------------------
+async function handleGetWatchedFiles(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT w.id, w.file_id, w.label, w.source_url, w.imported_at, w.last_modified_seen, " +
+            "w.last_modifier, w.last_checked_at, w.alert_active, w.alert_message, w.alert_raised_at, " +
+            "w.access_lost, c.name AS client_name " +
+            "FROM watched_files w LEFT JOIN clients c ON c.id = w.client_id " +
+            "WHERE w.active = 1 ORDER BY w.alert_active DESC, w.label"
+        ).all();
+
+        return jsonOk({ files: (rows && rows.results) || [] });
+    } catch (e) {
+        return jsonErr("Error loading watched files: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/watched-files/:id/ack   (developer only)
+// Clears the banner once Nicole has looked. The observed modifiedTime is kept,
+// so only a LATER edit re-raises it.
+// ---------------------------------------------------------------------------
+async function handlePostWatchedFileAck(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
+
+        await env.DB.prepare(
+            "UPDATE watched_files SET alert_active = 0, alert_message = NULL, alert_raised_at = NULL, " +
+            "updated_at = datetime('now') WHERE id = ?"
+        ).bind(id).run();
+
+        return jsonOk({ acknowledged: true });
+    } catch (e) {
+        return jsonErr("Error acknowledging: " + e.message, 500);
+    }
 }
 
 async function checkIntegrationHealth(env) {
@@ -31624,6 +31973,26 @@ async function checkIntegrationHealth(env) {
         }
     } catch (e) {
         failures.push("Google Calendar: " + e.message);
+    }
+
+    try {
+        var driveRow = await env.DB.prepare(
+            "SELECT id FROM oauth_tokens WHERE id = 'google_drive'"
+        ).first();
+        if (!driveRow) {
+            // Only a failure if something is actually being watched -- otherwise
+            // an unconnected Drive is simply a feature nobody has turned on.
+            var watching = await env.DB.prepare(
+                "SELECT COUNT(*) AS n FROM watched_files WHERE active = 1"
+            ).first();
+            if (watching && watching.n > 0) {
+                failures.push("Google Drive: NOT CONNECTED but " + watching.n + " file(s) are marked for watching -- drift detection is OFF");
+            }
+        } else {
+            await getGoogleDriveAccessToken(env);
+        }
+    } catch (e) {
+        failures.push("Google Drive: " + e.message);
     }
 
     if (failures.length > 0) {

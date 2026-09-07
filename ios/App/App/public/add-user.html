@@ -394,6 +394,34 @@
           </div>
         </div>
 
+        <!-- Google Drive watch (spreadsheet drift detection) -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">Google Drive (watch imported sheets)</h2>
+          </div>
+          <div class="content-card-body">
+            <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5;">
+              Watches spreadsheets Apex imported from, and alerts if anyone edits them
+              afterwards. Read-only on file timestamps only &mdash; it cannot read cell
+              contents. Alerts go to Nicole by Telegram and on the dashboard.
+            </p>
+            <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+              <div>
+                <span style="font-size:13px;color:var(--muted);">Status:</span>
+                <span id="driveStatus" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">Checking...</span>
+              </div>
+              <button class="btn-submit" id="btnConnectDrive" onclick="handleConnectDrive()" style="flex-shrink:0;">
+                Connect Google Drive
+              </button>
+              <button class="btn-submit" id="btnCheckDriveStatus" onclick="checkDriveStatus()"
+                style="background:transparent;border:1.5px solid var(--gold);color:var(--gold);flex-shrink:0;">
+                Check Status
+              </button>
+            </div>
+            <div id="driveWatchList" style="margin-top:14px;font-size:12px;color:var(--muted);"></div>
+          </div>
+        </div>
+
       </main>
 
     </div><!-- /contentArea -->
@@ -703,6 +731,67 @@ function loadUsers() {
       });
     }
 
+    // -- Google Drive watch --------------------------------------------------
+    function checkDriveStatus() {
+      var statusEl = document.getElementById("driveStatus");
+      var listEl   = document.getElementById("driveWatchList");
+      if (!statusEl) { return; }
+      statusEl.textContent = "Checking...";
+      statusEl.style.color = "var(--muted)";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/google-drive/oauth/status", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        if (data.connected) {
+          statusEl.textContent = "Connected";
+          statusEl.style.color = "#1a6640";
+        } else {
+          statusEl.textContent = "Not connected";
+          statusEl.style.color = "var(--muted)";
+        }
+        if (listEl) {
+          var bits = [];
+          bits.push(data.watched_files + " file(s) watched");
+          if (data.alerting)    { bits.push(data.alerting + " with a change to review"); }
+          if (data.access_lost) { bits.push(data.access_lost + " no longer accessible"); }
+          listEl.textContent = bits.join(" \u00b7 ");
+        }
+      }).catch(function(e) {
+        statusEl.textContent = "Error: " + e.message;
+        statusEl.style.color = "#b44040";
+      });
+    }
+
+    function handleConnectDrive() {
+      var btn = document.getElementById("btnConnectDrive");
+      if (!btn) { return; }
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/google-drive/oauth/start", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          alert("Error: no auth_url returned");
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        alert("Error starting Drive OAuth: " + e.message);
+      });
+    }
+
     // ── Page setup ───────────────────────────────────────────────────────────
     function setupPage(role) {
       var roleEl  = document.getElementById("headerRole");
@@ -725,6 +814,7 @@ function loadUsers() {
       loadUsers();
       checkGcalStatus();
       checkZohoStatus();
+      checkDriveStatus();
     }
 
     function fetchAndApplyRole() {

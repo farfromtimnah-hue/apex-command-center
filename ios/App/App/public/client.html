@@ -3716,6 +3716,14 @@
     // Worker), so this modal, which PUTs /field-config without previewAs, is
     // the only place he can actually write them.
     function applyDeepModal() {
+      // ?modal=login lands here from the calendar's quick-add, straight after a
+      // lead was created mid-booking. It reuses createClientLogin, the ONE
+      // implementation of a one-time password that can never be shown again --
+      // a second one would be a second chance to get it wrong.
+      if (DEEP_MODAL === "login") {
+        if (typeof createClientLogin === "function") { createClientLogin(); }
+        return;
+      }
       if (DEEP_MODAL !== "fieldconfig") { return; }
       if (typeof openFieldConfigModal !== "function") { return; }
       openFieldConfigModal();

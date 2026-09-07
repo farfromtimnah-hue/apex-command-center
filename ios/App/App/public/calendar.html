@@ -3959,13 +3959,19 @@
     // one here would give two implementations of a one-time password that can
     // never be shown again, so this OFFERS the existing one instead of
     // reimplementing it. Declining leaves a perfectly good lead behind.
+    // A lead quick-added mid-booking needs a login before he can answer the
+    // X-Ray, so go straight to the ONE place that issues one: client.html's
+    // existing credentials modal, opened through the ?modal= deep link that
+    // page already supports. Nothing new is built here.
+    //
+    // This was a window.confirm() plus window.open(..., "_blank") pointing at
+    // ?login=1, a parameter client.html never read -- so the browser dialog
+    // did not look like Apex, and answering it opened a tab that then did
+    // nothing. Inside the iOS webview the alert is a system dialog and the new
+    // tab is worse still.
     function offerCredentialsForNewLead(clientId, clientName) {
-      var en = isEn();
-      var msg = en
-        ? "Lead created: " + clientName + ".\n\nSend login credentials now?"
-        : "Lead criado: " + clientName + ".\n\nEnviar as credenciais de acesso agora?";
-      if (!window.confirm(msg)) { return; }
-      window.open(safeUrl("client.html?id=" + encodeURIComponent(clientId) + "&login=1"), "_blank");
+      window.location.href = safeUrl("client.html?id=" +
+        encodeURIComponent(clientId) + "&modal=login");
     }
 
     // The dates the page can actually PUT ON SCREEN for the current anchor --

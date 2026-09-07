@@ -22078,6 +22078,21 @@ async function handlePostFinanceNewLinkToken(request, env) {
             user:          { client_user_id: await plaidUserId(user) },
             client_name:   "Apex Command Center",
             products:      ["transactions"],
+            // 730 days, the Plaid maximum. WITHOUT THIS, days_requested
+            // DEFAULTS TO 90 -- and that window is FROZEN when the Item is
+            // created and can never be widened afterward. Not by a parameter,
+            // not by a re-sync: only by deleting the Item and linking again.
+            //
+            // That default is why the connected accounts reach back only to
+            // 2026-05-07 and 2026-05-29 -- they were linked 2026-08-05 and
+            // (after one broke and was reconnected) 2026-08-26, exactly 90 days
+            // before each floor. Bank of America itself provides EIGHTEEN
+            // MONTHS on checking accounts, so the missing history was never the
+            // bank's limit; it was this parameter going unset.
+            //
+            // NOTE: does NOT apply to the update-mode call below, which repairs
+            // an existing Item and cannot widen its history.
+            transactions:  { days_requested: 730 },
             country_codes: ["US"],
             language:      "pt"
         });
@@ -22090,6 +22105,7 @@ async function handlePostFinanceNewLinkToken(request, env) {
                 user:          { client_user_id: await plaidUserId(user) },
                 client_name:   "Apex Command Center",
                 products:      ["transactions"],
+                transactions:  { days_requested: 730 },
                 country_codes: ["US"],
                 language:      "en"
             });

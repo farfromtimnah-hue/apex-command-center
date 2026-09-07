@@ -3970,8 +3970,12 @@
     // nothing. Inside the iOS webview the alert is a system dialog and the new
     // tab is worse still.
     function offerCredentialsForNewLead(clientId, clientName) {
-      window.location.href = safeUrl("client.html?id=" +
-        encodeURIComponent(clientId) + "&modal=login");
+      // NOT safeUrl(): it is built for absolute URLs -- new URL("client.html?..")
+      // throws, so it returned "#" and the browser just appended a hash to the
+      // calendar and sat there. Resolve against the current page instead, which
+      // is what makes a relative path an absolute one.
+      window.location.href = new URL("client.html?id=" +
+        encodeURIComponent(clientId) + "&modal=login", window.location.href).href;
     }
 
     // The dates the page can actually PUT ON SCREEN for the current anchor --

@@ -957,6 +957,89 @@ extracted the fields, the matcher returned not_client, the meeting was created
 anyway and flagged for the missing date and time, and it appeared in the
 banner feed. The full path runs on real infrastructure, not a mock.
 
+---
+
+## Duration, not an end time (2026-09-06)
+
+**1. Nobody thinks "this meeting ends at 3:30".**
+
+They think "it starts at 2 and runs an hour". Nova Sessao asked for HORA and
+HORA DE TERMINO for every type except church -- the Google Calendar behaviour
+Nicole specifically does not want -- which made every booking a two-part sum
+done in the user's head.
+
+The duration picker already existed and already worked; it was just fenced
+inside the church block. It is now the way EVERY type is booked, defaulting to
+1 hora. HORA DE TERMINO is gone as a question.
+
+end_time is unchanged as data: still computed, still stored, still sent to
+Google. #nsEndTime survives as a HIDDEN input rather than being deleted, so
+the submit path, the validation and the travel-time warnings keep reading one
+field -- the same field whose absence let four real sessions land with
+end_time NULL on 2026-08-03. No database change, no worker change, no
+Google-facing change.
+
+**2. The rename, in full.**
+
+nsChurchDuration -> nsDuration, nsChurchDurationGroup -> nsDurationGroup,
+applyNsChurchDuration -> applyNsDuration, onNsChurchDurationChange ->
+onNsDurationChange, nsChurchAllDay -> nsAllDay, onNsChurchAllDayChange ->
+onNsAllDayChange. Nothing half-renamed: grep for the old names returns
+nothing across calendar.html, dashboard.html and client.html.
+
+Deliberately NOT merged with the existing setNsDuration()/nsDurationVal, which
+is the ENGAGEMENT length in DAYS (30d/90d/180d) driving the recurrence count.
+Same word, different unit; the new code carries a comment saying so.
+
+**3. The bug the old church version had, fixed on the way.**
+
+applyNsChurchDuration only wrote the end time if the computed value existed as
+an option in the end-time select, and NS_TIME_OPTS stops at 21:00. An 8-hour
+on-site starting at 14:00 has no 22:00 option, so the old code silently gave
+up and left the previous end behind. A computed value needs no option to
+exist, so applyNsDuration writes it directly and clamps at 23:59 (end_time
+carries no date -- a meeting wrapping past midnight would read as ending
+before it started).
+
+The longer options exist because on-site visits genuinely are long: real
+bookings in the data run 3 to 8 hours (JM LUXURY POOL 10:00 AM - 4:00 PM). 4,
+6 and 8 horas added alongside the original five.
+
+end_time is also RE-DERIVED at submit time from start + duration rather than
+trusting whatever the last UI event left in the hidden field.
+
+**4. Dia inteiro applies to every type now.**
+
+Same behaviour as before -- 08:00-20:00, overriding the duration, hiding the
+duration select while ticked -- just no longer church-only. It still writes a
+plain "HH:MM", inventing no new storage shape.
+
+**5. The edit dialog matches, and does not round odd lengths.**
+
+Editar Sessao gets the same control, preselected to the meeting's CURRENT
+length via sessionDurationMins(), which reads through endTimeHHMM() -- the raw
+end_time is never sliced, because 104 rows hold the full ISO shape written by
+the Google sync and both shapes are correct as they are.
+
+An imported Google meeting can be any length, so a length that is not on the
+list gets its own "Personalizado (2h45)" option naming the real value. Opening
+a 45-minute meeting and saving an unrelated change must not quietly make it an
+hour. The custom option is removed and rebuilt per meeting, so it never leaks
+from one edit to the next.
+
+**6. What the end-time-edited flags were for.**
+
+nsEndTimeEdited / edEndTimeEdited existed to stop a hand-picked end time being
+clobbered when the start moved. There is no hand-picked end time any more --
+the duration IS that intent and survives a start change by construction -- so
+both flags and their setters are gone. Moving the start now slides the end and
+keeps the length.
+
+The two "end time is required / must be after start" validations no longer ask
+for a field that is on screen. The first is unreachable and was removed; the
+second now says what is actually wrong -- the duration does not fit before
+midnight -- instead of blaming a control the user cannot see.
+
 ## Completed (2026-07-03, worker fix — discarded session leak)
 
 - [x] Excluded `discarded` sessions from `handleGetSessions` (both client-filtered and unfiltered queries) using `NOT IN ('archived','discarded')`; `handleGetSessionsCalendar` already had the fix applied

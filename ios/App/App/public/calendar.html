@@ -1934,25 +1934,47 @@
           </div>
           <!-- Options built by populateTimeSelects() from NS_TIME_OPTS so
                the start and end lists never drift apart. -->
-          <select id="nsTime" onchange="syncNsEndTimeDefault()"></select>
+          <select id="nsTime" onchange="onNsStartTimeChange()"></select>
         </div>
-        <!-- End time: always visible and always populated, defaulting to
-             start + 1 hour. It used to hide behind a "Change end time" link
-             and, when never revealed, sent no end_time at all -- which is how
-             four real client sessions booked on 2026-08-03 landed with
-             end_time NULL. A missing end time silently disables the
-             travel-time warning (a session with no end can't be shown to run
-             tight against the next one), so the default is now always sent.
-             The default follows the start time until the user edits it. -->
-        <div class="field-group" id="nsEndTimeGroup">
-          <div id="nsEndTimeField">
-            <div class="field-label">
-              <span class="show-pt">Hora de término</span>
-              <span class="show-en">End time</span>
-            </div>
-            <select id="nsEndTime" onchange="markNsEndTimeEdited()"></select>
+        <!-- ══ Duration, not an end time ═══════════════════════════════
+             Nobody thinks "this meeting ends at 3:30" -- they think "it starts
+             at 2 and runs an hour". Asking for both times is the Google
+             Calendar behaviour, and it made every booking a two-part sum done
+             in the user's head.
+             end_time is still what gets STORED and sent to Google; it is now
+             computed from start + duration rather than picked. -->
+        <div class="field-group" id="nsDurationGroup">
+          <div class="field-label">
+            <span class="show-pt">Dura&#231;&#227;o</span>
+            <span class="show-en">Duration</span>
           </div>
+          <select id="nsDuration" onchange="onNsDurationChange()">
+            <option value="30" data-opt-pt="30 minutos" data-opt-en="30 minutes">30 minutos</option>
+            <option value="60" data-opt-pt="1 hora" data-opt-en="1 hour" selected>1 hora</option>
+            <option value="90" data-opt-pt="1 hora e 30" data-opt-en="1 hour 30">1 hora e 30</option>
+            <option value="120" data-opt-pt="2 horas" data-opt-en="2 hours">2 horas</option>
+            <option value="180" data-opt-pt="3 horas" data-opt-en="3 hours">3 horas</option>
+            <!-- On-site visits are genuinely long: real bookings in the data
+                 run 3 to 8 hours (JM LUXURY POOL 10:00 AM - 4:00 PM). -->
+            <option value="240" data-opt-pt="4 horas" data-opt-en="4 hours">4 horas</option>
+            <option value="360" data-opt-pt="6 horas" data-opt-en="6 hours">6 horas</option>
+            <option value="480" data-opt-pt="8 horas" data-opt-en="8 hours">8 horas</option>
+          </select>
+          <div class="field-label" id="nsEndsAtHint" style="font-weight:400;margin-top:6px;"></div>
         </div>
+        <div class="field-group" id="nsAllDayGroup">
+          <label class="recur-check-row">
+            <input type="checkbox" id="nsAllDay" onchange="onNsAllDayChange()">
+            <span class="show-pt">Dia inteiro</span>
+            <span class="show-en">All day</span>
+          </label>
+        </div>
+        <!-- Still submitted, still stored, still sent to Google -- just no
+             longer a question. Hidden rather than removed so the submit path,
+             the validation and the travel-time warnings keep reading one
+             field, which is what stopped four sessions landing with
+             end_time NULL on 2026-08-03. -->
+        <input type="hidden" id="nsEndTime" value="">
         <!-- Session type toggle -->
         <div class="field-group" id="nsTypeGroup">
           <div class="field-label">
@@ -1993,26 +2015,9 @@
               <input type="url" id="nsChurchLink" placeholder="https://">
             </div>
           </div>
-          <div class="field-group" id="nsChurchDurationGroup">
-            <div class="field-label">
-              <span class="show-pt">Dura&#231;&#227;o</span>
-              <span class="show-en">Duration</span>
-            </div>
-            <select id="nsChurchDuration" onchange="onNsChurchDurationChange()">
-              <option value="30" data-opt-pt="30 minutos" data-opt-en="30 minutes">30 minutos</option>
-              <option value="60" data-opt-pt="1 hora" data-opt-en="1 hour">1 hora</option>
-              <option value="90" data-opt-pt="1 hora e 30" data-opt-en="1 hour 30">1 hora e 30</option>
-              <option value="120" data-opt-pt="2 horas" data-opt-en="2 hours">2 horas</option>
-              <option value="180" data-opt-pt="3 horas" data-opt-en="3 hours">3 horas</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label class="recur-check-row">
-              <input type="checkbox" id="nsChurchAllDay" onchange="onNsChurchAllDayChange()">
-              <span class="show-pt">Dia inteiro</span>
-              <span class="show-en">All day</span>
-            </label>
-          </div>
+          <!-- Duration and all-day moved OUT of this block: they are asked
+               for every meeting type now, above. What stays here is the one
+               thing that really is church-specific -- the optional link. -->
         </div>
         <!-- ══ Personal extras ══════════════════════════════════════════
              A personal block is visible to Rafa AND Alice and never to a
@@ -2724,20 +2729,35 @@
             <span class="show-pt">Hora de início</span>
             <span class="show-en">Start time</span>
           </div>
-          <select id="edTime" onchange="syncEdEndTimeDefault()"></select>
+          <select id="edTime" onchange="onEdStartTimeChange()"></select>
         </div>
-        <div class="field-group">
+        <!-- Duration, matching the New Session form: moving the start time
+             slides the end with it and keeps the length, which is what stopped
+             "a hora de termino deve ser depois da hora de inicio" appearing
+             for a field the user had not touched.
+             An imported Google meeting can be ANY length, so a non-listed
+             length gets a "Personalizado" option showing its real value --
+             editing an odd-length meeting must never silently round it. -->
+        <div class="field-group" id="edDurationGroup">
           <div class="field-label">
-            <span class="show-pt">Hora de término</span>
-            <span class="show-en">End time</span>
+            <span class="show-pt">Dura&#231;&#227;o</span>
+            <span class="show-en">Duration</span>
           </div>
-          <!-- Follows the start time until the user edits it, exactly like the
-               New Session form. Without this, moving the start to 5:00 PM
-               while the end still read 3:00 PM produced "a hora de termino
-               deve ser depois da hora de inicio" and refused to save --
-               correct, but it made the user fix a field they had not touched. -->
-          <select id="edEndTime" onchange="markEdEndTimeEdited()"></select>
+          <select id="edDuration" onchange="onEdDurationChange()">
+            <option value="30" data-opt-pt="30 minutos" data-opt-en="30 minutes">30 minutos</option>
+            <option value="60" data-opt-pt="1 hora" data-opt-en="1 hour">1 hora</option>
+            <option value="90" data-opt-pt="1 hora e 30" data-opt-en="1 hour 30">1 hora e 30</option>
+            <option value="120" data-opt-pt="2 horas" data-opt-en="2 hours">2 horas</option>
+            <option value="180" data-opt-pt="3 horas" data-opt-en="3 hours">3 horas</option>
+            <option value="240" data-opt-pt="4 horas" data-opt-en="4 hours">4 horas</option>
+            <option value="360" data-opt-pt="6 horas" data-opt-en="6 hours">6 horas</option>
+            <option value="480" data-opt-pt="8 horas" data-opt-en="8 hours">8 horas</option>
+          </select>
+          <div class="field-label" id="edEndsAtHint" style="font-weight:400;margin-top:6px;"></div>
         </div>
+        <!-- Computed, not asked. Hidden so buildEditBody keeps reading one
+             field and the PATCH payload is unchanged. -->
+        <input type="hidden" id="edEndTime" value="">
         <!-- Type: forced to in-person for events (they never carry a Meet
              link), so the toggle hides in that state exactly like create. -->
         <div class="field-group" id="edTypeGroup">
@@ -3701,38 +3721,77 @@
       if (btn) { btn.hidden = !wrap.hidden ? true : false; }
     }
 
-    // Duration drives the end time, so a church entry never lands with
-    // end_time NULL (which silently disables the travel-time warning).
-    function onNsChurchDurationChange() {
-      var allDay = document.getElementById("nsChurchAllDay");
-      if (allDay && allDay.checked) { return; }
-      applyNsChurchDuration();
+    // ── Duration -> end time ──────────────────────────────────────────────
+    //
+    // NOT to be confused with setNsDuration()/nsDurationVal below, which is
+    // the ENGAGEMENT length in DAYS (30d/90d/180d) driving the recurrence
+    // count. This one is how long a single meeting runs, in minutes.
+    //
+    // Duration drives the end time, so a booking never lands with end_time
+    // NULL -- which silently disables the travel-time warning (a session with
+    // no end cannot be shown to run tight against the next one), and is how
+    // four real client sessions landed empty on 2026-08-03.
+
+    // Minutes to a plain "HH:MM". Deliberately clamps at 23:59 rather than
+    // rolling into the next day: end_time carries no date, so a meeting that
+    // wrapped past midnight would read as ending BEFORE it started.
+    function minutesToHHMM(total) {
+      if (total >= 24 * 60) { total = 24 * 60 - 1; }
+      if (total < 0) { total = 0; }
+      var hh = Math.floor(total / 60), mm = total % 60;
+      return padZ(hh) + ":" + padZ(mm);
     }
 
-    function applyNsChurchDuration() {
-      var durEl   = document.getElementById("nsChurchDuration");
+    function hhmmPlusMinutes(startHHMM, mins) {
+      if (!startHHMM) { return ""; }
+      var parts = startHHMM.split(":");
+      var total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) + mins;
+      if (isNaN(total)) { return ""; }
+      return minutesToHHMM(total);
+    }
+
+    function onNsDurationChange() {
+      var allDay = document.getElementById("nsAllDay");
+      if (allDay && allDay.checked) { return; }
+      applyNsDuration();
+    }
+
+    // Writes the computed end time into the hidden field the submit path
+    // reads. It is NOT constrained to NS_TIME_OPTS: that list stops at 21:00,
+    // so an 8-hour on-site starting at 14:00 has no matching option -- the old
+    // church version simply gave up in that case and left the previous value
+    // behind. A computed value needs no option to exist.
+    function applyNsDuration() {
+      var durEl   = document.getElementById("nsDuration");
       var startEl = document.getElementById("nsTime");
       var endEl   = document.getElementById("nsEndTime");
-      if (!durEl || !startEl || !endEl || !startEl.value) { return; }
+      if (!durEl || !startEl || !endEl) { return; }
+      if (!startEl.value) { endEl.value = ""; renderNsEndsAtHint(); return; }
       var mins = parseInt(durEl.value, 10);
       if (isNaN(mins)) { return; }
-      var parts = startEl.value.split(":");
-      var total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) + mins;
-      if (total >= 24 * 60) { total = 24 * 60 - 1; }
-      var hh = Math.floor(total / 60), mm = total % 60;
-      var val = (hh < 10 ? "0" + hh : "" + hh) + ":" + (mm < 10 ? "0" + mm : "" + mm);
-      // Only settable if the end list actually offers that slot.
-      for (var i = 0; i < endEl.options.length; i++) {
-        if (endEl.options[i].value === val) { endEl.value = val; return; }
-      }
+      endEl.value = hhmmPlusMinutes(startEl.value, mins);
+      renderNsEndsAtHint();
+    }
+
+    // The end time is no longer asked for, so it is SHOWN instead: a duration
+    // picker with no visible consequence leaves the user unsure what was
+    // actually booked.
+    function renderNsEndsAtHint() {
+      var hint = document.getElementById("nsEndsAtHint");
+      if (!hint) { return; }
+      var endEl = document.getElementById("nsEndTime");
+      var v = endEl ? endEl.value : "";
+      if (!v) { hint.textContent = ""; return; }
+      hint.textContent = (isEn() ? "Ends at " : "Termina as ") + formatTime(v);
     }
 
     // All day fills the whole working span rather than inventing a new
-    // storage shape: end_time stays a plain "HH:MM" like every other row.
-    function onNsChurchAllDayChange() {
-      var ck = document.getElementById("nsChurchAllDay");
+    // storage shape: end_time stays a plain "HH:MM" like every other row, so
+    // nothing downstream needs to know this checkbox exists.
+    function onNsAllDayChange() {
+      var ck = document.getElementById("nsAllDay");
       if (!ck) { return; }
-      var durGroup = document.getElementById("nsChurchDurationGroup");
+      var durGroup = document.getElementById("nsDurationGroup");
       if (durGroup) { durGroup.hidden = ck.checked; }
       var startEl = document.getElementById("nsTime");
       var endEl   = document.getElementById("nsEndTime");
@@ -3740,11 +3799,10 @@
         for (var i = 0; i < startEl.options.length; i++) {
           if (startEl.options[i].value === "08:00") { startEl.value = "08:00"; break; }
         }
-        for (var j = 0; j < endEl.options.length; j++) {
-          if (endEl.options[j].value === "20:00") { endEl.value = "20:00"; break; }
-        }
+        endEl.value = "20:00";
+        renderNsEndsAtHint();
       } else {
-        applyNsChurchDuration();
+        applyNsDuration();
       }
     }
 
@@ -5431,29 +5489,23 @@
       }
     })();
 
+    // Only the START list is built here now. nsEndTime is a hidden input
+    // holding a computed value, not a select -- appending options to it would
+    // do nothing visible and wipe the value it is carrying.
     function populateTimeSelects() {
       var en = isEn();
       var startSel = document.getElementById("nsTime");
-      var endSel   = document.getElementById("nsEndTime");
+      if (!startSel) { return; }
       startSel.innerHTML = "";
-      endSel.innerHTML   = "";
       var startPh = document.createElement("option");
       startPh.value = "";
       startPh.textContent = en ? "— select time —" : "— selecionar hora —";
       startSel.appendChild(startPh);
-      var endPh = document.createElement("option");
-      endPh.value = "";
-      endPh.textContent = en ? "— select time —" : "— selecionar hora —";
-      endSel.appendChild(endPh);
       for (var i = 0; i < NS_TIME_OPTS.length; i++) {
         var o1 = document.createElement("option");
         o1.value = NS_TIME_OPTS[i];
         o1.textContent = formatTime(NS_TIME_OPTS[i]);
         startSel.appendChild(o1);
-        var o2 = document.createElement("option");
-        o2.value = NS_TIME_OPTS[i];
-        o2.textContent = formatTime(NS_TIME_OPTS[i]);
-        endSel.appendChild(o2);
       }
       // <option> can't hold the PT/EN spans, so the frequency labels are
       // localized here from data attributes.
@@ -5464,19 +5516,18 @@
       }
     }
 
-    // Whether the user has deliberately chosen an end time this time around.
-    // Once true, changing the start time no longer moves the end time -- a
-    // deliberate 2-hour booking must not silently snap back to 1 hour.
-    // Reset on every modal open.
-    var nsEndTimeEdited = false;
-
-    function markNsEndTimeEdited() {
-      nsEndTimeEdited = true;
+    // Moving the start time keeps the DURATION and slides the end with it.
+    // The old form tracked whether the user had hand-picked an end time, so a
+    // deliberate 2-hour booking would not snap back to 1 hour; with duration
+    // asked directly that intent is the control itself and cannot be lost.
+    function onNsStartTimeChange() {
+      var allDay = document.getElementById("nsAllDay");
+      if (allDay && allDay.checked) { return; }
+      applyNsDuration();
     }
 
-    // Start + 1 hour, snapped to the shared half-hour list. Returns "" when
-    // there is no start time yet, or when start + 1h runs past the end of the
-    // list (21:00) -- the user picks one explicitly in that corner.
+    // Start + 1 hour, snapped to the shared half-hour list. Still used by the
+    // reschedule and edit dialogs' own end-time defaults.
     function plusOneHourOpt(startHHMM) {
       if (!startHHMM) { return ""; }
       var parts = startHHMM.split(":");
@@ -5488,18 +5539,11 @@
       return "";
     }
 
-    // Keeps the end time at start + 1 hour while the user has not chosen one
-    // themselves. Called on every start-time change and on modal open.
-    function syncNsEndTimeDefault() {
-      if (nsEndTimeEdited) { return; }
-      var start = document.getElementById("nsTime").value;
-      document.getElementById("nsEndTime").value = plusOneHourOpt(start);
-    }
-
-    // The end-time select is always visible now; this remains as the single
-    // hook the type/category toggles call when the modal's shape changes.
+    // The single hook the type/category toggles call when the modal's shape
+    // changes. It recomputes rather than reveals -- there is no end-time field
+    // to show or hide any more.
     function updateNsEndTimeVisibility() {
-      syncNsEndTimeDefault();
+      applyNsDuration();
     }
 
     function openNewSessionModal() {
@@ -5509,7 +5553,6 @@
       document.getElementById("nsDate").value     = "";
       document.getElementById("nsTime").value     = "";
       document.getElementById("nsEndTime").value  = "";
-      nsEndTimeEdited = false;
       document.getElementById("nsNotes").value    = "";
       document.getElementById("nsLocation").value = "";
       document.getElementById("nsLocation").placeholder = isEn() ? "Street address" : "Endereço completo";
@@ -5524,12 +5567,15 @@
       if (churchWrap) { churchWrap.hidden = true; }
       var churchToggle = document.getElementById("nsChurchLinkToggle");
       if (churchToggle) { churchToggle.hidden = false; }
-      var churchAllDay = document.getElementById("nsChurchAllDay");
-      if (churchAllDay) { churchAllDay.checked = false; }
-      var churchDur = document.getElementById("nsChurchDuration");
-      if (churchDur) { churchDur.value = "60"; }
-      var churchDurGroup = document.getElementById("nsChurchDurationGroup");
-      if (churchDurGroup) { churchDurGroup.hidden = false; }
+      // Duration is asked for every type now and defaults to one hour.
+      var allDayCk = document.getElementById("nsAllDay");
+      if (allDayCk) { allDayCk.checked = false; }
+      var durSel = document.getElementById("nsDuration");
+      if (durSel) { durSel.value = "60"; }
+      var durGroup = document.getElementById("nsDurationGroup");
+      if (durGroup) { durGroup.hidden = false; }
+      var endsHint = document.getElementById("nsEndsAtHint");
+      if (endsHint) { endsHint.textContent = ""; }
       var covered = document.getElementById("nsPersonalCovered");
       if (covered) { covered.checked = false; }
       var clubCk = document.getElementById("nsApexClub");
@@ -5817,7 +5863,11 @@
       }
     }
     (function() {
-      var ids = ["nsClient", "nsEventName", "nsDate", "nsTime", "nsEndTime",
+      // nsEndTime is no longer listed: it is a hidden computed field that
+      // fires no events. The controls that DO produce it -- duration and
+      // all-day -- are listed in its place.
+      var ids = ["nsClient", "nsEventName", "nsDate", "nsTime", "nsDuration",
+                 "nsAllDay", "nsMeetingType",
                  "nsLocation", "nsRecurring", "nsRecurFreq", "nsRecurCount", "nsNotes"];
       for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
@@ -5840,7 +5890,17 @@
       var isVendor  = nsIsVendor();
       var date      = document.getElementById("nsDate").value;
       var time      = document.getElementById("nsTime").value;
-      var endTime   = document.getElementById("nsEndTime").value;
+      // Derived at submit time from the two things actually asked for, so the
+      // payload cannot carry a stale end left behind by an earlier edit.
+      // All-day writes its own span and is respected as-is.
+      var allDayEl  = document.getElementById("nsAllDay");
+      var isAllDay  = !!(allDayEl && allDayEl.checked);
+      var durEl     = document.getElementById("nsDuration");
+      var durMins   = durEl ? parseInt(durEl.value, 10) : 60;
+      if (isNaN(durMins)) { durMins = 60; }
+      var endTime   = isAllDay
+        ? (document.getElementById("nsEndTime").value || "20:00")
+        : (time ? hhmmPlusMinutes(time, durMins) : "");
       // A vendor meeting keeps its chosen type -- that is what earns it a Meet
       // link -- unlike an event, which is forced in_person.
       var type      = isEvent ? "in_person" : (document.getElementById("nsTypeVal").value || "online_meet");
@@ -5875,16 +5935,18 @@
           fail(en ? "Name, date and time are required." : "Nome, data e hora sao obrigatorios.");
           return;
         }
-        if (!endTime) {
-          fail(en ? "End time is required." : "Hora de termino e obrigatoria.");
-          return;
-        }
       } else if (!clientId || !date || !time) {
         fail(en ? "Client, date and time are required." : "Cliente, data e hora sao obrigatorios.");
         return;
       }
+      // end_time is derived from start + duration, so it can only fail to be
+      // after the start when the sum has been clamped at 23:59 -- an 8-hour
+      // block starting at 8 PM. Say what is actually wrong (the meeting does
+      // not fit in the day) rather than asking for an end time that is no
+      // longer on screen.
       if (endTime && time && endTime <= time) {
-        fail(en ? "End time must be after start time." : "A hora de termino deve ser depois da hora de inicio.");
+        fail(en ? "That duration does not fit before midnight. Start earlier or shorten it."
+               : "Essa duracao nao cabe antes da meia-noite. Comece mais cedo ou reduza.");
         return;
       }
 
@@ -7179,16 +7241,106 @@
     // depois da hora de inicio" -- the safe direction, but it asked the user to
     // repair a field they never touched. Refusal still stands for a genuinely
     // invalid pair the user chose themselves.
-    var edEndTimeEdited = false;
+    // The value shown by the "Personalizado" option, in minutes, when the
+    // meeting being edited is not one of the listed lengths. Null when the
+    // current length IS a listed one.
+    var edCustomDurationMins = null;
 
-    function markEdEndTimeEdited() {
-      edEndTimeEdited = true;
+    function onEdStartTimeChange() {
+      applyEdDuration();
     }
 
-    function syncEdEndTimeDefault() {
-      if (edEndTimeEdited) { return; }
-      var start = document.getElementById("edTime").value;
-      document.getElementById("edEndTime").value = plusOneHourOpt(start);
+    function onEdDurationChange() {
+      applyEdDuration();
+    }
+
+    // Writes the computed end into the hidden field buildEditBody reads.
+    function applyEdDuration() {
+      var durEl   = document.getElementById("edDuration");
+      var startEl = document.getElementById("edTime");
+      var endEl   = document.getElementById("edEndTime");
+      if (!durEl || !startEl || !endEl) { return; }
+      if (!startEl.value) { endEl.value = ""; renderEdEndsAtHint(); return; }
+      var mins = parseInt(durEl.value, 10);
+      if (isNaN(mins)) { return; }
+      endEl.value = hhmmPlusMinutes(startEl.value, mins);
+      renderEdEndsAtHint();
+    }
+
+    function renderEdEndsAtHint() {
+      var hint = document.getElementById("edEndsAtHint");
+      if (!hint) { return; }
+      var endEl = document.getElementById("edEndTime");
+      var v = endEl ? endEl.value : "";
+      hint.textContent = v ? ((isEn() ? "Ends at " : "Termina as ") + formatTime(v)) : "";
+    }
+
+    // How long this meeting currently runs, in minutes, or null when either
+    // end of the span is unknown. Reads through endTimeHHMM() -- end_time
+    // holds TWO shapes ("HH:MM" from Apex, a full ISO datetime from the
+    // Google sync) and the raw value must never be sliced by hand.
+    function sessionDurationMins(session) {
+      if (!session || !session.time) { return null; }
+      var endHHMM = endTimeHHMM(session);
+      if (!endHHMM) { return null; }
+      var startMin = hhmmToMinutes(session.time.slice(0, 5));
+      var endMin   = hhmmToMinutes(endHHMM);
+      if (startMin === null || endMin === null) { return null; }
+      var diff = endMin - startMin;
+      return diff > 0 ? diff : null;
+    }
+
+    // Preselects the duration matching the meeting's real length. An imported
+    // Google meeting can be any length at all, so a length that is not on the
+    // list gets its own "Personalizado" option showing the true value --
+    // silently rounding a 45-minute meeting to an hour would rewrite data the
+    // user never asked to change.
+    function setEdDurationFromSession(session) {
+      var durEl = document.getElementById("edDuration");
+      if (!durEl) { return; }
+
+      // Drop any custom option left from a previously edited meeting.
+      var existing = document.getElementById("edDurationCustomOpt");
+      if (existing && existing.parentNode) { existing.parentNode.removeChild(existing); }
+      edCustomDurationMins = null;
+
+      var mins = sessionDurationMins(session);
+      if (mins === null) {
+        // No usable end time on the row: fall back to an hour, the same
+        // default the create dialog uses.
+        durEl.value = "60";
+        applyEdDuration();
+        return;
+      }
+
+      for (var i = 0; i < durEl.options.length; i++) {
+        if (parseInt(durEl.options[i].value, 10) === mins) {
+          durEl.value = String(mins);
+          applyEdDuration();
+          return;
+        }
+      }
+
+      edCustomDurationMins = mins;
+      var opt = document.createElement("option");
+      opt.id = "edDurationCustomOpt";
+      opt.value = String(mins);
+      var label = edDurationCustomLabel(mins);
+      opt.textContent = label;
+      opt.setAttribute("data-opt-pt", label);
+      opt.setAttribute("data-opt-en", edDurationCustomLabel(mins, true));
+      durEl.appendChild(opt);
+      durEl.value = String(mins);
+      applyEdDuration();
+    }
+
+    // "Personalizado (2h45)" -- the real length is named, not just flagged,
+    // so the user can see what they would be changing away from.
+    function edDurationCustomLabel(mins, forceEn) {
+      var en = forceEn || isEn();
+      var h = Math.floor(mins / 60), m = mins % 60;
+      var span = h ? (h + "h" + (m ? (m < 10 ? "0" + m : "" + m) : "")) : (m + "min");
+      return (en ? "Custom (" : "Personalizado (") + span + ")";
     }
 
     // Same follow-until-edited behaviour on the Reschedule modal.
@@ -7402,7 +7554,6 @@
 
       populateEditClientDropdown();
       populateHHMMSelect(document.getElementById("edTime"), false);
-      populateHHMMSelect(document.getElementById("edEndTime"), true);
 
       var isEventCat = session.meeting_category === "event" ||
                        session.meeting_category === "personal" ||
@@ -7411,11 +7562,11 @@
       document.getElementById("edEventName").value = isEventCat ? (session.client_name || "") : "";
       document.getElementById("edDate").value      = session.date || "";
       document.getElementById("edTime").value      = session.time ? session.time.slice(0, 5) : "";
+      // The duration select is preselected to the meeting's CURRENT length,
+      // and the hidden end time is then recomputed from it. Seeding the end
+      // first would be overwritten a line later anyway.
       document.getElementById("edEndTime").value   = endTimeHHMM(session) || "";
-      // The stored end time is the session's own value, not something the user
-      // typed in this dialog -- so the follow-the-start behaviour starts
-      // enabled. It stops the moment they change the end time themselves.
-      edEndTimeEdited = false;
+      setEdDurationFromSession(session);
       document.getElementById("edLocation").value  = session.location || "";
       document.getElementById("edNotes").value     = session.notes || "";
 
@@ -7465,7 +7616,13 @@
       var type    = isEvent ? "in_person" : document.getElementById("edTypeVal").value;
       var date    = document.getElementById("edDate").value;
       var time    = document.getElementById("edTime").value;
-      var endT    = document.getElementById("edEndTime").value;
+      // Derived from start + duration at save time, so the payload cannot
+      // carry a stale end left behind by an earlier edit in the same dialog.
+      var edDurEl = document.getElementById("edDuration");
+      var edMins  = edDurEl ? parseInt(edDurEl.value, 10) : 60;
+      if (isNaN(edMins)) { edMins = 60; }
+      var endT    = time ? hhmmPlusMinutes(time, edMins)
+                         : (document.getElementById("edEndTime").value || "");
       var clientId  = document.getElementById("edClient").value;
       var eventName = (document.getElementById("edEventName").value || "").trim();
 
@@ -7473,14 +7630,15 @@
         if (!eventName || !date || !time) {
           return fail(en ? "Event name, date and time are required." : "Nome do evento, data e hora sao obrigatorios.");
         }
-        if (!endT) {
-          return fail(en ? "End time is required for events." : "Hora de termino e obrigatoria para eventos.");
-        }
       } else if (!clientId || !date || !time) {
         return fail(en ? "Client, date and time are required." : "Cliente, data e hora sao obrigatorios.");
       }
+      // Only reachable when the duration has been clamped at 23:59 -- an
+      // 8-hour block starting late in the evening. Name the real problem
+      // rather than asking for an end time that is no longer on screen.
       if (endT && time && endT <= time) {
-        return fail(en ? "End time must be after start time." : "A hora de termino deve ser depois da hora de inicio.");
+        return fail(en ? "That duration does not fit before midnight. Start earlier or shorten it."
+                       : "Essa duracao nao cabe antes da meia-noite. Comece mais cedo ou reduza.");
       }
 
       var body = {};

@@ -2283,6 +2283,36 @@
           </span>
         </div>
 
+        <!-- ══ Companies on this meeting ═══════════════════════════════════
+             One meeting can be about two companies -- Marcelo Diniz owns both
+             GATOR OUTDOOR LIVING and MY PURE FILTER and Rafa holds a single
+             weekly block covering both. sessions.client_id cannot express
+             that; session_clients can, and this is where a second company is
+             attached to a meeting that already exists. -->
+        <div id="detailClientsRow" class="detail-row" hidden style="display:block;">
+          <span class="detail-row-label">
+            <span class="show-pt">Empresas</span>
+            <span class="show-en">Companies</span>
+          </span>
+          <div id="detailClientsList" style="margin:6px 0 8px;"></div>
+          <a class="detail-meet-link" id="detailPrepLink" href="#" style="display:inline-block;margin-bottom:8px;">
+            <span class="show-pt">Preparacao da reuniao</span>
+            <span class="show-en">Meeting prep</span>
+          </a><br>
+          <button class="btn-cancel-link" id="btnAddSessionClient" onclick="toggleAddSessionClient()">
+            <span class="show-pt">+ vincular outra empresa</span>
+            <span class="show-en">+ link another company</span>
+          </button>
+          <div id="addSessionClientWrap" hidden style="margin-top:8px;">
+            <select id="addSessionClientSel"></select>
+            <button class="btn-directions" style="margin-top:8px;" onclick="handleAddSessionClient()">
+              <span class="show-pt">Vincular</span>
+              <span class="show-en">Link</span>
+            </button>
+            <div class="pull-status" id="addSessionClientStatus"></div>
+          </div>
+        </div>
+
         <div id="detailHtmlLinkRow" class="detail-row" hidden>
           <span class="detail-row-label">
             <span class="show-pt">Google Calendar</span>
@@ -6169,8 +6199,114 @@
       }
     }
 
+    // ── Companies on a meeting (multi-client) ─────────────────────────────
+    //
+    // Notes and the transcript stay on the SESSION row and are shown from both
+    // profiles; they are never copied per client, because two copies of one
+    // conversation diverge and nothing then says which is true.
+    function renderSessionClients(session) {
+      var row  = document.getElementById("detailClientsRow");
+      var list = document.getElementById("detailClientsList");
+      if (!row || !list) { return; }
+
+      // Only client-bearing meetings can have companies attached. An event,
+      // a church block or a personal block has none by construction.
+      var cat = session.meeting_category || "client";
+      if (cat === "event" || cat === "personal" || cat === "church" || cat === "vendor") {
+        row.hidden = true;
+        return;
+      }
+      row.hidden = false;
+      list.textContent = isEn() ? "Loading..." : "Carregando...";
+
+      // ?session= is what gives prep the company tabs; ?client= alone cannot
+      // know a meeting is shared.
+      var prepA = document.getElementById("detailPrepLink");
+      if (prepA) {
+        var href = "meeting-prep.html?session=" + encodeURIComponent(session.id);
+        if (session.client_id) { href += "&client=" + encodeURIComponent(session.client_id); }
+        prepA.href = href;
+      }
+
+      var wrap = document.getElementById("addSessionClientWrap");
+      if (wrap) { wrap.hidden = true; }
+      var st = document.getElementById("addSessionClientStatus");
+      if (st) { st.textContent = ""; }
+
+      apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/clients")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var rows = (d && d.clients) || [];
+          list.innerHTML = "";
+          if (!rows.length) {
+            var none = document.createElement("div");
+            none.style.color = "var(--muted)";
+            none.style.fontSize = "13px";
+            none.textContent = isEn() ? "No company linked." : "Nenhuma empresa vinculada.";
+            list.appendChild(none);
+            return;
+          }
+          for (var i = 0; i < rows.length; i++) {
+            var d1 = document.createElement("div");
+            d1.style.fontSize = "13px";
+            d1.style.padding = "3px 0";
+            d1.textContent = (rows[i].client_name || rows[i].client_id) +
+              (rows[i].is_primary ? (isEn() ? "  (primary)" : "  (principal)") : "");
+            list.appendChild(d1);
+          }
+        })
+        .catch(function() {
+          list.textContent = isEn() ? "Could not load companies." : "Nao foi possivel carregar as empresas.";
+        });
+    }
+
+    function toggleAddSessionClient() {
+      var wrap = document.getElementById("addSessionClientWrap");
+      if (!wrap) { return; }
+      wrap.hidden = !wrap.hidden;
+      if (wrap.hidden) { return; }
+      var sel = document.getElementById("addSessionClientSel");
+      if (!sel) { return; }
+      // Same grouping the booking picker uses, so the two never disagree
+      // about what a client list looks like.
+      populateSchedClientSelect(sel);
+    }
+
+    function handleAddSessionClient() {
+      var session = activeDetailSession;
+      if (!session) { return; }
+      var sel = document.getElementById("addSessionClientSel");
+      var st  = document.getElementById("addSessionClientStatus");
+      if (!sel || !st) { return; }
+      var en = isEn();
+      var clientId = sel.value;
+      if (!clientId) {
+        st.textContent = en ? "Choose a company." : "Escolha uma empresa.";
+        st.className = "pull-status is-error";
+        return;
+      }
+      st.textContent = en ? "Linking..." : "Vinculando...";
+      st.className = "pull-status";
+      apiFetch("/api/sessions/" + encodeURIComponent(session.id) + "/clients",
+               { method: "POST", body: { client_id: clientId } })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+          if (!res.ok || res.data.error) { throw new Error(res.data.error || "Error"); }
+          st.textContent = "";
+          var wrap = document.getElementById("addSessionClientWrap");
+          if (wrap) { wrap.hidden = true; }
+          renderSessionClients(session);
+          loadCalendar();
+        })
+        .catch(function(e) {
+          st.textContent = (en ? "Error: " : "Erro: ") + e.message;
+          st.className = "pull-status is-error";
+        });
+    }
+
     function openDetail(session) {
       activeDetailSession = session;
+      renderSessionClients(session);
       var en = isEn();
       loadClubPanel(session.id);
       var isExternal = isExternalSession(session);

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 'app-store' is deprecated in Xcode 26; this is the current name. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<!-- Upload straight to App Store Connect instead of writing an .ipa to
+	     disk for a second tool to send. This is what removes the whole
+	     Organizer / Distribute App click-through. -->
+	<key>destination</key>
+	<string>upload</string>
+
+	<key>teamID</key>
+	<string>9W5WP66A7Z</string>
+
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<!-- Left true deliberately. App Store Connect silently assigns the next
+	     build number when it sees a duplicate, so CURRENT_PROJECT_VERSION can
+	     stay at 1 forever and no upload is ever rejected for it. The cost is
+	     that the number shown in TestFlight will not match the number in the
+	     Xcode project. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<true/>
+
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

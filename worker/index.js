@@ -1224,7 +1224,19 @@ async function handleGetSessions(request, env) {
                 // SELECT *, so a new column is invisible to the UI until named here.
                 "summarized_by, summarized_at, approved_by, " +
                 "raw_transcript IS NOT NULL as has_transcript " +
-                "FROM sessions WHERE status != 'archived' AND meeting_category NOT IN ('event', 'church') AND client_id = ? ORDER BY created_at DESC"
+                // MULTI-CLIENT. One meeting can be about two companies --
+                // Marcelo Diniz owns both GATOR OUTDOOR LIVING and MY PURE
+                // FILTER and Rafa holds ONE weekly block covering both --
+                // which sessions.client_id cannot express. session_clients
+                // can, and is authoritative.
+                //
+                // The six real "Marcelinho" sessions carry client_id NULL and
+                // both links in session_clients, so reading client_id alone
+                // showed them on NEITHER profile. Matching either the direct
+                // column or a link row is what puts a shared meeting on BOTH.
+                "FROM sessions WHERE status != 'archived' AND meeting_category NOT IN ('event', 'church') " +
+                "AND (client_id = ?1 OR id IN (SELECT session_id FROM session_clients WHERE client_id = ?1)) " +
+                "ORDER BY created_at DESC"
             ).bind(clientIdFilter);
         } else {
             stmt = env.DB.prepare(
@@ -2513,7 +2525,11 @@ async function handleGetLeadPipeline(id, request, env) {
         ).bind(id).first();
 
         var session = await env.DB.prepare(
-            "SELECT id, date, time FROM sessions WHERE client_id = ? AND status != 'cancelled' ORDER BY date DESC LIMIT 1"
+            // Same multi-client rule as the history list: a shared meeting is
+            // this client's most recent meeting too.
+            "SELECT id, date, time FROM sessions " +
+            "WHERE (client_id = ?1 OR id IN (SELECT session_id FROM session_clients WHERE client_id = ?1)) " +
+            "AND status != 'cancelled' ORDER BY date DESC LIMIT 1"
         ).bind(id).first();
 
         var contactCount = await env.DB.prepare(
@@ -2748,7 +2764,7 @@ async function handleGetClientLatestDocument(id, request, env) {
             "SELECT d.id, d.session_id, d.created_at " +
             "FROM documents d " +
             "JOIN sessions s ON s.id = d.session_id " +
-            "WHERE s.client_id = ? " +
+            "WHERE (s.client_id = ?1 OR s.id IN (SELECT session_id FROM session_clients WHERE client_id = ?1)) " +
             "ORDER BY d.created_at DESC LIMIT 1"
         ).bind(id).first();
 
@@ -4535,6 +4551,130 @@ async function handlePatchTask(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Routes: GET / POST / DELETE /api/sessions/:id/clients
+//
+// MULTI-CLIENT MEETINGS. One meeting can be about two companies: Marcelo
+// Diniz owns both GATOR OUTDOOR LIVING and MY PURE FILTER, and Rafa holds a
+// single weekly block covering both businesses. sessions.client_id is one
+// column and cannot express that, which is why session_clients exists.
+//
+// The notes and the transcript stay on the SESSION row and are shown from
+// both profiles. They are deliberately never copied per client: two copies of
+// one conversation would diverge, and nothing would say which is true.
+// ---------------------------------------------------------------------------
+async function handleGetSessionClients(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var res = await env.DB.prepare(
+            "SELECT sc.client_id, sc.is_primary, sc.source, sc.note, sc.created_at, " +
+            "c.name AS client_name " +
+            "FROM session_clients sc LEFT JOIN clients c ON c.id = sc.client_id " +
+            "WHERE sc.session_id = ? ORDER BY sc.is_primary DESC, c.name"
+        ).bind(sessionId).all();
+
+        return jsonOk({ clients: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching session clients: " + e.message, 500);
+    }
+}
+
+// Body: { client_id, note? }
+async function handlePostSessionClients(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
+            return jsonErr("Forbidden", 403);
+        }
+
+        var body = await request.json();
+        if (!body.client_id) { return jsonErr("client_id is required", 400); }
+
+        var session = await env.DB.prepare("SELECT id, client_id FROM sessions WHERE id = ?")
+            .bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
+            .bind(body.client_id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+
+        // The row already on sessions.client_id is the primary and must exist
+        // as a link too, or adding a SECOND company would leave the first
+        // reachable only through the legacy column.
+        if (session.client_id) {
+            await env.DB.prepare(
+                "INSERT OR IGNORE INTO session_clients (session_id, client_id, is_primary, source, created_by) " +
+                "VALUES (?, ?, 1, 'auto-primary', ?)"
+            ).bind(sessionId, session.client_id, actorName(user)).run();
+        }
+
+        var isPrimary = session.client_id === body.client_id ? 1 : 0;
+        await env.DB.prepare(
+            "INSERT OR IGNORE INTO session_clients (session_id, client_id, is_primary, source, note, created_by) " +
+            "VALUES (?, ?, ?, 'manual', ?, ?)"
+        ).bind(sessionId, body.client_id, isPrimary, body.note || null, actorName(user)).run();
+
+        var res = await env.DB.prepare(
+            "SELECT sc.client_id, sc.is_primary, sc.source, sc.note, c.name AS client_name " +
+            "FROM session_clients sc LEFT JOIN clients c ON c.id = sc.client_id " +
+            "WHERE sc.session_id = ? ORDER BY sc.is_primary DESC, c.name"
+        ).bind(sessionId).all();
+
+        return jsonOk({ linked: true, clients: res.results || [] });
+    } catch (e) {
+        return jsonErr("Error linking client: " + e.message, 500);
+    }
+}
+
+// Unlinks ONE company from a shared meeting. This removes a link row, never a
+// session and never a client -- the meeting and both companies survive.
+async function handleDeleteSessionClient(sessionId, clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
+            return jsonErr("Forbidden", 403);
+        }
+
+        // Refuse to unlink the last remaining company: a client meeting that
+        // belongs to nobody is unreachable from every profile, which is the
+        // exact failure the six NULL-client_id "Marcelinho" rows already had.
+        var count = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM session_clients WHERE session_id = ?"
+        ).bind(sessionId).first();
+        if (count && count.n <= 1) {
+            return jsonErr("Cannot unlink the only client on this meeting", 400);
+        }
+
+        await env.DB.prepare(
+            "DELETE FROM session_clients WHERE session_id = ? AND client_id = ?"
+        ).bind(sessionId, clientId).run();
+
+        // If the primary was the one removed, promote another link so the
+        // meeting always has a primary to render under.
+        var stillPrimary = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM session_clients WHERE session_id = ? AND is_primary = 1"
+        ).bind(sessionId).first();
+        if (!stillPrimary || !stillPrimary.n) {
+            var next = await env.DB.prepare(
+                "SELECT client_id FROM session_clients WHERE session_id = ? LIMIT 1"
+            ).bind(sessionId).first();
+            if (next) {
+                await env.DB.prepare(
+                    "UPDATE session_clients SET is_primary = 1 WHERE session_id = ? AND client_id = ?"
+                ).bind(sessionId, next.client_id).run();
+            }
+        }
+
+        return jsonOk({ unlinked: true });
+    } catch (e) {
+        return jsonErr("Error unlinking client: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/sessions/schedule
 // Body: { client_id, date, time, session_type, notes, meeting_category?,
 //         end_time?, location?, event_name?, recur_frequency?, recur_count? }
@@ -4748,6 +4888,21 @@ async function handlePostSessionsSchedule(request, env) {
                 "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, html_link, kids_covered, created_by) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?, ?, ?)"
             ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, htmlLink, kidsCovered, actorName(user)).run();
+            // Mirror into session_clients immediately, so every client meeting
+            // -- not just imported or hand-linked ones -- is readable through
+            // the same table. Without this the multi-client read would be a
+            // special case for old rows instead of the one path.
+            if (clientId) {
+                try {
+                    await env.DB.prepare(
+                        "INSERT OR IGNORE INTO session_clients (session_id, client_id, is_primary, source, created_by) " +
+                        "VALUES (?, ?, 1, 'schedule', ?)"
+                    ).bind(sessionId, clientId, actorName(user)).run();
+                } catch (e) {
+                    // The session row is the load-bearing write; a failed
+                    // mirror must never lose a booked meeting.
+                }
+            }
             sessionIds.push(sessionId);
         }
 
@@ -29774,6 +29929,16 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/sessions/calendar"     && method === "GET")  { return handleGetSessionsCalendar(request, env); }
         if (path === "/api/sessions/match-for-event" && method === "GET") { return handleGetSessionsMatchForEvent(request, env); }
         if (path === "/api/sessions/schedule"     && method === "POST") { return handlePostSessionsSchedule(request, env); }
+        // Multi-client meetings: one session, N companies. Declared BEFORE the
+        // generic /api/sessions/:id routes so ".../clients" is never swallowed
+        // as a session id.
+        var scMatch = path.match(/^\/api\/sessions\/([^\/]+)\/clients$/);
+        if (scMatch && method === "GET")  { return handleGetSessionClients(decodeURIComponent(scMatch[1]), request, env); }
+        if (scMatch && method === "POST") { return handlePostSessionClients(decodeURIComponent(scMatch[1]), request, env); }
+        var scDelMatch = path.match(/^\/api\/sessions\/([^\/]+)\/clients\/([^\/]+)$/);
+        if (scDelMatch && method === "DELETE") {
+            return handleDeleteSessionClient(decodeURIComponent(scDelMatch[1]), decodeURIComponent(scDelMatch[2]), request, env);
+        }
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
         if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }
         if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }

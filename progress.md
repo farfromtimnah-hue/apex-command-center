@@ -826,6 +826,66 @@ client.html?id=...&login=1 (maybeAutoOpenClientLogin, modelled exactly on the
 existing ?newpkg=1 handoff). No second credentials flow was built: a one-time
 password that can never be shown again must have exactly one implementation.
 
+---
+
+## Multi-client meetings — one meeting, two companies (2026-09-06)
+
+**1. The six Marcelinho sessions were on NEITHER profile.**
+
+Marcelo Diniz owns both GATOR OUTDOOR LIVING and MY PURE FILTER, and Rafa
+holds a single weekly block covering both businesses. sessions.client_id is
+one column and cannot say that, which is why session_clients exists (203 rows
+now, 197 before Part 1's bookings mirrored in).
+
+Checking the real rows first was what mattered: all six "Marcelinho" sessions
+carry client_id NULL with both links in session_clients. Reading client_id
+alone did not show them on one profile instead of two -- it showed them on
+NEITHER. Client history, the dossier's "last session" and the latest-document
+lookup now match `client_id = ?1 OR id IN (SELECT session_id FROM
+session_clients WHERE client_id = ?1)`, so a shared meeting appears on both.
+Verified live: Gator 15 sessions / 6 Marcelinho, My Pure Filter 10 / the same
+6, same dates on both.
+
+Notes and transcripts stay on the SESSION row and are SHOWN from both
+profiles, never copied per client. Two copies of one conversation diverge and
+nothing then says which is true.
+
+**2. GET/POST/DELETE /api/sessions/:id/clients.**
+
+POST also backfills the existing sessions.client_id as an is_primary link
+before adding the second company -- otherwise attaching a second company
+leaves the first reachable only through the legacy column. DELETE refuses to
+remove the last remaining link (a client meeting belonging to nobody is
+unreachable from every profile, which is the exact failure the NULL rows had)
+and promotes another link to primary if the primary was the one removed. It
+deletes a LINK ROW, never a session and never a client.
+
+handlePostSessionsSchedule now mirrors every newly booked client meeting into
+session_clients, so the multi-client read is the ONE path rather than a
+special case for imported and hand-linked rows.
+
+**3. Calendar detail modal: link a second company.**
+
+An "Empresas" block lists what is linked and offers "+ vincular outra
+empresa", reusing populateSchedClientSelect so the picker cannot disagree with
+the booking dialog about what a client list looks like. Hidden for event,
+church, personal and vendor rows, which have no client by construction.
+
+**4. meeting-prep.html: one tab per company.**
+
+?session= renders a tab per linked company; a single-company meeting shows no
+strip at all, because a one-tab tab bar is noise. Each tab asks its own
+meeting type INDEPENDENTLY -- switching company drops ?type= and lands on that
+company's own picker, since two businesses are not prepared for the same way
+just because they share an hour.
+
+"Sem preparacao" is a real per-tab choice, not an empty state: Rafa can decide
+one business needs no prep this week and the tab must be able to say so. It
+HIDES that tab's prep rather than clearing anything, so unticking brings the
+same prep back untouched. Stored in sessionStorage keyed session|client (the
+project forbids localStorage for state, and this is a decision about one
+meeting being prepared now, not a durable preference).
+
 ## Completed (2026-07-03, worker fix — discarded session leak)
 
 - [x] Excluded `discarded` sessions from `handleGetSessions` (both client-filtered and unfiltered queries) using `NOT IN ('archived','discarded')`; `handleGetSessionsCalendar` already had the fix applied

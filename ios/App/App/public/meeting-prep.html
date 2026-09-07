@@ -604,6 +604,21 @@
 
   <main>
     <div id="stateMsg"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+    <!-- One tab per company on a shared meeting. Rendered only when the
+         session actually links more than one; a single-client meeting is
+         untouched and shows no strip at all. -->
+    <div id="prepTabs" hidden></div>
+    <style>
+      #prepTabs { margin: 0 0 14px; }
+      .prep-tab {
+        font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+        padding: 8px 14px; margin: 0 6px 6px 0; cursor: pointer;
+        border: 1px solid var(--line, #d8d2c4); border-radius: 6px;
+        background: transparent; color: var(--muted, #6b6459);
+      }
+      .prep-tab.active { background: var(--navy, #1c2b46); color: #fff; border-color: var(--navy, #1c2b46); }
+      .prep-noprep-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    </style>
     <div id="prepBody" hidden></div>
   </main>
 
@@ -629,6 +644,14 @@
 
     var params       = new URLSearchParams(window.location.search);
     var CLIENT_ID    = params.get("client");
+    // MULTI-CLIENT MEETINGS. One meeting can be about two companies (Marcelo
+    // Diniz owns both GATOR OUTDOOR LIVING and MY PURE FILTER, and Rafa holds
+    // a single weekly block covering both). With ?session= present, this page
+    // renders ONE TAB PER COMPANY and each tab asks its own meeting type
+    // independently -- the two businesses are not prepared for in the same way
+    // just because they share an hour.
+    var SESSION_ID   = params.get("session");
+    var SESSION_CLIENTS = [];
     var MEETING_TYPE = params.get("type") || "xray_results";
     var IS_EXAMPLE   = params.get("example") === "1";
     // No ?type= means he has not chosen a meeting type yet: show the picker.
@@ -3107,6 +3130,121 @@
         .catch(function () { prepAgenda = prepAgenda || { blocks: [] }; });
     }
 
+    // ── One tab per company on a shared meeting ───────────────────────────
+    //
+    // "sem preparacao" is a REAL choice on a tab, not an empty state: Rafa can
+    // legitimately decide one of the two businesses needs no prep this week,
+    // and the tab must be able to say so rather than sit there looking
+    // unfinished. It is stored per client+session in this page's URL, so
+    // switching tabs never loses the other tab's answer.
+    var NO_PREP_KEY = "apex_noprep";
+
+    function noPrepMap() {
+      // sessionStorage, not localStorage: the project forbids localStorage for
+      // state, and this is a decision about ONE meeting being prepared right
+      // now, not a durable preference.
+      try {
+        var raw = window.sessionStorage.getItem(NO_PREP_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+
+    function noPrepSet(sessionId, clientId, on) {
+      try {
+        var m = noPrepMap();
+        m[sessionId + "|" + clientId] = !!on;
+        window.sessionStorage.setItem(NO_PREP_KEY, JSON.stringify(m));
+      } catch (e) { /* a failed write must never block the page */ }
+    }
+
+    function noPrepGet(sessionId, clientId) {
+      var m = noPrepMap();
+      return !!m[sessionId + "|" + clientId];
+    }
+
+    function renderPrepTabs() {
+      var strip = document.getElementById("prepTabs");
+      if (!strip) { return; }
+      // A single-company meeting shows no strip: there is nothing to switch
+      // between, and a one-tab tab bar is just noise.
+      if (!SESSION_ID || SESSION_CLIENTS.length < 2) { strip.hidden = true; return; }
+      strip.hidden = false;
+      strip.innerHTML = "";
+
+      for (var i = 0; i < SESSION_CLIENTS.length; i++) {
+        var c = SESSION_CLIENTS[i];
+        var b = document.createElement("button");
+        b.className = "prep-tab" + (c.client_id === CLIENT_ID ? " active" : "");
+        b.textContent = c.client_name || c.client_id;
+        if (noPrepGet(SESSION_ID, c.client_id)) {
+          b.textContent += isEn() ? "  (no prep)" : "  (sem preparacao)";
+        }
+        b.setAttribute("data-client-id", c.client_id);
+        b.onclick = function() {
+          var id = this.getAttribute("data-client-id");
+          // Each tab asks its own meeting type INDEPENDENTLY, so switching
+          // company drops ?type= and lands on that company's own picker.
+          window.location.href = "meeting-prep.html?client=" + encodeURIComponent(id) +
+                                 "&session=" + encodeURIComponent(SESSION_ID);
+        };
+        strip.appendChild(b);
+      }
+
+      var wrap = document.createElement("div");
+      wrap.style.marginTop = "8px";
+      var lbl = document.createElement("label");
+      lbl.className = "prep-noprep-row";
+      var ck = document.createElement("input");
+      ck.type = "checkbox";
+      ck.checked = noPrepGet(SESSION_ID, CLIENT_ID);
+      ck.onchange = function() {
+        noPrepSet(SESSION_ID, CLIENT_ID, this.checked);
+        renderPrepTabs();
+        applyNoPrepState();
+      };
+      lbl.appendChild(ck);
+      var sp = document.createElement("span");
+      sp.textContent = isEn()
+        ? "No prep for this company this time"
+        : "Sem preparacao para esta empresa desta vez";
+      lbl.appendChild(sp);
+      wrap.appendChild(lbl);
+      strip.appendChild(wrap);
+    }
+
+    // Marking a company "sem preparacao" hides its prep body rather than
+    // clearing anything: the decision is about THIS meeting, and unticking it
+    // must bring the same prep back untouched.
+    function applyNoPrepState() {
+      var body = document.getElementById("prepBody");
+      if (!body || !SESSION_ID) { return; }
+      var off = noPrepGet(SESSION_ID, CLIENT_ID);
+      body.hidden = off;
+      var msg = document.getElementById("stateMsg");
+      if (off && msg) {
+        msg.hidden = false;
+        msg.innerHTML = '<span class="show-pt">Sem preparacao para esta empresa desta vez.</span>' +
+                        '<span class="show-en">No prep for this company this time.</span>';
+      } else if (msg && !off) {
+        msg.hidden = true;
+      }
+    }
+
+    // The companies on this meeting, straight from session_clients.
+    function loadSessionClients() {
+      if (!SESSION_ID) { return Promise.resolve(); }
+      return apiFetch("/api/sessions/" + encodeURIComponent(SESSION_ID) + "/clients")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          SESSION_CLIENTS = (d && d.clients) || [];
+          // Landing without ?client= on a shared meeting opens the primary.
+          if (!CLIENT_ID && SESSION_CLIENTS.length) {
+            CLIENT_ID = SESSION_CLIENTS[0].client_id;
+          }
+        })
+        .catch(function() { SESSION_CLIENTS = []; });
+    }
+
     function loadPrep(quiet) {
       return loadAgenda().then(function () {
       return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) +
@@ -3118,6 +3256,7 @@
         })
         .then(function(data) {
           prepData = data;
+          renderPrepTabs();
           // Preserve what he is typing: a background reload after a save must
           // never overwrite the textarea under his cursor.
           var box = document.getElementById("bottleneckBox");
@@ -3127,6 +3266,7 @@
             var nb = document.getElementById("bottleneckBox");
             if (nb) { nb.value = live; }
           }
+          applyNoPrepState();
         })
         .catch(function(err) {
           if (quiet) { return; }
@@ -3140,7 +3280,7 @@
     }
 
     function init() {
-      if (!CLIENT_ID) {
+      if (!CLIENT_ID && !SESSION_ID) {
         showMsg("Cliente n&#227;o informado.", "No client specified.");
         return;
       }
@@ -3168,7 +3308,7 @@
               }
               // Session came back. Boot the page the callback skipped.
               currentUser = auth.currentUser;
-              loadPrep(false);
+              loadSessionClients().then(function() { loadPrep(false); });
             }, 1000);
             return;
           }
@@ -3176,7 +3316,7 @@
           return;
         }
         currentUser = user;
-        loadPrep(false);
+        loadSessionClients().then(function() { loadPrep(false); });
       });
     }
 

@@ -1019,15 +1019,25 @@
               <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
             </h1>
-            <div class="view-toggle">
-              <button class="view-toggle-btn active" id="rafaBtnDaily" onclick="setRafaScope('daily')">
-                <span class="show-pt">Diario</span>
-                <span class="show-en">Daily</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <!-- Voice booking was built for Rafa and shipped onto Alice's and
+                   the dev dashboard only, so the one person it exists for could
+                   not reach it. -->
+              <button class="btn-voice-mic" onclick="openVoiceModal()">
+                <span aria-hidden="true">&#127908;</span>
+                <span class="show-pt">Falar reuniao</span>
+                <span class="show-en">Speak a meeting</span>
               </button>
-              <button class="view-toggle-btn" id="rafaBtnWeekly" onclick="setRafaScope('weekly')">
-                <span class="show-pt">Semanal</span>
-                <span class="show-en">Weekly</span>
-              </button>
+              <div class="view-toggle">
+                <button class="view-toggle-btn active" id="rafaBtnDaily" onclick="setRafaScope('daily')">
+                  <span class="show-pt">Diario</span>
+                  <span class="show-en">Daily</span>
+                </button>
+                <button class="view-toggle-btn" id="rafaBtnWeekly" onclick="setRafaScope('weekly')">
+                  <span class="show-pt">Semanal</span>
+                  <span class="show-en">Weekly</span>
+                </button>
+              </div>
             </div>
           </div>
           <!-- Glass tiles -->
@@ -1267,12 +1277,20 @@
        QUESTION, never a gate: by the time it is shown the meeting already
        exists, so walking away here loses nothing -- what is missing goes to
        the banner above the calendar for Alice. -->
-  <div id="voiceModal" class="voice-modal-overlay" hidden>
+  <!-- The overlay itself closes on click; the box stops propagation so a click
+       INSIDE does not dismiss. Three ways out -- the X, the backdrop, Escape --
+       because this opens full-screen over everything and a single underlined
+       "Fechar" at the bottom is easy to miss on a phone. -->
+  <div id="voiceModal" class="voice-modal-overlay" hidden onclick="closeVoiceModal()">
     <div class="voice-modal-box" onclick="event.stopPropagation()">
-      <h3 style="margin:0 0 6px;">
-        <span class="show-pt">Falar uma reuniao</span>
-        <span class="show-en">Speak a meeting</span>
-      </h3>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <h3 style="margin:0 0 6px;">
+          <span class="show-pt">Falar uma reuniao</span>
+          <span class="show-en">Speak a meeting</span>
+        </h3>
+        <button type="button" aria-label="Fechar" onclick="closeVoiceModal()"
+                style="background:none;border:none;font-size:24px;line-height:1;color:#6b6459;cursor:pointer;padding:0 2px;">&#215;</button>
+      </div>
       <!-- The extractor can already return all seven meeting categories, but it
            can only work with what he actually says. Asking for "who, when and
            where" got exactly those three things and left the type to a guess,
@@ -1506,6 +1524,13 @@
       if (tm) { tm.textContent = ""; }
       m.hidden = false;
     }
+
+    // Escape closes it, like every other dialog. Registered once at load.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") { return; }
+      var m = document.getElementById("voiceModal");
+      if (m && !m.hidden) { closeVoiceModal(); }
+    });
 
     function closeVoiceModal() {
       // Closing mid-recording must not leave the microphone live.

@@ -31676,7 +31676,13 @@ async function handleFetch(request, env, ctx) {
 // That was wrong. The real cause was the Google Drive API not being ENABLED in the
 // Cloud project at all -- /drive/v3/about failed identically. Reverted: never keep
 // a broader permission that was granted on a wrong diagnosis.
-var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
+// Two scopes, both read-only and both needed:
+//   drive.metadata.readonly -- WHEN a watched file changed, and who touched it
+//   spreadsheets.readonly   -- WHAT the rows say, so the alert can name the leads
+//                              that are in the sheet but missing from Apex
+// The alert only fires on DRIFT, never on an edit. Nicole, 2026-09-07:
+// "that's what matters is the drift from the system not that something was edited".
+var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/spreadsheets.readonly";
 
 // Drive returns modifiedTime in UTC (e.g. 2026-09-07T22:00:00.000Z). Everything a
 // human reads in Apex is Eastern -- see [times are 12-hour, D1 is UTC]. Showing the
@@ -31861,6 +31867,112 @@ async function handleGoogleDriveOAuthStatus(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// THE DRIFT CHECK — what the sheet holds that Apex does not
+//
+// The edit itself is not the finding. Nicole, 2026-09-07: "that's what matters
+// is the drift from the system not that something was edited." So a change to a
+// watched file triggers this comparison, and Nicole is only alerted when a lead
+// exists in the spreadsheet and NOT in gm_leads.
+//
+// Deliberately stateless: it re-derives what is missing RIGHT NOW rather than
+// diffing against a stored snapshot. A snapshot would keep reporting a row that
+// has since been entered into Apex; this goes quiet on its own as gaps are
+// closed, which is the difference between an alert she reads and one she learns
+// to ignore.
+//
+// Matching mirrors the manual 2026-09-07 audit that recovered 37 JM leads:
+// last-10-digits phone OR normalised name. Either counts as present.
+// ---------------------------------------------------------------------------
+
+function driftNorm(s) {
+    return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function driftPhone10(s) {
+    var d = String(s == null ? "" : s).replace(/\D/g, "");
+    return d.length >= 10 ? d.slice(-10) : "";
+}
+
+// A row is only a lead if it carries something we can actually match on. Header
+// rows, colour legends and dropdown-only rows all fail this and are skipped --
+// the manual audit found 17 such rows in JM's CANCELADOS alone.
+function driftIsRealRow(name, phone, skipTerms) {
+    if (!name && !phone) { return false; }
+    var n = driftNorm(name);
+    if (n && skipTerms.indexOf(n) >= 0) { return false; }
+    if (!phone && n.length < 3) { return false; }
+    return true;
+}
+
+async function fetchSheetTab(accessToken, fileId, tabName) {
+    var url = "https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(fileId) +
+              "/values/" + encodeURIComponent(tabName) + "?majorDimension=ROWS";
+    var res = await fetch(url, { headers: { "Authorization": "Bearer " + accessToken } });
+    if (!res.ok) { return null; }
+    var body = await res.json();
+    return body.values || [];
+}
+
+// Returns { missing: [{name, phone, tab}], checked: n } or null if it could not read.
+async function computeSheetDrift(env, accessToken, watched) {
+    var cfg;
+    try { cfg = JSON.parse(watched.sheet_config || "null"); } catch (e) { cfg = null; }
+    if (!cfg || !cfg.tabs || cfg.tabs.length === 0) { return null; }
+    if (!watched.client_id) { return null; }
+
+    var skipTerms = cfg.skipTerms || [];
+
+    // Everything Apex already knows for this client, by phone and by name.
+    var rows = await env.DB.prepare(
+        "SELECT cliente, telefone FROM gm_leads WHERE client_id = ?"
+    ).bind(watched.client_id).all();
+
+    var byPhone = {}, byName = {};
+    var known = (rows && rows.results) || [];
+    for (var i = 0; i < known.length; i++) {
+        var p = driftPhone10(known[i].telefone);
+        if (p) { byPhone[p] = true; }
+        var n = driftNorm(known[i].cliente);
+        if (n) { byName[n] = true; }
+    }
+
+    var missing = [];
+    var checked = 0;
+    var seen = {};
+
+    for (var t = 0; t < cfg.tabs.length; t++) {
+        var tab = cfg.tabs[t];
+        var values = await fetchSheetTab(accessToken, watched.file_id, tab.name);
+        if (values === null) { continue; }
+
+        for (var r = 0; r < values.length; r++) {
+            var row = values[r] || [];
+            var rawName  = row[tab.nameCol];
+            var rawPhone = row[tab.phoneCol];
+
+            // Some tabs (JM's CANCELADOS) hold a phone number where the name
+            // should be. Treat a "name" that parses as a phone as a phone.
+            var phone = driftPhone10(rawPhone) || driftPhone10(rawName);
+            var name  = driftPhone10(rawName) ? "" : String(rawName == null ? "" : rawName).trim();
+
+            if (!driftIsRealRow(name, phone, skipTerms)) { continue; }
+            checked++;
+
+            var key = driftNorm(name) + "|" + phone;
+            if (seen[key]) { continue; }
+            seen[key] = true;
+
+            var found = (phone && byPhone[phone]) || (name && byName[driftNorm(name)]);
+            if (!found) {
+                missing.push({ name: name || null, phone: phone || null, tab: tab.name });
+            }
+        }
+    }
+
+    return { missing: missing, checked: checked };
+}
+
+// ---------------------------------------------------------------------------
 // The poll itself. One metadata call per watched file.
 //
 // baselineOnly=true records the current modifiedTime WITHOUT alerting -- used
@@ -31869,7 +31981,7 @@ async function handleGoogleDriveOAuthStatus(request, env) {
 // Never throws: it runs inside the cron's waitUntil alongside other checks.
 // ---------------------------------------------------------------------------
 async function pollWatchedFiles(env, baselineOnly) {
-    var out = { checked: 0, changed: 0, lost: 0, errors: [] };
+    var out = { checked: 0, changed: 0, drifted: 0, lost: 0, errors: [] };
 
     var files = await env.DB.prepare(
         "SELECT * FROM watched_files WHERE active = 1"
@@ -31929,21 +32041,47 @@ async function pollWatchedFiles(env, baselineOnly) {
 
             var previous = f.last_modified_seen || f.baseline_modified;
             if (modified && previous && modified > previous) {
-                var msg = f.label + " was edited on " + driveTimeForHumans(modified) +
-                          (who ? " by " + who : "") + ".";
-                await env.DB.prepare(
-                    "UPDATE watched_files SET last_modified_seen = ?, last_modifier = ?, alert_active = 1, " +
-                    "alert_message = ?, alert_raised_at = datetime('now'), last_checked_at = datetime('now'), " +
-                    "updated_at = datetime('now')" + clearLost + " WHERE id = ?"
-                ).bind(modified, who, msg, f.id).run();
-
-                await notifyNicoleTelegram(env,
-                    "Apex: a watched spreadsheet changed\n\n" + msg +
-                    "\n\nThis file was imported into Apex on " + (f.imported_at || "an earlier date") +
-                    ". Someone may still be working there instead of in the system." +
-                    (f.source_url ? "\n\n" + f.source_url : "")
-                );
                 out.changed++;
+
+                // An edit on its own is NOT worth an alert. Read the rows and ask
+                // the only question that matters: is anything in that sheet absent
+                // from Apex? Silence when the answer is no.
+                var drift = null;
+                try { drift = await computeSheetDrift(env, accessToken, f); }
+                catch (e) { out.errors.push(f.label + " drift: " + e.message); }
+
+                var when = driveTimeForHumans(modified) + (who ? " by " + who : "");
+
+                if (drift && drift.missing.length > 0) {
+                    var names = drift.missing.slice(0, 12).map(function(m) {
+                        return "- " + (m.name || m.phone) + (m.name && m.phone ? " (" + m.phone + ")" : "");
+                    }).join("\n");
+                    var more = drift.missing.length > 12
+                        ? "\n...and " + (drift.missing.length - 12) + " more"
+                        : "";
+
+                    var msg = drift.missing.length + " lead(s) in " + f.label +
+                              " are NOT in Apex. Edited " + when + ".";
+
+                    await env.DB.prepare(
+                        "UPDATE watched_files SET last_modified_seen = ?, last_modifier = ?, alert_active = 1, " +
+                        "alert_message = ?, alert_raised_at = datetime('now'), last_checked_at = datetime('now'), " +
+                        "updated_at = datetime('now')" + clearLost + " WHERE id = ?"
+                    ).bind(modified, who, msg, f.id).run();
+
+                    await notifyNicoleTelegram(env,
+                        "Apex: leads missing from the system\n\n" + msg + "\n\n" + names + more +
+                        (f.source_url ? "\n\n" + f.source_url : "")
+                    );
+                    out.drifted++;
+                } else {
+                    // Changed, but nothing is missing -- record it and stay quiet.
+                    await env.DB.prepare(
+                        "UPDATE watched_files SET last_modified_seen = ?, last_modifier = ?, " +
+                        "last_checked_at = datetime('now'), updated_at = datetime('now')" +
+                        clearLost + " WHERE id = ?"
+                    ).bind(modified, who, f.id).run();
+                }
             } else {
                 await env.DB.prepare(
                     "UPDATE watched_files SET last_checked_at = datetime('now'), updated_at = datetime('now')" +

@@ -27057,6 +27057,10 @@ async function handlePostFinanceNewClubConfirm(request, env) {
 // not a blank panel.
 // ---------------------------------------------------------------------------
 
+// The date this system started being used day to day. Transactions older than
+// this are recovered history: real, counted in every total, but never a task.
+var ATTENTION_HISTORY_CUTOFF = "2026-07-01";
+
 async function handleGetFinanceNewAttention(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -27074,11 +27078,26 @@ async function handleGetFinanceNewAttention(request, env) {
 
         // 2. Uncategorized spending. Transfers are excluded -- moving money
         //    between her own accounts is not a categorization decision.
+        //
+        //    ⚠️ AND SO IS BACKFILLED HISTORY. On 2026-09-07 the Plaid window was
+        //    widened to recover months of older transactions, which was worth
+        //    doing for the totals -- but it dropped 84 rows of ordinary past
+        //    personal spending (Domino's, Shein, Duke Energy, a car payment)
+        //    straight into this queue. Nicole: "the history we just pulled in
+        //    cannot create more work for her."
+        //
+        //    Those rows are an ARCHIVE, not a pending decision: they predate
+        //    the system, no rule matches them, and filing them changes nothing
+        //    anyone will act on. They still count in every total and still
+        //    appear in the transaction list -- they simply do not ask for
+        //    attention. Anything from the cutoff onward is live and still
+        //    queues normally.
         var uncatRow = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM transactions " +
             "WHERE category_id IS NULL AND is_transfer = 0 AND voided_at IS NULL " +
-            "AND transfer_status NOT IN ('suspected','confirmed')"
-        ).first();
+            "AND transfer_status NOT IN ('suspected','confirmed') " +
+            "AND date >= ?"
+        ).bind(ATTENTION_HISTORY_CUTOFF).first();
 
         // How much the rules absorbed on their own. This is the shrinking
         // number: rule-categorized rows are ones she never had to touch.

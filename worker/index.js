@@ -23400,6 +23400,58 @@ async function applyCategorizationRules(env, opts) {
         applied += (res.meta && res.meta.changes) || 0;
     }
 
+    applied += await categorizeClientIncome(env);
+    return applied;
+}
+
+// ---------------------------------------------------------------------------
+// Money IN from a company that is a client of ours is client revenue. Full
+// stop -- no invoice required.
+//
+// WHY THIS EXISTS. Every rule in categorization_rules was an EXPENSE merchant
+// (Walmart, Geico, gas stations) plus two transfer rules. There was not one
+// client-income rule, so every client payment had to be filed by hand, every
+// time, and $11,040 of income across 15 transactions sat uncategorized while
+// Rafa concluded the numbers could not be trusted and started his own
+// spreadsheet.
+//
+// AN INVOICE IS NOT A PRECONDITION. TIGERS is `closed` with zero invoices and
+// paid $5,000 in September -- money owed from before this system existed. That
+// is revenue whether or not anything matches it. Nicole: "categorize it and
+// then just not match it to an invoice."
+//
+// The client's own name in the bank description is a hard key, the same shape
+// as a Zelle Conf# or a Google Meet link. It is not a guess and needs no
+// confirmation.
+// ---------------------------------------------------------------------------
+async function categorizeClientIncome(env) {
+    var clients = await env.DB.prepare(
+        "SELECT id, name FROM clients WHERE name IS NOT NULL AND TRIM(name) != ''"
+    ).all();
+    var rows = clients.results || [];
+    var applied = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+        var name = String(rows[i].name || "").trim();
+        // Short names collide with ordinary words; require enough signal that a
+        // substring hit means the company. "TIGERS" is 6, which is the floor.
+        if (name.length < 6) { continue; }
+        // The bank writes the legal name ("GATOR OUTDOOR LIVING LLC") while the
+        // client row holds the trading name, so match on the client name as a
+        // SUBSTRING of the description rather than the reverse.
+        var res = await env.DB.prepare(
+            "UPDATE transactions SET category_id = 'cat_receita_clientes', " +
+            "category_source = 'rule', categorized_at = datetime('now') " +
+            "WHERE category_id IS NULL AND voided_at IS NULL AND amount_cents > 0 " +
+            // Never touch a leg of a transfer: an owner draw arriving in the
+            // personal account is not revenue, and those descriptions can carry
+            // a client-like name.
+            "AND transfer_status NOT IN ('suspected','confirmed') " +
+            "AND UPPER(description) LIKE ?"
+        ).bind("%" + name.toUpperCase() + "%").run();
+        applied += (res.meta && res.meta.changes) || 0;
+    }
+
     return applied;
 }
 

@@ -22151,7 +22151,31 @@ async function handlePostFinanceNewLinkTokenUpdate(request, env) {
         });
 
         if (!result.ok) { return jsonErr(plaidErrMessage(result), 502); }
-        return jsonOk({ link_token: result.data.link_token });
+
+        // Update mode repairs the connection but CANNOT widen its history: the
+        // days_requested window is fixed when an Item is created. So a repaired
+        // Item keeps whatever it was first given -- 90 days for anything linked
+        // before days_requested was set.
+        //
+        // Reported so the screen can offer the choice at the one moment it is
+        // free to take. Somebody already re-authenticating loses nothing by
+        // relinking fresh instead, and that is the ONLY way to reach the
+        // eighteen months Bank of America actually holds. Nobody should be
+        // asked to reconnect for its own sake -- but when a reconnect is
+        // happening anyway, this is when to ask.
+        var floor = await env.DB.prepare(
+            "SELECT MIN(t.date) AS d FROM transactions t " +
+            "JOIN accounts a ON a.id = t.account_id " +
+            "WHERE a.plaid_item_id = ? AND t.voided_at IS NULL"
+        ).bind(item.id).first();
+
+        return jsonOk({
+            link_token: result.data.link_token,
+            history_starts_at: floor ? floor.d : null,
+            history_note: "Reconnecting keeps the current history window. " +
+                "Removing this connection and linking it again would fetch up " +
+                "to 18 months instead."
+        });
     } catch (e) {
         return jsonErr("Error creating update link token: " + e.message, 500);
     }

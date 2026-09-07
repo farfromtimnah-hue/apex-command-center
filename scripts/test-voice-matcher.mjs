@@ -27,6 +27,14 @@ const roster = [
   { id: "gator", name: "GATOR OUTDOOR LIVING", owners: "Marcelo Diniz, Neicy Diniz e Heri" },
   { id: "pure",  name: "MY PURE FILTER",       owners: "Marcelo Diniz, Heri e Rafael" },
   { id: "produ", name: "PRODUWALL",            owners: "Nicolas & Iasmin" },
+  // A SECOND Rafael, and not the same person: this one is the cabinet maker at
+  // a closed client. Pr. Rafa is the Rafael in MY PURE FILTER. The owners
+  // column is free text and cannot tell them apart, which is the whole reason
+  // a shared first name has to come back ambiguous.
+  { id: "elev",  name: "ELEVATE PRIME",         owners: "Rafael & Kenia" },
+  // Adriana Nascimento really is on two client rows in production.
+  { id: "inter", name: "INTERLOCK EXPRESS CONSTRUCTION LLC", owners: "Adriana Nascimento; Guilherme Porto" },
+  { id: "adri",  name: "ADRIANA GOURMET CUISINE LLC",        owners: "Adriana Nascimento" },
 ];
 
 let fails = 0;
@@ -57,9 +65,18 @@ r = voiceResolveVerdict({ client_hint: "Gator Outdoor", is_personal: false }, ro
 t('"Gator Outdoor" -> confident', r.verdict, "confident");
 t("   ...attaches Gator", r.client_id, "gator");
 
-// Rafael is an owner of My Pure Filter only.
+// "Rafael" names an owner on TWO client rows -- Pr. Rafa at MY PURE FILTER and
+// an unrelated cabinet maker at ELEVATE PRIME. An earlier version of this file
+// asserted "confident MY PURE FILTER" and passed only because the fixture held
+// 3 of the 38 real clients and ELEVATE PRIME was not among them. Verified
+// against the full production roster: the live matcher returns ambiguous.
 r = voiceResolveVerdict({ client_hint: "Rafael", is_personal: false }, roster);
-t('"Rafael" -> confident My Pure Filter', r.verdict, "confident");
+t('"Rafael" -> two different people -> ambiguous', r.verdict, "ambiguous");
+t("   ...attaches nothing", r.client_id, null);
 
-console.log(fails ? `\n${fails} FAILED` : "\nAll checks passed against real production owners data");
+// Same shape, a different real collision.
+r = voiceResolveVerdict({ client_hint: "Adriana", is_personal: false }, roster);
+t('"Adriana" -> on two client rows -> ambiguous', r.verdict, "ambiguous");
+
+console.log(fails ? `\n${fails} FAILED` : "\nAll checks passed. NOTE: this fixture is a SUBSET of the 38 real\nclients, chosen for the known collisions. Passing here is not proof\nagainst the full roster -- re-check against D1 when owners change.");
 process.exit(fails?1:0);

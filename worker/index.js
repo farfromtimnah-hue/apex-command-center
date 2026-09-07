@@ -31633,6 +31633,9 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/google-drive/oauth/status" && method === "GET") {
             return handleGoogleDriveOAuthStatus(request, env);
         }
+        if (path === "/api/google-drive/drift-test" && method === "GET") {
+            return handleDriveDriftTest(request, env);
+        }
         if (path === "/api/google-drive/diagnose" && method === "GET") {
             return handleGoogleDriveDiagnose(request, env);
         }
@@ -31888,6 +31891,20 @@ function driftNorm(s) {
     return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Couples are written in either order: the sheet says "Stephanie e Jhony", Apex
+// says "JOHNY E STEPHANIE". Sorting the word-parts makes the two match, which a
+// straight normalise cannot do. Also absorbs "e"/"and"/"&" and spelling drift in
+// the joining word. Caught on the first live drift run, 2026-09-07.
+function driftNameTokens(s) {
+    var n = String(s == null ? "" : s).toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(function(w) { return w && w !== "e" && w !== "and" && w.length > 1; })
+        .sort()
+        .join("");
+    return n.length >= 6 ? n : "";
+}
+
 function driftPhone10(s) {
     var d = String(s == null ? "" : s).replace(/\D/g, "");
     return d.length >= 10 ? d.slice(-10) : "";
@@ -31900,6 +31917,19 @@ function driftIsRealRow(name, phone, skipTerms) {
     if (!name && !phone) { return false; }
     var n = driftNorm(name);
     if (n && skipTerms.indexOf(n) >= 0) { return false; }
+
+    // A "name" that is really money, a percentage or a bare number is a summary
+    // or total row, not a lead. LIRA's CRM PIPELINE ends with "$270.200" in the
+    // client column and it was reported as a missing lead on the first live run.
+    if (name) {
+        var raw = String(name).trim();
+        if (/^[\$R]?\s*[\d.,%\s]+$/.test(raw)) { return false; }
+        if (/^(total|subtotal|soma|media|média)\b/i.test(raw)) { return false; }
+    }
+
+    // No name AND no usable phone is not actionable. A phone with no name IS
+    // reportable (JM's CANCELADOS tab has no names at all), but a row with
+    // neither a real name nor a 10-digit phone is noise.
     if (!phone && n.length < 3) { return false; }
     return true;
 }
@@ -31927,13 +31957,15 @@ async function computeSheetDrift(env, accessToken, watched) {
         "SELECT cliente, telefone FROM gm_leads WHERE client_id = ?"
     ).bind(watched.client_id).all();
 
-    var byPhone = {}, byName = {};
+    var byPhone = {}, byName = {}, byTokens = {};
     var known = (rows && rows.results) || [];
     for (var i = 0; i < known.length; i++) {
         var p = driftPhone10(known[i].telefone);
         if (p) { byPhone[p] = true; }
         var n = driftNorm(known[i].cliente);
         if (n) { byName[n] = true; }
+        var tk = driftNameTokens(known[i].cliente);
+        if (tk) { byTokens[tk] = true; }
     }
 
     var missing = [];
@@ -31962,7 +31994,9 @@ async function computeSheetDrift(env, accessToken, watched) {
             if (seen[key]) { continue; }
             seen[key] = true;
 
-            var found = (phone && byPhone[phone]) || (name && byName[driftNorm(name)]);
+            var found = (phone && byPhone[phone]) ||
+                        (name && byName[driftNorm(name)]) ||
+                        (name && byTokens[driftNameTokens(name)]);
             if (!found) {
                 missing.push({ name: name || null, phone: phone || null, tab: tab.name });
             }
@@ -32154,6 +32188,42 @@ async function handleGoogleDriveDiagnose(request, env) {
         return jsonOk({ connected: true, token_account: who, files: checks });
     } catch (e) {
         return jsonErr("Diagnose error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google-drive/drift-test   (developer only)
+// Runs the drift comparison NOW, without waiting for the cron and without
+// raising an alert. Exists because the whole read-the-rows path had never been
+// exercised once -- and a failsafe nobody has watched run is not a failsafe.
+// ---------------------------------------------------------------------------
+async function handleDriveDriftTest(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var token = await getGoogleDriveAccessToken(env);
+        var files = await env.DB.prepare("SELECT * FROM watched_files WHERE active = 1").all();
+        var report = [];
+
+        var list = (files && files.results) || [];
+        for (var i = 0; i < list.length; i++) {
+            var f = list[i];
+            var d = null, err = null;
+            try { d = await computeSheetDrift(env, token, f); }
+            catch (e) { err = e.message; }
+            report.push({
+                label:        f.label,
+                rows_checked: d ? d.checked : 0,
+                missing:      d ? d.missing.length : null,
+                sample:       d ? d.missing.slice(0, 8) : null,
+                error:        err
+            });
+        }
+        return jsonOk({ files: report });
+    } catch (e) {
+        return jsonErr("Drift test error: " + e.message, 500);
     }
 }
 

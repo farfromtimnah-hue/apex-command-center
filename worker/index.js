@@ -816,6 +816,35 @@ function isUglyFirefliesTitle(title) {
     return false;
 }
 
+// Fireflies titles carry the calendar event's suffix -- "PRODUWALL - RDE",
+// "JM LUXURY POOL - Consultoria Apex" -- while the booked session row is named
+// for the client alone. An exact string compare therefore missed exactly the
+// meetings that WERE booked properly, which is how real client sessions ended
+// up attributed to nobody. Strip the meeting-type suffix and fold case/accents
+// so the two spellings meet in the middle.
+function normalizeMeetingTitle(title) {
+    if (!title) { return ""; }
+    var t = String(title).toLowerCase();
+    try { t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch (e) {}
+    // Everything from a dash-delimited suffix onward: " - RDE", " - Consultoria Apex".
+    t = t.replace(/\s*[-\u2013\u2014]\s*[^-\u2013\u2014]*$/, "");
+    t = t.replace(/\b(llc|inc|ltda|me|corp)\b/g, "");
+    t = t.replace(/[^a-z0-9]+/g, " ").trim();
+    return t;
+}
+
+// True when two meeting names refer to the same client. Plural/singular differs
+// between the calendar and the client row ("JM LUXURY POOL" vs "JM LUXURY POOLS"),
+// so a containment test is used rather than equality -- but only above a length
+// floor, since short strings match each other by accident.
+function meetingTitlesMatch(a, b) {
+    var na = normalizeMeetingTitle(a);
+    var nb = normalizeMeetingTitle(b);
+    if (!na || !nb || na.length < 4 || nb.length < 4) { return false; }
+    if (na === nb) { return true; }
+    return na.indexOf(nb) === 0 || nb.indexOf(na) === 0;
+}
+
 // Tries to find a better title for a Fireflies transcript by matching it
 // against a real calendar event: first Apex-created sessions already in D1
 // (matched by google_event_id), then a live lookup of Rafa's Google Calendar
@@ -834,20 +863,31 @@ async function findCalendarTitleForFireflies(env, meta) {
     // 1) Apex-created sessions already in D1, same day, overlapping time.
     var dayStr = firefliesDateToYMD(meta.date);
     var dayRows = await env.DB.prepare(
-        "SELECT client_name, time, google_meet_link FROM sessions " +
+        "SELECT client_name, client_id, time, google_meet_link FROM sessions " +
         "WHERE date = ? AND client_name IS NOT NULL AND client_name != '' AND status != 'discarded' AND status != 'cancelled'"
     ).bind(dayStr).all();
 
-    for (var i = 0; i < dayRows.results.length; i++) {
-        var row = dayRows.results[i];
-        if (isUglyFirefliesTitle(row.client_name)) { continue; }
+    // The Meet link is the only hard key here -- Google mints it per event, so
+    // an equal link is the same meeting with no judgement involved. Try every
+    // row for a link match BEFORE falling back to names or clock overlap.
+    var i, row;
+    for (i = 0; i < dayRows.results.length; i++) {
+        row = dayRows.results[i];
         if (meta.meeting_link && row.google_meet_link && row.google_meet_link === meta.meeting_link) {
-            return row.client_name;
+            return { title: row.client_name, client_id: row.client_id || null, matched_by: "meet_link" };
+        }
+    }
+    for (i = 0; i < dayRows.results.length; i++) {
+        row = dayRows.results[i];
+        if (isUglyFirefliesTitle(row.client_name)) { continue; }
+        // Same client, different spelling: "PRODUWALL - RDE" vs "PRODUWALL".
+        if (meetingTitlesMatch(meta.title, row.client_name)) {
+            return { title: row.client_name, client_id: row.client_id || null, matched_by: "title" };
         }
         if (row.time) {
             var rowStartMs = new Date(dayStr + "T" + row.time.slice(0,5) + ":00").getTime();
             if (!isNaN(rowStartMs) && rowStartMs >= windowStart && rowStartMs <= windowEnd) {
-                return row.client_name;
+                return { title: row.client_name, client_id: row.client_id || null, matched_by: "time_window" };
             }
         }
     }
@@ -869,10 +909,10 @@ async function findCalendarTitleForFireflies(env, meta) {
 
             var evMeetLink = extractGoogleEventMeetLink(ev);
             if (meta.meeting_link && evMeetLink && evMeetLink === meta.meeting_link) {
-                return ev.summary;
+                return { title: ev.summary, client_id: null, matched_by: "google_meet_link" };
             }
             if (evStartMs >= windowStart && evStartMs <= windowEnd) {
-                return ev.summary;
+                return { title: ev.summary, client_id: null, matched_by: "google_time_window" };
             }
         }
     } catch (e) {
@@ -905,20 +945,51 @@ async function ingestFirefliesTranscript(env, meta) {
     ).bind('%"fireflies_id":"' + meta.id + '"%').first();
     if (existing) { return { session_id: existing.id, duplicate: true }; }
 
+    // ALWAYS resolve, not only when the title looks ugly. A tidy-looking title
+    // ("PRODUWALL - RDE") skipped this lookup entirely, so the transcripts most
+    // likely to belong to a real booked meeting were the ones never matched --
+    // and every Fireflies session landed attributed to nobody.
     var displayTitle = meta.title;
-    if (isUglyFirefliesTitle(displayTitle)) {
-        var matchedTitle = await findCalendarTitleForFireflies(env, meta);
-        if (matchedTitle) { displayTitle = matchedTitle; }
+    var matchedClientId = null;
+    var matchedBy = null;
+    var match = await findCalendarTitleForFireflies(env, meta);
+    if (match) {
+        matchedBy = match.matched_by || null;
+        matchedClientId = match.client_id || null;
+        // Only let a match overwrite the title when the original is unusable.
+        // Fireflies' own title is otherwise the better label for the meeting.
+        if (isUglyFirefliesTitle(displayTitle) && match.title) { displayTitle = match.title; }
     }
 
     var sessionId = crypto.randomUUID();
-    var fireflyMeta = JSON.stringify({ fireflies_id: meta.id });
+    var fireflyMeta = JSON.stringify({
+        fireflies_id: meta.id,
+        matched_by: matchedBy
+    });
     await env.DB.prepare(
         // created_by 'fireflies', not a person: this row is created by the
         // transcript-ingestion machine, and naming it honestly is the point.
-        "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at, created_by) " +
-        "VALUES (?, ?, ?, 'inbox', ?, ?, datetime('now'), 'fireflies')"
-    ).bind(sessionId, displayTitle, firefliesDateToYMD(meta.date), meta.transcript_text, fireflyMeta).run();
+        // google_meet_link is stored so a later transcript for the same Meet
+        // has a hard key to match on instead of guessing from the name.
+        "INSERT INTO sessions (id, client_name, client_id, google_meet_link, date, status, raw_transcript, task_completions, created_at, created_by) " +
+        "VALUES (?, ?, ?, ?, ?, 'inbox', ?, ?, datetime('now'), 'fireflies')"
+    ).bind(
+        sessionId, displayTitle, matchedClientId, meta.meeting_link || null,
+        firefliesDateToYMD(meta.date), meta.transcript_text, fireflyMeta
+    ).run();
+
+    // Mirror into session_clients so the meeting shows on the client profile.
+    if (matchedClientId) {
+        try {
+            await env.DB.prepare(
+                "INSERT OR IGNORE INTO session_clients (session_id, client_id, is_primary, source, created_by) " +
+                "VALUES (?, ?, 1, 'importer', 'fireflies')"
+            ).bind(sessionId, matchedClientId).run();
+        } catch (e) {
+            // The session row is the load-bearing write; a failed mirror must
+            // never lose the transcript.
+        }
+    }
     return { session_id: sessionId, duplicate: false };
 }
 

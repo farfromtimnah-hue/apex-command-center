@@ -4712,6 +4712,389 @@ function recurOccurrenceDate(dateStr, freq, index) {
     return out.getUTCFullYear() + "-" + pad2(out.getUTCMonth() + 1) + "-" + pad2(out.getUTCDate());
 }
 
+// ---------------------------------------------------------------------------
+// Route: POST /api/sessions/voice
+// Body: multipart/form-data with an "audio" file.
+//
+// VOICE BOOKING. Rafa is overloaded and the booking dialog's questions are
+// what he routes around, so the microphone is the whole interface: he speaks
+// the meeting and it gets created.
+//
+// The rule that shapes everything below: ALWAYS create the meeting from
+// whatever he said. Ask ONE follow-up question when something essential is
+// missing, but never block on the answer -- if he walks away, save what is
+// known and flag it. A meeting with a gap in it is worth more than a question
+// nobody answered.
+// ---------------------------------------------------------------------------
+
+// A phone left recording in a pocket must not run up cost, so the audio is
+// capped by SIZE before it ever reaches the model. 8 MB is roughly 8-10
+// minutes of the compressed audio a browser produces -- far more than anyone
+// speaks to book one meeting, and a hard ceiling on a single call.
+var VOICE_MAX_AUDIO_BYTES = 8 * 1024 * 1024;
+
+// Claude decides the MEANING; this decides what happens with it. Three
+// verdicts, never two:
+//   confident        -> attach the client
+//   ambiguous        -> create it unlinked and flag it
+//   not_client       -> create it and do NOT flag it
+//
+// A first name shared by two different clients is ambiguous, never a guess.
+// Party/wedding/birthday/shower vocabulary means personal even when an owner
+// name matches: "Cha de panela Iasmin" is a bridal shower and Iasmin is an
+// owner of PRODUWALL -- guessing PRODUWALL there would be confidently wrong.
+function voiceResolveVerdict(extracted, roster) {
+    var out = { verdict: "not_client", client_id: null, reason: null };
+    if (!extracted) { return out; }
+
+    if (extracted.is_personal) {
+        out.reason = "personal_vocabulary";
+        return out;
+    }
+    if (!extracted.client_hint) {
+        out.reason = "no_client_mentioned";
+        return out;
+    }
+
+    var hint = String(extracted.client_hint).trim().toLowerCase();
+    if (!hint) { out.reason = "no_client_mentioned"; return out; }
+
+    // Match against the business name AND the owners column: Rafa says the
+    // owner's name far more often than the business, and Brazilian
+    // diminutives are normal ("Marcelinho" for Marcelo Diniz, who owns BOTH
+    // Gator Outdoor Living and My Pure Filter -- which is exactly why one
+    // owner name can legitimately produce two matches).
+    var hits = [];
+    for (var i = 0; i < roster.length; i++) {
+        var c = roster[i];
+        var name   = String(c.name || "").toLowerCase();
+        var owners = String(c.owners || "").toLowerCase();
+        if (!name && !owners) { continue; }
+        if (name && (name.indexOf(hint) !== -1 || hint.indexOf(name) !== -1)) {
+            hits.push(c); continue;
+        }
+        if (owners && voiceOwnerMatches(owners, hint)) { hits.push(c); }
+    }
+
+    if (hits.length === 1) {
+        out.verdict = "confident";
+        out.client_id = hits[0].id;
+        return out;
+    }
+    if (hits.length > 1) {
+        // Two companies behind one name is not a coin toss. Alice completes it.
+        out.verdict = "ambiguous";
+        out.reason  = "name_matches_" + hits.length + "_clients";
+        return out;
+    }
+    out.verdict = "ambiguous";
+    out.reason  = "no_match_for_spoken_name";
+    return out;
+}
+
+// Owner matching, diminutive-aware. "Marcelinho" must reach "Marcelo Diniz",
+// so a spoken token matches an owner token when either contains the other
+// down to a shared stem -- Portuguese diminutives ADD to the stem
+// (Marcelo -> Marcelinho, Rafael -> Rafinha), they do not replace it.
+function voiceOwnerMatches(ownersLower, hintLower) {
+    // \u00e0-\u00ff is the accented Latin-1 range, written as escapes so this
+    // file stays plain ASCII: Portuguese names carry accents and splitting on
+    // [^a-z] alone would cut "Inacio" and "Goncalves" into fragments.
+    var wordSplit   = /[^a-z\u00e0-\u00ff]+/;
+    var ownerTokens = ownersLower.split(wordSplit).filter(function(t) { return t.length > 2; });
+    var hintTokens  = hintLower.split(wordSplit).filter(function(t) { return t.length > 2; });
+    for (var i = 0; i < hintTokens.length; i++) {
+        var h = hintTokens[i];
+        for (var j = 0; j < ownerTokens.length; j++) {
+            var o = ownerTokens[j];
+            if (h === o) { return true; }
+            // A diminutive keeps the first syllables of the name it comes
+            // from. Four characters is enough to separate "Marcelinho"/
+            // "Marcelo" from an unrelated name, and short enough to survive
+            // the ending being replaced.
+            var stem = Math.min(4, Math.min(h.length, o.length));
+            if (stem >= 4 && h.slice(0, stem) === o.slice(0, stem)) { return true; }
+        }
+    }
+    return false;
+}
+
+async function handlePostSessionsVoice(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
+            return jsonErr("Forbidden", 403);
+        }
+        if (!env.AI) { return jsonErr("Workers AI binding is not configured", 500); }
+
+        var form = await request.formData();
+        var audio = form.get("audio");
+        if (!audio || typeof audio.arrayBuffer !== "function") {
+            return jsonErr("audio file is required", 400);
+        }
+
+        var buf = await audio.arrayBuffer();
+        if (buf.byteLength === 0) { return jsonErr("audio file is empty", 400); }
+        if (buf.byteLength > VOICE_MAX_AUDIO_BYTES) {
+            // The cap is enforced here as well as in the browser: a client-side
+            // limit is a convenience, not a spending control.
+            return jsonErr("Recording is too long. Keep it under a couple of minutes.", 413);
+        }
+
+        var transcript = "";
+        try {
+            var asr = await env.AI.run("@cf/openai/whisper", {
+                audio: Array.from(new Uint8Array(buf))
+            });
+            transcript = (asr && asr.text ? String(asr.text) : "").trim();
+        } catch (e) {
+            return jsonErr("Could not transcribe the recording: " + e.message, 502);
+        }
+        if (!transcript) { return jsonErr("Nothing was heard in the recording", 422); }
+
+        // The roster INCLUDING owners: Rafa says the owner's name more often
+        // than the business name, so a roster without owners cannot resolve
+        // what he actually says.
+        var rosterRes = await env.DB.prepare(
+            "SELECT id, name, owners FROM clients WHERE archived = 0 ORDER BY name"
+        ).all();
+        var roster = rosterRes.results || [];
+        var rosterText = roster.map(function(c) {
+            return "- " + c.name + (c.owners ? "  [owners: " + c.owners + "]" : "");
+        }).join("\n");
+
+        var today = localDateStrForTZ();
+        var prompt =
+            "You extract meeting details from a short spoken note by Rafa, a Brazilian business " +
+            "consultant in Florida. The note is usually Portuguese, sometimes English.\n\n" +
+            "Today is " + today + ". Resolve relative dates (amanha, sexta, semana que vem) against it.\n\n" +
+            "His client roster, with the owners of each business:\n" + rosterText + "\n\n" +
+            "What he said:\n\"\"\"\n" + transcript + "\n\"\"\"\n\n" +
+            "Return ONLY a JSON object, no markdown and no explanation:\n" +
+            "{\n" +
+            '  "client_hint": "<the business OR person name he said, verbatim, or null>",\n' +
+            '  "date": "<YYYY-MM-DD or null>",\n' +
+            '  "time": "<HH:MM 24h or null>",\n' +
+            '  "end_time": "<HH:MM 24h or null>",\n' +
+            '  "meeting_category": "<client|onsite_visit|xray|church|personal|vendor|event>",\n' +
+            '  "session_type": "<online_meet|in_person>",\n' +
+            '  "title": "<short title for a non-client meeting, or null>",\n' +
+            '  "location": "<place he named, or null>",\n' +
+            '  "is_personal": <true if this is a party, wedding, birthday, baby or bridal shower, ' +
+            'church, school or family matter -- true EVEN IF a name matches a client owner>\n' +
+            "}\n\n" +
+            "Rules:\n" +
+            "- He often says the OWNER's name instead of the business. Put whatever name he said in " +
+            "client_hint verbatim; do NOT resolve it to a business yourself.\n" +
+            "- Brazilian diminutives are normal: Marcelinho is Marcelo, Rafinha is Rafael.\n" +
+            "- Party/wedding/birthday/shower vocabulary means is_personal true even when the name " +
+            'matches a client owner. "Cha de panela" is a bridal shower and is personal.\n' +
+            "- Never invent a date or a time that was not said. Use null.";
+
+        var claudeRes = await fetch(CLAUDE_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type":      "application/json",
+                "x-api-key":         env.CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01"
+            },
+            body: JSON.stringify({
+                model:      CLAUDE_MODEL,
+                max_tokens: 1024,
+                messages:   [{ role: "user", content: prompt }]
+            })
+        });
+        if (!claudeRes.ok) {
+            return jsonErr("Could not read the recording's details (API error)", 502);
+        }
+        var claudeData = await claudeRes.json();
+        var raw = (claudeData.content && claudeData.content[0] && claudeData.content[0].text) || "";
+        var extracted = null;
+        try {
+            var jsonStart = raw.indexOf("{");
+            var jsonEnd   = raw.lastIndexOf("}");
+            if (jsonStart !== -1 && jsonEnd > jsonStart) {
+                extracted = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
+            }
+        } catch (e) { extracted = null; }
+        if (!extracted) { return jsonErr("Could not read the recording's details", 502); }
+
+        var match = voiceResolveVerdict(extracted, roster);
+
+        // A category he did not say is a client meeting; is_personal overrides,
+        // because a bridal shower is never a client meeting.
+        var category = extracted.meeting_category || "client";
+        if (extracted.is_personal) { category = "personal"; }
+        var validCats = ["client", "prospective", "event", "vendor", "personal",
+                         "onsite_visit", "xray", "church"];
+        if (validCats.indexOf(category) === -1) { category = "client"; }
+
+        var clientId = (match.verdict === "confident") ? match.client_id : null;
+        var clientName = null;
+        if (clientId) {
+            var cRow = roster.filter(function(c) { return c.id === clientId; })[0];
+            clientName = cRow ? cRow.name : null;
+        }
+        if (!clientName) {
+            // Never left NULL: client_name is NOT NULL, and the words he used
+            // are the most honest label available for an unresolved meeting.
+            clientName = extracted.title || extracted.client_hint || transcript.slice(0, 60);
+        }
+
+        // What is missing is recorded rather than demanded. The banner uses it
+        // to tell Alice exactly which fields to complete.
+        var missing = [];
+        if (!extracted.date) { missing.push("date"); }
+        if (!extracted.time) { missing.push("time"); }
+        if (match.verdict === "ambiguous") { missing.push("client"); }
+
+        // ALWAYS create. A missing date falls back to today rather than
+        // refusing: the meeting exists, sits on the banner, and Alice moves it.
+        var date = extracted.date || today;
+        var time = extracted.time || "09:00";
+        var sessionType = extracted.session_type === "in_person" ? "in_person" : "online_meet";
+        if (category === "event" || category === "personal" || category === "church" ||
+            category === "onsite_visit") {
+            sessionType = "in_person";
+        }
+
+        // Flag ONLY when something actually needs Alice. A meeting that is
+        // correctly not a client meeting is complete as it stands -- flagging
+        // it would train everyone to ignore the banner.
+        var flagged = (match.verdict === "ambiguous" || missing.length > 0) ? 1 : 0;
+
+        var sessionId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, " +
+            "session_type, google_meet_link, calendar_provider, status, meeting_category, " +
+            "voice_flagged, voice_transcript, voice_missing, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'apex', 'scheduled', ?, ?, ?, ?, ?)"
+        ).bind(
+            sessionId, clientId, clientName, date, time,
+            extracted.end_time || null, extracted.location || null,
+            sessionType, category, flagged, transcript,
+            missing.length ? JSON.stringify(missing) : null,
+            actorName(user)
+        ).run();
+
+        if (clientId) {
+            try {
+                await env.DB.prepare(
+                    "INSERT OR IGNORE INTO session_clients (session_id, client_id, is_primary, source, created_by) " +
+                    "VALUES (?, ?, 1, 'voice', ?)"
+                ).bind(sessionId, clientId, actorName(user)).run();
+            } catch (e) { /* the session row is the load-bearing write */ }
+        }
+
+        // ONE follow-up question, and only when something essential is missing.
+        // It is a question, not a gate: the meeting already exists.
+        var followUp = null;
+        if (missing.indexOf("date") !== -1)        { followUp = "date"; }
+        else if (missing.indexOf("time") !== -1)   { followUp = "time"; }
+        else if (missing.indexOf("client") !== -1) { followUp = "client"; }
+
+        return jsonOk({
+            session_id: sessionId,
+            transcript: transcript,
+            verdict:    match.verdict,
+            reason:     match.reason,
+            client_id:  clientId,
+            client_name: clientName,
+            date: date, time: time,
+            meeting_category: category,
+            missing: missing,
+            follow_up: followUp,
+            flagged: !!flagged
+        });
+    } catch (e) {
+        return jsonErr("Error creating meeting from voice: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/sessions/voice-flagged
+// The banner above the calendar reads this. Empty list -> no banner.
+// ---------------------------------------------------------------------------
+async function handleGetVoiceFlagged(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        var res = await env.DB.prepare(
+            "SELECT id, client_id, client_name, date, time, end_time, location, session_type, " +
+            "meeting_category, voice_transcript, voice_missing " +
+            "FROM sessions WHERE voice_flagged = 1 AND status NOT IN ('cancelled', 'archived', 'discarded') " +
+            "ORDER BY created_at DESC"
+        ).all();
+
+        var rows = (res.results || []).map(function(r) {
+            var miss = [];
+            try { miss = r.voice_missing ? JSON.parse(r.voice_missing) : []; } catch (e) { miss = []; }
+            r.missing = miss;
+            return r;
+        });
+        return jsonOk({ sessions: rows });
+    } catch (e) {
+        return jsonErr("Error fetching flagged meetings: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/sessions/:id/voice-resolve
+// Alice completed the meeting from the banner's modal: apply her edits and
+// clear the flag. Body: { client_id?, date?, time?, end_time?, location? }
+// ---------------------------------------------------------------------------
+async function handlePostVoiceResolve(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
+            return jsonErr("Forbidden", 403);
+        }
+        var body = await request.json();
+
+        var session = await env.DB.prepare("SELECT id FROM sessions WHERE id = ?")
+            .bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+
+        var sets = [], binds = [];
+        if (body.date)      { sets.push("date = ?");      binds.push(body.date); }
+        if (body.time)      { sets.push("time = ?");      binds.push(body.time); }
+        if (body.end_time)  { sets.push("end_time = ?");  binds.push(body.end_time); }
+        if (body.location)  { sets.push("location = ?");  binds.push(body.location); }
+        if (body.client_id) {
+            var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?")
+                .bind(body.client_id).first();
+            if (!client) { return jsonErr("Client not found", 404); }
+            sets.push("client_id = ?");   binds.push(body.client_id);
+            sets.push("client_name = ?"); binds.push(client.name);
+        }
+
+        // Clearing the flag is the point of the call, so it always happens --
+        // Alice looked at the meeting, and that is what the flag was asking for.
+        sets.push("voice_flagged = 0");
+        sets.push("voice_missing = NULL");
+
+        binds.push(sessionId);
+        var stmt = env.DB.prepare("UPDATE sessions SET " + sets.join(", ") + " WHERE id = ?");
+        await stmt.bind.apply(stmt, binds).run();
+
+        if (body.client_id) {
+            try {
+                await env.DB.prepare(
+                    "INSERT OR IGNORE INTO session_clients (session_id, client_id, is_primary, source, created_by) " +
+                    "VALUES (?, ?, 1, 'voice-resolve', ?)"
+                ).bind(sessionId, body.client_id, actorName(user)).run();
+            } catch (e) { /* the session row is the load-bearing write */ }
+        }
+
+        return jsonOk({ resolved: true });
+    } catch (e) {
+        return jsonErr("Error resolving meeting: " + e.message, 500);
+    }
+}
+
 async function handlePostSessionsSchedule(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -29929,6 +30312,10 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/sessions/calendar"     && method === "GET")  { return handleGetSessionsCalendar(request, env); }
         if (path === "/api/sessions/match-for-event" && method === "GET") { return handleGetSessionsMatchForEvent(request, env); }
         if (path === "/api/sessions/schedule"     && method === "POST") { return handlePostSessionsSchedule(request, env); }
+        if (path === "/api/sessions/voice"        && method === "POST") { return handlePostSessionsVoice(request, env); }
+        if (path === "/api/sessions/voice-flagged" && method === "GET") { return handleGetVoiceFlagged(request, env); }
+        var vrMatch = path.match(/^\/api\/sessions\/([^\/]+)\/voice-resolve$/);
+        if (vrMatch && method === "POST") { return handlePostVoiceResolve(decodeURIComponent(vrMatch[1]), request, env); }
         // Multi-client meetings: one session, N companies. Declared BEFORE the
         // generic /api/sessions/:id routes so ".../clients" is never swallowed
         // as a session id.

@@ -1589,6 +1589,20 @@
 
     <!-- Below-hero content -->
     <div class="below-hero-section">
+      <!-- ══ Voice-booked meetings that need completing ═════════════════
+           The flag surface lives HERE, above the calendar, and not on the
+           dashboard: the dashboard is where Rafa speaks a meeting, but
+           completing one is Alice's work and it happens against the calendar
+           she is already looking at. Hidden entirely when nothing is
+           pending -- a banner that is always there stops being read. -->
+      <div id="voiceFlagBanner" class="sync-conflict-notice" hidden>
+        <div class="sync-conflict-head">
+          <span class="show-pt">Reunioes ditadas que precisam ser completadas</span>
+          <span class="show-en">Spoken meetings that need completing</span>
+        </div>
+        <div id="voiceFlagList"></div>
+      </div>
+
       <!-- Conflicts found by the sync itself, not by a booking. This catches
            double-bookings created directly in Google Calendar, which no
            submit-time warning can see. Informational and dismissable -- never
@@ -2114,6 +2128,64 @@
   </div>
 
   <!-- ═══════════════ MODAL: Quick Add Client ═══════════════════════════════ -->
+  <!-- Pre-filled with what was captured, showing which fields are missing.
+       What he actually SAID is shown alongside: when the match is wrong, the
+       words are the only way to see why. -->
+  <div id="modalVoiceFix" class="modal-overlay" hidden>
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="show-pt">Completar reuniao</span>
+          <span class="show-en">Complete meeting</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modalVoiceFix')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">O que foi dito</span>
+            <span class="show-en">What was said</span>
+          </div>
+          <div id="vfTranscript" style="background:#f1ece2;border-radius:8px;padding:11px;font-size:13px;white-space:pre-wrap;"></div>
+        </div>
+        <div id="vfMissingNote" class="field-label" style="color:#b4322a;"></div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
+          </div>
+          <select id="vfClient"></select>
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Data</span>
+            <span class="show-en">Date</span>
+          </div>
+          <input type="date" id="vfDate">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Hora</span>
+            <span class="show-en">Time</span>
+          </div>
+          <input type="time" id="vfTime">
+        </div>
+        <div class="field-group">
+          <div class="field-label">
+            <span class="show-pt">Local</span>
+            <span class="show-en">Location</span>
+          </div>
+          <input type="text" id="vfLocation">
+        </div>
+        <button class="btn-submit" onclick="submitVoiceFix()">
+          <span class="show-pt">Salvar</span>
+          <span class="show-en">Save</span>
+        </button>
+        <div class="pull-status" id="vfStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="modalQuickAddClient" class="modal-overlay" hidden>
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -3000,6 +3072,9 @@
       loadSchedQueue();
       loadRafaWaTemplate();
       loadRafaNonApex();
+      // Same post-auth rule as the calls above: apiFetch rejects while
+      // currentUser is null, so this cannot live in window.onload.
+      loadVoiceFlagged();
       // The button exists in the markup from the start (disabled), so the
       // click handler and the pencil are wired once here rather than on every
       // re-render. TemplateEdit.attach is idempotent regardless.
@@ -6197,6 +6272,133 @@
       } else {
         window.open("https://wa.me/?text=" + encodeURIComponent(url), "_blank");
       }
+    }
+
+    // ── Voice-booked meetings awaiting completion ─────────────────────────
+    //
+    // The banner is hidden whenever nothing is pending. A banner that is
+    // always on screen stops being read, and this one has to be believed the
+    // day a real meeting is sitting in it.
+    var VOICE_FLAGGED = [];
+    var VF_SESSION_ID = null;
+
+    function loadVoiceFlagged() {
+      var banner = document.getElementById("voiceFlagBanner");
+      if (!banner) { return; }
+      apiFetch("/api/sessions/voice-flagged")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          VOICE_FLAGGED = (d && d.sessions) || [];
+          renderVoiceFlagged();
+        })
+        .catch(function() { banner.hidden = true; });
+    }
+
+    function renderVoiceFlagged() {
+      var banner = document.getElementById("voiceFlagBanner");
+      var list   = document.getElementById("voiceFlagList");
+      if (!banner || !list) { return; }
+      if (!VOICE_FLAGGED.length) { banner.hidden = true; return; }
+
+      var en = isEn();
+      banner.hidden = false;
+      list.innerHTML = "";
+
+      for (var i = 0; i < VOICE_FLAGGED.length; i++) {
+        var row = VOICE_FLAGGED[i];
+        var line = document.createElement("div");
+        line.style.margin = "6px 0";
+
+        var what = (row.client_name || "") + " - " + row.date + " " + (row.time || "");
+        // Naming the missing fields is the point: "there is a problem" with no
+        // detail is what makes a warning ignorable.
+        var miss = (row.missing || []).map(function(m) {
+          if (m === "date")   { return en ? "date" : "data"; }
+          if (m === "time")   { return en ? "time" : "hora"; }
+          if (m === "client") { return en ? "company" : "empresa"; }
+          return m;
+        });
+        if (miss.length) {
+          what += "  (" + (en ? "missing: " : "falta: ") + miss.join(", ") + ")";
+        }
+
+        var btn = document.createElement("button");
+        btn.className = "btn-cancel-link";
+        btn.textContent = what;
+        btn.setAttribute("data-vf-id", row.id);
+        btn.onclick = function() { openVoiceFix(this.getAttribute("data-vf-id")); };
+        line.appendChild(btn);
+        list.appendChild(line);
+      }
+    }
+
+    function openVoiceFix(sessionId) {
+      var row = VOICE_FLAGGED.filter(function(r) { return r.id === sessionId; })[0];
+      if (!row) { return; }
+      VF_SESSION_ID = sessionId;
+      var en = isEn();
+
+      var tr = document.getElementById("vfTranscript");
+      if (tr) { tr.textContent = row.voice_transcript || (en ? "(not recorded)" : "(nao gravado)"); }
+
+      var note = document.getElementById("vfMissingNote");
+      if (note) {
+        var miss = (row.missing || []).map(function(m) {
+          if (m === "date")   { return en ? "date" : "data"; }
+          if (m === "time")   { return en ? "time" : "hora"; }
+          if (m === "client") { return en ? "company" : "empresa"; }
+          return m;
+        });
+        note.textContent = miss.length
+          ? (en ? "Missing: " : "Falta: ") + miss.join(", ")
+          : "";
+      }
+
+      // Pre-filled with what WAS captured, so Alice only fills the gap.
+      var sel = document.getElementById("vfClient");
+      if (sel) {
+        populateSchedClientSelect(sel);
+        if (row.client_id) { sel.value = row.client_id; }
+      }
+      var dEl = document.getElementById("vfDate");
+      if (dEl) { dEl.value = row.date || ""; }
+      var tEl = document.getElementById("vfTime");
+      if (tEl) { tEl.value = (row.time || "").slice(0, 5); }
+      var lEl = document.getElementById("vfLocation");
+      if (lEl) { lEl.value = row.location || ""; }
+      var stEl = document.getElementById("vfStatus");
+      if (stEl) { stEl.textContent = ""; }
+
+      openModal("modalVoiceFix");
+    }
+
+    function submitVoiceFix() {
+      if (!VF_SESSION_ID) { return; }
+      var en = isEn();
+      var st = document.getElementById("vfStatus");
+      var body = {};
+      var sel = document.getElementById("vfClient");
+      var dEl = document.getElementById("vfDate");
+      var tEl = document.getElementById("vfTime");
+      var lEl = document.getElementById("vfLocation");
+      if (sel && sel.value) { body.client_id = sel.value; }
+      if (dEl && dEl.value) { body.date = dEl.value; }
+      if (tEl && tEl.value) { body.time = tEl.value; }
+      if (lEl && lEl.value) { body.location = lEl.value.trim(); }
+
+      if (st) { st.textContent = en ? "Saving..." : "Salvando..."; st.className = "pull-status"; }
+      apiFetch("/api/sessions/" + encodeURIComponent(VF_SESSION_ID) + "/voice-resolve",
+               { method: "POST", body: body })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+          if (!res.ok || res.data.error) { throw new Error(res.data.error || "Error"); }
+          closeModal("modalVoiceFix");
+          loadVoiceFlagged();
+          loadCalendar();
+        })
+        .catch(function(e) {
+          if (st) { st.textContent = (en ? "Error: " : "Erro: ") + e.message; st.className = "pull-status is-error"; }
+        });
     }
 
     // ── Companies on a meeting (multi-client) ─────────────────────────────

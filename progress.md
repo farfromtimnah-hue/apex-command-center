@@ -886,6 +886,77 @@ same prep back untouched. Stored in sessionStorage keyed session|client (the
 project forbids localStorage for state, and this is a decision about one
 meeting being prepared now, not a durable preference).
 
+---
+
+## Voice booking — he speaks the meeting and it gets created (2026-09-06)
+
+**1. The questions were the problem, so the microphone asks none.**
+
+Rafa is overloaded and the booking dialog's questions are exactly what he
+routes around. One button on the dashboard (both heroes): record, stop, done.
+Workers AI transcribes with @cf/openai/whisper ([ai] binding added to
+wrangler.toml), Claude extracts the fields with the EXISTING CLAUDE_API_KEY
+secret -- no new secret.
+
+Recording length is capped in two places. The browser stops itself at 90
+seconds, and the worker refuses anything over 8 MB. The client-side limit is a
+convenience; the byte cap is the actual spending control, because a phone left
+recording in a pocket must not run up cost.
+
+**2. Three verdicts, never two.**
+
+  confident   -> attach the client
+  ambiguous   -> create it unlinked and FLAG it
+  not_client  -> create it and do NOT flag it
+
+The model is given the full roster INCLUDING the owners column, because Rafa
+says the owner's name far more often than the business. Brazilian diminutives
+are expected, so matching compares a 4-character stem: "Marcelinho" reaches
+"Marcelo Diniz" (a diminutive ADDS to the stem rather than replacing it).
+
+A first name shared by two clients is ambiguous, never a guess -- and the real
+data makes that concrete: Marcelo Diniz owns BOTH Gator and My Pure Filter, so
+"Marcelinho" resolves to two companies and therefore to neither.
+
+Party/wedding/birthday/shower vocabulary means personal EVEN WHEN an owner
+name matches. "Cha de panela Iasmin" is a bridal shower and Iasmin really is
+an owner of PRODUWALL, so a name-only matcher would file a bridal shower as a
+client meeting. Claude returns is_personal and it overrides the name match.
+
+scripts/test-voice-matcher.mjs pins both rules using the REAL production
+owners strings ("Marcelo Diniz, Neicy Diniz e Heri"), not a tidy fixture.
+
+**3. The meeting is ALWAYS created.**
+
+A missing date falls back to today rather than refusing; the row exists, lands
+on the banner, and Alice moves it. ONE follow-up question is asked when
+something essential is missing, and it is a QUESTION, not a gate -- the meeting
+is already saved before it appears, so walking away loses nothing.
+
+Flagged ONLY when something actually needs Alice: ambiguous, or a missing
+date/time. A meeting that is correctly NOT a client meeting is complete as it
+stands, and flagging it would train everyone to ignore the banner.
+
+**4. The flag surface is above the calendar, not on the dashboard.**
+
+The dashboard is where Rafa speaks a meeting; completing one is Alice's work
+and happens against the calendar she is already looking at. The banner names
+which fields are missing per row -- "there is a problem" with no detail is what
+makes a warning ignorable -- and is hidden entirely when nothing is pending.
+Clicking a row opens a modal pre-filled with what was captured, showing his
+own words alongside: when the match is wrong, the words are the only way to
+see why.
+
+sessions gains voice_flagged / voice_transcript / voice_missing
+(migrations/session_voice_capture.sql, applied remote).
+
+**5. Verified live.**
+
+Posted real audio to the deployed endpoint: Workers AI transcribed it, Claude
+extracted the fields, the matcher returned not_client, the meeting was created
+anyway and flagged for the missing date and time, and it appeared in the
+banner feed. The full path runs on real infrastructure, not a mock.
+
 ## Completed (2026-07-03, worker fix — discarded session leak)
 
 - [x] Excluded `discarded` sessions from `handleGetSessions` (both client-filtered and unfiltered queries) using `NOT IN ('archived','discarded')`; `handleGetSessionsCalendar` already had the fix applied

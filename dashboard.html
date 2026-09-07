@@ -694,6 +694,28 @@
     }
 
     /* ─── CTA link button ────────────────────────────────────────────────── */
+    .btn-voice-mic {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      padding: 10px 18px; border-radius: 8px; cursor: pointer;
+      background: #c9a227; color: #1a1712; border: none;
+    }
+    .btn-voice-mic:hover    { opacity: 0.88; }
+    .btn-voice-mic.recording { background: #b4322a; color: #fff; }
+    .voice-modal-overlay {
+      position: fixed; inset: 0; background: rgba(20,18,16,0.72);
+      display: flex; align-items: center; justify-content: center; z-index: 9000;
+    }
+    .voice-modal-box {
+      background: #fdfbf7; border-radius: 12px; padding: 26px;
+      width: min(520px, 92vw); max-height: 86vh; overflow-y: auto;
+      font-family: 'Inter', sans-serif;
+    }
+    .voice-hint { font-size: 13px; color: #6b6459; margin: 10px 0 0; }
+    .voice-transcript {
+      background: #f1ece2; border-radius: 8px; padding: 12px;
+      font-size: 14px; margin: 14px 0; white-space: pre-wrap;
+    }
     .btn-cta-link {
       display: inline-flex;
       align-items: center;
@@ -821,10 +843,17 @@
               <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
             </h1>
-            <a href="sessions.html" class="btn-cta-link">
-              <span class="show-pt">+ Nova Sessao</span>
-              <span class="show-en">+ New Session</span>
-            </a>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <button class="btn-voice-mic" onclick="openVoiceModal()">
+                <span aria-hidden="true">&#127908;</span>
+                <span class="show-pt">Falar reuniao</span>
+                <span class="show-en">Speak a meeting</span>
+              </button>
+              <a href="sessions.html" class="btn-cta-link">
+                <span class="show-pt">+ Nova Sessao</span>
+                <span class="show-en">+ New Session</span>
+              </a>
+            </div>
           </div>
           <!-- Glass tiles -->
           <div class="glass-tile-row">
@@ -1078,10 +1107,17 @@
               <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
             </h1>
-            <a href="sessions.html" class="btn-cta-link">
-              <span class="show-pt">+ Nova Sessao</span>
-              <span class="show-en">+ New Session</span>
-            </a>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <button class="btn-voice-mic" onclick="openVoiceModal()">
+                <span aria-hidden="true">&#127908;</span>
+                <span class="show-pt">Falar reuniao</span>
+                <span class="show-en">Speak a meeting</span>
+              </button>
+              <a href="sessions.html" class="btn-cta-link">
+                <span class="show-pt">+ Nova Sessao</span>
+                <span class="show-en">+ New Session</span>
+              </a>
+            </div>
           </div>
           <!-- Glass tiles -->
           <div class="glass-tile-row" id="devStatRow">
@@ -1219,6 +1255,59 @@
     </div>
 
   </main><!-- /appMain -->
+
+  <!-- ══ Voice booking ═══════════════════════════════════════════════════
+       One button, one recording, one result. The follow-up question is a
+       QUESTION, never a gate: by the time it is shown the meeting already
+       exists, so walking away here loses nothing -- what is missing goes to
+       the banner above the calendar for Alice. -->
+  <div id="voiceModal" class="voice-modal-overlay" hidden>
+    <div class="voice-modal-box" onclick="event.stopPropagation()">
+      <h3 style="margin:0 0 6px;">
+        <span class="show-pt">Falar uma reuniao</span>
+        <span class="show-en">Speak a meeting</span>
+      </h3>
+      <p class="voice-hint">
+        <span class="show-pt">Diga a reuniao normalmente: com quem, quando e onde.</span>
+        <span class="show-en">Just say the meeting: who, when and where.</span>
+      </p>
+
+      <div style="margin:18px 0;">
+        <button class="btn-voice-mic" id="voiceRecBtn" onclick="toggleVoiceRecording()">
+          <span aria-hidden="true">&#127908;</span>
+          <span id="voiceRecLabel">
+            <span class="show-pt">Gravar</span>
+            <span class="show-en">Record</span>
+          </span>
+        </button>
+        <span id="voiceTimer" style="margin-left:12px;font-size:13px;color:#6b6459;"></span>
+      </div>
+
+      <div id="voiceStatus" class="voice-hint"></div>
+      <div id="voiceResult" hidden>
+        <div class="voice-transcript" id="voiceTranscript"></div>
+        <div id="voiceSummary" style="font-size:14px;"></div>
+        <div id="voiceFollowUp" hidden style="margin-top:14px;">
+          <div style="font-size:14px;font-weight:600;" id="voiceFollowUpQ"></div>
+          <input type="text" id="voiceFollowUpInput" style="width:100%;padding:9px;margin-top:8px;">
+          <button class="btn-voice-mic" style="margin-top:10px;" onclick="submitVoiceFollowUp()">
+            <span class="show-pt">Salvar</span>
+            <span class="show-en">Save</span>
+          </button>
+          <p class="voice-hint">
+            <span class="show-pt">A reuniao ja foi criada. Pode fechar sem responder.</span>
+            <span class="show-en">The meeting is already created. You can close without answering.</span>
+          </p>
+        </div>
+      </div>
+
+      <button style="margin-top:18px;background:none;border:none;color:#6b6459;font-size:13px;cursor:pointer;text-decoration:underline;"
+              onclick="closeVoiceModal()">
+        <span class="show-pt">Fechar</span>
+        <span class="show-en">Close</span>
+      </button>
+    </div>
+  </div>
 
     </div><!-- /contentArea -->
   </div><!-- /pageWrapper -->
@@ -1364,6 +1453,234 @@
         }
         return fetch(WORKER_URL + path, fetchOpts);
       });
+    }
+
+    // ── Voice booking ─────────────────────────────────────────────────────
+    //
+    // Rafa is overloaded and the booking dialog's questions are exactly what
+    // he routes around. So this asks nothing up front: he speaks, the meeting
+    // is created from whatever he said, and anything still missing goes to the
+    // banner above the calendar for Alice rather than stopping him here.
+    var voiceRecorder   = null;
+    var voiceChunks     = [];
+    var voiceTimerId    = null;
+    var voiceStartedAt  = 0;
+    var voiceLastResult = null;
+
+    // A phone left recording in a pocket must not run up cost. Ninety seconds
+    // is far longer than anyone takes to say one meeting, and the recorder
+    // stops ITSELF -- this is a hard stop, not a warning. The worker enforces
+    // its own byte cap as well, because a client-side limit is a convenience
+    // and not a spending control.
+    var VOICE_MAX_SECONDS = 90;
+
+    function voiceEn() { return document.body.classList.contains("lang-en"); }
+
+    function openVoiceModal() {
+      var m = document.getElementById("voiceModal");
+      if (!m) { return; }
+      voiceLastResult = null;
+      var res = document.getElementById("voiceResult");
+      if (res) { res.hidden = true; }
+      var fu = document.getElementById("voiceFollowUp");
+      if (fu) { fu.hidden = true; }
+      var st = document.getElementById("voiceStatus");
+      if (st) { st.textContent = ""; }
+      var tm = document.getElementById("voiceTimer");
+      if (tm) { tm.textContent = ""; }
+      m.hidden = false;
+    }
+
+    function closeVoiceModal() {
+      // Closing mid-recording must not leave the microphone live.
+      if (voiceRecorder && voiceRecorder.state === "recording") { stopVoiceRecording(); }
+      var m = document.getElementById("voiceModal");
+      if (m) { m.hidden = true; }
+    }
+
+    function toggleVoiceRecording() {
+      if (voiceRecorder && voiceRecorder.state === "recording") { stopVoiceRecording(); return; }
+      startVoiceRecording();
+    }
+
+    function startVoiceRecording() {
+      var st = document.getElementById("voiceStatus");
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        if (st) {
+          st.textContent = voiceEn()
+            ? "This browser cannot record audio."
+            : "Este navegador nao consegue gravar audio.";
+        }
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+          voiceChunks = [];
+          voiceRecorder = new MediaRecorder(stream);
+          voiceRecorder.ondataavailable = function(e) {
+            if (e.data && e.data.size) { voiceChunks.push(e.data); }
+          };
+          voiceRecorder.onstop = function() {
+            // Release the microphone the moment recording ends -- the browser
+            // keeps the indicator lit otherwise.
+            for (var i = 0; i < stream.getTracks().length; i++) { stream.getTracks()[i].stop(); }
+            sendVoiceRecording();
+          };
+          voiceRecorder.start();
+          voiceStartedAt = Date.now();
+          setVoiceRecordingUi(true);
+          voiceTimerId = setInterval(tickVoiceTimer, 250);
+        })
+        .catch(function() {
+          if (st) {
+            st.textContent = voiceEn()
+              ? "Microphone permission denied."
+              : "Permissao do microfone negada.";
+          }
+        });
+    }
+
+    function tickVoiceTimer() {
+      var secs = Math.floor((Date.now() - voiceStartedAt) / 1000);
+      var tm = document.getElementById("voiceTimer");
+      if (tm) { tm.textContent = secs + "s / " + VOICE_MAX_SECONDS + "s"; }
+      if (secs >= VOICE_MAX_SECONDS) { stopVoiceRecording(); }
+    }
+
+    function stopVoiceRecording() {
+      if (voiceTimerId) { clearInterval(voiceTimerId); voiceTimerId = null; }
+      if (voiceRecorder && voiceRecorder.state === "recording") { voiceRecorder.stop(); }
+      setVoiceRecordingUi(false);
+    }
+
+    function setVoiceRecordingUi(on) {
+      var btn = document.getElementById("voiceRecBtn");
+      if (!btn) { return; }
+      btn.className = "btn-voice-mic" + (on ? " recording" : "");
+      var label = document.getElementById("voiceRecLabel");
+      if (label) {
+        label.innerHTML = on
+          ? '<span class="show-pt">Parar</span><span class="show-en">Stop</span>'
+          : '<span class="show-pt">Gravar</span><span class="show-en">Record</span>';
+      }
+    }
+
+    function sendVoiceRecording() {
+      var st = document.getElementById("voiceStatus");
+      if (!voiceChunks.length) {
+        if (st) { st.textContent = voiceEn() ? "Nothing was recorded." : "Nada foi gravado."; }
+        return;
+      }
+      var blob = new Blob(voiceChunks, { type: "audio/webm" });
+      if (st) { st.textContent = voiceEn() ? "Creating the meeting..." : "Criando a reuniao..."; }
+
+      var fd = new FormData();
+      fd.append("audio", blob, "note.webm");
+
+      // apiFetch JSON-encodes its body, so the upload posts directly. The
+      // Content-Type header is deliberately NOT set: the browser must add its
+      // own multipart boundary.
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/sessions/voice", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: fd
+        });
+      })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+          if (!res.ok || res.data.error) { throw new Error(res.data.error || "Error"); }
+          voiceLastResult = res.data;
+          renderVoiceResult(res.data);
+        })
+        .catch(function(e) {
+          if (st) { st.textContent = (voiceEn() ? "Error: " : "Erro: ") + e.message; }
+        });
+    }
+
+    function renderVoiceResult(d) {
+      var en = voiceEn();
+      var st = document.getElementById("voiceStatus");
+      if (st) { st.textContent = en ? "Meeting created." : "Reuniao criada."; }
+
+      var res = document.getElementById("voiceResult");
+      if (res) { res.hidden = false; }
+      var tr = document.getElementById("voiceTranscript");
+      if (tr) { tr.textContent = d.transcript || ""; }
+
+      var sum = document.getElementById("voiceSummary");
+      if (sum) {
+        var who = d.client_name || (en ? "(no company)" : "(sem empresa)");
+        var lines = [
+          (en ? "Who: " : "Quem: ") + who,
+          (en ? "When: " : "Quando: ") + d.date + " " + d.time,
+          (en ? "Type: " : "Tipo: ") + d.meeting_category
+        ];
+        if (d.verdict === "ambiguous") {
+          lines.push(en
+            ? "Could not tell which company -- Alice will complete it."
+            : "Nao deu para saber a empresa -- a Alice vai completar.");
+        }
+        sum.textContent = lines.join("\n");
+        sum.style.whiteSpace = "pre-wrap";
+      }
+
+      // ONE follow-up question, only when something essential is missing, and
+      // never a gate: the meeting is already saved.
+      var fu = document.getElementById("voiceFollowUp");
+      if (!fu) { return; }
+      if (!d.follow_up) { fu.hidden = true; return; }
+      fu.hidden = false;
+      var q = document.getElementById("voiceFollowUpQ");
+      if (q) {
+        if (d.follow_up === "date") {
+          q.textContent = en ? "What day is it? (YYYY-MM-DD)" : "Que dia e? (AAAA-MM-DD)";
+        } else if (d.follow_up === "time") {
+          q.textContent = en ? "What time? (HH:MM)" : "Que horas? (HH:MM)";
+        } else {
+          q.textContent = en ? "Which company is it?" : "Qual empresa e?";
+        }
+      }
+      var input = document.getElementById("voiceFollowUpInput");
+      if (input) { input.value = ""; }
+    }
+
+    function submitVoiceFollowUp() {
+      if (!voiceLastResult) { return; }
+      var input = document.getElementById("voiceFollowUpInput");
+      var val = input ? (input.value || "").trim() : "";
+      if (!val) { closeVoiceModal(); return; }
+
+      var body = {};
+      if (voiceLastResult.follow_up === "date")      { body.date = val; }
+      else if (voiceLastResult.follow_up === "time") { body.time = val; }
+      else {
+        // A spoken company name is resolved by the same roster the matcher
+        // used, so the answer here cannot introduce a client that does not
+        // exist. No match leaves the meeting flagged for Alice.
+        var hit = null;
+        for (var i = 0; i < dashClients.length; i++) {
+          if (String(dashClients[i].name || "").toLowerCase().indexOf(val.toLowerCase()) !== -1) {
+            hit = dashClients[i]; break;
+          }
+        }
+        if (!hit) { closeVoiceModal(); return; }
+        body.client_id = hit.id;
+      }
+
+      apiFetch("/api/sessions/" + encodeURIComponent(voiceLastResult.session_id) + "/voice-resolve",
+               { method: "POST", body: body })
+        .then(function() { closeVoiceModal(); })
+        .catch(function() { closeVoiceModal(); });
+    }
+
+    // The roster the follow-up's company answer is resolved against.
+    var dashClients = [];
+    function loadDashClients() {
+      apiFetch("/api/clients")
+        .then(function(r) { return r.json(); })
+        .then(function(d) { dashClients = (d && d.clients) || []; })
+        .catch(function() {});
     }
 
     // ── Background photo (same image array + logic as index.html) ─────────
@@ -3173,7 +3490,7 @@
       });
     }
 
-    window.onload = function() { init(); };
+    window.onload = function() { init(); loadDashClients(); };
   
     // ── Bilingual attributes ──────────────────────────────────────────────
     // placeholder, title and <option> text cannot hold .show-pt/.show-en

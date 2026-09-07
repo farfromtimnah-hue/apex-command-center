@@ -4029,16 +4029,21 @@
           // otherwise the picker reopens on the placeholder and the name just
           // typed has to be hunted for.
           var newId = data.client_id;
-          // Fire and forget: a note that fails to save must never cost him the
-          // lead he just created, and there is nothing useful he could do
-          // about it mid-booking anyway.
+          // The note must COMPLETE before anything navigates. Fired and
+          // forgotten it was cancelled in flight every time -- this whole flow
+          // ends by leaving the page for the credentials modal, and an
+          // in-flight request dies with the page. The endpoint was fine; the
+          // note simply never arrived. Same shape as losing a record because
+          // the tab went away mid-call.
           var noteTxt = qacVal("qacNotes");
-          if (noteTxt) {
-            apiFetch("/api/clients/" + encodeURIComponent(newId) + "/notes", {
-              method: "POST",
-              body: { content: noteTxt }
-            }).catch(function() {});
-          }
+          var notePromise = noteTxt
+            ? apiFetch("/api/clients/" + encodeURIComponent(newId) + "/notes", {
+                method: "POST",
+                body: { content: noteTxt }
+              }).catch(function() {})
+            : Promise.resolve();
+
+          notePromise.then(function() {
           apiFetch("/api/clients")
             .then(function(r) { return r.json(); })
             .then(function(d) {
@@ -4052,6 +4057,7 @@
               offerCredentialsForNewLead(newId, name);
             })
             .catch(function() {});
+          });
         })
         .catch(function() {
           statusEl.textContent = en ? "Error saving client." : "Erro ao salvar cliente.";

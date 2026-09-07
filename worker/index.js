@@ -5134,6 +5134,85 @@ async function handlePostSessionsVoice(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: DELETE /api/sessions/:id/google-event
+//
+// Removes a session's Google Calendar event and stops Apex claiming an event
+// that no longer exists. DEVELOPER ONLY -- not alice, not rafa. This is a
+// repair tool for events that should never have been created, not part of
+// anybody's daily workflow; cancelling a real meeting is what
+// POST /api/sessions/:id/cancel is for, and that path also tells the client.
+//
+// It deliberately works on an ARCHIVED session, which is the whole reason it
+// exists: the cancel path refuses archived rows, so an event created in error
+// and then archived was unreachable -- the Apex row was tidy while the event
+// stayed on a real consultant's real calendar looking like a client meeting.
+//
+// The session ROW is never deleted here. Archiving is the record of what
+// happened; this touches only the Google side.
+// ---------------------------------------------------------------------------
+async function handleDeleteSessionGoogleEvent(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var session = await env.DB.prepare(
+            "SELECT id, client_name, date, time, status, google_event_id FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!session) { return jsonErr("Session not found", 404); }
+        if (!session.google_event_id) {
+            // Nothing to remove and nothing to clear. Reported as success
+            // because the desired end state already holds.
+            return jsonOk({
+                deleted: false,
+                already_absent: true,
+                session_id: sessionId,
+                message: "Session has no Google event"
+            });
+        }
+
+        var eventId = session.google_event_id;
+        var accessToken;
+        try {
+            accessToken = await getGoogleAccessToken(env);
+        } catch (tokenErr) {
+            return jsonErr(tokenErr.message, 502);
+        }
+
+        var res = await googleCalendarApiCall(
+            accessToken, "DELETE", "/events/" + encodeURIComponent(eventId)
+        );
+
+        // 404/410 mean the event is already gone, which IS the desired end
+        // state -- treating them as failures would leave the row permanently
+        // pointing at an event nobody can delete. Everything else is a real
+        // failure and must change nothing, so Apex keeps pointing at an event
+        // that really is still there.
+        var goneAlready = (res.status === 404 || res.status === 410);
+        if (!res.ok && !goneAlready) {
+            return jsonErr(googleApiErrMessage(res), 502);
+        }
+
+        await env.DB.prepare(
+            "UPDATE sessions SET google_event_id = NULL, google_meet_link = NULL, html_link = NULL WHERE id = ?"
+        ).bind(sessionId).run();
+
+        return jsonOk({
+            deleted: true,
+            already_absent: goneAlready,
+            session_id: sessionId,
+            google_event_id: eventId,
+            client_name: session.client_name,
+            date: session.date,
+            time: session.time,
+            google_status: res.status
+        });
+    } catch (e) {
+        return jsonErr("Error deleting Google event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/sessions/voice-flagged
 // The banner above the calendar reads this. Empty list -> no banner.
 // ---------------------------------------------------------------------------
@@ -30445,6 +30524,10 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/sessions/schedule"     && method === "POST") { return handlePostSessionsSchedule(request, env); }
         if (path === "/api/sessions/voice"        && method === "POST") { return handlePostSessionsVoice(request, env); }
         if (path === "/api/sessions/voice-flagged" && method === "GET") { return handleGetVoiceFlagged(request, env); }
+        var gdMatch = path.match(/^\/api\/sessions\/([^\/]+)\/google-event$/);
+        if (gdMatch && method === "DELETE") {
+            return handleDeleteSessionGoogleEvent(decodeURIComponent(gdMatch[1]), request, env);
+        }
         var vrMatch = path.match(/^\/api\/sessions\/([^\/]+)\/voice-resolve$/);
         if (vrMatch && method === "POST") { return handlePostVoiceResolve(decodeURIComponent(vrMatch[1]), request, env); }
         // Multi-client meetings: one session, N companies. Declared BEFORE the

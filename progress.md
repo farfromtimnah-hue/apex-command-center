@@ -1101,6 +1101,90 @@ voice-resolve deliberately does NOT clear voice_gcal_error: that modal fills in
 missing fields, it does not create the Google event, so a meeting still absent
 from Rafa's calendar stays flagged instead of looking fixed.
 
+---
+
+## STANDING RULE — TEST ONLY AGAINST test-client-temp-001 (2026-09-06)
+
+> **All testing that creates client-facing data uses `test-client-temp-001`.
+> Never a real client.**
+>
+> On 2026-09-06 this was violated while verifying voice booking. Two test
+> meetings were spoken against REAL clients -- GATOR OUTDOOR LIVING and MY PURE
+> FILTER -- and the worker did exactly what it had just been built to do:
+> created real Google Calendar events on Pastor Rafael's real calendar, titled
+> "GATOR OUTDOOR LIVING - RDE" and "MY PURE FILTER - RDE". Archiving the Apex
+> rows did not remove them. They sat on a working consultant's calendar looking
+> like genuine client meetings.
+>
+> "Client-facing" includes anything that leaves Apex: Google Calendar events,
+> WhatsApp messages, portal credentials, Zoho contacts, emails. A row in D1 can
+> be archived; an event on someone's phone cannot be taken back quietly.
+>
+> The free-text meeting types (church, personal, vendor, event) take a NAME and
+> no client, so they are safe to test with -- but title them obviously
+> ("TESTE ..."), because they still create real calendar events.
+
+## Cleanup: 16 test Google Calendar events removed (2026-09-06)
+
+**1. A new developer-only route, because the existing one could not reach them.**
+
+DELETE /api/sessions/:id/google-event removes a session's Google event and
+clears google_event_id, google_meet_link and html_link so Apex stops claiming
+an event that is gone. Developer only -- not alice, not rafa: this is a repair
+tool for events that should never have existed, not a workflow. Cancelling a
+real meeting is still POST /api/sessions/:id/cancel, which also tells the
+client.
+
+It works on an ARCHIVED session, which is the entire reason it exists. The
+cancel path refuses archived rows, so an event created in error and then
+archived was unreachable: the Apex row looked tidy while the event stayed on
+the calendar. 404/410 from Google count as success -- the event being absent IS
+the desired end state, and treating that as failure would leave a row
+permanently pointing at something nobody can delete. Any other error changes
+nothing, so Apex keeps pointing at an event that really is still there.
+
+No session row is deleted by any of this. Archiving is the record of what
+happened; this touches only the Google side.
+
+**2. The sweep found 16, not 2.**
+
+The two in the handoff were GATOR OUTDOOR LIVING (2026-09-07 14:00) and MY PURE
+FILTER (2026-09-08 15:30). Both deleted and confirmed gone.
+
+A THIRD was hiding: the on-site test at GATOR OUTDOOR LIVING 2026-09-11 09:00.
+Its google_event_id had been NULLed in D1 while simulating a Google failure, so
+the Apex row no longer pointed at anything -- but the Google event still
+existed. An orphan invisible to any cleanup keyed on the session row. Matched
+back by its voice_transcript, the pointer restored, then deleted. Worth
+remembering: nulling a pointer does not delete what it pointed at.
+
+Another 11 were live from the same session's testing (13 total beyond the
+handoff). None were against a real client -- all test-client-temp-001 or
+free-text blocks -- so none impersonated a client meeting, but all were litter
+on a real calendar. Deleted with Nicole's approval.
+
+**3. A real bug the sweep exposed.**
+
+Six of those events were titled "-- selecionar cliente -- - RDE": the CLIENT
+DROPDOWN PLACEHOLDER leaked into the Google Calendar event title. Something on
+the create path reads the select's display text without checking that a real
+client was chosen. Not fixed here (out of scope for a cleanup task) and left
+recorded so it is not rediscovered from a customer's calendar.
+
+**4. Verified by fetching back, not by trusting a 200.**
+
+All 16 re-fetched from Google afterwards: every one returns status "cancelled"
+(Google's tombstone for a deleted event -- a direct get by id still resolves
+for a while, which is why "found" alone proves nothing) and NONE appear in the
+calendar listing for their dates. Zero still confirmed.
+
+Untouched and verified: Rafa's 5 real sessions from the same window keep their
+Google events; test-client-temp-001 stays archived=0; no clients were created;
+the only gm_ row is the test client's. The four session_clients rows created by
+the test voice bookings point at ARCHIVED sessions, so they surface nowhere --
+GATOR still shows 15 sessions and MY PURE FILTER 10, with zero test rows
+leaking onto either profile.
+
 ## Completed (2026-07-03, worker fix — discarded session leak)
 
 - [x] Excluded `discarded` sessions from `handleGetSessions` (both client-filtered and unfiltered queries) using `NOT IN ('archived','discarded')`; `handleGetSessionsCalendar` already had the fix applied

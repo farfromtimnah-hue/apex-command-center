@@ -23453,14 +23453,25 @@ async function applyCategorizationRules(env, opts) {
 // confirmation.
 // ---------------------------------------------------------------------------
 async function categorizeClientIncome(env) {
+    // BOTH names. A bank writes the LEGAL entity while the client row holds the
+    // trading name, and they are often unrecognisably different: JM LUXURY
+    // POOLS pays as "JM WORKS SOLUTIONS BUSINESS LLC" and LIRA OUTDOOR LIVING
+    // as "BRAZILIAN INC". Matching the trading name alone left $7,344 of real
+    // client revenue uncategorized, which is most of what made the income
+    // tiles wrong.
     var clients = await env.DB.prepare(
-        "SELECT id, name FROM clients WHERE name IS NOT NULL AND TRIM(name) != ''"
+        "SELECT id, name, legal_entity_name FROM clients WHERE name IS NOT NULL AND TRIM(name) != ''"
     ).all();
     var rows = clients.results || [];
     var applied = 0;
+    var candidates = [];
+    for (var q = 0; q < rows.length; q++) {
+        candidates.push(rows[q].name);
+        if (rows[q].legal_entity_name) { candidates.push(rows[q].legal_entity_name); }
+    }
 
-    for (var i = 0; i < rows.length; i++) {
-        var name = String(rows[i].name || "").trim();
+    for (var i = 0; i < candidates.length; i++) {
+        var name = String(candidates[i] || "").trim();
         // Short names collide with ordinary words; require enough signal that a
         // substring hit means the company. "TIGERS" is 6, which is the floor.
         if (name.length < 6) { continue; }

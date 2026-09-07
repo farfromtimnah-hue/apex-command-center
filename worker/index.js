@@ -7048,8 +7048,8 @@ async function handleGoogleOAuthStart(request, env) {
         ).bind(Math.floor(Date.now() / 1000)).run();
 
         var params = new URLSearchParams();
-        params.set("client_id",     env.GOOGLE_DRIVE_CLIENT_ID || env.GOOGLE_CALENDAR_CLIENT_ID);
-        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google-drive/oauth/callback");
+        params.set("client_id",     env.GOOGLE_CALENDAR_CLIENT_ID);
+        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google/oauth/callback");
         params.set("response_type", "code");
         params.set("scope",         "https://www.googleapis.com/auth/calendar");
         params.set("access_type",   "offline");
@@ -31678,6 +31678,22 @@ async function handleFetch(request, env, ctx) {
 // a broader permission that was granted on a wrong diagnosis.
 var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
 
+// Drive returns modifiedTime in UTC (e.g. 2026-09-07T22:00:00.000Z). Everything a
+// human reads in Apex is Eastern -- see [times are 12-hour, D1 is UTC]. Showing the
+// raw value put a 3pm edit on screen as 7pm, so every alert converts first.
+function driveTimeForHumans(iso) {
+    if (!iso) { return "unknown time"; }
+    try {
+        return new Intl.DateTimeFormat("en-US", {
+            timeZone: APEX_TIMEZONE,
+            month: "short", day: "numeric",
+            hour: "numeric", minute: "2-digit", hour12: true
+        }).format(new Date(iso));
+    } catch (e) {
+        return String(iso).slice(0, 16).replace("T", " ") + " UTC";
+    }
+}
+
 async function getGoogleDriveAccessToken(env) {
     var tokenRow = await env.DB.prepare(
         "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_drive'"
@@ -31732,13 +31748,11 @@ async function handleGoogleDriveOAuthStart(request, env) {
         ).bind(Math.floor(Date.now() / 1000)).run();
 
         var params = new URLSearchParams();
-        params.set("client_id",     env.GOOGLE_CALENDAR_CLIENT_ID);
-        // Deliberately the CALENDAR callback URI. Google only accepts redirect
-        // URIs pre-registered on the OAuth app, and that app lives in a Cloud
-        // project Nicole does not control -- registering a new one would need
-        // Rafa. The callback tells the two flows apart by the "drive:" prefix
-        // on oauth_state.initiated_by, so one registered URI serves both.
-        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google/oauth/callback");
+        // Nicole's OWN Cloud project ("Apex Drive Watch", published 2026-09-07),
+        // separate from the Calendar app which lives in Rafa's project. This is
+        // what makes the Drive watch independent of an account she cannot reach.
+        params.set("client_id",     env.GOOGLE_DRIVE_CLIENT_ID);
+        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google-drive/oauth/callback");
         params.set("response_type", "code");
         params.set("scope",         DRIVE_SCOPE);
         params.set("access_type",   "offline");
@@ -31915,7 +31929,7 @@ async function pollWatchedFiles(env, baselineOnly) {
 
             var previous = f.last_modified_seen || f.baseline_modified;
             if (modified && previous && modified > previous) {
-                var msg = f.label + " was edited on " + String(modified).slice(0, 16).replace("T", " ") + " UTC" +
+                var msg = f.label + " was edited on " + driveTimeForHumans(modified) +
                           (who ? " by " + who : "") + ".";
                 await env.DB.prepare(
                     "UPDATE watched_files SET last_modified_seen = ?, last_modifier = ?, alert_active = 1, " +

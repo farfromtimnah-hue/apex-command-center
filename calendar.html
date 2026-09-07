@@ -3455,9 +3455,7 @@
       var keep = sel.value;
       sel.innerHTML = "";
 
-      // Pinned at the very top for X-Ray: booking one is the moment a new
-      // name most often needs to exist. It stays available for every other
-      // type too, just below the placeholder.
+      // Available on every type; where it sits is decided below.
       function addNewClientOption() {
         var addOpt = document.createElement("option");
         addOpt.value = "__add_new__";
@@ -3472,8 +3470,19 @@
         sel.appendChild(placeholder);
       }
 
-      addNewClientOption();
-      addPlaceholder();
+      // Order matters. The placeholder is first for every ordinary type so the
+      // top slot is inert: it exists because one distracted click on a
+      // pre-selected first row once sent a scheduling link to a prospect, and
+      // an action sitting above it would put that hazard straight back. X-Ray
+      // is the documented exception -- booking one is the moment a new name
+      // most often has to exist, so there it is pinned above the placeholder.
+      if (leadsFirst) {
+        addNewClientOption();
+        addPlaceholder();
+      } else {
+        addPlaceholder();
+        addNewClientOption();
+      }
 
       var actives = [], leads = [], inactive = [];
       for (var i = 0; i < clients.length; i++) {

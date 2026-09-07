@@ -2,7 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Apple re-signs for TestFlight and the App Store, so this value only
+	     governs local Xcode builds. The Worker picks the APNs host per device
+	     from apns_device_tokens.environment, which is what actually matters. -->
 	<key>aps-environment</key>
 	<string>development</string>
+
+	<!-- Data Protection. Apex holds client financials, transcripts, contracts
+	     and the lead pipeline on a phone that goes to job sites and client
+	     meetings. Files written by the app are encrypted at rest and are
+	     unreadable while the device is locked. -->
+	<key>com.apple.developer.default-data-protection</key>
+	<string>NSFileProtectionComplete</string>
+
+	<!-- Time Sensitive Notifications. A meeting starting in 15 minutes has to
+	     pierce Focus; a normal notification is held back and arrives with the
+	     summary, which for two overloaded people is the same as not arriving.
+	     The Worker must also set aps.interruption-level = "time-sensitive" on
+	     the payloads that deserve it -- the entitlement alone does nothing. -->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
 </dict>
 </plist>

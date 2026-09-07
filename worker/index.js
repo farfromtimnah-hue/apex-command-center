@@ -23581,6 +23581,87 @@ async function handlePostFinanceNewCategory(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/income/by-source?month=YYYY-MM  (or ?all=1)
+//
+// "How much came from what." They earn from several distinct streams --
+// consulting, Charisma teaching, Alice's insurance commissions, the My Pure
+// Filter partnership, Apex Club events -- and until these categories existed
+// every one of them was money-in with no source attached.
+//
+// Transfers are excluded by the same rule the spending breakdown uses: an
+// owner draw arriving in the personal account is not income, it is the same
+// dollars counted twice.
+//
+// ?all=1 sums the entire history. The response ALWAYS carries history_starts_at
+// so the screen can say how far back that actually reaches -- Bank of America
+// returns nothing before 2026-05-07 through Plaid, and a total labelled
+// "everything" that silently begins in May would misinform the people relying
+// on it.
+// ---------------------------------------------------------------------------
+async function handleGetFinanceNewIncomeBySource(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var wantAll = url.searchParams.get("all") === "1";
+        var month = url.searchParams.get("month") || "";
+        var start = /^\d{4}-\d{2}$/.test(month) ? month + "-01" : null;
+        if (!wantAll && !start) { return jsonErr("month must be YYYY-MM, or pass all=1", 400); }
+
+        // Same exclusion the spending breakdown uses. Inlined rather than
+        // shared because that one is a local inside its own handler.
+        var EXCLUDE_TRANSFERS =
+            "AND t.voided_at IS NULL " +
+            "AND t.is_transfer = 0 AND t.transfer_status NOT IN ('suspected','confirmed') ";
+
+        var where = wantAll
+            ? "WHERE t.amount_cents > 0 "
+            : "WHERE t.date >= ? AND t.date < date(?, '+1 month') AND t.amount_cents > 0 ";
+
+        var stmt = env.DB.prepare(
+            "SELECT a.purpose, t.category_id, c.name_pt, c.name_en, " +
+            "SUM(t.amount_cents) AS cents, COUNT(*) AS n " +
+            "FROM transactions t " +
+            "JOIN accounts a ON a.id = t.account_id " +
+            "LEFT JOIN categories c ON c.id = t.category_id " +
+            where + EXCLUDE_TRANSFERS +
+            "GROUP BY a.purpose, t.category_id ORDER BY cents DESC"
+        );
+        var res = wantAll ? await stmt.all() : await stmt.bind(start, start).all();
+
+        var floor = await env.DB.prepare(
+            "SELECT MIN(date) AS d FROM transactions WHERE voided_at IS NULL"
+        ).first();
+
+        var rows = res.results || [];
+        var out = {
+            scope: wantAll ? "all" : "month",
+            month: wantAll ? null : start.slice(0, 7),
+            history_starts_at: floor ? floor.d : null,
+            sources: [],
+            total_cents: 0
+        };
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            out.sources.push({
+                purpose: r.purpose,
+                category_id: r.category_id,
+                name_pt: r.name_pt || "Sem categoria",
+                name_en: r.name_en || "Uncategorized",
+                cents: r.cents,
+                count: r.n
+            });
+            out.total_cents += r.cents;
+        }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error loading income by source: " + e.message, 500);
+    }
+}
+
 // Route: GET /api/finance-new/categories/breakdown?month=YYYY-MM
 //
 // Spending by category for the period, business and personal shown separately
@@ -31339,6 +31420,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/categories"           && method === "GET")  { return handleGetFinanceNewCategories(request, env); }
         if (path === "/api/finance-new/categories"           && method === "POST") { return handlePostFinanceNewCategory(request, env); }
         if (path === "/api/finance-new/categories/breakdown" && method === "GET")  { return handleGetFinanceNewCategoryBreakdown(request, env); }
+        if (path === "/api/finance-new/income/by-source"     && method === "GET")  { return handleGetFinanceNewIncomeBySource(request, env); }
         if (path === "/api/finance-new/categorization/run"   && method === "POST") { return handlePostFinanceNewCategorizationRun(request, env); }
         if (path === "/api/finance-new/categorization/rules" && method === "GET")  { return handleGetFinanceNewRules(request, env); }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "categorization" &&

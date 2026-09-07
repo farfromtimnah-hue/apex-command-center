@@ -1606,10 +1606,26 @@
       }
     }
 
+    // Two seconds. Nobody says a real meeting in less, and a stuck modal makes
+    // the mic the most prominent thing on screen -- on 2026-09-07 Rafa pressed
+    // Gravar trying to DISMISS a dialog he could not close, and one second of
+    // "Bye!" was turned into a meeting request with a made-up date. A tap that
+    // was never speech must be discarded, not interpreted.
+    var VOICE_MIN_MS = 2000;
+
     function sendVoiceRecording() {
       var st = document.getElementById("voiceStatus");
       if (!voiceChunks.length) {
         if (st) { st.textContent = voiceEn() ? "Nothing was recorded." : "Nada foi gravado."; }
+        return;
+      }
+      if (voiceStartedAt && (Date.now() - voiceStartedAt) < VOICE_MIN_MS) {
+        voiceChunks = [];
+        if (st) {
+          st.textContent = voiceEn()
+            ? "Too short - hold Record and say the meeting."
+            : "Muito curto - segure Gravar e diga a reuniao.";
+        }
         return;
       }
       var blob = new Blob(voiceChunks, { type: "audio/webm" });
@@ -1631,6 +1647,15 @@
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {
           if (!res.ok || res.data.error) { throw new Error(res.data.error || "Error"); }
+          // A 200 is not proof a row was written. On 2026-09-07 the modal
+          // reported "Reuniao criada" for a recording that produced NO session
+          // in D1 -- a success message the user can act on is worse than an
+          // error. Require the id the worker returns for a real insert.
+          if (!res.data.session_id) {
+            throw new Error(voiceEn()
+              ? "The meeting was not saved - please try again."
+              : "A reuniao nao foi salva - tente de novo.");
+          }
           voiceLastResult = res.data;
           renderVoiceResult(res.data);
         })

@@ -12,6 +12,10 @@
 	<key>destination</key>
 	<string>upload</string>
 
+	<!-- Resonate Business Systems LLC, the ORG team. Not the personal team --
+	     the switch to the org happened 2026-09-02 and is what ended the 7-day
+	     free-team build expiry. QR478A57YK is the Apple Developer ENROLLMENT
+	     id, which is a different number and does not go here. -->
 	<key>teamID</key>
 	<string>9W5WP66A7Z</string>
 

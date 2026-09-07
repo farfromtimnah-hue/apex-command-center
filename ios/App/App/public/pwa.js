@@ -24,10 +24,23 @@
     for (var i = 0; i < ids.length; i++) {
       var el = document.getElementById(ids[i]);
       if (!el) { continue; }
-      // Only touch one that is ALREADY marked hidden and showing anyway --
-      // that combination is the bug and nothing else. A modal the user
-      // genuinely opened has hidden=false and is left alone.
-      if (el.hidden) { el.style.setProperty("display", "none", "important"); }
+      // Only touch one that is ALREADY marked hidden and RENDERING anyway --
+      // that combination is the bug and nothing else.
+      //
+      // ⚠️ Setting an inline `display:none !important` here was itself a bug:
+      // it stuck to the element permanently, so once the page had loaded the
+      // modal could never be opened again. An inline !important outranks
+      // everything, including the class rule that shows it. Removing the
+      // inline display instead lets the stylesheet decide, and the CSS guard
+      // (.voice-modal-overlay[hidden]) is what actually keeps it hidden.
+      if (!el.hidden) { continue; }
+      if (window.getComputedStyle(el).display === "none") { continue; }
+      el.style.removeProperty("display");
+      // Still rendering means the page is an OLD copy with no [hidden] guard.
+      // Neutralise it without leaving a rule that outlives the stale HTML.
+      if (window.getComputedStyle(el).display !== "none") {
+        el.parentNode.removeChild(el);
+      }
     }
   }
 

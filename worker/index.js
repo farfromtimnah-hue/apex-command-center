@@ -4636,11 +4636,7 @@ async function handlePostSessionsSchedule(request, env) {
             if (!body.event_name) { return jsonErr("event_name is required for events", 400); }
             clientId    = null;
             clientName  = body.event_name;
-            // Church is the one of these three that may carry a link, so it
-            // keeps the caller's session_type; the other two are always
-            // in_person precisely so no Meet link is ever created for them.
-            sessionType = (meetingCategory === "church" && body.google_meet_link)
-                ? body.session_type : "in_person";
+            sessionType = "in_person"; // never auto-create a Meet link for these
         } else if (meetingCategory === "vendor") {
             // Same no-client shape as an event -- the vendor/partner name is
             // free text and lands in client_name -- but the session type is
@@ -4663,6 +4659,13 @@ async function handlePostSessionsSchedule(request, env) {
         var meetLink = null;
         if (sessionType === "online_meet") {
           meetLink = body.google_meet_link || "[PENDING_GOOGLE_API]";
+        } else if (meetingCategory === "church" && body.google_meet_link) {
+          // A church meeting is in_person AND may carry a link -- an elders'
+          // call still happens on a link. Tying the link to session_type
+          // dropped it every time, because the dialog forces in_person here.
+          // Never the "[PENDING_GOOGLE_API]" placeholder: nothing is being
+          // generated, this is only a link somebody actually pasted.
+          meetLink = body.google_meet_link;
         }
 
         // Recurrence expansion: N linked rows sharing a series_id. The 26 cap

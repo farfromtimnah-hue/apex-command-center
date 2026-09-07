@@ -798,6 +798,24 @@ abandon the form. The check only VALIDATES (the package block above it owns
 the write and the package_started_at clock). No existing client's status or
 package is backfilled or guessed.
 
+**4b. Verified in the real UI, and it found a bug.**
+
+Booked one of each new type against the test client on the live site: the
+church link came back NULL. The worker was gating the link on session_type,
+but the dialog FORCES in_person for a church meeting and hides the type
+toggle, so the link was dropped every time. A church meeting is in_person AND
+may carry a link -- an elders' call still happens on a link -- so the link now
+rides on the CATEGORY instead, and never as the "[PENDING_GOOGLE_API]"
+placeholder, since nothing is being generated. Re-booked and confirmed the
+link persists.
+
+Also confirmed live: onsite_visit lands in_person with a working Directions
+button (real maps URL, correctly encoded); the X-Ray picker shows Leads before
+Clientes ativos with "+ Novo cliente" pinned on top while every other type
+keeps the old order; a personal block with kids_covered=1 raises no conflict
+while the same block uncovered still raises one; both PT and EN states; no
+console errors. Test rows archived, never deleted.
+
 **5. "+ Novo cliente" asks two questions.**
 
 Business name and phone, nothing else -- it opens mid-booking with a client in

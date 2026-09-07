@@ -7048,8 +7048,8 @@ async function handleGoogleOAuthStart(request, env) {
         ).bind(Math.floor(Date.now() / 1000)).run();
 
         var params = new URLSearchParams();
-        params.set("client_id",     env.GOOGLE_CALENDAR_CLIENT_ID);
-        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google/oauth/callback");
+        params.set("client_id",     env.GOOGLE_DRIVE_CLIENT_ID || env.GOOGLE_CALENDAR_CLIENT_ID);
+        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google-drive/oauth/callback");
         params.set("response_type", "code");
         params.set("scope",         "https://www.googleapis.com/auth/calendar");
         params.set("access_type",   "offline");
@@ -7121,6 +7121,26 @@ async function handleGoogleOAuthCallback(request, env) {
         }
 
         var scope = tokenData.scope || null;
+
+        // One registered redirect URI serves both flows. handleGoogleDriveOAuthStart
+        // prefixes initiated_by with "drive:", so the token lands under the right id
+        // and the Calendar connection is never overwritten by a Drive consent.
+        var isDrive = String(stateRow.initiated_by || "").indexOf("drive:") === 0;
+
+        if (isDrive) {
+            await env.DB.prepare(
+                "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, scope, updated_at) VALUES ('google_drive', ?, ?, datetime('now'))"
+            ).bind(refreshToken, scope).run();
+
+            // Baseline every watched file now, so "changed since we started watching"
+            // is answerable from this moment rather than from the next cron run.
+            try { await pollWatchedFiles(env, true); } catch (e) { /* best effort */ }
+
+            return new Response(
+                "<h2>Google Drive connected</h2><p>Watched spreadsheets are baselined. You can close this tab.</p>",
+                { status: 200, headers: { "Content-Type": "text/html" } }
+            );
+        }
 
         await env.DB.prepare(
             "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, scope, updated_at) VALUES ('google_calendar', ?, ?, datetime('now'))"
@@ -31613,6 +31633,9 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/google-drive/oauth/status" && method === "GET") {
             return handleGoogleDriveOAuthStatus(request, env);
         }
+        if (path === "/api/google-drive/diagnose" && method === "GET") {
+            return handleGoogleDriveDiagnose(request, env);
+        }
         if (path === "/api/watched-files" && method === "GET") {
             return handleGetWatchedFiles(request, env);
         }
@@ -31645,6 +31668,14 @@ async function handleFetch(request, env, ctx) {
 // before anyone is told.
 // ---------------------------------------------------------------------------
 
+// The narrowest scope that does the job: file timestamps and the name of whoever
+// last edited. It CANNOT read cell contents.
+//
+// 2026-09-07: a 404 on both watched files was first misread as this scope being
+// too narrow for shared files, and the scope was briefly widened to drive.readonly.
+// That was wrong. The real cause was the Google Drive API not being ENABLED in the
+// Cloud project at all -- /drive/v3/about failed identically. Reverted: never keep
+// a broader permission that was granted on a wrong diagnosis.
 var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
 
 async function getGoogleDriveAccessToken(env) {
@@ -31662,8 +31693,8 @@ async function getGoogleDriveAccessToken(env) {
             method:  "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body:    new URLSearchParams({
-                client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
-                client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                client_id:     env.GOOGLE_DRIVE_CLIENT_ID || env.GOOGLE_CALENDAR_CLIENT_ID,
+                client_secret: env.GOOGLE_DRIVE_CLIENT_SECRET || env.GOOGLE_CALENDAR_CLIENT_SECRET,
                 refresh_token: tokenRow.refresh_token,
                 grant_type:    "refresh_token"
             }).toString(),
@@ -31702,7 +31733,12 @@ async function handleGoogleDriveOAuthStart(request, env) {
 
         var params = new URLSearchParams();
         params.set("client_id",     env.GOOGLE_CALENDAR_CLIENT_ID);
-        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google-drive/oauth/callback");
+        // Deliberately the CALENDAR callback URI. Google only accepts redirect
+        // URIs pre-registered on the OAuth app, and that app lives in a Cloud
+        // project Nicole does not control -- registering a new one would need
+        // Rafa. The callback tells the two flows apart by the "drive:" prefix
+        // on oauth_state.initiated_by, so one registered URI serves both.
+        params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/google/oauth/callback");
         params.set("response_type", "code");
         params.set("scope",         DRIVE_SCOPE);
         params.set("access_type",   "offline");
@@ -31747,8 +31783,8 @@ async function handleGoogleDriveOAuthCallback(request, env) {
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body:    new URLSearchParams({
                 code:          code,
-                client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
-                client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
+                client_id:     env.GOOGLE_DRIVE_CLIENT_ID || env.GOOGLE_CALENDAR_CLIENT_ID,
+                client_secret: env.GOOGLE_DRIVE_CLIENT_SECRET || env.GOOGLE_CALENDAR_CLIENT_SECRET,
                 redirect_uri:  "https://apex-api.farfromtimnah.workers.dev/api/google-drive/oauth/callback",
                 grant_type:    "authorization_code"
             }).toString()
@@ -31906,6 +31942,67 @@ async function pollWatchedFiles(env, baselineOnly) {
     }
 
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/google-drive/diagnose   (developer only)
+// Says WHICH Google account the stored token belongs to and the exact per-file
+// result. Exists because "access_lost" alone cannot distinguish "wrong account"
+// from "unshared" from "wrong file id" -- and the fix differs for each.
+// ---------------------------------------------------------------------------
+async function handleGoogleDriveDiagnose(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isDeveloperRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var token;
+        try {
+            token = await getGoogleDriveAccessToken(env);
+        } catch (e) {
+            return jsonOk({ connected: false, error: e.message });
+        }
+
+        var who = null;
+        try {
+            var meRes = await fetch("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var meJson = await meRes.json();
+            who = meRes.ok ? meJson.user : { error: meJson.error && meJson.error.message };
+        } catch (e) {
+            who = { error: e.message };
+        }
+
+        var files = await env.DB.prepare("SELECT id, file_id, label FROM watched_files WHERE active = 1").all();
+        var checks = [];
+        var list = (files && files.results) || [];
+        for (var i = 0; i < list.length; i++) {
+            var f = list[i];
+            try {
+                var r = await fetch(
+                    "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(f.file_id) +
+                    "?fields=name,modifiedTime,owners(emailAddress)&supportsAllDrives=true",
+                    { headers: { "Authorization": "Bearer " + token } }
+                );
+                var body = await r.json();
+                checks.push({
+                    label:  f.label,
+                    status: r.status,
+                    name:   body.name || null,
+                    modifiedTime: body.modifiedTime || null,
+                    owner:  body.owners && body.owners[0] ? body.owners[0].emailAddress : null,
+                    error:  body.error ? body.error.message : null
+                });
+            } catch (e) {
+                checks.push({ label: f.label, status: 0, error: e.message });
+            }
+        }
+
+        return jsonOk({ connected: true, token_account: who, files: checks });
+    } catch (e) {
+        return jsonErr("Diagnose error: " + e.message, 500);
+    }
 }
 
 // ---------------------------------------------------------------------------

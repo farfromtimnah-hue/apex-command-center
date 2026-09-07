@@ -3203,11 +3203,19 @@
         applyNoPrepState();
       };
       lbl.appendChild(ck);
-      var sp = document.createElement("span");
-      sp.textContent = isEn()
-        ? "No prep for this company this time"
-        : "Sem preparacao para esta empresa desta vez";
-      lbl.appendChild(sp);
+      // Two spans, not one isEn() text node. The language toggle flips
+      // show-pt/show-en with CSS on a live page; a string baked in at render
+      // time keeps whatever language it was built in and silently stops
+      // translating, which is exactly what this label did. Same pattern as
+      // the stateMsg copy a few lines below.
+      var spPt = document.createElement("span");
+      spPt.className = "show-pt";
+      spPt.textContent = "Sem preparacao para esta empresa desta vez";
+      lbl.appendChild(spPt);
+      var spEn = document.createElement("span");
+      spEn.className = "show-en";
+      spEn.textContent = "No prep for this company this time";
+      lbl.appendChild(spEn);
       wrap.appendChild(lbl);
       strip.appendChild(wrap);
     }

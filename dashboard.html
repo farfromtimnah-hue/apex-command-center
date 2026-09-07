@@ -706,6 +706,12 @@
       position: fixed; inset: 0; background: rgba(20,18,16,0.72);
       display: flex; align-items: center; justify-content: center; z-index: 9000;
     }
+    /* An explicit `display` beats the UA stylesheet's [hidden]{display:none},
+       so WITHOUT this the overlay is on screen from page load and
+       closeVoiceModal()'s `hidden = true` does nothing -- a full-screen dialog
+       nobody can dismiss. Alice hit exactly that. Same guard the other
+       overlays already carry (calendar.html .modal-overlay[hidden]). */
+    .voice-modal-overlay[hidden] { display: none !important; }
     .voice-modal-box {
       background: #fdfbf7; border-radius: 12px; padding: 26px;
       width: min(520px, 92vw); max-height: 86vh; overflow-y: auto;

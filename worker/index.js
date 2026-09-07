@@ -22335,7 +22335,18 @@ async function handlePatchFinanceNewAccount(accountId, request, env) {
 // so the floor is applied on insert rather than in the request.
 // ---------------------------------------------------------------------------
 
-var PLAID_HISTORY_FLOOR = "2026-07-01";
+// Lowered from 2026-07-01 to 2025-09-01 on 2026-09-07. The original floor was
+// set to where INVOICING began, but the bank history goes back further and the
+// business does too: Rafa went full time in January 2026 and it is unknown
+// whether Apex had paying clients before that. A full year answers that from
+// the bank rather than from two people who are too underwater to be asked, and
+// it feeds the finance screens that keep reporting "not enough data".
+//
+// Safe to widen: /transactions/sync upserts on plaid_transaction_id, and the
+// categorization pass only fills rows where category_id IS NULL, so existing
+// human decisions cannot be overwritten by a replay. A full backup of all
+// seven finance tables was taken first (~/apex-finance-backup-2026-09-07).
+var PLAID_HISTORY_FLOOR = "2025-09-01";
 
 // The free-text note the sender typed on a Zelle payment: for "Livros Apex
 // Club", for "GESTAO APEX". It carries real meaning -- which client, which
@@ -22409,6 +22420,23 @@ function depositAgeDays(invoiceAnchorIso, depositDateIso) {
 //   2. a composite of exact amount + normalized merchant + date within 3 days,
 //      for feeds that drop that link.
 async function findExistingTransaction(env, accountRowId, plaidTxn, amountCents, merchantNorm) {
+    // The transaction id itself, FIRST. Plaid replays the whole of available
+    // history whenever it is called with no cursor, so on a re-sync every row
+    // already stored comes back -- and this function used to fall through to
+    // the fuzzy match below, which returns null when it finds MORE THAN ONE
+    // lookalike. The INSERT then collided on the plaid_transaction_id UNIQUE
+    // index and aborted the entire sync.
+    //
+    // Duplicates of exactly that shape exist in production: three identical
+    // $200 Zelle rows on 2026-07-29 and another set on 07-27. Widening the
+    // history floor to pull a year made this reachable for the first time.
+    if (plaidTxn.transaction_id) {
+        var byId = await env.DB.prepare(
+            "SELECT id, date FROM transactions WHERE plaid_transaction_id = ?"
+        ).bind(plaidTxn.transaction_id).first();
+        if (byId) { return byId; }
+    }
+
     var byPendingId = null;
     if (plaidTxn.pending_transaction_id) {
         byPendingId = await env.DB.prepare(

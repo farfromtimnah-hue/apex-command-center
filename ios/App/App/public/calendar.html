@@ -6392,6 +6392,13 @@
         if (miss.length) {
           what += "  (" + (en ? "missing: " : "falta: ") + miss.join(", ") + ")";
         }
+        // A meeting that never reached Google is invisible everywhere Rafa
+        // actually looks -- his phone, his reminders, the Meet he would join.
+        // Say that plainly rather than leaving it to be inferred from a
+        // missing link.
+        if (row.voice_gcal_error && !row.google_event_id) {
+          what += "  " + (en ? "[not on Google yet]" : "[ainda nao esta no Google]");
+        }
 
         var btn = document.createElement("button");
         btn.className = "btn-cancel-link";
@@ -6420,9 +6427,16 @@
           if (m === "client") { return en ? "company" : "empresa"; }
           return m;
         });
-        note.textContent = miss.length
-          ? (en ? "Missing: " : "Falta: ") + miss.join(", ")
-          : "";
+        var noteLines = [];
+        if (miss.length) { noteLines.push((en ? "Missing: " : "Falta: ") + miss.join(", ")); }
+        if (row.voice_gcal_error && !row.google_event_id) {
+          // Alice finishes it through the normal dialog, which does create the
+          // event -- there is no second surface for this.
+          noteLines.push(en
+            ? "This meeting is not on Google Calendar yet. Save here, then rebook it from + New Session to put it on the calendar."
+            : "Esta reuniao ainda nao esta no Google Calendar. Salve aqui e depois reagende em + Nova Sessao para coloca-la no calendario.");
+        }
+        note.textContent = noteLines.join("  |  ");
       }
 
       // Pre-filled with what WAS captured, so Alice only fills the gap.

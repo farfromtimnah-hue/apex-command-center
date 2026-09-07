@@ -79,3 +79,67 @@ and hard-reload before concluding anything about what is live.
 
 When done: update progress.md, stage it with the code, one commit, push, and
 report what was verified versus what needs Nicole on a device.
+
+=== SECOND TASK, SAME SESSION: voice-booked meetings never reach Google ===
+
+handlePostSessionsVoice() in worker/index.js hardcodes google_meet_link to NULL
+and calendar_provider to 'apex' when it inserts the session. So a meeting booked
+by voice exists ONLY inside Apex: it never appears on Rafa's phone calendar, it
+never reminds him, it has no Meet link to join, and Fireflies never captures a
+transcript for it because there is no Meet to sit in. From his side, speaking a
+meeting produces something invisible everywhere he actually looks.
+
+The worker ALREADY knows how to do this. It creates real Google Calendar events
+with Meet links on the normal booking path -- search for conferenceData and
+createRequest with conferenceSolutionKey type "hangoutsMeet", and for the
+/events?conferenceDataVersion=1 call. Reuse that code. Do not write a second
+Google integration and do not add new credentials: the OAuth token and its
+refresh already exist and are already used by the scheduled handler.
+
+Build it so that:
+
+1. A voice-booked meeting creates the real Google Calendar event, exactly as the
+   dialog path does for the same meeting type, and stores google_event_id,
+   html_link and calendar_provider the same way.
+
+2. An ONLINE meeting gets a Meet link, stored in google_meet_link. An in-person
+   one does not -- same rule the dialog already follows, so an on-site visit or a
+   personal block is not handed a dead conference room.
+
+3. The Google call is BEST EFFORT and must never lose the meeting. The whole
+   design of this path is that speaking always produces a meeting: a missing date
+   falls back to today rather than refusing. Keep that. If Google fails for any
+   reason -- expired token, API error, network -- the session row is still
+   inserted, the meeting is flagged for Alice, and the reason is recorded. Never
+   let a Google failure throw away a recording Rafa already made.
+
+4. When Google fails, say so on the calendar banner in plain language: this
+   meeting is not on Google yet. Alice can then finish it through the normal
+   dialog, which does create the event. Do not invent a new surface for this --
+   use the voice flag banner that already exists.
+
+   READ THIS BEFORE YOU DESIGN THE FALLBACK. Alice's desk is NOT the default
+   path, and building it that way fails the whole point of this feature. Every
+   voice-booked online meeting MUST get its Google event and Meet link created
+   automatically, with no human touching it. The banner is for the rare genuine
+   failure -- an expired token, a Google outage -- not for routine completion.
+   If your implementation ends up routing ordinary successful bookings to Alice
+   for a manual step, it is wrong: rework it so the automatic path is the one
+   that runs, because a system that quietly moves work onto her will be
+   abandoned rather than used.
+
+   Concretely: do NOT add session_type, meeting link, or "needs Google" to the
+   `missing` array for meetings that succeeded. A meeting whose Google event was
+   created is complete and must not be flagged at all.
+
+5. Retry once before giving up. An expired OAuth token is the most likely
+   failure and the worker already knows how to refresh it, so a single retry
+   after a refresh will turn most would-be failures into successes that never
+   reach anyone. Only flag after that retry also fails.
+
+VERIFY THIS PART by speaking (or posting synthesized audio for) one ONLINE
+meeting and one ON-SITE meeting, then confirming in D1 that the online one has a
+google_meet_link and a google_event_id and the on-site one has an event but no
+Meet link. Then confirm the event actually exists in Google Calendar, not just
+that a column was filled in. A row with an id in it is not proof the event was
+created -- fetch it back.

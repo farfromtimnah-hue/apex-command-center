@@ -4965,16 +4965,133 @@ async function handlePostSessionsVoice(request, env) {
         var flagged = (match.verdict === "ambiguous" || missing.length > 0) ? 1 : 0;
 
         var sessionId = crypto.randomUUID();
+        var endTimeVoice = extracted.end_time || plusOneHourHHMM(time);
+        var locationVoice = extracted.location || null;
+
+        // ── The meeting has to exist where Rafa actually looks ─────────────
+        //
+        // Before this, a voice-booked meeting was inserted with
+        // google_meet_link NULL and calendar_provider 'apex', so it existed
+        // ONLY inside Apex: never on his phone calendar, never reminding him,
+        // no link to join, and no Meet for Fireflies to sit in -- so it never
+        // produced a transcript either. Speaking a meeting produced something
+        // invisible everywhere he looks.
+        //
+        // Same rules the dialog path follows, so the two cannot drift: an
+        // ONLINE meeting gets a Meet link; an in-person one gets a real event
+        // with a location and no link, because an on-site visit or a personal
+        // block must not be handed a dead conference room.
+        //
+        // BEST EFFORT, always. The whole design of this path is that speaking
+        // produces a meeting -- a missing date falls back to today rather than
+        // refusing -- so a Google failure must never throw away a recording
+        // that was already made. The row is inserted either way and the reason
+        // is recorded for the banner.
+        var voiceMeetLink   = null;
+        var voiceEventId    = null;
+        var voiceHtmlLink   = null;
+        var voiceGcalError  = null;
+        // 'apex' regardless of whether Google succeeded: it records WHO
+        // created the row, exactly as the dialog path does, not whether the
+        // event exists. voice_gcal_error is what answers that question.
+        var voiceProvider   = "apex";
+        var voiceWantsMeet  = (sessionType === "online_meet");
+
+        // Same title convention as the dialog: "- RDE" marks a real client
+        // session, and a prospect or a non-client block keeps its own name.
+        var voiceTitle = (category === "client" || category === "onsite_visit" || category === "xray")
+            ? clientName + " - RDE"
+            : clientName;
+        // Only a resolved client can be invited. An ambiguous or absent match
+        // has no email to use, and guessing one would send a real invite to
+        // the wrong company.
+        var voiceAttendee = clientId ? await lookupClientAttendeeEmail(env, clientId) : null;
+
+        // ONE attempt: mint a fresh access token, then post the event. Written
+        // as a function so it can simply be run twice.
+        async function attemptVoiceGcal() {
+            // getGoogleAccessToken exchanges the stored refresh token every
+            // call, so a second run genuinely re-refreshes rather than
+            // replaying a token that has already expired.
+            var voiceToken = await getGoogleAccessToken(env);
+            var voiceEventBody = {
+                summary: voiceTitle,
+                start: { dateTime: date + "T" + time + ":00", timeZone: APEX_TIMEZONE },
+                end:   { dateTime: date + "T" + endTimeVoice + ":00", timeZone: APEX_TIMEZONE }
+            };
+            if (voiceWantsMeet) {
+                // A new requestId per attempt, so the retry is a fresh
+                // conference request rather than a replay Google may reject.
+                voiceEventBody.conferenceData = {
+                    createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } }
+                };
+            } else if (locationVoice) {
+                voiceEventBody.location = String(locationVoice).slice(0, 1024);
+            }
+            if (voiceAttendee) { voiceEventBody.attendees = [{ email: voiceAttendee }]; }
+
+            return await googleCalendarApiCall(
+                voiceToken, "POST",
+                voiceWantsMeet ? "/events?conferenceDataVersion=1" : "/events",
+                voiceEventBody
+            );
+        }
+
+        function adoptVoiceGcalResult(res) {
+            voiceEventId  = res.data.id || null;
+            voiceHtmlLink = res.data.htmlLink || null;
+            if (voiceWantsMeet) { voiceMeetLink = extractGoogleEventMeetLink(res.data); }
+            voiceGcalError = null;
+        }
+
+        // Try once, and on ANY failure try exactly once more with a freshly
+        // refreshed token. An expired or racing token is the common failure
+        // here and it fixes itself on the second call -- sending Rafa's
+        // meeting to Alice's desk for that would be routine work disguised as
+        // an exception. Capped at one retry: a second failure is a real
+        // outage, and retrying harder would only delay the recording being
+        // saved.
+        try {
+            var voiceRes = await attemptVoiceGcal();
+            if (voiceRes.ok && voiceRes.data) {
+                adoptVoiceGcalResult(voiceRes);
+            } else {
+                voiceGcalError = googleApiErrMessage(voiceRes);
+            }
+        } catch (voiceErr) {
+            voiceGcalError = voiceErr.message;
+        }
+
+        if (!voiceEventId) {
+            try {
+                var voiceRetryRes = await attemptVoiceGcal();
+                if (voiceRetryRes.ok && voiceRetryRes.data) {
+                    adoptVoiceGcalResult(voiceRetryRes);
+                } else {
+                    voiceGcalError = googleApiErrMessage(voiceRetryRes);
+                }
+            } catch (voiceRetryErr) {
+                voiceGcalError = voiceRetryErr.message;
+            }
+        }
+
+        // A meeting that did not reach Google needs Alice regardless of how
+        // complete it is otherwise: she finishes it through the normal dialog,
+        // which does create the event.
+        if (voiceGcalError) { flagged = 1; }
+
         await env.DB.prepare(
             "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, " +
-            "session_type, google_meet_link, calendar_provider, status, meeting_category, " +
-            "voice_flagged, voice_transcript, voice_missing, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'apex', 'scheduled', ?, ?, ?, ?, ?)"
+            "session_type, google_meet_link, google_event_id, html_link, calendar_provider, status, meeting_category, " +
+            "voice_flagged, voice_transcript, voice_missing, voice_gcal_error, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?)"
         ).bind(
             sessionId, clientId, clientName, date, time,
-            extracted.end_time || null, extracted.location || null,
-            sessionType, category, flagged, transcript,
+            endTimeVoice, locationVoice,
+            sessionType, voiceMeetLink, voiceEventId, voiceHtmlLink, voiceProvider,
+            category, flagged, transcript,
             missing.length ? JSON.stringify(missing) : null,
+            voiceGcalError,
             actorName(user)
         ).run();
 
@@ -5002,10 +5119,14 @@ async function handlePostSessionsVoice(request, env) {
             client_id:  clientId,
             client_name: clientName,
             date: date, time: time,
+            end_time: endTimeVoice,
             meeting_category: category,
             missing: missing,
             follow_up: followUp,
-            flagged: !!flagged
+            flagged: !!flagged,
+            google_event_id: voiceEventId,
+            google_meet_link: voiceMeetLink,
+            gcal_error: voiceGcalError
         });
     } catch (e) {
         return jsonErr("Error creating meeting from voice: " + e.message, 500);
@@ -5023,7 +5144,7 @@ async function handleGetVoiceFlagged(request, env) {
 
         var res = await env.DB.prepare(
             "SELECT id, client_id, client_name, date, time, end_time, location, session_type, " +
-            "meeting_category, voice_transcript, voice_missing " +
+            "meeting_category, voice_transcript, voice_missing, voice_gcal_error, google_event_id " +
             "FROM sessions WHERE voice_flagged = 1 AND status NOT IN ('cancelled', 'archived', 'discarded') " +
             "ORDER BY created_at DESC"
         ).all();
@@ -5073,8 +5194,18 @@ async function handlePostVoiceResolve(sessionId, request, env) {
 
         // Clearing the flag is the point of the call, so it always happens --
         // Alice looked at the meeting, and that is what the flag was asking for.
-        sets.push("voice_flagged = 0");
+        // The captured fields are answered either way.
         sets.push("voice_missing = NULL");
+
+        // The flag itself only clears when there is nothing left to do. This
+        // modal fills in missing fields; it does NOT create the Google event,
+        // so a meeting that never reached Google stays flagged -- clearing it
+        // would make a meeting still absent from Rafa's calendar look fixed.
+        var gcalRow = await env.DB.prepare(
+            "SELECT voice_gcal_error, google_event_id FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        var stillMissingFromGoogle = !!(gcalRow && gcalRow.voice_gcal_error && !gcalRow.google_event_id);
+        if (!stillMissingFromGoogle) { sets.push("voice_flagged = 0"); }
 
         binds.push(sessionId);
         var stmt = env.DB.prepare("UPDATE sessions SET " + sets.join(", ") + " WHERE id = ?");

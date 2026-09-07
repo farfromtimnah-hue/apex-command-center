@@ -1,0 +1,13 @@
+-- Why a voice-booked meeting did not reach Google Calendar.
+--
+-- Voice booking is built so that speaking ALWAYS produces a meeting: a missing
+-- date falls back to today rather than refusing. The Google call has to obey
+-- the same rule -- an expired token or an API error must never throw away a
+-- recording Rafa already made -- so the session row is inserted either way and
+-- the failure is recorded here instead of raised.
+--
+-- The banner above the calendar reads this to say, in plain language, that the
+-- meeting is not on Google yet. Alice finishes it through the normal dialog,
+-- which does create the event. NULL means Google succeeded (or was never
+-- needed), so a plain IS NOT NULL test is the whole check.
+ALTER TABLE sessions ADD COLUMN voice_gcal_error TEXT;

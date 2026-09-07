@@ -1040,6 +1040,67 @@ for a field that is on screen. The first is unreachable and was removed; the
 second now says what is actually wrong -- the duration does not fit before
 midnight -- instead of blaming a control the user cannot see.
 
+---
+
+## Voice-booked meetings now reach Google (2026-09-06)
+
+**1. Speaking a meeting produced something invisible.**
+
+handlePostSessionsVoice hardcoded google_meet_link NULL and
+calendar_provider 'apex', so a voice-booked meeting existed ONLY inside Apex:
+never on Rafa's phone calendar, never reminding him, no link to join, and no
+Meet for Fireflies to sit in -- so it never produced a transcript either. From
+his side, the one feature built because he routes around forms produced
+nothing he could see.
+
+It now creates the real Google Calendar event on the same code the dialog path
+uses (conferenceData + createRequest with conferenceSolutionKey "hangoutsMeet",
+posted to /events?conferenceDataVersion=1) and stores google_event_id,
+html_link and calendar_provider the same way. No second Google integration, no
+new credentials -- the existing OAuth token and its refresh already work.
+
+Same online/in-person rule as the dialog: an ONLINE meeting gets a Meet link;
+an on-site visit or a personal block gets a real event with a location and no
+link, because neither should be handed a dead conference room.
+
+**2. Automatic every time; Alice's desk is for genuine failures only.**
+
+A meeting whose Google event succeeded is NOT flagged at all -- flagging
+routine successes is how a banner becomes noise nobody reads. voice_flagged is
+raised only when the Google call actually failed (or a field was genuinely
+missing). Verified live three times: three voice bookings, three confirmed
+Google events, zero rows at Alice's desk.
+
+**3. One retry, with a freshly refreshed token.**
+
+getGoogleAccessToken() exchanges the stored refresh token on EVERY call, so
+running the attempt a second time genuinely re-refreshes rather than replaying
+a token that has already expired -- which is the common failure here and fixes
+itself on the second call. Sending Rafa's meeting to Alice for that would be
+routine work disguised as an exception.
+
+Capped at one retry: a second failure is a real outage, and retrying harder
+only delays saving the recording. Each attempt builds a fresh conference
+requestId so the retry is a new request rather than a replay Google may
+reject, and a recovered retry clears the first attempt's error so it is not
+reported as a failure. scripts/test-voice-gcal-retry.mjs pins all of this
+against the shipped source.
+
+**4. A Google failure never loses the meeting.**
+
+The whole design of this path is that speaking always produces a meeting -- a
+missing date falls back to today rather than refusing -- so the session row is
+inserted whatever Google does, and the reason lands in
+sessions.voice_gcal_error (migrations/session_voice_gcal_error.sql, applied
+remote). The banner above the calendar then says it plainly: "[ainda nao esta
+no Google]" beside the row, and the modal explains that saving there fills in
+the fields but the meeting still needs rebooking through + Nova Sessao, which
+does create the event. No new surface was invented for this.
+
+voice-resolve deliberately does NOT clear voice_gcal_error: that modal fills in
+missing fields, it does not create the Google event, so a meeting still absent
+from Rafa's calendar stays flagged instead of looking fixed.
+
 ## Completed (2026-07-03, worker fix — discarded session leak)
 
 - [x] Excluded `discarded` sessions from `handleGetSessions` (both client-filtered and unfiltered queries) using `NOT IN ('archived','discarded')`; `handleGetSessionsCalendar` already had the fix applied

@@ -5,6 +5,39 @@
 // window.onload so it never clobbers each page's own window.onload init.
 (function () {
 
+  // ── Escape hatch for a stuck full-screen overlay ────────────────────────
+  //
+  // 2026-09-07: .voice-modal-overlay set display:flex, which beats the UA
+  // stylesheet's [hidden]{display:none}, so the voice dialog rendered on every
+  // page load and its close button could not dismiss it. Alice could not use
+  // the app at all. The CSS fix lives inside dashboard.html, and a device that
+  // is still serving an older copy of that HTML -- from the HTTP cache or
+  // iOS's back-forward cache, neither of which a hard refresh reliably clears
+  // -- stays stuck with no way out from inside the page.
+  //
+  // pwa.js is loaded by every page and is NOT fingerprinted, so it is the one
+  // file that reaches a device holding stale HTML. This closes the overlay on
+  // load regardless of which dashboard.html is running. It is a safety net,
+  // not the fix: the fix is the CSS guard.
+  function dismissStuckOverlays() {
+    var ids = ["voiceModal"];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (!el) { continue; }
+      // Only touch one that is ALREADY marked hidden and showing anyway --
+      // that combination is the bug and nothing else. A modal the user
+      // genuinely opened has hidden=false and is left alone.
+      if (el.hidden) { el.style.setProperty("display", "none", "important"); }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", dismissStuckOverlays);
+  } else {
+    dismissStuckOverlays();
+  }
+  window.addEventListener("pageshow", dismissStuckOverlays);
+
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) { return; }
     navigator.serviceWorker.register("sw.js").then(function () {

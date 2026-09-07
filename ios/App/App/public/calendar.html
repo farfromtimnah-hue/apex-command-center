@@ -2220,6 +2220,49 @@
           </div>
           <input type="text" id="qacPhone" placeholder="">
         </div>
+        <!-- Optional, collapsed by default. The two fields above are the only
+             ones REQUIRED, because this form opens mid-booking with somebody
+             sitting in front of him and any extra question is a reason to
+             abandon the booking. But when he does happen to know more, there
+             has to be somewhere to put it -- otherwise the information is
+             simply lost and has to be chased later. Expanding is his choice;
+             nothing here ever blocks Save. -->
+        <button type="button" class="btn-cancel-link" id="qacMoreBtn"
+                style="display:block;margin:2px 0 10px;padding:0;text-align:left;"
+                onclick="toggleQuickAddMore()">
+          <span class="show-pt">+ Mais detalhes (opcional)</span>
+          <span class="show-en">+ More details (optional)</span>
+        </button>
+        <div id="qacMore" hidden>
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Dono(s)</span>
+              <span class="show-en">Owner(s)</span>
+            </div>
+            <input type="text" id="qacOwners" placeholder="">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Ramo</span>
+              <span class="show-en">Industry</span>
+            </div>
+            <input type="text" id="qacIndustry" placeholder="">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Cidade</span>
+              <span class="show-en">City</span>
+            </div>
+            <input type="text" id="qacLocation" placeholder="">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">E-mail</span>
+              <span class="show-en">Email</span>
+            </div>
+            <input type="text" id="qacEmail" placeholder="">
+          </div>
+        </div>
         <button class="btn-submit" onclick="handleQuickAddClient()">
           <span class="show-pt">Salvar</span>
           <span class="show-en">Save</span>
@@ -3894,6 +3937,29 @@
       if (el) { el.hidden = false; }
     }
 
+    // Collapsed extras. Reads empty as null rather than "" so a field he
+    // opened and left alone is stored the same as one he never opened.
+    function qacVal(id) {
+      var el = document.getElementById(id);
+      if (!el) { return null; }
+      var v = String(el.value || "").trim();
+      return v ? v : null;
+    }
+
+    function toggleQuickAddMore() {
+      var box = document.getElementById("qacMore");
+      var btn = document.getElementById("qacMoreBtn");
+      if (!box) { return; }
+      box.hidden = !box.hidden;
+      if (btn) {
+        btn.innerHTML = box.hidden
+          ? '<span class="show-pt">+ Mais detalhes (opcional)</span>' +
+            '<span class="show-en">+ More details (optional)</span>'
+          : '<span class="show-pt">- Menos detalhes</span>' +
+            '<span class="show-en">- Fewer details</span>';
+      }
+    }
+
     function handleQuickAddClient() {
       var nameEl    = document.getElementById("qacName");
       var phoneEl   = document.getElementById("qacPhone");
@@ -3915,6 +3981,13 @@
         body: {
           name: name,
           phone: phone || null,
+          // Whatever he chose to expand and fill in. Every one of these is
+          // optional and absent unless typed; the endpoint already accepts
+          // all four and stores null for anything missing.
+          owners:   qacVal("qacOwners"),
+          industry: qacVal("qacIndustry"),
+          location: qacVal("qacLocation"),
+          email:    qacVal("qacEmail"),
           // Somebody becomes ACTIVE when they have a contract, which means
           // they have a package. Created here, mid-booking, they have neither.
           status: "lead"
@@ -3929,6 +4002,14 @@
           statusEl.textContent = "";
           nameEl.value = "";
           if (phoneEl) { phoneEl.value = ""; }
+          // Clear the optional block and recollapse it, or the next lead
+          // quietly inherits the last one's owner, industry, city and email.
+          ["qacOwners","qacIndustry","qacLocation","qacEmail"].forEach(function(fid) {
+            var f = document.getElementById(fid);
+            if (f) { f.value = ""; }
+          });
+          var moreBox = document.getElementById("qacMore");
+          if (moreBox && !moreBox.hidden) { toggleQuickAddMore(); }
           closeModal("modalQuickAddClient");
 
           // Put the new lead straight into the booking that prompted it --

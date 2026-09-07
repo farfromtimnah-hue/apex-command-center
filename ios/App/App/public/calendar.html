@@ -2262,6 +2262,19 @@
             </div>
             <input type="text" id="qacEmail" placeholder="">
           </div>
+          <!-- Free text, last, and deliberately unstructured. Every other
+               field here has a shape he has to match; this is the one box
+               that accepts whatever is actually in his head at the moment he
+               is standing in front of somebody. It posts to client_notes, so
+               it lands on the client profile where he would go looking for it
+               later rather than in a column nothing reads. -->
+          <div class="field-group">
+            <div class="field-label">
+              <span class="show-pt">Observa&#231;&#245;es</span>
+              <span class="show-en">Notes</span>
+            </div>
+            <textarea id="qacNotes" rows="3" style="width:100%;"></textarea>
+          </div>
         </div>
         <button class="btn-submit" onclick="handleQuickAddClient()">
           <span class="show-pt">Salvar</span>
@@ -4004,7 +4017,7 @@
           if (phoneEl) { phoneEl.value = ""; }
           // Clear the optional block and recollapse it, or the next lead
           // quietly inherits the last one's owner, industry, city and email.
-          ["qacOwners","qacIndustry","qacLocation","qacEmail"].forEach(function(fid) {
+          ["qacOwners","qacIndustry","qacLocation","qacEmail","qacNotes"].forEach(function(fid) {
             var f = document.getElementById(fid);
             if (f) { f.value = ""; }
           });
@@ -4016,6 +4029,16 @@
           // otherwise the picker reopens on the placeholder and the name just
           // typed has to be hunted for.
           var newId = data.client_id;
+          // Fire and forget: a note that fails to save must never cost him the
+          // lead he just created, and there is nothing useful he could do
+          // about it mid-booking anyway.
+          var noteTxt = qacVal("qacNotes");
+          if (noteTxt) {
+            apiFetch("/api/clients/" + encodeURIComponent(newId) + "/notes", {
+              method: "POST",
+              body: { content: noteTxt }
+            }).catch(function() {});
+          }
           apiFetch("/api/clients")
             .then(function(r) { return r.json(); })
             .then(function(d) {

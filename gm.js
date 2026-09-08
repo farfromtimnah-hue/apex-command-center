@@ -4834,6 +4834,21 @@ function gmCalChip(ev) {
   }
   btn.appendChild(t);
 
+  // A seller sees the schedule; tapping into it opens sheets they cannot use.
+  // gmCalOpenEvent is the EDIT sheet (Save and Delete both 403 for them), and
+  // gmCalOpenJob reads a jobs payload sellerRequestAllowed withholds. Rather
+  // than ship five branches that each fail differently, the chip is inert for
+  // them and the day cell still carries title and time.
+  //
+  // KNOWN GAP, deliberately left: a seller cannot open an event to read its
+  // location or notes. A read-only detail sheet is the follow-up; shipping a
+  // tap that 403s in front of a salesperson is not.
+  if (gmCalReadOnly()) {
+    btn.onclick = function(e) { e.stopPropagation(); };
+    btn.style.cursor = "default";
+    return btn;
+  }
+
   btn.onclick = function(e) {
     e.stopPropagation();
     if (ev.kind === "derived") { gmCalOpenJob(ev); }
@@ -4845,10 +4860,22 @@ function gmCalChip(ev) {
   return btn;
 }
 
+// A salesperson seat READS the calendar and never composes on it. The server
+// is what actually enforces that (sellerRequestAllowed lists the GET only);
+// this exists so a seller is not shown affordances that would 403 on use.
+//
+// The typeof guard is not defensive padding: gm.js is shared with the admin GM
+// page, where isSeller() does not exist at all and a bare call would throw
+// while rendering the calendar.
+function gmCalReadOnly() {
+  return (typeof isSeller === "function") && isSeller();
+}
+
 function gmRenderCalendar() {
   var body = document.getElementById("gmCalendarBody");
   if (!gmConfig || !gmCalData) { return; }
   var months = CalendarGrid.monthNames(isEn());
+  var readOnly = gmCalReadOnly();
 
   var html = '<div class="gm-cal-head">' +
     '<button type="button" class="gm-cal-nav" aria-label="' +
@@ -4866,12 +4893,18 @@ function gmRenderCalendar() {
     '<div class="gm-cal-legend">' +
       '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
       '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
-      '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
+      // Apex Club and the Apex meeting are dropped from a seller's payload
+      // server-side, so legending them would name two chip kinds that can
+      // never appear on their calendar.
+      (readOnly ? "" :
+        '<span><i class="cgrid-chip club"></i>Apex Club</span>') +
       '<span><i class="cgrid-chip lead"></i>' + gmT("Estimates", "Estimates") + '</span>' +
-      '<span><i class="cgrid-chip apex"></i>' + gmT("Reunião com a Apex", "Meeting with Apex") + '</span>' +
+      (readOnly ? "" :
+        '<span><i class="cgrid-chip apex"></i>' + gmT("Reunião com a Apex", "Meeting with Apex") + '</span>') +
     '</div>' +
-    '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +
-      gmT("+ Novo evento", "+ New event") + '</button>';
+    (readOnly ? "" :
+      '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +
+        gmT("+ Novo evento", "+ New event") + '</button>');
 
   body.innerHTML = html;
 
@@ -4884,8 +4917,9 @@ function gmRenderCalendar() {
     emptyText: gmT("Nada agendado.", "Nothing scheduled."),
     onSelectDate: function(d) { gmCalSelDate = d; gmRenderCalendar(); },
     // Tapping an empty day starts a new event ON that day — the single most
-    // common way anyone adds something to a calendar.
-    onDayClick: function(d) { gmCalNew(d); }
+    // common way anyone adds something to a calendar. A seller composes
+    // nothing, so for them the day is selectable but not a create gesture.
+    onDayClick: readOnly ? null : function(d) { gmCalNew(d); }
   });
 }
 

@@ -13529,6 +13529,20 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+        // The client business's own calendar (Agenda). Rafa, 2026-09-08: a
+        // salesperson working the pipeline needs to see what is already booked.
+        // handleGetGmEvents narrows the payload off the SESSION for a seller --
+        // lead events scoped to their own leads, Apex Club and Apex meetings
+        // dropped entirely -- so this grants the schedule, not the owner's
+        // relationship with Apex. READ ONLY: there is deliberately no POST, PUT
+        // or DELETE counterpart below, which is what makes a seller unable to
+        // compose or edit an event server-side rather than by a hidden button.
+        //
+        // gm/jobs is deliberately NOT allowed alongside it. gmLoadCalendar()
+        // fetches it for the composer's pickers and swallows the failure to
+        // null, so the calendar renders without it -- and the jobs payload
+        // carries costs, margins and commission that no seller may read.
+        if (rest === "gm/events") { return true; }
         // Shared sales material (Materiais do Vendedor). Both handlers narrow
         // to visibility='seller' off the session, so what comes back is the
         // shared material only — never the client's own documents, and never a
@@ -20478,11 +20492,20 @@ function gmLeadPlace(l) {
     return parts.length ? parts.join(", ") : null;
 }
 
-async function gmDerivedLeadEvents(env, clientId, fromDate, toDate) {
+// sellerName, when given, applies the SAME row-level scope handleGetGmLeads
+// applies to the CRM tab: only leads whose vendedor is exactly this
+// salesperson. Without it, opening the calendar would have handed a seller
+// every other seller's customer name, deal value and address -- the precise
+// data the pipeline filter exists to withhold -- through a different door.
+// Exact comparison, not COALESCE'd: a lead with vendedor NULL or '' belongs to
+// the OWNER and is invisible to every seller. NULL is not "everyone's".
+async function gmDerivedLeadEvents(env, clientId, fromDate, toDate, sellerName) {
+    var leadFilter = sellerName ? " AND vendedor = ?" : "";
+    var leadBinds  = sellerName ? [clientId, sellerName] : [clientId];
     var rows = await env.DB.prepare(
         "SELECT id, cliente, data_lead, data_estimate, estagio, valor, servico, address, city " +
-        "FROM gm_leads WHERE client_id = ?"
-    ).bind(clientId).all();
+        "FROM gm_leads WHERE client_id = ?" + leadFilter
+    ).bind(...leadBinds).all();
 
     var out = [];
     (rows.results || []).forEach(function (l) {
@@ -20654,16 +20677,37 @@ async function handleGetGmEvents(id, request, env) {
             "ORDER BY event_date ASC, COALESCE(start_time,'') ASC"
         ).bind(id, fromD, toD).all();
 
+        // A salesperson seat reads this calendar too (Rafa, 2026-09-08: a
+        // seller in the client portal sees the pipeline and needs the schedule
+        // beside it). What they get is deliberately not the same payload:
+        //
+        //   own      -- ALL of them. This IS the company calendar, and a seller
+        //               needing to know what the crew has booked is the point.
+        //   derived  -- job dates. Project name and dates only; the query
+        //               selects no cost, margin or commission column.
+        //   leadEv   -- scoped to their OWN leads, matching the CRM tab. Any
+        //               other answer would leak another seller's customers.
+        //   club     -- DROPPED. Apex Club invitations are the owner's
+        //   apex        relationship with Apex, not the business's schedule.
+        //               Sellers reach no other apexOwned surface in the portal
+        //               and this must not become the exception.
+        var sellerName = effectiveSellerName(user, request);
+
         var own = (rows.results || []).map(gmEventOut);
         var derived = await gmDerivedJobEvents(env, id, fromD, toD);
-        var leadEv = await gmDerivedLeadEvents(env, id, fromD, toD);
-        var club = await gmClubInviteEvents(env, fromD, toD);
-        var apex = await gmApexMeetingEvents(env, id, fromD, toD);
+        var leadEv = await gmDerivedLeadEvents(env, id, fromD, toD, sellerName);
+        var events = own.concat(derived).concat(leadEv);
+
+        if (!sellerName) {
+            var club = await gmClubInviteEvents(env, fromD, toD);
+            var apex = await gmApexMeetingEvents(env, id, fromD, toD);
+            events = events.concat(club).concat(apex);
+        }
 
         return jsonOk({
             month: month,
             range: { from: fromD, to: toD, month_start: first, month_end: last },
-            events: own.concat(derived).concat(leadEv).concat(club).concat(apex)
+            events: events
         });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);

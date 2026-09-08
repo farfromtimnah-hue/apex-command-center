@@ -4321,7 +4321,14 @@
     // to a seller session and drops session-derived reports entirely. This list
     // is navigation, not authorization — every one of these is enforced again
     // server-side in sellerRequestAllowed().
-    var SELLER_TABS = ["gmcrm", "documents"];
+    //
+    // "gmcalendar" is READ ONLY for them, enforced in three places that do not
+    // depend on each other: sellerRequestAllowed() lists only the GET (no POST,
+    // PUT or DELETE exists for a seller), handleGetGmEvents narrows the payload
+    // off the session, and gmCalReadOnly() in gm.js drops the composer. A
+    // hidden button is not a permission, so the button is the least of the
+    // three.
+    var SELLER_TABS = ["gmcrm", "gmcalendar", "documents"];
 
     function portalTabs() {
       if (!isSeller()) { return PORTAL_TABS; }

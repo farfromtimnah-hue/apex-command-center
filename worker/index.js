@@ -20736,7 +20736,14 @@ async function handleGetGmEvents(id, request, env) {
         var all = own.concat(derived).concat(leadEv).concat(club).concat(apex);
 
         // A seller sees every slot, but only their OWN leads' details.
-        var sellerName = sessionSellerName(user);
+        //
+        // effectiveSellerName, NOT sessionSellerName: the same helper the lead
+        // list uses, so ?previewSeller= redacts identically to a real seller
+        // session. Using the session-only helper here made the admin preview
+        // -- which is exactly how this gets checked -- show an UNREDACTED
+        // calendar while real sellers were redacted, so the preview lied about
+        // what a seller sees. Caught in live testing 2026-09-08.
+        var sellerName = effectiveSellerName(user, request);
         if (sellerName) {
             var ownerRows = await env.DB.prepare(
                 "SELECT id, vendedor FROM gm_leads WHERE client_id = ?"

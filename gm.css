@@ -881,3 +881,47 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 .gm-host { padding: 14px 16px 18px; }
 .gm-host > :first-child { margin-top: 0; }
 .gm-host > :last-child  { margin-bottom: 0; }
+
+/* Search results header — a search now returns one flat cross-stage list, so
+   it needs its own count and an always-present way out. The × inside the
+   field clears too; this is the one you can hit without aiming. */
+.gm-search-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+.gm-search-results-clear {
+  border: 1px solid var(--border, #d7dde5);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+  padding: 6px 12px;
+  min-height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gm-search-results-clear:hover { background: var(--surface-2, #f1f5f9); }
+
+/* A slot belonging to another seller. Shows that the time is taken and
+   nothing else — the identifying fields never leave the Worker. Muted and
+   non-interactive so it reads as "unavailable", not as a row to try. */
+.cgrid-chip.is-redacted {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--surface-2, #f1f5f9),
+    var(--surface-2, #f1f5f9) 5px,
+    var(--surface-3, #e6ebf1) 5px,
+    var(--surface-3, #e6ebf1) 10px
+  );
+  color: var(--text-muted, #64748b);
+  border-color: var(--border, #d7dde5);
+  cursor: default;
+  opacity: 0.85;
+}
+.cgrid-chip.is-redacted:hover { filter: none; }

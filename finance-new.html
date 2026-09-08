@@ -3309,6 +3309,21 @@
           <input type="date" id="invDue"
                  style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
         </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Descri&ccedil;&atilde;o do servi&ccedil;o</span><span class="show-en">Service description</span>
+          <input type="text" id="invLineDesc" maxlength="200"
+                 placeholder="Consultoria &mdash; setembro a dezembro de 2026"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+          <span style="display:block;margin-top:3px;font-size:11px;color:var(--muted)">
+            <span class="show-pt">Aparece como o item da fatura. Em branco, usa o nome do pacote do cliente.</span>
+            <span class="show-en">Shows as the invoice line item. Left blank, it uses the client's package name.</span>
+          </span>
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Detalhes (opcional)</span><span class="show-en">Details (optional)</span>
+          <textarea id="invNotes" rows="2" maxlength="1000"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px"></textarea>
+        </label>
       </div>
 
       <div class="modal-actions">
@@ -3393,6 +3408,45 @@
   <!-- ═══════════════ CHANGE DUE DATE ═══════════════════════════════════════
        Clients ask for more time after the invoice already went out. There was
        no edit path before this -- due_at was writable only at creation. -->
+  <!-- Edit the client-facing wording. DRAFT ONLY, deliberately: once an invoice
+       is sent the client is holding a copy, and rewriting it behind them would
+       put Apex's record out of step with theirs. -->
+  <div id="descOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Editar descri&ccedil;&atilde;o</span>
+        <span class="show-en">Edit description</span>
+      </div>
+      <div class="modal-sub" id="descSub"></div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Descri&ccedil;&atilde;o do servi&ccedil;o</span><span class="show-en">Service description</span>
+          <input type="text" id="descLine" maxlength="200"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+          <span style="display:block;margin-top:3px;font-size:11px;color:var(--muted)">
+            <span class="show-pt">&Eacute; a linha que o cliente l&ecirc; na fatura.</span>
+            <span class="show-en">This is the line the client reads on the invoice.</span>
+          </span>
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Detalhes (opcional)</span><span class="show-en">Details (optional)</span>
+          <textarea id="descNotes" rows="3" maxlength="1000"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px"></textarea>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeDesc()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="submitDesc()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="dueDateOverlay" class="overlay" hidden>
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-title">
@@ -8527,6 +8581,12 @@
             '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
               "WhatsApp</button> ";
         }
+        // Wording is editable while it is still a draft, and only then.
+        if (inv.status === "draft") {
+          actions +=
+            '<button class="btn btn-sm" onclick="openDesc(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Editar descri&ccedil;&atilde;o</span><span class="show-en">Edit description</span></button> ';
+        }
         if (inv.status === "sent") {
           // A tag, not an accounting event -- see the modal comment and the
           // worker-side comment on /mark-paid-manual. Never changes status or
@@ -8541,6 +8601,11 @@
           actions +=
             '<button class="btn btn-sm" onclick="openDueDate(\'' + inv.id + '\', \'' + (inv.due_at || '') + '\')">' +
               '<span class="show-pt">Mudar vencimento</span><span class="show-en">Change due date</span></button> ';
+          // The way back for an invoice whose wording is wrong. Alice proofs by
+          // sending to herself first, so "sent" is often "sent to me to check".
+          actions +=
+            '<button class="btn btn-sm" onclick="moveInvoiceToDraft(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Voltar para rascunho</span><span class="show-en">Back to draft</span></button> ';
         }
         if (inv.status !== "voided_mistake") {
           actions +=
@@ -8793,6 +8858,76 @@
     // ── Change due date ─────────────────────────────────────────────────────
     var DUE_DATE_INVOICE_ID = null;
 
+    // ── Invoice description ────────────────────────────────────────────────
+    //
+    // Draft-only by design (Nicole, 2026-09-08). A sent invoice is already in
+    // the client's hands, so its wording is frozen; if it genuinely has to
+    // change, moveInvoiceToDraft() below pulls it back first as an explicit,
+    // reasoned act rather than an invisible edit.
+
+    var DESC_INVOICE_ID = null;
+
+    function openDesc(invoiceId) {
+      var inv = null;
+      (INVOICES || []).forEach(function(i) { if (i.id === invoiceId) { inv = i; } });
+      if (!inv) { return; }
+      DESC_INVOICE_ID = invoiceId;
+      document.getElementById("descLine").value  = inv.line_description || "";
+      document.getElementById("descNotes").value = inv.notes || "";
+      document.getElementById("descSub").textContent =
+        (inv.number || "") + " \u00b7 " + (inv.client_name || "");
+      document.getElementById("descOverlay").hidden = false;
+    }
+
+    function closeDesc() {
+      document.getElementById("descOverlay").hidden = true;
+      DESC_INVOICE_ID = null;
+    }
+
+    function submitDesc() {
+      if (!DESC_INVOICE_ID) { return; }
+      var body = {
+        line_description: (document.getElementById("descLine").value || "").trim(),
+        notes: (document.getElementById("descNotes").value || "").trim()
+      };
+      apiFetch("/api/finance-new/invoices/" + DESC_INVOICE_ID + "/description",
+               { method: "POST", body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { toast(data.error); return; }
+          closeDesc();
+          toast(t("Descri\u00e7\u00e3o atualizada", "Description updated"));
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // Pull a SENT invoice back to draft so its wording can be fixed before it
+    // really goes out. Alice proofs invoices by sending them to herself on
+    // WhatsApp, so "sent" in Apex often means "sent to me to look at" -- this
+    // is the road back. It does NOT disturb the paid tag: that is a sticky
+    // note, not an accounting entry, and the Worker refuses outright if a real
+    // matched payment exists.
+    function moveInvoiceToDraft(invoiceId) {
+      var reason = prompt(isEn()
+        ? "Why is this going back to draft?"
+        : "Por que esta fatura volta para rascunho?");
+      if (reason === null) { return; }
+      reason = String(reason).trim();
+      if (!reason) { toast(t("Informe o motivo.", "Give a reason.")); return; }
+
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-draft",
+               { method: "POST", body: { reason: reason } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { toast(data.error); return; }
+          toast(t("De volta para rascunho", "Back to draft"));
+          loadInvoices();
+          openDesc(invoiceId);
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
     function openDueDate(invoiceId, currentDueAt) {
       DUE_DATE_INVOICE_ID = invoiceId;
       document.getElementById("dueDateNew").value = currentDueAt || "";
@@ -8927,6 +9062,8 @@
       sel.innerHTML = invoiceClientOptionsHtml();
       document.getElementById("invAmount").value = "";
       document.getElementById("invDue").value = "";
+      document.getElementById("invLineDesc").value = "";
+      document.getElementById("invNotes").value = "";
       document.getElementById("invOverlay").hidden = false;
     }
 
@@ -9005,10 +9142,15 @@
       if (!clientId) { toast(isEn() ? "Pick a client." : "Escolha um cliente."); return; }
       if (isNaN(amount) || amount <= 0) { toast(isEn() ? "Enter an amount." : "Informe o valor."); return; }
 
+      var lineDesc = (document.getElementById("invLineDesc").value || "").trim();
+      var notes    = (document.getElementById("invNotes").value || "").trim();
+
       var body = {
         client_id: clientId,
         amount_cents: Math.round(amount * 100),
-        due_at: due || undefined
+        due_at: due || undefined,
+        line_description: lineDesc || undefined,
+        notes: notes || undefined
       };
       if (PENDING_RECURRENCE) { body.satisfy_recurrence_id = PENDING_RECURRENCE.id; }
 

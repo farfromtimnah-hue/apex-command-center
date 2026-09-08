@@ -97,7 +97,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1788152508">
+  <link rel="stylesheet" href="gm.css?v=1788904129">
   <link rel="stylesheet" href="calendar-grid.css?v=1788551586">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -4321,7 +4321,13 @@
     // to a seller session and drops session-derived reports entirely. This list
     // is navigation, not authorization — every one of these is enforced again
     // server-side in sellerRequestAllowed().
-    var SELLER_TABS = ["gmcrm", "documents"];
+    // "gmcalendar" added 2026-09-08 (Rafa): a seller must see EVERY booking so
+    // two of them cannot take the same slot. What they see of someone else's
+    // lead is a bare time block -- the Worker strips the name, address,
+    // service, value and lead_id before it ever reaches the browser
+    // (gmRedactEventsForSeller). The pipeline wall itself is unchanged: leads
+    // are still filtered to their own rows by vendedor.
+    var SELLER_TABS = ["gmcrm", "gmcalendar", "documents"];
 
     function portalTabs() {
       if (!isSeller()) { return PORTAL_TABS; }
@@ -6643,7 +6649,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1788552521"></script>
+  <script src="gm.js?v=1788904129"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

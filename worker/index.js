@@ -13529,6 +13529,14 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+        // The calendar month. Rafa's call 2026-09-08: a seller sees EVERY
+        // event, so two of them cannot book the same slot. The payload is
+        // redacted server-side by gmRedactEventsForSeller -- another seller's
+        // lead comes back as a bare time slot with no name, address, service,
+        // value or lead_id. ⚠️ handleGetGmEvents has NO row-level filter of
+        // its own; that redaction is the ONLY thing standing between a seller
+        // and every lead in the business. Do not remove one without the other.
+        if (rest === "gm/events") { return true; }
         // Shared sales material (Materiais do Vendedor). Both handlers narrow
         // to visibility='seller' off the session, so what comes back is the
         // shared material only — never the client's own documents, and never a
@@ -20478,9 +20486,73 @@ function gmLeadPlace(l) {
     return parts.length ? parts.join(", ") : null;
 }
 
+// ---------------------------------------------------------------------------
+// Redact a calendar payload for a SELLER session.
+//
+// Rafa's rule (via Nicole, 2026-09-08): a salesperson must see EVERY event on
+// the calendar, because two of them booking the same slot is the problem this
+// solves. But the pipeline wall stays up -- a seller still must not learn who
+// another seller's customer is.
+//
+// So this keeps the SHAPE of every event (date, time, duration, all_day) and
+// strips the identity off the ones that are not this seller's: the customer
+// name, the address, the service, the value, the notes, and lead_id itself.
+// Dropping lead_id matters -- with it the frontend could ask for the lead by
+// id, and it is also what makes the calendar chip un-openable, which is the
+// behaviour we want.
+//
+// ⚠️ THIS MUST STAY SERVER-SIDE. Hiding these fields in the UI would still ship
+// them in the JSON, where anyone can read them straight out of the network tab.
+// Before this existed, gm/events was blocked for sellers ENTIRELY by the
+// sellerRequestAllowed allowlist and had no row filtering of its own, so simply
+// opening the route would have exposed every lead in the business.
+//
+// Club events are Apex-wide invitations, not client data, so they pass through
+// whole. Apex meeting events are the consultant's own sessions with the owner:
+// a seller has no business reading their subject, so they redact too.
+// ---------------------------------------------------------------------------
+
+function gmRedactEventsForSeller(events, sellerName, leadOwners) {
+    var mine = String(sellerName || "").trim();
+    var owners = leadOwners || {};
+    return events.map(function (ev) {
+        if (ev.kind === "club") { return ev; }
+
+        // An own-event linked to a lead inherits that lead's vendedor when it
+        // carries no assigned_to of its own -- otherwise a seller's own
+        // estimate visit, entered as a manual event, would redact against them.
+        var owner = String(
+            ev.vendedor ||
+            ev.assigned_to ||
+            (ev.lead_id ? owners[ev.lead_id] : "") ||
+            ""
+        ).trim();
+        // Exact match, same contract as the gm_leads seller filter.
+        if (owner && mine && owner === mine) { return ev; }
+
+        return {
+            kind: ev.kind,
+            source: ev.source,
+            id: ev.id,
+            date: ev.date,
+            start_time: ev.start_time || null,
+            end_time: ev.end_time || null,
+            all_day: ev.all_day,
+            dim: ev.dim || false,
+            redacted: true,
+            title: null,
+            label_pt: "Horário reservado",
+            label_en: "Booked",
+            editable: false
+        };
+    });
+}
+
 async function gmDerivedLeadEvents(env, clientId, fromDate, toDate) {
     var rows = await env.DB.prepare(
-        "SELECT id, cliente, data_lead, data_estimate, estagio, valor, servico, address, city " +
+        // vendedor is selected so the caller can redact another seller's lead
+        // down to a bare time slot. See gmRedactEventsForSeller.
+        "SELECT id, cliente, data_lead, data_estimate, estagio, valor, servico, address, city, vendedor " +
         "FROM gm_leads WHERE client_id = ?"
     ).bind(clientId).all();
 
@@ -20510,6 +20582,7 @@ async function gmDerivedLeadEvents(env, clientId, fromDate, toDate) {
                 dim: dim,
                 servico: l.servico || null,
                 location: gmLeadPlace(l),
+                vendedor: l.vendedor || null,
                 editable: false
             });
         }
@@ -20660,10 +20733,23 @@ async function handleGetGmEvents(id, request, env) {
         var club = await gmClubInviteEvents(env, fromD, toD);
         var apex = await gmApexMeetingEvents(env, id, fromD, toD);
 
+        var all = own.concat(derived).concat(leadEv).concat(club).concat(apex);
+
+        // A seller sees every slot, but only their OWN leads' details.
+        var sellerName = sessionSellerName(user);
+        if (sellerName) {
+            var ownerRows = await env.DB.prepare(
+                "SELECT id, vendedor FROM gm_leads WHERE client_id = ?"
+            ).bind(id).all();
+            var leadOwners = {};
+            (ownerRows.results || []).forEach(function (r) { leadOwners[r.id] = r.vendedor || ""; });
+            all = gmRedactEventsForSeller(all, sellerName, leadOwners);
+        }
+
         return jsonOk({
             month: month,
             range: { from: fromD, to: toD, month_start: first, month_end: last },
-            events: own.concat(derived).concat(leadEv).concat(club).concat(apex)
+            events: all
         });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);
@@ -27465,6 +27551,7 @@ async function handleGetFinanceNewInvoices(request, env) {
             "SELECT i.id, i.client_id, i.number, i.amount_cents, i.issued_at, i.due_at, i.status, " +
             "i.sent_at, i.paid_at, i.voided_reason, i.voided_by, i.voided_at, i.source, i.created_at, " +
             "i.claimed_paid_at, i.claimed_paid_by, i.claimed_paid_note, " +
+            "i.notes, i.line_description, " +
             "c.name AS client_name, c.whatsapp AS client_whatsapp " +
             "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ";
         if (!includeVoided) { sql += "WHERE i.status != 'voided_mistake' "; }
@@ -27548,10 +27635,11 @@ async function handlePostFinanceNewInvoice(request, env) {
         var id = crypto.randomUUID();
 
         await env.DB.prepare(
-            "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, source, notes, is_installment) " +
-            "VALUES (?, ?, ?, ?, ?, ?, 'draft', 'manual', ?, ?)"
+            "INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, source, notes, is_installment, line_description) " +
+            "VALUES (?, ?, ?, ?, ?, ?, 'draft', 'manual', ?, ?, ?)"
         ).bind(id, body.client_id, number, amountCents, issuedAt, dueAt, body.notes || null,
-               body.is_installment ? 1 : 0).run();
+               body.is_installment ? 1 : 0,
+               (body.line_description ? String(body.line_description).trim().slice(0, 200) : null)).run();
 
         if (body.satisfy_recurrence_id) {
             var rec = await env.DB.prepare(
@@ -27782,6 +27870,133 @@ async function handlePostFinanceNewInvoiceMarkPaidManual(invoiceId, request, env
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/description — admin only.
+//
+// Edits the two client-facing text fields on an invoice:
+//   line_description -> the bold line-item title the client reads
+//   notes            -> the detail text under it
+//
+// DRAFT ONLY, and that is deliberate (Nicole, 2026-09-08): once an invoice is
+// sent, the client is holding a copy, so silently rewriting the wording behind
+// them would make Apex's record disagree with theirs. Change it before it goes
+// out. A sent invoice that genuinely needs different wording gets moved back to
+// draft as an explicit, audited act -- see mark-draft below.
+//
+// This is NOT the due-date route's pattern: that one deliberately allows a SENT
+// invoice to change because the client asked for more time, which is a fact
+// about the world. Wording is not.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceDescription(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+
+        var inv = await env.DB.prepare(
+            "SELECT id, status FROM invoices WHERE id = ?"
+        ).bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status !== "draft") {
+            return jsonErr(
+                "Only a draft invoice's description can be edited. This one is " + inv.status +
+                ". Move it back to draft first if the wording really has to change.", 400);
+        }
+
+        // Absent field means "leave alone"; empty string means "clear it".
+        var sets = [];
+        var binds = [];
+        if (Object.prototype.hasOwnProperty.call(body, "line_description")) {
+            var ld = String(body.line_description || "").trim();
+            if (ld.length > 200) { return jsonErr("Description is too long (200 characters max).", 400); }
+            sets.push("line_description = ?");
+            binds.push(ld || null);
+        }
+        if (Object.prototype.hasOwnProperty.call(body, "notes")) {
+            var nt = String(body.notes || "").trim();
+            if (nt.length > 1000) { return jsonErr("Details are too long (1000 characters max).", 400); }
+            sets.push("notes = ?");
+            binds.push(nt || null);
+        }
+        if (!sets.length) { return jsonErr("Nothing to change.", 400); }
+
+        binds.push(invoiceId);
+        var stmt = env.DB.prepare("UPDATE invoices SET " + sets.join(", ") + " WHERE id = ?");
+        await stmt.bind.apply(stmt, binds).run();
+
+        var after = await env.DB.prepare(
+            "SELECT id, line_description, notes FROM invoices WHERE id = ?"
+        ).bind(invoiceId).first();
+        return jsonOk(after);
+    } catch (e) {
+        return jsonErr("Error updating invoice description: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/invoices/:id/mark-draft — admin only.
+//
+// Pulls a SENT invoice back to draft so its wording can be fixed before it
+// really goes to the client. Built 2026-09-08 for TIGERS/INV-000028: Alice
+// sends herself the invoice on WhatsApp to proof it, and that is when she saw
+// the line item was wrong.
+//
+// SAFE BECAUSE OF WHAT IT DOES NOT TOUCH. The claimed_paid_* columns are a
+// sticky note, not an accounting event -- handlePostFinanceNewInvoiceMarkPaidManual
+// deliberately writes no invoice_payments row and does not move status. So
+// dropping status back to draft cannot unapply a payment; there is nothing
+// applied to unapply. This route leaves claimed_paid_at/by/note exactly as it
+// found them, and refuses outright on an invoice with real payments recorded.
+// ---------------------------------------------------------------------------
+
+async function handlePostFinanceNewInvoiceMarkDraft(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var reason = (body.reason || "").trim();
+        if (!reason) {
+            return jsonErr("reason is required -- say why this is going back to draft.", 400);
+        }
+
+        var inv = await env.DB.prepare(
+            "SELECT id, status FROM invoices WHERE id = ?"
+        ).bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status !== "sent") {
+            return jsonErr("Only a sent invoice can go back to draft. This one is " + inv.status + ".", 400);
+        }
+
+        // A real recorded payment means this is an accounting document now, not
+        // a draft, and it must not be reopened this way.
+        var paid = await env.DB.prepare(
+            "SELECT COALESCE(SUM(amount_cents), 0) AS paid FROM invoice_payments " +
+            "WHERE invoice_id = ? AND undone_at IS NULL"
+        ).bind(invoiceId).first();
+        if (paid && paid.paid > 0) {
+            return jsonErr(
+                "This invoice has a matched payment recorded against it and cannot go back to draft. " +
+                "Undo the match first if it was wrong.", 400);
+        }
+
+        // sent_at is cleared because it is no longer true. claimed_paid_* is
+        // deliberately preserved: Alice's "I saw this money arrive" note is
+        // still just as true as it was.
+        await env.DB.prepare(
+            "UPDATE invoices SET status = 'draft', sent_at = NULL WHERE id = ?"
+        ).bind(invoiceId).run();
+
+        return jsonOk({ id: invoiceId, status: "draft", reason: reason });
+    } catch (e) {
+        return jsonErr("Error moving invoice back to draft: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance-new/invoices/:id/unclaim-paid — admin only.
 // Clears the tag above. Needed for the obvious case: she tags it, then
 // notices it was actually a different deposit, or the real match lands and
@@ -27990,7 +28205,7 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
                 data_fatura:                formatZohoDate(inv.issued_at),
                 data_vencimento:            formatZohoDate(inv.due_at),
                 termos_condicoes_pagamento: "",
-                assunto:                    assunto,
+                assunto:                    inv.line_description || assunto,
                 descricao:                  inv.notes || ""
             },
             empresa: {
@@ -28008,7 +28223,17 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
                 logo_url:   clientLogoUrl
             },
             itens: [{
-                descricao:      assunto || "Servicos de consultoria",
+                // The line the client actually reads. Precedence: an explicit
+                // per-invoice line_description wins, then the client's package
+                // name, then the generic fallback.
+                //
+                // WHY line_description EXISTS: assunto comes from
+                // packages.full_name via clients.package, so a client with NO
+                // package -- a closed one being invoiced after the fact, say --
+                // always fell through to the hardcoded generic string with no
+                // way to change it from the UI. TIGERS/INV-000028 hit exactly
+                // that on 2026-09-08.
+                descricao:      inv.line_description || assunto || "Servicos de consultoria",
                 detalhes:       inv.notes || "",
                 quantidade:     1,
                 valor_unitario: formatCurrency(amountDollars),
@@ -31613,6 +31838,12 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "unclaim-paid" && method === "POST") {
             return handlePostFinanceNewInvoiceUnclaimPaid(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "description" && method === "POST") {
+            return handlePostFinanceNewInvoiceDescription(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-draft" && method === "POST") {
+            return handlePostFinanceNewInvoiceMarkDraft(segs[3], request, env);
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "due-date" && method === "POST") {
             return handlePostFinanceNewInvoiceDueDate(segs[3], request, env);

@@ -781,9 +781,87 @@ function gmMonthKeys(rows, keyFn) {
   return out;
 }
 
+// Accent- and case-insensitive: the names are Brazilian and nobody types
+// "Conceicao" with the cedilla when they are hunting for a row. NFD splits a
+// letter from its diacritic so the combining marks can be dropped.
+//
+// ⚠️ RESTORED 2026-09-08. This function was added in ef87e80 and deleted by
+// 4778d2d (the month-filter commit) while the two calls to it survived, so
+// every keystroke threw ReferenceError and the search box did nothing at all.
+// Do not remove it without removing its callers.
+function gmSearchNorm(s) {
+  var out = String(s == null ? "" : s).toLowerCase();
+  if (out.normalize) { out = out.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  return out.trim();
+}
+
+// Digits only, so a phone matches however it happens to be punctuated --
+// "(813) 555-0142", "813-555-0142" and "8135550142" are the same number.
+function gmSearchDigits(s) {
+  return String(s == null ? "" : s).replace(/\D/g, "");
+}
+
+// The fields a search looks at, beyond the name. Name is handled separately
+// because it RANKS first -- see gmLeadSearchRank.
+var GM_SEARCH_FIELDS = [
+  "telefone", "email", "address", "city", "origem",
+  "servico", "servico_desc", "observacao", "vendedor",
+  "proxima_acao", "parceiro_name", "estagio"
+];
+
+// Rank, not just match. 0 = no match; higher is a better hit.
+// Nicole's rule 2026-09-08: "name should be the dominant search criteria, but
+// just give them the ability to search by anything."
+//   3  name starts with the query      -- what you meant almost every time
+//   2  name contains the query
+//   1  some other field matches
+function gmLeadSearchRank(lead) {
+  if (!gmLeadSearch) { return 1; }
+  var q = gmLeadSearch;
+
+  var name = gmSearchNorm(lead.cliente);
+  if (name.indexOf(q) === 0) { return 3; }
+  if (name.indexOf(q) !== -1) { return 2; }
+
+  // A query of digits is someone typing a phone number.
+  var qDigits = gmSearchDigits(q);
+  if (qDigits.length >= 3 && gmSearchDigits(lead.telefone).indexOf(qDigits) !== -1) { return 1; }
+
+  for (var i = 0; i < GM_SEARCH_FIELDS.length; i++) {
+    var v = lead[GM_SEARCH_FIELDS[i]];
+    if (v == null || v === "") { continue; }
+    if (gmSearchNorm(v).indexOf(q) !== -1) { return 1; }
+  }
+
+  // The stage as the reader sees it, not the raw key.
+  if (gmSearchNorm(gmStageLabel(lead.estagio)).indexOf(q) !== -1) { return 1; }
+  return 0;
+}
+
 function gmLeadMatchesSearch(lead) {
-  if (!gmLeadSearch) { return true; }
-  return gmSearchNorm(lead.cliente).indexOf(gmLeadSearch) !== -1;
+  return gmLeadSearchRank(lead) > 0;
+}
+
+// Every lead matching the current query, ACROSS ALL STAGES, best hits first.
+//
+// ⚠️ This is the whole point of the 2026-09-08 fix. Search used to run inside
+// gmLeadsInStage(), which is gated on `l.estagio === stage`, so a query could
+// never escape the one stage being rendered -- in rail mode (what any client
+// with enough leads to need a search actually gets) that meant searching a
+// single column and being told to go tap another chip. Rafa reported it as
+// "it only searches one stage". The pool is already fully loaded client-side,
+// so this needs no API call.
+function gmLeadsMatching() {
+  var leads = (gmLeadsData && gmLeadsData.leads) || [];
+  var out = [];
+  leads.forEach(function(l) {
+    if (!gmLeadMatchesMonth(l)) { return; }
+    var rank = gmLeadSearchRank(l);
+    if (rank > 0) { out.push({ lead: l, rank: rank }); }
+  });
+  // Stable: equal ranks keep the server's newest-first ordering.
+  out.sort(function(a, b) { return b.rank - a.rank; });
+  return out.map(function(x) { return x.lead; });
 }
 
 // True when a search is active but nothing in the WHOLE pipeline matches --
@@ -889,9 +967,10 @@ function gmLeadSearchHtml() {
   return '<div class="gm-lead-search">' +
     '<input type="search" id="gmLeadSearch" class="gm-lead-search-input" ' +
     'autocomplete="off" autocorrect="off" spellcheck="false" ' +
-    'placeholder="' + escHtml(gmT("Buscar lead pelo nome…", "Search leads by name…")) + '" ' +
-    'aria-label="' + escHtml(gmT("Buscar lead pelo nome", "Search leads by name")) + '" ' +
-    'value="' + escHtml(gmLeadSearch) + '" oninput="gmLeadSearchInput(this.value)">' +
+    'placeholder="' + escHtml(gmT("Buscar por nome, telefone, cidade…", "Search by name, phone, city…")) + '" ' +
+    'aria-label="' + escHtml(gmT("Buscar leads em todo o funil", "Search leads across the whole pipeline")) + '" ' +
+    'value="' + escHtml(gmLeadSearch) + '" oninput="gmLeadSearchInput(this.value)" ' +
+    'onkeydown="if(event.key===\'Escape\'){gmLeadSearchClear();}">' +
     '<button type="button" class="gm-lead-search-clear" id="gmLeadSearchClear"' +
     (gmLeadSearch ? "" : " hidden") + ' aria-label="' +
     escHtml(gmT("Limpar busca", "Clear search")) + '" onclick="gmLeadSearchClear()">×</button>' +
@@ -1006,6 +1085,27 @@ function gmCrmListHtml() {
       gmT("Limpar busca", "Clear search") + '</button></div></div>';
   }
 
+  // A SEARCH IGNORES THE STAGE PARTITION ENTIRELY. Results come back as one
+  // flat, ranked list across the whole pipeline -- name matches first -- with
+  // each row carrying its own stage pill (gmLeadRowHtml already renders one),
+  // so a hit stays stage-legible without the board getting in the way. The old
+  // behaviour searched only the stage you happened to be standing in.
+  if (gmLeadSearch) {
+    var hits = gmLeadsMatching();
+    html += '<div class="gm-search-results-head">' +
+      escHtml(
+        hits.length === 1
+          ? gmT("1 lead encontrado", "1 lead found")
+          : gmT(hits.length + " leads encontrados", hits.length + " leads found")
+      ) +
+      ' <button type="button" class="gm-search-results-clear" onclick="gmLeadSearchClear()">' +
+      escHtml(gmT("Limpar busca", "Clear search")) + '</button></div>';
+    html += '<div class="content-card">';
+    hits.forEach(function(l) { html += gmLeadRowHtml(l); });
+    html += '</div>';
+    return html;
+  }
+
   if (mode === "stacked") {
     html += '<div class="content-card">';
     stages.forEach(function(stage, i) {
@@ -1037,29 +1137,9 @@ function gmCrmListHtml() {
       // matches usually exist one chip over, and the counts alone are easy to
       // miss. Name the stages that DO have hits and make them tappable, so a
       // search never dead-ends on the stage that happened to be selected.
-      var elsewhere = [];
-      if (gmLeadSearch) {
-        stages.forEach(function(s) {
-          if (s === gmActiveStage) { return; }
-          var n = gmLeadsInStage(s).length;
-          if (n) { elsewhere.push({ stage: s, n: n }); }
-        });
-      }
-      if (elsewhere.length) {
-        html += '<div class="gm-search-elsewhere">' +
-          '<div class="gm-search-elsewhere-title">' +
-          gmT("Nenhum resultado em ", "No matches in ") + escHtml(gmStageLabel(gmActiveStage)) + '.</div>' +
-          '<div class="gm-search-elsewhere-sub">' +
-          gmT("Encontrado em:", "Found in:") + '</div><div class="gm-search-elsewhere-chips">';
-        elsewhere.forEach(function(e) {
-          html += '<button type="button" class="gm-stage-chip" onclick="gmPickStage(\'' +
-            escHtml(e.stage).replace(/'/g, "\\'") + '\')">' + escHtml(gmStageLabel(e.stage)) +
-            ' <span class="gm-chip-count">' + e.n + '</span></button>';
-        });
-        html += '</div></div>';
-      } else {
-        html += '<p class="muted">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</p>';
-      }
+      // No "found in another stage" chips any more: a search never reaches
+      // this branch, because it renders one flat cross-stage list above.
+      html += '<p class="muted">' + gmT("Nenhum lead neste estágio", "No leads in this stage") + '</p>';
     } else {
       filtered.forEach(function(l) { html += gmLeadRowHtml(l); });
     }
@@ -4803,6 +4883,27 @@ function gmCalChip(ev) {
   // Closed and lost leads stay on the calendar as history but must not compete
   // with the live pipeline for attention on a busy month.
   if (ev.dim) { btn.className += " is-dim"; }
+
+  // Someone else's booking, seen from a seller seat. The Worker already
+  // removed the name, address, service, value and lead_id -- this is only the
+  // presentation of a slot that is genuinely taken. It is deliberately not
+  // clickable: there is nothing behind it to open.
+  if (ev.redacted) {
+    btn.className += " is-redacted";
+    btn.disabled = true;
+    var rname = document.createElement("span");
+    rname.className = "cgrid-chip-name";
+    rname.textContent = isEn() ? (ev.label_en || "Booked") : (ev.label_pt || "Horário reservado");
+    btn.appendChild(rname);
+    var rt = document.createElement("span");
+    rt.className = "cgrid-chip-time";
+    rt.textContent = (ev.all_day || !ev.start_time) ? "" : " " + formatTime(ev.start_time);
+    btn.appendChild(rt);
+    btn.title = isEn()
+      ? "Booked by someone else on the team"
+      : "Horário reservado por outra pessoa da equipe";
+    return btn;
+  }
 
   var name = document.createElement("span");
   name.className = "cgrid-chip-name";

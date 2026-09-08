@@ -3429,6 +3429,51 @@
     </div>
   </div>
 
+  <!-- The description a client reads on the invoice line. Draft only: once an
+       invoice is sent, they are holding that wording and changing it here
+       would leave her copy and their copy disagreeing. -->
+  <div id="lineDescOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Editar descri&ccedil;&atilde;o</span>
+        <span class="show-en">Edit description</span>
+      </div>
+
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        <span class="show-pt">Este &eacute; o texto que o cliente l&ecirc; na linha da fatura. N&atilde;o altera o valor.</span>
+        <span class="show-en">This is the text the client reads on the invoice line. It does not change the amount.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span>
+          <input type="text" id="lineDescText" maxlength="300"
+                 data-ph-pt="Consultoria de lideran&ccedil;a" data-ph-en="Leadership consulting"
+                 placeholder="Consultoria de lideran&ccedil;a"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+      </div>
+
+      <!-- Named so clearing the box is an obvious, reversible act rather than
+           something that looks like it will print a blank line. -->
+      <div id="lineDescDefault" style="font-size:11px;color:var(--muted);margin-top:10px"></div>
+
+      <!-- Only on a sent invoice. A note, never a block: the app cannot know
+           whether the client actually received it, so she decides. -->
+      <div id="lineDescSentNote" hidden
+           style="font-size:11px;color:var(--muted);margin-top:8px;border-left:2px solid var(--border);padding-left:8px"></div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeLineDesc()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="submitLineDesc()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" hidden><span id="toastText"></span></div>
 
   <div id="mobile-tab-bar"></div>
@@ -8522,6 +8567,18 @@
         actions +=
           '<button class="btn btn-sm" onclick="viewInvoice(\'' + inv.id + '\')">' +
             '<span class="show-pt">Ver</span><span class="show-en">View</span></button> ';
+        // Draft AND sent, deliberately BEFORE the gold WhatsApp button: the
+        // moment to fix the wording is while she is still looking at the row.
+        // Sent is included because 'sent' here only means she pressed the
+        // WhatsApp button -- the app cannot confirm delivery, so a sent
+        // invoice is not necessarily one the client has ever seen. Paid and
+        // voided rows are settled and stay uneditable.
+        if (inv.status === "draft" || inv.status === "sent") {
+          actions +=
+            '<button class="btn btn-sm" onclick="openLineDesc(\'' + inv.id + '\')">' +
+              '&#9998; <span class="show-pt">Descri&ccedil;&atilde;o</span>' +
+              '<span class="show-en">Description</span></button> ';
+        }
         if (inv.status === "draft" || inv.status === "sent") {
           actions +=
             '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
@@ -8598,6 +8655,9 @@
           '<td class="num">' +
             '<button class="btn btn-sm" onclick="viewInvoice(\'' + inv.id + '\')">' +
               '<span class="show-pt">Ver</span><span class="show-en">View</span></button> ' +
+            '<button class="btn btn-sm" onclick="openLineDesc(\'' + inv.id + '\')">' +
+              '&#9998; <span class="show-pt">Descri&ccedil;&atilde;o</span>' +
+              '<span class="show-en">Description</span></button> ' +
             '<button class="btn btn-sm btn-gold" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
               '<span class="show-pt">Enviar</span><span class="show-en">Send</span></button></td>' +
         "</tr>";
@@ -8849,6 +8909,81 @@
         .then(function() {
           closeDueDate();
           toast(t("Vencimento atualizado.", "Due date updated."));
+          loadInvoices();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Invoice line description ───────────────────────────────────────────
+    //
+    // The description was GENERATED, never chosen: the render route built it
+    // from the client's package name, so an invoice billing anything else
+    // still said the package. The only lever was renaming the package, which
+    // would have rewritten it for every other client on that package too.
+    //
+    // DISPLAY TEXT ONLY -- it never touches the amount, the payments, or the
+    // vendor add-on line items that feed payout reconciliation.
+
+    var LINE_DESC_INVOICE_ID = null;
+
+    function openLineDesc(invoiceId) {
+      var inv = null;
+      for (var i = 0; i < INVOICES.length; i++) {
+        if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; }
+      }
+      if (!inv) { return; }
+
+      LINE_DESC_INVOICE_ID = invoiceId;
+
+      // Pre-filled with what the line CURRENTLY reads, whether that text was
+      // generated or previously edited. She is correcting words on a page,
+      // not filling in a blank field and guessing what used to be there.
+      document.getElementById("lineDescText").value = inv.line_description_effective || "";
+
+      // Only on an already-sent invoice, and only as a note -- never a block.
+      // The app cannot tell whether the client actually received it, so SHE
+      // is the one who knows; this says the one thing she might forget, which
+      // is that fixing the wording here does not reach a copy already sent.
+      var sentNote = document.getElementById("lineDescSentNote");
+      if (inv.status === "sent") {
+        sentNote.innerHTML = isEn()
+          ? "This invoice is marked sent. If the client already has it, they keep the old wording until you send again."
+          : "Esta fatura est&aacute; marcada como enviada. Se o cliente j&aacute; a tem, ele fica com o texto antigo at&eacute; voc&ecirc; enviar de novo.";
+        sentNote.hidden = false;
+      } else {
+        sentNote.hidden = true;
+      }
+
+      // Only worth saying when there is something to fall back TO -- and it
+      // is what makes clearing the box feel safe instead of destructive.
+      var pkg = inv.package_full_name ? String(inv.package_full_name).trim() : "";
+      document.getElementById("lineDescDefault").innerHTML = pkg
+        ? (isEn()
+            ? "Leave empty to go back to the package name: " + esc(pkg)
+            : "Deixe vazio para voltar ao nome do pacote: " + esc(pkg))
+        : "";
+
+      document.getElementById("lineDescOverlay").hidden = false;
+    }
+
+    function closeLineDesc() {
+      document.getElementById("lineDescOverlay").hidden = true;
+      LINE_DESC_INVOICE_ID = null;
+    }
+
+    function submitLineDesc() {
+      if (!LINE_DESC_INVOICE_ID) { return; }
+      var text = document.getElementById("lineDescText").value.trim();
+
+      apiFetch("/api/finance-new/invoices/" + LINE_DESC_INVOICE_ID + "/line-description", {
+        method: "PUT",
+        body: { line_description: text }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) { toast(data.error); return; }
+          closeLineDesc();
+          toast(t("Descrição atualizada.", "Description updated."));
           loadInvoices();
         })
         .catch(function() { toast(t("Erro", "Error")); });

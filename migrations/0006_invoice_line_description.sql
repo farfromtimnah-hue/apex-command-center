@@ -1,0 +1,15 @@
+-- The line item's description is the ONLY text a client actually reads on the
+-- invoice row, and until now nothing could change it. handleGetFinanceNewInvoiceRenderData
+-- built it from the client's package full_name, falling back to the literal
+-- string "Servicos de consultoria" -- so an invoice for work that wasn't the
+-- package said the package's name, and the only way to change that was to
+-- rename the package for every client on it.
+--
+-- NULL means "use the package name", which is exactly today's behaviour -- so
+-- every existing invoice reads identically after this migration. Only an
+-- invoice someone has deliberately edited carries a value here.
+--
+-- DISPLAY TEXT ONLY. It never touches amount_cents, invoice_payments, or
+-- invoice_line_items (which feed vendor payout reconciliation). Editing what a
+-- line SAYS can never change what it is WORTH.
+ALTER TABLE invoices ADD COLUMN line_description TEXT;

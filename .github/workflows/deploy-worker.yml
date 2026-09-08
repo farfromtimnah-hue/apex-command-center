@@ -1,0 +1,88 @@
+# ---------------------------------------------------------------------------
+# Deploy apex-api from GitHub, so shipping never requires a terminal.
+#
+# WHY THIS EXISTS
+# The frontend has always deployed itself: push to main, Cloudflare Pages
+# picks it up. The Worker never did -- it needed `npx wrangler deploy` from a
+# machine with a Cloudflare login. So a change that spans both (which is most
+# of them) was half-shippable from anywhere and half-shippable from exactly
+# one desk. That gap is not theoretical: the invoice line-description edit sat
+# finished, tested and merged-ready while the only thing standing between a
+# client and their corrected invoice was physical access to a laptop.
+#
+# WHAT IT DOES NOT DO
+# It does not run migrations. This repo's migrations/ is a hand-applied
+# folder, not wrangler's migrations format -- names are ad-hoc, several
+# predate any numbering, and they are applied deliberately, one at a time,
+# against live data. Automating that here would turn "merge a PR" into
+# "run arbitrary SQL on production", which is a much bigger promise than this
+# workflow should make. Migrations stay manual, exactly as they are today.
+#
+# REQUIRED REPOSITORY SECRETS (Settings -> Secrets and variables -> Actions)
+#   CLOUDFLARE_API_TOKEN   -- token with the "Edit Cloudflare Workers" template
+#   CLOUDFLARE_ACCOUNT_ID  -- the account the apex-api Worker lives in
+#
+# OPTIONAL
+#   VAULT_SERVICE_TOKEN    -- same value as the Worker secret. When present,
+#                             the post-deploy read-gate test runs. When absent
+#                             the job still succeeds but says loudly that the
+#                             guarantee went unverified, because a check that
+#                             quietly skips itself is worse than no check.
+# ---------------------------------------------------------------------------
+name: Deploy Worker
+
+on:
+  # The button. Actions -> Deploy Worker -> Run workflow. Works from a phone.
+  workflow_dispatch:
+
+  # Anything that changes what the Worker actually serves.
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "wrangler.toml"
+
+# A later deploy should win, but never by overtaking one already talking to
+# Cloudflare -- so queued runs collapse and the in-flight one is left alone.
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Catches a syntax error here rather than after it is already serving
+      # traffic. The Worker is an ES module, so it is copied to .mjs first --
+      # `node --check` on a .js file rejects `export default` outright.
+      - name: Worker parses
+        run: |
+          cp worker/index.js /tmp/worker-check.mjs
+          node --check /tmp/worker-check.mjs
+          echo "worker/index.js parses cleanly."
+
+      - name: wrangler deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # The mirror of scripts/deploy.sh, and for the same reason stated there:
+      # every read endpoint keeps working perfectly if someone deletes the
+      # write gate. Nothing in the UI would change. So it is checked on every
+      # deploy, against the Worker actually serving traffic -- not once.
+      - name: Vault read gate still holds
+        env:
+          VAULT_SERVICE_TOKEN: ${{ secrets.VAULT_SERVICE_TOKEN }}
+        run: |
+          if [ -z "${VAULT_SERVICE_TOKEN:-}" ]; then
+            echo "::warning title=Vault gate UNVERIFIED::VAULT_SERVICE_TOKEN is not set, so scripts/test-vault-readonly.mjs did not run. The Worker deployed, but nothing confirmed that writes are still refused. Add the secret to close this gap."
+            exit 0
+          fi
+          node scripts/test-vault-readonly.mjs

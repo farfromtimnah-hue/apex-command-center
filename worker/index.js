@@ -13529,6 +13529,20 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+        // The client business's own calendar (Agenda). Rafa, 2026-09-08: a
+        // salesperson working the pipeline needs to see what is already booked.
+        // handleGetGmEvents narrows the payload off the SESSION for a seller --
+        // lead events scoped to their own leads, Apex Club and Apex meetings
+        // dropped entirely -- so this grants the schedule, not the owner's
+        // relationship with Apex. READ ONLY: there is deliberately no POST, PUT
+        // or DELETE counterpart below, which is what makes a seller unable to
+        // compose or edit an event server-side rather than by a hidden button.
+        //
+        // gm/jobs is deliberately NOT allowed alongside it. gmLoadCalendar()
+        // fetches it for the composer's pickers and swallows the failure to
+        // null, so the calendar renders without it -- and the jobs payload
+        // carries costs, margins and commission that no seller may read.
+        if (rest === "gm/events") { return true; }
         // Shared sales material (Materiais do Vendedor). Both handlers narrow
         // to visibility='seller' off the session, so what comes back is the
         // shared material only — never the client's own documents, and never a
@@ -20478,11 +20492,20 @@ function gmLeadPlace(l) {
     return parts.length ? parts.join(", ") : null;
 }
 
-async function gmDerivedLeadEvents(env, clientId, fromDate, toDate) {
+// sellerName, when given, applies the SAME row-level scope handleGetGmLeads
+// applies to the CRM tab: only leads whose vendedor is exactly this
+// salesperson. Without it, opening the calendar would have handed a seller
+// every other seller's customer name, deal value and address -- the precise
+// data the pipeline filter exists to withhold -- through a different door.
+// Exact comparison, not COALESCE'd: a lead with vendedor NULL or '' belongs to
+// the OWNER and is invisible to every seller. NULL is not "everyone's".
+async function gmDerivedLeadEvents(env, clientId, fromDate, toDate, sellerName) {
+    var leadFilter = sellerName ? " AND vendedor = ?" : "";
+    var leadBinds  = sellerName ? [clientId, sellerName] : [clientId];
     var rows = await env.DB.prepare(
         "SELECT id, cliente, data_lead, data_estimate, estagio, valor, servico, address, city " +
-        "FROM gm_leads WHERE client_id = ?"
-    ).bind(clientId).all();
+        "FROM gm_leads WHERE client_id = ?" + leadFilter
+    ).bind(...leadBinds).all();
 
     var out = [];
     (rows.results || []).forEach(function (l) {
@@ -20654,16 +20677,37 @@ async function handleGetGmEvents(id, request, env) {
             "ORDER BY event_date ASC, COALESCE(start_time,'') ASC"
         ).bind(id, fromD, toD).all();
 
+        // A salesperson seat reads this calendar too (Rafa, 2026-09-08: a
+        // seller in the client portal sees the pipeline and needs the schedule
+        // beside it). What they get is deliberately not the same payload:
+        //
+        //   own      -- ALL of them. This IS the company calendar, and a seller
+        //               needing to know what the crew has booked is the point.
+        //   derived  -- job dates. Project name and dates only; the query
+        //               selects no cost, margin or commission column.
+        //   leadEv   -- scoped to their OWN leads, matching the CRM tab. Any
+        //               other answer would leak another seller's customers.
+        //   club     -- DROPPED. Apex Club invitations are the owner's
+        //   apex        relationship with Apex, not the business's schedule.
+        //               Sellers reach no other apexOwned surface in the portal
+        //               and this must not become the exception.
+        var sellerName = effectiveSellerName(user, request);
+
         var own = (rows.results || []).map(gmEventOut);
         var derived = await gmDerivedJobEvents(env, id, fromD, toD);
-        var leadEv = await gmDerivedLeadEvents(env, id, fromD, toD);
-        var club = await gmClubInviteEvents(env, fromD, toD);
-        var apex = await gmApexMeetingEvents(env, id, fromD, toD);
+        var leadEv = await gmDerivedLeadEvents(env, id, fromD, toD, sellerName);
+        var events = own.concat(derived).concat(leadEv);
+
+        if (!sellerName) {
+            var club = await gmClubInviteEvents(env, fromD, toD);
+            var apex = await gmApexMeetingEvents(env, id, fromD, toD);
+            events = events.concat(club).concat(apex);
+        }
 
         return jsonOk({
             month: month,
             range: { from: fromD, to: toD, month_start: first, month_end: last },
-            events: own.concat(derived).concat(leadEv).concat(club).concat(apex)
+            events: events
         });
     } catch (e) {
         return jsonErr("Error fetching calendar: " + e.message, 500);
@@ -27464,9 +27508,10 @@ async function handleGetFinanceNewInvoices(request, env) {
         var sql =
             "SELECT i.id, i.client_id, i.number, i.amount_cents, i.issued_at, i.due_at, i.status, " +
             "i.sent_at, i.paid_at, i.voided_reason, i.voided_by, i.voided_at, i.source, i.created_at, " +
-            "i.claimed_paid_at, i.claimed_paid_by, i.claimed_paid_note, " +
-            "c.name AS client_name, c.whatsapp AS client_whatsapp " +
-            "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ";
+            "i.claimed_paid_at, i.claimed_paid_by, i.claimed_paid_note, i.line_description, " +
+            "c.name AS client_name, c.whatsapp AS client_whatsapp, p.full_name AS package_full_name " +
+            "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id " +
+            "LEFT JOIN packages p ON p.short_name = c.package ";
         if (!includeVoided) { sql += "WHERE i.status != 'voided_mistake' "; }
         sql += "ORDER BY i.number DESC";
 
@@ -27497,6 +27542,12 @@ async function handleGetFinanceNewInvoices(request, env) {
             inv.paid_cents = paidByInvoice[inv.id] || 0;
             inv.remaining_cents = Math.max(0, (inv.amount_cents || 0) - inv.paid_cents);
             inv.partially_paid = inv.status === "sent" && inv.paid_cents > 0;
+
+            // The words the client will read on the line. Sent here so the
+            // pencil opens pre-filled with the CURRENT text -- generated or
+            // edited, she cannot tell the difference and should not have to.
+            inv.line_description_effective =
+                invoiceLineDescription(inv.line_description, inv.package_full_name);
 
             if (inv.status === "sent") {
                 // What is STILL OWED, not the face value. Counting the full
@@ -27809,6 +27860,106 @@ async function handlePostFinanceNewInvoiceUnclaimPaid(invoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// The one line of text a client actually reads on the invoice row.
+//
+// Defined ONCE and shared by the list route (which prefills the editor) and
+// the render-data route (which builds the invoice the client opens), so the
+// pencil always shows exactly the words that will be printed. Two separate
+// fallback chains would drift, and the drift would only ever be discovered by
+// a client reading something Alice never saw.
+//
+// Order: her override, else the package's full name, else the generic.
+// ---------------------------------------------------------------------------
+
+function invoiceLineDescription(lineDescription, packageFullName) {
+    var override = lineDescription ? String(lineDescription).trim() : "";
+    if (override) { return override; }
+    var pkg = packageFullName ? String(packageFullName).trim() : "";
+    if (pkg) { return pkg; }
+    return "Servicos de consultoria";
+}
+
+// ---------------------------------------------------------------------------
+// Route: PUT /api/finance-new/invoices/:id/line-description — admin only.
+// Body: { line_description }
+//
+// WHY THIS EXISTS: the description was generated, never chosen. An invoice
+// billing something other than the client's package still said the package's
+// name, and the only lever was renaming the package -- which would have
+// rewritten it for every other client on that package too. This makes the
+// wording a property of the ONE invoice.
+//
+// DRAFT AND SENT. Started draft-only, mirroring the Zoho editor in
+// finance.html, on the reasoning that a sent invoice is already in the
+// client's hands. That reasoning does not hold here: 'sent' in this system
+// means ALICE PRESSED THE WHATSAPP BUTTON (see the note on mark-sent), not
+// that anything was delivered -- the app has never been able to confirm
+// delivery and says so on its own face. INV-000028 is the live proof: marked
+// sent, tagged claimed-paid 30 seconds later, and never actually sent to the
+// client. Refusing the edit there would have forced a status flip or a
+// reissue to fix one line of text.
+//
+// PAID, VOID AND VOIDED_MISTAKE STAY CLOSED. Those are settled records --
+// rewriting what a collected payment was for is history, not a correction.
+//
+// This route never touches status, sent_at, amount_cents, invoice_payments or
+// the invoice_line_items rows behind vendor payouts, so an invoice stays
+// exactly as matchable during and after an edit as it was before. That is the
+// whole reason this is safe on a sent invoice and a status flip would not be.
+//
+// Sending an empty string CLEARS the override and restores the package name.
+// A cleared box means "put it back", never a blank line on a client's invoice.
+// ---------------------------------------------------------------------------
+
+async function handlePutFinanceNewInvoiceLineDescription(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var raw = (body.line_description === null || body.line_description === undefined)
+            ? "" : String(body.line_description).trim();
+
+        // The template renders this in a fixed-width table cell. A runaway
+        // paste would not error, it would silently wreck the invoice layout
+        // for the client -- so it is refused here rather than discovered there.
+        if (raw.length > 300) {
+            return jsonErr("Description is too long (max 300 characters)", 400);
+        }
+
+        var inv = await env.DB.prepare(
+            "SELECT i.id, i.status, c.package FROM invoices i " +
+            "LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
+        ).bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status !== "draft" && inv.status !== "sent") {
+            return jsonErr(
+                "A " + inv.status + " invoice is closed -- its description can no longer be edited.", 400);
+        }
+
+        await env.DB.prepare("UPDATE invoices SET line_description = ? WHERE id = ?")
+            .bind(raw || null, invoiceId).run();
+
+        var pkgFullName = "";
+        if (inv.package) {
+            var pkgRow = await env.DB.prepare(
+                "SELECT full_name FROM packages WHERE short_name = ?"
+            ).bind(inv.package).first();
+            if (pkgRow && pkgRow.full_name) { pkgFullName = pkgRow.full_name; }
+        }
+
+        return jsonOk({
+            id:                         invoiceId,
+            line_description:           raw || null,
+            line_description_effective: invoiceLineDescription(raw, pkgFullName)
+        });
+    } catch (e) {
+        return jsonErr("Error updating invoice description: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance-new/invoices/:id/due-date — admin only.
 // Body: { due_at, reason }
 //
@@ -28008,7 +28159,7 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
                 logo_url:   clientLogoUrl
             },
             itens: [{
-                descricao:      assunto || "Servicos de consultoria",
+                descricao:      invoiceLineDescription(inv.line_description, assunto),
                 detalhes:       inv.notes || "",
                 quantidade:     1,
                 valor_unitario: formatCurrency(amountDollars),
@@ -31601,6 +31752,9 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/vendor-share"      && method === "GET")  { return handleGetFinanceNewVendorShare(request, env); }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "render-data" && method === "GET") {
             return handleGetFinanceNewInvoiceRenderData(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "line-description" && method === "PUT") {
+            return handlePutFinanceNewInvoiceLineDescription(segs[3], request, env);
         }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-mistake" && method === "POST") {
             return handlePostFinanceNewInvoiceMarkMistake(segs[3], request, env);

@@ -5579,7 +5579,17 @@ async function handleGetSessionsCalendar(request, env) {
             // one appeared on Rafa's "Reunioes de Hoje" as "xbb-jcyu-hxt" with
             // Entrar and Enviar Link buttons -- offering to send a client a
             // link to a call that had already finished.
-            "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' AND status != 'inbox' ORDER BY date ASC, time ASC"
+            //
+            // 'archived' MUST be excluded too. Found 2026-09-08: 16 test
+            // sessions created by a code session on 2026-09-06 were archived
+            // as cleanup, and their Google events really were deleted -- but
+            // this read path never filtered archived rows, so they kept
+            // rendering on the calendar for two days. That is not cosmetic:
+            // clients book through the scheduling link, which reads
+            // availability from here, so fake events were OCCUPYING REAL
+            // SLOTS and blocking real bookings. Archiving must actually
+            // remove a session from the grid, or it is not archiving.
+            "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' AND status != 'inbox' AND status != 'archived' ORDER BY date ASC, time ASC"
         ).bind(startDate, endDate).all();
 
         var sessions = res.results.map(function(row) {

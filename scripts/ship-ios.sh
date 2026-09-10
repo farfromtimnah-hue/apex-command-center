@@ -7,10 +7,14 @@
 #
 # ONE-TIME SETUP, before this script works:
 #   1. App Store Connect -> Users and Access -> Integrations -> App Store Connect
-#      API -> Team Keys -> Generate API Key. Role must be App Manager; Developer
-#      cannot upload. It must be a TEAM key, not an Individual key -- individual
-#      keys cannot touch the provisioning endpoints that -allowProvisioningUpdates
-#      needs.
+#      API -> Team Keys -> Generate API Key. Role must be ADMIN. App Manager is
+#      NOT enough and fails at the very end, after a full archive, with
+#      "Cloud signing permission error / No signing certificate iOS Distribution
+#      found" -- Apple requires Admin to use a cloud-managed distribution
+#      certificate, and a key's role cannot be changed after it is created
+#      (hit live 2026-09-09). It must also be a TEAM key, not an Individual key
+#      -- individual keys cannot touch the provisioning endpoints that
+#      -allowProvisioningUpdates needs.
 #   2. Download the .p8. IT DOWNLOADS EXACTLY ONCE and Apple keeps no copy.
 #      Save it to ~/.appstoreconnect/private_keys/AuthKey_<KEYID>.p8
 #   3. Note the Key ID and the Issuer ID (the UUID above the key table), and put
@@ -20,8 +24,8 @@
 
 set -e
 
-KEY_ID="PUT_KEY_ID_HERE"
-ISSUER_ID="PUT_ISSUER_ID_HERE"
+KEY_ID="W7Z47CA2LD"
+ISSUER_ID="c7a48643-88c8-41a1-a039-c356453b1462"
 
 KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"

@@ -83,7 +83,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // had arrived - with no way for the user to get rid of it. Opening the app
     // IS reading the notification, so this is the right moment.
     func applicationDidBecomeActive(_ application: UIApplication) {
-        UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+        // setBadgeCount is iOS 16+. The deployment target is 15.0, so the
+        // pre-16 path uses the deprecated property -- which is the only way to
+        // clear a badge on those versions. Without the availability check this
+        // does not compile at all (ARCHIVE FAILED, 2026-09-09).
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+        } else {
+            application.applicationIconBadgeNumber = 0
+        }
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
     }
 

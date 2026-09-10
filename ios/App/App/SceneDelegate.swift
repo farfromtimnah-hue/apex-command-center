@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 import Capacitor
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -68,6 +69,25 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Deliberately does NOT hide: the JS resume path decides whether the
         // grace period lets this through, and calls hide() if so.
         ApexLockCover.shared.trace("SCENE didBecomeActive")
+
+        // CLEAR THE ICON BADGE.
+        //
+        // ⚠️ THIS MUST LIVE HERE, NOT IN AppDelegate. This app adopts scenes
+        // (UIApplicationSceneManifest is in Info.plist), and once an app is
+        // scene-based iOS STOPS calling applicationDidBecomeActive on the
+        // AppDelegate entirely. The identical code sat there through build 2,
+        // compiled fine, shipped -- and never ran once. Nicole updated, force
+        // quit, deleted the icon and re-added it, and the badge stayed.
+        //
+        // The badge itself is a leftover from the very first push test, before
+        // the Worker was changed to send aps.badge = 0. iOS keeps a badge
+        // forever until something explicitly clears it, so an old one cannot
+        // age out on its own.
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {

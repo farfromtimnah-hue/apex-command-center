@@ -18,6 +18,7 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		A1E5F0011000000000000002 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1E5F0011000000000000001 /* GoogleService-Info.plist */; };
 		A1E5F0021000000000000002 /* ApexUptimePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0021000000000000001 /* ApexUptimePlugin.swift */; };
+		A1E5F0041000000000000002 /* ApexAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0041000000000000001 /* ApexAppIntents.swift */; };
 		A1E5F0031000000000000002 /* ApexLockCoverPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */; };
 /* End PBXBuildFile section */
 
@@ -36,6 +37,7 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A1E5F0011000000000000001 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		A1E5F0021000000000000001 /* ApexUptimePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexUptimePlugin.swift; sourceTree = "<group>"; };
+		A1E5F0041000000000000001 /* ApexAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexAppIntents.swift; sourceTree = "<group>"; };
 		A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexLockCoverPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -74,6 +76,7 @@
 				79A26313304A5A4800909662 /* App.entitlements */,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				A1E5F0021000000000000001 /* ApexUptimePlugin.swift */,
+				A1E5F0041000000000000001 /* ApexAppIntents.swift */,
 				A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -173,6 +176,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				A1E5F0021000000000000002 /* ApexUptimePlugin.swift in Sources */,
+				A1E5F0041000000000000002 /* ApexAppIntents.swift in Sources */,
 				A1E5F0031000000000000002 /* ApexLockCoverPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -315,7 +319,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 9W5WP66A7Z;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -339,7 +343,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 9W5WP66A7Z;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;

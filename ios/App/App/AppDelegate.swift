@@ -76,24 +76,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
     }
 
-    // CLEAR THE BADGE WHENEVER THE APP IS OPENED.
-    //
-    // The worker sends aps.badge = 1 on every notification and nothing ever
-    // cleared it, so the red dot stuck on the icon permanently once any push
-    // had arrived - with no way for the user to get rid of it. Opening the app
-    // IS reading the notification, so this is the right moment.
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        // setBadgeCount is iOS 16+. The deployment target is 15.0, so the
-        // pre-16 path uses the deprecated property -- which is the only way to
-        // clear a badge on those versions. Without the availability check this
-        // does not compile at all (ARCHIVE FAILED, 2026-09-09).
-        if #available(iOS 16.0, *) {
-            UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
-        } else {
-            application.applicationIconBadgeNumber = 0
-        }
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-    }
+    // Badge clearing does NOT live here. This app is scene-based, so iOS never
+    // calls applicationDidBecomeActive -- the code sat here through build 2 and
+    // never executed once. It is in SceneDelegate.sceneDidBecomeActive instead;
+    // see the note there before moving it back.
 
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.

@@ -87,5 +87,14 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Export compliance. FALSE is correct here and is not a shortcut:
+	     the app talks to the Worker over HTTPS, keeps its session token in
+	     the Keychain, and uses Apple's own biometric APIs. Apple names
+	     exactly that combination as exempt. The PBKDF2 hashing lives in the
+	     Worker, server-side, not in this binary.
+	     Without this key App Store Connect asks on EVERY upload and holds
+	     the build until someone answers. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

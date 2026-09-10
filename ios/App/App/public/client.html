@@ -6425,13 +6425,24 @@
         pkgWrap.appendChild(loz);
         pkgWrap.appendChild(editBtn);
 
-        if (newPkg) { openPaymentTermsModal(newPkg, false); }
+        if (newPkg) {
+          // Hand a waiting activation on to the terms modal, which owns it from
+          // here. Marked before the modal opens because choosing also blurs
+          // this select, and that blur must not read as an abandonment.
+          if (pendingActivation) { pendingActivation.packageChosen = true; }
+          openPaymentTermsModal(newPkg, false);
+        } else {
+          // '—' clears the package rather than setting one, so an activation
+          // waiting on a package has nothing left to wait for.
+          abandonActivationFromPicker();
+        }
       };
 
       // Click elsewhere to cancel
       sel.onblur = function() {
         setTimeout(function() {
           if (document.activeElement !== sel) {
+            abandonActivationFromPicker();
             pkgWrap.innerHTML = "";
             var loz = document.createElement("span");
             loz.className = "package-lozenge";
@@ -6528,6 +6539,10 @@
         // PACKAGE_OBJECTS_LIVE — a genuinely unknown/removed package, not a
         // timing race. Fall back to the old direct-save behavior rather than
         // blocking the user.
+        // Captured before the request: a failure anywhere in this chain clears
+        // the pending activation, and the report below still needs to know the
+        // user had asked for one.
+        var wasActivating = !!pendingActivation;
         apiFetch("/api/clients/" + CLIENT_ID, {
           method: "PATCH",
           body: { package: packageShortName || null }
@@ -6537,8 +6552,21 @@
             if (clientData) { clientData.package = packageShortName; }
             var lozEl = document.getElementById("pkgLozenge");
             if (lozEl) { lozEl.textContent = packageShortName || "—"; }
+            // This path never opens the terms modal, so it has to finish a
+            // waiting activation itself — otherwise the package saves and the
+            // status it was blocking is quietly dropped.
+            return finishPendingActivation();
           })
-          .catch(function() {});
+          .catch(function(e) {
+            // A plain package edit stays as silent as it has always been here.
+            // An activation the user explicitly asked for does not: it visibly
+            // did not happen, so the reason has to reach them.
+            cancelPendingActivation();
+            if (wasActivating) {
+              alert(t("Não foi possível ativar: ", "Could not activate: ") +
+                    ((e && e.message) ? e.message : ""));
+            }
+          });
         return;
       }
 
@@ -6951,6 +6979,10 @@
     function closePaymentTermsModal() {
       var overlay = document.getElementById("modalPaymentTerms");
       if (overlay) { overlay.hidden = true; }
+      // Dismissing the modal abandons the package, and an activation waiting on
+      // that package goes with it. Harmless on the save path: the activation
+      // has already been applied and cleared by the time this runs.
+      cancelPendingActivation();
     }
 
     function handleSavePaymentTerms() {
@@ -7022,6 +7054,18 @@
             if (lozEl) { lozEl.textContent = ptState.package.short_name; }
           }
           renderPaymentPlan(savedTerms);
+          // A terms-only edit never touches clients.package, so it cannot be
+          // what an activation was waiting on. Anything parked here is stale
+          // intent from a flow that was abandoned some other way — dropped
+          // rather than allowed to turn a plan edit into a silent promotion.
+          if (ptState.termsOnly) { cancelPendingActivation(); return null; }
+          // Otherwise the package the activation was waiting for is now on the
+          // row, so the promotion the worker refused earlier will go through.
+          // Run before the modal closes: if it somehow still fails, the reason
+          // lands in this modal's status line rather than behind a closed one.
+          return finishPendingActivation();
+        })
+        .then(function() {
           saveBtn.disabled = false;
           closePaymentTermsModal();
         })
@@ -7159,6 +7203,79 @@
       });
     }
 
+    // ── Activation held back for a package ──────────────────────────────────
+    //
+    // status='active' requires a package on the row (the worker enforces it on
+    // the promotion, deliberately not at creation). When the client has none,
+    // the status change is parked here while the package is collected through
+    // the normal package -> payment-terms flow, and applied the moment that
+    // flow succeeds. Null whenever nothing is waiting.
+    //
+    // Only the previous status is kept: it is what the record still IS until
+    // the package lands, and what the lozenge must show if the person walks
+    // away. Nothing is written until then, so cancelling costs nothing.
+    var pendingActivation = null;
+
+    function clientHasPackage() {
+      return !!(clientData && clientData.package && String(clientData.package).trim());
+    }
+
+    function beginActivationWithPackage(previousStatus) {
+      var pkgWrap = document.getElementById("pkgWrap");
+      var statusWrap = document.getElementById("statusWrap");
+
+      // Put the status display back to what the record still is. The package
+      // is not chosen yet and nothing has been written, so a header reading
+      // 'Ativo' at this point would be the same lie the lead prompt avoids.
+      if (statusWrap) { renderStatusLozenge(statusWrap, previousStatus); }
+
+      // No package control on the page means this role cannot set one — the
+      // badges render it for alice/rafa/developer only. Say that plainly
+      // instead of opening a picker that isn't there.
+      if (!pkgWrap) {
+        alert(t("Este cliente não tem pacote, e é preciso um para ativar. Peça a alguém com permissão para definir o pacote primeiro.",
+                "This client has no package, and activating requires one. Ask someone with permission to set the package first."));
+        return;
+      }
+
+      pendingActivation = { previousStatus: previousStatus };
+      openPackageEdit(clientData ? clientData.package || "" : "");
+    }
+
+    // The terms modal being dismissed: the package never landed, so neither
+    // does the activation. Nothing was written, so this only drops the intent.
+    function cancelPendingActivation() {
+      pendingActivation = null;
+    }
+
+    // The package picker closing without a package — clicked away, or '—'
+    // chosen. Picking a real package ALSO blurs that select, on its way into
+    // the terms modal that finishes the activation, so a chosen package is
+    // explicitly not an abandonment.
+    function abandonActivationFromPicker() {
+      if (pendingActivation && pendingActivation.packageChosen) { return; }
+      pendingActivation = null;
+    }
+
+    // Runs once the package and its terms are saved, while the terms modal is
+    // still open — so a status write that fails still fails in front of the
+    // person who asked for it. Resolves with nothing when no activation is
+    // waiting, which is the common case (an ordinary package edit).
+    function finishPendingActivation() {
+      if (!pendingActivation) { return Promise.resolve(); }
+      pendingActivation = null;
+      return apiFetch("/api/clients/" + CLIENT_ID, {
+        method: "PATCH",
+        body: { status: "active" }
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          if (clientData) { clientData.status = "active"; }
+          var statusWrap = document.getElementById("statusWrap");
+          if (statusWrap) { renderStatusLozenge(statusWrap, "active"); }
+        });
+    }
+
     function openStatusEdit(current) {
       var statusWrap = document.getElementById("statusWrap");
       if (!statusWrap) { return; }
@@ -7218,6 +7335,21 @@
         // So picking 'lead' and walking away must not write anything.
         if (newStatus === "lead") {
           openLeadStagePrompt(sel, current, saveStatus);
+          return;
+        }
+        // 'active' carries the same shape of requirement as 'lead', and used to
+        // be the only one with no way to satisfy it from here. The worker will
+        // not write status='active' onto a row with no package — a client is
+        // active because there is a contract behind them, and the contract is
+        // the package. So re-activating anyone whose package was never set (a
+        // record created before the package was required, or a paused client
+        // whose package was cleared) could ONLY come back as "Selecione um
+        // pacote para ativar", an error whose one remedy is a separate pencil
+        // it never mentions — and which renders with no lozenge beside it when
+        // there is no package to show, so there is barely anything to find.
+        // Collect the package first, then finish the activation on its heels.
+        if (newStatus === "active" && !clientHasPackage()) {
+          beginActivationWithPackage(current);
           return;
         }
         saveStatus(newStatus, null);

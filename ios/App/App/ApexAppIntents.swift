@@ -5,11 +5,16 @@ import AppIntents
 // App Intents — Siri, Spotlight and Apple Intelligence.
 //
 // WHY THIS FILE EXISTS
-// iOS 27 retires SiriKit. App Intents is now the only way an app is reachable
-// from Siri, Spotlight or Apple Intelligence; an app without it is simply
-// invisible on those surfaces. This is not a Capacitor plugin and there is no
-// npm package for it — App Intents is a native framework, so it lives here
-// beside the other Swift.
+// App Intents is how an app is reachable from Siri, Spotlight and Apple
+// Intelligence. An app without it is effectively invisible on those surfaces.
+//
+// An earlier version of this comment said "iOS 27 retires SiriKit" as fact.
+// That could NOT be confirmed on any Apple first-party page — it comes from
+// third-party blogs. It changes nothing here (Apex was never on SiriKit, so
+// there was never a regression to recover from), but do not repeat it.
+//
+// This is not a Capacitor plugin and there is no npm package for it — App
+// Intents is a native framework, so it lives here beside the other Swift.
 //
 // WHAT AN INTENT CAN AND CANNOT SEE
 // An intent runs OUTSIDE the WebView, in a separate process, and may run while

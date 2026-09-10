@@ -30805,7 +30805,84 @@ async function runRecurringInvoices(env) {
         generated.push({ id: invId, number: number, client_id: rec.client_id, amount_cents: totalAmount });
     }
 
+    // Tell Alice a draft is sitting UNSENT. Deliberately not an "overdue"
+    // alert: overdue assumes the invoice was sent, so it chases money already
+    // asked for. The real gap is an invoice this cron generated that nobody
+    // has sent yet -- nobody is chasing it because nobody has asked.
+    //
+    // Fires only on invoices generated in THIS pass. The cron runs every 4
+    // hours, so a "scan for all unsent drafts" query would re-notify about the
+    // same invoice six times a day until she got to it, and the fix for a
+    // notification she cannot clear is to not send it again.
+    //
+    // Failing here must not lose the invoices: they are already committed, and
+    // the recurrence rows have already advanced. A push error is not a reason
+    // to report the run as failed.
+    if (generated.length) {
+        try {
+            await notifyUnsentInvoices(env, generated);
+        } catch (e) {
+            console.log("unsent-invoice push failed: " + (e && e.message));
+        }
+    }
+
     return { generated: generated };
+}
+
+// Alice reads Portuguese; the body names the client and the amount so the
+// notification is actionable from the lock screen without opening the app.
+// The URL reuses ?highlight=invoice, which finance-new.html already
+// understands as "open on the Faturas tab" (getHighlightTarget).
+async function notifyUnsentInvoices(env, generated) {
+    // BOTH of Alice's accounts. She has two rows in `users` --
+    // alicecorsinoprata@ (subscribed) and Alicecorsino12@ (not) -- and which
+    // one she is signed in as on a given device is not knowable here. Sending
+    // to the role rather than a hardcoded address also means Rafa or a future
+    // second admin is picked up without editing this.
+    var admins = await env.DB.prepare(
+        "SELECT email FROM users WHERE role = 'alice'"
+    ).all();
+
+    var emails = (admins.results || []).map(function(r) { return r.email; });
+    if (!emails.length) { return; }
+
+    // One notification per invoice would mean a burst of six on the day
+    // several recurrences land together. One summary is what she can act on.
+    var title, body;
+
+    if (generated.length === 1) {
+        var one = generated[0];
+        var client = await env.DB.prepare(
+            "SELECT name FROM clients WHERE id = ?"
+        ).bind(one.client_id).first();
+
+        title = "Fatura criada — falta enviar";
+        body = (client && client.name ? client.name : "Cliente") +
+               " · " + fmtCentsPt(one.amount_cents) +
+               " · " + one.number;
+    } else {
+        var total = 0;
+        for (var i = 0; i < generated.length; i++) { total += generated[i].amount_cents; }
+
+        title = generated.length + " faturas criadas — faltam enviar";
+        body = "Total " + fmtCentsPt(total) + ". Toque para revisar e enviar.";
+    }
+
+    await pushToUsers(env, emails, {
+        title: title,
+        body: body,
+        url: "/finance-new.html?highlight=invoice",
+        // A stable tag so a second cron pass replaces the banner rather than
+        // stacking a duplicate next to it.
+        tag: "apex-unsent-invoices"
+    });
+}
+
+// Cents -> "R$ 1.397,00" is wrong here: Apex bills in USD. Portuguese number
+// formatting with a dollar sign is what her existing invoice screens show.
+function fmtCentsPt(cents) {
+    var v = (cents || 0) / 100;
+    return "$" + v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 // ---------------------------------------------------------------------------

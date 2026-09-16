@@ -13566,6 +13566,13 @@ function sellerRequestAllowed(path, method, clientId) {
     }
     if (method === "POST") {
         if (rest === "gm/leads") { return true; }
+        // Promote their own won lead into a project. A seller can already move
+        // a lead to 'fechado' (the PUT below), and closing one is the most
+        // ordinary thing they do -- without this the promotion 403s on exactly
+        // that action and the client is told the project was not created.
+        // Row-level scoping to their OWN lead is gmOwnedRow + the seller guard
+        // inside the handler, the same as every other route in this list.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/promote$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
         // Add a note, and upload a proposal / estimate / site photo. The
         // upload is the point: the seller is the one at the house with the
@@ -21202,6 +21209,13 @@ async function handlePromoteGmLead(id, leadId, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        // A seller may promote their OWN lead only. requireClientAccess above
+        // scopes to the company; without this a seller could promote a
+        // colleague's lead, which is the same row-level rule every other
+        // seller-reachable lead route enforces.
+        var guard = await gmSellerLeadGuard(env, user, id, leadId);
+        if (guard) { return guard; }
 
         var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
         if (!lead) { return jsonErr("Lead not found", 404); }

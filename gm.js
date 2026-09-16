@@ -748,6 +748,14 @@ var gmLeadSearch = "";
 //
 // Value is "YYYY-MM"; empty means no filter.
 var gmLeadMonth = "";
+// Seller filter. "" = everyone; GM_SELLER_NONE = the unassigned leads. A
+// sentinel rather than "" for unassigned because an empty string already means
+// "no filter". The name is bracketed so it cannot collide with a real seller:
+// gm_config.vendedores holds people's names, never a token shaped like this.
+// (Do NOT reach for a NUL-byte sentinel here: a literal NUL in the source
+// makes the whole file read as binary to grep and every other text tool.)
+var GM_SELLER_NONE = "__unassigned__";
+var gmLeadSeller = "";
 var gmJobMonth  = "";
 
 // The month a row belongs to. Leads: when the lead arrived. Jobs: when the work
@@ -768,6 +776,12 @@ function gmLeadMatchesMonth(lead) {
 function gmJobMatchesMonth(job) {
   if (!gmJobMonth) { return true; }
   return gmJobMonthKey(job) === gmJobMonth;
+}
+
+function gmLeadMatchesSeller(lead) {
+  if (!gmLeadSeller) { return true; }
+  if (gmLeadSeller === GM_SELLER_NONE) { return gmLeadIsUnassigned(lead); }
+  return String(lead.vendedor || "").trim() === gmLeadSeller;
 }
 
 var GM_MONTH_NAMES_PT = ["janeiro","fevereiro","março","abril","maio","junho",
@@ -874,7 +888,7 @@ function gmLeadsMatching() {
   var leads = (gmLeadsData && gmLeadsData.leads) || [];
   var out = [];
   leads.forEach(function(l) {
-    if (!gmLeadMatchesMonth(l)) { return; }
+    if (!gmLeadMatchesMonth(l) || !gmLeadMatchesSeller(l)) { return; }
     var rank = gmLeadSearchRank(l);
     if (rank > 0) { out.push({ lead: l, rank: rank }); }
   });
@@ -898,7 +912,8 @@ function gmSearchHasNoMatches() {
 function gmLeadsInStage(stage) {
   var out = [];
   ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) {
-    if (l.estagio === stage && gmLeadMatchesSearch(l) && gmLeadMatchesMonth(l)) { out.push(l); }
+    if (l.estagio === stage && gmLeadMatchesSearch(l) && gmLeadMatchesMonth(l) &&
+        gmLeadMatchesSeller(l)) { out.push(l); }
   });
   return out;
 }
@@ -999,15 +1014,25 @@ function gmCrmSummaryHtml() {
   // Filtered by month but NOT by the search box: the tiles describe the period,
   // and a half-typed name in the search field must not restate the month's
   // totals. Stage chips below stay search-aware, which is their job.
-  var scoped = ((gmLeadsData && gmLeadsData.leads) || []).filter(gmLeadMatchesMonth);
+  var scoped = ((gmLeadsData && gmLeadsData.leads) || []).filter(function(l) {
+    return gmLeadMatchesMonth(l) && gmLeadMatchesSeller(l);
+  });
   var s = gmComputeSummary(scoped);
   var conv = s.conversao_pct === null ? "--" : fmtNum(s.conversao_pct, "percent");
   var slaContatoBad = s.fora_sla_contato > 0;
   var slaEstimateBad = s.fora_sla_estimate > 0;
   // Which period these numbers describe. Without it a filtered tile and an
   // all-time tile look identical, which is the bug this whole change fixes.
-  var period = gmLeadMonth
-    ? '<div class="gm-summary-period">' + escHtml(gmMonthLabel(gmLeadMonth)) + '</div>'
+  // Both filters, because both narrow these numbers. Naming only the month
+  // while a seller is picked would be the same lie in a smaller form.
+  var scope = [];
+  if (gmLeadMonth) { scope.push(gmMonthLabel(gmLeadMonth)); }
+  if (gmLeadSeller) {
+    scope.push(gmLeadSeller === GM_SELLER_NONE
+      ? gmT("Sem vendedor", "Unassigned") : gmLeadSeller);
+  }
+  var period = scope.length
+    ? '<div class="gm-summary-period">' + escHtml(scope.join(" · ")) + '</div>'
     : "";
   return period + '<div class="gm-summary-grid" data-tour="crm-summary">' +
     '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Leads totais", "Total leads") + '</div>' +
@@ -1044,7 +1069,84 @@ function gmLeadSearchHtml() {
     '<button type="button" class="gm-lead-search-clear" id="gmLeadSearchClear"' +
     (gmLeadSearch ? "" : " hidden") + ' aria-label="' +
     escHtml(gmT("Limpar busca", "Clear search")) + '" onclick="gmLeadSearchClear()">×</button>' +
-    '</div>' + gmLeadMonthFilterHtml();
+    '</div>' + gmLeadMonthFilterHtml() + gmLeadSellerFilterHtml();
+}
+
+// ── Seller filter ────────────────────────────────────────────────────────
+//
+// Built from the names ON THE LEADS, not from gm_config.vendedores. Those are
+// two different questions and conflating them loses history: vendedores is the
+// roster of people you can ASSIGN a new lead to, while this filter has to find
+// the leads of somebody who has since left. Andrey Sans is the live case -- 3
+// real leads from August, no longer with JM, off the roster, and his leads must
+// stay findable. Anyone off the roster is marked so the list still tells you
+// who is current.
+//
+// A seller session never sees this: every lead it can load is already its own.
+function gmLeadSellerNames() {
+  var seen = {}, out = [];
+  ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) {
+    var v = String(l.vendedor || "").trim();
+    if (v && !seen[v]) { seen[v] = 1; out.push(v); }
+  });
+  out.sort(function(a, b) { return a.localeCompare(b); });
+  return out;
+}
+
+function gmLeadSellerFilterHtml() {
+  if (window.PORTAL_IS_SELLER === true) { return ""; }
+  var leads = (gmLeadsData && gmLeadsData.leads) || [];
+  var names = gmLeadSellerNames();
+  if (names.length < 2) { return ""; }   // one seller is not a filter
+
+  // The current roster, used only to mark who is no longer on it.
+  var roster = {};
+  ((gmConfig && gmConfig.config && gmConfig.config.vendedores) || []).forEach(function(n) {
+    roster[String(n).trim()] = 1;
+  });
+
+  var opts = "";
+  names.forEach(function(n) {
+    var count = 0;
+    leads.forEach(function(l) { if (String(l.vendedor || "").trim() === n) { count++; } });
+    var label = n + (roster[n] ? "" : gmT(" (ex-vendedor)", " (former)"));
+    opts += '<option value="' + escHtml(n) + '"' +
+      (gmLeadSeller === n ? " selected" : "") + '>' +
+      escHtml(label) + ' (' + count + ')</option>';
+  });
+
+  // "Sem vendedor" is a real state, not a missing value: on a business with a
+  // roster an unassigned lead is a gap worth finding, which is why the row
+  // badge exists. Offered only when there are actually such leads.
+  var unassigned = 0;
+  leads.forEach(function(l) { if (gmLeadIsUnassigned(l)) { unassigned++; } });
+
+  return '<div class="gm-month-filter">' +
+    '<select id="gmLeadSeller" aria-label="' +
+      escHtml(gmT("Filtrar por vendedor", "Filter by salesperson")) + '" ' +
+      'onchange="gmLeadSellerChange(this.value)">' +
+      '<option value="">' +
+      escHtml(gmT("Todos os vendedores", "All salespeople")) + ' (' + leads.length + ')</option>' +
+      opts +
+      (unassigned
+        ? '<option value="' + GM_SELLER_NONE + '"' +
+          (gmLeadSeller === GM_SELLER_NONE ? " selected" : "") + '>' +
+          escHtml(gmT("Sem vendedor", "Unassigned")) + ' (' + unassigned + ')</option>'
+        : "") +
+    '</select>' +
+    (gmLeadSeller
+      ? '<button type="button" class="gm-month-clear" onclick="gmLeadSellerChange(\'\')" aria-label="' +
+        escHtml(gmT("Limpar filtro de vendedor", "Clear salesperson filter")) + '">×</button>'
+      : "") +
+  '</div>';
+}
+
+function gmLeadSellerChange(v) {
+  gmLeadSeller = v || "";
+  // Full re-render for the same reason as the month filter: the stage chips
+  // and the summary tiles both move with this, and repainting only the rows
+  // would leave them describing a different set than the one on screen.
+  gmRenderCrm();
 }
 
 // One month list, from the real lead dates. No grouping needed now that this

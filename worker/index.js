@@ -13366,6 +13366,7 @@ function clientRequestAllowed(path, method, clientId) {
             if (rest === "tasks" || rest === "invoices" || rest === "documents" ||
                 rest === "documents/latest" || rest === "logo-image" ||
                 rest === "field-config" || rest === "entry-state" ||
+                rest === "entry-suggestions" ||
                 rest === "entries" || rest === "entries-summary" ||
                 rest === "goal-state" || rest === "indicator-history" ||
                 rest === "work-settings" || rest === "working-days" ||
@@ -13449,6 +13450,11 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "events") { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
+                // Promoting their OWN won lead into their own project. Same
+                // reasoning as reactivate above: the client's own record, and
+                // the handler re-scopes by client_id and refuses a lead that is
+                // not 'fechado'.
+                if (/^leads\/[A-Za-z0-9-]+\/promote$/.test(gmRest)) { return true; }
             }
             if (method === "PUT") {
                 if (gmRest === "config/view-mode") { return true; }
@@ -14566,6 +14572,78 @@ async function handleGetEntryState(id, request, env) {
         });
     } catch (e) {
         return jsonErr("Error fetching entry state: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/entry-suggestions?date=YYYY-MM-DD
+//
+// Numbers the system already knows for one day, so the client is not retyping
+// what the pipeline recorded. Rendered as a PREFILLED, EDITABLE value with a
+// visible "from your pipeline" hint -- never a locked computed tile.
+//
+// ⚠️ WHY EDITABLE, AND WHY SO FEW FIELDS. Measured against real data on
+// 2026-09-16 before this was built: MY PURE FILTER's log reported 3 leads on
+// 09-14 while the pipeline held ZERO leads dated that day (6 on 09-10, none
+// after), and 124 of 312 gm_leads rows have no data_lead at all. Clients do not
+// enter leads the day they arrive. A locked auto-value would therefore OVERWRITE
+// a true number with a low one, so every suggestion here is a starting point the
+// client can correct, and a field the data cannot support is simply absent.
+//
+// Only fields with a real source are returned:
+//   leads_gerados   COUNT of leads whose date is this day
+//   envio_propostas COUNT of estimates stamped this day (the 24h SLA's source)
+//   vendas_fechadas COUNT of leads moved to 'fechado' this day, from the
+//                   gm_lead_events audit trail -- the actual record of a close,
+//                   where stage_changed_at is overwritten by any later move.
+//   pipeline_ativo  SUM(valor) of open stages. Uses handleGetGmLeads's
+//                   definition (estimate_enviado/follow_up/negociacao) rather
+//                   than loadKickoffToday's NOT IN ('fechado','perdido'), so
+//                   this number and the pipeline dashboard's tile always agree.
+//
+// receita/saida are deliberately NOT suggested: gm_finance is optional and only
+// some clients keep it current, so a $0 suggestion would read as a real zero.
+// ---------------------------------------------------------------------------
+async function handleGetEntrySuggestions(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var url = new URL(request.url);
+        var date = url.searchParams.get("date");
+        if (!isValidDateStr(date)) { return jsonErr("A valid date is required", 400); }
+
+        // date(...) normalizes both stored shapes: "2026-09-14T10:35" and
+        // "2026-09-14". Rows with a NULL date simply do not match, which is the
+        // correct behaviour -- an undated lead belongs to no particular day.
+        var leads = await env.DB.prepare(
+            "SELECT " +
+            "SUM(CASE WHEN date(COALESCE(data_lead, created_at)) = ? THEN 1 ELSE 0 END) AS leads_gerados, " +
+            "SUM(CASE WHEN date(data_estimate) = ? THEN 1 ELSE 0 END) AS envio_propostas, " +
+            "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') " +
+            "         THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo " +
+            "FROM gm_leads WHERE client_id = ?"
+        ).bind(date, date, id).first();
+
+        // gm_lead_events carries its own client_id, so no join to gm_leads.
+        var closed = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM gm_lead_events " +
+            "WHERE client_id = ? AND action = 'stage_changed' " +
+            "AND new_value = 'fechado' AND date(created_at) = ?"
+        ).bind(id, date).first();
+
+        return jsonOk({
+            date: date,
+            suggestions: {
+                leads_gerados:   (leads && leads.leads_gerados) || 0,
+                envio_propostas: (leads && leads.envio_propostas) || 0,
+                vendas_fechadas: (closed && closed.n) || 0,
+                pipeline_ativo:  (leads && leads.pipeline_ativo) || 0
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error fetching suggestions: " + e.message, 500);
     }
 }
 
@@ -21101,6 +21179,73 @@ async function handlePostGmJob(id, request, env) {
         return jsonOk({ created: true, job: row });
     } catch (e) {
         return jsonErr("Error creating job: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/gm/leads/:leadId/promote
+//
+// A WON LEAD BECOMES A PROJECT — the same move as an Apex lead becoming an
+// active client: one record carried forward, not a second record typed again.
+// The two tables already share their cost columns (named to match precisely so
+// gmJobComputed could run over either), so this is a field copy, not a mapping.
+//
+// Modelled on handlePostGmBaseOuroReactivate, including its idempotent
+// early-return: promoting twice returns the existing project rather than
+// erroring, so a double tap on a slow connection cannot produce two projects.
+// The partial UNIQUE index on gm_jobs(lead_id) enforces the same thing at the
+// database, where a handler cannot be bypassed (a plain UNIQUE would not: SQLite
+// permits unlimited NULLs, which every hand-made project has).
+// ---------------------------------------------------------------------------
+async function handlePromoteGmLead(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+
+        var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!lead) { return jsonErr("Lead not found", 404); }
+
+        // Already promoted: hand back what exists. Checked before the stage
+        // test so a lead moved on AFTER promotion still resolves to its project
+        // instead of reporting a confusing "not won" error.
+        var existing = await env.DB.prepare(
+            "SELECT * FROM gm_jobs WHERE client_id = ? AND lead_id = ?"
+        ).bind(id, leadId).first();
+        if (existing) {
+            return jsonOk({ promoted: true, already: true, job: existing });
+        }
+
+        // Only a won lead becomes a project. Enforced server-side because the
+        // button is not the only way to reach this route.
+        if (lead.estagio !== "fechado") {
+            return jsonErr("Only a closed-won lead can become a project", 400);
+        }
+
+        // The field copy. obra takes the lead's customer name, which is what
+        // the projects list shows; the six cost columns and vendedor carry over
+        // verbatim, NULL included -- a cost nobody entered stays not-entered
+        // rather than becoming a fabricated 0.
+        var jobId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_jobs (id, client_id, lead_id, obra, valor, material, mao_de_obra, outros, " +
+            "custo_administrativo, comissao, imposto, vendedor, status) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Em andamento')"
+        ).bind(jobId, id, leadId, lead.cliente,
+               lead.valor, lead.material, lead.mao_de_obra, lead.outros,
+               lead.custo_administrativo, lead.comissao, lead.imposto,
+               lead.vendedor).run();
+
+        // Same audit trail the stage change writes, so the promotion is visible
+        // in the lead's own history rather than only inferable from gm_jobs.
+        await gmLogLeadEvents(env, id, leadId, actorName(user), [
+            { action: "promoted", field: "job_id", old_value: null, new_value: jobId }
+        ]);
+
+        var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
+        return jsonOk({ promoted: true, job: job });
+    } catch (e) {
+        return jsonErr("Error promoting lead: " + e.message, 500);
     }
 }
 
@@ -31547,6 +31692,10 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "entry-state" && method === "GET") {
                 return handleGetEntryState(cid, request, env);
             }
+            // Numbers the pipeline already knows for one day — prefill, not lock.
+            if (segs.length === 4 && segs[3] === "entry-suggestions" && method === "GET") {
+                return handleGetEntrySuggestions(cid, request, env);
+            }
             if (segs.length === 4 && segs[3] === "work-settings") {
                 if (method === "GET") { return handleGetWorkSettings(cid, request, env); }
                 if (method === "PUT") { return handlePutWorkSettings(cid, request, env); }
@@ -31648,6 +31797,10 @@ async function handleFetch(request, env, ctx) {
                 // /gm/leads/:leadId/events — the audit trail, read-only.
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "events" && method === "GET") {
                     return handleGetGmLeadEvents(cid, segs[5], request, env);
+                }
+                // /gm/leads/:leadId/promote — a won lead becomes a project.
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "promote" && method === "POST") {
+                    return handlePromoteGmLead(cid, segs[5], request, env);
                 }
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "contacts") {
                     if (method === "GET")  { return handleGetGmLeadContacts(cid, segs[5], request, env); }

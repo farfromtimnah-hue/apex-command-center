@@ -747,10 +747,59 @@ function apexOpenPhoneUrl(tel) {
 
 // The URL the Call button should use. tel: in a browser, openphone:// in the
 // app. Every call site routes through here so there is one rule, not three.
+//
+// ⚠️ Prefer apexStartCall() over assigning this href directly in the app. A raw
+// openphone:// assignment is a SILENT NO-OP when OpenPhone is not installed,
+// which is exactly how the Call button shipped dead: reaching OpenPhone was the
+// stated reason the iOS wrapper was built (6a33c9f), but that same commit says
+// "nothing has been built or run on a device" -- the dead button was never a
+// decision, it was never tested.
 function apexCallHref(tel) {
   if (!tel) { return ""; }
   if (apexIsNative()) { return apexOpenPhoneUrl(tel); }
   return "tel:" + String(tel).replace(/[^\d+]/g, "");
+}
+
+// Place a call: keep the OpenPhone preference, never lose the call when
+// OpenPhone is missing.
+//
+// Nothing in the WebView can answer "is OpenPhone installed?" (canOpenURL is
+// native-only, and LSApplicationQueriesSchemes governs that query, not opening).
+// So detect the handoff by its side effect: if OpenPhone opens, iOS backgrounds
+// this app and the page stops being visible. Still visible a moment later means
+// nothing handled the scheme -- fall back to tel:, which iOS always handles.
+//
+// Listeners are torn down on whichever path fires first, so someone who comes
+// straight back from OpenPhone does not then get a surprise tel: prompt.
+function apexStartCall(tel) {
+  if (!tel) { return; }
+  var dial = "tel:" + String(tel).replace(/[^\d+]/g, "");
+  if (!apexIsNative()) { window.location.href = dial; return; }
+
+  var openphone = apexOpenPhoneUrl(tel);
+  if (!openphone) { window.location.href = dial; return; }
+
+  var settled = false;
+  function settle() {
+    if (settled) { return; }
+    settled = true;
+    document.removeEventListener("visibilitychange", onHide);
+    window.removeEventListener("pagehide", settle);
+    window.removeEventListener("blur", settle);
+  }
+  function onHide() { if (document.hidden) { settle(); } }
+
+  document.addEventListener("visibilitychange", onHide);
+  window.addEventListener("pagehide", settle);
+  window.addEventListener("blur", settle);
+
+  setTimeout(function() {
+    if (settled) { return; }   // OpenPhone took it
+    settle();
+    window.location.href = dial;
+  }, 1200);
+
+  window.location.href = openphone;
 }
 
 // window.open is blocked more aggressively in WKWebView than in Safari. Inside

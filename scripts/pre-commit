@@ -43,13 +43,20 @@ if [ "$TRIGGER" = "1" ]; then
   # Stamping only the root copies left the iOS ones one stamp behind after
   # every single commit -- the hook runs after staging, so a sync done by hand
   # in the same commit is immediately stale. Stamp both, always.
+  # ⚠️ `git add -u` here, NEVER a plain `git add`. ios/App/App/public is in
+  # .gitignore (its files are TRACKED, which is why they stamp at all), and a
+  # plain `git add` on an ignored path fails. Inside this hook that aborted the
+  # whole commit SILENTLY: git printed its "paths are ignored" hint, the hook
+  # exited non-zero, and nothing was committed and nothing said why. `-u` stages
+  # modifications to already-tracked files and cannot add an untracked ignored
+  # file, so it does the right thing and never refuses.
   if [ -f ios/App/App/public/sw.js ]; then
     sed -i '' -E 's/apex-static-[a-z0-9]+/apex-static-'"$STAMP"'/' ios/App/App/public/sw.js
-    git add ios/App/App/public/sw.js
+    git add -u ios/App/App/public/sw.js
   fi
   if [ -f ios/App/App/public/version.json ]; then
     printf '{"version": "%s"}\n' "$STAMP" > ios/App/App/public/version.json
-    git add ios/App/App/public/version.json
+    git add -u ios/App/App/public/version.json
   fi
 fi
 
@@ -99,7 +106,19 @@ for ASSET in $VERSIONED_ASSETS; do
     sed -i '' -E 's|(["/])'"$ESCAPED"'(\?v=[0-9]+)?(["#])|\1'"$ASSET"'?v='"$ASTAMP"'\3|g' "$HTML"
     TOUCHED="$TOUCHED$HTML\n"
   done
+  # `-u` for the same reason as the sw.js/version.json adds above: this loop
+  # walks `git ls-files '*.html'`, which INCLUDES the 26 tracked HTML files
+  # under the gitignored ios/App/App/public, and a plain `git add` on those
+  # fails and silently aborts the entire commit.
   if [ -n "$TOUCHED" ]; then
-    printf "$TOUCHED" | tr '\n' '\0' | xargs -0 git add --
+    printf "$TOUCHED" | tr '\n' '\0' | xargs -0 git add -u --
   fi
 done
+
+# The stamping above is best-effort housekeeping, and the ONLY thing that
+# should ever block a commit is the iOS drift guard at the top, which exits
+# explicitly with its own message. Without this line the hook's exit status is
+# whatever the last command happened to return, which is how a failing `git
+# add` once aborted a commit with no error and no entry in the log. Anything
+# that genuinely must block has already exited by now.
+exit 0

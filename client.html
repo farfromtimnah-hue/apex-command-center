@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1788495974"></script>
+  <script src="native-bridge.js?v=1789585769"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -89,7 +89,7 @@
   <script src="template-edit.js?v=1787608442"></script>
   <link rel="stylesheet" href="gm.css?v=1788904129">
   <script src="gm-labels.js?v=1788151190"></script>
-  <script src="gm.js?v=1788904129"></script>
+  <script src="gm.js?v=1789585769"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5990,9 +5990,14 @@
     function startLeadCall() {
       var tel = leadContactPhone();
       if (!tel) { return; }
-      window.location.href = window.apexCallHref
-        ? apexCallHref(tel)
-        : "tel:" + tel.replace(/[^\d+]/g, "");
+      // apexStartCall() falls back to tel: when OpenPhone is not installed.
+      // Assigning apexCallHref() directly is what left this button dead in the
+      // app; the plain tel: branch is the no-native-bridge case only.
+      if (window.apexStartCall) {
+        apexStartCall(tel);
+      } else {
+        window.location.href = "tel:" + tel.replace(/[^\d+]/g, "");
+      }
       logContactAttempt("Phone call");
     }
 
@@ -6233,6 +6238,18 @@
         var vpAllowed = (vpRole === "alice" || vpRole === "rafa" || vpRole === "developer");
         vpBtn.href = "portal.html?previewAs=" + encodeURIComponent(CLIENT_ID || "");
         vpBtn.hidden = !vpAllowed;
+        // target="_blank" is a silent no-op in the app: WKWebView asks
+        // WKUIDelegate.createWebViewWith for the new window and nothing
+        // implements it (ApexUptimePlugin.swift deliberately installs no
+        // delegates), so the tap does nothing at all. In a browser the new tab
+        // is the wanted behaviour, so only the app navigates in place.
+        //
+        // Same-tab, NOT apexOpenExternal(): portal.html is a bundled local page
+        // and the Browser plugin would open it in an external Safari view
+        // outside the authenticated WebView, losing the session.
+        if (window.apexIsNative && apexIsNative()) {
+          vpBtn.removeAttribute("target");
+        }
       }
 
       // Header logo thumbnail
@@ -10718,7 +10735,11 @@
         html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
         html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_date)) + '</td>';
         html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status"><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
-        html += '<td class="mc-action"><a class="btn-inv-view" href="' + escHtml(invPath) + '" target="_blank" rel="noopener">';
+        // Same target="_blank" no-op as btnViewPortal above, and this renderer
+        // is the phone-width one, which is where the app always is. Bundled
+        // local page, so the app navigates in place.
+        var invTarget = (window.apexIsNative && apexIsNative()) ? "" : ' target="_blank" rel="noopener"';
+        html += '<td class="mc-action"><a class="btn-inv-view" href="' + escHtml(invPath) + '"' + invTarget + '>';
         html += mcIcon("view");
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';

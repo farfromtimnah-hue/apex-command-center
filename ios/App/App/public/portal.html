@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1788495974"></script>
+  <script src="native-bridge.js?v=1789585769"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -350,6 +350,17 @@
     .field-tile.computed { background: rgba(244, 240, 231, 0.94); }
     .field-tile .computed-value { font-size: 20px; font-weight: 800; color: var(--gold); }
     .field-tile .tile-unit { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    /* Pipeline suggestion: a number the system already knows, offered as a tap
+       rather than written into the field. Deliberately quiet — it is a prompt,
+       not an answer, and the client's own typing always wins. */
+    .field-tile .tile-suggest {
+      display: block; width: 100%; margin-top: 6px; padding: 6px 8px;
+      font: inherit; font-size: 11px; line-height: 1.3; text-align: left;
+      color: var(--muted); background: transparent; cursor: pointer;
+      border: 1px dashed var(--border, #d8d2c8); border-radius: 6px;
+    }
+    .field-tile .tile-suggest:hover { color: var(--text, #2b2b2b); }
 
     /* toggle */
     .toggle-row { display: flex; align-items: center; gap: 12px; }
@@ -1818,6 +1829,11 @@
     var helpRequestTemplate = null;
     var fieldConfig = null;       // from /field-config (list)
     var entryState  = null;       // from /entry-state
+    // Numbers derived from the pipeline for the day being filled in. A starting
+    // point the client can overwrite, NOT a computed field: measured on real
+    // data, clients do not enter leads on the day they arrive, so the pipeline
+    // undercounts and a locked value would replace a true number with a low one.
+    var entrySuggestions = {};    // from /entry-suggestions
     var currentEntryDate = null;
     var currentSectionIdx = 0;
     var formSections = [];        // applicable sections for this client
@@ -2176,8 +2192,50 @@
         else { break; }
       }
       if (currentSectionIdx >= formSections.length) { currentSectionIdx = formSections.length - 1; }
+      entrySuggestions = {};
       renderFormSection();
       showView("viewEntryForm");
+      loadEntrySuggestions(p.date);
+    }
+
+    // What the pipeline already knows about this day. Fetched AFTER the form is
+    // on screen so a slow or failing request never delays or blocks data entry:
+    // no suggestions simply means the fields behave exactly as they always have.
+    function loadEntrySuggestions(dateStr) {
+      apiFetch("/api/clients/" + clientId + "/entry-suggestions?date=" + encodeURIComponent(dateStr))
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(d) {
+          if (!d || !d.suggestions) { return; }
+          if (dateStr !== currentEntryDate) { return; }   // moved to another day
+          entrySuggestions = d.suggestions;
+          // Re-render ONLY while nothing is being typed. renderFormSection()
+          // rebuilds the inputs from savedSections, so re-rendering over a
+          // half-typed field would wipe it before the debounced save runs.
+          var active = document.activeElement;
+          if (active && active.id && active.id.indexOf("field_") === 0) { return; }
+          if (autosaveTimer) { return; }   // an unsaved edit is in flight
+          renderFormSection();
+        })
+        .catch(function() { /* a convenience, never a blocker */ });
+    }
+
+    // Accept a pipeline suggestion into the field. Goes through the normal
+    // input path (onFieldInput → debounced saveDraft) so it is saved exactly
+    // like a typed value — handlePutEntrySection rejects anything that is not
+    // a real input key, so there is no separate server-side prefill path.
+    function useSuggestion(key, sec) {
+      var el = document.getElementById("field_" + key);
+      if (!el) { return; }
+      el.value = entrySuggestions[key];
+      // Clear it so the button does not reappear on the next render: the number
+      // is the client's own answer now, not a standing suggestion.
+      delete entrySuggestions[key];
+      onFieldInput(sec);
+      // Hide the button without re-rendering. renderFormSection() rebuilds the
+      // inputs from savedSections, which would BLANK the value just set — the
+      // debounced saveDraft reads the DOM 900ms later and would find it empty.
+      var btn = el.parentNode && el.parentNode.querySelector(".tile-suggest");
+      if (btn) { btn.remove(); }
     }
 
     function sectionValues(sec) {
@@ -2221,9 +2279,19 @@
             '</div>';
         } else {
           var unit = ind.type === "currency" ? "$" : ind.type === "percent" ? "%" : ind.type === "hours" ? (isEn() ? "hours" : "horas") : "";
+          // Suggestion from the pipeline, offered ONLY where the client has not
+          // typed anything. Never overwrites a value they entered, and never
+          // replaces a saved 0 — a deliberate zero is an answer.
+          var sug = entrySuggestions[ind.key];
+          var hasSug = (v === "" && sug !== undefined && sug !== null);
           html += '<div class="field-tile"><label class="tile-label" for="field_' + ind.key + '">' + escHtml(isEn() ? ind.label_en : ind.label_pt) + '</label>' +
             '<input type="number" inputmode="decimal" step="any" min="0" id="field_' + ind.key + '" value="' + escHtml(String(v)) + '" oninput="onFieldInput(\'' + sec + '\')">' +
             (unit ? '<div class="tile-unit">' + unit + '</div>' : "") +
+            (hasSug
+              ? '<button type="button" class="tile-suggest" onclick="useSuggestion(\'' + ind.key + '\',\'' + sec + '\')">' +
+                escHtml(isEn() ? "Pipeline says " + sug + " — use it" : "O pipeline indica " + sug + " — usar") +
+                '</button>'
+              : "") +
             '</div>';
         }
       });
@@ -6649,7 +6717,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1788904129"></script>
+  <script src="gm.js?v=1789585769"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

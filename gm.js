@@ -462,12 +462,31 @@ function gmCallHref(tel) {
   return "tel:" + escHtml(tel);
 }
 
+// Click handler for the Ligar/Call button. In the app, cancel the anchor's own
+// openphone:// navigation and go through apexStartCall(), which falls back to
+// tel: when OpenPhone is not installed -- a raw openphone:// assignment is a
+// silent no-op on a device without it, which is how this button shipped dead.
+//
+// Returns true in a browser so the plain tel: href navigates exactly as before.
+function gmStartCall(ev, tel) {
+  gmLogOutreach("Phone call");
+  if (window.apexStartCall && window.apexIsNative && apexIsNative()) {
+    if (ev && ev.preventDefault) { ev.preventDefault(); }
+    apexStartCall(tel);
+    return false;
+  }
+  return true;
+}
+
 function gmContactButtonsHtml(tel) {
   var digits = gmWaDigits(tel);
   var dis = tel ? "" : ' aria-disabled="true"';
   return '<div class="gm-contact-row" data-tour="crm-detail-contact">' +
+    // In the app the click is intercepted so a missing OpenPhone falls back to
+    // tel: (see apexStartCall). The href stays the browser path and the no-JS
+    // path, byte for byte what it was.
     '<a class="gm-contact-btn gm-call"' + dis + ' href="' + gmCallHref(tel) + '"' +
-      ' onclick="gmLogOutreach(\'Phone call\')">' +
+      ' onclick="return gmStartCall(event, \'' + escHtml(String(tel || "").replace(/[^\d+() .-]/g, "")) + '\')">' +
       gmIcon("phone") + gmT("Ligar", "Call") + '</a>' +
     '<a class="gm-contact-btn gm-wa"' + dis + ' href="https://wa.me/' + digits + '" target="_blank" rel="noopener"' +
       ' onclick="gmLogOutreach(\'WhatsApp\')">' +
@@ -934,12 +953,63 @@ function gmLeadRowHtml(lead) {
     '</button>';
 }
 
+// The six tiles, recomputed from the rows the month filter is actually showing.
+//
+// ⚠️ These MUST stay a mirror of the SQL aggregate in handleGetGmLeads (worker
+// /index.js, "Summary lives in SQL so the definitions are auditable"). The
+// server still sends summary for the unfiltered case and the two are asserted
+// to agree when no month is picked -- see gmSummaryMatchesServer below.
+//
+// Why client-side rather than a filtered round-trip: every lead is already in
+// the browser (the leads query has no LIMIT), the filter itself is local, and
+// a fetch per month change would make the tiles lag the rows they label.
+function gmComputeSummary(leads) {
+  var out = {
+    leads_totais: leads.length, pipeline_ativo: 0, receita_fechada: 0,
+    fechados: 0, fora_sla_contato: 0, fora_sla_estimate: 0, live_count: 0
+  };
+  leads.forEach(function(l) {
+    var st = l.estagio;
+    var valor = Number(l.valor) || 0;                      // COALESCE(valor,0)
+    if (st === "estimate_enviado" || st === "follow_up" || st === "negociacao") {
+      out.pipeline_ativo += valor;
+    }
+    if (st === "fechado") { out.receita_fechada += valor; out.fechados++; }
+    if (st !== "fechado" && st !== "perdido") { out.live_count++; }
+    // julianday() differences in days; 5 minutes = 5/1440 of a day, 24h = 1.0.
+    // Both sides null-guarded exactly as the SQL does, so a lead missing either
+    // stamp counts as inside the SLA rather than silently failing it.
+    var ms = 86400000;
+    if (l.data_lead && l.data_contato) {
+      var d1 = Date.parse(l.data_contato) - Date.parse(l.data_lead);
+      if (d1 === d1 && (d1 / ms) * 1440.0 > 5.0) { out.fora_sla_contato++; }
+    }
+    if (l.data_lead && l.data_estimate) {
+      var d2 = Date.parse(l.data_estimate) - Date.parse(l.data_lead);
+      if (d2 === d2 && (d2 / ms) > 1.0) { out.fora_sla_estimate++; }
+    }
+  });
+  out.conversao_pct = out.leads_totais > 0
+    ? Math.round((out.fechados / out.leads_totais) * 1000) / 10
+    : null;
+  return out;
+}
+
 function gmCrmSummaryHtml() {
-  var s = gmLeadsData.summary;
+  // Filtered by month but NOT by the search box: the tiles describe the period,
+  // and a half-typed name in the search field must not restate the month's
+  // totals. Stage chips below stay search-aware, which is their job.
+  var scoped = ((gmLeadsData && gmLeadsData.leads) || []).filter(gmLeadMatchesMonth);
+  var s = gmComputeSummary(scoped);
   var conv = s.conversao_pct === null ? "--" : fmtNum(s.conversao_pct, "percent");
   var slaContatoBad = s.fora_sla_contato > 0;
   var slaEstimateBad = s.fora_sla_estimate > 0;
-  return '<div class="gm-summary-grid" data-tour="crm-summary">' +
+  // Which period these numbers describe. Without it a filtered tile and an
+  // all-time tile look identical, which is the bug this whole change fixes.
+  var period = gmLeadMonth
+    ? '<div class="gm-summary-period">' + escHtml(gmMonthLabel(gmLeadMonth)) + '</div>'
+    : "";
+  return period + '<div class="gm-summary-grid" data-tour="crm-summary">' +
     '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Leads totais", "Total leads") + '</div>' +
     '<div class="gm-metric-value">' + s.leads_totais + '</div></div>' +
     '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Pipeline ativo ($)", "Active pipeline ($)") + '</div>' +
@@ -2429,7 +2499,45 @@ function gmOpenStagePicker() {
 }
 
 function gmSetStage(stage) {
-  gmSaveLeadField("estagio", stage, function() { gmRenderLeadSheet(); });
+  gmSaveLeadField("estagio", stage, function() {
+    gmRenderLeadSheet();
+    // A won lead BECOMES a project, the way a lead becomes an active client on
+    // the Apex side. Fired after the stage save succeeds, never before: a
+    // project created against a stage change that then failed would be a
+    // project for a lead nobody actually won.
+    if (stage === "fechado") { gmPromoteLead(); }
+  });
+}
+
+// Carry the open lead forward into a project. The server does the field copy
+// (handlePromoteGmLead) since both tables share their cost columns.
+//
+// Idempotent on both sides: the route returns the existing project rather than
+// erroring, and a partial UNIQUE index on gm_jobs(lead_id) makes a second one
+// impossible even if this ran twice.
+function gmPromoteLead() {
+  var lead = gmDetailLead;
+  if (!lead || !lead.id) { return; }
+  gmApi("leads/" + encodeURIComponent(lead.id) + "/promote", { method: "POST" })
+    .then(function(res) {
+      if (!res || !res.job) { return; }
+      // "already" means it was promoted before -- say nothing rather than
+      // announce a project the client did not just make.
+      if (res.already) { return; }
+      // switchTab("gmjobs") runs gmLoadJobs(), which refetches, so the new
+      // project is on screen without touching gmJobsData here.
+      gmToast(
+        gmT("Lead ganho virou projeto.", "Won lead is now a project."),
+        gmT("Ver projeto", "View project"),
+        function() { gmSheetClose(); switchTab("gmjobs"); }
+      );
+    })
+    .catch(function(e) {
+      // The lead IS won either way -- the stage already saved. Surface the
+      // failure instead of leaving the client thinking a project exists.
+      gmToast(gmT("Lead salvo, mas o projeto não foi criado.",
+                  "Lead saved, but the project was not created."));
+    });
 }
 
 // ── Derived money on a lead, recomputed in the browser ──────────────────
@@ -3024,6 +3132,87 @@ function gmJobMonthChange(v) {
   gmRenderJobs();
 }
 
+// Averages for the projects dashboard.
+//
+// ⚠️ A missing cost is NOT zero. Roughly half the real jobs have no material
+// or mao_de_obra on file, and averaging those in as $0 would report a material
+// cost far below what the client actually spends -- a wrong number that looks
+// perfectly plausible. So each average counts only the rows that HAVE the
+// figure, and reports how many that was; a tile with no rows behind it renders
+// "--" rather than 0.
+//
+// Margin is the aggregate (total profit / total revenue), not the mean of each
+// job's percentage: a $2,000 job and a $200,000 job must not carry equal weight
+// in one headline number. Profit and revenue are plain totals over the rows
+// that have a valor.
+function gmJobsSummary(jobs) {
+  function avg(rows, pick) {
+    var sum = 0, n = 0;
+    rows.forEach(function(r) {
+      var v = pick(r);
+      if (v === null || v === undefined || v === "") { return; }
+      v = Number(v);
+      if (v !== v) { return; }          // NaN guard
+      sum += v; n++;
+    });
+    return { value: n ? sum / n : null, n: n };
+  }
+  var withValor = jobs.filter(function(j) {
+    return j.valor !== null && j.valor !== undefined && j.valor !== "";
+  });
+  var receita = 0, lucro = 0, nLucro = 0;
+  withValor.forEach(function(j) {
+    receita += Number(j.valor) || 0;
+    if (j.lucro !== null && j.lucro !== undefined) { lucro += Number(j.lucro) || 0; nLucro++; }
+  });
+  return {
+    count: jobs.length,
+    valor:       avg(jobs, function(j) { return j.valor; }),
+    material:    avg(jobs, function(j) { return j.material; }),
+    mao_de_obra: avg(jobs, function(j) { return j.mao_de_obra; }),
+    lucro:       avg(jobs, function(j) { return j.lucro; }),
+    receita_total: receita,
+    lucro_total: nLucro ? lucro : null,
+    // Aggregate margin. Guarded on receita > 0 so a month of $0 jobs shows "--"
+    // instead of dividing by zero.
+    margem_pct: (receita > 0 && nLucro) ? Math.round((lucro / receita) * 1000) / 10 : null
+  };
+}
+
+// Six tiles over the projects the month filter is showing. Same gm-summary-grid
+// markup as the pipeline so the two dashboards read as one system.
+function gmJobsSummaryHtml(shown) {
+  var s = gmJobsSummary(shown);
+  function money(a) {
+    return a.value === null ? "--" : fmtNum(a.value, "currency");
+  }
+  // "de 7 projetos" — says how many rows a given average is actually based on,
+  // so a $40k average from two jobs is never mistaken for a settled figure.
+  function basis(a) {
+    if (a.value === null) { return gmT("sem dados", "no data"); }
+    return gmT("de ", "from ") + a.n + gmT(" projeto", " project") + (a.n === 1 ? "" : "s");
+  }
+  return '<div class="gm-summary-grid" data-tour="jobs-summary">' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Projetos", "Projects") + '</div>' +
+    '<div class="gm-metric-value">' + s.count + '</div></div>' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Projeto médio ($)", "Average job ($)") + '</div>' +
+    '<div class="gm-metric-value">' + money(s.valor) + '</div>' +
+    '<div class="gm-metric-sub">' + basis(s.valor) + '</div></div>' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Material médio ($)", "Average materials ($)") + '</div>' +
+    '<div class="gm-metric-value">' + money(s.material) + '</div>' +
+    '<div class="gm-metric-sub">' + basis(s.material) + '</div></div>' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Mão de obra média ($)", "Average labor ($)") + '</div>' +
+    '<div class="gm-metric-value">' + money(s.mao_de_obra) + '</div>' +
+    '<div class="gm-metric-sub">' + basis(s.mao_de_obra) + '</div></div>' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Margem", "Margin") + '</div>' +
+    '<div class="gm-metric-value">' + (s.margem_pct === null ? "--" : fmtNum(s.margem_pct, "percent")) + '</div>' +
+    '<div class="gm-metric-sub">' + gmT("lucro ÷ receita no período", "profit ÷ revenue for the period") + '</div></div>' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Lucro médio ($)", "Average profit ($)") + '</div>' +
+    '<div class="gm-metric-value">' + money(s.lucro) + '</div>' +
+    '<div class="gm-metric-sub">' + basis(s.lucro) + '</div></div>' +
+    '</div>';
+}
+
 function gmRenderJobs() {
   var body = document.getElementById("gmJobsBody");
   var jobs = gmJobsData.jobs;
@@ -3047,6 +3236,11 @@ function gmRenderJobs() {
   // matching -- otherwise picking a month with no projects would hide the very
   // dropdown needed to pick a different one.
   var shown = jobs.filter(gmJobMatchesMonth);
+
+  // Dashboard over the filtered set, so picking a month restates the tiles
+  // rather than leaving all-time numbers above filtered rows (the exact bug
+  // fixed on the pipeline side). Hidden when there is nothing to describe.
+  if (shown.length) { html += gmJobsSummaryHtml(shown); }
 
   if (!jobs.length) {
     html += '<p class="muted">' + gmT("Nenhum projeto cadastrado ainda.", "No projects yet.") + '</p>';

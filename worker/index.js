@@ -5829,9 +5829,12 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
+        // c.timezone rides along so the time can be rendered for a client in
+        // another zone. LEFT JOIN: a session can have no client_id at all.
         var session = await env.DB.prepare(
-            "SELECT id, client_id, client_name, date, time, session_type, google_meet_link, status, meeting_category " +
-            "FROM sessions WHERE id = ?"
+            "SELECT s.id, s.client_id, s.client_name, s.date, s.time, s.session_type, " +
+            "s.google_meet_link, s.status, s.meeting_category, c.timezone AS client_timezone " +
+            "FROM sessions s LEFT JOIN clients c ON c.id = s.client_id WHERE s.id = ?"
         ).bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
 
@@ -5864,7 +5867,15 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         // matching the app-wide display convention shipped in datetime.js.
         var dateParts = session.date.split("-");
         var dateFormatted = dateParts[1] + "/" + dateParts[2] + "/" + dateParts[0];
-        var time    = session.time || "";
+        // 12-hour with AM/PM, the same American convention the date above is
+        // already converted to. This line used to pass session.time through
+        // raw -- stored as "14:30" -- so every scheduling message went to a
+        // client in 24-hour time and Alice retyped it by hand each time.
+        //
+        // A client with a non-Eastern timezone on file gets BOTH zones,
+        // labelled, because their WhatsApp group holds Rafa in Florida and
+        // their own team elsewhere. Everyone else is unchanged.
+        var time    = fmtTimeForClient(session.date, session.time || "", session.client_timezone);
 
         var templateKey = session.session_type === "in_person" ? "session_in_person" : "session_online";
         var templateRow = await env.DB.prepare(
@@ -29059,6 +29070,124 @@ function schedHHMM(mins) {
     var h = Math.floor(mins / 60);
     var m = mins % 60;
     return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+}
+
+// "14:30" -> "2:30 PM". THE ONE PLACE the Worker turns a stored 24-hour time
+// into something a client reads.
+//
+// ⚠️ STANDING RULE, BROKEN MORE THAN ONCE: everything Apex SHOWS or SENDS is
+// American — MM/DD/YYYY and 12-hour with AM/PM — regardless of the PT/EN
+// toggle. Rafa and Alice are in Florida and their clients read it that way.
+// datetime.js enforces this on every page, but the Worker has no access to it,
+// so a message composed here bypasses the rule entirely. That is exactly how
+// the scheduling WhatsApp went out as "às 14:30" for months while the DATE
+// beside it was correctly converted to MM/DD/YYYY: whoever wrote it converted
+// the date by hand and passed session.time straight through.
+//
+// Alice was re-typing the time by hand on every message. Use this for any time
+// that leaves the Worker in text a human will read; never send a raw HH:MM.
+function fmtTime12(hhmm) {
+    var s = String(hhmm == null ? "" : hhmm).trim();
+    var m = s.match(/^(\d{1,2}):(\d{2})/);
+    if (!m) { return s; }                       // unparseable: return untouched
+    var h = parseInt(m[1], 10);
+    var min = m[2];
+    if (!(h >= 0 && h <= 23)) { return s; }
+    var suffix = h >= 12 ? "PM" : "AM";
+    var h12 = h % 12;
+    if (h12 === 0) { h12 = 12; }                // 00:xx -> 12 AM, 12:xx -> 12 PM
+    return h12 + ":" + min + " " + suffix;
+}
+
+// The time as a client reads it, in a MIXED-TIMEZONE group chat.
+//
+// Sessions are always stored and scheduled in Eastern -- that is the standing
+// rule and it does not change. But one client's team is in Seattle while Rafa
+// is in Florida, and the WhatsApp group holds both: a bare "2:30 PM" is read
+// as two different moments by two people in the same thread.
+//
+// So when a client has a timezone on file that is NOT Eastern, the message
+// carries BOTH, each labelled. Everyone else gets the single Eastern time
+// exactly as before -- a second timezone on a client who has only one is
+// noise, and this is copy that goes to real people.
+//
+// clients.timezone holds an IANA name ("America/Los_Angeles"). Nothing is ever
+// inferred from the free-text `location` field: a wrong guess here puts a wrong
+// time in a client's calendar.
+function fmtTimeForClient(dateStr, hhmm, clientTz) {
+    var eastern = fmtTime12(hhmm);
+    if (!clientTz || clientTz === APEX_TIMEZONE) { return eastern; }
+    var m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})/);
+    if (!m || !dateStr) { return eastern; }
+    try {
+        // Anchor the wall-clock Eastern time to a real instant, then re-render
+        // it in the client's zone. Going through a UTC instant is what makes
+        // this correct across a DST boundary -- the offset is not a constant.
+        var iso = dateStr + "T" + String(m[1]).padStart(2, "0") + ":" + m[2] + ":00";
+        var asUtc = new Date(iso + "Z").getTime();
+        var easternOffset = tzOffsetMs(asUtc, APEX_TIMEZONE);
+        var instant = asUtc - easternOffset;
+        var there = new Intl.DateTimeFormat("en-US", {
+            timeZone: clientTz, hour: "numeric", minute: "2-digit", hour12: true
+        }).format(new Date(instant));
+        var label = tzShortLabel(instant, clientTz);
+        var eastLabel = tzShortLabel(instant, APEX_TIMEZONE);
+        return eastern + " " + eastLabel + " / " + there + " " + label;
+    } catch (e) {
+        return eastern;   // a bad tz string must never break the message
+    }
+}
+
+// Milliseconds a zone is offset from UTC at a given instant (DST-aware).
+function tzOffsetMs(utcMs, tz) {
+    var d = new Date(utcMs);
+    var f = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+    });
+    var p = {};
+    f.formatToParts(d).forEach(function(x) { p[x.type] = x.value; });
+    if (p.hour === "24") { p.hour = "00"; }
+    var asIfUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+    return asIfUtc - utcMs;
+}
+
+// "EDT" / "PDT" -- the short name for the zone at that instant, so the label
+// is correct on both sides of a DST change rather than hard-coded.
+//
+// Brazil note, for the division under consideration: Intl renders Brazilian
+// zones as "GMT-3", which is accurate but not how anyone there reads a time.
+// BRAZIL_TZ_LABELS gives them their real abbreviations. Brazil ABOLISHED DST
+// in 2019, so these are single fixed labels -- but the GAP to Eastern still
+// moves twice a year because the US keeps DST (1h apart in July, 2h in
+// January). That is handled by computing the offset per-date in tzOffsetMs,
+// never by storing a constant difference.
+var BRAZIL_TZ_LABELS = {
+    "America/Sao_Paulo": "BRT",
+    "America/Bahia":     "BRT",
+    "America/Recife":    "BRT",
+    "America/Fortaleza": "BRT",
+    "America/Belem":     "BRT",
+    "America/Manaus":    "AMT",
+    "America/Cuiaba":    "AMT",
+    "America/Porto_Velho": "AMT",
+    "America/Boa_Vista": "AMT",
+    "America/Rio_Branco": "ACT",
+    "America/Eirunepe":  "ACT",
+    "America/Noronha":   "FNT"
+};
+
+function tzShortLabel(utcMs, tz) {
+    if (BRAZIL_TZ_LABELS[tz]) { return BRAZIL_TZ_LABELS[tz]; }
+    try {
+        var parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz, timeZoneName: "short", hour: "numeric"
+        }).formatToParts(new Date(utcMs));
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i].type === "timeZoneName") { return parts[i].value; }
+        }
+    } catch (e) { /* fall through */ }
+    return "";
 }
 
 // "2026-08-12" + n days -> "2026-08-19". Pure string/UTC-anchored arithmetic on

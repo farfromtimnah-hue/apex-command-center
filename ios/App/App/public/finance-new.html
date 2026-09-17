@@ -8727,6 +8727,13 @@
           actions +=
             '<button class="btn btn-sm" onclick="openDesc(\'' + inv.id + '\')">' +
               '<span class="show-pt">Editar descri&ccedil;&atilde;o</span><span class="show-en">Edit description</span></button> ';
+          // The way out of draft that does NOT depend on WhatsApp. Without it
+          // a client with no number on file can never leave draft, and so can
+          // never be marked paid -- INV-000031 (JM, $2,000) was sent and PAID
+          // while stuck here, because JM has no whatsapp and no phone stored.
+          actions +=
+            '<button class="btn btn-sm" onclick="markInvoiceSentOnly(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Marcar enviada</span><span class="show-en">Mark sent</span></button> ';
         }
         if (inv.status === "sent") {
           // A tag, not an accounting event -- see the modal comment and the
@@ -8896,13 +8903,84 @@
         (inv.client_whatsapp ? String(inv.client_whatsapp).replace(/[^0-9]/g, "") : "") +
         "?text=" + encodeURIComponent(message);
 
-      if (waWindow) { waWindow.location.href = waUrl; }
-      else { window.open(waUrl, "_blank"); }
-
       // 'sent' records that she pressed the button. There is no email path.
+      //
+      // ⚠️ ORDER MATTERS, AND IT USED TO BE WRONG. This fetch ran AFTER the
+      // WhatsApp handoff, and handing off to another app can suspend or tear
+      // down this page before an in-flight request finishes -- the same way
+      // the Contact Log recorded nothing for months. Paired with an empty
+      // `.catch(function(){})` that threw the failure away, the result was an
+      // invoice that stayed in draft with nothing on screen saying why:
+      // INV-000031 (JM, $2,000) sat there after Alice had sent it AND the
+      // client had paid it, and she could not mark it paid because only a
+      // 'sent' invoice can be.
+      //
+      // The request is fired FIRST, while the page is certainly still alive,
+      // and WhatsApp opens once it has been sent. The blank window is already
+      // open from the click, so the popup-blocker fix still holds -- opening
+      // it up front is exactly what makes this reordering safe.
+      function openWhatsApp() {
+        if (waWindow) { waWindow.location.href = waUrl; }
+        else { window.open(waUrl, "_blank"); }
+      }
+
       apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
-        .then(function() { loadInvoices(); })
-        .catch(function() {});
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (d && d.error) { throw new Error(d.error); }
+          openWhatsApp();
+          loadInvoices();
+        })
+        .catch(function(e) {
+          // WhatsApp opens EITHER WAY. Failing to record the status must never
+          // stop her sending the invoice -- that would turn a bookkeeping
+          // problem into a client-facing one. She is told what did not happen
+          // and which button fixes it.
+          openWhatsApp();
+          toast(isEn()
+            ? "Sent on WhatsApp, but it could not be marked sent: " +
+              (e.message || "unknown error") + ". Use \"Mark sent\" on the row."
+            : "Enviada no WhatsApp, mas nao foi possivel marcar como enviada: " +
+              (e.message || "erro desconhecido") + ". Use \"Marcar enviada\" na linha.");
+        });
+    }
+
+    // Mark an invoice sent WITHOUT going through WhatsApp.
+    //
+    // The send button was the only route to 'sent', and it is welded to
+    // WhatsApp: it builds https://wa.me/<number> from the client record. JM
+    // LUXURY POOLS has NO whatsapp and NO phone on file, so that URL is
+    // built with an empty number and goes nowhere -- and the invoice can
+    // never leave draft, which blocks marking it paid. Alice sends plenty of
+    // invoices another way; recording that must not depend on one channel.
+    function markInvoiceSentOnly(invoiceId) {
+      var inv = null;
+      for (var i = 0; i < (INVOICES || []).length; i++) {
+        if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; break; }
+      }
+      var who = inv ? (inv.client_name || "") : "";
+      var amount = inv ? fmtCents(inv.amount_cents) : "";
+      var num = inv ? inv.number : invoiceId;
+      // Same confirm discipline as the WhatsApp path: naming the client and
+      // the amount is what makes a mis-click on the wrong row catchable.
+      var ask = isEn()
+        ? "Mark invoice " + num + " (" + amount + ") to " + who +
+          " as sent? Use this when it was already sent some other way."
+        : "Marcar a fatura " + num + " (" + amount + ") para " + who +
+          " como enviada? Use quando ela ja foi enviada de outra forma.";
+      if (!window.confirm(ask)) { return; }
+
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (d && d.error) { throw new Error(d.error); }
+          toast(isEn() ? "Marked as sent." : "Marcada como enviada.");
+          loadInvoices();
+        })
+        .catch(function(e) {
+          toast((isEn() ? "Could not mark sent: " : "Nao foi possivel marcar como enviada: ") +
+                (e.message || "erro"));
+        });
     }
 
     // Voiding is one click and it silently withdraws any matched payment.

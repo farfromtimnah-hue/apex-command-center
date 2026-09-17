@@ -2815,10 +2815,16 @@
           </div>
         </div>
 
-        <!-- Optional discount -->
+        <!-- Optional adjustment, UP or DOWN. Was "discount" and subtract-only,
+             which could not express the case that actually happens: a payment
+             plan costing more than paying outright. -->
         <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
-          <span class="show-pt">Desconto (opcional)</span>
-          <span class="show-en">Discount (optional)</span>
+          <span class="show-pt">Ajuste (opcional)</span>
+          <span class="show-en">Adjustment (optional)</span>
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;">
+            <span class="show-pt">&mdash; negativo acrescenta ao total</span>
+            <span class="show-en">&mdash; a negative value adds to the total</span>
+          </span>
         </div>
         <div style="display:flex;gap:10px;margin-bottom:10px;">
           <div class="field-group" style="flex:1;">
@@ -2829,7 +2835,9 @@
             </select>
           </div>
           <div class="field-group" style="flex:1;">
-            <input type="number" id="ptDiscountValue" min="0" step="0.01" placeholder="0" disabled oninput="recalcPaymentTerms()">
+            <!-- No min="0": a negative is the surcharge case and the browser
+                 would otherwise refuse to accept it. -->
+            <input type="number" id="ptDiscountValue" step="0.01" placeholder="0" disabled oninput="recalcPaymentTerms()">
           </div>
         </div>
         <div class="field-group">
@@ -2882,7 +2890,13 @@
               <span class="show-pt">Valor da parcela recorrente</span>
               <span class="show-en">Recurring installment amount</span>
             </label>
-            <input type="number" id="ptInstallmentAmount" min="0" step="0.01" oninput="recalcPaymentTerms()">
+            <!-- Editing the AMOUNT recalculates the COUNT, not the other way
+                 round. recalcPaymentTerms() overwrites this field with
+                 total/count on every input, so typing here used to be
+                 impossible: each keystroke was replaced mid-word. Nicole
+                 2026-09-16, DFN moving to $349.25 weekly: "it won't allow her
+                 to change the price." -->
+            <input type="number" id="ptInstallmentAmount" min="0" step="0.01" oninput="onInstallmentAmountInput()">
           </div>
           <div style="font-size:13px;font-weight:600;margin-top:8px;" id="ptEvenSplitMath"></div>
         </div>
@@ -6754,9 +6768,21 @@
       var type = typeEl.value;
       var val = parseFloat(valEl.value) || 0;
       var adjusted = base;
+      // Adjustments go BOTH WAYS. Apex does not discount -- Nicole 2026-09-16:
+      // "they never reduce the price, but sometimes for payment plans the total
+      // may be more than if they paid it normally." Financing costs money, so
+      // the common real adjustment is UP, and a subtract-only field could not
+      // express it at all.
+      //
+      // A negative value in either mode therefore ADDS: -500 flat is a $500
+      // surcharge, -10 percent adds 10%. The label and the math line below say
+      // which direction is in effect so a minus sign is never read as a typo.
       if (type === "flat") { adjusted = base - val; }
       else if (type === "percent") { adjusted = base - (base * val / 100); }
-      if (adjusted < 0) { adjusted = 0; }
+      // Clamp at zero only for a genuine DISCOUNT overshooting the base. A
+      // surcharge must never be clamped -- that would silently cap a financed
+      // total at the cash price.
+      if (adjusted < 0 && val > 0) { adjusted = 0; }
       return adjusted;
     }
 
@@ -6840,6 +6866,32 @@
       recalcPaymentTerms();
     }
 
+    // She typed a payment AMOUNT. Derive the count from it and leave her
+    // number alone -- the total is the fixed thing, the schedule is what
+    // changes. DFN: $8,382 at $1,397 monthly became $349.25 weekly, the same
+    // money over 24 payments instead of 6.
+    //
+    // ptAmountEdited suppresses the overwrite inside recalcPaymentTerms for
+    // this pass only; editing the COUNT clears it, so the two fields can each
+    // drive the other without fighting.
+    function onInstallmentAmountInput() {
+      var adjusted = getAdjustedTotal();
+      var amt = parseFloat(document.getElementById("ptInstallmentAmount").value) || 0;
+      if (amt > 0 && adjusted > 0) {
+        // Round UP on a remainder: a contract must never be left underpaid by
+        // a truncated final payment. The math line below shows the shortfall
+        // so an uneven split is visible rather than silently absorbed.
+        var count = Math.ceil((adjusted / amt) - 0.0000001);
+        if (count > 0) { document.getElementById("ptInstallmentCount").value = count; }
+      }
+      ptAmountEdited = true;
+      recalcPaymentTerms();
+      ptAmountEdited = false;
+    }
+
+    // True only while the amount field is driving the recalculation.
+    var ptAmountEdited = false;
+
     function recalcPaymentTerms() {
       var adjusted = getAdjustedTotal();
       document.getElementById("ptAdjustedTotal").textContent = ptFmtCurrency(adjusted);
@@ -6850,9 +6902,28 @@
         if (!neverEnds) {
           var countVal = parseInt(document.getElementById("ptInstallmentCount").value, 10);
           if (countVal > 0) {
-            var perAmount = adjusted / countVal;
-            document.getElementById("ptInstallmentAmount").value = perAmount.toFixed(2);
-            mathEl.textContent = ptFmtCurrency(perAmount) + " x " + countVal + " = " + ptFmtCurrency(adjusted);
+            // Do NOT overwrite the amount while she is typing IN it -- that is
+            // what made this field impossible to edit. When she drives the
+            // count, the amount still follows as before.
+            var perAmount;
+            if (ptAmountEdited) {
+              perAmount = parseFloat(document.getElementById("ptInstallmentAmount").value) || 0;
+            } else {
+              perAmount = adjusted / countVal;
+              document.getElementById("ptInstallmentAmount").value = perAmount.toFixed(2);
+            }
+            var scheduled = perAmount * countVal;
+            mathEl.textContent = ptFmtCurrency(perAmount) + " x " + countVal + " = " + ptFmtCurrency(scheduled);
+            // A chosen amount rarely divides the total exactly. Say so rather
+            // than rounding somebody's contract silently in either direction.
+            var diff = Math.round((scheduled - adjusted) * 100) / 100;
+            if (diff !== 0) {
+              mathEl.textContent += (isEn && isEn()
+                ? (diff > 0 ? "  (" + ptFmtCurrency(diff) + " over the total)"
+                            : "  (" + ptFmtCurrency(-diff) + " short of the total)")
+                : (diff > 0 ? "  (" + ptFmtCurrency(diff) + " acima do total)"
+                            : "  (" + ptFmtCurrency(-diff) + " abaixo do total)"));
+            }
           } else {
             mathEl.textContent = "";
           }

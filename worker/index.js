@@ -22554,6 +22554,36 @@ async function handlePostFinanceNewExchange(request, env) {
                 "SELECT id FROM accounts WHERE plaid_account_id = ?"
             ).bind(acc.account_id).first();
 
+            // ⚠️ A FRESH LINK GIVES THE SAME BANK ACCOUNT A NEW plaid_account_id.
+            //
+            // Matching on plaid_account_id alone was documented as safe --
+            // "every transaction stays attached" -- and that is true of a
+            // REPAIR (update mode), where the id is stable. It is NOT true of a
+            // fresh re-link, which is the only way to widen the history window.
+            // On 2026-09-16 Alice relinked the business account for the 730-day
+            // window and Apex created a SECOND active row for BofA ...2545:
+            // the balance was then counted twice, and 27 memos, 11 Apex Club
+            // event links and 57 transfer pairings stayed stranded on the old
+            // row while the new one collected the transactions.
+            //
+            // So fall back to the bank's own identity for the account:
+            // institution + mask + subtype, among rows not already claimed by
+            // another account in THIS link. Adopting the existing row keeps
+            // every transaction, memo and match attached and simply re-points
+            // it at the new Item and id.
+            if (!existingAcct && acc.mask) {
+                var adopt = await env.DB.prepare(
+                    "SELECT id FROM accounts WHERE mask = ? AND subtype IS ? AND institution IS ? " +
+                    "AND plaid_account_id != ? ORDER BY created_at ASC"
+                ).bind(acc.mask, acc.subtype || null, institution, acc.account_id).first();
+                if (adopt) {
+                    existingAcct = adopt;
+                    await env.DB.prepare(
+                        "UPDATE accounts SET plaid_account_id = ? WHERE id = ?"
+                    ).bind(acc.account_id, adopt.id).run();
+                }
+            }
+
             if (existingAcct) {
                 await env.DB.prepare(
                     "UPDATE accounts SET plaid_item_id = ?, institution = ?, name = ?, mask = ?, subtype = ?, " +

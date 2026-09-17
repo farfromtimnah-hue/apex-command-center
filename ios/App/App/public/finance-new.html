@@ -1155,6 +1155,10 @@
     }
     .flow-item { flex: 1; min-width: 90px; }
     .flow-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+    /* Marks a chart that deliberately does NOT follow the panel's month
+       picker. Lower-case and lighter than the label it follows: it is a
+       clarification, not a second heading. */
+    .chart-scope-note { text-transform: none; letter-spacing: 0; opacity: 0.75; font-weight: 400; }
     .flow-value { font-size: 17px; font-weight: 600; margin-top: 3px; }
     .is-green { color: var(--green); }
     .is-red   { color: var(--red); }
@@ -1817,9 +1821,14 @@
            WRONG account inside its own OAuth screen, so the update-mode token
            (issued for the business item) can never be satisfied. Linking fresh
            sidesteps that entirely.
-           THIS IS SAFE: /exchange matches on plaid_account_id and UPDATES the
-           existing accounts row, so the account id never changes and every
-           transaction stays attached. Verified against the handler. -->
+           SAFE, but not for the reason first written here. The old note said
+           "/exchange matches on plaid_account_id and UPDATES the existing row,
+           so the account id never changes" -- true of a REPAIR, false of a
+           FRESH link, which is what this button does. BofA issues a NEW
+           plaid_account_id on a fresh link, so on 2026-09-16 this created a
+           duplicate ...2545 row and double-counted the balance.
+           /exchange now falls back to institution + mask + subtype and ADOPTS
+           the existing row, which is what makes this safe. -->
       <button class="btn btn-sm btn-outline" onclick="relinkBrokenItem()" style="margin-left:6px;">
         <span class="show-pt">Conectar de novo</span>
         <span class="show-en">Link again</span>
@@ -2213,6 +2222,13 @@
           <button class="rank-btn" onclick="moveSection('charts',-1)" aria-label="Mover para cima">&#9650;</button>
           <button class="rank-btn" onclick="moveSection('charts',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
+        <!-- One month for the whole panel. Defaults to the current month:
+             all-time was the old behaviour and it made "Para onde foi o
+             dinheiro" answer a question nobody asks. -->
+        <select id="chartMonthSel" onchange="chartMonthChange(this.value)"
+                style="font-size:12px;padding:2px 6px;margin-left:8px"
+                data-title-attr-pt="M&ecirc;s dos gr&aacute;ficos" data-title-attr-en="Charts month"
+                aria-label="M&ecirc;s dos gr&aacute;ficos"></select>
         <button class="collapse-btn" onclick="toggleSection('charts')" id="collapse_charts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_charts" hidden></div>
@@ -2230,6 +2246,14 @@
             <div class="flow-label" style="margin-bottom:8px">
               <span class="show-pt">O que mudou por categoria</span>
               <span class="show-en">What changed by category</span>
+              <!-- Deliberately NOT month-filtered: this chart compares one
+                   month against another, so scoping it to a single month would
+                   leave it with nothing to compare. Said out loud so the
+                   numbers are not read as filtered. -->
+              <span class="chart-scope-note">
+                <span class="show-pt">&middot; compara meses, n&atilde;o segue o filtro</span>
+                <span class="show-en">&middot; compares months, ignores the filter</span>
+              </span>
             </div>
             <div class="chart-box"><canvas id="momChart"></canvas></div>
             <div id="momCaveat" class="chart-caveat" hidden></div>
@@ -2254,6 +2278,12 @@
             <div class="flow-label" style="margin-bottom:8px">
               <span class="show-pt">Saldo por conta</span>
               <span class="show-en">Balance by account</span>
+              <!-- Reads the accounts' CURRENT balances, not transactions, so
+                   there is no date for a month filter to apply to. -->
+              <span class="chart-scope-note">
+                <span class="show-pt">&middot; saldo de hoje</span>
+                <span class="show-en">&middot; today's balance</span>
+              </span>
             </div>
             <div class="chart-box"><canvas id="balanceChart"></canvas></div>
             <div id="balanceCaveat" class="chart-caveat" hidden></div>
@@ -2270,7 +2300,12 @@
                 <span class="show-pt">Fatia dos fornecedores</span>
                 <span class="show-en">Vendor share</span>
               </span>
-              <input type="month" id="vendorShareMonth" onchange="loadVendorShare()" style="font-size:12px;padding:2px 6px">
+              <!-- Its own month input is GONE: the panel picker in the card
+                   header drives every chart now, and two month controls on one
+                   panel disagreeing is worse than none. The id is kept as a
+                   hidden input so loadVendorShare() keeps one place to read the
+                   month from, whoever set it. -->
+              <input type="hidden" id="vendorShareMonth">
             </div>
             <div class="chart-box"><canvas id="vendorShareChart"></canvas></div>
             <div id="vendorShareCaveat" class="chart-caveat" hidden></div>
@@ -5251,7 +5286,23 @@
             "</div>" +
             coverageHtml +
           "</span>" +
-          variableAmountHtml(b, "bill-amount") +
+          // The amount IS the control. A bill can be higher this month for a
+          // real reason -- Nicole 2026-09-16: the phone bill included a new
+          // handset and an activation fee -- and the number on screen has to be
+          // the number that was actually paid, or "Marcar pago" records the
+          // wrong figure and the bank match never lines up.
+          //
+          // Clicking edits THIS MONTH ONLY. It never touches fixed_bills, so
+          // next month is back to the normal amount on its own; that is the
+          // same one-off-vs-recurring rule "Paguei no cartão" already follows.
+          '<button type="button" class="bill-amount-edit" ' +
+            'onclick="editOverdueAmount(\'' + esc(b.id) + '\',' + Number(b.amount_cents) + ',\'' +
+              esc(String(b.name).replace(/'/g, "\\'")) + '\')" ' +
+            'title="' + t("Alterar o valor deste m&ecirc;s", "Change this month's amount") + '" ' +
+            'aria-label="' + t("Alterar o valor deste m&ecirc;s", "Change this month's amount") + '">' +
+            variableAmountHtml(b, "bill-amount") +
+            '<span class="bill-amount-pencil" aria-hidden="true">&#9998;</span>' +
+          "</button>" +
           '<div class="overdue-row-actions">' +
             '<button class="btn btn-sm" onclick="openBillMatch(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\',' + b.amount_cents + ')">' +
               '<span class="show-pt">Vincular transa&ccedil;&atilde;o</span><span class="show-en">Link transaction</span></button> ' +
@@ -6767,6 +6818,16 @@
       return d.toISOString().slice(0, 10);
     }
 
+    // The charts' month. "" = all time; otherwise "YYYY-MM". Defaults to the
+    // current month on first render -- Nicole 2026-09-16: the charts were
+    // all-time, so "Para onde foi o dinheiro" answered a question nobody asked
+    // ("since the beginning of history") instead of "this month".
+    var CHART_MONTH = "";
+    // Whether the default-to-this-month has already run. Without it, clearing
+    // the picker to "Todos os meses" would be silently overwritten back to the
+    // current month on the next render.
+    var chartMonthPicked = false;
+
     function countedTransactions() {
       // Transfers are excluded from flow figures exactly as the summary
       // endpoint excludes them, so the chart and the tiles agree.
@@ -6774,6 +6835,59 @@
         if (t.voided_at) { return false; }
         return t.transfer_status !== "suspected" && t.transfer_status !== "confirmed";
       });
+    }
+
+    // Transactions for the picked month. Separate from countedTransactions()
+    // on purpose: the month-over-month chart COMPARES months and must keep
+    // seeing all of them, so it still calls countedTransactions() directly.
+    function chartTransactions() {
+      var txns = countedTransactions();
+      if (!CHART_MONTH) { return txns; }
+      return txns.filter(function(t) {
+        return String(t.date || "").slice(0, 7) === CHART_MONTH;
+      });
+    }
+
+    // Months that actually have transactions, newest first -- the same rule the
+    // pipeline's month filter uses. Built from the data rather than from a
+    // calendar so the list can never offer an empty month.
+    function chartMonthKeys() {
+      var seen = {}, out = [];
+      countedTransactions().forEach(function(t) {
+        var k = String(t.date || "").slice(0, 7);
+        if (k && !seen[k]) { seen[k] = 1; out.push(k); }
+      });
+      out.sort(function(a, b) { return a < b ? 1 : (a > b ? -1 : 0); });
+      return out;
+    }
+
+    function chartMonthLabel(key) {
+      var parts = String(key).split("-");
+      if (parts.length < 2) { return key; }
+      var monthsPt = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                      "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+      var monthsEn = ["January","February","March","April","May","June",
+                      "July","August","September","October","November","December"];
+      var i = Number(parts[1]) - 1;
+      if (!(i >= 0 && i < 12)) { return key; }
+      return (isEn() ? monthsEn[i] : monthsPt[i]) + " " + parts[0];
+    }
+
+    function renderChartMonthPicker() {
+      var el = document.getElementById("chartMonthSel");
+      if (!el) { return; }
+      var keys = chartMonthKeys();
+      var opts = '<option value="">' + t("Todos os meses", "All months") + "</option>";
+      keys.forEach(function(k) {
+        opts += '<option value="' + k + '"' + (CHART_MONTH === k ? " selected" : "") + ">" +
+          chartMonthLabel(k) + "</option>";
+      });
+      el.innerHTML = opts;
+    }
+
+    function chartMonthChange(v) {
+      CHART_MONTH = v || "";
+      renderCharts();
     }
 
     function bucketFlow(txns, keyFn) {
@@ -6847,6 +6961,17 @@
 
       if (typeof Chart === "undefined") { return; }
 
+      // Default to the current month on the first render, but only if it has
+      // transactions -- landing on an empty chart on the 1st of the month would
+      // read as broken. Otherwise fall back to the newest month that has data.
+      if (CHART_MONTH === "" && !chartMonthPicked) {
+        chartMonthPicked = true;
+        var keys = chartMonthKeys();
+        var thisMonth = new Date().toISOString().slice(0, 7);
+        CHART_MONTH = keys.indexOf(thisMonth) !== -1 ? thisMonth : (keys[0] || "");
+      }
+      renderChartMonthPicker();
+
       renderFlowChart();
       renderMomChart();
       renderCategoryChart();
@@ -6855,16 +6980,31 @@
       // Vendor share lives on this panel now, not behind the Fornecedores
       // tab -- Nicole 2026-08-19. Loads once with the other headline charts;
       // the month picker re-fires it on change same as the others.
+      // Driven by the panel picker now, and re-fetched on every change rather
+      // than once: it is a server call, so it cannot be filtered in the browser
+      // like the others.
+      //
+      // "Todos os meses" has no meaning for this endpoint (it takes one month),
+      // so it falls back to the newest month WITH DATA and says so in its own
+      // caveat rather than silently showing a month the picker does not name.
+      var vsMonthInput = document.getElementById("vendorShareMonth");
+      var vsMonth = CHART_MONTH || chartMonthKeys()[0] || new Date().toISOString().slice(0, 7);
+      if (vsMonthInput && vsMonthInput.value !== vsMonth) {
+        vsMonthInput.value = vsMonth;
+        vendorShareLoaded = false;
+      }
       if (!vendorShareLoaded) {
         vendorShareLoaded = true;
-        var vsMonthInput = document.getElementById("vendorShareMonth");
-        if (vsMonthInput && !vsMonthInput.value) { vsMonthInput.value = new Date().toISOString().slice(0, 7); }
         loadVendorShare();
       }
     }
 
     function renderFlowChart() {
-      var txns = countedTransactions();
+      // Month-scoped. With one month picked, distinctMonths() sees a single
+      // month and the existing useWeekly branch switches the buckets to weeks
+      // on its own -- which is the right shape for "this month" and needed no
+      // change here.
+      var txns = chartTransactions();
       destroyChart("flow");
 
       if (!txns.length) {
@@ -7279,7 +7419,8 @@
 
     function renderCategoryChart() {
       destroyChart("cat");
-      var txns = countedTransactions().filter(function(t) { return t.amount_cents < 0; });
+      // "Para onde foi o dinheiro" — the chart the month picker exists for.
+      var txns = chartTransactions().filter(function(t) { return t.amount_cents < 0; });
 
       if (!txns.length) {
         showCaveat("catCaveat", isEn()

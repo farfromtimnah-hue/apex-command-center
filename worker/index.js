@@ -2833,6 +2833,11 @@ async function handleGetClientsNeedingReview(request, env) {
             "  (SELECT COUNT(*) FROM client_assessments a WHERE a.client_id = c.id) AS assessment_count " +
             "FROM clients c " +
             "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
+            // Deliberately non-billable clients are not "needing review": a
+            // joint venture, a pro-bono engagement and a paid-in-full
+            // pre-system client will never have terms, by design. See the
+            // billing_type comment on the attention queue.
+            "  AND COALESCE(c.billing_type,'billable') = 'billable' " +
             "  AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id) " +
             "ORDER BY c.name"
         ).all();
@@ -27432,10 +27437,24 @@ async function handleGetFinanceNewAttention(request, env) {
         ).first();
 
         // 3. Active clients with no package terms on file.
+        //
+        // ⚠️ NOT EVERY ACTIVE CLIENT IS MEANT TO BE BILLED, and this queue used
+        // to ask about all of them forever with no way to answer. Three real
+        // cases, Nicole 2026-09-17:
+        //   · MY PURE FILTER  — a joint venture Rafa and Alice OWN. Apex's
+        //                       contribution is the consulting itself, so there
+        //                       is no fee and never will be an invoice.
+        //   · PRODUWALL       — pro bono.
+        //   · PERFECT SQUARE  — a pre-system client who paid in full.
+        // Each has real sessions, so they are genuinely active work; they are
+        // simply not billable. clients.billing_type records WHY, in the data,
+        // rather than relying on somebody remembering -- a nag you cannot
+        // answer trains people to ignore the whole queue.
         var termsRow = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM clients c " +
             "WHERE COALESCE(c.status,'active') = 'active' " +
             "AND COALESCE(c.archived, 0) = 0 " +
+            "AND COALESCE(c.billing_type,'billable') = 'billable' " +
             "AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id)"
         ).first();
 
@@ -28060,6 +28079,11 @@ async function handleGetContractProgress(request, env) {
             " WHERE i4.client_id = c.id AND i4.status = 'sent') AS outstanding_cents " +
             "FROM clients c JOIN client_package_terms t ON t.client_id = c.id " +
             "WHERE COALESCE(c.archived,0) = 0 " +
+            // A joint venture, a pro-bono engagement or a client who paid in
+            // full before the system existed has no contract to be partway
+            // through. Showing them at 0% owing the full package would be a
+            // fabricated debt on the screen Alice uses to chase money.
+            "AND COALESCE(c.billing_type,'billable') = 'billable' " +
             "ORDER BY c.name"
         ).all();
 

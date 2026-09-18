@@ -29081,7 +29081,23 @@ async function handlePostFinanceNewMatchApprove(request, env) {
             // have silently vanished from every total on the dashboard.
             // The invoice stays open until the payments actually cover it.
             var coveredNow = alreadyPaid + txn.amount_cents;
-            var fullyPaid  = coveredNow >= (inv.amount_cents || 0);
+            var invTotal   = inv.amount_cents || 0;
+            // ...BUT A ROUNDING SHORTFALL IS NOT A PARTIAL PAYMENT EITHER.
+            //
+            // JN FREITAS sent $698.50 against a $700 invoice. Under the rule
+            // above that invoice stays 'sent' forever over $1.50, sitting in
+            // Alice's queue as a task nobody will ever action -- and an invoice
+            // that cannot close is worse than one that closes a dollar light.
+            // Apex finance is supposed to REMOVE work, not park it.
+            //
+            // $2.00 or 0.5%, whichever is smaller, so it can only ever absorb a
+            // rounding or fee difference. Prime Group's $400 against $997 is
+            // 60% short and still stays open, which is the case the comment
+            // above exists to protect.
+            var shortfall  = invTotal - coveredNow;
+            var slack      = Math.min(200, Math.round(invTotal * 0.005));
+            var fullyPaid  = coveredNow >= invTotal ||
+                             (shortfall > 0 && shortfall <= slack);
 
             if (fullyPaid) {
                 // paid_at is WHEN THE MONEY ARRIVED, not when someone got round

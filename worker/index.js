@@ -28010,6 +28010,118 @@ async function handlePostFinanceNewInvoiceMarkMistake(invoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/contract-progress — admin only. INTERNAL.
+//
+// Where each client stands in their package: total, paid, remaining, and how
+// many installments are left. Alice does the finances and has been working
+// this out by hand; she guessed DFN had made three payments when the bank
+// shows two (totalling $1,050, which IS three installments' worth of money --
+// the money was right, the count was not).
+//
+// ⚠️ NEVER CLIENT-VISIBLE. This is an internal read for Alice and Rafa.
+//
+// APEX CLUB IS EXCLUDED STRUCTURALLY, NOT BY AMOUNT. Club money is attached
+// to TRANSACTIONS (apex_club_event_txns), never to invoices, so an
+// invoice-based total cannot include it -- verified: zero Club transactions
+// are linked to any invoice_payments row. Filtering by "under $75" was
+// considered and rejected: a threshold is a guess that breaks the first time
+// a real installment is small, and DFN's own weekly payment is $349.25.
+//
+// TWO NUMBERS, BOTH REPORTED, BECAUSE THEY DISAGREE:
+//   paid_matched  — money traced to a real bank transaction (invoice_payments)
+//   paid_status   — every invoice marked 'paid', matched or not
+// They differ by exactly one row system-wide: JM's INV-000009 ($2,000), a
+// Zoho-era record migrated when Zoho was disconnected, marked paid with no
+// payment row behind it. Showing one number and hiding the other is how a
+// page stops being trusted, so the UI shows the status figure and flags the
+// gap rather than silently picking a side.
+// ---------------------------------------------------------------------------
+
+async function handleGetContractProgress(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var rows = await env.DB.prepare(
+            "SELECT c.id, c.name, " +
+            "t.adjusted_total, t.base_total, t.installment_count, t.installment_amount, " +
+            "t.recurrence_unit, t.payments_made_before, " +
+            // Voided invoices are excluded from BOTH sums: a void is not a
+            // payment and not an obligation.
+            "(SELECT COALESCE(SUM(i.amount_cents),0) FROM invoices i " +
+            " WHERE i.client_id = c.id AND i.status = 'paid') AS paid_status_cents, " +
+            "(SELECT COALESCE(SUM(p.amount_cents),0) FROM invoice_payments p " +
+            " JOIN invoices i2 ON i2.id = p.invoice_id " +
+            " WHERE i2.client_id = c.id AND p.undone_at IS NULL " +
+            "   AND i2.status NOT IN ('void','voided_mistake')) AS paid_matched_cents, " +
+            "(SELECT COUNT(*) FROM invoices i3 WHERE i3.client_id = c.id AND i3.status = 'paid') AS paid_invoice_count, " +
+            "(SELECT COALESCE(SUM(i4.amount_cents),0) FROM invoices i4 " +
+            " WHERE i4.client_id = c.id AND i4.status = 'sent') AS outstanding_cents " +
+            "FROM clients c JOIN client_package_terms t ON t.client_id = c.id " +
+            "WHERE COALESCE(c.archived,0) = 0 " +
+            "ORDER BY c.name"
+        ).all();
+
+        var out = (rows.results || []).map(function(r) {
+            var totalCents = Math.round((r.adjusted_total || r.base_total || 0) * 100);
+            var paidStatus = r.paid_status_cents || 0;
+            var paidMatched = r.paid_matched_cents || 0;
+            // ⚠️ payments_made_before is a COUNT OF PAYMENTS, not an amount --
+            // parseInt'd on save and added to counts in computePlanProgress.
+            // Delicie Cakes holds "1", meaning one payment made before Apex
+            // existed, NOT one dollar. Treating it as money would have quietly
+            // added $100 to her paid total.
+            //
+            // Its DOLLAR value is only knowable when there is a per-installment
+            // amount to multiply by; with none, the money is genuinely unknown
+            // and is reported as such rather than guessed at.
+            var beforeCount = r.payments_made_before || 0;
+            var instCents = Math.round((r.installment_amount || 0) * 100);
+            var beforeCents = (beforeCount > 0 && instCents > 0)
+                ? beforeCount * instCents : 0;
+            var beforeUnknown = (beforeCount > 0 && instCents <= 0);
+            var paid = paidStatus + beforeCents;
+            var remaining = totalCents - paid;
+            return {
+                client_id: r.id,
+                client_name: r.name,
+                total_cents: totalCents,
+                paid_cents: paid,
+                paid_matched_cents: paidMatched + beforeCents,
+                // Payments made before Apex existed: the count is known, the
+                // money is only known if there is an installment amount.
+                payments_before_count: beforeCount,
+                payments_before_amount_unknown: beforeUnknown,
+                // A contract with no total cannot report "remaining" at all.
+                // Said explicitly so the tile shows "--" instead of implying
+                // the client owes nothing.
+                total_missing: totalCents <= 0,
+                // A gap means an invoice is marked paid with no bank match
+                // behind it. Surfaced, never silently reconciled.
+                unmatched_cents: paidStatus - paidMatched,
+                remaining_cents: remaining > 0 ? remaining : 0,
+                overpaid_cents: remaining < 0 ? -remaining : 0,
+                outstanding_cents: r.outstanding_cents || 0,
+                paid_invoice_count: r.paid_invoice_count || 0,
+                installment_amount_cents: instCents,
+                installment_count: r.installment_count || null,
+                recurrence_unit: r.recurrence_unit || null,
+                // Whole installments still owed. Null when there is no
+                // per-installment amount to divide by -- never a fabricated 0.
+                installments_left: (instCents > 0 && remaining > 0)
+                    ? Math.ceil(remaining / instCents) : (remaining > 0 ? null : 0),
+                pct_paid: totalCents > 0 ? Math.round((paid / totalCents) * 1000) / 10 : null
+            };
+        });
+
+        return jsonOk({ clients: out });
+    } catch (e) {
+        return jsonErr("Error loading contract progress: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/finance-new/invoices/:id/mark-sent — admin only.
 // Called right after the WhatsApp window opens. 'sent' means exactly that:
 // Alice pressed the button. No email is or ever will be involved.
@@ -32230,6 +32342,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/push/subscribe" && method === "POST") { return handlePostPushSubscribe(request, env); }
         if (path === "/api/push/apns" && method === "POST") { return handlePostApnsToken(request, env); }
         if (path === "/api/push/test"      && method === "POST") { return handlePostPushTest(request, env); }
+        if (path === "/api/finance-new/contract-progress" && method === "GET")  { return handleGetContractProgress(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

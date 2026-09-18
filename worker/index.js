@@ -28095,13 +28095,21 @@ async function handleGetContractProgress(request, env) {
             // venture cut, which arrives through GATOR (a real client) but is
             // not Gator paying their contract. Counting it would have credited
             // Gator $762 they never owed.
+            // ⚠️ PUNCTUATION IS STRIPPED FROM BOTH SIDES BEFORE COMPARING.
+            // Alice's alias reads "...JN FREITAS GENERAL SERVICES LLC" and the
+            // bank writes "...JN FREITAS GENERAL SERVICES, LLC" — one comma,
+            // and Delicie's second payment went uncounted, showing $500 by bank
+            // against $997 by invoice. Commas and periods are the ones that
+            // actually differ in BofA's descriptions.
             "(SELECT COALESCE(SUM(tx.amount_cents),0) FROM transactions tx " +
-            " JOIN client_payer_aliases pa ON substr(UPPER(tx.description),1,length(pa.payer_key)) = pa.payer_key " +
+            " JOIN client_payer_aliases pa ON substr(REPLACE(REPLACE(UPPER(tx.description),',',''),'.',''),1," +
+            "      length(REPLACE(REPLACE(pa.payer_key,',',''),'.',''))) = REPLACE(REPLACE(pa.payer_key,',',''),'.','') " +
             " WHERE pa.client_id = c.id AND tx.voided_at IS NULL AND tx.amount_cents > 0 " +
             "   AND COALESCE(tx.category_id,'') != 'cat_receita_filtros' " +
             "   AND (tx.transfer_status IS NULL OR tx.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_cents, " +
             "(SELECT COUNT(*) FROM transactions tx2 " +
-            " JOIN client_payer_aliases pa2 ON substr(UPPER(tx2.description),1,length(pa2.payer_key)) = pa2.payer_key " +
+            " JOIN client_payer_aliases pa2 ON substr(REPLACE(REPLACE(UPPER(tx2.description),',',''),'.',''),1," +
+            "      length(REPLACE(REPLACE(pa2.payer_key,',',''),'.',''))) = REPLACE(REPLACE(pa2.payer_key,',',''),'.','') " +
             " WHERE pa2.client_id = c.id AND tx2.voided_at IS NULL AND tx2.amount_cents > 0 " +
             "   AND COALESCE(tx2.category_id,'') != 'cat_receita_filtros' " +
             "   AND (tx2.transfer_status IS NULL OR tx2.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_count, " +
